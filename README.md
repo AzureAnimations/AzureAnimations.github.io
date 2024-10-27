@@ -4,7 +4,7 @@
 
 # Azure Animations
 
-|![Created with hearts by Microsoft Technical Trainers](./images/AzureAnimation-Logo.svg)|
+|![Created with hearts by Microsoft Technical Trainers](./images/AzureAnimations-Logo.svg)|
 |:---:|
 | Created with :heart: by Microsoft Technical Trainers|
 
@@ -116,4 +116,4 @@ Do you have suggestions for Azure Animations? Want to submit an idea or found sp
 * **🎨 Animations Artists:** [Saki Homma](https://www.linkedin.com/in/sakkuru/), [Kristen Chan](https://www.linkedin.com/in/kristen-chan/), [Masato Kikukawa](https://www.linkedin.com/in/kikukawa9/)
 * **✍️ Sketch illustrator:** [Payal Guruprasad](https://www.linkedin.com/in/payalguruprasad/)
 * **🎞️ Broadcasters:** [Joel Ganesan](https://www.linkedin.com/in/joelji/), [Vincent Kok](https://www.linkedin.com/in/vincekok/), [Neeraj Kumar](https://www.linkedin.com/in/neerajtrainer/)
-* **🙏 Core Contributors:** [Melinda Johnson](https://www.linkedin.com/in/melindasuejohnson/), [Nuttapong .](https://www.linkedin.com/in/nutwongaree/)
+* **🙏 Core Contributors:** [Nuttapong .](https://www.linkedin.com/in/nutwongaree/)
