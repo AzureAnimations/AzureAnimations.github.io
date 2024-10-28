@@ -20,7 +20,7 @@ Don't forget to star (🌟) this repo to find it easier later.
 
 # Content
 
-## 🤖 AI in Azure 
+## 🤖 AI 
 
 Azure AI is your gateway to transforming ideas into reality! Whether it's building intelligent apps, automating processes, or gaining insights from your data, Azure's cutting-edge AI services are here to supercharge your innovation 🚀. With powerful tools like Azure Cognitive Services, Machine Learning, and AI-powered analytics, the future is in your hands. Ready to turn your data into smart solutions? Let's redefine what's possible with AI in Azure! 💡✨
 
@@ -40,7 +40,7 @@ Above illustrates the process of provisioning Azure OpenAI, we start by using th
    - Provisioned: For high-volume workloads.
 4. Deploy: Once deployed, the application calls the Azure OpenAI endpoint using the deployment ID 🔗, using the SDK REST API.
 
-## 💻☁️ Compute Options in Azure 
+## 💻☁️ Compute Options 
 
 Azure offers a world of compute options designed to power anything from your small apps to global-scale services. With virtual machines for full control, serverless computing with Azure Functions, and containers through Kubernetes, you're equipped to build and scale faster than ever ⚡. Whether you're optimizing performance or reducing costs, Azure's flexible compute solutions have got you covered—ready to take your projects to the next level? Let Azure Compute lead the way! 🌟
 
@@ -80,7 +80,7 @@ Above illustrates the process of using Azure App Service. We start by provisioni
 7. **🌐 Traffic Manager**
    - **Traffic Manager**: Distribute traffic across multiple instances and regions. Specify the percentage of traffic for each instance to manage load effectively.
 
-## 📦 Storage Options in Azure
+## 📦 Storage Options
 
 Azure provides a variety of storage solutions to meet the diverse needs of modern applications. These options are designed to handle different types of data, access patterns, and performance requirements.
 
@@ -107,11 +107,11 @@ Above illustrates the process of using an Azure Storage Account. We start by und
 
 > **Penalties**: Be aware of the penalties associated with moving data between access tiers. For example, moving data from the Archive tier to the Hot tier may incur additional costs ⚠️.
 
-## Help Wanted
+# Help Wanted :ledger:
 
 Do you have suggestions for Azure Animations? Want to submit an idea or found spelling or code errors? Raise an issue or create a pull request.
 
-## Special Thanks
+# Special Thanks :heart:
 
 * **🎨 Animations Artists:** [Saki Homma](https://www.linkedin.com/in/sakkuru/), [Kristen Chan](https://www.linkedin.com/in/kristen-chan/), [Masato Kikukawa](https://www.linkedin.com/in/kikukawa9/)
 * **✍️ Sketch illustrator:** [Payal Guruprasad](https://www.linkedin.com/in/payalguruprasad/)
