@@ -107,11 +107,11 @@ Above illustrates the process of using an Azure Storage Account. We start by und
 
 > **Penalties**: Be aware of the penalties associated with moving data between access tiers. For example, moving data from the Archive tier to the Hot tier may incur additional costs ⚠️.
 
-# Help Wanted :ledger:
+# Help Wanted 📒
 
 Do you have suggestions for Azure Animations? Want to submit an idea or found spelling or code errors? Raise an issue or create a pull request.
 
-# Special Thanks :heart:
+# Special Thanks ❤️
 
 * **🎨 Animations Artists:** [Saki Homma](https://www.linkedin.com/in/sakkuru/), [Kristen Chan](https://www.linkedin.com/in/kristen-chan/), [Masato Kikukawa](https://www.linkedin.com/in/kikukawa9/)
 * **✍️ Sketch illustrator:** [Payal Guruprasad](https://www.linkedin.com/in/payalguruprasad/)
