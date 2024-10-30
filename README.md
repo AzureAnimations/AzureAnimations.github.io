@@ -31,7 +31,7 @@ Azure AI is your gateway to transforming ideas into reality! Whether it's buildi
     <img src="./images/animations-480thumbnails/Azure_OpenAI_-_Provisioning_and_Deployment_Creation_-_thumbnail.gif" alt="Azure OpenAI - Provisioning and Deployment Creation">
   </a>
   <p style="text-align: center; font-style: italic;">
-    Azure OpenAI - Provisioning and Deployment Creation <a href="https://aka.ms/AzureAnimations/AzureOpenAI/ProvisionDeploymentCreation">Click to download in HD size</a>
+    Azure OpenAI - Provisioning and Deployment Creation <a href="https://aka.ms/AzureAnimations/AzureOpenAI/ProvisionDeploymentCreation" target="_blank">Click to download in HD size</a>
   </p>
 </div>
 
@@ -58,7 +58,7 @@ Azure offers a world of compute options designed to power anything from your sma
     <img src="./images/animations-480thumbnails/Azure_App_Services_-_App_Service_Plan_Deployment_Slot_-_thumbnail.gif" alt="App Services, App Service Plan and Deployment Slot">
   </a>
   <p style="text-align: center; font-style: italic;">
-    App Services, App Service Plan and Deployment Slot <a href="https://aka.ms/AzureAnimations/AppService/AppPlanDeploymentSlot">Click to download in HD size</a>
+    App Services, App Service Plan and Deployment Slot <a href="https://aka.ms/AzureAnimations/AppService/AppPlanDeploymentSlot" target="_blank">Click to download in HD size</a>
   </p>
 </div>
 
@@ -105,7 +105,7 @@ Azure provides a variety of storage solutions to meet the diverse needs of moder
     <img src="./images/animations-480thumbnails/Azure_Storage_Account_-_Tiers_Services_Types_-_thumbnail.gif" alt="Storage Account, Tiers, Services and Types">
   </a>
   <p style="text-align: center; font-style: italic;">
-    Storage Account, Tiers, Services and Types <a href="https://aka.ms/AzureAnimations/StorageAccount/TiersServicesTypes">Click to download in HD size</a>
+    Storage Account, Tiers, Services and Types <a href="https://aka.ms/AzureAnimations/StorageAccount/TiersServicesTypes" target="_blank">Click to download in HD size</a>
   </p>
 </div>
 
