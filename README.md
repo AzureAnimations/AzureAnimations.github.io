@@ -53,7 +53,14 @@ Azure offers a world of compute options designed to power anything from your sma
 
 ### App Service Animations Overview
 
-![Created with hearts by Microsoft Technical Trainers](./images/animations-480thumbnails/Azure_App_Services_-_App_Service_Plan_Deployment_Slot_-_thumbnail.gif)
+<div style="text-align: center;">
+  <a href="https://aka.ms/AzureAnimations/AppService/AppPlanDeploymentSlot" target="_blank">
+    <img src="./images/animations-480thumbnails/Azure_App_Services_-_App_Service_Plan_Deployment_Slot_-_thumbnail.gif" alt="App Services, App Service Plan and Deployment Slot">
+  </a>
+  <p style="text-align: center; font-style: italic;">
+    App Services, App Service Plan and Deployment Slot <a href="https://aka.ms/AzureAnimations/AppService/AppPlanDeploymentSlot">Click to download in HD size</a>
+  </p>
+</div>
 
 Above illustrates the process of using Azure App Service. We start by provisioning the App Service and App Service Plan. Here’s a step-by-step breakdown:
 
@@ -92,7 +99,15 @@ Above illustrates the process of using Azure App Service. We start by provisioni
 Azure provides a variety of storage solutions to meet the diverse needs of modern applications. These options are designed to handle different types of data, access patterns, and performance requirements.
 
 ### Storage Account
-![Created with hearts by Microsoft Technical Trainers](images/animations-480thumbnails/Azure_Storage_Account_-_Tiers_Services_Types_-_thumbnail.gif)
+
+<div style="text-align: center;">
+  <a href="https://aka.ms/AzureAnimations/StorageAccount/TiersServicesTypes" target="_blank">
+    <img src="./images/animations-480thumbnails/Azure_Storage_Account_-_Tiers_Services_Types_-_thumbnail.gif" alt="Storage Account, Tiers, Services and Types">
+  </a>
+  <p style="text-align: center; font-style: italic;">
+    Storage Account, Tiers, Services and Types <a href="https://aka.ms/AzureAnimations/StorageAccount/TiersServicesTypes">Click to download in HD size</a>
+  </p>
+</div>
 
 Above illustrates the process of using an Azure Storage Account. We start by understanding the pricing tiers and the various services it offers. Here’s a step-by-step breakdown:
 
