@@ -26,7 +26,14 @@ Azure AI is your gateway to transforming ideas into reality! Whether it's buildi
 
 ### Azure OpenAI - Provisioning and Deployment Creation
 
-![Created with hearts by Microsoft Technical Trainers](./images/animations-480thumbnails/Azure_OpenAI_-_Provisioning_and_Deployment_Creation_-_thumbnail.gif)
+<div style="text-align: center;">
+  <a href="https://aka.ms/AzureAnimations/AzureOpenAI/ProvisionDeploymentCreation" download>
+    <img src="./images/animations-480thumbnails/Azure_OpenAI_-_Provisioning_and_Deployment_Creation_-_thumbnail.gif" alt="Azure OpenAI - Provisioning and Deployment Creation">
+  </a>
+  <p style="text-align: center; font-style: italic;">
+    Azure OpenAI - Provisioning and Deployment Creation <a href="https://aka.ms/AzureAnimations/AzureOpenAI/ProvisionDeploymentCreation" download>Click to download in HD</a>
+  </p>
+</div>
 
 Above illustrates the process of provisioning Azure OpenAI, we start by using the Azure Portal. First, navigate to the Azure OpenAI Studio where you can select the appropriate model for your needs, such as GPT-4, GPT-4o, etc. Before users can consume the model, they need to select the model and create a deployment. There are several types of deployments available:
 
