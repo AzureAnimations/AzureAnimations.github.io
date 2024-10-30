@@ -27,11 +27,11 @@ Azure AI is your gateway to transforming ideas into reality! Whether it's buildi
 ### Azure OpenAI - Provisioning and Deployment Creation
 
 <div style="text-align: center;">
-  <a href="https://aka.ms/AzureAnimations/AzureOpenAI/ProvisionDeploymentCreation" download>
+  <a href="https://aka.ms/AzureAnimations/AzureOpenAI/ProvisionDeploymentCreation" target="_blank">
     <img src="./images/animations-480thumbnails/Azure_OpenAI_-_Provisioning_and_Deployment_Creation_-_thumbnail.gif" alt="Azure OpenAI - Provisioning and Deployment Creation">
   </a>
   <p style="text-align: center; font-style: italic;">
-    Azure OpenAI - Provisioning and Deployment Creation <a href="https://aka.ms/AzureAnimations/AzureOpenAI/ProvisionDeploymentCreation" download>Click to download in HD</a>
+    Azure OpenAI - Provisioning and Deployment Creation <a href="https://aka.ms/AzureAnimations/AzureOpenAI/ProvisionDeploymentCreation">Click to download in HD size</a>
   </p>
 </div>
 
