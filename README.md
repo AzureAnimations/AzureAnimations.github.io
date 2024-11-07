@@ -131,6 +131,8 @@ Above illustrates the process of using an Azure Storage Account. We start by und
 
 ## 🔒 Security
 
+Azure offers robust security features to protect your data and applications. These features are designed to ensure the confidentiality, integrity, and availability of your resources.
+
 ### Managed Identities in Azure: Enhancing Security Part 1
 
 <div style="text-align: center;">
