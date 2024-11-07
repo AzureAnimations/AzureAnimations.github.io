@@ -129,6 +129,50 @@ Above illustrates the process of using an Azure Storage Account. We start by und
 
 > **Penalties**: Be aware of the penalties associated with moving data between access tiers. For example, moving data from the Archive tier to the Hot tier may incur additional costs ⚠️.
 
+## 🔒 Security
+
+### Managed Identities in Azure: Enhancing Security Part 1
+
+<div style="text-align: center;">
+  <a href="https://aka.ms/AzureAnimations/Security/ManagedIdentities_Part1" target="_blank">
+    <img src="./images/animations-480thumbnails/Azure_Managed-Identities-Part1_thumbnail.gif" alt="Managed Identities part 1">
+  </a>
+  <p style="text-align: center; font-style: italic;">
+    Managed Identities <a href="https://aka.ms/AzureAnimations/Security/ManagedIdentities_Part1" target="_blank">Click to download in HD size</a>
+  </p>
+</div>
+
+Above illustrates the process of using Managed Identities, comparing the traditional old-school way of using shared credentials to the modern approach of managed identities in Azure, highlighting enhanced security and simplified access management
+
+1. **Traditional Approach: Shared Secrets and Credentials 🔑**
+
+   Using shared secrets or credentials to access Azure resources has several drawbacks:
+   - **Security Risks**: Potential exposure and misuse. ⚠️
+   - **Maintenance Overhead**: Regularly rotating secrets is cumbersome. 🔄
+   - **Complexity**: Securely distributing secrets adds complexity. 🧩
+
+2. **Modern Approach: Managed Identities in Azure 🌐**
+
+   Managed identities provide a secure and streamlined way to access Azure resources without managing secrets.
+
+3. **Key Benefits 🌟**
+
+   1. **No Secret Management**: Reduces risk of exposure. 🚫🔑
+   2. **Simplified Access Control**: Integrated with Azure Active Directory (AAD). 🔐
+   3. **Automatic Credential Management**: Azure handles credential rotation. 🔄🔒
+   4. **Enhanced Security**: Aligns with the principle of least privilege. 🛡️
+
+4. **Example Use Case 💡**
+
+   Azure AI Services need to access Azure Blob Storage:
+   - Assigned a managed identity. 🆔
+   - Granted access (RBAC) to the Blob Storage. 🔐
+   - Authenticates and accesses data without managing credentials. 🔑
+
+5. **Conclusion 📈**
+
+   Adopting managed identities enhances security, reduces overhead, and simplifies access management. This approach aligns with best practices for secure application development in Azure.
+
 # Help Wanted 📒
 
 Do you have suggestions for Azure Animations? Want to submit an idea or found spelling or code errors? Raise an issue or create a pull request.
