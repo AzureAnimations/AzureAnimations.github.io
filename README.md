@@ -223,14 +223,14 @@ The animation on the right illustrates the use of user-assigned managed identiti
 8. **Example Use Case** 💡
 
    - **Azure Blob Storage Access**:
-         - The application in the VM, PaaS compute services, and Document Intelligence services each use their respective system-assigned managed identities.
-         - These identities are granted the necessary permissions (RBAC) to access Azure Blob Storage.
-         - This setup ensures secure and seamless access to storage without the need for managing secrets.
+      - The application in the VM, PaaS compute services, and Document Intelligence services each use their respective system-assigned managed identities.
+      - These identities are granted the necessary permissions (RBAC) to access Azure Blob Storage.
+      - This setup ensures secure and seamless access to storage without the need for managing secrets.
 
    - **Shared Identity for Multiple Resources**:
-         - A user-assigned managed identity is created and assigned to the VM, PaaS compute services, and Document Intelligence services.
-         - This shared identity is granted the necessary permissions (RBAC) to access Azure Blob Storage.
-         - This approach simplifies identity management and provides a flexible way to manage access across multiple resources.
+      - A user-assigned managed identity is created and assigned to the VM, PaaS compute services, and Document Intelligence services.
+      - This shared identity is granted the necessary permissions (RBAC) to access Azure Blob Storage.
+      - This approach simplifies identity management and provides a flexible way to manage access across multiple resources.
 
 9. **Conclusion** 📈
 
