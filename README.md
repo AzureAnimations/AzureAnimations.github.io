@@ -200,8 +200,6 @@ The animation on the left illustrates the use of system-assigned managed identit
    - Document intelligence services also utilize system-assigned managed identities.
    - Each service has its own identity, ensuring secure and streamlined access to necessary resources.
 
-!User-Assigned Managed Identity Animation
-
 The animation on the right illustrates the use of user-assigned managed identities:
 
 4. **Shared Identity Across Multiple Resources** 🔄
@@ -216,13 +214,13 @@ The animation on the right illustrates the use of user-assigned managed identiti
    - User-assigned managed identities are flexible and can be reused across different resources.
    - This reduces the need to create multiple identities for different services, streamlining identity management.
 
-**Key Points**
+7. **Key Points**
 
 - **Automatic Identity Management**: Each Azure resource (VM, PaaS compute, Document Intelligence) gets its own system-assigned managed identity.
 - **Secure Resource Access**: These identities can be used to connect to Azure Blob Storage without managing credentials.
 - **Isolation and Security**: Each identity is tied to a specific resource, enhancing security and isolation.
 
-**Example Use Case** 💡
+8. **Example Use Case** 💡
 
 - **Azure Blob Storage Access**:
   - The application in the VM, PaaS compute services, and Document Intelligence services each use their respective system-assigned managed identities.
@@ -234,7 +232,7 @@ The animation on the right illustrates the use of user-assigned managed identiti
   - This shared identity is granted the necessary permissions (RBAC) to access Azure Blob Storage.
   - This approach simplifies identity management and provides a flexible way to manage access across multiple resources.
 
-**Conclusion** 📈
+9. **Conclusion** 📈
 
 System-assigned managed identities simplify identity management and enhance security by providing each Azure resource with its own identity. User-assigned managed identities offer flexibility and centralized management by allowing a single identity to be shared across multiple resources. Both approaches align with best practices for secure application development in Azure.
 
