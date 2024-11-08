@@ -216,25 +216,25 @@ The animation on the right illustrates the use of user-assigned managed identiti
 
 7. **Key Points**
 
-- **Automatic Identity Management**: Each Azure resource (VM, PaaS compute, Document Intelligence) gets its own system-assigned managed identity.
-- **Secure Resource Access**: These identities can be used to connect to Azure Blob Storage without managing credentials.
-- **Isolation and Security**: Each identity is tied to a specific resource, enhancing security and isolation.
+   - **Automatic Identity Management**: Each Azure resource (VM, PaaS compute, Document Intelligence) gets its own system-assigned managed identity.
+   - **Secure Resource Access**: These identities can be used to connect to Azure Blob Storage without managing credentials.
+   - **Isolation and Security**: Each identity is tied to a specific resource, enhancing security and isolation.
 
 8. **Example Use Case** 💡
 
-- **Azure Blob Storage Access**:
-  - The application in the VM, PaaS compute services, and Document Intelligence services each use their respective system-assigned managed identities.
-  - These identities are granted the necessary permissions (RBAC) to access Azure Blob Storage.
-  - This setup ensures secure and seamless access to storage without the need for managing secrets.
+   - **Azure Blob Storage Access**:
+         - The application in the VM, PaaS compute services, and Document Intelligence services each use their respective system-assigned managed identities.
+         - These identities are granted the necessary permissions (RBAC) to access Azure Blob Storage.
+         - This setup ensures secure and seamless access to storage without the need for managing secrets.
 
-- **Shared Identity for Multiple Resources**:
-  - A user-assigned managed identity is created and assigned to the VM, PaaS compute services, and Document Intelligence services.
-  - This shared identity is granted the necessary permissions (RBAC) to access Azure Blob Storage.
-  - This approach simplifies identity management and provides a flexible way to manage access across multiple resources.
+   - **Shared Identity for Multiple Resources**:
+         - A user-assigned managed identity is created and assigned to the VM, PaaS compute services, and Document Intelligence services.
+         - This shared identity is granted the necessary permissions (RBAC) to access Azure Blob Storage.
+         - This approach simplifies identity management and provides a flexible way to manage access across multiple resources.
 
 9. **Conclusion** 📈
 
-System-assigned managed identities simplify identity management and enhance security by providing each Azure resource with its own identity. User-assigned managed identities offer flexibility and centralized management by allowing a single identity to be shared across multiple resources. Both approaches align with best practices for secure application development in Azure.
+   System-assigned managed identities simplify identity management and enhance security by providing each Azure resource with its own identity. User-assigned managed identities offer flexibility and centralized management by allowing a single identity to be shared across multiple resources. Both approaches align with best practices for secure application development in Azure.
 
 # Help Wanted 📒
 
