@@ -105,7 +105,7 @@ Azure provides a variety of storage solutions to meet the diverse needs of moder
     <img src="./images/animations-480thumbnails/Azure_Storage_Account_-_Tiers_Services_Types_-_thumbnail.gif" alt="Storage Account, Tiers, Services and Types">
   </a>
   <p style="text-align: center; font-style: italic;">
-    Storage Account, Tiers, Services and Types <a href="https://aka.ms/AzureAnimations/StorageAccount/TiersServicesTypes" target="_blank">Click to download in HD size</a> or <a href="https://aka.ms/AzureAnimations/StorageAccount/Vdo/TiersServicesTypes" target="_blank">view the HD video<a>
+    Storage Account, Tiers, Services and Types <a href="https://aka.ms/AzureAnimations/StorageAccount/TiersServicesTypes" target="_blank">Click to download in HD size</a> or <a href="https://aka.ms/AzureAnimations/StorageAccount/Vdo/TiersServicesTypes" target="_blank">view the HD video</a>
   </p>
 </div>
 
@@ -140,7 +140,7 @@ Azure offers robust security features to protect your data and applications. The
     <img src="./images/animations-480thumbnails/Azure_Managed-Identities-Part1_thumbnail.gif" alt="Managed Identities part 1">
   </a>
   <p style="text-align: center; font-style: italic;">
-    Managed Identities Part 1 <a href="https://aka.ms/AzureAnimations/Security/ManagedIdentities_Part1" target="_blank">Click to download in HD size</a> or <a href="https://aka.ms/AzureAnimations/Security/Vdo/ManagedIdentities_Part1" target="_blank">view the HD video<a>
+    Managed Identities Part 1 <a href="https://aka.ms/AzureAnimations/Security/ManagedIdentities_Part1" target="_blank">Click to download in HD size</a> or <a href="https://aka.ms/AzureAnimations/Security/Vdo/ManagedIdentities_Part1" target="_blank">view the HD video</a>
   </p>
 </div>
 
