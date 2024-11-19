@@ -182,7 +182,7 @@ Above illustrates the process of using Managed Identities, comparing the traditi
     <img src="./images/animations-480thumbnails/Azure_Managed-Identities-Part2_thumbnail.gif" alt="Managed Identities part 1">
   </a>
   <p style="text-align: center; font-style: italic;">
-    Managed Identities Part 2 <a href="https://aka.ms/AzureAnimations/Security/ManagedIdentities_Part2" target="_blank">Click to download in HD size</a>
+    Managed Identities Part 2 <a href="https://aka.ms/AzureAnimations/Security/ManagedIdentities_Part2" target="_blank">Click to download in HD size</a> or <a href="https://aka.ms/AzureAnimations/Security/Vdo/ManagedIdentities_Part2" target="_blank">view the HD video</a>
   </p>
 </div>
 
