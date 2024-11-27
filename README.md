@@ -50,7 +50,7 @@ Above illustrates the process of provisioning Azure OpenAI, we start by using th
 ### Azure AI Containers
 
 <div style="text-align: center;">
-  <a href="https://aka.ms/https://aka.ms/AzureAnimations/AzurAI/CognitiveContainers" target="_blank">
+  <a href="https://aka.ms/AzureAnimations/AzurAI/CognitiveContainers" target="_blank">
     <img src="./images/animations-480thumbnails/Cognitive-Container_thumbnail.gif" alt="Azure AI Containers">
   </a>
   <p style="text-align: center; font-style: italic;">
