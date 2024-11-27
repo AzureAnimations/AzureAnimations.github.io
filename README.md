@@ -20,7 +20,7 @@ Don't forget to star (🌟) this repo to find it easier later.
 
 # Content
 
-## 🤖 AI 
+## AI 
 
 Azure AI is your gateway to transforming ideas into reality! Whether it's building intelligent apps, automating processes, or gaining insights from your data, Azure's cutting-edge AI services are here to supercharge your innovation 🚀. With powerful tools like Azure Cognitive Services, Machine Learning, and AI-powered analytics, the future is in your hands. Ready to turn your data into smart solutions? Let's redefine what's possible with AI in Azure! 💡✨
 
@@ -82,7 +82,7 @@ Key Benefits and Steps:
 Azure AI containers provide an optimal blend of performance, privacy, and cost-effectiveness. Integrate these AI services into your on-premises setup and elevate your business operations today.
 
 
-## 💻☁️ Compute Options 
+## Compute Options 
 
 Azure offers a world of compute options designed to power anything from your small apps to global-scale services. With virtual machines for full control, serverless computing with Azure Functions, and containers through Kubernetes, you're equipped to build and scale faster than ever ⚡. Whether you're optimizing performance or reducing costs, Azure's flexible compute solutions have got you covered—ready to take your projects to the next level? Let Azure Compute lead the way! 🌟
 
@@ -129,7 +129,7 @@ Above illustrates the process of using Azure App Service. We start by provisioni
 7. **🌐 Traffic Manager**
    - **Traffic Manager**: Distribute traffic across multiple instances and regions. Specify the percentage of traffic for each instance to manage load effectively.
 
-## 📦 Storage Options
+## Storage Options
 
 Azure provides a variety of storage solutions to meet the diverse needs of modern applications. These options are designed to handle different types of data, access patterns, and performance requirements.
 
@@ -164,7 +164,7 @@ Above illustrates the process of using an Azure Storage Account. We start by und
 
 > **Penalties**: Be aware of the penalties associated with moving data between access tiers. For example, moving data from the Archive tier to the Hot tier may incur additional costs ⚠️.
 
-## 🔒 Security
+## Security
 
 Azure offers robust security features to protect your data and applications. These features are designed to ensure the confidentiality, integrity, and availability of your resources.
 
