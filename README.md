@@ -47,6 +47,41 @@ Above illustrates the process of provisioning Azure OpenAI, we start by using th
    - Provisioned: For high-volume workloads.
 4. Deploy: Once deployed, the application calls the Azure OpenAI endpoint using the deployment ID 🔗, using the SDK REST API.
 
+### Azure AI Containers
+
+<div style="text-align: center;">
+  <a href="https://aka.ms/https://aka.ms/AzureAnimations/AzurAI/CognitiveContainers" target="_blank">
+    <img src="./images/animations-480thumbnails/Cognitive-Container_thumbnail.gif" alt="Azure AI Containers">
+  </a>
+  <p style="text-align: center; font-style: italic;">
+    Azure AI Containers <a href="https://aka.ms/AzureAnimations/AzurAI/CognitiveContainers" target="_blank">Click to download in HD size</a> or <a href="https://aka.ms/AzureAnimations/AzurAI/Vdo/CognitiveContainers" target="_blank">view the HD video</a>
+  </p>
+</div>
+
+🚀 Embrace On-Premises AI with Azure: Dive into the world of on-site artificial intelligence with Azure AI containers. Our guide outlines the steps to integrate Azure's powerful AI features into your own infrastructure, ensuring control and customization.
+
+Key Benefits and Steps:
+
+1. 🧩 Seamless Integration: Deploy Azure's Docker containers on-premises to bring a myriad of AI services into your applications, enhancing them with capabilities like language processing and image recognition.
+2. 🔒 Data Privacy & Speed: Maintain the confidentiality of your data and enjoy the benefits of quick processing by running AI services locally.
+3. 🛠️ Customized AI Solutions: Tailor AI to fit your business needs with these capabilities:
+   - 📝 Language Processing: Equip your apps with sophisticated text analysis and language comprehension.
+   - 🗣️ Speech Recognition: Convert speech to text for voice-driven interactions.
+   - 👁️ Vision Analytics: Analyze visual information for insights and automation.
+   - 💡 Decision Intelligence: Build applications that make smart decisions.
+4. 🔐 Secure Communication: Adjust your firewall settings to safely connect with Azure endpoints, ensuring secure operations and precise billing.
+5. 💸 Flexible Pricing Options: Select the best pricing model for your needs:
+   - 💳 Pay-As-You-Go: Ideal for variable workloads, pay only for what you consume.
+   - 📦 Commitment Plans: Enjoy reduced rates with a set usage agreement.
+   - 🌐 Disconnected Mode: Use AI services offline at a discounted rate.
+6. 🏁 Getting Started: Initiate your AI journey with three essential elements:
+   - 🔑 API Key: Obtain the API key for Azure AI services.
+   - 💳 Billing Endpoint: Set up your billing endpoint for resource management.
+   - ✅ EULA: Accept the End User License Agreement to proceed.
+
+Azure AI containers provide an optimal blend of performance, privacy, and cost-effectiveness. Integrate these AI services into your on-premises setup and elevate your business operations today.
+
+
 ## 💻☁️ Compute Options 
 
 Azure offers a world of compute options designed to power anything from your small apps to global-scale services. With virtual machines for full control, serverless computing with Azure Functions, and containers through Kubernetes, you're equipped to build and scale faster than ever ⚡. Whether you're optimizing performance or reducing costs, Azure's flexible compute solutions have got you covered—ready to take your projects to the next level? Let Azure Compute lead the way! 🌟
