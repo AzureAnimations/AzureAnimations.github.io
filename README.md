@@ -28,7 +28,7 @@ Azure AI is your gateway to transforming ideas into reality! Whether it's buildi
 
 <div style="text-align: center;">
   <a href="https://aka.ms/AzureAnimations/AzureOpenAI/ProvisionDeploymentCreation" target="_blank">
-    <img src="./images/animations-480thumbnails/Azure_OpenAI_-_Provisioning_and_Deployment_Creation_-_thumbnail.gif" alt="Azure OpenAI - Provisioning and Deployment Creation">
+    <img src="./images/animations-480thumbnails/Azure OpenAI - AI Foundry Studio_Provisioning_and_Deployment_Creation_-_thumbnail.gif" alt="Azure OpenAI - Provisioning and Deployment Creation">
   </a>
   <p style="text-align: center; font-style: italic;">
     Azure OpenAI - Provisioning and Deployment Creation <a href="https://aka.ms/AzureAnimations/AzureOpenAI/ProvisionDeploymentCreation" target="_blank">Click to download in HD size</a>
@@ -45,6 +45,8 @@ Above illustrates the process of provisioning Azure OpenAI, we start by using th
    - Global-Provisioned: For real-time scoring with high volume 📈.
    - Standard: General-purpose deployment.
    - Provisioned: For high-volume workloads.
+   - Data Zone Standard: Leverages Azure global infrastructure for best availability and higher default quotas.
+   - Data Zone Provisioned: Global infrastructure, best availability, reserved capacity for high and predictable throughput.
 4. Deploy: Once deployed, the application calls the Azure OpenAI endpoint using the deployment ID 🔗, using the SDK REST API.
 
 ### Azure AI Containers
