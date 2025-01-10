@@ -35,9 +35,9 @@ Azure AI is your gateway to transforming ideas into reality! Whether it's buildi
   </p>
 </div>
 
-Above illustrates the process of provisioning Azure OpenAI, we start by using the Azure Portal. First, navigate to the Azure OpenAI Studio where you can select the appropriate model for your needs, such as GPT-4, GPT-4o, etc. Before users can consume the model, they need to select the model and create a deployment. There are several types of deployments available:
+Above illustrates the process of provisioning Azure OpenAI, we start by using the Azure Portal. First, navigate to the Azure AI Foundry where you can select the appropriate model for your needs, such as GPT-4, GPT-4o, etc. Before users can consume the model, they need to select the model and create a deployment. There are several types of deployments available:
 
-1. Azure Portal: Start by using the Azure Portal to navigate to Azure OpenAI Studio.
+1. Azure Portal: Start by using the Azure Portal to navigate to Azure AI Foundry.
 2. Select Model: Choose the right model (e.g., GPT-4, GPT-4o) 🧠.
 3. Create Deployment:
    - Global-Batch: For offline scoring 🕒.
