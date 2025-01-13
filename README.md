@@ -49,6 +49,10 @@ Above illustrates the process of provisioning Azure OpenAI, we start by using th
    - Data Zone Provisioned: Global infrastructure, best availability, reserved capacity for high and predictable throughput.
 4. Deploy: Once deployed, the application calls the Azure OpenAI endpoint using the deployment ID 🔗, using the SDK REST API.
 
+> Click the video below for recorded explanations by our team.
+> <br>
+> <a href="https://www.linkedin.com/posts/vincekok_animations-explaianed-video-activity-7266798719314911232-WS8b?utm_source=share&utm_medium=member_desktop" target="_blank"><img src="./images/animations-explained/Azure OpenAI Studio Explained.png" alt="Azure OpenAI AI Foundry" width="300"></a>
+
 ### Azure AI Containers
 
 <div style="text-align: center;">
@@ -165,6 +169,10 @@ Above illustrates the process of using an Azure Storage Account. We start by und
    - Archive: For data that is rarely accessed and stored for at least 180 days 🗄️.
 
 > **Penalties**: Be aware of the penalties associated with moving data between access tiers. For example, moving data from the Archive tier to the Hot tier may incur additional costs ⚠️.
+
+> Click the video below for recorded explanations by our team.
+> <br>
+> <a href="https://www.linkedin.com/posts/neerajtrainer_azurestorage-microsoftazure-cloudcomputing-activity-7266850785034952704-krRD?utm_source=share&utm_medium=member_desktop" target="_blank"><img src="./images/animations-explained/Storage Account Explained.png" alt="Azure Storage Account" width="300"></a>
 
 ## Security
 
