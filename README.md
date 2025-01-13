@@ -51,7 +51,7 @@ Above illustrates the process of provisioning Azure OpenAI, we start by using th
 
 > Click the video below for recorded explanations by our team.
 > <br>
-> <a href="https://www.linkedin.com/posts/vincekok_animations-explaianed-video-activity-7266798719314911232-WS8b?utm_source=share&utm_medium=member_desktop" target="_blank"><img src="./images/animations-explained/Azure OpenAI Studio Explained.png" alt="Azure Services" width="300"></a>
+> <a href="https://www.linkedin.com/posts/vincekok_animations-explaianed-video-activity-7266798719314911232-WS8b?utm_source=share&utm_medium=member_desktop" target="_blank"><img src="./images/animations-explained/Azure OpenAI Studio Explained.png" alt="Azure OpenAI AI Foundry" width="300"></a>
 
 ### Azure AI Containers
 
@@ -172,7 +172,7 @@ Above illustrates the process of using an Azure Storage Account. We start by und
 
 > Click the video below for recorded explanations by our team.
 > <br>
-> <a href="https://www.linkedin.com/posts/neerajtrainer_azurestorage-microsoftazure-cloudcomputing-activity-7266850785034952704-krRD?utm_source=share&utm_medium=member_desktop" target="_blank"><img src="./images/animations-explained/Storage Account Explained.png" alt="Azure Services" width="300"></a>
+> <a href="https://www.linkedin.com/posts/neerajtrainer_azurestorage-microsoftazure-cloudcomputing-activity-7266850785034952704-krRD?utm_source=share&utm_medium=member_desktop" target="_blank"><img src="./images/animations-explained/Storage Account Explained.png" alt="Azure Storage Account" width="300"></a>
 
 ## Security
 
