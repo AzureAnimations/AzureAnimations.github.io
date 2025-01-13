@@ -276,7 +276,7 @@ The animation on the right illustrates the use of user-assigned managed identiti
 # Help Wanted 📒
 
 - Do you have suggestions for Azure Animations? The survey form is open 👉 <a href="https://forms.office.com/r/CYqrPmX8uy" target="_blank">here</a> ℹ️.
-- Want to submit an idea or found spelling or code errors? 👉 Raise an <a href="https://forms.office.com/r/CYqrPmX8uy" target="_blank">issue</a> or create a <a href="https://github.com/AzureAnimations/AzureAnimations.github.io/pulls" target="_blank">pull request</a>.
+- Want to submit an idea or found spelling or code errors? 👉 Raise an <a href="https://github.com/AzureAnimations/AzureAnimations.github.io/issues/new" target="_blank">issue</a> or create a <a href="https://github.com/AzureAnimations/AzureAnimations.github.io/pulls" target="_blank">pull request</a>.
 
 # Special Thanks ❤️
 
