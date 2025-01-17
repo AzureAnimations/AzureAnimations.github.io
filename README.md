@@ -53,6 +53,44 @@ Above illustrates the process of provisioning Azure OpenAI, we start by using th
 > <br>
 > <a href="https://www.linkedin.com/posts/vincekok_animations-explaianed-video-activity-7266798719314911232-WS8b?utm_source=share&utm_medium=member_desktop" target="_blank"><img src="./images/animations-explained/Azure OpenAI Studio Explained.png" alt="Azure OpenAI AI Foundry" width="300"></a>
 
+### Understanding Azure AI: Single Service vs. Multi-Service Accounts
+
+<div style="text-align: center;">
+  <a href="https://aka.ms/AzureAnimations/AzureAI/Single-vs-Multi-Service-Account" target="_blank">
+    <img src="./images/animations-480thumbnails/AI-Single-vs-Multi-Service_thumbnail.gif" alt="Azure AI Containers">
+  </a>
+  <p style="text-align: center; font-style: italic;">
+    Azure AI: Single Service vs. Multi-Service Accounts <a href="https://aka.ms/AzureAnimations/AzureAI/Single-vs-Multi-Service-Account" target="_blank">Click to download in HD size</a> or <a href="https://aka.ms/AzureAnimations/AzureAI/Vdo/Single-vs-Multi-Service-Account" target="_blank">view the HD video</a>
+  </p>
+</div>
+
+**Azure AI Single Service Account**
+- **Purpose**: Designed for accessing a single Azure AI service.
+- **Credentials**: Each service has its own unique set of credentials (keys and endpoints).
+- **Use Case**: Ideal for projects that require only one specific AI capability, such as Face API or Text Analytics.
+- **Example**: If you need to use only the Computer Vision service for image analysis, a Single Service account is the right choice.
+
+**Azure AI Multi-Service Account**
+- **Purpose**: Allows access to multiple Azure AI services with a single set of credentials.
+- **Credentials**: One set of credentials works for all the services under this account.
+- **Use Case**: Perfect for projects that need several AI capabilities, simplifying management and integration.
+- **Example**: If your project requires both Text Analytics and Speech services, a Multi-Service account provides a streamlined solution.
+
+**Key Takeaways**
+- **Single Service Account**:
+  - 🎯 Focused on one AI service.
+  - 🔑 Separate credentials for each service.
+  - 🛠️ Best for specific, single-service needs.
+
+- **Multi-Service Account**:
+  - 🌐 Access multiple AI services with one account.
+  - 🔒 Simplifies credential management.
+  - 🚀 Ideal for complex projects needing multiple AI capabilities.
+
+**Summary**
+- **Single Service**: One service, one key.
+- **Multi-Service**: One account access all.
+
 ### Azure AI Containers
 
 <div style="text-align: center;">
