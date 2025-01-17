@@ -53,14 +53,14 @@ Above illustrates the process of provisioning Azure OpenAI, we start by using th
 > <br>
 > <a href="https://www.linkedin.com/posts/vincekok_animations-explaianed-video-activity-7266798719314911232-WS8b?utm_source=share&utm_medium=member_desktop" target="_blank"><img src="./images/animations-explained/Azure OpenAI Studio Explained.png" alt="Azure OpenAI AI Foundry" width="300"></a>
 
-### Understanding Azure AI: Single Service vs. Multi-Service Accounts
+### Understanding Azure AI: Single Service vs. Multi-Service Account
 
 <div style="text-align: center;">
   <a href="https://aka.ms/AzureAnimations/AzureAI/Single-vs-Multi-Service-Account" target="_blank">
     <img src="./images/animations-480thumbnails/AI-Single-vs-Multi-Service_thumbnail.gif" alt="Azure AI Containers">
   </a>
   <p style="text-align: center; font-style: italic;">
-    Azure AI: Single Service vs. Multi-Service Accounts <a href="https://aka.ms/AzureAnimations/AzureAI/Single-vs-Multi-Service-Account" target="_blank">Click to download in HD size</a> or <a href="https://aka.ms/AzureAnimations/AzureAI/Vdo/Single-vs-Multi-Service-Account" target="_blank">view the HD video</a>
+    Azure AI: Single Service vs. Multi-Service Account <a href="https://aka.ms/AzureAnimations/AzureAI/Single-vs-Multi-Service-Account" target="_blank">Click to download in HD size</a> or <a href="https://aka.ms/AzureAnimations/AzureAI/Vdo/Single-vs-Multi-Service-Account" target="_blank">view the HD video</a>
   </p>
 </div>
 
