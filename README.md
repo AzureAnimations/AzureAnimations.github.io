@@ -20,11 +20,11 @@ Don't forget to star (🌟) this repo to find it easier later.
 
 # Content
 
-## AI 
+## 1️⃣ AI 
 
 Azure AI is your gateway to transforming ideas into reality! Whether it's building intelligent apps, automating processes, or gaining insights from your data, Azure's cutting-edge AI services are here to supercharge your innovation 🚀. With powerful tools like Azure Cognitive Services, Machine Learning, and AI-powered analytics, the future is in your hands. Ready to turn your data into smart solutions? Let's redefine what's possible with AI in Azure! 💡✨
 
-### Azure OpenAI - Provisioning and Deployment Creation
+### 🔸Azure OpenAI - Provisioning and Deployment Creation
 
 <div style="text-align: center;">
   <a href="https://aka.ms/AzureAnimations/AzureOpenAI/ProvisionDeploymentCreation" target="_blank">
@@ -53,7 +53,7 @@ Above illustrates the process of provisioning Azure OpenAI, we start by using th
 > <br>
 > <a href="https://www.linkedin.com/posts/vincekok_animations-explaianed-video-activity-7266798719314911232-WS8b?utm_source=share&utm_medium=member_desktop" target="_blank"><img src="./images/animations-explained/Azure OpenAI Studio Explained.png" alt="Azure OpenAI AI Foundry" width="300"></a>
 
-### Understanding Azure AI: Single Service vs. Multi-Service Account
+### 🔸Understanding Azure AI: Single Service vs. Multi-Service Account
 
 <div style="text-align: center;">
   <a href="https://aka.ms/AzureAnimations/AzureAI/Single-vs-Multi-Service-Account" target="_blank">
@@ -91,7 +91,7 @@ Above illustrates the process of provisioning Azure OpenAI, we start by using th
 - **Single Service**: One service, one key.
 - **Multi-Service**: One account access all.
 
-### Azure AI Containers
+### 🔸Azure AI Containers
 
 <div style="text-align: center;">
   <a href="https://aka.ms/AzureAnimations/AzurAI/CognitiveContainers" target="_blank">
@@ -126,7 +126,7 @@ Key Benefits and Steps:
 Azure AI containers provide an optimal blend of performance, privacy, and cost-effectiveness. Integrate these AI services into your on-premises setup and elevate your business operations today.
 
 
-### Azure AI Search - Custom Skill
+### 🔸Azure AI Search - Custom Skill
 
 <div style="text-align: center;">
   <a href="https://aka.ms/AzureAnimations/AzureAI/AISearchCustomSkill" target="_blank">
@@ -149,11 +149,11 @@ Azure AI Search empowers us to create custom search engines and enhances documen
 Azure AI Search is a powerful AI-driven solution that combines built-in and custom AI capabilities to make document content easily searchable and accessible, enabling efficient information retrieval and application.
 
 
-## Compute Options 
+## 2️⃣ Compute Options 
 
 Azure offers a world of compute options designed to power anything from your small apps to global-scale services. With virtual machines for full control, serverless computing with Azure Functions, and containers through Kubernetes, you're equipped to build and scale faster than ever ⚡. Whether you're optimizing performance or reducing costs, Azure's flexible compute solutions have got you covered—ready to take your projects to the next level? Let Azure Compute lead the way! 🌟
 
-### App Service Animations Overview
+### 🔸App Service Animations Overview
 
 <div style="text-align: center;">
   <a href="https://aka.ms/AzureAnimations/AppService/AppPlanDeploymentSlot" target="_blank">
@@ -196,11 +196,11 @@ Above illustrates the process of using Azure App Service. We start by provisioni
 7. **🌐 Traffic Manager**
    - **Traffic Manager**: Distribute traffic across multiple instances and regions. Specify the percentage of traffic for each instance to manage load effectively.
 
-## Storage Options
+## 3️⃣ Storage Options
 
 Azure provides a variety of storage solutions to meet the diverse needs of modern applications. These options are designed to handle different types of data, access patterns, and performance requirements.
 
-### Storage Account
+### 🔸Storage Account
 
 <div style="text-align: center;">
   <a href="https://aka.ms/AzureAnimations/StorageAccount/TiersServicesTypes" target="_blank">
@@ -235,11 +235,11 @@ Above illustrates the process of using an Azure Storage Account. We start by und
 > <br>
 > <a href="https://www.linkedin.com/posts/neerajtrainer_azurestorage-microsoftazure-cloudcomputing-activity-7266850785034952704-krRD?utm_source=share&utm_medium=member_desktop" target="_blank"><img src="./images/animations-explained/Storage Account Explained.png" alt="Azure Storage Account" width="300"></a>
 
-## Security
+## 4️⃣ Security
 
 Azure offers robust security features to protect your data and applications. These features are designed to ensure the confidentiality, integrity, and availability of your resources.
 
-### Managed Identities in Azure: Enhancing Security Part 1
+### 🔸Managed Identities in Azure: Enhancing Security Part 1
 
 <div style="text-align: center;">
   <a href="https://aka.ms/AzureAnimations/Security/ManagedIdentities_Part1" target="_blank">
@@ -281,7 +281,7 @@ Above illustrates the process of using Managed Identities, comparing the traditi
 
    Adopting managed identities enhances security, reduces overhead, and simplifies access management. This approach aligns with best practices for secure application development in Azure.
 
-### Managed Identities in Azure: Enhancing Security Part 2
+### 🔸Managed Identities in Azure: Enhancing Security Part 2
 
 <div style="text-align: center;">
   <a href="https://aka.ms/AzureAnimations/Security/ManagedIdentities_Part2" target="_blank">
