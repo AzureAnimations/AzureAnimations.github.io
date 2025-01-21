@@ -256,6 +256,28 @@ Above illustrates the process of using an Azure Storage Account. We start by und
 > <br>
 > <a href="https://www.linkedin.com/posts/neerajtrainer_azurestorage-microsoftazure-cloudcomputing-activity-7266850785034952704-krRD?utm_source=share&utm_medium=member_desktop" target="_blank"><img src="./images/animations-explained/Storage Account Explained.png" alt="Azure Storage Account" width="300"></a>
 
+### 🔸Redundancy Options in Azure Storage Account
+
+<div style="text-align: center;">
+  <a href="https://aka.ms/	
+AzureAnimations/StorageAccount/Redundancy_Options" target="_blank">
+    <img src="./images/animations-480thumbnails/Azure_Storage_Redundancy_thumbnail.gif" alt="Storage Account, Tiers, Services and Types">
+  </a>
+  <p style="text-align: center; font-style: italic;">
+    Storage Account - Redundancy Options <a href="https://aka.ms/	
+AzureAnimations/StorageAccount/Redundancy_Options" target="_blank">Click to download in HD size</a> or <a href="https://aka.ms/AzureAnimations/StorageAccount/Vdo/Redundancy_Options" target="_blank">view the HD video</a>
+  </p>
+</div>
+
+Azure Storage offers various redundancy options to ensure data durability and high availability. Here's a quick guide to get started:
+
+1. **Locally Redundant Storage (LRS)**: LRS replicates your data three times within a single data center in a region, providing protection against hardware failures.
+2. **Zone-Redundant Storage (ZRS)**: ZRS replicates your data across three availability zones within a region, offering higher durability and availability by protecting against data center failures.
+3. **Geo-Redundant Storage (GRS) and Read-Access Geo-Redundant Storage (RA-GRS)**: GRS replicates your data to a secondary region, hundreds of miles away from the primary location, ensuring data durability even in the event of a regional outage. RA-GRS provides read access to the secondary region.
+4.**Geo-Zone-Redundant Storage (GZRS) and Read-Access Geo-Zone-Redundant Storage (RA-GZRS)**: GZRS combines the benefits of ZRS and GRS by replicating your data across availability zones and to a secondary region. RA-GZRS offers read access to the secondary region.
+
+These redundancy options help you choose the right level of data protection and availability based on your specific needs.
+
 ## 4️⃣ Security
 
 Azure offers robust security features to protect your data and applications. These features are designed to ensure the confidentiality, integrity, and availability of your resources.
