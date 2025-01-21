@@ -27,11 +27,11 @@ Azure AI is your gateway to transforming ideas into reality! Whether it's buildi
 ### 🔸Get started : AI in Azure
 
 <div style="text-align: center;">
-  <a href="https://aka.ms/AzureAnimations/" target="_blank">
+  <a href="https://aka.ms/AzureAnimations/AzureAI/Get-Started-AI-In-Azure-PNG" target="_blank">
     <img src="./images/animations-480thumbnails/Get-Started-AI-In-Azure%2Bthumbnail.png" alt="Get Started AI in Azure">
   </a>
   <p style="text-align: center; font-style: italic;">
-    Get Started - AI in Azure <a href="https://aka.ms/AzureAnimations/" target="_blank">Click to download in HD size</a>
+    Get Started - AI in Azure <a href="https://aka.ms/AzureAnimations/AzureAI/Get-Started-AI-In-Azure-PNG" target="_blank">Click to download in HD size</a>, <a href="https://aka.ms/AzureAnimations/AzureAI/Get-Started-AI-In-Azure" target="_blank">GIF</a> or <a href="https://aka.ms/AzureAnimations/AzureAI/Vdo/Get-Started-AI-In-Azure" target="_blank">view the HD video</a>
   </p>
 </div>
 
