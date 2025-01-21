@@ -259,13 +259,11 @@ Above illustrates the process of using an Azure Storage Account. We start by und
 ### 🔸Redundancy Options in Azure Storage Account
 
 <div style="text-align: center;">
-  <a href="https://aka.ms/	
-AzureAnimations/StorageAccount/Redundancy_Options" target="_blank">
+  <a href="https://aka.ms/AzureAnimations/StorageAccount/Redundancy_Options" target="_blank">
     <img src="./images/animations-480thumbnails/Azure_Storage_Redundancy_thumbnail.gif" alt="Storage Account, Tiers, Services and Types">
   </a>
   <p style="text-align: center; font-style: italic;">
-    Storage Account - Redundancy Options <a href="https://aka.ms/	
-AzureAnimations/StorageAccount/Redundancy_Options" target="_blank">Click to download in HD size</a> or <a href="https://aka.ms/AzureAnimations/StorageAccount/Vdo/Redundancy_Options" target="_blank">view the HD video</a>
+    Storage Account - Redundancy Options <a href="https://aka.ms/AzureAnimations/StorageAccount/Redundancy_Options" target="_blank">Click to download in HD size</a> or <a href="https://aka.ms/AzureAnimations/StorageAccount/Vdo/Redundancy_Options" target="_blank">view the HD video</a>
   </p>
 </div>
 
