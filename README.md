@@ -24,34 +24,27 @@ Don't forget to star (🌟) this repo to find it easier later.
 
 Azure AI is your gateway to transforming ideas into reality! Whether it's building intelligent apps, automating processes, or gaining insights from your data, Azure's cutting-edge AI services are here to supercharge your innovation 🚀. With powerful tools like Azure Cognitive Services, Machine Learning, and AI-powered analytics, the future is in your hands. Ready to turn your data into smart solutions? Let's redefine what's possible with AI in Azure! 💡✨
 
-### 🔸Azure OpenAI - Provisioning and Deployment Creation
+### 🔸Get started : AI in Azure
 
 <div style="text-align: center;">
-  <a href="https://aka.ms/AzureAnimations/AzureOpenAI/ProvisionDeploymentCreation" target="_blank">
-    <img src="./images/animations-480thumbnails/Azure OpenAI - AI Foundry Studio_Provisioning_and_Deployment_Creation_-_thumbnail.gif" alt="Azure OpenAI - Provisioning and Deployment Creation">
+  <a href="https://aka.ms/AzureAnimations/" target="_blank">
+    <img src="./images/animations-480thumbnails/Get-Started-AI-In-Azure%2Bthumbnail.png" alt="Get Started AI in Azure">
   </a>
   <p style="text-align: center; font-style: italic;">
-    Azure OpenAI - Provisioning and Deployment Creation <a href="https://aka.ms/AzureAnimations/AzureOpenAI/ProvisionDeploymentCreation" target="_blank">Click to download in HD size</a>
+    Get Started - AI in Azure <a href="https://aka.ms/AzureAnimations/" target="_blank">Click to download in HD size</a>
   </p>
 </div>
 
-Above illustrates the process of provisioning Azure OpenAI, we start by using the Azure Portal. First, navigate to the Azure AI Foundry where you can select the appropriate model for your needs, such as GPT-4, GPT-4o, etc. Before users can consume the model, they need to select the model and create a deployment. There are several types of deployments available:
+AI in Azure offers a range of cloud services designed to help you build intelligent applications. Here's how to get started:
 
-1. Azure Portal: Start by using the Azure Portal to navigate to Azure AI Foundry.
-2. Select Model: Choose the right model (e.g., GPT-4, GPT-4o) 🧠.
-3. Create Deployment:
-   - Global-Batch: For offline scoring 🕒.
-   - Global-Standard: Recommended starting point 🌍.
-   - Global-Provisioned: For real-time scoring with high volume 📈.
-   - Standard: General-purpose deployment.
-   - Provisioned: For high-volume workloads.
-   - Data Zone Standard: Leverages Azure global infrastructure for best availability and higher default quotas.
-   - Data Zone Provisioned: Global infrastructure, best availability, reserved capacity for high and predictable throughput.
-4. Deploy: Once deployed, the application calls the Azure OpenAI endpoint using the deployment ID 🔗, using the SDK REST API.
-
-> Click the video below for recorded explanations by our team.
-> <br>
-> <a href="https://www.linkedin.com/posts/vincekok_animations-explaianed-video-activity-7266798719314911232-WS8b?utm_source=share&utm_medium=member_desktop" target="_blank"><img src="./images/animations-explained/Azure OpenAI Studio Explained.png" alt="Azure OpenAI AI Foundry" width="300"></a>
+1. **Navigate to the Azure Portal**: Log in to manage your Azure services.
+2. **Choose Cognitive Services or Generative AI**: Select the AI service that fits your needs, like Computer Vision or Speech.
+3. **Provision AI services**: Set up your AI service by choosing the pricing tier, region, networking options, and managed identities.
+4. **Integrate AI into your applications**: Add AI capabilities to your apps, such as image recognition or natural language processing.
+5. **Connect using managed identities, keys, or endpoints**: Securely connect to your AI services.
+6. **Use REST APIs**: Send HTTP requests and receive responses from the AI services.
+7. **Use SDKs**: Alternatively, use SDKs in languages like C#, Java, Python, and NodeJS.
+8. **Consume and pay per use**: Use the AI services as needed and pay based on your usage.
 
 ### 🔸Understanding Azure AI: Single Service vs. Multi-Service Account
 
@@ -125,6 +118,34 @@ Key Benefits and Steps:
 
 Azure AI containers provide an optimal blend of performance, privacy, and cost-effectiveness. Integrate these AI services into your on-premises setup and elevate your business operations today.
 
+### 🔸Azure OpenAI - Provisioning and Deployment Creation
+
+<div style="text-align: center;">
+  <a href="https://aka.ms/AzureAnimations/AzureOpenAI/ProvisionDeploymentCreation" target="_blank">
+    <img src="./images/animations-480thumbnails/Azure OpenAI - AI Foundry Studio_Provisioning_and_Deployment_Creation_-_thumbnail.gif" alt="Azure OpenAI - Provisioning and Deployment Creation">
+  </a>
+  <p style="text-align: center; font-style: italic;">
+    Azure OpenAI - Provisioning and Deployment Creation <a href="https://aka.ms/AzureAnimations/AzureOpenAI/ProvisionDeploymentCreation" target="_blank">Click to download in HD size</a>
+  </p>
+</div>
+
+Above illustrates the process of provisioning Azure OpenAI, we start by using the Azure Portal. First, navigate to the Azure AI Foundry where you can select the appropriate model for your needs, such as GPT-4, GPT-4o, etc. Before users can consume the model, they need to select the model and create a deployment. There are several types of deployments available:
+
+1. Azure Portal: Start by using the Azure Portal to navigate to Azure AI Foundry.
+2. Select Model: Choose the right model (e.g., GPT-4, GPT-4o) 🧠.
+3. Create Deployment:
+   - Global-Batch: For offline scoring 🕒.
+   - Global-Standard: Recommended starting point 🌍.
+   - Global-Provisioned: For real-time scoring with high volume 📈.
+   - Standard: General-purpose deployment.
+   - Provisioned: For high-volume workloads.
+   - Data Zone Standard: Leverages Azure global infrastructure for best availability and higher default quotas.
+   - Data Zone Provisioned: Global infrastructure, best availability, reserved capacity for high and predictable throughput.
+4. Deploy: Once deployed, the application calls the Azure OpenAI endpoint using the deployment ID 🔗, using the SDK REST API.
+
+> Click the video below for recorded explanations by our team.
+> <br>
+> <a href="https://www.linkedin.com/posts/vincekok_animations-explaianed-video-activity-7266798719314911232-WS8b?utm_source=share&utm_medium=member_desktop" target="_blank"><img src="./images/animations-explained/Azure OpenAI Studio Explained.png" alt="Azure OpenAI AI Foundry" width="300"></a>
 
 ### 🔸Azure AI Search - Custom Skill
 
