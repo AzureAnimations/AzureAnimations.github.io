@@ -169,6 +169,9 @@ Azure AI Search empowers us to create custom search engines and enhances documen
 
 Azure AI Search is a powerful AI-driven solution that combines built-in and custom AI capabilities to make document content easily searchable and accessible, enabling efficient information retrieval and application.
 
+> Click the video below for recorded explanations by our team.
+> <br>
+> <a href="https://www.linkedin.com/posts/vincekok_azure-ai-search-activity-7287760950827356160-VmGH/?utm_source=share&utm_medium=member_desktop" target="_blank"><img src="./images/animations-explained/AI Search Explained.png" alt="Azure OpenAI AI Foundry" width="300"></a>
 
 ## 2️⃣ Compute Options 
 
