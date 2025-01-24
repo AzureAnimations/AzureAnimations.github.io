@@ -386,10 +386,20 @@ The animation on the right illustrates the use of user-assigned managed identiti
 
    System-assigned managed identities simplify identity management and enhance security by providing each Azure resource with its own identity. User-assigned managed identities offer flexibility and centralized management by allowing a single identity to be shared across multiple resources. Both approaches align with best practices for secure application development in Azure.
 
+# Share Your Animation Ideas! 💡
+
+<div style="text-align: center;">
+    <img src="./images/animations-480thumbnails/Contribution_Template_thumbnail.gif" alt="Managed Identities part 1">
+</div>
+
+Have a great idea for an animation? We'd love to see it! Send us your sketches or hand-drawn illustrations with directions, and we'll turn them into animations. We'll also give you credit by adding your name to the animation. 👉 Raise an <a href="https://github.com/AzureAnimations/AzureAnimations.github.io/issues/new" target="_blank">idea</a> or create a <a href="https://github.com/AzureAnimations/AzureAnimations.github.io/pulls" target="_blank">pull request</a>.
+
+Let's work together to make learning fun and engaging for everyone! 
+
 # Help Wanted 📒
 
 - Do you have suggestions for Azure Animations? The survey form is open 👉 <a href="https://forms.office.com/r/CYqrPmX8uy" target="_blank">here</a> ℹ️.
-- Want to submit an idea or found spelling or code errors? 👉 Raise an <a href="https://github.com/AzureAnimations/AzureAnimations.github.io/issues/new" target="_blank">issue</a> or create a <a href="https://github.com/AzureAnimations/AzureAnimations.github.io/pulls" target="_blank">pull request</a>.
+- Want to submit an idea or found spelling or code errors? 
 - Microsoft Technical Trainer team (FTE) 🙏, please capture class feedback on our Azure Animations 👉 <a href="https://aka.ms/MooDengTestimonial" target="_blank">here</a>: Do learners like it? Want more?
 
 # Special Thanks ❤️
