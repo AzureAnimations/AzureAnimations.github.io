@@ -174,7 +174,7 @@ Azure AI Search is a powerful AI-driven solution that combines built-in and cust
 > <a href="https://www.linkedin.com/posts/vincekok_azure-ai-search-activity-7287760950827356160-VmGH/?utm_source=share&utm_medium=member_desktop" target="_blank"><img src="./images/animations-explained/AI Search Explained.png" alt="Azure OpenAI AI Foundry" width="300"></a>
 
 
-### Azure AI Document Intelligence
+### 🔸Azure AI Document Intelligence
 
 <div style="text-align: center;">
   <a href="https://aka.ms/AzureAnimations/AzureAI/Document-Intelligence" target="_blank">
