@@ -252,6 +252,45 @@ Above illustrates the process of using Azure App Service. We start by provisioni
 7. **🌐 Traffic Manager**
    - **Traffic Manager**: Distribute traffic across multiple instances and regions. Specify the percentage of traffic for each instance to manage load effectively.
 
+### 🔸Azure Functions Hosting Options Overview
+
+<div style="text-align: center;">
+  <a href="https://aka.ms/AzureAnimations/Compute/Functions-Hosting-Options" target="_blank">
+    <img src="./images/animations-480thumbnails/Azure-Functions-Hosting-Options-thumb.gif" alt="Azure Functions Hosting Options Overview">
+  </a>
+  <p style="text-align: center; font-style: italic;">
+    Azure Functions Hosting Options Overview
+ <a href="https://aka.ms/AzureAnimations/Compute/Functions-Hosting-Options" target="_blank">Click to download in HD size</a>
+  </p>
+</div>
+
+
+⚡ Azure Functions is a serverless computing service that enables you to run event-driven code without managing infrastructure.
+It offers various hosting plans, each designed for different workloads.
+All plans support auto-scaling, but they differ in scaling limits, pricing💰, and features🛠️.
+
+* **❤️ Flex Consumption Plan**: Supports up to 1000 instances and always-ready instances⚡.
+  * Linux (code-only). Windows not supported.
+  * ✅ VNet integration.
+
+* **💛 Consumption Plan**: Supports up to 200 instances but may experience cold starts.
+  * Linux (code-only)/ Windows (code-only).
+  * ❌ No VNet integration.
+
+* **💜 Premium Plan**: Supports up to 100 instances and always-ready instances⚡.
+  * Linux (code & container). Windows (code-only).
+  * ✅ VNet integration.
+
+* **🩵 Dedicated Plan**: Supports up to 10-30 instances and always-on functionality⚡.
+  * Linux (code & container). Windows (code-only).
+  * ✅ VNet integration.
+
+* **🧡 Container Apps**: Supports up to 1000 instances and avoids cold starts if replicas ≥ 1⚡.
+  * Linux (container-only). Windows not supported.
+  * ✅ VNet integration.
+
+For more details, check the official documentation 👉 [Azure Functions scale and hosting | Microsoft Learn](https://learn.microsoft.com/en-us/azure/azure-functions/functions-scale)
+
 ## 3️⃣ Storage Options
 
 Azure provides a variety of storage solutions to meet the diverse needs of modern applications. These options are designed to handle different types of data, access patterns, and performance requirements.
