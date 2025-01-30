@@ -205,7 +205,6 @@ Combine different custom models into one for processing multiple document types 
 
 Azure AI Document Intelligence helps turn your documents into valuable assets, improving decision-making and efficiency. Embrace the Azure ecosystem to fully unlock the potential of your documents with unmatched customization and intelligence.
 
-
 ### 🔸Azure AI Speech Service
 
 <div style="text-align: center;">
@@ -218,27 +217,28 @@ Azure AI Document Intelligence helps turn your documents into valuable assets, i
 </div>
 
 Azure Speech Service is a cloud-based platform that offers a wide range of speech-related services, including speech recognition, speech synthesis, speech translation, and avatar-based interactions✨
+
 This service enables developers to seamlessly integrate advanced speech functionalities into applications, tools, and devices💡
 Additionally, it allows for customization to meet specific needs, such as creating custom speech models and custom avatars🛠️
 
-#### Key Features 🚀
-* 🔹 Speech Recognition (Speech to Text)
-  * Convert spoken language into text, supporting both real-time processing and batch processing📜🎙️
+Key Features 🚀
+🔹 Speech Recognition (Speech to Text)
+  - * Convert spoken language into text, supporting both real-time processing and batch processing📜🎙️
 
-* 🔹 Speech Synthesis (Text to Speech)
-  * Transform text into natural human-like speech, enabling seamless and engaging conversations🗣️🔊
+🔹 Speech Synthesis (Text to Speech)
+ - * Transform text into natural human-like speech, enabling seamless and engaging conversations🗣️🔊
 
-* 🔹 Speech Translation
-  * Translate speech into other languages in real-time, breaking down language barriers 🌍🗣️➡️🌎
+🔹 Speech Translation
+ - * Translate speech into other languages in real-time, breaking down language barriers 🌍🗣️➡️🌎
 
-* 🔹 Custom Speech Models
-  * Train speech recognition models tailored to specific domains and applications, improving accuracy in specialized fields📈🎯
+🔹 Custom Speech Models
+ - * Train speech recognition models tailored to specific domains and applications, improving accuracy in specialized fields📈🎯
 
-* 🔹 Text-to-Speech Avatar
-  * Create animated video avatars that speak based on text input, enhancing user engagement through visual interaction🎥🤖
+🔹 Text-to-Speech Avatar
+ - * Create animated video avatars that speak based on text input, enhancing user engagement through visual interaction🎥🤖
 
-* 🔹 Custom Text-to-Speech Avatar
-  * Develop a unique and natural-looking avatar based on recorded video data of selected actors, ideal for brand and product identity🎭✨
+🔹 Custom Text-to-Speech Avatar
+ - * Develop a unique and natural-looking avatar based on recorded video data of selected actors, ideal for brand and product identity🎭✨
 
 
 ## 2️⃣ Compute Options 
