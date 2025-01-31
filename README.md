@@ -421,6 +421,10 @@ Above illustrates the process of using Managed Identities, comparing the traditi
 
    Adopting managed identities enhances security, reduces overhead, and simplifies access management. This approach aligns with best practices for secure application development in Azure.
 
+> Click the video below for recorded explanations by our team.
+> <br>
+> <a href="https://www.youtube.com/watch?v=FpX40R14iLM" target="_blank"><img src="./images/animations-explained/Managed Identity Part 1 Explained.png" alt="Azure Managed Identity Part 1" width="300"></a>
+
 ### 🔸Managed Identities in Azure: Enhancing Security Part 2
 
 <div style="text-align: center;">
@@ -501,5 +505,5 @@ Let's work together to make learning fun and engaging for everyone!
 
 * **🎨 Animations Artists:** [Saki Homma](https://www.linkedin.com/in/sakkuru/), [Kristen Chan](https://www.linkedin.com/in/kristen-chan/), [Masato Kikukawa](https://www.linkedin.com/in/kikukawa9/)
 * **✍️ Sketch illustrator:** [Payal Guruprasad](https://www.linkedin.com/in/payalguruprasad/)
-* **🎞️ Broadcasters:** [Joel Ganesan](https://www.linkedin.com/in/joelji/), [Vincent Kok](https://www.linkedin.com/in/vincekok/), [Neeraj Kumar](https://www.linkedin.com/in/neerajtrainer/)
+* **🎞️ Broadcasters:** [Bob Reinsch](https://www.linkedin.com/in/thebobster/), [Joel Ganesan](https://www.linkedin.com/in/joelji/), [Vincent Kok](https://www.linkedin.com/in/vincekok/), [Neeraj Kumar](https://www.linkedin.com/in/neerajtrainer/)
 * **🙏 Core Contributors:** [Nuttapong .](https://www.linkedin.com/in/nutwongaree/)
