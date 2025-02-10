@@ -375,7 +375,7 @@ Azure Storage offers various redundancy options to ensure data durability and hi
 
 These redundancy options help you choose the right level of data protection and availability based on your specific needs.
 
-## 🌐 Networking in Azure
+## 4️⃣ Networking in Azure
 
 ### Azure Networking Part 1
 
@@ -412,7 +412,7 @@ This section covers the basics of Azure networking, including virtual machines (
 - **Subnets**: Segments within a VNet to organize and secure resources.
 - **Smallest CIDR**: The smallest CIDR for a subnet in Azure is /29.
 
-**Virtual Networks (VNets)**
+**Virtual Networks (VNets)** 🌐
 - **Regional Service**: Scoped to a specific Azure region but can connect across regions using Virtual Network Peering.
 - **CIDR Notation**: Specify a custom private IP address space using CIDR, e.g., 10.0.0.0/16.
 - **RFC1918 Address Space**: Microsoft recommends using private IP ranges from RFC1918:
@@ -428,7 +428,7 @@ This section covers the basics of Azure networking, including virtual machines (
 - **Application Security Groups (ASGs)**: Simplify management by grouping VMs.
 - **Flow Logs**: Provide information about allowed or denied traffic for monitoring.
 
-## 4️⃣ Security
+## 5️⃣ Security
 
 Azure offers robust security features to protect your data and applications. These features are designed to ensure the confidentiality, integrity, and availability of your resources.
 
