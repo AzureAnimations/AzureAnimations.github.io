@@ -556,7 +556,7 @@ Let's work together to make learning fun and engaging for everyone!
 
 # Special Thanks ❤️
 
-* **🎨 Animations Artists:** [Saki Homma](https://www.linkedin.com/in/sakkuru/), [Kristen Chan](https://www.linkedin.com/in/kristen-chan/), [Masato Kikukawa](https://www.linkedin.com/in/kikukawa9/)
+* **🎨 Animations Artists:** [Saki Homma](https://www.linkedin.com/in/sakkuru/), [Kristen Chan](https://www.linkedin.com/in/kristen-chan/), [Nuttapong .](https://www.linkedin.com/in/nutwongaree/)
 * **✍️ Sketch illustrator:** [Payal Guruprasad](https://www.linkedin.com/in/payalguruprasad/)
 * **🎞️ Broadcasters:** [Bob Reinsch](https://www.linkedin.com/in/thebobster/), [Joel Ganesan](https://www.linkedin.com/in/joelji/), [Vincent Kok](https://www.linkedin.com/in/vincekok/), [Neeraj Kumar](https://www.linkedin.com/in/neerajtrainer/)
-* **🙏 Core Contributors:** [Nuttapong .](https://www.linkedin.com/in/nutwongaree/)
+* **🙏 Core Contributors:** [Masato Kikukawa](https://www.linkedin.com/in/kikukawa9/)
