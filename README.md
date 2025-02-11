@@ -231,6 +231,54 @@ Additionally, it allows for customization to meet specific needs, such as creati
 
 
 
+### REST API and SDK
+
+![REST API and SDK](https://raw.githubusercontent.com/DaddyCherry/AzureAnimations.github.io/main/images/animations-480thumbnails/mk_rest_sdk.gif)
+
+### What is REST?
+REST (Representational State Transfer) is an architectural style used for designing networked applications. It relies on HTTP requests to communicate between clients and servers.
+
+### Key Concepts of REST:
+- **HTTPS**: Secure communication protocol.
+- **Request**: A call made to the server.
+- **Response**: The data returned by the server.
+- **JSON**: A lightweight data format used for exchanging information.
+- **Key**: Authentication method for API access.
+
+### Understanding SDK and REST API Usage
+Azure provides different ways to integrate AI and cloud services into applications:
+
+### 1️⃣ SDK Supported Languages
+- **Languages:** C#, Python, and others.
+- **SDK Usage:**
+  - Developers can use pre-built SDKs, which simplify the process of making API calls.
+  - SDKs handle HTTP requests and responses internally, allowing developers to interact with services using concise, high-level code.
+- **Example Services:**
+  - AI Search
+  - Azure OpenAI
+
+### 2️⃣ Non-Supported SDK Languages
+- **Languages:** Dart, Swift, and others.
+- **Manual Implementation:**
+  - Developers must send HTTPS requests manually, handling request formatting, authentication, and response parsing.
+- **Example Services:**
+  - Computer Vision
+  - Translator
+
+## Choosing the Right Approach
+| Feature | SDK Supported Languages | Non-Supported SDK Languages |
+|---------|------------------------|----------------------------|
+| Ease of Use | ✅ Simplified API calls | ⚠️ Manual request handling |
+| Performance | ✅ Optimized for efficiency | ⚠️ Requires more development effort |
+| Flexibility | ✅ SDK handles authentication & requests | ✅ Full control over API implementation |
+
+## Conclusion
+When working with Azure services, choosing **SDK-supported languages** can significantly reduce development time. However, for languages that lack SDK support, developers can still use REST APIs by manually implementing HTTP requests and responses.
+
+
+
+
+
 
 
 ## 2️⃣ Compute Options 
