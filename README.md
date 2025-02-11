@@ -448,7 +448,7 @@ Imagine a DB VM in Azure sitting privately in one VNet. Four app VMs from other 
 
 By using ASGs, you can efficiently manage network security and reduce the complexity of maintaining NSG rules.
 
-### 🔸VNET peering and Azure Bastion
+### 🔸VNET Peering and Azure Bastion
 
 <div style="text-align: center;">
   <a href="https://aka.ms/AzureAnimations/AzureInfra/Networking-Part3" target="_blank">
