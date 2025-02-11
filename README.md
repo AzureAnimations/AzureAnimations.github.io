@@ -316,7 +316,7 @@ All plans support auto-scaling, but they differ in scaling limits, pricing💰, 
 
 For more details, check the official documentation 👉 [Azure Functions scale and hosting | Microsoft Learn](https://learn.microsoft.com/en-us/azure/azure-functions/functions-scale)
 
-## 3️⃣ Storage Options
+## 3️⃣ Storage and DatabaseOptions
 
 Azure provides a variety of storage solutions to meet the diverse needs of modern applications. These options are designed to handle different types of data, access patterns, and performance requirements.
 
@@ -374,6 +374,59 @@ Azure Storage offers various redundancy options to ensure data durability and hi
 4.**Geo-Zone-Redundant Storage (GZRS) and Read-Access Geo-Zone-Redundant Storage (RA-GZRS)**: GZRS combines the benefits of ZRS and GRS by replicating your data across availability zones and to a secondary region. RA-GZRS offers read access to the secondary region.
 
 These redundancy options help you choose the right level of data protection and availability based on your specific needs.
+
+
+# Azure Cosmos DB Overview
+
+![Azure Cosmos DB](https://raw.githubusercontent.com/DaddyCherry/AzureAnimations.github.io/main/images/animations-480thumbnails/mk_cosmos_db.gif)
+
+## What is Azure Cosmos DB?
+Azure Cosmos DB is a globally distributed, multi-model database service designed for **scalability, performance, and reliability**. It enables seamless data replication across multiple Azure regions, ensuring **low-latency access** for users worldwide.
+
+## Key Features
+### 1️⃣ Global Distribution
+- Data is **automatically replicated** across multiple Azure regions.
+- Provides **low-latency** access for users globally.
+- Ensures high availability with **99.999% uptime SLA**.
+
+### 2️⃣ Multi-Model Support
+- Supports various **data models** including:
+  - Document
+  - Key-Value
+  - Graph
+  - Column-Family
+- Compatible with multiple **APIs**:
+  - SQL (Core)
+  - MongoDB
+  - Gremlin
+  - Table
+  - Cassandra
+
+### 3️⃣ Performance and Scalability
+- Offers **millisecond latency** for read and write operations.
+- Provides **elastic scalability** for throughput and storage.
+- Removes the complexity of database management, including updates, backups, and scaling.
+
+## Flexible Consistency Models
+Azure Cosmos DB provides **five distinct consistency levels** to optimize the balance between data consistency, availability, and performance:
+- ⭐ **Strong**
+- ⭐ **Bounded Staleness**
+- ⭐ **Session**
+- ⭐ **Consistent Prefix**
+- ⭐ **Eventual**
+
+## Use Cases
+- **IoT Applications**: Manage massive streams of real-time data.
+- **E-Commerce**: Handle product catalogs, orders, and customer data at scale.
+- **Gaming**: Provide fast and reliable access to player data globally.
+- **Social Media**: Deliver real-time feeds, user interactions, and personalized content seamlessly.
+
+
+
+
+
+
+
 
 ## 4️⃣ Networking in Azure
 
