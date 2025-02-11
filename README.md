@@ -377,9 +377,7 @@ These redundancy options help you choose the right level of data protection and 
 
 ## 4️⃣ Networking in Azure
 
-### Azure Networking Part 1
-
-**Overview**
+### 🔸Azure Virtual Network
 
 <div style="text-align: center;">
   <a href="https://aka.ms/AzureAnimations/AzureInfra/Networking-Part1" target="_blank">
@@ -427,6 +425,59 @@ This section covers the basics of Azure networking, including virtual machines (
 - **Default Rules**: Include default rules with the lowest priority.
 - **Application Security Groups (ASGs)**: Simplify management by grouping VMs.
 - **Flow Logs**: Provide information about allowed or denied traffic for monitoring.
+
+### 🔸Network Security Groups (NSG) and Application Security Groups (ASG)
+
+<div style="text-align: center;">
+  <a href="https://aka.ms/AzureAnimations/AzureInfra/Networking-Part2" target="_blank">
+    <img src="./images/animations-480thumbnails/Azure-Vnet-Part2_thumbnail.gif" alt="Azure networking part 2">
+  </a>
+  <p style="text-align: center; font-style: italic;">
+    Azure Networking Part 2 <a href="https://aka.ms/AzureAnimations/AzureInfra/Networking-Part2" target="_blank">Click to download in HD size</a> or <a href="https://aka.ms/AzureAnimations/AzureInfra/Vdo/Networking-Part2" target="_blank">view the HD video</a>
+  </p>
+</div>
+
+**Network Security Groups (NSG)** 🔒
+NSGs are used to filter network traffic to and from Azure resources within a Virtual Network (VNet). They contain security rules that allow or deny inbound and outbound traffic based on IP addresses, ports, and protocols. NSGs can be associated with subnets or individual network interfaces (NICs), providing granular control over network security.
+
+**Application Security Groups (ASG)** 🏷️
+ASGs simplify the management of NSGs by allowing you to group VMs and define network security policies based on these groups. Instead of manually inputting private IP addresses into the NSG, you can create an ASG as a label. The app team can then apply this ASG to their VMs, streamlining the process.
+
+**Scenario: Simplifying NSG Management with ASG**
+Imagine a DB VM in Azure sitting privately in one VNet. Four app VMs from other VNets need to connect to this DB VM. Instead of inputting all the private IP addresses into the NSG, the DB team can create an ASG. The app team applies this ASG to their VMs. Finally, the DB team configures the NSG to allow communication from the ASG, eliminating the need for IP addresses and simplifying future workload management.
+
+By using ASGs, you can efficiently manage network security and reduce the complexity of maintaining NSG rules.
+
+### 🔸VNET peering and Azure Bastion
+
+<div style="text-align: center;">
+  <a href="https://aka.ms/AzureAnimations/AzureInfra/Networking-Part3" target="_blank">
+    <img src="./images/animations-480thumbnails/Azure-Vnet-Part3_thumbnail.gif" alt="Azure networking part 3">
+  </a>
+  <p style="text-align: center; font-style: italic;">
+    Azure Networking Part 3 <a href="https://aka.ms/AzureAnimations/AzureInfra/Networking-Part3" target="_blank">Click to download in HD size</a> or <a href="https://aka.ms/AzureAnimations/AzureInfra/Vdo/Networking-Part3" target="_blank">view the HD video</a>
+  </p>
+</div>
+
+**VNET Peering**
+
+- **Private Connectivity**: Connects virtual networks privately.
+- **High Bandwidth & Low Latency**: Ensures fast communication.
+- **Global Peering**: Supports peering within and across regions.
+- **No Downtime**: No interruptions during setup.
+- **Resource Sharing**: Enables resource sharing between networks.
+- **Non-Overlapping Address Spaces**: Requires unique address spaces.
+
+**Azure Bastion**
+
+- **Public IP Address**: Requires a Standard SKU public IP with static allocation.
+- **Dedicated Subnet**: Needs `AzureBastionSubnet` in the same virtual network.
+- **Subnet Size**: Must be /26 or larger.
+- **Secure Connectivity**: Secure connections to VMs over HTTPS via Azure portal.
+- **Centralized Security**: Protects VMs from malicious activities.
+- **Ease of Use**: Connect via Azure portal or native SSH/RDP client.
+- **No Public IP Required**: VMs do not need a public IP.
+- **Regulatory Compliance**: Meets regulatory requirements.
 
 ## 5️⃣ Security
 
