@@ -231,7 +231,7 @@ Additionally, it allows for customization to meet specific needs, such as creati
 
 
 
-### REST API and SDK
+### 🔸REST API and SDK
 
 ![REST API and SDK](https://raw.githubusercontent.com/DaddyCherry/AzureAnimations.github.io/main/images/animations-480thumbnails/mk_rest_sdk.gif)
 
@@ -427,7 +427,7 @@ Azure Storage offers various redundancy options to ensure data durability and hi
 These redundancy options help you choose the right level of data protection and availability based on your specific needs.
 
 
-### Azure Cosmos DB Overview
+### 🔸Azure Cosmos DB Overview
 
 ![Azure Cosmos DB](https://raw.githubusercontent.com/DaddyCherry/AzureAnimations.github.io/main/images/animations-480thumbnails/mk_cosmos_db.gif)
 
@@ -659,7 +659,7 @@ The animation on the right illustrates the use of user-assigned managed identiti
 
 
 
-### Azure Region and Zone
+### 🔸Azure Region and Zone
 
 ![Azure Region and Zone](https://raw.githubusercontent.com/DaddyCherry/AzureAnimations.github.io/main/images/animations-480thumbnails/mk_region_zone.gif
 )
@@ -702,7 +702,7 @@ A Data Center is a facility that houses IT infrastructure, including servers, st
 
 
 
-### Get Familiar with Azure Cloud Shell
+### 🔸Get Familiar with Azure Cloud Shell
 
 ![Azure Cloud Shell](https://raw.githubusercontent.com/DaddyCherry/AzureAnimations.github.io/main/images/animations-480thumbnails/mk_cloud_shell.gif)
 
