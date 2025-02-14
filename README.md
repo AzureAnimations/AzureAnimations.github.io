@@ -6,7 +6,7 @@
 
 |![Created with hearts by Microsoft Technical Trainers](./images/AzureAnimations-Logo.svg)|
 |:---:|
-| Created with :heart: by Microsoft Technical Trainers|
+| Created with :heart: by Microsoft Technical Trainers & MCTs|
 
 ## About
 
@@ -447,6 +447,34 @@ ASGs simplify the management of NSGs by allowing you to group VMs and define net
 Imagine a DB VM in Azure sitting privately in one VNet. Four app VMs from other VNets need to connect to this DB VM. Instead of inputting all the private IP addresses into the NSG, the DB team can create an ASG. The app team applies this ASG to their VMs. Finally, the DB team configures the NSG to allow communication from the ASG, eliminating the need for IP addresses and simplifying future workload management.
 
 By using ASGs, you can efficiently manage network security and reduce the complexity of maintaining NSG rules.
+
+### 🔸Implementing NSG Rules with ASG
+
+<div style="text-align: center;">
+  <a href="https://aka.ms/AzureAnimations/AzureInfra/Implementing-NSG-Rules-with-ASG" target="_blank">
+    <img src="./images/animations-480thumbnails/Implementing-NSG-Rules-with-ASG_thumbnail.gif" alt="Implementing NSG Rules with ASG">
+  </a>
+  <p style="text-align: center; font-style: italic;">
+    Implementing NSG Rules with ASG <a href="https://aka.ms/AzureAnimations/AzureInfra/Implementing-NSG-Rules-with-ASG" target="_blank">Click to download in HD size</a> or <a href="https://aka.ms/AzureAnimations/AzureInfra/Vdo/Implementing-NSG-Rules-with-ASG" target="_blank">view the HD video</a>
+  </p>
+</div>
+
+**Relationship Between ASG and NSG**
+In Azure, Application Security Groups (ASG) and Network Security Groups (NSG) work together to manage network security.
+
+**Application Security Groups (ASG)**
+ASGs group VMs based on their roles, like web servers or database servers, simplifying security management.
+
+**Network Security Groups (NSG)**
+NSGs control inbound and outbound traffic to and from Azure resources using security rules.
+
+**Scenario: 1 DB VM and 4 App VMs**
+- **ASGs**: Create `DbASG` for the database VM and `AppASG` for the application VMs.
+- **NSG Rules**:
+  - **Allow HTTP traffic to `AppASG`**: This rule should be added to the NSG associated with the application VMs' subnet or network interfaces. It allows inbound HTTP traffic to the VMs in the `AppASG`.
+  - **Allow SQL traffic from `AppASG` to `DbASG`**: This rule should be added to the NSG associated with the database VM's subnet or network interface. It allows inbound SQL traffic from the VMs in the `AppASG` to the VM in the `DbASG`.
+
+By using ASGs in NSG rules, you can efficiently manage security policies for groups of VMs.
 
 ### 🔸VNET Peering and Azure Bastion
 
