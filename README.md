@@ -6,7 +6,7 @@
 
 |![Created with hearts by Microsoft Technical Trainers](./images/AzureAnimations-Logo.svg)|
 |:---:|
-| Created with :heart: by Microsoft Technical Trainers|
+| Created with :heart: by Microsoft Technical Trainers & MCTs|
 
 ## About
 
@@ -450,9 +450,16 @@ By using ASGs, you can efficiently manage network security and reduce the comple
 
 ### 🔸Implementing NSG Rules with ASG
 
+<div style="text-align: center;">
+  <a href="https://aka.ms/AzureAnimations/AzureInfra/Implementing-NSG-Rules-with-ASG" target="_blank">
+    <img src="./images/animations-480thumbnails/Implementing-NSG-Rules-with-ASG_thumbnail.gif" alt="Implementing NSG Rules with ASG">
+  </a>
+  <p style="text-align: center; font-style: italic;">
+    Implementing NSG Rules with ASG <a href="https://aka.ms/AzureAnimations/AzureInfra/Implementing-NSG-Rules-with-ASG" target="_blank">Click to download in HD size</a> or <a href="https://aka.ms/AzureAnimations/AzureInfra/Vdo/Implementing-NSG-Rules-with-ASG" target="_blank">view the HD video</a>
+  </p>
+</div>
 
 **Relationship Between ASG and NSG**
-
 In Azure, Application Security Groups (ASG) and Network Security Groups (NSG) work together to manage network security.
 
 **Application Security Groups (ASG)**
