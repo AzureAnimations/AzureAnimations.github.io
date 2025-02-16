@@ -6,7 +6,7 @@
 
 |![Created with hearts by Microsoft Technical Trainers](./images/AzureAnimations-Logo.svg)|
 |:---:|
-| Created with :heart: by Microsoft Technical Trainers|
+| Created with :heart: by Microsoft Technical Trainers & MCTs|
 
 ## About
 
@@ -189,7 +189,7 @@ Azure AI Document Intelligence is a cutting-edge technology that simplifies how 
 
 📄 **Optical Character Recognition (OCR)**
 Azure's OCR technology converts images and handwritten notes into searchable, editable text. It recognizes text in different languages and formats, paving the way for more advanced processing.
-c
+
 📦 **Prebuilt Models**
 These ready-to-use models allow for quick data extraction from standard documents like invoices, receipts, and business cards.
 
@@ -228,7 +228,6 @@ Additionally, it allows for customization to meet specific needs, such as creati
 - **Custom Speech Models** : Train speech recognition models tailored to specific domains and applications, improving accuracy in specialized fields📈🎯
 - **Text-to-Speech Avatar** : Create animated video avatars that speak based on text input, enhancing user engagement through visual interaction🎥🤖
 - **Custom Text-to-Speech Avatar** : Develop a unique and natural-looking avatar based on recorded video data of selected actors, ideal for brand and product identity🎭✨
-
 
 
 ### 🔸REST API and SDK
@@ -274,11 +273,6 @@ Azure provides different ways to integrate AI and cloud services into applicatio
 
 ## Conclusion
 When working with Azure services, choosing **SDK-supported languages** can significantly reduce development time. However, for languages that lack SDK support, developers can still use REST APIs by manually implementing HTTP requests and responses.
-
-
-
-
-
 
 
 ## 2️⃣ Compute Options 
@@ -431,16 +425,16 @@ These redundancy options help you choose the right level of data protection and 
 
 ![Azure Cosmos DB](https://raw.githubusercontent.com/DaddyCherry/AzureAnimations.github.io/main/images/animations-480thumbnails/mk_cosmos_db.gif)
 
-### What is Azure Cosmos DB?
+#### What is Azure Cosmos DB?
 Azure Cosmos DB is a globally distributed, multi-model database service designed for **scalability, performance, and reliability**. It enables seamless data replication across multiple Azure regions, ensuring **low-latency access** for users worldwide.
 
-### Key Features
-### 1️⃣ Global Distribution
+#### Key Features
+#### 1️. Global Distribution
 - Data is **automatically replicated** across multiple Azure regions.
 - Provides **low-latency** access for users globally.
 - Ensures high availability with **99.999% uptime SLA**.
 
-### 2️⃣ Multi-Model Support
+#### 2️. Multi-Model Support
 - Supports various **data models** including:
   - Document
   - Key-Value
@@ -453,12 +447,12 @@ Azure Cosmos DB is a globally distributed, multi-model database service designed
   - Table
   - Cassandra
 
-### 3️⃣ Performance and Scalability
+#### 3️. Performance and Scalability
 - Offers **millisecond latency** for read and write operations.
 - Provides **elastic scalability** for throughput and storage.
 - Removes the complexity of database management, including updates, backups, and scaling.
 
-## Flexible Consistency Models
+#### Flexible Consistency Models
 Azure Cosmos DB provides **five distinct consistency levels** to optimize the balance between data consistency, availability, and performance:
 - ⭐ **Strong**
 - ⭐ **Bounded Staleness**
@@ -466,7 +460,7 @@ Azure Cosmos DB provides **five distinct consistency levels** to optimize the ba
 - ⭐ **Consistent Prefix**
 - ⭐ **Eventual**
 
-## Use Cases
+#### Use Cases
 - **IoT Applications**: Manage massive streams of real-time data.
 - **E-Commerce**: Handle product catalogs, orders, and customer data at scale.
 - **Gaming**: Provide fast and reliable access to player data globally.
@@ -474,16 +468,9 @@ Azure Cosmos DB provides **five distinct consistency levels** to optimize the ba
 
 
 
-
-
-
-
-
 ## 4️⃣ Networking in Azure
 
-### Azure Networking Part 1
-
-**Overview**
+### 🔸Azure Virtual Network
 
 <div style="text-align: center;">
   <a href="https://aka.ms/AzureAnimations/AzureInfra/Networking-Part1" target="_blank">
@@ -532,11 +519,86 @@ This section covers the basics of Azure networking, including virtual machines (
 - **Application Security Groups (ASGs)**: Simplify management by grouping VMs.
 - **Flow Logs**: Provide information about allowed or denied traffic for monitoring.
 
+### 🔸Network Security Groups (NSG) and Application Security Groups (ASG)
 
+<div style="text-align: center;">
+  <a href="https://aka.ms/AzureAnimations/AzureInfra/Networking-Part2" target="_blank">
+    <img src="./images/animations-480thumbnails/Azure-Vnet-Part2_thumbnail.gif" alt="Azure networking part 2">
+  </a>
+  <p style="text-align: center; font-style: italic;">
+    Azure Networking Part 2 <a href="https://aka.ms/AzureAnimations/AzureInfra/Networking-Part2" target="_blank">Click to download in HD size</a> or <a href="https://aka.ms/AzureAnimations/AzureInfra/Vdo/Networking-Part2" target="_blank">view the HD video</a>
+  </p>
+</div>
 
+**Network Security Groups (NSG)** 🔒
+NSGs are used to filter network traffic to and from Azure resources within a Virtual Network (VNet). They contain security rules that allow or deny inbound and outbound traffic based on IP addresses, ports, and protocols. NSGs can be associated with subnets or individual network interfaces (NICs), providing granular control over network security.
 
+**Application Security Groups (ASG)** 🏷️
+ASGs simplify the management of NSGs by allowing you to group VMs and define network security policies based on these groups. Instead of manually inputting private IP addresses into the NSG, you can create an ASG as a label. The app team can then apply this ASG to their VMs, streamlining the process.
 
+**Scenario: Simplifying NSG Management with ASG**
+Imagine a DB VM in Azure sitting privately in one VNet. Four app VMs from other VNets need to connect to this DB VM. Instead of inputting all the private IP addresses into the NSG, the DB team can create an ASG. The app team applies this ASG to their VMs. Finally, the DB team configures the NSG to allow communication from the ASG, eliminating the need for IP addresses and simplifying future workload management.
 
+By using ASGs, you can efficiently manage network security and reduce the complexity of maintaining NSG rules.
+
+### 🔸Implementing NSG Rules with ASG
+
+<div style="text-align: center;">
+  <a href="https://aka.ms/AzureAnimations/AzureInfra/Implementing-NSG-Rules-with-ASG" target="_blank">
+    <img src="./images/animations-480thumbnails/Implementing-NSG-Rules-with-ASG_thumbnail.gif" alt="Implementing NSG Rules with ASG">
+  </a>
+  <p style="text-align: center; font-style: italic;">
+    Implementing NSG Rules with ASG <a href="https://aka.ms/AzureAnimations/AzureInfra/Implementing-NSG-Rules-with-ASG" target="_blank">Click to download in HD size</a> or <a href="https://aka.ms/AzureAnimations/AzureInfra/Vdo/Implementing-NSG-Rules-with-ASG" target="_blank">view the HD video</a>
+  </p>
+</div>
+
+**Scenario: 1 DB VM and 4 App VMs**
+
+**📂 ASGs**
+- **DbASG**: Group for the database VM.
+- **AppASG**: Group for the four application VMs.
+
+**🔒 NSG Rules**
+1. **Allow HTTP traffic to `AppASG`**:
+   - **NSG**: Add this rule to the NSG associated with the **application VMs' subnet or network interfaces**.
+   - **Purpose**: It allows inbound HTTP traffic to the VMs in the `AppASG`.
+
+2. **Allow SQL traffic from `AppASG` to `DbASG`**:
+   - **NSG**: Add this rule to the NSG associated with the **database VM's subnet or network interface**.
+   - **Purpose**: It allows inbound SQL traffic from the VMs in the `AppASG` to the VM in the `DbASG`.
+
+This setup ensures that your application VMs can receive HTTP traffic and communicate with the database VM over SQL.
+
+### 🔸VNET Peering and Azure Bastion
+
+<div style="text-align: center;">
+  <a href="https://aka.ms/AzureAnimations/AzureInfra/Networking-Part3" target="_blank">
+    <img src="./images/animations-480thumbnails/Azure-Vnet-Part3_thumbnail.gif" alt="Azure networking part 3">
+  </a>
+  <p style="text-align: center; font-style: italic;">
+    Azure Networking Part 3 <a href="https://aka.ms/AzureAnimations/AzureInfra/Networking-Part3" target="_blank">Click to download in HD size</a> or <a href="https://aka.ms/AzureAnimations/AzureInfra/Vdo/Networking-Part3" target="_blank">view the HD video</a>
+  </p>
+</div>
+
+**VNET Peering**
+
+- **Private Connectivity**: Connects virtual networks privately.
+- **High Bandwidth & Low Latency**: Ensures fast communication.
+- **Global Peering**: Supports peering within and across regions.
+- **No Downtime**: No interruptions during setup.
+- **Resource Sharing**: Enables resource sharing between networks.
+- **Non-Overlapping Address Spaces**: Requires unique address spaces.
+
+**Azure Bastion**
+
+- **Public IP Address**: Requires a Standard SKU public IP with static allocation.
+- **Dedicated Subnet**: Needs `AzureBastionSubnet` in the same virtual network.
+- **Subnet Size**: Must be /26 or larger.
+- **Secure Connectivity**: Secure connections to VMs over HTTPS via Azure portal.
+- **Centralized Security**: Protects VMs from malicious activities.
+- **Ease of Use**: Connect via Azure portal or native SSH/RDP client.
+- **No Public IP Required**: VMs do not need a public IP.
+- **Regulatory Compliance**: Meets regulatory requirements.
 
 ## 5️⃣ Security
 
@@ -652,8 +714,6 @@ The animation on the right illustrates the use of user-assigned managed identiti
 
 
 
-
-
 ## 6️⃣  Basics of Azure
 
 
@@ -700,8 +760,6 @@ A Data Center is a facility that houses IT infrastructure, including servers, st
 
 
 
-
-
 ### 🔸Get Familiar with Azure Cloud Shell
 
 ![Azure Cloud Shell](https://raw.githubusercontent.com/DaddyCherry/AzureAnimations.github.io/main/images/animations-480thumbnails/mk_cloud_shell.gif)
@@ -736,9 +794,6 @@ Azure Cloud Shell is a **browser-based, fully-managed command-line environment**
 
 ## Start Your Cloud Journey!
 With **Azure Cloud Shell**, you're not just learning theory—you’re mastering the tools and workflows needed to become a confident and capable Azure administrator. Get started today and streamline your cloud operations!
-
-
-
 
 
 
