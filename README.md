@@ -667,31 +667,31 @@ The animation on the right illustrates the use of user-assigned managed identiti
 ### Overview
 Microsoft Azure is a global cloud computing platform that provides a vast array of services, including computing power, storage, and networking capabilities. Understanding Azure Regions and Availability Zones is crucial for designing resilient and scalable cloud solutions.
 
-## Availability Zones
+### Availability Zones
 Availability Zones are physically separate locations within a region. Each zone has its own independent power, cooling, and networking to ensure high availability and fault tolerance. These zones help protect applications and data from datacenter failures and ensure business continuity.
 
-### Key Benefits of Availability Zones:
+#### Key Benefits of Availability Zones:
 - **Fault Isolation**: If one zone experiences an issue, the others remain operational.
 - **Redundancy**: Deploying applications across multiple zones improves resilience.
 - **Low Latency**: Since all zones are within the same region, network latency is minimal.
 
-## Region
+### Region
 A Region is a specific geographical area where Azure data centers are located. Each region consists of multiple data centers that deliver Azure services. Microsoft strategically places these regions worldwide to provide high availability, compliance with local regulations, and disaster recovery capabilities.
 
-### Factors to Consider When Selecting a Region:
+#### Factors to Consider When Selecting a Region:
 - **Proximity to Users**: Choose a region close to your user base to reduce latency.
 - **Regulatory Compliance**: Some regions comply with specific legal requirements.
 - **Service Availability**: Not all Azure services are available in every region.
 
-## Data Center
+### Data Center
 A Data Center is a facility that houses IT infrastructure, including servers, storage systems, and networking components, to support cloud computing services. These data centers are designed to be energy-efficient, secure, and resilient to physical and cyber threats.
 
-## Primary and Secondary Regions
+### Primary and Secondary Regions
 - **Primary Region**: Contains multiple Availability Zones (Zone 1, Zone 2, Zone 3) to provide redundancy and high availability.
 - **Secondary Region**: Consists of a single zone and is connected to the primary region via Microsoft's Backbone Network, ensuring fast and secure data transfer.
 - **Geo-Redundancy**: Some Azure services offer geo-redundant storage (GRS), replicating data to a secondary region to protect against regional failures.
 
-## Best Practices for Using Regions and Availability Zones
+### Best Practices for Using Regions and Availability Zones
 1. **Deploy Across Multiple Availability Zones**: Ensures resilience and minimizes downtime.
 2. **Utilize Azure Traffic Manager**: Directs traffic across different regions for improved performance.
 3. **Implement Backup and Disaster Recovery**: Use Azure Backup and Azure Site Recovery for business continuity.
