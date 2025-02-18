@@ -27,11 +27,11 @@ Azure AI is your gateway to transforming ideas into reality! Whether it's buildi
 ### 🔸Get started : AI in Azure
 
 <div style="text-align: center;">
-  <a href="https://aka.ms/AzureAnimations/AzureAI/Get-Started-AI-In-Azure-PNG" target="_blank">
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Get-Started-AI-In-Azure.png" target="_blank">
     <img src="./images/animations-480thumbnails/Get-Started-AI-In-Azure%2Bthumbnail.png" alt="Get Started AI in Azure">
   </a>
   <p style="text-align: center; font-style: italic;">
-    Get Started - AI in Azure <a href="https://aka.ms/AzureAnimations/AzureAI/Get-Started-AI-In-Azure-PNG" target="_blank">Click to download in HD size</a>, <a href="https://aka.ms/AzureAnimations/AzureAI/Get-Started-AI-In-Azure" target="_blank">GIF</a> or <a href="https://aka.ms/AzureAnimations/AzureAI/Vdo/Get-Started-AI-In-Azure" target="_blank">view the HD video</a>
+    Get Started - AI in Azure <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Get-Started-AI-In-Azure.png" target="_blank">Click to download in HD size</a>, <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Get-Started-AI-In-Azure.gif" target="_blank">GIF</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Get-Started-AI-In-Azure-Vdo.mp4" target="_blank">view the HD video</a>
   </p>
 </div>
 
@@ -49,11 +49,11 @@ AI in Azure offers a range of cloud services designed to help you build intellig
 ### 🔸Understanding Azure AI: Single Service vs. Multi-Service Account
 
 <div style="text-align: center;">
-  <a href="https://aka.ms/AzureAnimations/AzureAI/Single-vs-Multi-Service-Account" target="_blank">
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/AI-Single-vs-Multi-Service.gif" target="_blank">
     <img src="./images/animations-480thumbnails/AI-Single-vs-Multi-Service_thumbnail.gif" alt="Azure AI Containers">
   </a>
   <p style="text-align: center; font-style: italic;">
-    Azure AI: Single Service vs. Multi-Service Account <a href="https://aka.ms/AzureAnimations/AzureAI/Single-vs-Multi-Service-Account" target="_blank">Click to download in HD size</a> or <a href="https://aka.ms/AzureAnimations/AzureAI/Vdo/Single-vs-Multi-Service-Account" target="_blank">view the HD video</a>
+    Azure AI: Single Service vs. Multi-Service Account <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/AI-Single-vs-Multi-Service.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/AI-Single-vs-Multi-Service-Vdo.mp4" target="_blank">view the HD video</a>
   </p>
 </div>
 
@@ -87,11 +87,11 @@ AI in Azure offers a range of cloud services designed to help you build intellig
 ### 🔸Azure AI Containers
 
 <div style="text-align: center;">
-  <a href="https://aka.ms/AzureAnimations/AzurAI/CognitiveContainers" target="_blank">
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Cognitive-Container.gif" target="_blank">
     <img src="./images/animations-480thumbnails/Cognitive-Container_thumbnail.gif" alt="Azure AI Containers">
   </a>
   <p style="text-align: center; font-style: italic;">
-    Azure AI Containers <a href="https://aka.ms/AzureAnimations/AzurAI/CognitiveContainers" target="_blank">Click to download in HD size</a> or <a href="https://aka.ms/AzureAnimations/AzurAI/Vdo/CognitiveContainers" target="_blank">view the HD video</a>
+    Azure AI Containers <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Cognitive-Container.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Cognitive-Container-Vdo.mp4" target="_blank">view the HD video</a>
   </p>
 </div>
 
@@ -121,11 +121,11 @@ Azure AI containers provide an optimal blend of performance, privacy, and cost-e
 ### 🔸Azure OpenAI - Provisioning and Deployment Creation
 
 <div style="text-align: center;">
-  <a href="https://aka.ms/AzureAnimations/AzureOpenAI/ProvisionDeploymentCreation" target="_blank">
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Azure%20OpenAI%20-%20Provisioning%20and%20Deployment%20Creation.gif" target="_blank">
     <img src="./images/animations-480thumbnails/Azure OpenAI - AI Foundry Studio_Provisioning_and_Deployment_Creation_-_thumbnail.gif" alt="Azure OpenAI - Provisioning and Deployment Creation">
   </a>
   <p style="text-align: center; font-style: italic;">
-    Azure OpenAI - Provisioning and Deployment Creation <a href="https://aka.ms/AzureAnimations/AzureOpenAI/ProvisionDeploymentCreation" target="_blank">Click to download in HD size</a>
+    Azure OpenAI - Provisioning and Deployment Creation <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Azure%20OpenAI%20-%20Provisioning%20and%20Deployment%20Creation.gif" target="_blank">Click to download in HD size</a>
   </p>
 </div>
 
@@ -150,11 +150,11 @@ Above illustrates the process of provisioning Azure OpenAI, we start by using th
 ### 🔸Azure AI Search - Custom Skill
 
 <div style="text-align: center;">
-  <a href="https://aka.ms/AzureAnimations/AzureAI/AISearchCustomSkill" target="_blank">
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/AzureAISearch-CustomSkill.gif" target="_blank">
     <img src="./images/animations-480thumbnails/AzureAISearch-CustomSkill_thumbnail.gif" alt="Azure AI Search - Custom Skill">
   </a>
   <p style="text-align: center; font-style: italic;">
-    Azure AI Search - Custom Skill <a href="https://aka.ms/AzureAnimations/AzureAI/AISearchCustomSkill" target="_blank">Click to download in HD size</a> or <a href="https://aka.ms/AzureAnimations/AzureAI/Vdo/AISearchCustomSkill" target="_blank">view the HD video</a>
+    Azure AI Search - Custom Skill <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/AzureAISearch-CustomSkill.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/AzureAISearch-CustomSkill-Vdo.mp4" target="_blank">view the HD video</a>
   </p>
 </div>
 
@@ -177,11 +177,11 @@ Azure AI Search is a powerful AI-driven solution that combines built-in and cust
 ### 🔸Azure AI Document Intelligence
 
 <div style="text-align: center;">
-  <a href="https://aka.ms/AzureAnimations/AzureAI/Document-Intelligence" target="_blank">
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Document-Intelligence.gif" target="_blank">
     <img src="./images/animations-480thumbnails/Document-Intelligence_thumbnail.gif" alt="Azure AI Document Intelligence">
   </a>
   <p style="text-align: center; font-style: italic;">
-    Azure AI Document Intelligence <a href="https://aka.ms/AzureAnimations/AzureAI/Document-Intelligence" target="_blank">Click to download in HD size</a> or <a href="https://aka.ms/AzureAnimations/AzureAI/Vdo/Document-Intelligence" target="_blank">view the HD video</a>
+    Azure AI Document Intelligence <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Document-Intelligence.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Document-Intelligence-Vdo.mp4" target="_blank">view the HD video</a>
   </p>
 </div>
 
@@ -208,11 +208,11 @@ Azure AI Document Intelligence helps turn your documents into valuable assets, i
 ### 🔸Azure AI Speech Service
 
 <div style="text-align: center;">
-  <a href="https://aka.ms/AzureAnimations/AzureAI/Speech" target="_blank">
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Azure-Speech-Service.gif" target="_blank">
     <img src="./images/animations-480thumbnails/Azure-Speech-Service_thumbnail.gif" alt="Azure AI Document Intelligence">
   </a>
   <p style="text-align: center; font-style: italic;">
-    Azure AI Speech Service <a href="https://aka.ms/AzureAnimations/AzureAI/Speech" target="_blank">Click to download in HD size</a>
+    Azure AI Speech Service <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Azure-Speech-Service.gif" target="_blank">Click to download in HD size</a>
   </p>
 </div>
 
@@ -237,11 +237,11 @@ Azure offers a world of compute options designed to power anything from your sma
 ### 🔸App Service Animations Overview
 
 <div style="text-align: center;">
-  <a href="https://aka.ms/AzureAnimations/AppService/AppPlanDeploymentSlot" target="_blank">
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Compute/Azure%20App%20Services%20-%20App%20Service%20Plan%20Deployment%20Slot.gif" target="_blank">
     <img src="./images/animations-480thumbnails/Azure_App_Services_-_App_Service_Plan_Deployment_Slot_-_thumbnail.gif" alt="App Services, App Service Plan and Deployment Slot">
   </a>
   <p style="text-align: center; font-style: italic;">
-    App Services, App Service Plan and Deployment Slot <a href="https://aka.ms/AzureAnimations/AppService/AppPlanDeploymentSlot" target="_blank">Click to download in HD size</a>
+    App Services, App Service Plan and Deployment Slot <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Compute/Azure%20App%20Services%20-%20App%20Service%20Plan%20Deployment%20Slot.gif" target="_blank">Click to download in HD size</a>
   </p>
 </div>
 
@@ -280,12 +280,12 @@ Above illustrates the process of using Azure App Service. We start by provisioni
 ### 🔸Azure Functions Hosting Options Overview
 
 <div style="text-align: center;">
-  <a href="https://aka.ms/AzureAnimations/Compute/Functions-Hosting-Options" target="_blank">
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Compute/Azure-Functions-Hosting-Options.gif" target="_blank">
     <img src="./images/animations-480thumbnails/Azure-Functions-Hosting-Options-thumb.gif" alt="Azure Functions Hosting Options Overview">
   </a>
   <p style="text-align: center; font-style: italic;">
     Azure Functions Hosting Options Overview
- <a href="https://aka.ms/AzureAnimations/Compute/Functions-Hosting-Options" target="_blank">Click to download in HD size</a>
+ <a href="raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Compute/Azure-Functions-Hosting-Options.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Compute/Azure-Functions-Hosting-Options-Vdo.mp4" target="_blank">view the HD video</a>
   </p>
 </div>
 
