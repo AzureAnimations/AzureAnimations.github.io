@@ -384,7 +384,7 @@ These redundancy options help you choose the right level of data protection and 
     <img src="./images/animations-480thumbnails/Azure-Vnet-Part1_thumbnail.gif" alt="Azure networking part 1">
   </a>
   <p style="text-align: center; font-style: italic;">
-    Azure Networking Part 1 <a href="https:/raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Azure-Vnet-Part1.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Azure-Vnet-Part1-Vdo.mp4" target="_blank">view the HD video</a>
+    Azure Networking Part 1 <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Azure-Vnet-Part1.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Azure-Vnet-Part1-Vdo.mp4" target="_blank">view the HD video</a>
   </p>
 </div>
 
