@@ -285,7 +285,7 @@ Above illustrates the process of using Azure App Service. We start by provisioni
   </a>
   <p style="text-align: center; font-style: italic;">
     Azure Functions Hosting Options Overview
- <a href="raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Compute/Azure-Functions-Hosting-Options.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Compute/Azure-Functions-Hosting-Options-Vdo.mp4" target="_blank">view the HD video</a>
+ <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Compute/Azure-Functions-Hosting-Options.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Compute/Azure-Functions-Hosting-Options-Vdo.mp4" target="_blank">view the HD video</a>
   </p>
 </div>
 
@@ -323,11 +323,11 @@ Azure provides a variety of storage solutions to meet the diverse needs of moder
 ### 🔸Storage Account
 
 <div style="text-align: center;">
-  <a href="https://aka.ms/AzureAnimations/StorageAccount/TiersServicesTypes" target="_blank">
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Storage/Azure%20Storage%20Account%20-%20Tiers%20Services%20Types.gif" target="_blank">
     <img src="./images/animations-480thumbnails/Azure_Storage_Account_-_Tiers_Services_Types_-_thumbnail.gif" alt="Storage Account, Tiers, Services and Types">
   </a>
   <p style="text-align: center; font-style: italic;">
-    Storage Account, Tiers, Services and Types <a href="https://aka.ms/AzureAnimations/StorageAccount/TiersServicesTypes" target="_blank">Click to download in HD size</a> or <a href="https://aka.ms/AzureAnimations/StorageAccount/Vdo/TiersServicesTypes" target="_blank">view the HD video</a>
+    Storage Account, Tiers, Services and Types <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Storage/Azure%20Storage%20Account%20-%20Tiers%20Services%20Types.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Storage/Azure%20Storage%20Account%20-%20Tiers%20Services%20Types-Vdo.mp4" target="_blank">view the HD video</a>
   </p>
 </div>
 
@@ -358,11 +358,11 @@ Above illustrates the process of using an Azure Storage Account. We start by und
 ### 🔸Redundancy Options in Azure Storage Account
 
 <div style="text-align: center;">
-  <a href="https://aka.ms/AzureAnimations/StorageAccount/Redundancy_Options" target="_blank">
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Storage/Azure_Storage_Redundancy.gif" target="_blank">
     <img src="./images/animations-480thumbnails/Azure_Storage_Redundancy_thumbnail.gif" alt="Storage Account, Tiers, Services and Types">
   </a>
   <p style="text-align: center; font-style: italic;">
-    Storage Account - Redundancy Options <a href="https://aka.ms/AzureAnimations/StorageAccount/Redundancy_Options" target="_blank">Click to download in HD size</a> or <a href="https://aka.ms/AzureAnimations/StorageAccount/Vdo/Redundancy_Options" target="_blank">view the HD video</a>
+    Storage Account - Redundancy Options <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Storage/Azure_Storage_Redundancy.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Storage/Azure_Storage_Redundancy_Vdo.mp4" target="_blank">view the HD video</a>
   </p>
 </div>
 
@@ -380,11 +380,11 @@ These redundancy options help you choose the right level of data protection and 
 ### 🔸Azure Virtual Network
 
 <div style="text-align: center;">
-  <a href="https://aka.ms/AzureAnimations/AzureInfra/Networking-Part1" target="_blank">
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Azure-Vnet-Part1.gif" target="_blank">
     <img src="./images/animations-480thumbnails/Azure-Vnet-Part1_thumbnail.gif" alt="Azure networking part 1">
   </a>
   <p style="text-align: center; font-style: italic;">
-    Azure Networking Part 1 <a href="https://aka.ms/AzureAnimations/AzureInfra/Networking-Part1" target="_blank">Click to download in HD size</a> or <a href="https://aka.ms/AzureAnimations/AzureInfra/Vdo/Networking-Part1" target="_blank">view the HD video</a>
+    Azure Networking Part 1 <a href="raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Azure-Vnet-Part1.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Azure-Vnet-Part1-Vdo.mp4" target="_blank">view the HD video</a>
   </p>
 </div>
 
@@ -429,11 +429,11 @@ This section covers the basics of Azure networking, including virtual machines (
 ### 🔸Network Security Groups (NSG) and Application Security Groups (ASG)
 
 <div style="text-align: center;">
-  <a href="https://aka.ms/AzureAnimations/AzureInfra/Networking-Part2" target="_blank">
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Azure-Vnet-Part2.gif" target="_blank">
     <img src="./images/animations-480thumbnails/Azure-Vnet-Part2_thumbnail.gif" alt="Azure networking part 2">
   </a>
   <p style="text-align: center; font-style: italic;">
-    Azure Networking Part 2 <a href="https://aka.ms/AzureAnimations/AzureInfra/Networking-Part2" target="_blank">Click to download in HD size</a> or <a href="https://aka.ms/AzureAnimations/AzureInfra/Vdo/Networking-Part2" target="_blank">view the HD video</a>
+    Azure Networking Part 2 <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Azure-Vnet-Part2.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Azure-Vnet-Part2-Vdo.mp4" target="_blank">view the HD video</a>
   </p>
 </div>
 
@@ -451,11 +451,11 @@ By using ASGs, you can efficiently manage network security and reduce the comple
 ### 🔸Implementing NSG Rules with ASG
 
 <div style="text-align: center;">
-  <a href="https://aka.ms/AzureAnimations/AzureInfra/Implementing-NSG-Rules-with-ASG" target="_blank">
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Implementing-NSG-Rules-with-ASG.gif" target="_blank">
     <img src="./images/animations-480thumbnails/Implementing-NSG-Rules-with-ASG_thumbnail.gif" alt="Implementing NSG Rules with ASG">
   </a>
   <p style="text-align: center; font-style: italic;">
-    Implementing NSG Rules with ASG <a href="https://aka.ms/AzureAnimations/AzureInfra/Implementing-NSG-Rules-with-ASG" target="_blank">Click to download in HD size</a> or <a href="https://aka.ms/AzureAnimations/AzureInfra/Vdo/Implementing-NSG-Rules-with-ASG" target="_blank">view the HD video</a>
+    Implementing NSG Rules with ASG <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Implementing-NSG-Rules-with-ASG.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Implementing-NSG-Rules-with-ASG.mp4" target="_blank">view the HD video</a>
   </p>
 </div>
 
@@ -479,11 +479,11 @@ This setup ensures that your application VMs can receive HTTP traffic and commun
 ### 🔸VNET Peering and Azure Bastion
 
 <div style="text-align: center;">
-  <a href="https://aka.ms/AzureAnimations/AzureInfra/Networking-Part3" target="_blank">
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Azure-Vnet-Part3.gif" target="_blank">
     <img src="./images/animations-480thumbnails/Azure-Vnet-Part3_thumbnail.gif" alt="Azure networking part 3">
   </a>
   <p style="text-align: center; font-style: italic;">
-    Azure Networking Part 3 <a href="https://aka.ms/AzureAnimations/AzureInfra/Networking-Part3" target="_blank">Click to download in HD size</a> or <a href="https://aka.ms/AzureAnimations/AzureInfra/Vdo/Networking-Part3" target="_blank">view the HD video</a>
+    Azure Networking Part 3 <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Azure-Vnet-Part3.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Azure-Vnet-Part3-Vdo.mp4" target="_blank">view the HD video</a>
   </p>
 </div>
 
@@ -514,11 +514,11 @@ Azure offers robust security features to protect your data and applications. The
 ### 🔸Managed Identities in Azure: Enhancing Security Part 1
 
 <div style="text-align: center;">
-  <a href="https://aka.ms/AzureAnimations/Security/ManagedIdentities_Part1" target="_blank">
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Security/Managed-Identities-Part1.gif" target="_blank">
     <img src="./images/animations-480thumbnails/Azure_Managed-Identities-Part1_thumbnail.gif" alt="Managed Identities part 1">
   </a>
   <p style="text-align: center; font-style: italic;">
-    Managed Identities Part 1 <a href="https://aka.ms/AzureAnimations/Security/ManagedIdentities_Part1" target="_blank">Click to download in HD size</a> or <a href="https://aka.ms/AzureAnimations/Security/Vdo/ManagedIdentities_Part1" target="_blank">view the HD video</a>
+    Managed Identities Part 1 <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Security/Managed-Identities-Part1.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Security/Managed-Identities-Part1-Vdo.mp4" target="_blank">view the HD video</a>
   </p>
 </div>
 
@@ -560,11 +560,11 @@ Above illustrates the process of using Managed Identities, comparing the traditi
 ### 🔸Managed Identities in Azure: Enhancing Security Part 2
 
 <div style="text-align: center;">
-  <a href="https://aka.ms/AzureAnimations/Security/ManagedIdentities_Part2" target="_blank">
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Security/Managed-Identities-Part2.gif" target="_blank">
     <img src="./images/animations-480thumbnails/Azure_Managed-Identities-Part2_thumbnail.gif" alt="Managed Identities part 1">
   </a>
   <p style="text-align: center; font-style: italic;">
-    Managed Identities Part 2 <a href="https://aka.ms/AzureAnimations/Security/ManagedIdentities_Part2" target="_blank">Click to download in HD size</a> or <a href="https://aka.ms/AzureAnimations/Security/Vdo/ManagedIdentities_Part2" target="_blank">view the HD video</a>
+    Managed Identities Part 2 <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Security/Managed-Identities-Part2.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Security/Managed-Identities-Part2-Vdo.mp4" target="_blank">view the HD video</a>
   </p>
 </div>
 
@@ -635,7 +635,7 @@ Let's work together to make learning fun and engaging for everyone!
 
 # Special Thanks ❤️
 
-* **🎨 Animations Artists:** [Saki Homma](https://www.linkedin.com/in/sakkuru/), [Kristen Chan](https://www.linkedin.com/in/kristen-chan/), [Masato Kikukawa](https://www.linkedin.com/in/kikukawa9/)
+* **🎨 Animations Artists:** [Saki Homma](https://www.linkedin.com/in/sakkuru/), [Kristen Chan](https://www.linkedin.com/in/kristen-chan/), [Masato Kikukawa](https://www.linkedin.com/in/kikukawa9/), [Maria Cederhierta](https://www.linkedin.com/in/cederhierta/)
 * **✍️ Sketch illustrator:** [Payal Guruprasad](https://www.linkedin.com/in/payalguruprasad/)
 * **🎞️ Broadcasters:** [Bob Reinsch](https://www.linkedin.com/in/thebobster/), [Joel Ganesan](https://www.linkedin.com/in/joelji/), [Vincent Kok](https://www.linkedin.com/in/vincekok/), [Neeraj Kumar](https://www.linkedin.com/in/neerajtrainer/)
 * **🙏 Core Contributors:** [Nuttapong .](https://www.linkedin.com/in/nutwongaree/)
