@@ -205,6 +205,10 @@ Combine different custom models into one for processing multiple document types 
 
 Azure AI Document Intelligence helps turn your documents into valuable assets, improving decision-making and efficiency. Embrace the Azure ecosystem to fully unlock the potential of your documents with unmatched customization and intelligence.
 
+> Click the video below for recorded explanations by our team.
+> <br>
+> <a href="https://www.linkedin.com/posts/lauransi_azure-documentintelligence-ai-activity-7298284461496918016-PFfO?utm_source=share&utm_medium=member_desktop&rcm=ACoAAAakJdcBEt-I6o6GFyc4tzPmZeyP6nGKWyg" target="_blank"><img src="./images/animations-explained/Azure Document Intelligence Explaied.png" alt="Azure Document Intelligence Explained" width="300"></a>
+
 ### 🔸Azure AI Speech Service
 
 <div style="text-align: center;">
@@ -637,5 +641,5 @@ Let's work together to make learning fun and engaging for everyone!
 
 * **🎨 Animations Artists:** [Saki Homma](https://www.linkedin.com/in/sakkuru/), [Kristen Chan](https://www.linkedin.com/in/kristen-chan/), [Masato Kikukawa](https://www.linkedin.com/in/kikukawa9/), [Maria Cederhierta](https://www.linkedin.com/in/cederhierta/)
 * **✍️ Sketch illustrator:** [Payal Guruprasad](https://www.linkedin.com/in/payalguruprasad/)
-* **🎞️ Broadcasters:** [Bob Reinsch](https://www.linkedin.com/in/thebobster/), [Joel Ganesan](https://www.linkedin.com/in/joelji/), [Vincent Kok](https://www.linkedin.com/in/vincekok/), [Neeraj Kumar](https://www.linkedin.com/in/neerajtrainer/)
+* **🎞️ Broadcasters:** [Laura Núñez SierraLaura Núñez Sierra](https://www.linkedin.com/in/lauransi/), [Bob Reinsch](https://www.linkedin.com/in/thebobster/), [Joel Ganesan](https://www.linkedin.com/in/joelji/), [Vincent Kok](https://www.linkedin.com/in/vincekok/), [Neeraj Kumar](https://www.linkedin.com/in/neerajtrainer/)
 * **🙏 Core Contributors:** [Nuttapong .](https://www.linkedin.com/in/nutwongaree/)
