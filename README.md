@@ -430,7 +430,7 @@ This section covers the basics of Azure networking, including virtual machines (
 - **Application Security Groups (ASGs)**: Simplify management by grouping VMs.
 - **Flow Logs**: Provide information about allowed or denied traffic for monitoring.
 
-### 🔸Network Security Groups (NSG) and Application Security Groups (ASG)
+### 🔸Network Security Groups (NSG) and Application Security Groups (ASG) - 3 animations
 
 <div style="text-align: center;">
   <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Azure-Vnet-Part2.gif" target="_blank">
@@ -452,7 +452,7 @@ Imagine a DB VM in Azure sitting privately in one VNet. Four app VMs from other 
 
 By using ASGs, you can efficiently manage network security and reduce the complexity of maintaining NSG rules.
 
-### 🔸Implementing NSG Rules with ASG
+**Implementing NSG Rules with ASG**
 
 <div style="text-align: center;">
   <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Implementing-NSG-Rules-with-ASG.gif" target="_blank">
@@ -479,6 +479,16 @@ By using ASGs, you can efficiently manage network security and reduce the comple
    - **Purpose**: It allows inbound SQL traffic from the VMs in the `AppASG` to the VM in the `DbASG`.
 
 This setup ensures that your application VMs can receive HTTP traffic and communicate with the database VM over SQL.
+
+**The final implementation of the inbound rules based in the above scenario will be illustrated in the animation below**
+<div style="text-align: center;">
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Azure-Vnet-Part2_2.gif" target="_blank">
+    <img src="./images/animations-480thumbnails/Azure-Vnet-Part2_2_thumbnail.gif" alt="Implementing NSG Rules with ASG">
+  </a>
+  <p style="text-align: center; font-style: italic;">
+    The final implementation of the inbound rules <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Azure-Vnet-Part2_2.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Azure-Vnet-Part2_2-For-Vdo.mp4" target="_blank">view the HD video</a>
+  </p>
+</div>
 
 ### 🔸VNET Peering and Azure Bastion
 
