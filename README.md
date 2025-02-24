@@ -234,6 +234,60 @@ Additionally, it allows for customization to meet specific needs, such as creati
 - **Custom Text-to-Speech Avatar** : Develop a unique and natural-looking avatar based on recorded video data of selected actors, ideal for brand and product identity🎭✨
 
 
+### 🔸REST API and SDK
+
+<div style="text-align: center;">
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/rest_sdk.gif" target="_blank">
+    <img src="./images/animations-480thumbnails/rest_sdk_thumbnail.gif" alt="Azure OpenAI - Provisioning and Deployment Creation">
+  </a>
+  <p style="text-align: center; font-style: italic;">
+    REST API and SDK <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/rest_sdk.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/rest_sdk.mp4" target="_blank">view the HD video</a>
+  </p>
+</div>
+
+### What is REST?
+REST (Representational State Transfer) is an architectural style used for designing networked applications. It relies on HTTP requests to communicate between clients and servers.
+
+### Key Concepts of REST:
+- **HTTPS**: Secure communication protocol.
+- **Request**: A call made to the server.
+- **Response**: The data returned by the server.
+- **JSON**: A lightweight data format used for exchanging information.
+- **Key**: Authentication method for API access.
+
+### Understanding SDK and REST API Usage
+Azure provides different ways to integrate AI and cloud services into applications:
+
+### 1️⃣ SDK Supported Languages
+- **Languages:** C#, Python, and others.
+- **SDK Usage:**
+  - Developers can use pre-built SDKs, which simplify the process of making API calls.
+  - SDKs handle HTTP requests and responses internally, allowing developers to interact with services using concise, high-level code.
+- **Example Services:**
+  - AI Search
+  - Azure OpenAI
+
+### 2️⃣ Non-Supported SDK Languages
+- **Languages:** Dart, Swift, and others.
+- **Manual Implementation:**
+  - Developers must send HTTPS requests manually, handling request formatting, authentication, and response parsing.
+- **Example Services:**
+  - Computer Vision
+  - Translator
+
+## Choosing the Right Approach
+| Feature | SDK Supported Languages | Non-Supported SDK Languages |
+|---------|------------------------|----------------------------|
+| Ease of Use | ✅ Simplified API calls | ⚠️ Manual request handling |
+| Performance | ✅ Optimized for efficiency | ⚠️ Requires more development effort |
+| Flexibility | ✅ SDK handles authentication & requests | ✅ Full control over API implementation |
+
+## Conclusion
+When working with Azure services, choosing **SDK-supported languages** can significantly reduce development time. However, for languages that lack SDK support, developers can still use REST APIs by manually implementing HTTP requests and responses.
+
+
+
+
 ## 2️⃣ Compute Options 
 
 Azure offers a world of compute options designed to power anything from your small apps to global-scale services. With virtual machines for full control, serverless computing with Azure Functions, and containers through Kubernetes, you're equipped to build and scale faster than ever ⚡. Whether you're optimizing performance or reducing costs, Azure's flexible compute solutions have got you covered—ready to take your projects to the next level? Let Azure Compute lead the way! 🌟
@@ -378,6 +432,64 @@ Azure Storage offers various redundancy options to ensure data durability and hi
 4.**Geo-Zone-Redundant Storage (GZRS) and Read-Access Geo-Zone-Redundant Storage (RA-GZRS)**: GZRS combines the benefits of ZRS and GRS by replicating your data across availability zones and to a secondary region. RA-GZRS offers read access to the secondary region.
 
 These redundancy options help you choose the right level of data protection and availability based on your specific needs.
+
+
+
+
+### 🔸Azure Cosmos DB Overview
+
+<div style="text-align: center;">
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/cosmos_db.gif" target="_blank">
+    <img src="./images/animations-480thumbnails/cosmos_db_thumbnail.gif" alt="Azure Cosmos DB">
+  </a>
+  <p style="text-align: center; font-style: italic;">
+    Azure Cosmos DB <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/cosmos_db.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/cosmos_db.mp4" target="_blank">view the HD video</a>
+  </p>
+</div>
+
+#### What is Azure Cosmos DB?
+Azure Cosmos DB is a globally distributed, multi-model database service designed for **scalability, performance, and reliability**. It enables seamless data replication across multiple Azure regions, ensuring **low-latency access** for users worldwide.
+
+#### Key Features
+#### 1️. Global Distribution
+- Data is **automatically replicated** across multiple Azure regions.
+- Provides **low-latency** access for users globally.
+- Ensures high availability with **99.999% uptime SLA**.
+
+#### 2️. Multi-Model Support
+- Supports various **data models** including:
+  - Document
+  - Key-Value
+  - Graph
+  - Column-Family
+- Compatible with multiple **APIs**:
+  - SQL (Core)
+  - MongoDB
+  - Gremlin
+  - Table
+  - Cassandra
+
+#### 3️. Performance and Scalability
+- Offers **millisecond latency** for read and write operations.
+- Provides **elastic scalability** for throughput and storage.
+- Removes the complexity of database management, including updates, backups, and scaling.
+
+#### Flexible Consistency Models
+Azure Cosmos DB provides **five distinct consistency levels** to optimize the balance between data consistency, availability, and performance:
+- ⭐ **Strong**
+- ⭐ **Bounded Staleness**
+- ⭐ **Session**
+- ⭐ **Consistent Prefix**
+- ⭐ **Eventual**
+
+#### Use Cases
+- **IoT Applications**: Manage massive streams of real-time data.
+- **E-Commerce**: Handle product catalogs, orders, and customer data at scale.
+- **Gaming**: Provide fast and reliable access to player data globally.
+- **Social Media**: Deliver real-time feeds, user interactions, and personalized content seamlessly.
+
+
+
 
 ## 4️⃣ Networking in Azure
 
@@ -631,6 +743,105 @@ The animation on the right illustrates the use of user-assigned managed identiti
 9. **Conclusion** 📈
 
    System-assigned managed identities simplify identity management and enhance security by providing each Azure resource with its own identity. User-assigned managed identities offer flexibility and centralized management by allowing a single identity to be shared across multiple resources. Both approaches align with best practices for secure application development in Azure.
+
+
+
+
+## 6️⃣  Basics of Azure
+
+
+### 🔸Azure Region and Zone
+
+<div style="text-align: center;">
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/region_zone.gif" target="_blank">
+    <img src="./images/animations-480thumbnails/region_zone_thumbnail.gif" alt="Azure Region and Zone">
+  </a>
+  <p style="text-align: center; font-style: italic;">
+    Azure Region and Zone <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/region_zone.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/region_zone.mp4" target="_blank">view the HD video</a>
+  </p>
+</div>
+
+### Overview
+Microsoft Azure is a global cloud computing platform that provides a vast array of services, including computing power, storage, and networking capabilities. Understanding Azure Regions and Availability Zones is crucial for designing resilient and scalable cloud solutions.
+
+### Availability Zones
+Availability Zones are physically separate locations within a region. Each zone has its own independent power, cooling, and networking to ensure high availability and fault tolerance. These zones help protect applications and data from datacenter failures and ensure business continuity.
+
+#### Key Benefits of Availability Zones:
+- **Fault Isolation**: If one zone experiences an issue, the others remain operational.
+- **Redundancy**: Deploying applications across multiple zones improves resilience.
+- **Low Latency**: Since all zones are within the same region, network latency is minimal.
+
+### Region
+A Region is a specific geographical area where Azure data centers are located. Each region consists of multiple data centers that deliver Azure services. Microsoft strategically places these regions worldwide to provide high availability, compliance with local regulations, and disaster recovery capabilities.
+
+#### Factors to Consider When Selecting a Region:
+- **Proximity to Users**: Choose a region close to your user base to reduce latency.
+- **Regulatory Compliance**: Some regions comply with specific legal requirements.
+- **Service Availability**: Not all Azure services are available in every region.
+
+### Data Center
+A Data Center is a facility that houses IT infrastructure, including servers, storage systems, and networking components, to support cloud computing services. These data centers are designed to be energy-efficient, secure, and resilient to physical and cyber threats.
+
+### Primary and Secondary Regions
+- **Primary Region**: Contains multiple Availability Zones (Zone 1, Zone 2, Zone 3) to provide redundancy and high availability.
+- **Secondary Region**: Consists of a single zone and is connected to the primary region via Microsoft's Backbone Network, ensuring fast and secure data transfer.
+- **Geo-Redundancy**: Some Azure services offer geo-redundant storage (GRS), replicating data to a secondary region to protect against regional failures.
+
+### Best Practices for Using Regions and Availability Zones
+1. **Deploy Across Multiple Availability Zones**: Ensures resilience and minimizes downtime.
+2. **Utilize Azure Traffic Manager**: Directs traffic across different regions for improved performance.
+3. **Implement Backup and Disaster Recovery**: Use Azure Backup and Azure Site Recovery for business continuity.
+4. **Monitor Latency and Performance**: Utilize Azure Monitor and Application Insights for real-time monitoring.
+5. **Ensure Compliance and Security**: Choose regions that meet regulatory and security requirements for your industry.
+
+
+
+### 🔸Get Familiar with Azure Cloud Shell
+
+<div style="text-align: center;">
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/cloud_shell.gif" target="_blank">
+    <img src="./images/animations-480thumbnails/cloud_shell_thumbnail.gif" alt="Azure Cloud Shell">
+  </a>
+  <p style="text-align: center; font-style: italic;">
+    Azure Cloud Shell <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/cloud_shell.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/cloud_shell.mp4" target="_blank">view the HD video</a>
+  </p>
+</div>
+
+### What is Azure Cloud Shell?
+Azure Cloud Shell is a **browser-based, fully-managed command-line environment** provided by Microsoft Azure. It allows users to manage Azure resources without the need for local installation or configuration.
+
+### Key Features
+### ☁️ Dual Shell Options
+- **PowerShell**: Ideal for managing Azure resources with Azure PowerShell commands.
+- **Bash**: Supports Azure CLI for Linux-based management.
+
+### 🛠️ Pre-Configured Tools
+- Comes with **Azure CLI**, **Azure PowerShell**, and other common management tools pre-installed.
+- Includes Git, Terraform, Kubectl, and more for efficient cloud administration.
+
+### 💾 Persistent Storage
+- Includes **5GB of free Azure File Share storage**.
+- Automatically saves scripts, files, and profiles across sessions.
+
+## How to Access Azure Cloud Shell?
+1. Open the [Azure Portal](https://portal.azure.com/).
+2. Click on the **Cloud Shell** icon in the top-right navigation bar.
+3. Choose between **PowerShell** or **Bash**.
+4. Start managing Azure resources directly from the browser!
+
+## Benefits of Using Azure Cloud Shell
+- **No Local Setup Required**: Run commands without installing CLI tools on your local machine.
+- **Secure & Managed**: Fully maintained by Microsoft with updated tools and security.
+- **Access from Any Device**: Use it from any browser, ensuring flexibility and mobility.
+- **Seamless Integration**: Works with Azure resources, automation scripts, and DevOps workflows.
+
+## Start Your Cloud Journey!
+With **Azure Cloud Shell**, you're not just learning theory—you’re mastering the tools and workflows needed to become a confident and capable Azure administrator. Get started today and streamline your cloud operations!
+
+
+
+
 
 # Share Your Animation Ideas! 💡
 
