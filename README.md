@@ -434,11 +434,11 @@ These redundancy options help you choose the right level of data protection and 
 ### 🔸Azure Cosmos DB Overview
 
 <div style="text-align: center;">
-  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/cosmos_db.gif" target="_blank">
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Storage/cosmos_db.gif" target="_blank">
     <img src="./images/animations-480thumbnails/cosmos_db_thumbnail.gif" alt="Azure Cosmos DB">
   </a>
   <p style="text-align: center; font-style: italic;">
-    Azure Cosmos DB <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/cosmos_db.gif" target="_blank">Click to download in HD size</a>
+    Azure Cosmos DB <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Storage/cosmos_db.gif" target="_blank">Click to download in HD size</a>
   </p>
 </div>
 
@@ -746,7 +746,7 @@ The animation on the right illustrates the use of user-assigned managed identiti
 ### 🔸Azure Region and Zone
 
 <div style="text-align: center;">
-  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/region_zone.gif" target="_blank">
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Basic/region_zone.gif" target="_blank">
     <img src="./images/animations-480thumbnails/region_zone_thumbnail.gif" alt="Azure Region and Zone">
   </a>
   <p style="text-align: center; font-style: italic;">
@@ -792,7 +792,7 @@ A Data Center is a facility that houses IT infrastructure, including servers, st
 ### 🔸Azure Cloud Shell
 
 <div style="text-align: center;">
-  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/cloud_shell.gif" target="_blank">
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Basic/cloud_shell.gif" target="_blank">
     <img src="./images/animations-480thumbnails/cloud_shell_thumbnail.gif" alt="Azure Cloud Shell">
   </a>
   <p style="text-align: center; font-style: italic;">
