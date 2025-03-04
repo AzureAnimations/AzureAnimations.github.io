@@ -143,9 +143,9 @@ Above illustrates the process of provisioning Azure OpenAI, we start by using th
    - Data Zone Provisioned: Global infrastructure, best availability, reserved capacity for high and predictable throughput.
 4. Deploy: Once deployed, the application calls the Azure OpenAI endpoint using the deployment ID 🔗, using the SDK REST API.
 
-> Click the video below for recorded explanations by our team.
+> Click the video below for recorded explanations by [Vincent Kok](https://www.linkedin.com/in/vincekok/).
 > <br>
-> <a href="https://www.linkedin.com/posts/vincekok_animations-explaianed-video-activity-7266798719314911232-WS8b?utm_source=share&utm_medium=member_desktop" target="_blank"><img src="./images/animations-explained/Azure OpenAI Studio Explained.png" alt="Azure OpenAI AI Foundry" width="300"></a>
+> <a href="https://www.linkedin.com/videos/urn:li:ugcPost:7266798574191947777/?entryPoint=FEED" target="_blank"><img src="./images/animations-explained/Azure OpenAI Studio Explained.png" alt="Azure OpenAI AI Foundry" width="300"></a>
 
 ### 🔸Azure AI Search - Custom Skill
 
@@ -169,9 +169,9 @@ Azure AI Search empowers us to create custom search engines and enhances documen
 
 Azure AI Search is a powerful AI-driven solution that combines built-in and custom AI capabilities to make document content easily searchable and accessible, enabling efficient information retrieval and application.
 
-> Click the video below for recorded explanations by our team.
+> Click the video below for recorded explanations by [Vincent Kok](https://www.linkedin.com/in/vincekok/).
 > <br>
-> <a href="https://www.linkedin.com/posts/vincekok_azure-ai-search-activity-7287760950827356160-VmGH/?utm_source=share&utm_medium=member_desktop" target="_blank"><img src="./images/animations-explained/AI Search Explained.png" alt="Azure OpenAI AI Foundry" width="300"></a>
+> <a href="https://www.linkedin.com/videos/urn:li:ugcPost:7287760806933405696/?entryPoint=FEED" target="_blank"><img src="./images/animations-explained/AI Search Explained.png" alt="Azure OpenAI AI Foundry" width="300"></a>
 
 
 ### 🔸Azure AI Document Intelligence
@@ -205,9 +205,9 @@ Combine different custom models into one for processing multiple document types 
 
 Azure AI Document Intelligence helps turn your documents into valuable assets, improving decision-making and efficiency. Embrace the Azure ecosystem to fully unlock the potential of your documents with unmatched customization and intelligence.
 
-> Click the video below for recorded explanations by our team.
+> Click the video below for recorded explanations by [Laura Núñez Sierra](https://www.linkedin.com/in/lauransi/).
 > <br>
-> <a href="https://www.linkedin.com/posts/lauransi_azure-documentintelligence-ai-activity-7298284461496918016-PFfO?utm_source=share&utm_medium=member_desktop&rcm=ACoAAAakJdcBEt-I6o6GFyc4tzPmZeyP6nGKWyg" target="_blank"><img src="./images/animations-explained/Azure Document Intelligence Explaied.png" alt="Azure Document Intelligence Explained" width="300"></a>
+> <a href="https://www.linkedin.com/videos/urn:li:ugcPost:7298284236048855040/?entryPoint=FEED" target="_blank"><img src="./images/animations-explained/Azure Document Intelligence Explaied.png" alt="Azure Document Intelligence Explained" width="300"></a>
 
 ### 🔸Azure AI Speech Service
 
@@ -355,9 +355,9 @@ Above illustrates the process of using an Azure Storage Account. We start by und
 
 > **Penalties**: Be aware of the penalties associated with moving data between access tiers. For example, moving data from the Archive tier to the Hot tier may incur additional costs ⚠️.
 
-> Click the video below for recorded explanations by our team.
+> Click the video below for recorded explanations by [Neeraj Kumar](https://www.linkedin.com/in/neerajtrainer/).
 > <br>
-> <a href="https://www.linkedin.com/posts/neerajtrainer_azurestorage-microsoftazure-cloudcomputing-activity-7266850785034952704-krRD?utm_source=share&utm_medium=member_desktop" target="_blank"><img src="./images/animations-explained/Storage Account Explained.png" alt="Azure Storage Account" width="300"></a>
+> <a href="https://www.linkedin.com/videos/urn:li:ugcPost:7266850529480179712/?entryPoint=FEED" target="_blank"><img src="./images/animations-explained/Storage Account Explained.png" alt="Azure Storage Account" width="300"></a>
 
 ### 🔸Redundancy Options in Azure Storage Account
 
@@ -567,7 +567,7 @@ Above illustrates the process of using Managed Identities, comparing the traditi
 
    Adopting managed identities enhances security, reduces overhead, and simplifies access management. This approach aligns with best practices for secure application development in Azure.
 
-> Click the video below for recorded explanations by our team.
+> Click the video below for recorded explanations by [Bob Reinsch](https://www.linkedin.com/in/thebobster/).
 > <br>
 > <a href="https://www.youtube.com/watch?v=FpX40R14iLM" target="_blank"><img src="./images/animations-explained/Managed Identity Part 1 Explained.png" alt="Azure Managed Identity Part 1" width="300"></a>
 
@@ -632,11 +632,9 @@ The animation on the right illustrates the use of user-assigned managed identiti
 
    System-assigned managed identities simplify identity management and enhance security by providing each Azure resource with its own identity. User-assigned managed identities offer flexibility and centralized management by allowing a single identity to be shared across multiple resources. Both approaches align with best practices for secure application development in Azure.
 
-  
-
 > Click the video below for recorded explanations by [Ilan Nyska](https://www.linkedin.com/in/ilan-nyska/).
 > <br>
-> <a href="https://www.linkedin.com/posts/nutwongaree_azure-microsoft-managedidentity-activity-7298569761553006592-rjlk?utm_source=share&utm_medium=member_desktop&rcm=ACoAAAakJdcBEt-I6o6GFyc4tzPmZeyP6nGKWyg" target="_blank"><img src="./images/animations-explained/Managed Identity Part 2 Explained.png" alt="Azure Managed Identity Part 1" width="300"></a>
+> <a href="https://www.linkedin.com/videos/urn:li:ugcPost:7298569623547875328/?entryPoint=FEED" target="_blank"><img src="./images/animations-explained/Managed Identity Part 2 Explained.png" alt="Azure Managed Identity Part 1" width="300"></a>
 
 # Share Your Animation Ideas! 💡
 
@@ -657,5 +655,5 @@ Let's work together to make learning fun and engaging for everyone!
 
 * **🎨 Animations Artists:** [Saki Homma](https://www.linkedin.com/in/sakkuru/), [Kristen Chan](https://www.linkedin.com/in/kristen-chan/), [Masato Kikukawa](https://www.linkedin.com/in/kikukawa9/), [Maria Cederhierta](https://www.linkedin.com/in/cederhierta/)
 * **✍️ Sketch illustrator:** [Payal Guruprasad](https://www.linkedin.com/in/payalguruprasad/)
-* **🎞️ Broadcasters:** [Laura Núñez Sierra](https://www.linkedin.com/in/lauransi/), [Bob Reinsch](https://www.linkedin.com/in/thebobster/), [Joel Ganesan](https://www.linkedin.com/in/joelji/), [Vincent Kok](https://www.linkedin.com/in/vincekok/), [Neeraj Kumar](https://www.linkedin.com/in/neerajtrainer/)
+* **🎞️ Broadcasters:** [Laura Núñez Sierra](https://www.linkedin.com/in/lauransi/), [Ilan Nyska](https://www.linkedin.com/in/ilan-nyska/), [Bob Reinsch](https://www.linkedin.com/in/thebobster/), [Joel Ganesan](https://www.linkedin.com/in/joelji/), [Vincent Kok](https://www.linkedin.com/in/vincekok/), [Neeraj Kumar](https://www.linkedin.com/in/neerajtrainer/)
 * **🙏 Core Contributors:** [Nuttapong .](https://www.linkedin.com/in/nutwongaree/)
