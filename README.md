@@ -632,6 +632,12 @@ The animation on the right illustrates the use of user-assigned managed identiti
 
    System-assigned managed identities simplify identity management and enhance security by providing each Azure resource with its own identity. User-assigned managed identities offer flexibility and centralized management by allowing a single identity to be shared across multiple resources. Both approaches align with best practices for secure application development in Azure.
 
+  
+
+> Click the video below for recorded explanations by [Ilan Nyska](https://www.linkedin.com/in/ilan-nyska/).
+> <br>
+> <a href="https://www.linkedin.com/posts/nutwongaree_azure-microsoft-managedidentity-activity-7298569761553006592-rjlk?utm_source=share&utm_medium=member_desktop&rcm=ACoAAAakJdcBEt-I6o6GFyc4tzPmZeyP6nGKWyg" target="_blank"><img src="./images/animations-explained/Managed Identity Part 2 Explained.png" alt="Azure Managed Identity Part 1" width="300"></a>
+
 # Share Your Animation Ideas! 💡
 
 <div style="text-align: center;">
