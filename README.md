@@ -87,12 +87,29 @@ Azure provides different ways to integrate AI and cloud services into applicatio
   - Computer Vision
   - Translator
 
-**Choosing the Right Approach**
-| Feature | SDK Supported Languages | Non-Supported SDK Languages |
-|---------|------------------------|----------------------------|
-| Ease of Use | ✅ Simplified API calls | ⚠️ Manual request handling |
-| Performance | ✅ Optimized for efficiency | ⚠️ Requires more development effort |
-| Flexibility | ✅ SDK handles authentication & requests | ✅ Full control over API implementation |
+<h2>Choosing the Right Approach</h2>
+<table>
+  <tr>
+    <th>Feature</th>
+    <th>SDK Supported Languages</th>
+    <th>Non-Supported SDK Languages</th>
+  </tr>
+  <tr>
+    <td>Ease of Use</td>
+    <td>✅ Simplified API calls</td>
+    <td>⚠️ Manual request handling</td>
+  </tr>
+  <tr>
+    <td>Performance</td>
+    <td>✅ Optimized for efficiency</td>
+    <td>⚠️ Requires more development effort</td>
+  </tr>
+  <tr>
+    <td>Flexibility</td>
+    <td>✅ SDK handles authentication & requests</td>
+    <td>✅ Full control over API implementation</td>
+  </tr>
+</table>
 
 **Conclusion**
 When working with Azure services, choosing **SDK-supported languages** can significantly reduce development time. However, for languages that lack SDK support, developers can still use REST APIs by manually implementing HTTP requests and responses.
