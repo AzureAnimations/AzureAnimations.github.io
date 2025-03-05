@@ -194,7 +194,7 @@ Azure AI containers provide an optimal blend of performance, privacy, and cost-e
     <img src="./images/animations-480thumbnails/Azure OpenAI - AI Foundry Studio_Provisioning_and_Deployment_Creation_-_thumbnail.gif" alt="Azure OpenAI - Provisioning and Deployment Creation">
   </a>
   <p style="text-align: center; font-style: italic;">
-    Azure OpenAI - Provisioning and Deployment Creation <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Azure%20OpenAI%20-%20AI%20Foundry%20Provisioning%20and%20Deployment%20Creation.gif" target="_blank">Click to download in HD size</a>
+    Azure OpenAI - Provisioning and Deployment Creation <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Azure%20OpenAI%20-%20AI%20Foundry%20Provisioning%20and%20Deployment%20Creation.gif" target="_blank">Click to download in HD size</a>, <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Azure%20OpenAI%20-%20AI%20Foundry%20Provisioning%20and%20Deployment%20Creation.mp4" target="_blank">view the HD video</a>, <a herf="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/presentations/AI/Azure%20OpenAI%20-%20AI%20Foundry%20Provisioning%20and%20Deployment%20Creation.pptx" target="_blank">Presentation slide (pptx)</a> 
   </p>
 </div>
 
@@ -509,7 +509,7 @@ Azure Cosmos DB provides **five distinct consistency levels** to optimize the ba
     <img src="./images/animations-480thumbnails/Azure-Vnet-Part1_thumbnail.gif" alt="Azure networking part 1">
   </a>
   <p style="text-align: center; font-style: italic;">
-    Azure Networking Part 1 <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Azure-Vnet-Part1.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Azure-Vnet-Part1-Vdo.mp4" target="_blank">view the HD video</a>
+    Azure Networking Part 1 <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Azure-Vnet-Part1.gif" target="_blank">Click to download in HD size</a>, <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Azure-Vnet-Part1-Vdo.mp4" target="_blank">view the HD video</a>, <a herf="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/presentations/Infra/Azure-Vnet-Part1-Vdo.pptx" target="_blank">Presentation slide (pptx)</a>
   </p>
 </div>
 
