@@ -289,7 +289,8 @@ Azure AI Document Intelligence helps turn your documents into valuable assets, i
     <img src="./images/animations-480thumbnails/Azure-Speech-Service_thumbnail.gif" alt="Azure AI Document Intelligence">
   </a>
   <p style="text-align: center; font-style: italic;">
-    Azure AI Speech Service <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Azure-Speech-Service.gif" target="_blank">Click to download in HD size</a>
+    <a href="https://moodengazureanimations.z23.web.core.windows.net/moodeng-player/azureanimation-player.html?vdo=Azure-Speech-Service-Vdo.mp4" target="_blank">🎬 Present Animation Now 🚀</a>
+, <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Azure-Speech-Service.gif" target="_blank">Click to download in HD size</a>
   </p>
 </div>
 
