@@ -31,7 +31,8 @@ Azure AI is your gateway to transforming ideas into reality! Whether it's buildi
     <img src="./images/animations-480thumbnails/Get-Started-AI-In-Azure%2Bthumbnail.png" alt="Get Started AI in Azure">
   </a>
   <p style="text-align: center; font-style: italic;">
-    Get Started - AI in Azure <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Get-Started-AI-In-Azure.png" target="_blank">Click to download in HD size</a>, <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Get-Started-AI-In-Azure.gif" target="_blank">GIF</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Get-Started-AI-In-Azure-Vdo.mp4" target="_blank">view the HD video</a>
+    <a href="https://moodengazureanimations.z23.web.core.windows.net/moodeng-player/azureanimation-player.html?vdo=Get-Started-AI-In-Azure-Vdo.mp4" target="_blank">🎬 Present Animation Now 🚀</a>
+, <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Get-Started-AI-In-Azure.png" target="_blank">Click to download in HD size</a>, <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Get-Started-AI-In-Azure.gif" target="_blank">GIF</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Get-Started-AI-In-Azure-Vdo.mp4" target="_blank">view the HD video</a>
   </p>
 </div>
 
@@ -122,7 +123,8 @@ When working with Azure services, choosing **SDK-supported languages** can signi
     <img src="./images/animations-480thumbnails/AI-Single-vs-Multi-Service_thumbnail.gif" alt="Azure AI Containers">
   </a>
   <p style="text-align: center; font-style: italic;">
-    Azure AI: Single Service vs. Multi-Service Account <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/AI-Single-vs-Multi-Service.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/AI-Single-vs-Multi-Service-Vdo.mp4" target="_blank">view the HD video</a>
+    <a href="https://moodengazureanimations.z23.web.core.windows.net/moodeng-player/azureanimation-player.html?vdo=AI-Single-vs-Multi-Service-Vdo.mp4" target="_blank">🎬 Present Animation Now 🚀</a>
+, <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/AI-Single-vs-Multi-Service.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/AI-Single-vs-Multi-Service-Vdo.mp4" target="_blank">view the HD video</a>
   </p>
 </div>
 
@@ -160,7 +162,8 @@ When working with Azure services, choosing **SDK-supported languages** can signi
     <img src="./images/animations-480thumbnails/Cognitive-Container_thumbnail.gif" alt="Azure AI Containers">
   </a>
   <p style="text-align: center; font-style: italic;">
-    Azure AI Containers <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Cognitive-Container.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Cognitive-Container-Vdo.mp4" target="_blank">view the HD video</a>
+    <a href="https://moodengazureanimations.z23.web.core.windows.net/moodeng-player/azureanimation-player.html?vdo=Cognitive-Container-Vdo.mp4" target="_blank">🎬 Present Animation Now 🚀</a>
+, <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Cognitive-Container.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Cognitive-Container-Vdo.mp4" target="_blank">view the HD video</a>
   </p>
 </div>
 
@@ -194,7 +197,7 @@ Azure AI containers provide an optimal blend of performance, privacy, and cost-e
     <img src="./images/animations-480thumbnails/Azure OpenAI - AI Foundry Studio_Provisioning_and_Deployment_Creation_-_thumbnail.gif" alt="Azure OpenAI - Provisioning and Deployment Creation">
   </a>
   <p style="text-align: center; font-style: italic;">
-    Azure OpenAI - Provisioning and Deployment Creation <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Azure%20OpenAI%20-%20AI%20Foundry%20Provisioning%20and%20Deployment%20Creation.gif" target="_blank">Click to download in HD size</a>, <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Azure%20OpenAI%20-%20AI%20Foundry%20Provisioning%20and%20Deployment%20Creation.mp4" target="_blank">view the HD video</a>, <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/presentations/AI/Azure%20OpenAI%20-%20AI%20Foundry%20Provisioning%20and%20Deployment%20Creation.pptx" target="_blank">Presentation slide (pptx)</a> or <a href="https://moodeng.z23.web.core.windows.net/" target="_blank">Present this animation online</a>
+    <a href="https://moodengazureanimations.z23.web.core.windows.net/" target="_blank">🎬 Present Animation Now 🚀</a> <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Azure%20OpenAI%20-%20AI%20Foundry%20Provisioning%20and%20Deployment%20Creation.gif" target="_blank">Click to download in HD size</a>, <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Azure%20OpenAI%20-%20AI%20Foundry%20Provisioning%20and%20Deployment%20Creation.mp4" target="_blank">view the HD video</a>, <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/presentations/AI/Azure%20OpenAI%20-%20AI%20Foundry%20Provisioning%20and%20Deployment%20Creation.pptx" target="_blank">Presentation slide (pptx)</a>
   </p>
 </div>
 
@@ -250,7 +253,8 @@ Azure AI Search is a powerful AI-driven solution that combines built-in and cust
     <img src="./images/animations-480thumbnails/Document-Intelligence_thumbnail.gif" alt="Azure AI Document Intelligence">
   </a>
   <p style="text-align: center; font-style: italic;">
-    Azure AI Document Intelligence <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Document-Intelligence.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Document-Intelligence-Vdo.mp4" target="_blank">view the HD video</a>
+    <a href="https://moodengazureanimations.z23.web.core.windows.net/moodeng-player/azureanimation-player.html?vdo=Document-Intelligence-Vdo.mp4" target="_blank">🎬 Present Animation Now 🚀</a>
+, <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Document-Intelligence.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Document-Intelligence-Vdo.mp4" target="_blank">view the HD video</a>
   </p>
 </div>
 
@@ -400,7 +404,8 @@ Azure provides a variety of storage solutions to meet the diverse needs of moder
     <img src="./images/animations-480thumbnails/Azure_Storage_Account_-_Tiers_Services_Types_-_thumbnail.gif" alt="Storage Account, Tiers, Services and Types">
   </a>
   <p style="text-align: center; font-style: italic;">
-    Storage Account, Tiers, Services and Types <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Storage/Azure%20Storage%20Account%20-%20Tiers%20Services%20Types.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Storage/Azure%20Storage%20Account%20-%20Tiers%20Services%20Types-Vdo.mp4" target="_blank">view the HD video</a>
+    <a href="https://moodengazureanimations.z23.web.core.windows.net/moodeng-player/azureanimation-player.html?vdo=Azure-Storage-Account-Tiers-Services-Types-Vdo.mp4" target="_blank">🎬 Present Animation Now 🚀</a>
+, <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Storage/Azure%20Storage%20Account%20-%20Tiers%20Services%20Types.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Storage/Azure%20Storage%20Account%20-%20Tiers%20Services%20Types-Vdo.mp4" target="_blank">view the HD video</a>
   </p>
 </div>
 
@@ -509,7 +514,8 @@ Azure Cosmos DB provides **five distinct consistency levels** to optimize the ba
     <img src="./images/animations-480thumbnails/Azure-Vnet-Part1_thumbnail.gif" alt="Azure networking part 1">
   </a>
   <p style="text-align: center; font-style: italic;">
-    Azure Networking Part 1 <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Azure-Vnet-Part1.gif" target="_blank">Click to download in HD size</a>, <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Azure-Vnet-Part1-Vdo.mp4" target="_blank">view the HD video</a>, <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/presentations/Infra/Azure-Vnet-Part1-Vdo.pptx" target="_blank">Presentation slide (pptx)</a>
+    <a href="https://moodengazureanimations.z23.web.core.windows.net/moodeng-player/azureanimation-player.html?vdo=Azure-Vnet-Part1-Vdo.mp4" target="_blank">🎬 Present Animation Now 🚀</a>
+, <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Azure-Vnet-Part1.gif" target="_blank">Click to download in HD size</a>, <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Azure-Vnet-Part1-Vdo.mp4" target="_blank">view the HD video</a>, <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/presentations/Infra/Azure-Vnet-Part1-Vdo.pptx" target="_blank">Presentation slide (pptx)</a>
   </p>
 </div>
 
@@ -558,7 +564,8 @@ This section covers the basics of Azure networking, including virtual machines (
     <img src="./images/animations-480thumbnails/Azure-Vnet-Part2_thumbnail.gif" alt="Azure networking part 2">
   </a>
   <p style="text-align: center; font-style: italic;">
-    Azure Networking Part 2 <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Azure-Vnet-Part2.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Azure-Vnet-Part2-Vdo.mp4" target="_blank">view the HD video</a>
+   <a href="https://moodengazureanimations.z23.web.core.windows.net/moodeng-player/azureanimation-player.html?vdo=Azure-Vnet-Part2-Vdo.mp4" target="_blank">🎬 Present Animation Now 🚀</a>
+, <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Azure-Vnet-Part2.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Azure-Vnet-Part2-Vdo.mp4" target="_blank">view the HD video</a>
   </p>
 </div>
 
@@ -580,7 +587,8 @@ By using ASGs, you can efficiently manage network security and reduce the comple
     <img src="./images/animations-480thumbnails/Implementing-NSG-Rules-with-ASG_thumbnail.gif" alt="Implementing NSG Rules with ASG">
   </a>
   <p style="text-align: center; font-style: italic;">
-    Implementing NSG Rules with ASG <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Implementing-NSG-Rules-with-ASG.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Implementing-NSG-Rules-with-ASG.mp4" target="_blank">view the HD video</a>
+    <a href="https://moodengazureanimations.z23.web.core.windows.net/moodeng-player/azureanimation-player.html?vdo=Implementing-NSG-Rules-with-ASG.mp4" target="_blank">🎬 Present Animation Now 🚀</a>
+, <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Implementing-NSG-Rules-with-ASG.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Implementing-NSG-Rules-with-ASG.mp4" target="_blank">view the HD video</a>
   </p>
 </div>
 
@@ -607,7 +615,8 @@ This setup ensures that your application VMs can receive HTTP traffic and commun
     <img src="./images/animations-480thumbnails/Azure-Vnet-Part2_2_thumbnail.gif" alt="Implementing NSG Rules with ASG">
   </a>
   <p style="text-align: center; font-style: italic;">
-    The final implementation of the inbound rules <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Azure-Vnet-Part2_2.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Azure-Vnet-Part2_2-For-Vdo.mp4" target="_blank">view the HD video</a>
+    <a href="https://moodengazureanimations.z23.web.core.windows.net/moodeng-player/azureanimation-player.html?vdo=Azure-Vnet-Part2-2-Vdo.mp4" target="_blank">🎬 Present Animation Now 🚀</a>
+, <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Azure-Vnet-Part2_2.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Azure-Vnet-Part2_2-For-Vdo.mp4" target="_blank">view the HD video</a>
   </p>
 </div>
 
@@ -618,7 +627,8 @@ This setup ensures that your application VMs can receive HTTP traffic and commun
     <img src="./images/animations-480thumbnails/Azure-Vnet-Part3_thumbnail.gif" alt="Azure networking part 3">
   </a>
   <p style="text-align: center; font-style: italic;">
-    Azure Networking Part 3 <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Azure-Vnet-Part3.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Azure-Vnet-Part3-Vdo.mp4" target="_blank">view the HD video</a>
+    <a href="https://moodengazureanimations.z23.web.core.windows.net/moodeng-player/azureanimation-player.html?vdo=Azure-Vnet-Part3-Vdo.mp4" target="_blank">🎬 Present Animation Now 🚀</a>
+, <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Azure-Vnet-Part3.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Azure-Vnet-Part3-Vdo.mp4" target="_blank">view the HD video</a>
   </p>
 </div>
 
@@ -653,7 +663,8 @@ Azure offers robust security features to protect your data and applications. The
     <img src="./images/animations-480thumbnails/Azure_Managed-Identities-Part1_thumbnail.gif" alt="Managed Identities part 1">
   </a>
   <p style="text-align: center; font-style: italic;">
-    Managed Identities Part 1 <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Security/Managed-Identities-Part1.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Security/Managed-Identities-Part1-Vdo.mp4" target="_blank">view the HD video</a>
+    <a href="https://moodengazureanimations.z23.web.core.windows.net/moodeng-player/azureanimation-player.html?vdo=Managed-Identities-Part1-Vdo.mp4" target="_blank">🎬 Present Animation Now 🚀</a>
+, <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Security/Managed-Identities-Part1.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Security/Managed-Identities-Part1-Vdo.mp4" target="_blank">view the HD video</a>
   </p>
 </div>
 
@@ -699,7 +710,8 @@ Above illustrates the process of using Managed Identities, comparing the traditi
     <img src="./images/animations-480thumbnails/Azure_Managed-Identities-Part2_thumbnail.gif" alt="Managed Identities part 1">
   </a>
   <p style="text-align: center; font-style: italic;">
-    Managed Identities Part 2 <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Security/Managed-Identities-Part2.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Security/Managed-Identities-Part2-Vdo.mp4" target="_blank">view the HD video</a>
+    <a href="https://moodengazureanimations.z23.web.core.windows.net/moodeng-player/azureanimation-player.html?vdo=Managed-Identities-Part2-Vdo.mp4" target="_blank">🎬 Present Animation Now 🚀</a>
+, <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Security/Managed-Identities-Part2.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Security/Managed-Identities-Part2-Vdo.mp4" target="_blank">view the HD video</a>
   </p>
 </div>
 
