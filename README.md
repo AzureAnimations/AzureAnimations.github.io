@@ -362,7 +362,7 @@ Above illustrates the process of using Azure App Service. We start by provisioni
     <img src="./images/animations-480thumbnails/Azure-Functions-Hosting-Options-thumb.gif" alt="Azure Functions Hosting Options Overview">
   </a>
   <p style="text-align: center; font-style: italic;">
-    Azure Functions Hosting Options Overview
+    <a href="https://moodengazureanimations.z23.web.core.windows.net/moodeng-player/azureanimation-player.html?vdo=Azure-Functions-Hosting-Options-Vdo.mp4" target="_blank">🎬 Present Animation Now 🚀</a>
  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Compute/Azure-Functions-Hosting-Options.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Compute/Azure-Functions-Hosting-Options-Vdo.mp4" target="_blank">view the HD video</a>
   </p>
 </div>
