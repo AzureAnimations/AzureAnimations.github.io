@@ -441,7 +441,7 @@ Above illustrates the process of using an Azure Storage Account. We start by und
     <img src="./images/animations-480thumbnails/Azure_Storage_Redundancy_thumbnail.gif" alt="Storage Account, Tiers, Services and Types">
   </a>
   <p style="text-align: center; font-style: italic;">
-    Storage Account - Redundancy Options <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Storage/Azure_Storage_Redundancy.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Storage/Azure_Storage_Redundancy_Vdo.mp4" target="_blank">view the HD video</a>
+    <a href="https://moodengazureanimations.z23.web.core.windows.net/moodeng-player/azureanimation-player.html?vdo=Azure-Storage-Redundancy-Vdo.mp4" target="_blank">🎬 Present Animation Now 🚀</a> <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Storage/Azure_Storage_Redundancy.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Storage/Azure_Storage_Redundancy_Vdo.mp4" target="_blank">view the HD video</a>
   </p>
 </div>
 
