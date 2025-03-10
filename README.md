@@ -458,7 +458,7 @@ These redundancy options help you choose the right level of data protection and 
 
 <div style="text-align: center;">
   <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Storage/Storage-Account-SAS.gif" target="_blank">
-    <img src="./images/animations-480thumbnails/Storage-Account-SAS_thumbnail.gif" alt="Azure networking part 1">
+    <img src="./images/animations-480thumbnails/Storage-Account-SAS-thumbnail.gif" alt="SAS Storage Account">
   </a>
   <p style="text-align: center; font-style: italic;">
     <a href="https://moodengazureanimations.z23.web.core.windows.net/moodeng-player/azureanimation-player.html?vdo=Storage-Account-SAS-Vdo.mp4" target="_blank">🎬 Present Animation Now 🚀</a>
