@@ -16,7 +16,7 @@ At Azure Animations, we believe that understanding complex cloud technologies do
 
 <a href="/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/AI/AI-Single-vs-Multi-Service-Vdo.mp4&animationTitle=Understanding%20Azure%20AI%3A%20Single%20Service%20vs.%20Multi-Service%20Account&pauseTimes=6.55,17.3,30.7" target="_blank">+++</a>
 
-<a href="/player/animationPlayer.html" onclick="window.open('[example.html](https://azureanimations.github.io/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/AI/AI-Single-vs-Multi-Service-Vdo.mp4&animationTitle=Understanding%20Azure%20AI%3A%20Single%20Service%20vs.%20Multi-Service%20Account&pauseTimes=6.55,17.3,30.7)', '_self');">
+<a href="/player/animationPlayer.html" onclick="window.open('https://azureanimations.github.io/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/AI/AI-Single-vs-Multi-Service-Vdo.mp4&animationTitle=Understanding%20Azure%20AI%3A%20Single%20Service%20vs.%20Multi-Service%20Account&pauseTimes=6.55,17.3,30.7', '_self');">
 ***
 </a
 
