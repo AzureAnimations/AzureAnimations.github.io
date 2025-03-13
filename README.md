@@ -359,8 +359,7 @@ Above illustrates the process of using Azure App Service. We start by provisioni
     <img src="./images/animations-480thumbnails/Azure-Functions-Hosting-Options-thumb.gif" alt="Azure Functions Hosting Options Overview">
   </a>
   <p style="text-align: center; font-style: italic;">
-    <a href="https://moodengazureanimations.z23.web.core.windows.net/moodeng-player/azureanimation-player.html?vdo=Azure-Functions-Hosting-Options-Vdo.mp4" target="_blank">🎬 Present Animation Now 🚀</a>
- <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Compute/Azure-Functions-Hosting-Options.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Compute/Azure-Functions-Hosting-Options-Vdo.mp4" target="_blank">view the HD video</a>
+    <a href="javascript:void(0);" onClick="window.open('https://azureanimations.github.io/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/Compute/Azure-Functions-Hosting-Options-Vdo.mp4&animationTitle=Azure%20Functions%20Hosting%20Options%20Overview', '_blank')" style="display:inline-block;padding:10px 20px;font-size:16px;color:white;background-color:#007bff;border:none;border-radius:5px;text-decoration:none;cursor:pointer;">🎬 Present Animation</a> <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Compute/Azure-Functions-Hosting-Options.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Compute/Azure-Functions-Hosting-Options-Vdo.mp4" target="_blank">view the HD video</a>
   </p>
 </div>
 
