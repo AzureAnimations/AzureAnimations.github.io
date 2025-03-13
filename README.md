@@ -12,6 +12,9 @@
 
 At Azure Animations, we believe that understanding complex cloud technologies doesn't have to be difficult or boring. That's why we've reimagined learning with a fresh approach—by turning intricate concepts into engaging, fun Animations. Our platform brings the worlds of Developers 💻, DevSecOps - Security 🔐, Cloud ☁️, and AI 🤖 to life, making it easier for everyone, from beginners to experts, to grasp essential ideas and stay up-to-date with the latest in technology. <button style="background:none;border:none;color:blue;text-decoration:underline;cursor:pointer;" onClick="window.open('https://azureanimations.github.io/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/AI/Get-Started-AI-In-Azure-Vdo.mp4&animationTitle=Get%20Started%20AI%20in%20Azure&pauseTimes=4.23,5.5,7,8.45,9.95,11.45,12.65,14.2', '_blank')">🎬 Present Animation Now 🚀</button>
 
+<a href="javascript:void(0);" onClick="window.open('https://azureanimations.github.io/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/AI/Get-Started-AI-In-Azure-Vdo.mp4&animationTitle=Get%20Started%20AI%20in%20Azure&pauseTimes=4.23,5.5,7,8.45,9.95,11.45,12.65,14.2', '_blank')" style="display:inline-block;padding:10px 20px;font-size:16px;color:white;background-color:#007bff;border:none;border-radius:5px;text-decoration:none;cursor:pointer;">🎬 Present Animation Now 🚀</a>
+
+
 
 
 Our Animations are crafted by Microsoft Technical Trainers & MCTs 👨‍🏫👩‍🏫 , ensuring that the content is not only accurate but also creatively presented to hold your attention. Whether you're looking to demystify cloud architecture, explore security best practices, or dive into AI innovations, Azure Animations is here to help you visualize and understand the most important concepts in the tech world.
