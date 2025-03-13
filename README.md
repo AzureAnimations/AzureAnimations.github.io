@@ -12,16 +12,6 @@
 
 At Azure Animations, we believe that understanding complex cloud technologies doesn't have to be difficult or boring. That's why we've reimagined learning with a fresh approach—by turning intricate concepts into engaging, fun Animations. Our platform brings the worlds of Developers 💻, DevSecOps - Security 🔐, Cloud ☁️, and AI 🤖 to life, making it easier for everyone, from beginners to experts, to grasp essential ideas and stay up-to-date with the latest in technology.
 
-<a href="#"  onClick="window.open('https://azureanimations.github.io/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/AI/AI-Single-vs-Multi-Service-Vdo.mp4&animationTitle=Understanding%20Azure%20AI%3A%20Single%20Service%20vs.%20Multi-Service%20Account&pauseTimes=6.55,17.3,30.7', '_blank')">...</a>
-
-<a href="/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/AI/AI-Single-vs-Multi-Service-Vdo.mp4&animationTitle=Understanding%20Azure%20AI%3A%20Single%20Service%20vs.%20Multi-Service%20Account&pauseTimes=6.55,17.3,30.7" target="_blank">+++</a>
-
-<a href="/player/animationPlayer.html" onclick="window.open('https://azureanimations.github.io/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/AI/AI-Single-vs-Multi-Service-Vdo.mp4&animationTitle=Understanding%20Azure%20AI%3A%20Single%20Service%20vs.%20Multi-Service%20Account&pauseTimes=6.55,17.3,30.7', '_self');">
-***</a>
-
-<a href="/player/animationPlayer.html" onclick="window.open('https://azureanimations.github.io/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/AI/AI-Single-vs-Multi-Service-Vdo.mp4&animationTitle=Understanding%20Azure%20AI%3A%20Single%20Service%20vs.%20Multi-Service%20Account&pauseTimes=6.55,17.3,30.7', '_blank');">
-===</a>
-
 Our Animations are crafted by Microsoft Technical Trainers & MCTs 👨‍🏫👩‍🏫 , ensuring that the content is not only accurate but also creatively presented to hold your attention. Whether you're looking to demystify cloud architecture, explore security best practices, or dive into AI innovations, Azure Animations is here to help you visualize and understand the most important concepts in the tech world.
 
 Get ready to learn, engage, and have fun with Azure Animations where cloud technology comes to life! 🚀
@@ -41,7 +31,7 @@ Azure AI is your gateway to transforming ideas into reality! Whether it's buildi
     <img src="./images/animations-480thumbnails/Get-Started-AI-In-Azure%2Bthumbnail.png" alt="Get Started AI in Azure">
   </a>
   <p style="text-align: center; font-style: italic;">
-    <a href="https://moodengazureanimations.z23.web.core.windows.net/moodeng-player/azureanimation-player.html?vdo=Get-Started-AI-In-Azure-Vdo.mp4" target="_blank">🎬 Present Animation Now 🚀</a>
+    <a href="#" onClick="window.open('https://azureanimations.github.io/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/AI/Get-Started-AI-In-Azure-Vdo.mp4&animationTitle=Get%20Started%20AI%20in%20Azure&pauseTimes=4.23,5.5,7,8.45,9.95,11.45,12.65,14.2', '_blank')">🎬 Present Animation Now 🚀</a>
 , <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Get-Started-AI-In-Azure.png" target="_blank">Click to download in HD size</a>, <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Get-Started-AI-In-Azure.gif" target="_blank">GIF</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Get-Started-AI-In-Azure-Vdo.mp4" target="_blank">view the HD video</a>
   </p>
 </div>
