@@ -10,12 +10,7 @@
 
 ## About
 
-At Azure Animations, we believe that understanding complex cloud technologies doesn't have to be difficult or boring. That's why we've reimagined learning with a fresh approach—by turning intricate concepts into engaging, fun Animations. Our platform brings the worlds of Developers 💻, DevSecOps - Security 🔐, Cloud ☁️, and AI 🤖 to life, making it easier for everyone, from beginners to experts, to grasp essential ideas and stay up-to-date with the latest in technology. <button style="background:none;border:none;color:blue;text-decoration:underline;cursor:pointer;" onClick="window.open('https://azureanimations.github.io/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/AI/Get-Started-AI-In-Azure-Vdo.mp4&animationTitle=Get%20Started%20AI%20in%20Azure&pauseTimes=4.23,5.5,7,8.45,9.95,11.45,12.65,14.2', '_blank')">🎬 Present Animation Now 🚀</button>
-
-<a href="javascript:void(0);" onClick="window.open('https://azureanimations.github.io/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/AI/Get-Started-AI-In-Azure-Vdo.mp4&animationTitle=Get%20Started%20AI%20in%20Azure&pauseTimes=4.23,5.5,7,8.45,9.95,11.45,12.65,14.2', '_blank')" style="display:inline-block;padding:10px 20px;font-size:16px;color:white;background-color:#007bff;border:none;border-radius:5px;text-decoration:none;cursor:pointer;">🎬 Present Animation Now 🚀</a>
-
-
-
+At Azure Animations, we believe that understanding complex cloud technologies doesn't have to be difficult or boring. That's why we've reimagined learning with a fresh approach—by turning intricate concepts into engaging, fun Animations. Our platform brings the worlds of Developers 💻, DevSecOps - Security 🔐, Cloud ☁️, and AI 🤖 to life, making it easier for everyone, from beginners to experts, to grasp essential ideas and stay up-to-date with the latest in technology.
 
 Our Animations are crafted by Microsoft Technical Trainers & MCTs 👨‍🏫👩‍🏫 , ensuring that the content is not only accurate but also creatively presented to hold your attention. Whether you're looking to demystify cloud architecture, explore security best practices, or dive into AI innovations, Azure Animations is here to help you visualize and understand the most important concepts in the tech world.
 
@@ -36,8 +31,8 @@ Azure AI is your gateway to transforming ideas into reality! Whether it's buildi
     <img src="./images/animations-480thumbnails/Get-Started-AI-In-Azure%2Bthumbnail.png" alt="Get Started AI in Azure">
   </a>
   <p style="text-align: center; font-style: italic;">
-    <a href="#" onClick="window.open('https://azureanimations.github.io/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/AI/Get-Started-AI-In-Azure-Vdo.mp4&animationTitle=Get%20Started%20AI%20in%20Azure&pauseTimes=4.23,5.5,7,8.45,9.95,11.45,12.65,14.2', '_blank')">🎬 Present Animation Now 🚀</a>
-, <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Get-Started-AI-In-Azure.png" target="_blank">Click to download in HD size</a>, <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Get-Started-AI-In-Azure.gif" target="_blank">GIF</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Get-Started-AI-In-Azure-Vdo.mp4" target="_blank">view the HD video</a>
+    <a href="javascript:void(0);" onClick="window.open('https://azureanimations.github.io/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/AI/Get-Started-AI-In-Azure-Vdo.mp4&animationTitle=Get%20Started%20AI%20in%20Azure&pauseTimes=4.23,5.5,7,8.45,9.95,11.45,12.65,14.2', '_blank')" style="display:inline-block;padding:10px 20px;font-size:16px;color:white;background-color:#007bff;border:none;border-radius:5px;text-decoration:none;cursor:pointer;">🎬 Present Animation</a>
+ <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Get-Started-AI-In-Azure.png" target="_blank">Click to download in HD size</a>, <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Get-Started-AI-In-Azure.gif" target="_blank">GIF</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Get-Started-AI-In-Azure-Vdo.mp4" target="_blank">view the HD video</a>
   </p>
 </div>
 
@@ -128,8 +123,8 @@ When working with Azure services, choosing **SDK-supported languages** can signi
     <img src="./images/animations-480thumbnails/AI-Single-vs-Multi-Service_thumbnail.gif" alt="Azure AI Containers">
   </a>
   <p style="text-align: center; font-style: italic;">
-    <a href="https://moodengazureanimations.z23.web.core.windows.net/moodeng-player/azureanimation-player.html?vdo=AI-Single-vs-Multi-Service-Vdo.mp4" target="_blank">🎬 Present Animation Now 🚀</a>
-, <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/AI-Single-vs-Multi-Service.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/AI-Single-vs-Multi-Service-Vdo.mp4" target="_blank">view the HD video</a>
+    <a href="javascript:void(0);" onClick="window.open('https://azureanimations.github.io/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/AI/AI-Single-vs-Multi-Service-Vdo.mp4&animationTitle=Understanding%20Azure%20AI%3A%20Single%20Service%20vs.%20Multi-Service%20Account&pauseTimes=6.55,17.3,30.7', '_blank')" style="display:inline-block;padding:10px 20px;font-size:16px;color:white;background-color:#007bff;border:none;border-radius:5px;text-decoration:none;cursor:pointer;">🎬 Present Animation</a>
+ <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/AI-Single-vs-Multi-Service.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/AI-Single-vs-Multi-Service-Vdo.mp4" target="_blank">view the HD video</a>
   </p>
 </div>
 
@@ -167,8 +162,7 @@ When working with Azure services, choosing **SDK-supported languages** can signi
     <img src="./images/animations-480thumbnails/Cognitive-Container_thumbnail.gif" alt="Azure AI Containers">
   </a>
   <p style="text-align: center; font-style: italic;">
-    <a href="https://moodengazureanimations.z23.web.core.windows.net/moodeng-player/azureanimation-player.html?vdo=Cognitive-Container-Vdo.mp4" target="_blank">🎬 Present Animation Now 🚀</a>
-, <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Cognitive-Container.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Cognitive-Container-Vdo.mp4" target="_blank">view the HD video</a>
+    <a href="javascript:void(0);" onClick="window.open('https://azureanimations.github.io/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/AI/Cognitive-Container-Vdo.mp4&animationTitle=Azure%20AI%20Containers&pauseTimes=7.6,15.4,23.18,27.8,43.457', '_blank')" style="display:inline-block;padding:10px 20px;font-size:16px;color:white;background-color:#007bff;border:none;border-radius:5px;text-decoration:none;cursor:pointer;">🎬 Present Animation</a> <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Cognitive-Container.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Cognitive-Container-Vdo.mp4" target="_blank">view the HD video</a>
   </p>
 </div>
 
@@ -202,7 +196,7 @@ Azure AI containers provide an optimal blend of performance, privacy, and cost-e
     <img src="./images/animations-480thumbnails/Azure OpenAI - AI Foundry Studio_Provisioning_and_Deployment_Creation_-_thumbnail.gif" alt="Azure OpenAI - Provisioning and Deployment Creation">
   </a>
   <p style="text-align: center; font-style: italic;">
-    <a href="https://moodengazureanimations.z23.web.core.windows.net/moodeng-player-autopause/autopause-aifoundry.html" target="_blank">🎬 Present Animation Now 🚀</a> <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Azure%20OpenAI%20-%20AI%20Foundry%20Provisioning%20and%20Deployment%20Creation.gif" target="_blank">Click to download in HD size</a>, <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Azure%20OpenAI%20-%20AI%20Foundry%20Provisioning%20and%20Deployment%20Creation.mp4" target="_blank">view the HD video</a>, <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/presentations/AI/Azure%20OpenAI%20-%20AI%20Foundry%20Provisioning%20and%20Deployment%20Creation.pptx" target="_blank">Presentation slide (pptx)</a>
+    <a href="javascript:void(0);" onClick="window.open('https://azureanimations.github.io/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/AI/Azure%20OpenAI%20-%20AI%20Foundry%20Provisioning%20and%20Deployment%20Creation.mp4&animationTitle=Azure%20OpenAI%20-%20Provisioning%20and%20Deployment%20Creation&pauseTimes=23.7,32,63.9,68', '_blank')" style="display:inline-block;padding:10px 20px;font-size:16px;color:white;background-color:#007bff;border:none;border-radius:5px;text-decoration:none;cursor:pointer;">🎬 Present Animation</a> <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Azure%20OpenAI%20-%20AI%20Foundry%20Provisioning%20and%20Deployment%20Creation.gif" target="_blank">Click to download in HD size</a>, <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Azure%20OpenAI%20-%20AI%20Foundry%20Provisioning%20and%20Deployment%20Creation.mp4" target="_blank">view the HD video</a>, <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/presentations/AI/Azure%20OpenAI%20-%20AI%20Foundry%20Provisioning%20and%20Deployment%20Creation.pptx" target="_blank">Presentation slide (pptx)</a>
   </p>
 </div>
 
@@ -258,8 +252,7 @@ Azure AI Search is a powerful AI-driven solution that combines built-in and cust
     <img src="./images/animations-480thumbnails/Document-Intelligence_thumbnail.gif" alt="Azure AI Document Intelligence">
   </a>
   <p style="text-align: center; font-style: italic;">
-    <a href="https://moodengazureanimations.z23.web.core.windows.net/moodeng-player/azureanimation-player.html?vdo=Document-Intelligence-Vdo.mp4" target="_blank">🎬 Present Animation Now 🚀</a>
-, <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Document-Intelligence.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Document-Intelligence-Vdo.mp4" target="_blank">view the HD video</a>
+    <a href="javascript:void(0);" onClick="window.open('https://azureanimations.github.io/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/AI/Document-Intelligence-Vdo.mp4&animationTitle=Azure%20AI%20Document%20Intelligence&pauseTimes=9.5,14.354,37.6', '_blank')" style="display:inline-block;padding:10px 20px;font-size:16px;color:white;background-color:#007bff;border:none;border-radius:5px;text-decoration:none;cursor:pointer;">🎬 Present Animation</a> <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Document-Intelligence.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Document-Intelligence-Vdo.mp4" target="_blank">view the HD video</a>
   </p>
 </div>
 
@@ -295,7 +288,7 @@ Azure AI Document Intelligence helps turn your documents into valuable assets, i
   </a>
   <p style="text-align: center; font-style: italic;">
     <a href="https://moodengazureanimations.z23.web.core.windows.net/moodeng-player/azureanimation-player.html?vdo=Azure-Speech-Service-Vdo.mp4" target="_blank">🎬 Present Animation Now 🚀</a>
-, <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Azure-Speech-Service.gif" target="_blank">Click to download in HD size</a>
+    <a href="javascript:void(0);" onClick="window.open('https://azureanimations.github.io/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/AI/Azure-Speech-Service-Vdo.mp4&animationTitle=Azure%20AI%20Speech%20Service', '_blank')" style="display:inline-block;padding:10px 20px;font-size:16px;color:white;background-color:#007bff;border:none;border-radius:5px;text-decoration:none;cursor:pointer;">🎬 Present Animation</a> <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Azure-Speech-Service.gif" target="_blank">Click to download in HD size</a>
   </p>
 </div>
 
