@@ -31,6 +31,7 @@ Azure AI is your gateway to transforming ideas into reality! Whether it's buildi
     <img src="./images/animations-480thumbnails/Get-Started-AI-In-Azure%2Bthumbnail.png" alt="Get Started AI in Azure">
   </a>
   <p style="text-align: center; font-style: italic;">
+    <a href="https://azureanimations.github.io/AzureAnimationsPlayer/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/AI/Azure%20OpenAI%20-%20AI%20Foundry%20Provisioning%20and%20Deployment%20Creation.mp4&animationTitle=Azure%20OpenAI%20-%20Provisioning%20and%20Deployment%20Creation&pauseTimes=23.7,32,63.9,68" target="_blank">🎬 Present 🚀</a>
     <a href="https://moodengazureanimations.z23.web.core.windows.net/moodeng-player/azureanimation-player.html?vdo=Get-Started-AI-In-Azure-Vdo.mp4" target="_blank">🎬 Present Animation Now 🚀</a>
 , <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Get-Started-AI-In-Azure.png" target="_blank">Click to download in HD size</a>, <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Get-Started-AI-In-Azure.gif" target="_blank">GIF</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Get-Started-AI-In-Azure-Vdo.mp4" target="_blank">view the HD video</a>
   </p>
