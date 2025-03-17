@@ -326,12 +326,10 @@ This infographic compares **Azure OpenAI** and the **OpenAI API** across various
 
 <div style="text-align: center;">
   <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/aoai_diff_openai.gif" target="_blank">
-    <img src="./images/animations-480thumbnails/aoai_diff_openai_thumbnail.gif" alt="REST API and SDK">
+    <img src="./images/animations-480thumbnails/aoai_diff_openai_thumbnail.gif" alt="Storage Account, Tiers, Services and Types">
   </a>
   <p style="text-align: center; font-style: italic;">
-    <a href="javascript:void(0);" onClick="window.open('https://azureanimations.github.io/player/animationPlayer.html?vdo=https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/aoai_diff_openai.gif&animationTitle=REST%20API%20and%20SDK', '_blank')" style="display:inline-block;padding:10px 20px;font-size:16px;color:white;background-color:#007bff;border:none;border-radius:5px;text-decoration:none;cursor:pointer;">🎬 Present Animation</a> 
-    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/aoai_diff_openai.gif" target="_blank">Click to download in HD size</a> or 
-    <a href="javascript:void(0);" onClick="window.open('https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/aoai_diff_openai.gif', '_blank')">view the HD video</a>
+    <a href="javascript:void(0);" onClick="window.open('https://azureanimations.github.io/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/AI/aoai_diff_openai_vdo.mp4&animationTitle=Redundancy%20Options%20In%20Azure%20Storage%20Account', '_blank')" style="display:inline-block;padding:10px 20px;font-size:16px;color:white;background-color:#007bff;border:none;border-radius:5px;text-decoration:none;cursor:pointer;">🎬 Present Animation</a> <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/aoai_diff_openai.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/aoai_diff_openai_vdo.mp4" target="_blank">view the HD video</a>
   </p>
 </div>
 
