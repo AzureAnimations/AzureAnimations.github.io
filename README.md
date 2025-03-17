@@ -313,27 +313,14 @@ Additionally, it allows for customization to meet specific needs, such as creati
 
 This infographic compares **Azure OpenAI** and the **OpenAI API** across various factors. Below is a summary of each key point:
 
-
-<!-- <div style="text-align: center;">
-  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/_thumbnail.gif" target="_blank">
-    <img src="./images/animations-480thumbnails/_thumbnail.gif" alt="REST API and SDK">
-  </a>
-  <p style="text-align: center; font-style: italic;">
-    REST API and SDK <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/aoai_diff_openai.gif" target="_blank">Click to download in HD size</a>
-  </p>
-</div> -->
-
-
 <div style="text-align: center;">
   <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/aoai_diff_openai.gif" target="_blank">
-    <img src="./images/animations-480thumbnails/aoai_diff_openai_thumbnail.gif" alt="Storage Account, Tiers, Services and Types">
+    <img src="./images/animations-480thumbnails/aoai_diff_openai_thumbnail.gif" alt="Azure OpenAI vs. OpenAI API: Key Differences">
   </a>
   <p style="text-align: center; font-style: italic;">
-    <a href="javascript:void(0);" onClick="window.open('https://azureanimations.github.io/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/AI/aoai_diff_openai_vdo.mp4&animationTitle=Redundancy%20Options%20In%20Azure%20Storage%20Account', '_blank')" style="display:inline-block;padding:10px 20px;font-size:16px;color:white;background-color:#007bff;border:none;border-radius:5px;text-decoration:none;cursor:pointer;">🎬 Present Animation</a> <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/aoai_diff_openai.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/DaddyCherry/AzureAnimations.github.io.mk/main/images/animations-high-resolutions/AI/aoai_diff_openai_vdo.mp4" target="_blank">view the HD video</a>
+    <a href="javascript:void(0);" onClick="window.open('https://azureanimations.github.io/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/AI/aoai_diff_openai_vdo.mp4&animationTitle=Azure%20OpenAI%20vs%20OpenAI%20API%20Key%20Differences', '_blank')" style="display:inline-block;padding:10px 20px;font-size:16px;color:white;background-color:#007bff;border:none;border-radius:5px;text-decoration:none;cursor:pointer;">🎬 Present Animation</a> <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/aoai_diff_openai.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/aoai_diff_openai_vdo.mp4" target="_blank">view the HD video</a>
   </p>
 </div>
-
-
 
 ---
 
@@ -398,13 +385,12 @@ This infographic compares **Azure OpenAI** and the **OpenAI API** across various
 
 Azure AI Search is a powerful cloud-based search service that enhances traditional search functionalities with **AI integration**. It enables intelligent, efficient, and scalable search experiences by leveraging AI-powered **data processing, indexing, and semantic search capabilities**. Below, we break down the key components and workflow of **Azure AI Search**.  
 
-
 <div style="text-align: center;">
-  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/ai_search_thumbnail.gif" target="_blank">
-    <img src="./images/animations-480thumbnails/ai_search_thumbnail.gif" alt="REST API and SDK">
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/ai_search.gif" target="_blank">
+    <img src="./images/animations-480thumbnails/ai_search_thumbnail.gif" alt="Unlocking Azure AI Search Potential">
   </a>
   <p style="text-align: center; font-style: italic;">
-    REST API and SDK <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/ai_search.gif" target="_blank">Click to download in HD size</a>
+    <a href="javascript:void(0);" onClick="window.open('https://azureanimations.github.io/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/AI/ai_search_vdo.mp4&animationTitle=Unlocking%20Azure%20AI%20Search%20Potential', '_blank')" style="display:inline-block;padding:10px 20px;font-size:16px;color:white;background-color:#007bff;border:none;border-radius:5px;text-decoration:none;cursor:pointer;">🎬 Present Animation</a> <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/ai_search.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/ai_search_vdo.mp4" target="_blank">view the HD video</a>
   </p>
 </div>
 
@@ -515,13 +501,12 @@ This architecture ensures **privacy, scalability, and flexibility**, but it also
 
 <div style="text-align: center;">
   <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/chatcompletion_api_work.gif" target="_blank">
-    <img src="./images/animations-480thumbnails/chatcompletion_api_work_thumbnail.gif" alt="REST API and SDK">
+    <img src="./images/animations-480thumbnails/chatcompletion_api_work_thumbnail.gif" alt="Understanding ChatCompletion Statelessness">
   </a>
   <p style="text-align: center; font-style: italic;">
-    REST API and SDK <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/chatcompletion_api_work.gif" target="_blank">Click to download in HD size</a>
+    <a href="javascript:void(0);" onClick="window.open('https://azureanimations.github.io/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/AI/chatcompletion_api_work_vdo.mp4&animationTitle=Understanding%20ChatCompletion%20Statelessness', '_blank')" style="display:inline-block;padding:10px 20px;font-size:16px;color:white;background-color:#007bff;border:none;border-radius:5px;text-decoration:none;cursor:pointer;">🎬 Present Animation</a> <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/chatcompletion_api_work.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/chatcompletion_api_work_vdo.mp4" target="_blank">view the HD video</a>
   </p>
 </div>
-
 
 ---
 
