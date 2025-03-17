@@ -315,8 +315,8 @@ This infographic compares **Azure OpenAI** and the **OpenAI API** across various
 
 
 <div style="text-align: center;">
-  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/ai_search_thumbnail.gif" target="_blank">
-    <img src="./images/animations-480thumbnails/ai_search_thumbnail.gif" alt="REST API and SDK">
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/aoai_diff_openai_thumbnail.gif" target="_blank">
+    <img src="./images/animations-480thumbnails/aoai_diff_openai_thumbnail.gif" alt="REST API and SDK">
   </a>
   <p style="text-align: center; font-style: italic;">
     REST API and SDK <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/aoai_diff_openai.gif" target="_blank">Click to download in HD size</a>
