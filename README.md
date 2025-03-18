@@ -189,34 +189,39 @@ Key Benefits and Steps:
 
 Azure AI containers provide an optimal blend of performance, privacy, and cost-effectiveness. Integrate these AI services into your on-premises setup and elevate your business operations today.
 
-### 🔸Azure OpenAI - Provisioning and Deployment Creation
+### 🔸Unlocking Azure AI Search Potential  
+
+Azure AI Search is a powerful cloud-based search service that enhances traditional search functionalities with **AI integration**. It enables intelligent, efficient, and scalable search experiences by leveraging AI-powered **data processing, indexing, and semantic search capabilities**. Below, we break down the key components and workflow of **Azure AI Search**.  
 
 <div style="text-align: center;">
-  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Azure%20OpenAI%20-%20AI%20Foundry%20Provisioning%20and%20Deployment%20Creation.gif" target="_blank">
-    <img src="./images/animations-480thumbnails/Azure OpenAI - AI Foundry Studio_Provisioning_and_Deployment_Creation_-_thumbnail.gif" alt="Azure OpenAI - Provisioning and Deployment Creation">
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/ai_search.gif" target="_blank">
+    <img src="./images/animations-480thumbnails/ai_search_thumbnail.gif" alt="Unlocking Azure AI Search Potential">
   </a>
   <p style="text-align: center; font-style: italic;">
-    <a href="javascript:void(0);" onClick="window.open('https://azureanimations.github.io/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/AI/Azure%20OpenAI%20-%20AI%20Foundry%20Provisioning%20and%20Deployment%20Creation.mp4&animationTitle=Azure%20OpenAI%20-%20Provisioning%20and%20Deployment%20Creation&pauseTimes=23.7,32,63.9,68', '_blank')" style="display:inline-block;padding:10px 20px;font-size:16px;color:white;background-color:#007bff;border:none;border-radius:5px;text-decoration:none;cursor:pointer;">🎬 Present Animation</a> <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Azure%20OpenAI%20-%20AI%20Foundry%20Provisioning%20and%20Deployment%20Creation.gif" target="_blank">Click to download in HD size</a>, <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Azure%20OpenAI%20-%20AI%20Foundry%20Provisioning%20and%20Deployment%20Creation.mp4" target="_blank">view the HD video</a>, <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/presentations/AI/Azure%20OpenAI%20-%20AI%20Foundry%20Provisioning%20and%20Deployment%20Creation.pptx" target="_blank">Presentation slide (pptx)</a>
+    <a href="javascript:void(0);" onClick="window.open('https://azureanimations.github.io/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/AI/ai_search-Vdo.mp4&animationTitle=Unlocking%20Azure%20AI%20Search%20Potential', '_blank')" style="display:inline-block;padding:10px 20px;font-size:16px;color:white;background-color:#007bff;border:none;border-radius:5px;text-decoration:none;cursor:pointer;">🎬 Present Animation</a> <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/ai_search.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/ai_search-Vdo.mp4" target="_blank">view the HD video</a>
   </p>
 </div>
 
-Above illustrates the process of provisioning Azure OpenAI, we start by using the Azure Portal. First, navigate to the Azure AI Foundry where you can select the appropriate model for your needs, such as GPT-4, GPT-4o, etc. Before users can consume the model, they need to select the model and create a deployment. There are several types of deployments available:
 
-1. Azure Portal: Start by using the Azure Portal to navigate to Azure AI Foundry.
-2. Select Model: Choose the right model (e.g., GPT-4, GPT-4o) 🧠.
-3. Create Deployment:
-   - Global-Batch: For offline scoring 🕒.
-   - Global-Standard: Recommended starting point 🌍.
-   - Global-Provisioned: For real-time scoring with high volume 📈.
-   - Standard: General-purpose deployment.
-   - Provisioned: For high-volume workloads.
-   - Data Zone Standard: Leverages Azure global infrastructure for best availability and higher default quotas.
-   - Data Zone Provisioned: Global infrastructure, best availability, reserved capacity for high and predictable throughput.
-4. Deploy: Once deployed, the application calls the Azure OpenAI endpoint using the deployment ID 🔗, using the SDK REST API.
+**📌 Key Components & Workflow**  
 
-> Click the video below for recorded explanations by [Vincent Kok](https://www.linkedin.com/in/vincekok/).
-> <br>
-> <a href="https://www.linkedin.com/videos/urn:li:ugcPost:7266798574191947777/?entryPoint=FEED" target="_blank"><img src="./images/animations-explained/Azure OpenAI Studio Explained.png" alt="Azure OpenAI AI Foundry" width="300"></a>
+**1️⃣ Connect to Data Source**  
+✅ **Benefit**: This allows businesses to unify their data sources, making them accessible and searchable in real-time.  
+
+**2️⃣ Utilize Skill Set**  
+✅ **Benefit**: AI-driven enrichment makes the search more **context-aware**, improving accuracy and discoverability.  
+
+**3️⃣ Implement Indexer**  
+✅ **Benefit**: Reduces manual data processing efforts while enabling **AI-powered indexing**.  
+
+**4️⃣ Create an Index**  
+✅ **Benefit**: AI-driven indexing makes **retrieval faster, more relevant, and scalable**.  
+
+**5️⃣ Perform AI Processing**  
+✅ **Benefit**: Search results are **smarter, more intuitive, and personalized** for users.  
+
+**🌟 Conclusion**  
+Azure AI Search **revolutionizes search experiences** by combining **data connectivity, AI preprocessing, intelligent indexing, and semantic search capabilities**. Whether for **enterprise document search, e-commerce recommendations, or knowledge discovery**, Azure AI Search **delivers highly relevant, AI-enhanced search results with speed and precision**. 
 
 ### 🔸Azure AI Search - Custom Skill
 
@@ -243,7 +248,6 @@ Azure AI Search is a powerful AI-driven solution that combines built-in and cust
 > Click the video below for recorded explanations by [Vincent Kok](https://www.linkedin.com/in/vincekok/).
 > <br>
 > <a href="https://www.linkedin.com/videos/urn:li:ugcPost:7287760806933405696/?entryPoint=FEED" target="_blank"><img src="./images/animations-explained/AI Search Explained.png" alt="Azure OpenAI AI Foundry" width="300"></a>
-
 
 ### 🔸Azure AI Document Intelligence
 
@@ -304,8 +308,7 @@ Additionally, it allows for customization to meet specific needs, such as creati
 - **Text-to-Speech Avatar** : Create animated video avatars that speak based on text input, enhancing user engagement through visual interaction🎥🤖
 - **Custom Text-to-Speech Avatar** : Develop a unique and natural-looking avatar based on recorded video data of selected actors, ideal for brand and product identity🎭✨
 
-
-### **Azure OpenAI vs. OpenAI API: Key Differences**  
+### 🔸Azure OpenAI vs. OpenAI API: Key Differences  
 
 This infographic compares **Azure OpenAI** and the **OpenAI API** across various factors. Below is a summary of each key point:
 
@@ -330,48 +333,36 @@ This infographic compares **Azure OpenAI** and the **OpenAI API** across various
 **💡 Conclusion**  
 **Azure OpenAI** is best for enterprises needing **security, compliance, and deep integrations**, while **OpenAI API** is more accessible for **individuals and startups** seeking quick AI solutions. 🚀
 
-
-
-
-### **🔍 Unlocking Azure AI Search Potential**  
-
-Azure AI Search is a powerful cloud-based search service that enhances traditional search functionalities with **AI integration**. It enables intelligent, efficient, and scalable search experiences by leveraging AI-powered **data processing, indexing, and semantic search capabilities**. Below, we break down the key components and workflow of **Azure AI Search**.  
+### 🔸Azure OpenAI - Provisioning and Deployment Creation
 
 <div style="text-align: center;">
-  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/ai_search.gif" target="_blank">
-    <img src="./images/animations-480thumbnails/ai_search_thumbnail.gif" alt="Unlocking Azure AI Search Potential">
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Azure%20OpenAI%20-%20AI%20Foundry%20Provisioning%20and%20Deployment%20Creation.gif" target="_blank">
+    <img src="./images/animations-480thumbnails/Azure OpenAI - AI Foundry Studio_Provisioning_and_Deployment_Creation_-_thumbnail.gif" alt="Azure OpenAI - Provisioning and Deployment Creation">
   </a>
   <p style="text-align: center; font-style: italic;">
-    <a href="javascript:void(0);" onClick="window.open('https://azureanimations.github.io/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/AI/ai_search-Vdo.mp4&animationTitle=Unlocking%20Azure%20AI%20Search%20Potential', '_blank')" style="display:inline-block;padding:10px 20px;font-size:16px;color:white;background-color:#007bff;border:none;border-radius:5px;text-decoration:none;cursor:pointer;">🎬 Present Animation</a> <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/ai_search.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/ai_search-Vdo.mp4" target="_blank">view the HD video</a>
+    <a href="javascript:void(0);" onClick="window.open('https://azureanimations.github.io/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/AI/Azure%20OpenAI%20-%20AI%20Foundry%20Provisioning%20and%20Deployment%20Creation.mp4&animationTitle=Azure%20OpenAI%20-%20Provisioning%20and%20Deployment%20Creation&pauseTimes=23.7,32,63.9,68', '_blank')" style="display:inline-block;padding:10px 20px;font-size:16px;color:white;background-color:#007bff;border:none;border-radius:5px;text-decoration:none;cursor:pointer;">🎬 Present Animation</a> <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Azure%20OpenAI%20-%20AI%20Foundry%20Provisioning%20and%20Deployment%20Creation.gif" target="_blank">Click to download in HD size</a>, <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Azure%20OpenAI%20-%20AI%20Foundry%20Provisioning%20and%20Deployment%20Creation.mp4" target="_blank">view the HD video</a>, <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/presentations/AI/Azure%20OpenAI%20-%20AI%20Foundry%20Provisioning%20and%20Deployment%20Creation.pptx" target="_blank">Presentation slide (pptx)</a>
   </p>
 </div>
 
+Above illustrates the process of provisioning Azure OpenAI, we start by using the Azure Portal. First, navigate to the Azure AI Foundry where you can select the appropriate model for your needs, such as GPT-4, GPT-4o, etc. Before users can consume the model, they need to select the model and create a deployment. There are several types of deployments available:
 
-**📌 Key Components & Workflow**  
+1. Azure Portal: Start by using the Azure Portal to navigate to Azure AI Foundry.
+2. Select Model: Choose the right model (e.g., GPT-4, GPT-4o) 🧠.
+3. Create Deployment:
+   - Global-Batch: For offline scoring 🕒.
+   - Global-Standard: Recommended starting point 🌍.
+   - Global-Provisioned: For real-time scoring with high volume 📈.
+   - Standard: General-purpose deployment.
+   - Provisioned: For high-volume workloads.
+   - Data Zone Standard: Leverages Azure global infrastructure for best availability and higher default quotas.
+   - Data Zone Provisioned: Global infrastructure, best availability, reserved capacity for high and predictable throughput.
+4. Deploy: Once deployed, the application calls the Azure OpenAI endpoint using the deployment ID 🔗, using the SDK REST API.
 
-**1️⃣ Connect to Data Source**  
-✅ **Benefit**: This allows businesses to unify their data sources, making them accessible and searchable in real-time.  
+> Click the video below for recorded explanations by [Vincent Kok](https://www.linkedin.com/in/vincekok/).
+> <br>
+> <a href="https://www.linkedin.com/videos/urn:li:ugcPost:7266798574191947777/?entryPoint=FEED" target="_blank"><img src="./images/animations-explained/Azure OpenAI Studio Explained.png" alt="Azure OpenAI AI Foundry" width="300"></a>
 
-**2️⃣ Utilize Skill Set**  
-✅ **Benefit**: AI-driven enrichment makes the search more **context-aware**, improving accuracy and discoverability.  
-
-**3️⃣ Implement Indexer**  
-✅ **Benefit**: Reduces manual data processing efforts while enabling **AI-powered indexing**.  
-
-**4️⃣ Create an Index**  
-✅ **Benefit**: AI-driven indexing makes **retrieval faster, more relevant, and scalable**.  
-
-**5️⃣ Perform AI Processing**  
-✅ **Benefit**: Search results are **smarter, more intuitive, and personalized** for users.  
-
-**🌟 Conclusion**  
-Azure AI Search **revolutionizes search experiences** by combining **data connectivity, AI preprocessing, intelligent indexing, and semantic search capabilities**. Whether for **enterprise document search, e-commerce recommendations, or knowledge discovery**, Azure AI Search **delivers highly relevant, AI-enhanced search results with speed and precision**.  
-
-
-
-
-
-### **🔍 Understanding ChatCompletion Statelessness**  
+### 🔸Understanding ChatCompletion Statelessness
 
 The **ChatCompletion API** is designed to be **stateless**, meaning it does **not retain any memory** of previous interactions. Each API call is treated as an **independent request**, and the response is solely based on the **input provided in that specific call**.  
 
