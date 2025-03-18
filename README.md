@@ -305,6 +305,33 @@ Additionally, it allows for customization to meet specific needs, such as creati
 - **Custom Text-to-Speech Avatar** : Develop a unique and natural-looking avatar based on recorded video data of selected actors, ideal for brand and product identity🎭✨
 
 
+### **Azure OpenAI vs. OpenAI API: Key Differences**  
+
+This infographic compares **Azure OpenAI** and the **OpenAI API** across various factors. Below is a summary of each key point:
+
+<div style="text-align: center;">
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/aoai_diff_openai.gif" target="_blank">
+    <img src="./images/animations-480thumbnails/aoai_diff_openai_thumbnail.gif" alt="Azure OpenAI vs. OpenAI API: Key Differences">
+  </a>
+  <p style="text-align: center; font-style: italic;">
+    <a href="javascript:void(0);" onClick="window.open('https://azureanimations.github.io/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/AI/aoai_diff_openai-Vdo.mp4&animationTitle=Azure%20OpenAI%20vs%20OpenAI%20API%20Key%20Differences', '_blank')" style="display:inline-block;padding:10px 20px;font-size:16px;color:white;background-color:#007bff;border:none;border-radius:5px;text-decoration:none;cursor:pointer;">🎬 Present Animation</a> <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/aoai_diff_openai.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/aoai_diff_openai-Vdo.mp4" target="_blank">view the HD video</a>
+  </p>
+</div>
+
+**1️⃣ Infrastructure Differences**  
+**2️⃣ Security & Compliance**  
+**3️⃣ Service Integrations**  
+**4️⃣ Pricing Structure**  
+**5️⃣ Accessibility Levels**  
+**6️⃣ Usage Scenarios**  
+**7️⃣ Support & Documentation**  
+**8️⃣ Target Audience**  
+
+**💡 Conclusion**  
+**Azure OpenAI** is best for enterprises needing **security, compliance, and deep integrations**, while **OpenAI API** is more accessible for **individuals and startups** seeking quick AI solutions. 🚀
+
+
+
 ## 2️⃣ Compute Options 
 
 Azure offers a world of compute options designed to power anything from your small apps to global-scale services. With virtual machines for full control, serverless computing with Azure Functions, and containers through Kubernetes, you're equipped to build and scale faster than ever ⚡. Whether you're optimizing performance or reducing costs, Azure's flexible compute solutions have got you covered—ready to take your projects to the next level? Let Azure Compute lead the way! 🌟
