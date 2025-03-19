@@ -981,7 +981,7 @@ Let's work together to make learning fun and engaging for everyone!
 
 # Help Wanted 📒
 
-- Do you have suggestions for Azure Animations? The survey form is open 👉 <a href="https://forms.office.com/Pages/ResponsePage.aspx?id=v4j5cvGGr0GRqy180BHbR22gxP7xw1pMhQWs0QtOtapUMUMxM0o0U0UxQTJSS1NNTFA1V0tSSEpNOS4u" target="_blank">here</a> ℹ️.
+- Do you have suggestions for Azure Animations? The survey form is open 👉 <a href="https://forms.office.com/Pages/ResponsePage.aspx?id=v4j5cvGGr0GRqy180BHbR22gxP7xw1pMhQWs0QtOtapUMUMxM0o0U0UxQTJSS1NNTFA1V0tSSEpNOS4u&r0e12d862a54244be96ab296dbf4d8e28=%22Yes%22&r81f5983bb4d94b128c06aefdbe136577=%22Clear%22&r83fefac136b4415eac8ee24cc0084f7a=%22Engaging%22&r5f9a63e973e44bcb804b808f3b895f60=5" target="_blank">here</a> ℹ️.
 - Microsoft Technical Trainer team (FTE) 🙏, please capture class feedback on our Azure Animations 👉 <a href="https://aka.ms/MooDengTestimonial" target="_blank">here</a>: Do learners like it? Want more?
 
 # Special Thanks ❤️
