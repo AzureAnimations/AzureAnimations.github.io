@@ -776,6 +776,7 @@ This setup ensures that your application VMs can receive HTTP traffic and commun
   <p style="text-align: center; font-style: italic;">
     <a href="https://www.linkedin.com/posts/jeremyjwallace_azure-networking-cloudcomputing-activity-7288941191214047232-LXia?utm_source=share&utm_medium=member_desktop&rcm=ACoAAAakJdcBEt-I6o6GFyc4tzPmZeyP6nGKWyg" target="_blank">Download PDF from Jeremey's original post</a>
   </p>
+</div>
 
 Managing cloud resources efficiently starts with a solid naming convention, and in Azure, this is especially critical for maintaining clarity, scalability, and security.
 
