@@ -767,7 +767,7 @@ This setup ensures that your application VMs can receive HTTP traffic and commun
 - **No Public IP Required**: VMs do not need a public IP.
 - **Regulatory Compliance**: Meets regulatory requirements.
 
-### 🔸Network Naming Convention By  [Jeremy Wallace (Microsoft MVP 🏆)](https://www.linkedin.com/in/jeremyjwallace/)
+### 🔸Network Naming Convention
 
 <div style="text-align: center;">
   <a href="https://raw.githubusercontent.com/msftnutta/AzureAnimations.github.io/main/images/animations-480thumbnails/Community-Azure-Network-Naming_Convention_MVP.jpeg" target="_blank">
