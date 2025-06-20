@@ -358,9 +358,9 @@ Above illustrates the process of provisioning Azure OpenAI, we start by using th
    - Data Zone Provisioned: Global infrastructure, best availability, reserved capacity for high and predictable throughput.
 4. Deploy: Once deployed, the application calls the Azure OpenAI endpoint using the deployment ID 🔗, using the SDK REST API.
 
-> Click the video below for recorded explanations by [Vincent Kok](https://www.linkedin.com/in/vincekok/).
+> Click the video below for recorded explanations by [Lachlan Matthew-Dickinson](https://www.linkedin.com/in/lachlanmd/).
 > <br>
-> <a href="https://www.linkedin.com/videos/urn:li:ugcPost:7266798574191947777/?entryPoint=FEED" target="_blank"><img src="./images/animations-explained/Azure OpenAI Studio Explained.png" alt="Azure OpenAI AI Foundry" width="300"></a>
+> <a href="https://www.linkedin.com/embed/feed/update/urn:li:ugcPost:7338063771422048261?collapsed=1" target="_blank"><img src="./images/animations-explained/Azure AI Foundry Deployments Explained.png" alt="Azure AI Foundry Deployments Explained" width="300"></a>
 
 ### 🔸Understanding ChatCompletion Statelessness
 
@@ -542,6 +542,10 @@ Azure Storage offers various redundancy options to ensure data durability and hi
 4.**Geo-Zone-Redundant Storage (GZRS) and Read-Access Geo-Zone-Redundant Storage (RA-GZRS)**: GZRS combines the benefits of ZRS and GRS by replicating your data across availability zones and to a secondary region. RA-GZRS offers read access to the secondary region.
 
 These redundancy options help you choose the right level of data protection and availability based on your specific needs.
+
+> Click the video below for recorded explanations by [Neeraj Kumar](https://www.linkedin.com/in/neerajtrainer/).
+> <br>
+> <a href="https://www.linkedin.com/embed/feed/update/urn:li:ugcPost:7340974852037648384?collapsed=1" target="_blank"><img src="./images/animations-explained/Storage Account Redundancy Explained.png" alt="Azure Storage Account Redundancy Options" width="300"></a>
 
 ### 🔸SAS Tokens in Storage Account 🚀
 
