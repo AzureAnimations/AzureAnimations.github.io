@@ -396,7 +396,23 @@ To leverage ChatCompletion effectively, developers must **understand and adapt t
 🔹 **Using session identifiers** for tracking user interactions across multiple requests.  
 🔹 **Balancing efficiency and data payload size** when sending historical context.  
 
+### 🔸How Microsoft 365 Copilot Accesses Data
 
+<div style="text-align: center;">
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Microsfot-365-Copilot.gif" target="_blank">
+    <img src="./images/animations-480thumbnails/Microsfot-365-Copilot_thumbnail.gif" alt="How Microsoft 365 Copilot Accesses Data">
+  </a>
+  <p style="text-align: center; font-style: italic;">
+    <a href="javascript:void(0);" onClick="window.open('https://azureanimations.github.io/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/AI/Microsfot-365-Copilot-Vdo.mp4&animationTitle=Get%20Started%20AI%20in%20Azure&pauseTimes=4.23,5.5,7,8.45,9.95,11.45,12.65,14.2', '_blank')" style="display:inline-block;padding:10px 20px;font-size:16px;color:white;background-color:#007bff;border:none;border-radius:5px;text-decoration:none;cursor:pointer;">🎬 Present Animation</a>
+ <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Microsfot-365-Copilot.gif" target="_blank">Click to download in HD size</a>, <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Microsfot-365-Copilot.gif" target="_blank">GIF</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Microsfot-365-Copilot-Vdo.mp4" target="_blank">view the HD video</a>
+  </p>
+</div>
+
+To assist users effectively, Microsoft 365 Copilot needs secure and intelligent access to organizational data. This is achieved through a combination of Microsoft technologies that ensure both integration and compliance.
+
+1. **Microsoft Graph** is used to access Microsoft 365 data, allowing seamless retrieval and integration across services.
+2. Microsoft 365 Copilot securely accesses organizational data using **enterprise-grade security**, combining Microsoft Graph and large language models (LLMs) to retrieve and process information.
+3. Microsoft 365 Copilot can also access **third-party data** through **Microsoft Graph connectors** and **API plugins**, ensuring secure and compliant integration with Microsoft 365 applications.
 
 
 ## 2️⃣ Compute Options 
