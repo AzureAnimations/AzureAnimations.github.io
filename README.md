@@ -22,7 +22,7 @@ Don't forget to star (🌟) this repo to find it easier later.
 
 ## 1️⃣ Copilot 
 
-### *What’s Free and What’s for Work*
+### *Microsoft Copilot Unpacked : What’s Free and What’s for Work*
 
 <div style="text-align: center;">
   <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Copilot/Copilot_part1.gif" target="_blank">
