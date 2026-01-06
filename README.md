@@ -33,12 +33,11 @@ Don't forget to star (🌟) this repo to find it easier later.
   </p>
 </div>
 
-##### 🔵 Microsoft Copilot — Free Personal Use  
-**Try it here:** https://copilot.microsoft.com
+🔵 Microsoft Copilot — Free Personal Use **Try it here:** https://copilot.microsoft.com
 
 Microsoft Copilot is available to everyone at no cost and provides AI assistance for everyday tasks such as writing, learning, planning, and general productivity.
 
-#### **Key Features**
+**Key Features**
 - **Free for all users** — no subscription required  
 - **Secured by Microsoft** with enterprise‑grade protections  
 - **Bing‑grounded by default** for real‑time, up‑to‑date answers  
@@ -49,12 +48,11 @@ Microsoft Copilot is available to everyone at no cost and provides AI assistance
   - Enhanced creative tools  
   - Integration with Microsoft 365 Personal/Family apps  
 
-#### 🟣 Microsoft 365 Copilot — For Work  
-**Access for work:** https://m365.cloud.microsoft.com/chat
+🟣 Microsoft 365 Copilot — For Work **Access for work:** https://m365.cloud.microsoft.com/chat
 
 Microsoft 365 Copilot is designed for organizations and integrates deeply with your work data and Microsoft 365 apps to deliver secure, context‑aware AI assistance.
 
-#### **Key Features**
+**Key Features**
 - **Built for work, teams, and enterprise workflows**  
 - **Integrated into Microsoft 365 apps**, including: Outlook, Teams, Word, Excel, PowerPoint, OneNote  
 - **Grounded in your work content**, such as:  Emails, Documents, Meetings, Chats, Files stored in your Microsoft 365 tenant  
@@ -64,7 +62,7 @@ Microsoft 365 Copilot is designed for organizations and integrates deeply with y
   - No training on your organizational data  
   - Fully aligned with Microsoft’s responsible AI standards  
 
-## 🧭 Quick Comparison
+🧭 Quick Comparison
 
 | Feature | Copilot (Free Personal Use) | Microsoft 365 Copilot (Work) |
 |--------|------------------------------|-------------------------------|
@@ -74,7 +72,6 @@ Microsoft 365 Copilot is designed for organizations and integrates deeply with y
 | Integrates with M365 apps | No (unless Pro + M365 Personal) | Yes, full integration |
 | Best For | Personal tasks | Work, teams, enterprise |
 
----
 
 
 ## 2️⃣ AI 
