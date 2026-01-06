@@ -20,7 +20,64 @@ Don't forget to star (🌟) this repo to find it easier later.
 
 # Content
 
-## 1️⃣ AI 
+## 1️⃣ Copilot 
+
+### *What’s Free and What’s for Work*
+
+<div style="text-align: center;">
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Copilot/Copilot_part1.gif" target="_blank">
+    <img src="./images/animations-480thumbnails/Copilot_part1_thumbnail.gif" alt="Copilot What's free and what's for work">
+  </a>
+  <p style="text-align: center; font-style: italic;">
+    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Copilot/Copilot_part1.gif" target="_blank">Click to download in HD size</a>
+  </p>
+</div>
+
+##### 🔵 Microsoft Copilot — Free Personal Use  
+**Try it here:** https://copilot.microsoft.com
+
+Microsoft Copilot is available to everyone at no cost and provides AI assistance for everyday tasks such as writing, learning, planning, and general productivity.
+
+#### **Key Features**
+- **Free for all users** — no subscription required  
+- **Secured by Microsoft** with enterprise‑grade protections  
+- **Bing‑grounded by default** for real‑time, up‑to‑date answers  
+- **Cross‑platform access** via web, mobile apps, and Windows  
+- **Optional upgrade to Copilot Pro** for:  
+  - Faster performance  
+  - Priority model access  
+  - Enhanced creative tools  
+  - Integration with Microsoft 365 Personal/Family apps  
+
+#### 🟣 Microsoft 365 Copilot — For Work  
+**Access for work:** https://m365.cloud.microsoft.com/chat
+
+Microsoft 365 Copilot is designed for organizations and integrates deeply with your work data and Microsoft 365 apps to deliver secure, context‑aware AI assistance.
+
+#### **Key Features**
+- **Built for work, teams, and enterprise workflows**  
+- **Integrated into Microsoft 365 apps**, including: Outlook, Teams, Word, Excel, PowerPoint, OneNote  
+- **Grounded in your work content**, such as:  Emails, Documents, Meetings, Chats, Files stored in your Microsoft 365 tenant  
+- **Optional web grounding** when external context is needed  
+- **Enterprise‑grade security, privacy, and compliance**  
+  - Data stays within your Microsoft tenant  
+  - No training on your organizational data  
+  - Fully aligned with Microsoft’s responsible AI standards  
+
+## 🧭 Quick Comparison
+
+| Feature | Copilot (Free Personal Use) | Microsoft 365 Copilot (Work) |
+|--------|------------------------------|-------------------------------|
+| Cost | Free | Paid (per user license) |
+| Grounding | Bing‑grounded | Work content + optional web |
+| Security | Microsoft security | Enterprise‑grade, tenant‑isolated |
+| Integrates with M365 apps | No (unless Pro + M365 Personal) | Yes, full integration |
+| Best For | Personal tasks | Work, teams, enterprise |
+
+---
+
+
+## 2️⃣ AI 
 
 Azure AI is your gateway to transforming ideas into reality! Whether it's building intelligent apps, automating processes, or gaining insights from your data, Azure's cutting-edge AI services are here to supercharge your innovation 🚀. With powerful tools like Azure Cognitive Services, Machine Learning, and AI-powered analytics, the future is in your hands. Ready to turn your data into smart solutions? Let's redefine what's possible with AI in Azure! 💡✨
 
@@ -415,7 +472,7 @@ To assist users effectively, Microsoft 365 Copilot needs secure and intelligent 
 3. Microsoft 365 Copilot can also access **third-party data** through **Microsoft Graph connectors** and **API plugins**, ensuring secure and compliant integration with Microsoft 365 applications.
 
 
-## 2️⃣ Compute Options 
+## 3️⃣ Compute Options 
 
 Azure offers a world of compute options designed to power anything from your small apps to global-scale services. With virtual machines for full control, serverless computing with Azure Functions, and containers through Kubernetes, you're equipped to build and scale faster than ever ⚡. Whether you're optimizing performance or reducing costs, Azure's flexible compute solutions have got you covered—ready to take your projects to the next level? Let Azure Compute lead the way! 🌟
 
@@ -500,7 +557,7 @@ All plans support auto-scaling, but they differ in scaling limits, pricing💰, 
 
 For more details, check the official documentation 👉 [Azure Functions scale and hosting | Microsoft Learn](https://learn.microsoft.com/en-us/azure/azure-functions/functions-scale)
 
-## 3️⃣ Storage Options
+## 4️⃣ Storage Options
 
 Azure provides a variety of storage solutions to meet the diverse needs of modern applications. These options are designed to handle different types of data, access patterns, and performance requirements.
 
@@ -645,7 +702,7 @@ Azure Cosmos DB provides **five distinct consistency levels** to optimize the ba
 - **Gaming**: Provide fast and reliable access to player data globally.
 - **Social Media**: Deliver real-time feeds, user interactions, and personalized content seamlessly.
 
-## 4️⃣ Networking in Azure
+## 5️⃣ Networking in Azure
 
 ### 🔸Azure Virtual Network
 
@@ -811,7 +868,7 @@ This diagram provides:
 A strong naming convention prevents chaos in resource management, especially in large-scale or multi-team environments.
 It lays the foundation for automation, troubleshooting, and governance.
 
-## 5️⃣ Security
+## 6️⃣ Security
 
 Azure offers robust security features to protect your data and applications. These features are designed to ensure the confidentiality, integrity, and availability of your resources.
 
@@ -926,7 +983,7 @@ The animation on the right illustrates the use of user-assigned managed identiti
 > <br>
 > <a href="https://www.linkedin.com/videos/urn:li:ugcPost:7298569623547875328/?entryPoint=FEED" target="_blank"><img src="./images/animations-explained/Managed Identity Part 2 Explained.png" alt="Azure Managed Identity Part 1" width="300"></a>
 
-## 6️⃣  Basics of Azure
+## 7️⃣ Basics of Azure
 
 
 ### 🔸Azure Region and Zone
