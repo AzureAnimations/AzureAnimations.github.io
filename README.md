@@ -72,6 +72,60 @@ Microsoft 365 Copilot is designed for organizations and integrates deeply with y
 | Integrates with M365 apps | No (unless Pro + M365 Personal) | Yes, full integration |
 | Best For | Personal tasks | Work, teams, enterprise |
 
+### 🔸Microsoft Copilot Unpacked : web-grouned / work-grounded
+
+<div style="text-align: center;">
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Copilot/Copilot_part2.png" target="_blank">
+    <img src="./images/animations-480thumbnails/Copilot_part2_thumbnail.png" alt="Copilot work/web grounded">
+  </a>
+  <p style="text-align: center; font-style: italic;">
+    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Copilot/Copilot_part2.png" target="_blank">Click to download in HD size</a>
+  </p>
+</div>
+
+🧭 **WEB-GROUNDED** in Microsoft Copilot
+AI models like **GPT-4o** are trained on large datasets, but their knowledge only goes up to a certain point (for example, mid-2024). This means they **cannot automatically know real-time events or the latest updates**.
+
+**Web-grounded capability** solves this limitation by connecting Copilot to the internet through **Bing Search**. When you ask a question that requires current information, Copilot:
+1. **Searches the web using Bing** to find the most relevant and up-to-date content.
+2. **Analyzes and filters** that information for accuracy and trustworthiness.
+3. **Combines** the fresh data with the model’s existing knowledge.
+4. **Generates a response** that is both smart and current.
+
+**Why It Matters**
+Without web grounding, Copilot would only rely on static training data. With this feature, you get answers that reflect **today’s reality**, such as:
+- Latest product updates.
+- Current market trends.
+- Breaking news or recent events.
+
+🧭 **WORK-GROUNDED** in Microsoft Copilot
+While web grounding brings in public information, **work grounding** focuses on your **organization’s internal data**. Copilot uses **Microsoft Graph** to securely access:
+- Emails
+- Files
+- Chats
+- Meetings
+- Other enterprise resources
+
+This allows Copilot to:
+1. **Understand your work context** (projects, documents, conversations).
+2. **Combine internal data with model knowledge** for personalized answers.
+3. Provide **relevant, secure, and compliant responses** tailored to your organization.
+
+**Why It Matters**
+Work grounding ensures Copilot is not just smart, but **context-aware**. Examples:
+- Summarizing your recent meetings.
+- Drafting emails based on your company’s tone and policies.
+- Answering questions using internal documents and resources.
+
+**Summary**
+- **Web-Grounded:** Brings in **current public knowledge** from the internet.
+- **Work-Grounded:** Uses **your organization’s data** for personalized, secure answers.
+Together, these capabilities make Microsoft Copilot powerful, accurate, and context-aware.
+
+
+
+
+
 ### 🔸How Microsoft 365 Copilot Accesses Data
 
 <div style="text-align: center;">
