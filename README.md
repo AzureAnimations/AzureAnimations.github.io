@@ -1,25 +1,41 @@
-![GitHub license](https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/refs/heads/main/images/MIT-license.svg)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com)
-[![Awesome](https://awesome.re/badge.svg)](https://awesome.re)
+# Website
 
-# Azure Animations
+This website is built using [Docusaurus](https://docusaurus.io/), a modern static website generator.
 
-<div align="center">
+## Installation
 
-### 🌐 **[Visit Azure Animations → aka.ms/AzureAnimations](https://aka.ms/AzureAnimations)** 🌐
+```bash
+yarn
+```
 
-</div>
+## Local Development
 
-|![Created with hearts by Microsoft Technical Trainers](./static/img/AzureAnimations-Logo.svg)|
-|:---:|
-| Created with :heart: by Microsoft Technical Trainers & MCTs|
+```bash
+yarn start
+```
 
-## About
+This command starts a local development server and opens up a browser window. Most changes are reflected live without having to restart the server.
 
-At Azure Animations, we believe that understanding complex cloud technologies doesn't have to be difficult or boring. That's why we've reimagined learning with a fresh approach—by turning intricate concepts into engaging, fun Animations. Our platform brings the worlds of Developers 💻, DevSecOps - Security 🔐, Cloud ☁️, and AI 🤖 to life, making it easier for everyone, from beginners to experts, to grasp essential ideas and stay up-to-date with the latest in technology.
+## Build
 
-Our Animations are crafted by Microsoft Technical Trainers & MCTs 👨‍🏫👩‍🏫 , ensuring that the content is not only accurate but also creatively presented to hold your attention. Whether you're looking to demystify cloud architecture, explore security best practices, or dive into AI innovations, Azure Animations is here to help you visualize and understand the most important concepts in the tech world.
+```bash
+yarn build
+```
 
-Get ready to learn, engage, and have fun with Azure Animations where cloud technology comes to life! 🚀
+This command generates static content into the `build` directory and can be served using any static contents hosting service.
 
-Don't forget to star (🌟) this repo to find it easier later.
+## Deployment
+
+Using SSH:
+
+```bash
+USE_SSH=true yarn deploy
+```
+
+Not using SSH:
+
+```bash
+GIT_USER=<Your GitHub username> yarn deploy
+```
+
+If you are using GitHub pages for hosting, this command is a convenient way to build the website and push to the `gh-pages` branch.
