@@ -14,7 +14,6 @@ With powerful tools like Azure Cognitive Services, Machine Learning, and AI-powe
 | Animation | Description |
 |-----------|-------------|
 | [Get Started with AI in Azure](./get-started) | Introduction to Azure AI services |
-| [REST API and SDK](./rest-sdk) | Understanding REST vs SDK approaches |
 | [Single vs Multi-Service](./single-vs-multi-service) | Choosing between single and multi-service accounts |
 | [AI Containers](./containers) | Running Azure AI on-premises with containers |
 | [Azure AI Search](./ai-search) | Intelligent search with AI enrichment |
