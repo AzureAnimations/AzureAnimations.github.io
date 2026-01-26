@@ -6,13 +6,13 @@ title: "Single vs Multi-Service"
 # Understanding Azure AI: Single Service vs. Multi-Service Account
 
 <div style={{textAlign: 'center'}}>
-  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/AI-Single-vs-Multi-Service.gif" target="_blank">
-    <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-480thumbnails/AI-Single-vs-Multi-Service_thumbnail.gif" alt="Azure AI Single vs Multi-Service" />
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/AI/AI-Single-vs-Multi-Service.gif" target="_blank">
+    <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-480thumbnails/AI-Single-vs-Multi-Service_thumbnail.gif" alt="Azure AI Single vs Multi-Service" />
   </a>
   <p style={{fontStyle: 'italic'}}>
     <a href="/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/AI/AI-Single-vs-Multi-Service-Vdo.mp4&amp;animationTitle=Understanding%20Azure%20AI%3A%20Single%20Service%20vs.%20Multi-Service%20Account&amp;pauseTimes=6.55,17.3,30.7" target="_blank" style={{display:'inline-block', padding:'10px 20px', fontSize:'16px', color:'white', backgroundColor:'#007bff', border:'none', borderRadius:'5px', textDecoration:'none', cursor:'pointer'}}>Present Animation</a>
     {' '}
-    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/AI-Single-vs-Multi-Service.gif" target="_blank">Download HD</a>
+    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/AI/AI-Single-vs-Multi-Service.gif" target="_blank">Download HD</a>
   </p>
 </div>
 

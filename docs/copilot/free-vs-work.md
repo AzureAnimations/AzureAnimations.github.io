@@ -6,11 +6,11 @@ title: "Free vs Work Copilot"
 # Microsoft Copilot Unpacked: What's Free and What's for Work
 
 <div style={{textAlign: 'center'}}>
-  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Copilot/Copilot_part1.gif" target="_blank">
-    <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-480thumbnails/Copilot_part1_thumbnail.gif" alt="Copilot What's free and what's for work" />
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/Copilot/Copilot_part1.gif" target="_blank">
+    <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-480thumbnails/Copilot_part1_thumbnail.gif" alt="Copilot What's free and what's for work" />
   </a>
   <p style={{fontStyle: 'italic'}}>
-    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Copilot/Copilot_part1.gif" target="_blank">Click to download in HD size</a>
+    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/Copilot/Copilot_part1.gif" target="_blank">Click to download in HD size</a>
   </p>
 </div>
 

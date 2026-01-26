@@ -6,11 +6,11 @@ title: AI Search Custom Skill
 # Azure AI Search - Custom Skill
 
 <div style={{textAlign: 'center'}}>
-  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/AzureAISearch-CustomSkill.gif" target="_blank">
-    <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-480thumbnails/AzureAISearch-CustomSkill_thumbnail.gif" alt="Azure AI Search Custom Skill" />
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/AI/AzureAISearch-CustomSkill.gif" target="_blank">
+    <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-480thumbnails/AzureAISearch-CustomSkill_thumbnail.gif" alt="Azure AI Search Custom Skill" />
   </a>
   <p style={{fontStyle: 'italic'}}>
-    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/AzureAISearch-CustomSkill.gif" target="_blank">Download HD GIF</a>
+    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/AI/AzureAISearch-CustomSkill.gif" target="_blank">Download HD GIF</a>
   </p>
 </div>
 
@@ -30,5 +30,5 @@ Azure AI Search is a powerful AI-driven solution that combines built-in and cust
 :::tip[🎬 Video Explanation]
 Click the video below for recorded explanations by [Vincent Kok](https://www.linkedin.com/in/vincekok/).
 
-<a href="https://www.linkedin.com/videos/urn:li:ugcPost:7287760806933405696/?entryPoint=FEED" target="_blank"><img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-explained/AI%20Search%20Explained.png" alt="Azure OpenAI AI Foundry" width="300"/></a>
+<a href="https://www.linkedin.com/videos/urn:li:ugcPost:7287760806933405696/?entryPoint=FEED" target="_blank"><img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-explained/AI%20Search%20Explained.png" alt="Azure OpenAI AI Foundry" width="300"/></a>
 :::

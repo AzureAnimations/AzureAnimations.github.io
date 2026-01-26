@@ -6,15 +6,15 @@ title: "M365 Copilot Data Access"
 # How Microsoft 365 Copilot Accesses Data
 
 <div style={{textAlign: 'center'}}>
-  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Microsfot-365-Copilot.gif" target="_blank">
-    <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-480thumbnails/Microsfot-365-Copilot_thumbnail.gif" alt="How Microsoft 365 Copilot Accesses Data" />
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/AI/Microsfot-365-Copilot.gif" target="_blank">
+    <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-480thumbnails/Microsfot-365-Copilot_thumbnail.gif" alt="How Microsoft 365 Copilot Accesses Data" />
   </a>
   <p style={{fontStyle: 'italic'}}>
     <a href="/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/AI/Microsfot-365-Copilot-Vdo.mp4&amp;animationTitle=Get%20Started%20AI%20in%20Azure&amp;pauseTimes=4.23,5.5,7,8.45,9.95,11.45,12.65,14.2" target="_blank" style={{display:'inline-block', padding:'10px 20px', fontSize:'16px', color:'white', backgroundColor:'#007bff', border:'none', borderRadius:'5px', textDecoration:'none', cursor:'pointer'}}> Present Animation</a>
     {' '}
-    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Microsfot-365-Copilot.gif" target="_blank">Download HD GIF</a>
+    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/AI/Microsfot-365-Copilot.gif" target="_blank">Download HD GIF</a>
     {' | '}
-    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Microsfot-365-Copilot-Vdo.mp4" target="_blank">View HD Video</a>
+    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/AI/Microsfot-365-Copilot-Vdo.mp4" target="_blank">View HD Video</a>
   </p>
 </div>
 

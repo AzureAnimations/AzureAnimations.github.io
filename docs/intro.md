@@ -6,13 +6,10 @@ title: Welcome to Azure Animations
 
 # Azure Animations
 
-![Azure Animations Logo](/img/AzureAnimations-Logo.svg)
-
-<div style={{textAlign: 'center'}}>
-  <p style={{display: 'inline-block', backgroundColor: '#f0f0f0', color: '#555', padding: '10px 20px', borderRadius: '8px', fontSize: '1.1em'}}>
-    <strong>Created with ❤️ by Microsoft Technical Trainers & MCTs</strong>
-  </p>
+<div class="logo-container" style={{textAlign: 'center'}}>
+  <img src="/img/AzureAnimations-Logo.svg" alt="Azure Animations Logo" />
 </div>
+
 
 ## About
 
@@ -73,4 +70,3 @@ Let's work together to make learning fun and engaging for everyone!
 * **🎞️ Broadcasters:** [Laura Núñez Sierra](https://www.linkedin.com/in/lauransi/), [Ilan Nyska](https://www.linkedin.com/in/ilan-nyska/), [Bob Reinsch](https://www.linkedin.com/in/thebobster/), [Vincent Kok](https://www.linkedin.com/in/vincekok/), [Neeraj Kumar](https://www.linkedin.com/in/neerajtrainer/)
 * **🙏 Lead:** [Nuttapong .](https://www.linkedin.com/in/nutwongaree/)
 * **🤝 Project Sponsor:** [Felia Wong](https://www.linkedin.com/in/feliawong/)
-

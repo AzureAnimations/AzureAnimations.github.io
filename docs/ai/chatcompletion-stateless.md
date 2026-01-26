@@ -11,11 +11,11 @@ This architecture ensures **privacy, scalability, and flexibility**, but it also
 
 
 <div style={{textAlign: 'center'}}>
-  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/chatcompletion_api_work.gif" target="_blank">
-    <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-480thumbnails/chatcompletion_api_work_thumbnail.gif" alt="Understanding ChatCompletion Statelessness" />
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/AI/chatcompletion_api_work.gif" target="_blank">
+    <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-480thumbnails/chatcompletion_api_work_thumbnail.gif" alt="Understanding ChatCompletion Statelessness" />
   </a>
   <p style={{textAlign: 'center', fontStyle: 'italic'}}>
-    <a href="https://azureanimations.github.io/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/AI/chatcompletion_api_work-Vdo.mp4&animationTitle=Understanding%20ChatCompletion%20Statelessness" target="_blank" style={{display:'inline-block',padding:'10px 20px',fontSize:'16px',color:'white',backgroundColor:'#007bff',border:'none',borderRadius:'5px',textDecoration:'none',cursor:'pointer'}}>🎬 Present Animation</a> <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/chatcompletion_api_work.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/chatcompletion_api_work-Vdo.mp4" target="_blank">view the HD video</a>
+    <a href="https://azureanimations.github.io/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/AI/chatcompletion_api_work-Vdo.mp4&animationTitle=Understanding%20ChatCompletion%20Statelessness" target="_blank" style={{display:'inline-block',padding:'10px 20px',fontSize:'16px',color:'white',backgroundColor:'#007bff',border:'none',borderRadius:'5px',textDecoration:'none',cursor:'pointer'}}>🎬 Present Animation</a> <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/AI/chatcompletion_api_work.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/AI/chatcompletion_api_work-Vdo.mp4" target="_blank">view the HD video</a>
   </p>
 </div>
 

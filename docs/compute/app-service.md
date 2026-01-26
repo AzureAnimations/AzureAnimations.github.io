@@ -6,11 +6,11 @@ title: App Service
 # App Service Overview
 
 <div style={{textAlign: 'center'}}>
-  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Compute/Azure%20App%20Services%20-%20App%20Service%20Plan%20Deployment%20Slot.gif" target="_blank">
-    <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-480thumbnails/Azure_App_Services_-_App_Service_Plan_Deployment_Slot_-_thumbnail.gif" alt="App Service" />
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/Compute/Azure%20App%20Services%20-%20App%20Service%20Plan%20Deployment%20Slot.gif" target="_blank">
+    <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-480thumbnails/Azure_App_Services_-_App_Service_Plan_Deployment_Slot_-_thumbnail.gif" alt="App Service" />
   </a>
   <p>
-    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Compute/Azure%20App%20Services%20-%20App%20Service%20Plan%20Deployment%20Slot.gif" target="_blank">Download HD</a>
+    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/Compute/Azure%20App%20Services%20-%20App%20Service%20Plan%20Deployment%20Slot.gif" target="_blank">Download HD</a>
   </p>
 </div>
 

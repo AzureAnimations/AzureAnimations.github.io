@@ -6,11 +6,11 @@ title: NSG and ASG
 # Network Security Groups (NSG) and Application Security Groups (ASG) - 3 animations
 
 <div style={{textAlign: 'center'}}>
-  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Azure-Vnet-Part2.gif" target="_blank">
-    <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-480thumbnails/Azure-Vnet-Part2_thumbnail.gif" alt="Azure networking part 2" />
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/Infra/Azure-Vnet-Part2.gif" target="_blank">
+    <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-480thumbnails/Azure-Vnet-Part2_thumbnail.gif" alt="Azure networking part 2" />
   </a>
   <p style={{textAlign: 'center', fontStyle: 'italic'}}>
-    <a href="https://azureanimations.github.io/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/Infra/Azure-Vnet-Part2-Vdo.mp4&animationTitle=Network%20Security%20Groups%20(NSG)%20and%20Application%20Security%20Groups%20(ASG)" target="_blank" style={{display:'inline-block',padding:'10px 20px',fontSize:'16px',color:'white',backgroundColor:'#007bff',border:'none',borderRadius:'5px',textDecoration:'none',cursor:'pointer'}}>🎬 Present Animation</a> <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Azure-Vnet-Part2.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Azure-Vnet-Part2-Vdo.mp4" target="_blank">view the HD video</a>
+    <a href="https://azureanimations.github.io/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/Infra/Azure-Vnet-Part2-Vdo.mp4&animationTitle=Network%20Security%20Groups%20(NSG)%20and%20Application%20Security%20Groups%20(ASG)" target="_blank" style={{display:'inline-block',padding:'10px 20px',fontSize:'16px',color:'white',backgroundColor:'#007bff',border:'none',borderRadius:'5px',textDecoration:'none',cursor:'pointer'}}>🎬 Present Animation</a> <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/Infra/Azure-Vnet-Part2.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/Infra/Azure-Vnet-Part2-Vdo.mp4" target="_blank">view the HD video</a>
   </p>
 </div>
 
@@ -28,11 +28,11 @@ By using ASGs, you can efficiently manage network security and reduce the comple
 **Implementing NSG Rules with ASG**
 
 <div style={{textAlign: 'center'}}>
-  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Implementing-NSG-Rules-with-ASG.gif" target="_blank">
-    <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-480thumbnails/Implementing-NSG-Rules-with-ASG_thumbnail.gif" alt="Implementing NSG Rules with ASG" />
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/Infra/Implementing-NSG-Rules-with-ASG.gif" target="_blank">
+    <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-480thumbnails/Implementing-NSG-Rules-with-ASG_thumbnail.gif" alt="Implementing NSG Rules with ASG" />
   </a>
   <p style={{textAlign: 'center', fontStyle: 'italic'}}>
-    <a href="https://azureanimations.github.io/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/Infra/Implementing-NSG-Rules-with-ASG.mp4&animationTitle=Implementing%20NSG%20Rules%20with%20ASG" target="_blank" style={{display:'inline-block',padding:'10px 20px',fontSize:'16px',color:'white',backgroundColor:'#007bff',border:'none',borderRadius:'5px',textDecoration:'none',cursor:'pointer'}}>🎬 Present Animation</a> <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Implementing-NSG-Rules-with-ASG.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Implementing-NSG-Rules-with-ASG.mp4" target="_blank">view the HD video</a>
+    <a href="https://azureanimations.github.io/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/Infra/Implementing-NSG-Rules-with-ASG.mp4&animationTitle=Implementing%20NSG%20Rules%20with%20ASG" target="_blank" style={{display:'inline-block',padding:'10px 20px',fontSize:'16px',color:'white',backgroundColor:'#007bff',border:'none',borderRadius:'5px',textDecoration:'none',cursor:'pointer'}}>🎬 Present Animation</a> <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/Infra/Implementing-NSG-Rules-with-ASG.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/Infra/Implementing-NSG-Rules-with-ASG.mp4" target="_blank">view the HD video</a>
   </p>
 </div>
 
@@ -56,11 +56,11 @@ This setup ensures that your application VMs can receive HTTP traffic and commun
 **The final implementation of the inbound rules based in the above scenario will be illustrated in the animation below**
 
 <div style={{textAlign: 'center'}}>
-  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Azure-Vnet-Part2_2.gif" target="_blank">
-    <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-480thumbnails/Azure-Vnet-Part2_2_thumbnail.gif" alt="Implementing NSG Rules with ASG" />
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/Infra/Azure-Vnet-Part2_2.gif" target="_blank">
+    <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-480thumbnails/Azure-Vnet-Part2_2_thumbnail.gif" alt="Implementing NSG Rules with ASG" />
   </a>
   <p style={{textAlign: 'center', fontStyle: 'italic'}}>
-    <a href="https://azureanimations.github.io/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/Infra/Azure-Vnet-Part2_2-For-Vdo.mp4&animationTitle=Implementing%20the%20inbound%20rules%20(NSG-ASG)" target="_blank" style={{display:'inline-block',padding:'10px 20px',fontSize:'16px',color:'white',backgroundColor:'#007bff',border:'none',borderRadius:'5px',textDecoration:'none',cursor:'pointer'}}>🎬 Present Animation</a> <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Azure-Vnet-Part2_2.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Azure-Vnet-Part2_2-For-Vdo.mp4" target="_blank">view the HD video</a>
+    <a href="https://azureanimations.github.io/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/Infra/Azure-Vnet-Part2_2-For-Vdo.mp4&animationTitle=Implementing%20the%20inbound%20rules%20(NSG-ASG)" target="_blank" style={{display:'inline-block',padding:'10px 20px',fontSize:'16px',color:'white',backgroundColor:'#007bff',border:'none',borderRadius:'5px',textDecoration:'none',cursor:'pointer'}}>🎬 Present Animation</a> <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/Infra/Azure-Vnet-Part2_2.gif" target="_blank">Click to download in HD size</a> or <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/Infra/Azure-Vnet-Part2_2-For-Vdo.mp4" target="_blank">view the HD video</a>
   </p>
 </div>
 

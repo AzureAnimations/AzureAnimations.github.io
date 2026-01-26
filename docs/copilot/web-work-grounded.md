@@ -6,11 +6,11 @@ title: "Web vs Work Grounded"
 # Microsoft Copilot Unpacked: Web-Grounded / Work-Grounded
 
 <div style={{textAlign: 'center'}}>
-  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Copilot/Copilot_part2.png" target="_blank">
-    <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-480thumbnails/Copilot_part2_thumbnail.png" alt="Copilot work/web grounded" />
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/Copilot/Copilot_part2.png" target="_blank">
+    <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-480thumbnails/Copilot_part2_thumbnail.png" alt="Copilot work/web grounded" />
   </a>
   <p style={{fontStyle: 'italic'}}>
-    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Copilot/Copilot_part2.png" target="_blank">Click to download in HD size</a>
+    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/Copilot/Copilot_part2.png" target="_blank">Click to download in HD size</a>
   </p>
 </div>
 

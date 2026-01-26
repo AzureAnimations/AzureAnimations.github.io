@@ -6,8 +6,8 @@ title: Document Intelligence
 # Azure AI Document Intelligence
 
 <div style={{textAlign: 'center'}}>
-  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Document-Intelligence.gif" target="_blank">
-    <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-480thumbnails/Document-Intelligence_thumbnail.gif" alt="Document Intelligence" />
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/AI/Document-Intelligence.gif" target="_blank">
+    <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-480thumbnails/Document-Intelligence_thumbnail.gif" alt="Document Intelligence" />
   </a>
 </div>
 
@@ -40,6 +40,6 @@ Azure AI Document Intelligence helps turn your documents into valuable assets, i
 :::tip[🎬 Video Explanation]
 Click the video below for recorded explanations by [Laura Núñez Sierra](https://www.linkedin.com/in/lauransi/).
 
-<a href="https://www.linkedin.com/videos/urn:li:ugcPost:7298284236048855040/?entryPoint=FEED" target="_blank"><img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-explained/Azure%20Document%20Intelligence%20Explaied.png" alt="Azure Document Intelligence Explained" width="300"/></a>
+<a href="https://www.linkedin.com/videos/urn:li:ugcPost:7298284236048855040/?entryPoint=FEED" target="_blank"><img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-explained/Azure%20Document%20Intelligence%20Explaied.png" alt="Azure Document Intelligence Explained" width="300"/></a>
 :::
 
