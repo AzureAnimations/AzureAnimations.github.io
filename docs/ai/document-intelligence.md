@@ -6,9 +6,15 @@ title: Document Intelligence
 # Azure AI Document Intelligence
 
 <div style={{textAlign: 'center'}}>
+
   <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/AI/Document-Intelligence.gif" target="_blank">
     <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-480thumbnails/Document-Intelligence_thumbnail.gif" alt="Document Intelligence" />
   </a>
+  <p style={{fontStyle: 'italic'}}>
+    <a href="/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/AI/Document-Intelligence-Vdo.mp4&animationTitle=Azure%20AI%20Document%20Intelligence&pauseTimes=9.5,14.354,37.6" target="_blank" style={{display:'inline-block', padding:'10px 20px', fontSize:'16px', color:'white', backgroundColor:'#007bff', border:'none', borderRadius:'5px', textDecoration:'none', cursor:'pointer'}}>Present Animation</a>
+    {' '}
+    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/AI/Document-Intelligence.gif" target="_blank">Download HD</a>
+  </p>
 </div>
 
 Azure AI Document Intelligence is a cutting-edge technology that simplifies how businesses handle their documents. With its advanced features, you can customize the processing of various document types. Here's a closer look:
