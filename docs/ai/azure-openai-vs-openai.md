@@ -6,15 +6,15 @@ title: Azure OpenAI vs OpenAI
 # Azure OpenAI vs. OpenAI API: Key Differences
 
 <div style={{textAlign: 'center'}}>
-  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/aoai_diff_openai.gif" target="_blank">
-    <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-480thumbnails/aoai_diff_openai_thumbnail.gif" alt="Azure OpenAI vs OpenAI" />
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/AI/aoai_diff_openai.gif" target="_blank">
+    <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-480thumbnails/aoai_diff_openai_thumbnail.gif" alt="Azure OpenAI vs OpenAI" />
   </a>
   <p style={{fontStyle: 'italic'}}>
     <a href="/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/AI/aoai_diff_openai-Vdo.mp4&amp;animationTitle=Azure%20OpenAI%20vs%20OpenAI%20API%20Key%20Differences" target="_blank" style={{display:'inline-block', padding:'10px 20px', fontSize:'16px', color:'white', backgroundColor:'#007bff', border:'none', borderRadius:'5px', textDecoration:'none', cursor:'pointer'}}>🎬 Present Animation</a>
     {' '}
-    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/aoai_diff_openai.gif" target="_blank">Download HD GIF</a>
+    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/AI/aoai_diff_openai.gif" target="_blank">Download HD GIF</a>
     {' | '}
-    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/aoai_diff_openai-Vdo.mp4" target="_blank">View HD Video</a>
+    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/AI/aoai_diff_openai-Vdo.mp4" target="_blank">View HD Video</a>
   </p>
 </div>
 

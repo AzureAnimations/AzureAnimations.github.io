@@ -6,11 +6,11 @@ title: "REST API and SDK"
 # REST API and SDK
 
 <div style={{textAlign: 'center'}}>
-  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/rest_sdk.gif" target="_blank">
-    <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-480thumbnails/rest_sdk_thumbnail.gif" alt="REST API and SDK" />
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/AI/rest_sdk.gif" target="_blank">
+    <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-480thumbnails/rest_sdk_thumbnail.gif" alt="REST API and SDK" />
   </a>
   <p style={{fontStyle: 'italic'}}>
-    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/rest_sdk.gif" target="_blank">Click to download in HD size</a>
+    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/AI/rest_sdk.gif" target="_blank">Click to download in HD size</a>
   </p>
 </div>
 

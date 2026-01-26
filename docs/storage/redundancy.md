@@ -6,15 +6,15 @@ title: Redundancy Options
 # Redundancy Options in Azure Storage Account
 
 <div style={{textAlign: 'center'}}>
-  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Storage/Azure_Storage_Redundancy.gif" target="_blank">
-    <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-480thumbnails/Azure_Storage_Redundancy_thumbnail.gif" alt="Storage Redundancy" />
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/Storage/Azure_Storage_Redundancy.gif" target="_blank">
+    <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-480thumbnails/Azure_Storage_Redundancy_thumbnail.gif" alt="Storage Redundancy" />
   </a>
   <p>
     <a href="/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/Storage/Azure_Storage_Redundancy_Vdo.mp4&amp;animationTitle=Redundancy%20Options%20In%20Azure%20Storage%20Account" target="_blank" style={{display:'inline-block', padding:'10px 20px', fontSize:'16px', color:'white', backgroundColor:'#0078d4', borderRadius:'5px', textDecoration:'none'}}> Present Animation</a>
     {' | '}
-    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Storage/Azure_Storage_Redundancy.gif" target="_blank">Download HD</a>
+    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/Storage/Azure_Storage_Redundancy.gif" target="_blank">Download HD</a>
     {' | '}
-    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Storage/Azure_Storage_Redundancy_Vdo.mp4" target="_blank">HD Video</a>
+    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/Storage/Azure_Storage_Redundancy_Vdo.mp4" target="_blank">HD Video</a>
   </p>
 </div>
 
@@ -39,6 +39,6 @@ These redundancy options help you choose the right level of data protection and 
 :::tip[🎬 Video Explanation]
 Click the video below for recorded explanations by [Neeraj Kumar](https://www.linkedin.com/in/neerajtrainer/).
 
-<a href="https://www.linkedin.com/embed/feed/update/urn:li:ugcPost:7340974852037648384?collapsed=1" target="_blank"><img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-explained/Storage%20Account%20Redundancy%20Explained.png" alt="Azure Storage Account Redundancy Options" width="300"/></a>
+<a href="https://www.linkedin.com/embed/feed/update/urn:li:ugcPost:7340974852037648384?collapsed=1" target="_blank"><img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-explained/Storage%20Account%20Redundancy%20Explained.png" alt="Azure Storage Account Redundancy Options" width="300"/></a>
 :::
 

@@ -6,15 +6,15 @@ title: Azure OpenAI Provisioning
 # Azure OpenAI - Provisioning and Deployment
 
 <div style={{textAlign: 'center'}}>
-  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Azure%20OpenAI%20-%20AI%20Foundry%20Provisioning%20and%20Deployment%20Creation.gif" target="_blank">
-    <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-480thumbnails/Azure%20OpenAI%20-%20AI%20Foundry%20Studio_Provisioning_and_Deployment_Creation_-_thumbnail.gif" alt="OpenAI Provisioning" />
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/AI/Azure%20OpenAI%20-%20AI%20Foundry%20Provisioning%20and%20Deployment%20Creation.gif" target="_blank">
+    <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-480thumbnails/Azure%20OpenAI%20-%20AI%20Foundry%20Studio_Provisioning_and_Deployment_Creation_-_thumbnail.gif" alt="OpenAI Provisioning" />
   </a>
   <p style={{fontStyle: 'italic'}}>
     <a href="/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/AI/Azure%20OpenAI%20-%20AI%20Foundry%20Provisioning%20and%20Deployment%20Creation.mp4&amp;animationTitle=Azure%20OpenAI%20-%20Provisioning%20and%20Deployment%20Creation&amp;pauseTimes=23.7,32,63.9,68" target="_blank" style={{display:'inline-block', padding:'10px 20px', fontSize:'16px', color:'white', backgroundColor:'#007bff', border:'none', borderRadius:'5px', textDecoration:'none', cursor:'pointer'}}>🎬 Present Animation</a>
     {' '}
-    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Azure%20OpenAI%20-%20AI%20Foundry%20Provisioning%20and%20Deployment%20Creation.gif" target="_blank">Download HD GIF</a>
+    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/AI/Azure%20OpenAI%20-%20AI%20Foundry%20Provisioning%20and%20Deployment%20Creation.gif" target="_blank">Download HD GIF</a>
     {' | '}
-    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/AI/Azure%20OpenAI%20-%20AI%20Foundry%20Provisioning%20and%20Deployment%20Creation.mp4" target="_blank">View HD Video</a>
+    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/AI/Azure%20OpenAI%20-%20AI%20Foundry%20Provisioning%20and%20Deployment%20Creation.mp4" target="_blank">View HD Video</a>
     {' | '}
     <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/presentations/AI/Azure%20OpenAI%20-%20AI%20Foundry%20Provisioning%20and%20Deployment%20Creation.pptx" target="_blank">Presentation Slide (pptx)</a>
   </p>
@@ -39,6 +39,6 @@ Above illustrates the process of provisioning Azure OpenAI, we start by using th
 :::tip[🎬 Video Explanation]
 Click the video below for recorded explanations by [Lachlan Matthew-Dickinson](https://www.linkedin.com/in/lachlanmd/).
 
-<a href="https://www.linkedin.com/embed/feed/update/urn:li:ugcPost:7338063771422048261?collapsed=1" target="_blank"><img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-explained/Azure%20AI%20Foundry%20Deployments%20Explained.png" alt="Azure AI Foundry Deployments Explained" width="300"/></a>
+<a href="https://www.linkedin.com/embed/feed/update/urn:li:ugcPost:7338063771422048261?collapsed=1" target="_blank"><img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-explained/Azure%20AI%20Foundry%20Deployments%20Explained.png" alt="Azure AI Foundry Deployments Explained" width="300"/></a>
 :::
 

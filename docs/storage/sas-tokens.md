@@ -6,13 +6,13 @@ title: SAS Tokens
 # SAS Tokens in Storage Account 
 
 <div style={{textAlign: 'center'}}>
-  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Storage/Storage-Account-SAS.gif" target="_blank">
-    <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-480thumbnails/Storage-Account-SAS-thumbnail.gif" alt="SAS Tokens" />
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/Storage/Storage-Account-SAS.gif" target="_blank">
+    <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-480thumbnails/Storage-Account-SAS-thumbnail.gif" alt="SAS Tokens" />
   </a>
   <p>
     <a href="/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/Storage/Storage-Account-SAS-Vdo.mp4&amp;animationTitle=SAS%20Tokens%20in%20Storage%20Account" target="_blank" style={{display:'inline-block', padding:'10px 20px', fontSize:'16px', color:'white', backgroundColor:'#0078d4', borderRadius:'5px', textDecoration:'none'}}> Present Animation</a>
     {' | '}
-    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Storage/Storage-Account-SAS.gif" target="_blank">Download HD</a>
+    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/Storage/Storage-Account-SAS.gif" target="_blank">Download HD</a>
   </p>
 </div>
 

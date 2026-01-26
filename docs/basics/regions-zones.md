@@ -6,11 +6,11 @@ title: Regions and Zones
 # Azure Region and Zone
 
 <div style={{textAlign: 'center'}}>
-  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Basic/region_zone.gif" target="_blank">
-    <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-480thumbnails/region_zone_thumbnail.gif" alt="Regions and Zones" />
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/Basic/region_zone.gif" target="_blank">
+    <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-480thumbnails/region_zone_thumbnail.gif" alt="Regions and Zones" />
   </a>
   <p>
-    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Basic/region_zone.gif" target="_blank">Download HD</a>
+    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/Basic/region_zone.gif" target="_blank">Download HD</a>
   </p>
 </div>
 

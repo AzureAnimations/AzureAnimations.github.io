@@ -6,11 +6,11 @@ title: Cosmos DB
 # Azure Cosmos DB Overview
 
 <div style={{textAlign: 'center'}}>
-  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Storage/cosmos_db.gif" target="_blank">
-    <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-480thumbnails/cosmos_db_thumbnail.gif" alt="Azure Cosmos DB" />
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/Storage/cosmos_db.gif" target="_blank">
+    <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-480thumbnails/cosmos_db_thumbnail.gif" alt="Azure Cosmos DB" />
   </a>
   <p style={{textAlign: 'center', fontStyle: 'italic'}}>
-    Azure Cosmos DB <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Storage/cosmos_db.gif" target="_blank">Click to download in HD size</a>
+    Azure Cosmos DB <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/Storage/cosmos_db.gif" target="_blank">Click to download in HD size</a>
   </p>
 </div>
 

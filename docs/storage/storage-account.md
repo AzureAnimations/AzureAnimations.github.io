@@ -6,15 +6,15 @@ title: Storage Account
 # Storage Account
 
 <div style={{textAlign: 'center'}}>
-  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Storage/Azure%20Storage%20Account%20-%20Tiers%20Services%20Types.gif" target="_blank">
-    <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-480thumbnails/Azure_Storage_Account_-_Tiers_Services_Types_-_thumbnail.gif" alt="Storage Account" />
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/Storage/Azure%20Storage%20Account%20-%20Tiers%20Services%20Types.gif" target="_blank">
+    <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-480thumbnails/Azure_Storage_Account_-_Tiers_Services_Types_-_thumbnail.gif" alt="Storage Account" />
   </a>
   <p>
     <a href="/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/Storage/Azure%20Storage%20Account%20-%20Tiers%20Services%20Types-Vdo.mp4&amp;animationTitle=Azure%20Storage%20Account" target="_blank" style={{display:'inline-block', padding:'10px 20px', fontSize:'16px', color:'white', backgroundColor:'#0078d4', borderRadius:'5px', textDecoration:'none'}}> Present Animation</a>
     {' | '}
-    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Storage/Azure%20Storage%20Account%20-%20Tiers%20Services%20Types.gif" target="_blank">Download HD</a>
+    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/Storage/Azure%20Storage%20Account%20-%20Tiers%20Services%20Types.gif" target="_blank">Download HD</a>
     {' | '}
-    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Storage/Azure%20Storage%20Account%20-%20Tiers%20Services%20Types-Vdo.mp4" target="_blank">HD Video</a>
+    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/Storage/Azure%20Storage%20Account%20-%20Tiers%20Services%20Types-Vdo.mp4" target="_blank">HD Video</a>
   </p>
 </div>
 
@@ -43,6 +43,6 @@ Be aware of the penalties associated with moving data between access tiers. For 
 :::tip[🎬 Video Explanation]
 Click the video below for recorded explanations by [Neeraj Kumar](https://www.linkedin.com/in/neerajtrainer/).
 
-<a href="https://www.linkedin.com/videos/urn:li:ugcPost:7266850529480179712/?entryPoint=FEED" target="_blank"><img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-explained/Storage%20Account%20Explained.png" alt="Azure Storage Account" width="300"/></a>
+<a href="https://www.linkedin.com/videos/urn:li:ugcPost:7266850529480179712/?entryPoint=FEED" target="_blank"><img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-explained/Storage%20Account%20Explained.png" alt="Azure Storage Account" width="300"/></a>
 :::
 

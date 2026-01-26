@@ -6,13 +6,13 @@ title: Azure Functions
 # Azure Functions Hosting Options
 
 <div style={{textAlign: 'center'}}>
-  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Compute/Azure-Functions-Hosting-Options.gif" target="_blank">
-    <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-480thumbnails/Azure-Functions-Hosting-Options-thumb.gif" alt="Azure Functions" />
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/Compute/Azure-Functions-Hosting-Options.gif" target="_blank">
+    <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-480thumbnails/Azure-Functions-Hosting-Options-thumb.gif" alt="Azure Functions" />
   </a>
   <p>
     <a href="/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/Compute/Azure-Functions-Hosting-Options-Vdo.mp4&amp;animationTitle=Azure%20Functions%20Hosting%20Options%20Overview" target="_blank" style={{display:'inline-block', padding:'10px 20px', fontSize:'16px', color:'white', backgroundColor:'#0078d4', borderRadius:'5px', textDecoration:'none'}}> Present Animation</a>
     {' | '}
-    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Compute/Azure-Functions-Hosting-Options.gif" target="_blank">Download HD</a>
+    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/Compute/Azure-Functions-Hosting-Options.gif" target="_blank">Download HD</a>
   </p>
 </div>
 

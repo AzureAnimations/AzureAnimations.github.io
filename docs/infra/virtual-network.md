@@ -6,13 +6,13 @@ title: Virtual Network
 # Azure Virtual Network
 
 <div style={{textAlign: 'center'}}>
-  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Azure-Vnet-Part1.gif" target="_blank">
-    <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-480thumbnails/Azure-Vnet-Part1_thumbnail.gif" alt="Azure VNet" />
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/Infra/Azure-Vnet-Part1.gif" target="_blank">
+    <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-480thumbnails/Azure-Vnet-Part1_thumbnail.gif" alt="Azure VNet" />
   </a>
   <p>
     <a href="/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/Infra/Azure-Vnet-Part1-Vdo.mp4&amp;animationTitle=Azure%20Virtual%20Network" target="_blank" style={{display:'inline-block', padding:'10px 20px', fontSize:'16px', color:'white', backgroundColor:'#0078d4', borderRadius:'5px', textDecoration:'none'}}> Present Animation</a>
     {' | '}
-    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Infra/Azure-Vnet-Part1.gif" target="_blank">Download HD</a>
+    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/Infra/Azure-Vnet-Part1.gif" target="_blank">Download HD</a>
     {' | '}
     <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/presentations/Infra/Azure-Vnet-Part1-Vdo.pptx" target="_blank">PPTX</a>
   </p>

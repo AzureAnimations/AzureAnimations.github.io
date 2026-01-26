@@ -6,13 +6,13 @@ title: Managed Identities Part 2
 # Managed Identities in Azure: Enhancing Security Part 2
 
 <div style={{textAlign: 'center'}}>
-  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Security/Managed-Identities-Part2.gif" target="_blank">
-    <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-480thumbnails/Azure_Managed-Identities-Part2_thumbnail.gif" alt="Managed Identities Part 2" />
+  <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/Security/Managed-Identities-Part2.gif" target="_blank">
+    <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-480thumbnails/Azure_Managed-Identities-Part2_thumbnail.gif" alt="Managed Identities Part 2" />
   </a>
   <p>
     <a href="/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/Security/Managed-Identities-Part2-Vdo.mp4&amp;animationTitle=Managed%20Identities%20in%20Azure:%20Enhancing%20Security%20Part%202%20(System-Assigned,%20User-Assigned%20Managed%20Identities)" target="_blank" style={{display:'inline-block', padding:'10px 20px', fontSize:'16px', color:'white', backgroundColor:'#0078d4', borderRadius:'5px', textDecoration:'none'}}> Present Animation</a>
     {' | '}
-    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-high-resolutions/Security/Managed-Identities-Part2.gif" target="_blank">Download HD</a>
+    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/Security/Managed-Identities-Part2.gif" target="_blank">Download HD</a>
   </p>
 </div>
 
@@ -69,6 +69,6 @@ The animation on the right illustrates the use of user-assigned managed identiti
 :::tip[🎬 Video Explanation]
 Click the video below for recorded explanations by [Ilan Nyska](https://www.linkedin.com/in/ilan-nyska/).
 
-<a href="https://www.linkedin.com/videos/urn:li:ugcPost:7298569623547875328/?entryPoint=FEED" target="_blank"><img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-explained/Managed%20Identity%20Part%202%20Explained.png" alt="Azure Managed Identity Part 2" width="300"/></a>
+<a href="https://www.linkedin.com/videos/urn:li:ugcPost:7298569623547875328/?entryPoint=FEED" target="_blank"><img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-explained/Managed%20Identity%20Part%202%20Explained.png" alt="Azure Managed Identity Part 2" width="300"/></a>
 :::
 
