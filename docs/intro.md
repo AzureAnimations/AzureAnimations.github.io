@@ -51,7 +51,7 @@ Explore our animations organized by category:
 ## Share Your Animation Ideas! 💡
 
 <div style={{textAlign: 'center'}}>
-    <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/images/animations-480thumbnails/Contribution_Template_thumbnail.gif" alt="Contribute your ideas" />
+    <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-480thumbnails/Contribution_Template_thumbnail.gif" alt="Contribute your ideas" />
 </div>
 
 Have a great idea for an animation? We'd love to see it! Send us your sketches or hand-drawn illustrations with directions, and we'll turn them into animations. We'll also give you credit by adding your name to the animation. 👉 Raise an <a href="https://github.com/AzureAnimations/AzureAnimations.github.io/issues/new" target="_blank">idea</a> or create a <a href="https://github.com/AzureAnimations/AzureAnimations.github.io/pulls" target="_blank">pull request</a>.
