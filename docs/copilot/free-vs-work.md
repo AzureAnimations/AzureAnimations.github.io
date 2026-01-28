@@ -10,6 +10,8 @@ title: "Free vs Work Copilot"
     <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-480thumbnails/Copilot_part1_thumbnail.gif" alt="Copilot What's free and what's for work" />
   </a>
   <p style={{fontStyle: 'italic'}}>
+    <a href="https://azureanimations.github.io/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/Copilot/Copilot_part1_Vdo.mp4&animationTitle=Microsoft%20Copilot%20Unpacked:%20What%27s%20Free%20and%20What%27s%20for%20Work&pauseTimes=7.5,17,20,30,38.1,40" target="_blank" style={{display:'inline-block',padding:'10px 20px',fontSize:'16px',color:'white',backgroundColor:'#007bff',border:'none',borderRadius:'5px',textDecoration:'none',cursor:'pointer'}}>🎬 Present Animation</a>
+
     <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/Copilot/Copilot_part1.gif" target="_blank">Click to download in HD size</a>
   </p>
 </div>
