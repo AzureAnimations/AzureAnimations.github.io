@@ -10,7 +10,7 @@ title: "Web vs Work Grounded"
     <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-480thumbnails/Copilot_part2_thumbnail.png" alt="Copilot work/web grounded" />
   </a>
   <p style={{fontStyle: 'italic'}}>
-    <a href="https://azureanimations.github.io/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/Copilot/Copilot_part2_Vdo.mp4&animationTitle=Microsoft%20Copilot%20Unpacked:%20Web-Grounded%20/%20Work-Grounded&pauseTimes=20,24,47" target="_blank" style={{display:'inline-block',padding:'10px 20px',fontSize:'16px',color:'white',backgroundColor:'#007bff',border:'none',borderRadius:'5px',textDecoration:'none',cursor:'pointer'}}>🎬 Present Animation</a>
+    <a href="/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/Copilot/Copilot_part2_Vdo.mp4&animationTitle=Microsoft%20Copilot%20Unpacked:%20Web-Grounded%20/%20Work-Grounded&pauseTimes=20,24,47" target="_blank" style={{display:'inline-block',padding:'10px 20px',fontSize:'16px',color:'white',backgroundColor:'#007bff',border:'none',borderRadius:'5px',textDecoration:'none',cursor:'pointer'}}>🎬 Present Animation</a>
 
     <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/Copilot/Copilot_part2.png" target="_blank">Click to download in HD size</a>
   </p>
