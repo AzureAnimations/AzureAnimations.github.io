@@ -23,4 +23,4 @@ With powerful tools like Azure Cognitive Services, Machine Learning, and AI-powe
 | [Azure OpenAI vs OpenAI](./azure-openai-vs-openai) | Key differences explained |
 | [Azure OpenAI Provisioning](./openai-provisioning) | Deploying Azure OpenAI models |
 | [ChatCompletion Stateless](./chatcompletion-stateless) | Understanding API statelessness |
-
+| [Microsoft Foundry Hub - Projects](./ms-foundry-hub-projects.md) | Microsoft Foundry Hub - Projects |
