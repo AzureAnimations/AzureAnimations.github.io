@@ -9,7 +9,7 @@ title: Microsoft Foundry Hub & Project
     <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-480thumbnails/ms-foundry-hub-project_thumbnail.gif" alt="Microsoft Foundry Hub - Projects" />
   </a>
   <p style={{fontStyle: 'italic'}}>
-  <a href="/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/AI/ms-foundry-hub-project-Vdo.mp4&amp;animationTitle=Microsoft%20Foundry%20Hub%20-%20Projects&amp;pauseTimes=28,60"" target="_blank" style={{display:'inline-block', padding:'10px 20px', fontSize:'16px', color:'white', backgroundColor:'#007bff', border:'none', borderRadius:'5px', textDecoration:'none', cursor:'pointer'}}>Present Animation</a>
+  <a href="/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/AI/ms-foundry-hub-project-Vdo.mp4&amp;animationTitle=Microsoft%20Foundry%20Hub%20-%20Projects&amp;pauseTimes=28,60" target="_blank" style={{display:'inline-block', padding:'10px 20px', fontSize:'16px', color:'white', backgroundColor:'#007bff', border:'none', borderRadius:'5px', textDecoration:'none', cursor:'pointer'}}>Present Animation</a>
     {' '}
     <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/AI/ms-foundry-hub-project.gif" target="_blank">Download HD GIF</a>
   </p>
