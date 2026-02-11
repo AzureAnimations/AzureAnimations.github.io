@@ -1,5 +1,4 @@
 ﻿---
-sidebar_position: 1
 title: Azure AI
 ---
 
@@ -14,13 +13,13 @@ With powerful tools like Azure Cognitive Services, Machine Learning, and AI-powe
 | Animation | Description |
 |-----------|-------------|
 | [Get Started with AI in Azure](./get-started) | Introduction to Azure AI services |
-| [Single vs Multi-Service](./single-vs-multi-service) | Choosing between single and multi-service accounts |
+| [Azure OpenAI Provisioning](./openai-provisioning) | Deploying Azure OpenAI models |
+| [Microsoft Foundry Hub - Projects](./ms-foundry-hub-projects) | MA Hub‑and‑Project model for governed, scalable AI development. |
+| [Azure OpenAI vs OpenAI](./azure-openai-vs-openai) | Key differences explained |
+| [ChatCompletion Stateless](./chatcompletion-stateless) | Understanding API statelessness |
+| [Single vs Multi-Service](./single-vs-multi-service) | Choosing between single and multi-service accounts (Classic) |
 | [AI Containers](./containers) | Running Azure AI on-premises with containers |
 | [Azure AI Search](./ai-search) | Intelligent search with AI enrichment |
 | [AI Search Custom Skill](./ai-search-custom-skill) | Building custom skills for AI Search |
 | [Document Intelligence](./document-intelligence) | Extracting data from documents |
 | [Speech Service](./speech-service) | Speech-to-text and text-to-speech |
-| [Azure OpenAI vs OpenAI](./azure-openai-vs-openai) | Key differences explained |
-| [Azure OpenAI Provisioning](./openai-provisioning) | Deploying Azure OpenAI models |
-| [ChatCompletion Stateless](./chatcompletion-stateless) | Understanding API statelessness |
-| [Microsoft Foundry Hub - Projects](./ms-foundry-hub-projects) | MA Hub‑and‑Project model for governed, scalable AI development. |

@@ -1,5 +1,4 @@
 ﻿---
-sidebar_position: 2
 title: "Get Started with AI in Azure"
 ---
 

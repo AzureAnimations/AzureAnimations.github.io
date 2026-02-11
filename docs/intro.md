@@ -1,5 +1,4 @@
 ﻿---
-sidebar_position: 1
 slug: /
 title: Welcome to Azure Animations
 ---

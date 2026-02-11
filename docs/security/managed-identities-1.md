@@ -1,5 +1,4 @@
 ﻿---
-sidebar_position: 2
 title: Managed Identities Part 1
 ---
 

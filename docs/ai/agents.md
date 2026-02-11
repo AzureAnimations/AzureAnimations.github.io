@@ -1,5 +1,4 @@
 ﻿---
-sidebar_position: 15
 title: AI Agents
 ---
 
