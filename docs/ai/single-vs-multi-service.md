@@ -1,9 +1,9 @@
 ﻿---
 sidebar_position: 4
-title: "Single vs Multi-Service"
+title: "Single vs Multi-Service (Classic)"
 ---
 
-# Understanding Azure AI: Single Service vs. Multi-Service Account
+# Understanding Azure AI: Single Service vs. Multi-Service Account (Classic)
 
 <div style={{textAlign: 'center'}}>
   <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/AI/AI-Single-vs-Multi-Service.gif" target="_blank">

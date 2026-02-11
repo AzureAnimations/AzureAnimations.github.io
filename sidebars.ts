@@ -34,6 +34,7 @@ const sidebars: SidebarsConfig = {
         'ai/azure-openai-vs-openai',
         'ai/openai-provisioning',
         'ai/chatcompletion-stateless',
+        'ai/ms-foundry-hub-projects',
       ],
     },
     {

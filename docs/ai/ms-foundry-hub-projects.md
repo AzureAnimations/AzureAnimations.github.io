@@ -10,7 +10,7 @@ title: Microsoft Foundry Hub & Project
     <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-480thumbnails/ms-foundry-hub-project_thumbnail.gif" alt="Speech Service" />
   </a>
   <p style={{fontStyle: 'italic'}}>
-    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/AI/Azure-Speech-Service.gif" target="_blank">Download HD GIF</a>
+    <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/AI/ms-foundry-hub-project.gif" target="_blank">Download HD GIF</a>
   </p>
 </div>
 
