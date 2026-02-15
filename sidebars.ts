@@ -44,6 +44,7 @@ const sidebars: SidebarsConfig = {
       items: [
         'github/intro',
         'github/git-version-control',
+        /* to be work on
         'github/github-actions-basics',
         'github/github-advanced-security',
         'github/pull-requests',
@@ -53,6 +54,7 @@ const sidebars: SidebarsConfig = {
         'github/secrets-management',
         'github/reusable-workflows',
         'github/github-copilot-dev',
+        */
       ],
     },
     {
