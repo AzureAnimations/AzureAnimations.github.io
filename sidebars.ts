@@ -39,6 +39,24 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
+      label: ' GitHub & DevOps',
+      collapsed: true,
+      items: [
+        'github/intro',
+        'github/git-version-control',
+        'github/github-actions-basics',
+        'github/github-advanced-security',
+        'github/pull-requests',
+        'github/github-projects',
+        'github/cicd-pipelines',
+        'github/github-packages',
+        'github/secrets-management',
+        'github/reusable-workflows',
+        'github/github-copilot-dev',
+      ],
+    },
+    {
+      type: 'category',
       label: ' Compute',
       collapsed: true,
       items: [
