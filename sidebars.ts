@@ -10,7 +10,7 @@ const sidebars: SidebarsConfig = {
     {
       type: 'category',
       label: ' Copilot',
-      collapsed: false,
+      collapsed: true,
       items: [
         'copilot/intro',
         'copilot/free-vs-work',
