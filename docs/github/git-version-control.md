@@ -11,7 +11,7 @@ Git is the foundation of modern software development. Understanding version cont
     <img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-480thumbnails/github_version_control_git_workflow_thumbnail.gif" alt="Microsoft Foundry Hub - Projects" />
   </a>
   <p style={{fontStyle: 'italic'}}>
-  <a href="/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/Github/github_version_control_git_workflow.mp4&amp;animationTitle=Github,%20Azure%20DevOps%20-%20Version%20Control,%20Branches%20and%20Git%20Workflow&amp;pauseTimes=28,60" target="_blank" style={{display:'inline-block', padding:'10px 20px', fontSize:'16px', color:'white', backgroundColor:'#007bff', border:'none', borderRadius:'5px', textDecoration:'none', cursor:'pointer'}}>Present Animation</a>
+  <a href="/player/animationPlayer.html?vdo=https://azureanimations.github.io/images/animations-high-resolutions/Github/github_version_control_git_workflow.mp4&amp;animationTitle=Github,%20Azure%20DevOps%20-%20Version%20Control,%20Branches%20and%20Git%20Workflow&amp;pauseTimes=9,23,36,42,56,92,98,114" target="_blank" style={{display:'inline-block', padding:'10px 20px', fontSize:'16px', color:'white', backgroundColor:'#007bff', border:'none', borderRadius:'5px', textDecoration:'none', cursor:'pointer'}}>Present Animation</a>
     {' '}
     <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/Github/github_version_control_git_workflow.gif" target="_blank">Download HD GIF</a>
   </p>
