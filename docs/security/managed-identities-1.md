@@ -15,6 +15,18 @@ title: Managed Identities Part 1
   </p>
 </div>
 
+:::tip[🎬 Video Explanation]
+Click the video below for recorded explanations by [Bob Reinsch](https://www.linkedin.com/in/thebobster/).
+
+<a href="https://www.youtube.com/watch?v=FpX40R14iLM" target="_blank"><img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-explained/Managed%20Identity%20Part%201%20Explained.png" alt="Azure Managed Identity Part 1" width="300"/></a>
+:::
+
+:::info[💻 Sample Code & Tutorial]
+Hands-on sample showing an **Azure App Service** using a **Managed Identity** to access **Azure Storage** (no secrets / connection strings):
+
+👉 [github.com/msftnutta/appService-managedIdnetity-storage](https://github.com/msftnutta/appService-managedIdnetity-storage)
+:::
+
 Above illustrates the process of using Managed Identities, comparing the traditional old-school way of using shared credentials to the modern approach of managed identities in Azure, highlighting enhanced security and simplified access management
 
 1. **Traditional Approach: Shared Secrets and Credentials 🔑**
@@ -45,10 +57,4 @@ Above illustrates the process of using Managed Identities, comparing the traditi
 5. **Conclusion 📈**
 
    Adopting managed identities enhances security, reduces overhead, and simplifies access management. This approach aligns with best practices for secure application development in Azure.
-
-:::tip[🎬 Video Explanation]
-Click the video below for recorded explanations by [Bob Reinsch](https://www.linkedin.com/in/thebobster/).
-
-<a href="https://www.youtube.com/watch?v=FpX40R14iLM" target="_blank"><img src="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-explained/Managed%20Identity%20Part%201%20Explained.png" alt="Azure Managed Identity Part 1" width="300"/></a>
-::: 
 
