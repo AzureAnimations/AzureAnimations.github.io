@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>Microsoft Foundry Agent Service — What is an AI Agent?</title>
+
+<link rel="stylesheet" href="https://unpkg.com/@microsoft/atlas-css/dist/index.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+<style>
+	/* ── THEME TOKENS (taken from the guide images) ─────────── */
+	:root {
+		--bg:           #f6ecd9;        /* warm cream backdrop */
+		--bg-soft:      #faf3e3;
+		--ink:          #1f1f33;        /* near-black navy used for pills/text */
+		--ink-soft:     #3a3a52;
+		--card:         #ffffff;
+		--card-border:  #e6dfcf;
+		--shadow:       0 6px 18px rgba(31,31,51,0.10);
+		--shadow-strong:0 12px 28px rgba(31,31,51,0.18);
+
+		--accent-llm:        #1f6dff;   /* electric blue   (LLM) */
+		--accent-instr:      #9b2bd9;   /* vivid purple    (Instructions) */
+		--accent-tools:      #ec3f7d;   /* hot pink        (Tools) */
+		--accent-orange:     #ff7a1a;   /* orange  (24/7) */
+		--accent-plum:       #6a2c80;   /* deep purple (Scalability) */
+		--accent-magenta:    #b836b8;   /* magenta (Decision) */
+
+		--ms-grad: linear-gradient(135deg, #2a52ff 0%, #6e3df0 50%, #d63bd6 100%);
+	}
+	body.theme-dark {
+		--bg:           #14151f;
+		--bg-soft:      #1c1d29;
+		--ink:          #f4eedf;
+		--ink-soft:     #c8c2b3;
+		--card:         #232434;
+		--card-border:  #3a3b4d;
+		--shadow:       0 6px 18px rgba(0,0,0,0.45);
+		--shadow-strong:0 12px 28px rgba(0,0,0,0.55);
+	}
+
+	html, body { height:100%; margin:0; }
+	html { font-size:100%; }
+	body {
+		display:flex; flex-direction:column;
+		min-height:100vh;
+		overflow-x:hidden; overflow-y:auto;
+		padding-bottom:6rem;
+		background: var(--bg);
+		color: var(--ink);
+		font-family: 'Segoe UI', -apple-system, system-ui, 'Helvetica Neue', sans-serif;
+	}
+
+	.app-header {
+		display:flex; align-items:center; gap:1rem; flex-shrink:0; flex-wrap:wrap;
+		padding:0.6rem 1.5rem;
+		background: var(--bg-soft);
+		border-bottom:1px solid var(--card-border);
+	}
+	.brand {
+		display:inline-flex; align-items:center; gap:0.6rem;
+		font-weight:700; font-size:1.05rem; color:var(--ink);
+		text-decoration:none;
+	}
+	.brand .logo {
+		width:1.7rem; height:1.7rem; border-radius:6px;
+		background: var(--ms-grad);
+		display:inline-block;
+		box-shadow: 0 2px 6px rgba(110,61,240,0.35);
+	}
+
+	#stage {
+		position:relative; flex:1 1 auto; width:100%;
+		min-height:600px;
+		overflow:auto;
+	}
+	#stage:focus-visible, button:focus-visible, a:focus-visible {
+		outline:2px solid var(--accent-llm);
+		outline-offset:3px; border-radius:4px;
+	}
+
+	#fx-svg {
+		position:absolute; inset:0; width:100%; height:100%;
+		pointer-events:none; z-index:6; overflow:visible;
+	}
+
+	/* ── DARK INK PILL (Input / Agent / Output) ──────────────── */
+	.node-pill {
+		position:absolute;
+		display:flex; align-items:center; justify-content:center;
+		min-width:200px; padding:0.95rem 2.2rem;
+		background: var(--ink);
+		color:#fff;
+		font-size:1.35rem; font-weight:600; letter-spacing:0.02em;
+		border-radius:999px;
+		box-shadow: var(--shadow-strong);
+		z-index:18;
+		opacity:0;
+		transform:translate(-50%, -50%);
+	}
+
+	/* ── AGENT CONTAINER (light grey rounded box) ──────────── */
+	.agent-box {
+		position:absolute;
+		border-radius:24px;
+		background: var(--bg-soft);
+		border:1px solid var(--card-border);
+		box-shadow: inset 0 0 0 1px rgba(31,31,51,0.04);
+		opacity:0;
+		z-index:4;
+	}
+	body.theme-dark .agent-box {
+		background: rgba(255,255,255,0.04);
+	}
+
+	/* ── COMPONENT CARD (white rounded card holding an icon + label pill) ─ */
+	.comp-card {
+		position:absolute;
+		display:flex; flex-direction:column; align-items:center; justify-content:center;
+		gap:0.9rem;
+		padding:1.4rem 1.4rem 1.2rem;
+		background: var(--card);
+		border:1px solid var(--card-border);
+		border-radius:18px;
+		box-shadow: var(--shadow);
+		opacity:0;
+		z-index:10;
+		transform:translate(-50%, -50%);
+	}
+	/* In the detailed variant all three cards share the same height and the
+	   label pill is pinned to the bottom so LLM / Instructions / Tools line
+	   up horizontally regardless of how much content sits above the pill. */
+	.comp-card.detailed {
+		justify-content:flex-start;
+		height:340px;
+		width:280px;
+		box-sizing:border-box;
+	}
+	/* The first child (model-grid / prompt-text / tool-list) is centered
+	   vertically inside the card via auto margins, so the upper area of
+	   every detailed card looks balanced instead of top-aligned.
+	   We deliberately do NOT change its `display`, otherwise it would
+	   override `.model-grid { display:grid }`. */
+	.comp-card.detailed > :first-child {
+		margin:auto;
+	}
+	.comp-card.detailed .label-pill { align-self:center; margin-top:auto; }
+	.comp-card .icon {
+		font-size:3rem;
+		line-height:1;
+		display:flex; align-items:center; justify-content:center;
+		min-height:70px;
+	}
+	.comp-card .label-pill {
+		display:inline-block;
+		padding:0.45rem 1.4rem;
+		border-radius:999px;
+		font-size:1rem; font-weight:700; color:#fff;
+		letter-spacing:0.02em;
+		box-shadow: 0 4px 10px rgba(0,0,0,0.18);
+	}
+	.comp-card.llm   .label-pill { background: var(--accent-llm); }
+	.comp-card.instr .label-pill { background: var(--accent-instr); }
+	.comp-card.tools .label-pill { background: var(--accent-tools); }
+
+	/* Plus signs between the three cards */
+	.plus-sign {
+		position:absolute;
+		font-size:2.2rem; font-weight:700;
+		color: var(--accent-llm);
+		opacity:0;
+		z-index:9;
+		transform:translate(-50%, -50%);
+		user-select:none;
+	}
+
+	/* ── Sub-content variants in the second example step ─── */
+	.comp-card .model-grid {
+		display:grid;
+		grid-template-columns: repeat(2, auto);
+		justify-content:center;
+		gap:1.1rem 2rem;
+		margin-bottom:0.2rem;
+	}
+	.comp-card .model-grid .m {
+		display:flex; flex-direction:column; align-items:center;
+		font-size:0.9rem; color:var(--ink-soft);
+		font-weight:600;
+	}
+	.comp-card .model-grid .m .glyph {
+		font-size:2.1rem; font-weight:800; color:var(--ink);
+		line-height:1;
+	}
+	.comp-card .prompt-text {
+		font-size:0.98rem; line-height:1.45;
+		color: var(--ink);
+		width:100%; max-width:100%; text-align:left;
+		font-weight:400;
+	}
+	.comp-card .tool-list {
+		display:flex; flex-direction:column; gap:0.85rem;
+		font-size:1.1rem; color:var(--ink); font-weight:600;
+	}
+	.comp-card .tool-list .row {
+		display:flex; align-items:center; gap:0.7rem;
+	}
+	.comp-card .tool-list .row .g {
+		font-size:1.3rem; width:1.6rem; text-align:center;
+	}
+
+	/* ── BENEFIT PILL (the colored full-width buttons in guide-3) ─── */
+	.benefit-pill {
+		position:absolute;
+		display:flex; flex-direction:column; align-items:center; justify-content:center;
+		gap:0.9rem;
+		padding:1.6rem 1.4rem;
+		min-height:200px;
+		box-sizing:border-box;
+		text-align:center;
+		border-radius:18px;
+		color:#fff;
+		font-size:1.25rem; font-weight:600; line-height:1.25;
+		box-shadow: var(--shadow-strong);
+		opacity:0;
+		z-index:10;
+	}
+	.benefit-pill .b-icon {
+		font-size:2.6rem; width:auto; text-align:center;
+	}
+	.benefit-pill.b-blue   { background: var(--accent-llm); }
+	.benefit-pill.b-purple { background: var(--accent-magenta); }
+	.benefit-pill.b-plum   { background: var(--accent-plum); }
+	.benefit-pill.b-orange { background: var(--accent-orange); }
+
+	/* ── INTRO HERO (Microsoft Foundry Agent Service banner) ─── */
+	.hero-card {
+		position:absolute; left:50%; top:24%;
+		transform:translate(-50%, -50%);
+		display:flex; align-items:center; gap:1.6rem;
+		padding:2rem 3rem;
+		background: var(--card);
+		border:1px solid var(--card-border);
+		border-radius:20px;
+		box-shadow: var(--shadow);
+		opacity:0;
+		z-index:10;
+	}
+	.hero-card .hero-logo {
+		width:90px; height:90px; border-radius:18px;
+		background: var(--ms-grad);
+		box-shadow: 0 6px 18px rgba(110,61,240,0.45);
+		flex-shrink:0;
+	}
+	.hero-card .hero-title {
+		font-size:2.4rem; font-weight:700; color: var(--ink);
+		line-height:1.15; letter-spacing:-0.01em;
+	}
+
+	/* Four agent-type cards laid out below the hero */
+	.type-card {
+		position:absolute;
+		display:flex; align-items:center; justify-content:center;
+		text-align:center;
+		padding:1.4rem 1.2rem;
+		background: var(--card);
+		border:1px solid var(--card-border);
+		border-radius:14px;
+		box-shadow: var(--shadow);
+		font-size:1.05rem; font-weight:600; color: var(--ink);
+		opacity:0;
+		z-index:10;
+		min-height:110px;
+	}
+
+	/* ── DATA MOTE (small dot that flies along arrows) ──────── */
+	.mote {
+		position:absolute;
+		width:14px; height:14px; border-radius:50%;
+		background: var(--accent-llm);
+		box-shadow: 0 0 12px var(--accent-llm);
+		z-index:15;
+		opacity:0;
+		transform:translate(-50%, -50%);
+	}
+
+	/* ── CALLOUT ─────────────────────────────────── */
+	.callout {
+		position:absolute;
+		max-width:300px;
+		padding:1rem 1.2rem;
+		background: var(--card);
+		border:1px solid var(--card-border);
+		border-left:4px solid var(--accent-llm);
+		border-radius:8px;
+		box-shadow: var(--shadow);
+		font-size:1rem; line-height:1.5; color: var(--ink);
+		z-index:14; opacity:0;
+	}
+	body.callouts-hidden .callout { display:none !important; }
+
+	/* ── CONTROLS (same pattern as StorageRedundancy) ───────── */
+	#controls {
+		position:fixed; bottom:1.5rem; left:50%; transform:translateX(-50%);
+		z-index:40;
+		display:flex; align-items:center; gap:0.75rem;
+		padding:0.6rem 0.9rem;
+		background: var(--card);
+		border:1px solid var(--card-border); border-radius:999px;
+		box-shadow: var(--shadow-strong);
+	}
+	#controls .button {
+		font-size:1rem;
+		padding:0.55rem 1rem;
+		line-height:1.2; font-weight:600;
+		color: var(--ink);
+		background: transparent;
+		border:1px solid var(--card-border);
+		border-radius:999px;
+		cursor:pointer;
+	}
+	#controls .button:hover { background: var(--bg-soft); }
+	#controls .button.is-active {
+		background: var(--accent-llm);
+		color:#fff;
+		border-color: var(--accent-llm);
+		box-shadow: 0 0 0 2px rgba(31,109,255,0.25);
+	}
+	#controls .button.is-active:hover { background: var(--accent-llm); filter:brightness(1.05); }
+	#controls .button-primary {
+		background: var(--ink); color:#fff; border-color: var(--ink);
+	}
+	#controls .button-primary:hover { background: #000; }
+	.step-counter {
+		min-width:80px; text-align:center; font-variant-numeric:tabular-nums;
+		font-size:1.05rem; font-weight:600; color: var(--ink-soft);
+	}
+	.speed-control {
+		display:inline-flex; align-items:center; gap:0.25rem;
+		padding:0.25rem 0.4rem;
+		border:1px solid var(--card-border);
+		border-radius:999px;
+	}
+	.speed-control .speed-btn {
+		width:1.9rem; height:1.9rem;
+		padding:0; line-height:1;
+		font-size:1.1rem; font-weight:700;
+		border-radius:50%;
+		border:none; background:transparent;
+		color: var(--ink); cursor:pointer;
+	}
+	.speed-control .speed-btn[disabled] { opacity:0.4; cursor:not-allowed; }
+	.speed-label {
+		min-width:3rem; text-align:center;
+		font-variant-numeric:tabular-nums;
+		font-size:0.95rem; font-weight:600;
+		color: var(--ink);
+	}
+
+	.progress-track { position:relative; height:3px; background:var(--card-border); flex-shrink:0; }
+	.progress-fill {
+		position:absolute; left:0; top:0; bottom:0; width:0%;
+		background: var(--ms-grad);
+		transition:width 0.5s cubic-bezier(0.2,0.8,0.2,1);
+	}
+
+	.sr-only {
+		position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+		overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
+	}
+
+	/* ── OUTLINE PANEL ──────────────────────────── */
+	#step-outline {
+		position:fixed; top:5rem; right:1rem;
+		width:320px; max-height:calc(100vh - 8rem); overflow-y:auto;
+		padding:1.1rem;
+		background: var(--card);
+		border:1px solid var(--card-border);
+		border-radius:12px;
+		box-shadow: var(--shadow);
+		z-index:35; font-size:0.95rem; line-height:1.55;
+		color: var(--ink);
+	}
+	#step-outline[hidden] { display:none; }
+	#step-outline h2 {
+		font-size:0.78rem; font-weight:700; letter-spacing:0.18em;
+		text-transform:uppercase;
+		color: var(--accent-instr); margin-bottom:0.5rem;
+	}
+	#step-outline .stat-row {
+		display:flex; justify-content:space-between; align-items:baseline;
+		gap:0.75rem; padding:0.18rem 0;
+	}
+	#step-outline .stat-row span:first-child {
+		flex:0 0 auto; max-width:55%; color: var(--ink-soft);
+	}
+	#step-outline .stat-row span:last-child {
+		flex:1 1 auto; text-align:right; font-weight:700; color: var(--accent-llm);
+	}
+
+	/* Theme toggle (icon-only, same vibe) */
+	.theme-toggle {
+		display:inline-flex; align-items:center; justify-content:center;
+		width:2.25rem; height:2.25rem;
+		padding:0;
+		background:transparent;
+		border:1px solid var(--card-border);
+		border-radius:999px;
+		color: var(--ink); cursor:pointer;
+	}
+	.theme-toggle:hover { background: var(--bg-soft); }
+	.theme-toggle .theme-icon { display:none; }
+	.theme-toggle[data-theme="dark"]  .icon-sun  { display:block; }
+	.theme-toggle[data-theme="light"] .icon-moon { display:block; }
+
+	@media (max-width:1100px), (max-height:720px) {
+		#stage { min-width:0; min-height:520px; overflow:visible; }
+		#step-outline { position:static; width:auto; margin:0.75rem 1rem; max-height:none; }
+		.callout { position:static !important; margin:0.75rem 1rem; max-width:none; transform:none !important; }
+		#controls { position:fixed; left:0; right:0; bottom:0; transform:none; border-radius:0; justify-content:center; flex-wrap:wrap; padding:0.5rem 0.75rem; }
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.comp-card, .node-pill, .agent-box, .benefit-pill, .hero-card, .type-card, .callout, .mote, .plus-sign {
+			transition:none !important; animation:none !important;
+		}
+	}
+</style>
+</head>
+
+<body>
+
+	<a href="#stage" class="sr-only">Skip to diagram</a>
+
+	<header class="app-header" role="banner">
+		<a href="./index.html" class="brand" aria-label="Back to home">
+			<span class="logo" aria-hidden="true"></span>
+			<span>Microsoft Foundry · Agents</span>
+		</a>
+		<nav style="margin-left:auto; display:flex; gap:0.4rem; align-items:center;" aria-label="Primary">
+			<span id="breadcrumb" style="font-size:0.85rem; color:var(--ink-soft);">Step 1</span>
+			<button id="theme-toggle" type="button" class="theme-toggle"
+					aria-label="Switch to dark theme" title="Switch to dark theme">
+				<svg class="theme-icon icon-moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+					<path fill="currentColor" d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/>
+				</svg>
+				<svg class="theme-icon icon-sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+					<g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+						<circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/>
+						<line x1="12" y1="2"  x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/>
+						<line x1="2"  y1="12" x2="5"  y2="12"/><line x1="19" y1="12" x2="22" y2="12"/>
+						<line x1="4.5"  y1="4.5"  x2="6.5"  y2="6.5"/>
+						<line x1="17.5" y1="17.5" x2="19.5" y2="19.5"/>
+						<line x1="4.5"  y1="19.5" x2="6.5"  y2="17.5"/>
+						<line x1="17.5" y1="6.5"  x2="19.5" y2="4.5"/>
+					</g>
+				</svg>
+			</button>
+		</nav>
+	</header>
+
+	<div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
+
+	<main id="stage" tabindex="0" role="region" aria-labelledby="stage-heading" aria-describedby="stage-instructions">
+		<h1 id="stage-heading" class="sr-only">Microsoft Foundry Agent Service overview</h1>
+		<p id="stage-instructions" class="sr-only">
+			Animated explainer of AI agents on Microsoft Foundry.
+			Use Next/Previous buttons or arrow keys to navigate. Press R to restart.
+		</p>
+		<div id="step-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+
+		<svg id="fx-svg" aria-hidden="true" focusable="false">
+			<defs>
+				<marker id="arrow-ink" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+					<path d="M0,0 L0,10 L10,5 Z" fill="#1f1f33"/>
+				</marker>
+			</defs>
+		</svg>
+	</main>
+
+	<aside id="step-outline" aria-label="Text outline of the current step">
+		<h2 id="outline-title">Summary</h2>
+		<div id="outline-body"></div>
+	</aside>
+
+	<div id="controls" role="group" aria-label="Diagram navigation">
+		<button id="prev-btn" type="button" class="button" aria-label="Previous step">◀ Prev</button>
+		<div class="step-counter" id="step-counter">0 / 0</div>
+		<button id="next-btn" type="button" class="button button-primary" aria-label="Next step">Next ▶</button>
+		<button id="replay-btn" type="button" class="button" aria-label="Replay this step">↻ Replay</button>
+		<div class="speed-control" role="group" aria-label="Animation speed">
+			<button id="speed-down" type="button" class="speed-btn" aria-label="Slower" title="Slower">−</button>
+			<span id="speed-label" class="speed-label" aria-live="polite">1×</span>
+			<button id="speed-up" type="button" class="speed-btn" aria-label="Faster" title="Faster">+</button>
+		</div>
+		<button id="outline-toggle" type="button" class="button"
+				aria-controls="step-outline" aria-expanded="true"
+				aria-label="Hide text outline">📝 Outline</button>
+		<button id="callout-toggle" type="button" class="button"
+				aria-pressed="true"
+				aria-label="Hide callouts">💬 Callout</button>
+		<button id="reset-btn" type="button" class="button" aria-label="Restart from step 1">↻ Restart</button>
+	</div>
+
+<script>
+	// ── THEME TOGGLE ──────────────────────────────
+	(function () {
+		const body = document.body;
+		const btn  = document.getElementById('theme-toggle');
+		const KEY  = 'aw-foundry-theme';
+		function syncBtn() {
+			const isDark = body.classList.contains('theme-dark');
+			btn.dataset.theme = isDark ? 'dark' : 'light';
+			btn.setAttribute('aria-label', isDark ? 'Switch to light theme' : 'Switch to dark theme');
+		}
+		const saved = localStorage.getItem(KEY);
+		if (saved === 'theme-dark') body.classList.add('theme-dark');
+		syncBtn();
+		btn.addEventListener('click', () => {
+			body.classList.toggle('theme-dark');
+			localStorage.setItem(KEY, body.classList.contains('theme-dark') ? 'theme-dark' : 'theme-light');
+			syncBtn();
+			renderStep(current);
+		});
+	})();
+
+	// ── STEPS ─────────────────────────────────────
+	const STEPS = [
+		{
+			id:'intro',
+			title:'Microsoft Foundry Agent Service',
+			short:'Overview',
+			caption:'A unified place to build AI agents',
+			description:'Microsoft Foundry Agent Service is a hosted platform for building AI agents — from declarative configurations to fully hosted runtimes, prompt-driven assistants, and multi-step workflows.',
+			layout:'intro',
+			types:[
+				{ label:'Declarative agents' },
+				{ label:'Hosted agents' },
+				{ label:'Prompt-based agents' },
+				{ label:'Workflow agents' }
+			],
+			stats:[
+				['Service','Microsoft Foundry'],
+				['Agent kinds','4'],
+				['Topology','Input → Agent → Output'],
+				['Building blocks','LLM · Instructions · Tools']
+			]
+		},
+		{
+			id:'flow',
+			title:'Anatomy of an Agent',
+			short:'Anatomy',
+			caption:'Input → Agent → Output',
+			description:'Every agent receives an Input, processes it inside the Agent runtime, and emits an Output. The Agent itself is composed of three building blocks: an LLM, Instructions, and Tools.',
+			layout:'agent',
+			variant:'simple',
+			callout:{ text:'An Agent = LLM + Instructions + Tools.' },
+			components:[
+				{ id:'llm',   cls:'llm',   icon:'🧠', label:'LLM' },
+				{ id:'instr', cls:'instr', icon:'📄', label:'Instructions' },
+				{ id:'tools', cls:'tools', icon:'🔧', label:'Tools' }
+			],
+			stats:[
+				['Input','User request'],
+				['Agent runtime','Hosts the brain'],
+				['LLM','Reasoning engine'],
+				['Instructions','System prompt'],
+				['Tools','Actions + data'],
+				['Output','Final response']
+			]
+		},
+		{
+			id:'example',
+			title:'Concrete Agent · Travel Booking Assistant',
+			short:'Example',
+			caption:'Pick a model, write a prompt, plug in tools',
+			description:'Same structure, real content. The LLM block can be swapped between providers, the Instructions are a plain-language system prompt, and the Tools list grants the agent specific capabilities.',
+			layout:'agent',
+			variant:'detailed',
+			callout:{ text:'Mix-and-match: any model, any prompt, any combination of tools.' },
+			components:[
+				{ id:'llm', cls:'llm', label:'LLM',
+				  models:[
+					{ glyph:'G', name:'GPT' },
+					{ glyph:'L', name:'Llama' },
+					{ glyph:'M', name:'Mistral' },
+					{ glyph:'C', name:'Claude' }
+				  ] },
+				{ id:'instr', cls:'instr', label:'Instructions',
+				  prompt:'You are a travel booking and expense management assistant designed to help employees plan, book, and manage business travel. Always confirm trip dates and budget before making bookings. Prefer direct flights when cost difference is < 20%.' },
+				{ id:'tools', cls:'tools', label:'Tools',
+				  toolList:[
+					{ g:'🔍', name:'Retrieval' },
+					{ g:'⚡', name:'Actions' },
+					{ g:'🗄', name:'Memory' }
+				  ] }
+			],
+			stats:[
+				['Use case','Travel + expenses'],
+				['Model choice','GPT · Llama · Mistral · Claude'],
+				['Prompt','Domain rules + safety guards'],
+				['Tools','Retrieval · Actions · Memory']
+			]
+		},
+		{
+			id:'benefits',
+			title:'Why use AI Agents?',
+			short:'Benefits',
+			caption:'Four big wins',
+			description:'Once an agent is in place, the operational benefits stack up: it works around the clock, scales to demand, automates the repetitive work, and improves the quality of decisions.',
+			layout:'benefits',
+			benefits:[
+				{ icon:'📋', label:'Automation of routine tasks', cls:'b-blue' },
+				{ icon:'📈', label:'Enhanced decision-making',    cls:'b-purple' },
+				{ icon:'↔',  label:'Scalability',                 cls:'b-plum' },
+				{ icon:'⏰', label:'24/7 availability',            cls:'b-orange' }
+			],
+			stats:[
+				['Automation','Frees humans from busy work'],
+				['Decisions','Data-grounded answers'],
+				['Scale','Handles spikes elastically'],
+				['Uptime','24 × 7']
+			]
+		},
+		{
+			id:'types',
+			title:'Four kinds of Foundry agents',
+			short:'Compare',
+			caption:'Pick the right shape for your problem',
+			description:'Foundry exposes four agent flavors. Declarative for low-code config, Hosted for fully-managed runtimes, Prompt-based for fast assistants, and Workflow for multi-step orchestration.',
+			layout:'compare',
+			rows:[
+				{ name:'Declarative agents',   when:'Configuration-first · YAML / JSON',         best:'Low-code teams, governed deployments' },
+				{ name:'Hosted agents',        when:'Foundry-hosted runtime',                     best:'Production workloads, scale & SLA' },
+				{ name:'Prompt-based agents',  when:'Single-prompt assistant',                    best:'Quick conversational helpers' },
+				{ name:'Workflow agents',      when:'Multi-step, multi-tool orchestration',       best:'Complex business processes' }
+			],
+			stats:[
+				['Declarative','Config-driven'],
+				['Hosted','Managed runtime'],
+				['Prompt-based','One-shot prompt'],
+				['Workflow','Orchestrated steps']
+			]
+		}
+	];
+
+	// ── DOM refs ──────────────────────────────
+	const stage      = document.getElementById('stage');
+	const svg        = document.getElementById('fx-svg');
+	const counter    = document.getElementById('step-counter');
+	const breadcrumb = document.getElementById('breadcrumb');
+	const progress   = document.getElementById('progress-fill');
+	const announcer  = document.getElementById('step-announcer');
+	const outlineBody = document.getElementById('outline-body');
+	const outlinePanel = document.getElementById('step-outline');
+	const outlineBtn = document.getElementById('outline-toggle');
+
+	let current = -1;
+	let animating = false;
+	let liveEls = [];
+	let liveTimelines = [];
+
+	const motionMQ = window.matchMedia('(prefers-reduced-motion: reduce)');
+	let motionPaused = motionMQ.matches;
+	motionMQ.addEventListener('change', e => { motionPaused = e.matches; renderStep(current); });
+
+	outlineBtn.addEventListener('click', () => {
+		const hidden = outlinePanel.hasAttribute('hidden');
+		if (hidden) {
+			outlinePanel.removeAttribute('hidden');
+			outlineBtn.setAttribute('aria-expanded','true');
+			outlineBtn.setAttribute('aria-label','Hide text outline');
+			outlineBtn.classList.add('is-active');
+		} else {
+			outlinePanel.setAttribute('hidden','');
+			outlineBtn.setAttribute('aria-expanded','false');
+			outlineBtn.setAttribute('aria-label','Show text outline');
+			outlineBtn.classList.remove('is-active');
+		}
+	});
+	// Initial sync (outline is shown by default)
+	if (!outlinePanel.hasAttribute('hidden')) outlineBtn.classList.add('is-active');
+
+	// ── CALLOUT TOGGLE ───────────────────────
+	const calloutBtn = document.getElementById('callout-toggle');
+	const CALLOUT_KEY = 'aw-foundry-callouts';
+	if (localStorage.getItem(CALLOUT_KEY) === 'hidden') {
+		document.body.classList.add('callouts-hidden');
+		calloutBtn.setAttribute('aria-pressed','false');
+		calloutBtn.setAttribute('aria-label','Show callouts');
+	}
+	if (!document.body.classList.contains('callouts-hidden')) calloutBtn.classList.add('is-active');
+	calloutBtn.addEventListener('click', e => {
+		e.stopPropagation();
+		const nowHidden = !document.body.classList.contains('callouts-hidden');
+		document.body.classList.toggle('callouts-hidden', nowHidden);
+		calloutBtn.setAttribute('aria-pressed', nowHidden ? 'false' : 'true');
+		calloutBtn.setAttribute('aria-label', nowHidden ? 'Show callouts' : 'Hide callouts');
+		calloutBtn.classList.toggle('is-active', !nowHidden);
+		localStorage.setItem(CALLOUT_KEY, nowHidden ? 'hidden' : 'shown');
+	});
+
+	// ── Helpers ───────────────────────────────
+	function clearStage() {
+		liveTimelines.forEach(t => t.kill());
+		liveTimelines = [];
+		liveEls.forEach(el => el.remove());
+		liveEls = [];
+		Array.from(svg.children).forEach(child => {
+			if (child.tagName.toLowerCase() !== 'defs') child.remove();
+		});
+	}
+	function pct(value, total) { return (value/100) * total; }
+	function px(el, prop) { return parseFloat(getComputedStyle(el)[prop]) || 0; }
+	function getInkColor() {
+		return getComputedStyle(document.body).getPropertyValue('--ink').trim() || '#1f1f33';
+	}
+	function getBlue() {
+		return getComputedStyle(document.body).getPropertyValue('--accent-llm').trim() || '#1f6dff';
+	}
+
+	// ── BUILDERS ──────────────────────────────
+	function makeNodePill(label, xPct, yPct) {
+		const el = document.createElement('div');
+		el.className = 'node-pill';
+		el.textContent = label;
+		el.style.left = xPct + '%';
+		el.style.top  = yPct + '%';
+		stage.appendChild(el);
+		liveEls.push(el);
+		return el;
+	}
+	function makeAgentBox(xPct, yPct, wPct, hPct) {
+		const el = document.createElement('div');
+		el.className = 'agent-box';
+		el.style.left   = xPct + '%';
+		el.style.top    = yPct + '%';
+		el.style.width  = wPct + '%';
+		el.style.height = hPct + '%';
+		stage.appendChild(el);
+		liveEls.push(el);
+		return el;
+	}
+	function makeCompCardSimple(comp, xPct, yPct) {
+		const el = document.createElement('div');
+		el.className = 'comp-card ' + comp.cls;
+		el.style.left = xPct + '%';
+		el.style.top  = yPct + '%';
+		el.innerHTML = `
+			<div class="icon" aria-hidden="true">${comp.icon}</div>
+			<div class="label-pill">${comp.label}</div>
+		`;
+		stage.appendChild(el);
+		liveEls.push(el);
+		return el;
+	}
+	function makeCompCardDetailed(comp, xPct, yPct) {
+		const el = document.createElement('div');
+		el.className = 'comp-card detailed ' + comp.cls;
+		el.style.left = xPct + '%';
+		el.style.top  = yPct + '%';
+		let inner = '';
+		if (comp.models) {
+			inner = `
+				<div class="model-grid">
+					${comp.models.map(m => `<div class="m"><div class="glyph">${m.glyph}</div><div>${m.name}</div></div>`).join('')}
+				</div>
+				<div class="label-pill">${comp.label}</div>
+			`;
+		} else if (comp.prompt) {
+			inner = `
+				<div class="prompt-text">${comp.prompt}</div>
+				<div class="label-pill">${comp.label}</div>
+			`;
+		} else if (comp.toolList) {
+			inner = `
+				<div class="tool-list">
+					${comp.toolList.map(t => `<div class="row"><span class="g">${t.g}</span><span>${t.name}</span></div>`).join('')}
+				</div>
+				<div class="label-pill">${comp.label}</div>
+			`;
+		}
+		el.innerHTML = inner;
+		stage.appendChild(el);
+		liveEls.push(el);
+		return el;
+	}
+	function makePlus(xPct, yPct) {
+		const el = document.createElement('div');
+		el.className = 'plus-sign';
+		el.textContent = '+';
+		el.style.left = xPct + '%';
+		el.style.top  = yPct + '%';
+		stage.appendChild(el);
+		liveEls.push(el);
+		return el;
+	}
+	function makeArrow(fromEl, toEl) {
+		const sr = stage.getBoundingClientRect();
+		const f = fromEl.getBoundingClientRect();
+		const t = toEl.getBoundingClientRect();
+		const x1 = f.left - sr.left + f.width/2;
+		const y1 = f.bottom - sr.top - 2;
+		const x2 = t.left - sr.left + t.width/2;
+		const y2 = t.top - sr.top + 2;
+		const ink = getInkColor();
+		const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+		line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+		line.setAttribute('x2', x2); line.setAttribute('y2', y2 - 8);
+		line.setAttribute('stroke', ink);
+		line.setAttribute('stroke-width', '3');
+		line.setAttribute('stroke-linecap','round');
+		line.setAttribute('opacity','0.45');
+		line.setAttribute('marker-end','url(#arrow-ink)');
+		svg.appendChild(line);
+		return { line, x1, y1, x2, y2 };
+	}
+	function makeMote(xPx, yPx, color) {
+		const el = document.createElement('div');
+		el.className = 'mote';
+		el.style.background  = color || getBlue();
+		el.style.boxShadow   = '0 0 14px ' + (color || getBlue());
+		el.style.left = xPx + 'px';
+		el.style.top  = yPx + 'px';
+		stage.appendChild(el);
+		liveEls.push(el);
+		return el;
+	}
+
+	// ── Outline + announce ───────────────────
+	function renderOutline(step, idx) {
+		const statRows = (step.stats||[]).map(([k,v]) =>
+			`<div class="stat-row"><span>${k}</span><span>${v}</span></div>`
+		).join('');
+		outlineBody.innerHTML = `
+			<div>
+				<strong>Step ${idx+1} of ${STEPS.length}: ${step.title}</strong>
+				<p style="margin-top:0.4rem;">${step.description||step.caption}</p>
+			</div>
+			${statRows ? `<div style="margin-top:0.7rem;padding-top:0.6rem;border-top:1px solid var(--card-border);">${statRows}</div>` : ''}
+		`;
+	}
+	function announceStep(step, idx) {
+		announcer.textContent = `Step ${idx+1} of ${STEPS.length}: ${step.title}. ${step.description||step.caption}`;
+	}
+
+	// ── LAYOUT BUILDERS ──────────────────────
+	function buildIntro(step) {
+		// Hero card
+		const hero = document.createElement('div');
+		hero.className = 'hero-card';
+		hero.innerHTML = `
+			<div class="hero-logo" aria-hidden="true"></div>
+			<div class="hero-title">Microsoft Foundry<br/>Agent Service</div>
+		`;
+		stage.appendChild(hero);
+		liveEls.push(hero);
+
+		// Type cards: top row 2, bottom row 2 (matches guide-4)
+		const typeEls = [];
+		const positions = [
+			{ left:'27%', top:'52%', width:'20%' },
+			{ left:'53%', top:'52%', width:'20%' },
+			{ left:'27%', top:'72%', width:'20%' },
+			{ left:'53%', top:'72%', width:'20%' }
+		];
+		step.types.forEach((t, i) => {
+			const el = document.createElement('div');
+			el.className = 'type-card';
+			el.style.left  = positions[i].left;
+			el.style.top   = positions[i].top;
+			el.style.width = positions[i].width;
+			el.textContent = t.label;
+			stage.appendChild(el);
+			liveEls.push(el);
+			typeEls.push(el);
+		});
+
+		if (motionPaused) {
+			gsap.set(hero, { opacity:1 });
+			gsap.set(typeEls, { opacity:1 });
+			animating = false;
+			return;
+		}
+		const tl = gsap.timeline({ onComplete: () => animating = false });
+		liveTimelines.push(tl);
+		tl.fromTo(hero, { opacity:0, y:-30, scale:0.95 },
+			{ opacity:1, y:0, scale:1, duration:0.7, ease:'back.out(1.4)' });
+		tl.fromTo(typeEls, { opacity:0, y:24, scale:0.95 },
+			{ opacity:1, y:0, scale:1, duration:0.55, stagger:0.12, ease:'back.out(1.3)' }, '-=0.3');
+	}
+
+	function buildAgent(step) {
+		const variant = step.variant || 'simple';
+		// Vertical positions (in %)
+		const inputY  = 9;
+		const agentY  = 28;
+		// agent box wraps the 3 component cards
+		const boxY    = 38;
+		const boxH    = variant === 'detailed' ? 50 : 42;
+		const cardY   = variant === 'detailed' ? 64 : 60;
+		const outputY = variant === 'detailed' ? 95 : 90;
+
+		const agentBox = makeAgentBox(8, boxY, 84, boxH);
+
+		const inputPill  = makeNodePill('Input',  50, inputY);
+		const agentPill  = makeNodePill('Agent',  50, agentY);
+		const outputPill = makeNodePill('Output', 50, outputY);
+
+		// Component cards positioned across the agent box
+		const cardXs = [25, 50, 75];
+		const cards = step.components.map((comp, i) => {
+			const x = cardXs[i];
+			return variant === 'detailed'
+				? makeCompCardDetailed(comp, x, cardY)
+				: makeCompCardSimple(comp, x, cardY);
+		});
+
+		// Plus signs sit between the cards
+		const plus1 = makePlus((cardXs[0]+cardXs[1])/2, cardY);
+		const plus2 = makePlus((cardXs[1]+cardXs[2])/2, cardY);
+
+		// Optional callout
+		let calloutEl = null;
+		if (step.callout) {
+			calloutEl = document.createElement('div');
+			calloutEl.className = 'callout';
+			calloutEl.textContent = step.callout.text;
+			calloutEl.style.left = '1.5rem';
+			calloutEl.style.top  = '1.5rem';
+			calloutEl.style.maxWidth = '280px';
+			stage.appendChild(calloutEl);
+			liveEls.push(calloutEl);
+		}
+
+		// After layout, draw arrows + run timeline
+		requestAnimationFrame(() => requestAnimationFrame(() => {
+			const arrowIA = makeArrow(inputPill, agentPill);
+			const arrowAO = makeArrow(agentPill, outputPill);
+			arrowIA.line.setAttribute('opacity','0');
+			arrowAO.line.setAttribute('opacity','0');
+
+			if (motionPaused) {
+				gsap.set([inputPill, agentPill, outputPill, agentBox, ...cards, plus1, plus2], { opacity:1 });
+				gsap.set([arrowIA.line, arrowAO.line], { opacity:0.45 });
+				if (calloutEl) gsap.set(calloutEl, { opacity:1 });
+				animating = false;
+				return;
+			}
+
+			const tl = gsap.timeline({ onComplete: () => animating = false });
+			tl.timeScale(0.6);
+			liveTimelines.push(tl);
+
+			// Phase 1: pills appear top-down
+			tl.fromTo(inputPill,
+				{ opacity:0, y:-20 },
+				{ opacity:1, y:0, duration:0.5, ease:'back.out(1.4)' }, 0);
+			tl.fromTo(arrowIA.line,
+				{ opacity:0 },
+				{ opacity:0.45, duration:0.4 }, 0.3);
+
+			// Mote flies from input pill down to agent pill
+			const sr = stage.getBoundingClientRect();
+			const ipR = inputPill.getBoundingClientRect();
+			const apR = agentPill.getBoundingClientRect();
+			const moteX1 = ipR.left - sr.left + ipR.width/2;
+			const moteY1 = ipR.bottom - sr.top - 2;
+			const moteX2 = apR.left - sr.left + apR.width/2;
+			const moteY2 = apR.top - sr.top + 2;
+			const moteIA = makeMote(moteX1, moteY1, '#1f1f33');
+			tl.fromTo(moteIA,
+				{ opacity:0, scale:0.4 },
+				{ opacity:1, scale:1, duration:0.2 }, 0.4);
+			tl.to(moteIA, {
+				keyframes: { left:[moteX1+'px', moteX2+'px'], top:[moteY1+'px', moteY2+'px'] },
+				duration: 0.7, ease:'power2.in'
+			}, '<');
+			tl.to(moteIA, { opacity:0, scale:0.4, duration:0.2 }, '>-=0.05');
+
+			tl.fromTo(agentPill,
+				{ opacity:0, y:-15, scale:0.9 },
+				{ opacity:1, y:0, scale:1, duration:0.5, ease:'back.out(1.4)' }, '<-=0.3');
+
+			// Phase 2: agent box and component cards
+			tl.fromTo(agentBox,
+				{ opacity:0, scale:0.97 },
+				{ opacity:1, scale:1, duration:0.6, ease:'power3.out' }, '+=0.1');
+			tl.fromTo(cards,
+				{ opacity:0, y:30, scale:0.92 },
+				{ opacity:1, y:0, scale:1, duration:0.55, stagger:0.18, ease:'back.out(1.4)' }, '<+=0.1');
+			tl.fromTo([plus1, plus2],
+				{ opacity:0, scale:0.4 },
+				{ opacity:1, scale:1, duration:0.4, stagger:0.12, ease:'back.out(2)' }, '<+=0.3');
+
+			// Phase 3: arrow + mote → output
+			tl.fromTo(arrowAO.line,
+				{ opacity:0 },
+				{ opacity:0.45, duration:0.4 }, '+=0.2');
+			const opR = outputPill.getBoundingClientRect();
+			const moteX3 = apR.left - sr.left + apR.width/2;
+			const moteY3 = apR.bottom - sr.top - 2;
+			const moteX4 = opR.left - sr.left + opR.width/2;
+			const moteY4 = opR.top - sr.top + 2;
+			const moteAO = makeMote(moteX3, moteY3, '#1f1f33');
+			tl.fromTo(moteAO,
+				{ opacity:0, scale:0.4 },
+				{ opacity:1, scale:1, duration:0.2 }, '<');
+			tl.to(moteAO, {
+				keyframes: { left:[moteX3+'px', moteX4+'px'], top:[moteY3+'px', moteY4+'px'] },
+				duration: 0.7, ease:'power2.in'
+			}, '<');
+			tl.to(moteAO, { opacity:0, scale:0.4, duration:0.2 }, '>-=0.05');
+			tl.fromTo(outputPill,
+				{ opacity:0, y:15, scale:0.9 },
+				{ opacity:1, y:0, scale:1, duration:0.5, ease:'back.out(1.4)' }, '<-=0.3');
+
+			if (calloutEl) {
+				tl.fromTo(calloutEl,
+					{ opacity:0, y:-8 },
+					{ opacity:1, y:0, duration:0.4, ease:'power3.out' }, '+=0.05');
+			}
+		}));
+	}
+
+	function buildBenefits(step) {
+		const positions = [
+			{ left:'27%', top:'22%', width:'20%' },
+			{ left:'53%', top:'22%', width:'20%' },
+			{ left:'27%', top:'58%', width:'20%' },
+			{ left:'53%', top:'58%', width:'20%' }
+		];
+		const els = [];
+		step.benefits.forEach((b, i) => {
+			const el = document.createElement('div');
+			el.className = 'benefit-pill ' + b.cls;
+			el.style.left  = positions[i].left;
+			el.style.top   = positions[i].top;
+			el.style.width = positions[i].width;
+			el.innerHTML = `<div class="b-icon" aria-hidden="true">${b.icon}</div><div>${b.label}</div>`;
+			stage.appendChild(el);
+			liveEls.push(el);
+			els.push(el);
+		});
+		if (motionPaused) {
+			gsap.set(els, { opacity:1 });
+			animating = false;
+			return;
+		}
+		const tl = gsap.timeline({ onComplete: () => animating = false });
+		liveTimelines.push(tl);
+		tl.fromTo(els,
+			{ opacity:0, y:30, scale:0.93 },
+			{ opacity:1, y:0, scale:1, duration:0.6, stagger:0.18, ease:'back.out(1.5)' });
+	}
+
+	function buildCompare(step) {
+		const wrap = document.createElement('div');
+		wrap.style.position = 'absolute';
+		wrap.style.left = '50%';
+		wrap.style.top  = '50%';
+		wrap.style.transform = 'translate(-50%,-50%)';
+		wrap.style.width = 'min(960px, 92%)';
+		wrap.style.background = 'var(--card)';
+		wrap.style.border = '1px solid var(--card-border)';
+		wrap.style.borderRadius = '14px';
+		wrap.style.boxShadow = 'var(--shadow-strong)';
+		wrap.style.overflow = 'hidden';
+		wrap.style.opacity = '0';
+		wrap.innerHTML = `
+			<table style="width:100%;border-collapse:collapse;color:var(--ink);font-size:1rem;line-height:1.4;">
+				<thead>
+					<tr style="background:var(--bg-soft);">
+						<th style="text-align:left;padding:0.85rem 1rem;border-bottom:2px solid var(--card-border);font-size:0.78rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-soft);">Agent kind</th>
+						<th style="text-align:left;padding:0.85rem 1rem;border-bottom:2px solid var(--card-border);font-size:0.78rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-soft);">What it is</th>
+						<th style="text-align:left;padding:0.85rem 1rem;border-bottom:2px solid var(--card-border);font-size:0.78rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-soft);">Best for</th>
+					</tr>
+				</thead>
+				<tbody>
+					${step.rows.map(r => `
+						<tr>
+							<td style="padding:0.8rem 1rem;border-bottom:1px solid var(--card-border);font-weight:700;">${r.name}</td>
+							<td style="padding:0.8rem 1rem;border-bottom:1px solid var(--card-border);">${r.when}</td>
+							<td style="padding:0.8rem 1rem;border-bottom:1px solid var(--card-border);color:var(--ink-soft);">${r.best}</td>
+						</tr>
+					`).join('')}
+				</tbody>
+			</table>
+		`;
+		stage.appendChild(wrap);
+		liveEls.push(wrap);
+
+		if (motionPaused) {
+			gsap.set(wrap, { opacity:1 });
+			animating = false;
+			return;
+		}
+		const tl = gsap.timeline({ onComplete: () => animating = false });
+		liveTimelines.push(tl);
+		tl.fromTo(wrap,
+			{ opacity:0, y:18 },
+			{ opacity:1, y:0, duration:0.6, ease:'power3.out' });
+		const rows = wrap.querySelectorAll('tbody tr');
+		tl.fromTo(rows,
+			{ opacity:0, x:-20 },
+			{ opacity:1, x:0, duration:0.4, stagger:0.1, ease:'power2.out' }, '-=0.3');
+	}
+
+	// ── RENDER ────────────────────────────────
+	function renderStep(stepIndex) {
+		if (stepIndex < 0 || stepIndex >= STEPS.length) return;
+		if (animating) {
+			liveTimelines.forEach(t => t.kill());
+			liveTimelines = [];
+			animating = false;
+		}
+		animating = true;
+		clearStage();
+
+		const step = STEPS[stepIndex];
+
+		switch (step.layout) {
+			case 'intro':    buildIntro(step);    break;
+			case 'agent':    buildAgent(step);    break;
+			case 'benefits': buildBenefits(step); break;
+			case 'compare':  buildCompare(step);  break;
+		}
+
+		current = stepIndex;
+		counter.textContent = `${current+1} / ${STEPS.length}`;
+		breadcrumb.textContent = step.caption;
+		progress.style.width = ((current+1)/STEPS.length * 100) + '%';
+		renderOutline(step, stepIndex);
+		announceStep(step, stepIndex);
+	}
+
+	// ── CONTROLS ───────────────────────────────
+	function interruptAnimation() {
+		liveTimelines.forEach(t => t.kill());
+		liveTimelines = [];
+		animating = false;
+	}
+	function next()  { interruptAnimation(); if (current < STEPS.length-1) renderStep(current+1); }
+	function prev()  { interruptAnimation(); if (current > 0) renderStep(current-1); }
+	function reset() { interruptAnimation(); renderStep(0); }
+	function replay() {
+		if (current < 0) return;
+		interruptAnimation();
+		renderStep(current);
+	}
+
+	document.getElementById('next-btn').addEventListener('click', e => { e.stopPropagation(); next(); });
+	document.getElementById('prev-btn').addEventListener('click', e => { e.stopPropagation(); prev(); });
+	document.getElementById('reset-btn').addEventListener('click', e => { e.stopPropagation(); reset(); });
+	document.getElementById('replay-btn').addEventListener('click', e => { e.stopPropagation(); replay(); });
+
+	// ── Speed control ────────────────────────
+	const SPEED_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+	let speedIndex = SPEED_STEPS.indexOf(1);
+	let speedMultiplier = SPEED_STEPS[speedIndex];
+	const speedLabel = document.getElementById('speed-label');
+	const speedDownBtn = document.getElementById('speed-down');
+	const speedUpBtn   = document.getElementById('speed-up');
+	// The label shown in the UI is the "user-facing" speed. The actual GSAP
+	// timeScale is half of that, so the UI's 1× corresponds to a real 0.5×
+	// playback (i.e. the previous default has been slowed down by half).
+	const SPEED_DISPLAY_TO_REAL = 0.5;
+	function syncSpeedUI() {
+		speedMultiplier = SPEED_STEPS[speedIndex];
+		speedLabel.textContent = speedMultiplier + '\u00d7';
+		speedDownBtn.disabled = speedIndex === 0;
+		speedUpBtn.disabled   = speedIndex === SPEED_STEPS.length - 1;
+		gsap.globalTimeline.timeScale(speedMultiplier * SPEED_DISPLAY_TO_REAL);
+	}
+	syncSpeedUI();
+	speedDownBtn.addEventListener('click', e => {
+		e.stopPropagation();
+		if (speedIndex > 0) { speedIndex--; syncSpeedUI(); }
+	});
+	speedUpBtn.addEventListener('click', e => {
+		e.stopPropagation();
+		if (speedIndex < SPEED_STEPS.length - 1) { speedIndex++; syncSpeedUI(); }
+	});
+
+	document.addEventListener('keydown', e => {
+		if (['Space','ArrowRight','Enter'].includes(e.code)) { e.preventDefault(); next(); }
+		else if (e.code === 'ArrowLeft') { e.preventDefault(); prev(); }
+		else if (e.code === 'KeyR') { e.preventDefault(); reset(); }
+		else if (e.code === 'KeyP') { e.preventDefault(); replay(); }
+	});
+
+	let resizeTimer;
+	window.addEventListener('resize', () => {
+		clearTimeout(resizeTimer);
+		resizeTimer = setTimeout(() => renderStep(current), 200);
+	});
+
+	counter.textContent = `1 / ${STEPS.length}`;
+	renderStep(0);
+</script>
+
+</body>
+</html>
