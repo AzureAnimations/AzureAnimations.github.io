@@ -1,0 +1,1493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>Azure Storage Redundancy — Visual Guide</title>
+
+<link rel="stylesheet" href="https://unpkg.com/@microsoft/atlas-css/dist/index.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+<style>
+	/* ── THEME TOKENS (mirrors FoundryAgents / guide images) ── */
+	:root {
+		--bg:           #f6ecd9;
+		--bg-soft:      #faf3e3;
+		--ink:          #1f1f33;
+		--ink-soft:     #3a3a52;
+		--card:         #ffffff;
+		--card-border:  #e6dfcf;
+		--shadow:       0 6px 18px rgba(31,31,51,0.10);
+		--shadow-strong:0 12px 28px rgba(31,31,51,0.18);
+
+		--accent-blue:    #1f6dff;   /* LRS / sync */
+		--accent-purple:  #9b2bd9;   /* ZRS / zone */
+		--accent-pink:    #ec3f7d;   /* GRS / geo */
+		--accent-orange:  #ff7a1a;   /* GZRS */
+		--accent-plum:    #6a2c80;   /* RA */
+		--accent-green:   #2ea043;   /* read access OK */
+		--accent-magenta: #b836b8;
+
+		--ms-grad: linear-gradient(135deg, #2a52ff 0%, #6e3df0 50%, #d63bd6 100%);
+	}
+	body.theme-dark {
+		--bg:           #14151f;
+		--bg-soft:      #1c1d29;
+		--ink:          #f4eedf;
+		--ink-soft:     #c8c2b3;
+		--card:         #232434;
+		--card-border:  #3a3b4d;
+		--shadow:       0 6px 18px rgba(0,0,0,0.45);
+		--shadow-strong:0 12px 28px rgba(0,0,0,0.55);
+	}
+
+	html, body { height:100%; margin:0; }
+	html { font-size:100%; }
+	body {
+		display:flex; flex-direction:column;
+		min-height:100vh;
+		overflow-x:hidden; overflow-y:auto;
+		padding-bottom:6rem;
+		background: var(--bg);
+		color: var(--ink);
+		font-family: 'Segoe UI', -apple-system, system-ui, 'Helvetica Neue', sans-serif;
+	}
+
+	.app-header {
+		display:flex; align-items:center; gap:1rem; flex-shrink:0; flex-wrap:wrap;
+		padding:0.6rem 1.5rem;
+		background: var(--bg-soft);
+		border-bottom:1px solid var(--card-border);
+	}
+	.brand {
+		display:inline-flex; align-items:center; gap:0.6rem;
+		font-weight:700; font-size:1.05rem; color:var(--ink);
+		text-decoration:none;
+	}
+	.brand .logo {
+		width:1.7rem; height:1.7rem; border-radius:6px;
+		background: var(--ms-grad);
+		display:inline-block;
+		box-shadow: 0 2px 6px rgba(110,61,240,0.35);
+	}
+
+	#stage {
+		position:relative; flex:1 1 auto; width:100%;
+		min-height:640px;
+		overflow:auto;
+		transition: margin-right 0.2s ease;
+	}
+	/* When the outline panel is open on wide screens, reserve space on the
+	   right so absolutely-positioned stage children don't slide under it. */
+	@media (min-width:1101px) {
+		body:has(#step-outline:not([hidden])) #stage {
+			margin-right: 332px;   /* 300px panel + 1rem gap + 16px breathing room */
+		}
+	}
+	#stage:focus-visible, button:focus-visible, a:focus-visible {
+		outline:2px solid var(--accent-blue);
+		outline-offset:3px; border-radius:4px;
+	}
+
+	#fx-svg {
+		position:absolute; inset:0; width:100%; height:100%;
+		pointer-events:none; z-index:6; overflow:visible;
+	}
+
+	/* ── DARK INK PILL ──────────────────────────────────── */
+	.node-pill {
+		position:absolute;
+		display:flex; align-items:center; justify-content:center;
+		min-width:200px; padding:0.85rem 2rem;
+		background: var(--ink);
+		color:#fff;
+		font-size:1.2rem; font-weight:600; letter-spacing:0.02em;
+		border-radius:999px;
+		box-shadow: var(--shadow-strong);
+		z-index:18;
+		opacity:0;
+		transform:translate(-50%, -50%);
+		white-space:nowrap;
+	}
+
+	/* Mode pill carries an accent dot ahead of the label */
+	.node-pill.mode-pill::before {
+		content:''; display:inline-block;
+		width:0.7rem; height:0.7rem; border-radius:50%;
+		background: var(--accent-blue);
+		margin-right:0.7rem;
+	}
+	.node-pill.mode-pill.tier-zone::before { background: var(--accent-purple); }
+	.node-pill.mode-pill.tier-geo::before  { background: var(--accent-pink); }
+	.node-pill.mode-pill.tier-gz::before   { background: var(--accent-orange); }
+
+	/* ── REGION CONTAINER (light grey rounded box) ──────── */
+	.region-box {
+		position:absolute;
+		border-radius:24px;
+		background: var(--bg-soft);
+		border:1px solid var(--card-border);
+		box-shadow: inset 0 0 0 1px rgba(31,31,51,0.04);
+		opacity:0;
+		z-index:4;
+	}
+	body.theme-dark .region-box { background: rgba(255,255,255,0.04); }
+	.region-box.is-secondary { border-style:dashed; }
+
+	.region-tag {
+		position:absolute; top:-0.85rem; left:1.2rem;
+		padding:0.3rem 0.85rem;
+		font-size:0.78rem; font-weight:700;
+		letter-spacing:0.16em; text-transform:uppercase;
+		background: var(--card);
+		border:1px solid var(--card-border);
+		border-radius:999px;
+		color: var(--ink);
+	}
+	.region-tag.t-blue   { color: var(--accent-blue);   border-color: var(--accent-blue); }
+	.region-tag.t-purple { color: var(--accent-purple); border-color: var(--accent-purple); }
+	.region-tag.t-pink   { color: var(--accent-pink);   border-color: var(--accent-pink); }
+	.region-tag.t-orange { color: var(--accent-orange); border-color: var(--accent-orange); }
+	.region-tag.t-plum   { color: var(--accent-plum);   border-color: var(--accent-plum); }
+
+	/* ── ZONE / DC CARD (white rounded card holding copies) ── */
+	.dc-card {
+		position:absolute;
+		display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
+		gap:0.8rem;
+		padding:1.1rem 1rem 1rem;
+		background: var(--card);
+		border:1px solid var(--card-border);
+		border-radius:18px;
+		box-shadow: var(--shadow);
+		opacity:0;
+		z-index:10;
+		transform:translate(-50%, -50%);
+		min-width:170px;
+	}
+	.dc-card .dc-icon {
+		font-size:2rem; line-height:1;
+	}
+	.dc-card .copies-row {
+		display:flex; gap:0.4rem; align-items:center; justify-content:center;
+		min-height:48px;
+	}
+	.dc-card .copy-chip {
+		width:34px; height:34px; border-radius:8px;
+		background: var(--bg-soft);
+		border:1.5px solid var(--card-border);
+		display:flex; align-items:center; justify-content:center;
+		font-size:1rem;
+		opacity:0;
+	}
+	.dc-card.tier-blue   .copy-chip.filled { background: var(--accent-blue);   border-color: var(--accent-blue);   color:#fff; }
+	.dc-card.tier-purple .copy-chip.filled { background: var(--accent-purple); border-color: var(--accent-purple); color:#fff; }
+	.dc-card.tier-green  .copy-chip.filled { background: var(--accent-green);  border-color: var(--accent-green);  color:#fff; }
+	.dc-card.tier-pink   .copy-chip.filled { background: var(--accent-pink);   border-color: var(--accent-pink);   color:#fff; }
+	.dc-card.tier-orange .copy-chip.filled { background: var(--accent-orange); border-color: var(--accent-orange); color:#fff; }
+	.dc-card.tier-plum   .copy-chip.filled { background: var(--accent-plum);   border-color: var(--accent-plum);   color:#fff; }
+
+	.dc-card .label-pill {
+		display:inline-block;
+		padding:0.4rem 1.1rem;
+		border-radius:999px;
+		font-size:0.9rem; font-weight:700; color:#fff;
+		letter-spacing:0.04em;
+		box-shadow: 0 4px 10px rgba(0,0,0,0.18);
+	}
+	.dc-card.tier-blue   .label-pill { background: var(--accent-blue); }
+	.dc-card.tier-purple .label-pill { background: var(--accent-purple); }
+	.dc-card.tier-green  .label-pill { background: var(--accent-green); }
+	.dc-card.tier-pink   .label-pill { background: var(--accent-pink); }
+	.dc-card.tier-orange .label-pill { background: var(--accent-orange); }
+	.dc-card.tier-plum   .label-pill { background: var(--accent-plum); }
+	.dc-card .sub {
+		font-size:0.78rem; font-weight:600;
+		color: var(--ink-soft);
+		text-transform:uppercase; letter-spacing:0.1em;
+	}
+
+	/* Read-only ring around a secondary card */
+	.dc-card.is-readable {
+		box-shadow: var(--shadow), 0 0 0 3px rgba(46,160,67,0.55);
+	}
+	.read-badge {
+		position:absolute; top:-0.7rem; right:0.8rem;
+		padding:0.2rem 0.55rem;
+		font-size:0.7rem; font-weight:700;
+		letter-spacing:0.1em; text-transform:uppercase;
+		background: var(--accent-green); color:#fff;
+		border-radius:999px;
+		box-shadow: 0 3px 8px rgba(46,160,67,0.35);
+	}
+
+	/* ── READ ENDPOINT BADGE (above the secondary region) ── */
+	.read-endpoint {
+		position:absolute;
+		display:flex; align-items:center; gap:0.5rem;
+		padding:0.55rem 1rem;
+		background: var(--accent-green);
+		color:#fff;
+		border-radius:999px;
+		font-size:0.85rem; font-weight:700;
+		box-shadow: 0 8px 20px rgba(46,160,67,0.35);
+		z-index:16; opacity:0; white-space:nowrap;
+		transform:translate(-50%, 0);
+	}
+	.read-endpoint .url {
+		font-family: ui-monospace, Menlo, Consolas, monospace;
+		font-size:0.78rem; font-weight:600;
+		padding-left:0.55rem; margin-left:0.45rem;
+		border-left:1px solid rgba(255,255,255,0.55);
+	}
+
+	/* ── HERO INTRO CARD ─────────────────────────────────── */
+	.hero-card {
+		position:absolute; left:50%; top:13%;
+		transform:translate(-50%, -50%);
+		display:flex; align-items:center; gap:1.6rem;
+		padding:1.6rem 2.4rem;
+		background: var(--card);
+		border:1px solid var(--card-border);
+		border-radius:20px;
+		box-shadow: var(--shadow);
+		opacity:0; z-index:10;
+		max-width:min(820px, 92%);
+	}
+	.hero-card .hero-logo {
+		width:80px; height:80px; border-radius:18px;
+		background: var(--ms-grad);
+		box-shadow: 0 6px 18px rgba(110,61,240,0.45);
+		flex-shrink:0;
+		display:flex; align-items:center; justify-content:center;
+		color:#fff; font-size:2.4rem;
+	}
+	.hero-card .hero-title {
+		font-size:2rem; font-weight:700; color: var(--ink);
+		line-height:1.15; letter-spacing:-0.01em;
+	}
+	.hero-card .hero-sub {
+		font-size:1rem; font-weight:500; color: var(--ink-soft);
+		margin-top:0.35rem;
+	}
+
+	/* Six option cards under the hero (intro + final overview) */
+	.option-card {
+		position:absolute;
+		display:flex; flex-direction:column; align-items:flex-start; justify-content:center;
+		gap:0.45rem;
+		padding:1rem 1.2rem;
+		background: var(--card);
+		border:1px solid var(--card-border);
+		border-radius:14px;
+		box-shadow: var(--shadow);
+		font-size:0.95rem; color: var(--ink);
+		opacity:0;
+		z-index:10;
+	}
+	.option-card .name {
+		font-size:1.05rem; font-weight:700;
+		display:flex; align-items:center; gap:0.5rem;
+	}
+	.option-card .dot {
+		width:0.65rem; height:0.65rem; border-radius:50%;
+		background: var(--accent-blue);
+	}
+	.option-card.tier-blue   .dot { background: var(--accent-blue); }
+	.option-card.tier-purple .dot { background: var(--accent-purple); }
+	.option-card.tier-pink   .dot { background: var(--accent-pink); }
+	.option-card.tier-orange .dot { background: var(--accent-orange); }
+	.option-card.tier-plum   .dot { background: var(--accent-plum); }
+	.option-card.tier-green  .dot { background: var(--accent-green); }
+	.option-card .desc { color: var(--ink-soft); font-size:0.85rem; line-height:1.4; }
+
+	/* Benefit pill (guide-3 style) */
+	.benefit-pill {
+		position:absolute;
+		display:flex; align-items:center; gap:1rem;
+		padding:1.2rem 1.5rem;
+		border-radius:18px;
+		color:#fff;
+		font-size:1.2rem; font-weight:600;
+		box-shadow: var(--shadow-strong);
+		opacity:0;
+		z-index:10;
+	}
+	.benefit-pill .b-icon {
+		font-size:1.8rem; width:2.3rem; text-align:center;
+	}
+	.benefit-pill.b-blue   { background: var(--accent-blue); }
+	.benefit-pill.b-purple { background: var(--accent-magenta); }
+	.benefit-pill.b-plum   { background: var(--accent-plum); }
+	.benefit-pill.b-orange { background: var(--accent-orange); }
+
+	/* Floating data mote that flies along arrows */
+	.mote {
+		position:absolute;
+		width:14px; height:14px; border-radius:50%;
+		background: var(--accent-blue);
+		box-shadow: 0 0 12px var(--accent-blue);
+		z-index:15;
+		opacity:0;
+		transform:translate(-50%, -50%);
+	}
+
+	/* Callout */
+	.callout {
+		position:absolute;
+		max-width:300px;
+		padding:1rem 1.2rem;
+		background: var(--card);
+		border:1px solid var(--card-border);
+		border-left:4px solid var(--accent-blue);
+		border-radius:8px;
+		box-shadow: var(--shadow);
+		font-size:0.95rem; line-height:1.5; color: var(--ink);
+		z-index:14; opacity:0;
+	}
+
+	/* Controls */
+	#controls {
+		position:fixed; bottom:1.5rem; left:50%; transform:translateX(-50%);
+		z-index:40;
+		display:flex; align-items:center; gap:0.65rem;
+		padding:0.6rem 0.9rem;
+		background: var(--card);
+		border:1px solid var(--card-border); border-radius:999px;
+		box-shadow: var(--shadow-strong);
+	}
+	#controls .button {
+		font-size:0.95rem;
+		padding:0.5rem 0.95rem;
+		line-height:1.2; font-weight:600;
+		color: var(--ink);
+		background: transparent;
+		border:1px solid var(--card-border);
+		border-radius:999px;
+		cursor:pointer;
+	}
+	#controls .button:hover { background: var(--bg-soft); }
+	#controls .button-primary {
+		background: var(--ink); color:#fff; border-color: var(--ink);
+	}
+	#controls .button-primary:hover { background: #000; }
+	.step-counter {
+		min-width:78px; text-align:center; font-variant-numeric:tabular-nums;
+		font-size:1rem; font-weight:600; color: var(--ink-soft);
+	}
+	.speed-control {
+		display:inline-flex; align-items:center; gap:0.25rem;
+		padding:0.25rem 0.4rem;
+		border:1px solid var(--card-border);
+		border-radius:999px;
+	}
+	.speed-control .speed-btn {
+		width:1.85rem; height:1.85rem;
+		padding:0; line-height:1;
+		font-size:1.05rem; font-weight:700;
+		border-radius:50%;
+		border:none; background:transparent;
+		color: var(--ink); cursor:pointer;
+	}
+	.speed-control .speed-btn[disabled] { opacity:0.4; cursor:not-allowed; }
+	.speed-label {
+		min-width:2.8rem; text-align:center;
+		font-variant-numeric:tabular-nums;
+		font-size:0.95rem; font-weight:600;
+		color: var(--ink);
+	}
+	.progress-track { position:relative; height:3px; background:var(--card-border); flex-shrink:0; }
+	.progress-fill {
+		position:absolute; left:0; top:0; bottom:0; width:0%;
+		background: var(--ms-grad);
+		transition:width 0.5s cubic-bezier(0.2,0.8,0.2,1);
+	}
+	.sr-only {
+		position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+		overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
+	}
+
+	/* Outline panel */
+	#step-outline {
+		position:fixed; top:5rem; right:1rem;
+		width:300px; max-height:calc(100vh - 8rem); overflow-y:auto;
+		padding:1rem;
+		background: var(--card);
+		border:1px solid var(--card-border);
+		border-radius:12px;
+		box-shadow: var(--shadow);
+		z-index:35; font-size:0.9rem; line-height:1.5;
+		color: var(--ink);
+	}
+	#step-outline[hidden] { display:none; }
+	#step-outline h2 {
+		font-size:0.74rem; font-weight:700; letter-spacing:0.18em;
+		text-transform:uppercase;
+		color: var(--accent-purple); margin-bottom:0.5rem;
+	}
+	#step-outline .stat-row {
+		display:flex; justify-content:space-between; align-items:baseline;
+		gap:0.75rem; padding:0.18rem 0;
+	}
+	#step-outline .stat-row span:first-child {
+		flex:0 0 auto; max-width:55%; color: var(--ink-soft);
+	}
+	#step-outline .stat-row span:last-child {
+		flex:1 1 auto; text-align:right; font-weight:700; color: var(--accent-blue);
+	}
+
+	.theme-toggle {
+		display:inline-flex; align-items:center; justify-content:center;
+		width:2.25rem; height:2.25rem;
+		padding:0;
+		background:transparent;
+		border:1px solid var(--card-border);
+		border-radius:999px;
+		color: var(--ink); cursor:pointer;
+	}
+	.theme-toggle:hover { background: var(--bg-soft); }
+	.theme-toggle .theme-icon { display:none; }
+	.theme-toggle[data-theme="dark"]  .icon-sun  { display:block; }
+	.theme-toggle[data-theme="light"] .icon-moon { display:block; }
+
+	@media (max-width:1100px), (max-height:740px) {
+		#stage { min-width:0; min-height:560px; overflow:visible; }
+		#step-outline { position:static; width:auto; margin:0.75rem 1rem; max-height:none; }
+		.callout { position:static !important; margin:0.75rem 1rem; max-width:none; transform:none !important; }
+		#controls {
+			position:fixed; left:0; right:0; bottom:0;
+			transform:none; border-radius:0;
+			justify-content:center; flex-wrap:wrap; padding:0.5rem 0.75rem;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.dc-card, .node-pill, .region-box, .benefit-pill, .hero-card,
+		.option-card, .callout, .mote, .read-endpoint {
+			transition:none !important; animation:none !important;
+		}
+	}
+</style>
+</head>
+
+<body>
+
+	<a href="#stage" class="sr-only">Skip to diagram</a>
+
+	<header class="app-header" role="banner">
+		<a href="./index.html" class="brand" aria-label="Back to home">
+			<span class="logo" aria-hidden="true"></span>
+			<span>Azure Storage · Redundancy</span>
+		</a>
+		<nav style="margin-left:auto; display:flex; gap:0.4rem; align-items:center;" aria-label="Primary">
+			<span id="breadcrumb" style="font-size:0.85rem; color:var(--ink-soft);">Step 1</span>
+			<button id="outline-toggle" type="button"
+					aria-controls="step-outline" aria-expanded="true"
+					style="background:transparent;border:1px solid var(--card-border);border-radius:999px;padding:0.4rem 0.85rem;font-weight:600;cursor:pointer;color:var(--ink);"
+					aria-label="Hide text outline">📝 Outline</button>
+			<button id="theme-toggle" type="button" class="theme-toggle"
+					aria-label="Switch to dark theme" title="Switch to dark theme">
+				<svg class="theme-icon icon-moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+					<path fill="currentColor" d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/>
+				</svg>
+				<svg class="theme-icon icon-sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+					<g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+						<circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/>
+						<line x1="12" y1="2"  x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/>
+						<line x1="2"  y1="12" x2="5"  y2="12"/><line x1="19" y1="12" x2="22" y2="12"/>
+						<line x1="4.5"  y1="4.5"  x2="6.5"  y2="6.5"/>
+						<line x1="17.5" y1="17.5" x2="19.5" y2="19.5"/>
+						<line x1="4.5"  y1="19.5" x2="6.5"  y2="17.5"/>
+						<line x1="17.5" y1="6.5"  x2="19.5" y2="4.5"/>
+					</g>
+				</svg>
+			</button>
+		</nav>
+	</header>
+
+	<div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
+
+	<main id="stage" tabindex="0" role="region" aria-labelledby="stage-heading" aria-describedby="stage-instructions">
+		<h1 id="stage-heading" class="sr-only">Azure Storage Redundancy options</h1>
+		<p id="stage-instructions" class="sr-only">
+			Animated explainer comparing LRS, ZRS, GRS, RA-GRS, GZRS and RA-GZRS.
+			Use Next/Previous buttons or arrow keys to navigate. Press R to restart, P to replay.
+		</p>
+		<div id="step-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+
+		<svg id="fx-svg" aria-hidden="true" focusable="false">
+			<defs>
+				<marker id="arrow-ink" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+					<path d="M0,0 L0,10 L10,5 Z" fill="#1f1f33"/>
+				</marker>
+				<marker id="arrow-pink" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+					<path d="M0,0 L0,10 L10,5 Z" fill="#ec3f7d"/>
+				</marker>
+			</defs>
+		</svg>
+	</main>
+
+	<aside id="step-outline" aria-label="Text outline of the current step">
+		<h2 id="outline-title">Summary</h2>
+		<div id="outline-body"></div>
+	</aside>
+
+	<div id="controls" role="group" aria-label="Diagram navigation">
+		<button id="prev-btn" type="button" class="button" aria-label="Previous step">◀ Prev</button>
+		<div class="step-counter" id="step-counter">0 / 0</div>
+		<button id="next-btn" type="button" class="button button-primary" aria-label="Next step">Next ▶</button>
+		<button id="replay-btn" type="button" class="button" aria-label="Replay this step (P)">↻ Replay</button>
+		<div class="speed-control" role="group" aria-label="Animation speed">
+			<button id="speed-down" type="button" class="speed-btn" aria-label="Slower" title="Slower">−</button>
+			<span id="speed-label" class="speed-label" aria-live="polite">1×</span>
+			<button id="speed-up" type="button" class="speed-btn" aria-label="Faster" title="Faster">+</button>
+		</div>
+		<button id="reset-btn" type="button" class="button" aria-label="Restart from step 1 (R)">↻ Restart</button>
+	</div>
+
+<script>
+	// ── THEME TOGGLE ──────────────────────────
+	(function () {
+		const body = document.body;
+		const btn  = document.getElementById('theme-toggle');
+		const KEY  = 'aw-redundancy-guide-theme';
+		function syncBtn() {
+			const isDark = body.classList.contains('theme-dark');
+			btn.dataset.theme = isDark ? 'dark' : 'light';
+			btn.setAttribute('aria-label', isDark ? 'Switch to light theme' : 'Switch to dark theme');
+		}
+		const saved = localStorage.getItem(KEY);
+		if (saved === 'theme-dark') body.classList.add('theme-dark');
+		syncBtn();
+		btn.addEventListener('click', () => {
+			body.classList.toggle('theme-dark');
+			localStorage.setItem(KEY, body.classList.contains('theme-dark') ? 'theme-dark' : 'theme-light');
+			syncBtn();
+			renderStep(current);
+		});
+	})();
+
+	// ── STEP DEFINITIONS ──────────────────────
+	// Each redundancy step uses a region->dc->copies model.
+	//   tier:    color theme for the mode-pill + cards
+	//   primary: { tag, dcs:[{label, sub, copies, tierClass}] }
+	//   secondary (optional): same shape; rendered next to primary; async
+	//   readable (optional): boolean — adds the read-endpoint badge
+	const STEPS = [
+		{
+			id:'intro',
+			title:'Azure Storage Redundancy',
+			short:'Overview',
+			caption:'Six ways to keep your data safe',
+			description:'Azure Storage always replicates your data. You choose the blast radius: same data center, across zones, paired regions, or paired regions with a readable secondary.',
+			layout:'intro',
+			heroIcon:'🛡',
+			heroTitle:'Azure Storage Redundancy',
+			heroSub:'LRS · ZRS · GRS · RA-GRS · GZRS · RA-GZRS',
+			options:[
+				{ name:'LRS',     tier:'blue',   desc:'3 copies in 1 data center' },
+				{ name:'ZRS',     tier:'purple', desc:'3 copies across 3 zones' },
+				{ name:'GRS',     tier:'pink',   desc:'LRS + LRS in 2 regions' },
+				{ name:'RA-GRS',  tier:'plum',   desc:'GRS + readable secondary' },
+				{ name:'GZRS',    tier:'orange', desc:'ZRS + LRS in 2 regions' },
+				{ name:'RA-GZRS', tier:'green',  desc:'GZRS + readable secondary' }
+			],
+			stats:[
+				['Options','6'],
+				['Always','3 sync copies in primary'],
+				['Choose by','Blast radius vs cost'],
+				['Add RA- for','Readable secondary']
+			]
+		},
+		{
+			id:'lrs',
+			title:'LRS · Locally Redundant Storage',
+			short:'LRS', caption:'3 copies · 1 data center',
+			description:'LRS makes three synchronous copies inside a single data center in one region. Cheapest option. Survives drive and rack failures, not a data center outage.',
+			layout:'redundancy',
+			modeTier:'blue',
+			callout:{ text:'3 sync copies stay inside one data center — survives drive / rack faults only.' },
+			primary:{
+				tag:'Primary region', tagClass:'t-blue',
+				dcs:[ { label:'Data center', sub:'sync', copies:3, tier:'blue' } ]
+			},
+			stats:[
+				['Copies','3'], ['Spread','1 data center'], ['Durability','11 nines'],
+				['Read access','Primary only'], ['Survives DC outage','❌']
+			]
+		},
+		{
+			id:'zrs',
+			title:'ZRS · Zone-Redundant Storage',
+			short:'ZRS', caption:'3 copies · 3 zones',
+			description:'ZRS spreads three synchronous copies across three Availability Zones in one region. Each zone is an independent data center, so ZRS survives a full zone outage.',
+			layout:'redundancy',
+			modeTier:'purple',
+			callout:{ text:'One copy lands in each Availability Zone — survives a full zone outage.' },
+			primary:{
+				tag:'Primary region · 3 zones', tagClass:'t-purple',
+				dcs:[
+					{ label:'Zone 1', sub:'sync', copies:1, tier:'purple' },
+					{ label:'Zone 2', sub:'sync', copies:1, tier:'purple' },
+					{ label:'Zone 3', sub:'sync', copies:1, tier:'purple' }
+				]
+			},
+			stats:[
+				['Copies','3'], ['Spread','3 availability zones'], ['Durability','12 nines'],
+				['Read access','Primary only'], ['Survives zone outage','✅']
+			]
+		},
+		{
+			id:'grs',
+			title:'GRS · Geo-Redundant Storage',
+			short:'GRS', caption:'LRS in 2 regions',
+			description:'GRS keeps 3 sync copies in the primary data center, then asynchronously replicates 3 more copies to the paired secondary region. The secondary is not readable by your app.',
+			layout:'redundancy',
+			modeTier:'geo',
+			callout:{ text:'Async replication carries copies across regions. Secondary copies exist for failover only — apps cannot read from them.' },
+			primary:{
+				tag:'Primary region · LRS', tagClass:'t-blue',
+				dcs:[ { label:'Data center', sub:'sync', copies:3, tier:'blue' } ]
+			},
+			secondary:{
+				tag:'Secondary region · LRS', tagClass:'t-pink',
+				dcs:[ { label:'Data center', sub:'async', copies:3, tier:'pink' } ]
+			},
+			stats:[
+				['Copies','6 (3 + 3)'], ['Spread','2 regions'], ['Durability','16 nines'],
+				['Read access','Primary only'], ['Survives region outage','✅ (failover)']
+			]
+		},
+		{
+			id:'ra-grs',
+			title:'RA-GRS · Read-Access GRS',
+			short:'RA-GRS', caption:'GRS + readable secondary',
+			description:'Same data layout as GRS, plus a separate read-only endpoint on the secondary. Your app can read from the secondary while writes still go only to the primary.',
+			layout:'redundancy',
+			modeTier:'geo',
+			readable:true,
+			endpointUrl:'<account>-secondary.blob.core.windows.net',
+			callout:{ text:'Enabling Read Access exposes <account>-secondary.blob.core.windows.net — usable for read operations only.' },
+			primary:{
+				tag:'Primary region · LRS', tagClass:'t-blue',
+				dcs:[ { label:'Data center', sub:'sync', copies:3, tier:'blue' } ]
+			},
+			secondary:{
+				tag:'Secondary region · READ', tagClass:'t-plum',
+				dcs:[ { label:'Data center', sub:'async · read', copies:3, tier:'plum', readable:true } ]
+			},
+			stats:[
+				['Copies','6 (3 + 3)'], ['Read access','Primary + Secondary'],
+				['Endpoint','<account>-secondary'],
+				['Survives region outage','✅'], ['Use cases','DR drills · read scale-out']
+			]
+		},
+		{
+			id:'gzrs',
+			title:'GZRS · Geo-Zone-Redundant',
+			short:'GZRS', caption:'ZRS + LRS in 2 regions',
+			description:'GZRS combines ZRS in the primary region (3 zones) with async replication to a paired secondary region. The secondary is not readable by your app.',
+			layout:'redundancy',
+			modeTier:'gz',
+			callout:{ text:'Zone-redundant primary, geo-redundant secondary. Secondary is for failover only.' },
+			primary:{
+				tag:'Primary region · 3 zones', tagClass:'t-purple',
+				dcs:[
+					{ label:'Zone 1', sub:'sync', copies:1, tier:'purple' },
+					{ label:'Zone 2', sub:'sync', copies:1, tier:'purple' },
+					{ label:'Zone 3', sub:'sync', copies:1, tier:'purple' }
+				]
+			},
+			secondary:{
+				tag:'Secondary region · LRS', tagClass:'t-orange',
+				dcs:[ { label:'Data center', sub:'async', copies:3, tier:'orange' } ]
+			},
+			stats:[
+				['Copies','6 (3 zones + 3)'], ['Primary spread','3 zones'],
+				['Durability','16 nines'], ['Read access','Primary only'],
+				['Survives region outage','✅']
+			]
+		},
+		{
+			id:'ra-gzrs',
+			title:'RA-GZRS · Read-Access GZRS',
+			short:'RA-GZRS', caption:'GZRS + readable secondary',
+			description:'GZRS with a read-only secondary endpoint. Zone-redundant primary, readable geo-redundant secondary — the most resilient option Azure Storage offers.',
+			layout:'redundancy',
+			modeTier:'gz',
+			readable:true,
+			endpointUrl:'<account>-secondary.blob.core.windows.net',
+			callout:{ text:'The most resilient option: zone-redundant primary plus a read-only secondary endpoint.' },
+			primary:{
+				tag:'Primary region · 3 zones', tagClass:'t-purple',
+				dcs:[
+					{ label:'Zone 1', sub:'sync', copies:1, tier:'purple' },
+					{ label:'Zone 2', sub:'sync', copies:1, tier:'purple' },
+					{ label:'Zone 3', sub:'sync', copies:1, tier:'purple' }
+				]
+			},
+			secondary:{
+				tag:'Secondary region · READ', tagClass:'t-plum',
+				dcs:[ { label:'Data center', sub:'async · read', copies:3, tier:'plum', readable:true } ]
+			},
+			stats:[
+				['Copies','6 (3 zones + 3)'], ['Read access','Primary + Secondary'],
+				['Endpoint','<account>-secondary'],
+				['Survives region outage','✅'], ['Use cases','Mission-critical apps']
+			]
+		},
+		{
+			id:'benefits',
+			title:'Why pick the right redundancy?',
+			short:'Benefits', caption:'Four reasons it matters',
+			description:'Choosing the right tier balances durability, availability, disaster recovery and read scale-out — at the right price.',
+			layout:'benefits',
+			benefits:[
+				{ icon:'🛡', label:'High durability (up to 16 nines)', cls:'b-blue' },
+				{ icon:'⚡', label:'Always-on availability',           cls:'b-purple' },
+				{ icon:'🌍', label:'Cross-region disaster recovery',   cls:'b-plum' },
+				{ icon:'📖', label:'Readable secondary (RA-)',          cls:'b-orange' }
+			],
+			stats:[
+				['Durability','11 → 16 nines'],
+				['Availability','99.9% → 99.99%'],
+				['DR','Region failover (GRS/GZRS)'],
+				['Read scale-out','RA-GRS · RA-GZRS']
+			]
+		},
+		{
+			id:'compare',
+			title:'Compare all options',
+			short:'Compare', caption:'When to pick which?',
+			description:'LRS = cheap and internal. ZRS = zone-resilient single-region. GRS / GZRS = cross-region DR. Add RA- when you need to read the secondary.',
+			layout:'compare',
+			rows:[
+				{ name:'LRS',     tier:'blue',   copies:'3',         spread:'1 data center',                  zone:'❌', region:'❌' },
+				{ name:'ZRS',     tier:'purple', copies:'3',         spread:'3 availability zones',           zone:'✅', region:'❌' },
+				{ name:'GRS',     tier:'pink',   copies:'6 (3 + 3)', spread:'2 regions (LRS + LRS)',          zone:'❌', region:'✅ (failover)' },
+				{ name:'RA-GRS',  tier:'plum',   copies:'6 (3 + 3)', spread:'2 regions + readable secondary', zone:'❌', region:'✅ + read' },
+				{ name:'GZRS',    tier:'orange', copies:'6 (3 + 3)', spread:'3 zones + paired region',        zone:'✅', region:'✅ (failover)' },
+				{ name:'RA-GZRS', tier:'green',  copies:'6 (3 + 3)', spread:'3 zones + readable secondary',   zone:'✅', region:'✅ + read' }
+			],
+			stats:[
+				['Cheapest','LRS'],
+				['Single-region resilience','ZRS'],
+				['Cross-region DR','GRS · GZRS'],
+				['Maximum resilience','RA-GZRS']
+			]
+		}
+	];
+
+	// ── DOM refs ──────────────────────────────
+	const stage      = document.getElementById('stage');
+	const svg        = document.getElementById('fx-svg');
+	const counter    = document.getElementById('step-counter');
+	const breadcrumb = document.getElementById('breadcrumb');
+	const progress   = document.getElementById('progress-fill');
+	const announcer  = document.getElementById('step-announcer');
+	const outlineBody = document.getElementById('outline-body');
+	const outlinePanel = document.getElementById('step-outline');
+	const outlineBtn = document.getElementById('outline-toggle');
+
+	let current = -1;
+	let animating = false;
+	let liveEls = [];
+	let liveTimelines = [];
+
+	const motionMQ = window.matchMedia('(prefers-reduced-motion: reduce)');
+	let motionPaused = motionMQ.matches;
+	motionMQ.addEventListener('change', e => { motionPaused = e.matches; renderStep(current); });
+
+	outlineBtn.addEventListener('click', () => {
+		const hidden = outlinePanel.hasAttribute('hidden');
+		if (hidden) {
+			outlinePanel.removeAttribute('hidden');
+			outlineBtn.setAttribute('aria-expanded','true');
+			outlineBtn.setAttribute('aria-label','Hide text outline');
+		} else {
+			outlinePanel.setAttribute('hidden','');
+			outlineBtn.setAttribute('aria-expanded','false');
+			outlineBtn.setAttribute('aria-label','Show text outline');
+		}
+		// Stage width changes (margin-right reserved for the panel) — re-run
+		// the current step so percentage-positioned nodes land correctly.
+		setTimeout(() => renderStep(current), 220);
+	});
+
+	// ── Helpers ───────────────────────────────
+	function clearStage() {
+		liveTimelines.forEach(t => t.kill());
+		liveTimelines = [];
+		liveEls.forEach(el => el.remove());
+		liveEls = [];
+		Array.from(svg.children).forEach(child => {
+			if (child.tagName.toLowerCase() !== 'defs') child.remove();
+		});
+	}
+	function getInk()   { return getComputedStyle(document.body).getPropertyValue('--ink').trim()         || '#1f1f33'; }
+	function getBlue()  { return getComputedStyle(document.body).getPropertyValue('--accent-blue').trim() || '#1f6dff'; }
+	function getPink()  { return getComputedStyle(document.body).getPropertyValue('--accent-pink').trim() || '#ec3f7d'; }
+
+	// ── Builders ──────────────────────────────
+	function makeNodePill(label, xPct, yPct, modeTier) {
+		const el = document.createElement('div');
+		el.className = 'node-pill';
+		if (modeTier) el.classList.add('mode-pill', 'tier-' + modeTier);
+		el.textContent = label;
+		el.style.left = xPct + '%';
+		el.style.top  = yPct + '%';
+		stage.appendChild(el);
+		liveEls.push(el);
+		return el;
+	}
+	function makeRegionBox(opts) {
+		// opts: { left, top, width, height (in %), tag, tagClass, secondary }
+		const el = document.createElement('div');
+		el.className = 'region-box' + (opts.secondary ? ' is-secondary' : '');
+		el.style.left   = opts.left + '%';
+		el.style.top    = opts.top + '%';
+		el.style.width  = opts.width + '%';
+		el.style.height = opts.height + '%';
+		if (opts.tag) {
+			const tag = document.createElement('span');
+			tag.className = 'region-tag ' + (opts.tagClass || '');
+			tag.textContent = opts.tag;
+			el.appendChild(tag);
+		}
+		stage.appendChild(el);
+		liveEls.push(el);
+		return el;
+	}
+	function makeDCCard(dc, leftPct, topPct) {
+		const el = document.createElement('div');
+		el.className = 'dc-card tier-' + (dc.tier || 'blue') + (dc.readable ? ' is-readable' : '');
+		el.style.left = leftPct + '%';
+		el.style.top  = topPct + '%';
+		const copies = Math.max(1, dc.copies || 1);
+		const chips = Array.from({ length: copies },
+			(_, i) => `<div class="copy-chip" data-i="${i}">📦</div>`).join('');
+		el.innerHTML = `
+			${dc.readable ? '<span class="read-badge">Read</span>' : ''}
+			<div class="dc-icon" aria-hidden="true">🏢</div>
+			<div class="copies-row">${chips}</div>
+			<div class="label-pill">${dc.label}</div>
+			${dc.sub ? `<div class="sub">${dc.sub}</div>` : ''}
+		`;
+		stage.appendChild(el);
+		liveEls.push(el);
+		return el;
+	}
+	function makeArrow(fromEl, toEl, opts) {
+		opts = opts || {};
+		const sr = stage.getBoundingClientRect();
+		const f = fromEl.getBoundingClientRect();
+		const t = toEl.getBoundingClientRect();
+		// Default: right edge of `from` to left edge of `to`
+		const x1 = f.right - sr.left - 4;
+		const y1 = f.top - sr.top + f.height/2;
+		const x2 = t.left  - sr.left + 4;
+		const y2 = t.top - sr.top + t.height/2;
+		const ink = opts.color || getInk();
+		const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+		line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+		line.setAttribute('x2', x2 - 8); line.setAttribute('y2', y2);
+		line.setAttribute('stroke', ink);
+		line.setAttribute('stroke-width', '3');
+		line.setAttribute('stroke-linecap','round');
+		line.setAttribute('opacity','0');
+		if (opts.dashed) line.setAttribute('stroke-dasharray','8 6');
+		line.setAttribute('marker-end', opts.markerId || 'url(#arrow-ink)');
+		svg.appendChild(line);
+		return { line, x1, y1, x2, y2 };
+	}
+	function makeArrowVertical(fromEl, toEl) {
+		const sr = stage.getBoundingClientRect();
+		const f = fromEl.getBoundingClientRect();
+		const t = toEl.getBoundingClientRect();
+		const x1 = f.left - sr.left + f.width/2;
+		const y1 = f.bottom - sr.top - 2;
+		const x2 = t.left - sr.left + t.width/2;
+		const y2 = t.top - sr.top + 2;
+		const ink = getInk();
+		const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+		line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+		line.setAttribute('x2', x2); line.setAttribute('y2', y2 - 8);
+		line.setAttribute('stroke', ink);
+		line.setAttribute('stroke-width', '3');
+		line.setAttribute('stroke-linecap','round');
+		line.setAttribute('opacity','0');
+		line.setAttribute('marker-end','url(#arrow-ink)');
+		svg.appendChild(line);
+		return { line, x1, y1, x2, y2 };
+	}
+	function makeMote(xPx, yPx, color) {
+		const el = document.createElement('div');
+		el.className = 'mote';
+		el.style.background  = color || getBlue();
+		el.style.boxShadow   = '0 0 14px ' + (color || getBlue());
+		el.style.left = xPx + 'px';
+		el.style.top  = yPx + 'px';
+		stage.appendChild(el);
+		liveEls.push(el);
+		return el;
+	}
+	function makeAsyncLabel(text, fromEl, toEl) {
+		// Render an SVG text label centered between the two elements.
+		const sr = stage.getBoundingClientRect();
+		const f = fromEl.getBoundingClientRect();
+		const t = toEl.getBoundingClientRect();
+		const x = ((f.right + t.left) / 2) - sr.left;
+		const y = ((f.top + t.top) / 2) + (f.height/2) - sr.top - 14;
+		const tx = document.createElementNS('http://www.w3.org/2000/svg','text');
+		tx.setAttribute('x', x);
+		tx.setAttribute('y', y);
+		tx.setAttribute('text-anchor','middle');
+		tx.setAttribute('fill', getPink());
+		tx.setAttribute('font-family','system-ui, sans-serif');
+		tx.setAttribute('font-size','14');
+		tx.setAttribute('font-weight','700');
+		tx.textContent = text;
+		tx.setAttribute('opacity','0');
+		svg.appendChild(tx);
+		return tx;
+	}
+
+	// ── Outline + announce ───────────────────
+	function renderOutline(step, idx) {
+		const statRows = (step.stats||[]).map(([k,v]) =>
+			`<div class="stat-row"><span>${k}</span><span>${v}</span></div>`
+		).join('');
+		outlineBody.innerHTML = `
+			<div>
+				<strong>Step ${idx+1} of ${STEPS.length}: ${step.title}</strong>
+				<p style="margin-top:0.4rem;">${step.description||step.caption}</p>
+			</div>
+			${statRows ? `<div style="margin-top:0.7rem;padding-top:0.6rem;border-top:1px solid var(--card-border);">${statRows}</div>` : ''}
+		`;
+	}
+	function announceStep(step, idx) {
+		announcer.textContent = `Step ${idx+1} of ${STEPS.length}: ${step.title}. ${step.description||step.caption}`;
+	}
+
+	// ── INTRO LAYOUT ──────────────────────────
+	function buildIntro(step) {
+		const hero = document.createElement('div');
+		hero.className = 'hero-card';
+		hero.innerHTML = `
+			<div class="hero-logo" aria-hidden="true">${step.heroIcon || '🛡'}</div>
+			<div>
+				<div class="hero-title">${step.heroTitle || step.title}</div>
+				<div class="hero-sub">${step.heroSub || ''}</div>
+			</div>
+		`;
+		stage.appendChild(hero);
+		liveEls.push(hero);
+
+		// Six option cards in a 3 × 2 grid, packed close under the hero
+		const positions = [
+			{ left:' 6%',   top:'30%', width:'27%' },
+			{ left:'36.5%', top:'30%', width:'27%' },
+			{ left:'67%',   top:'30%', width:'27%' },
+			{ left:' 6%',   top:'48%', width:'27%' },
+			{ left:'36.5%', top:'48%', width:'27%' },
+			{ left:'67%',   top:'48%', width:'27%' }
+		];
+		const cardEls = [];
+		step.options.forEach((opt, i) => {
+			const el = document.createElement('div');
+			el.className = 'option-card tier-' + (opt.tier || 'blue');
+			el.style.left  = positions[i].left;
+			el.style.top   = positions[i].top;
+			el.style.width = positions[i].width;
+			el.innerHTML = `
+				<div class="name"><span class="dot"></span>${opt.name}</div>
+				<div class="desc">${opt.desc}</div>
+			`;
+			stage.appendChild(el);
+			liveEls.push(el);
+			cardEls.push(el);
+		});
+
+		if (motionPaused) {
+			gsap.set([hero, ...cardEls], { opacity:1 });
+			animating = false;
+			return;
+		}
+		const tl = gsap.timeline({ onComplete: () => animating = false });
+		liveTimelines.push(tl);
+		tl.fromTo(hero,
+			{ opacity:0, y:-30, scale:0.95 },
+			{ opacity:1, y:0, scale:1, duration:0.7, ease:'back.out(1.4)' });
+		tl.fromTo(cardEls,
+			{ opacity:0, y:24, scale:0.95 },
+			{ opacity:1, y:0, scale:1, duration:0.5, stagger:0.09, ease:'back.out(1.3)' }, '-=0.3');
+	}
+
+	// ── REDUNDANCY LAYOUT (LRS / ZRS / GRS / RA-GRS / GZRS / RA-GZRS) ─
+	function buildRedundancy(step) {
+		const hasSecondary = !!step.secondary;
+		// Top dark pills: "Your data" → "Storage Account · MODE"
+		const dataPill = makeNodePill('📦  Your data', 50, 7);
+		const modeText = (step.short || step.title);
+		const modePill = makeNodePill('Storage Account · ' + modeText, 50, 22, step.modeTier || 'blue');
+
+		// Region boxes: layout depends on whether secondary exists.
+		// Each region has: tag (top-left), and a row of dc cards inside.
+		let primaryBox, secondaryBox;
+		if (!hasSecondary) {
+			primaryBox = makeRegionBox({
+				left:15, top:42, width:70, height:46,
+				tag:step.primary.tag, tagClass:step.primary.tagClass
+			});
+		} else {
+			primaryBox = makeRegionBox({
+				left:5, top:42, width:50, height:46,
+				tag:step.primary.tag, tagClass:step.primary.tagClass
+			});
+			secondaryBox = makeRegionBox({
+				left:60, top:42, width:35, height:46,
+				tag:step.secondary.tag, tagClass:step.secondary.tagClass,
+				secondary:true
+			});
+		}
+
+		// Place dc cards inside their region box.
+		// Primary cards
+		const primaryDCEls = step.primary.dcs.map((dc, i, arr) => {
+			const span = hasSecondary ? 50 : 70;
+			const baseLeft = hasSecondary ? 5 : 15;
+			const slot = span / (arr.length + 1);
+			const left = baseLeft + slot * (i + 1);
+			return makeDCCard(dc, left, 65);
+		});
+		const secondaryDCEls = hasSecondary ? step.secondary.dcs.map((dc, i, arr) => {
+			const slot = 35 / (arr.length + 1);
+			const left = 60 + slot * (i + 1);
+			return makeDCCard(dc, left, 65);
+		}) : [];
+
+		// Optional callout in top-left corner of the stage
+		let calloutEl = null;
+		if (step.callout) {
+			calloutEl = document.createElement('div');
+			calloutEl.className = 'callout';
+			calloutEl.textContent = step.callout.text;
+			calloutEl.style.left = '1.2rem';
+			calloutEl.style.top  = '1.2rem';
+			calloutEl.style.maxWidth = '260px';
+			stage.appendChild(calloutEl);
+			liveEls.push(calloutEl);
+		}
+
+		// Optional read-endpoint badge above the secondary region
+		let endpointEl = null;
+		if (step.readable && hasSecondary) {
+			endpointEl = document.createElement('div');
+			endpointEl.className = 'read-endpoint';
+			endpointEl.innerHTML = `
+				<span>🔓 Secondary read endpoint</span>
+				<span class="url">${step.endpointUrl || '<account>-secondary'}</span>
+			`;
+			stage.appendChild(endpointEl);
+			liveEls.push(endpointEl);
+		}
+
+		// After layout, wire arrows + animate
+		requestAnimationFrame(() => requestAnimationFrame(() => {
+			// Arrow: data → mode
+			const a1 = makeArrowVertical(dataPill, modePill);
+
+			// Arrow: mode → each primary DC
+			const arrowsToPrimary = primaryDCEls.map(dc => makeArrowVertical(modePill, dc));
+
+			// Arrow: primary box → secondary box (async)
+			let asyncArrow = null, asyncLabel = null;
+			if (hasSecondary) {
+				asyncArrow = makeArrow(primaryBox, secondaryBox,
+					{ dashed:true, color:getPink(), markerId:'url(#arrow-pink)' });
+				asyncLabel = makeAsyncLabel('async replication', primaryBox, secondaryBox);
+			}
+
+			// Position the read-endpoint above the secondary box
+			if (endpointEl && secondaryBox) {
+				const sr = stage.getBoundingClientRect();
+				const r  = secondaryBox.getBoundingClientRect();
+				requestAnimationFrame(() => {
+					const cx = r.left - sr.left + r.width/2;
+					const top = r.top  - sr.top - endpointEl.offsetHeight - 14;
+					endpointEl.style.left = cx + 'px';
+					endpointEl.style.top  = top + 'px';
+				});
+			}
+
+			if (motionPaused) {
+				gsap.set([dataPill, modePill, primaryBox, ...primaryDCEls], { opacity:1 });
+				if (secondaryBox)  gsap.set(secondaryBox, { opacity:1 });
+				if (secondaryDCEls.length) gsap.set(secondaryDCEls, { opacity:1 });
+				gsap.set([a1.line, ...arrowsToPrimary.map(a=>a.line)], { opacity:0.45 });
+				if (asyncArrow) gsap.set(asyncArrow.line, { opacity:0.7 });
+				if (asyncLabel) gsap.set(asyncLabel,    { opacity:1 });
+				if (endpointEl) gsap.set(endpointEl, { opacity:1 });
+				if (calloutEl)  gsap.set(calloutEl,  { opacity:1 });
+				// fill all copy chips
+				stage.querySelectorAll('.dc-card .copy-chip').forEach(chip => {
+					chip.classList.add('filled');
+					gsap.set(chip, { opacity:1 });
+				});
+				animating = false;
+				return;
+			}
+
+			const tl = gsap.timeline({ onComplete: () => animating = false });
+			tl.timeScale(0.5);
+			liveTimelines.push(tl);
+
+			// Helper: prep a line for "draw-on" animation, return its length.
+			// We also strip marker-end during the draw — SVG markers render at
+			// the path's geometric endpoint regardless of stroke-dashoffset, so
+			// leaving them on shows a phantom arrowhead before the line draws.
+			function prepDraw(lineEl) {
+				const len = lineEl.getTotalLength();
+				lineEl.setAttribute('stroke-dasharray', len + ' ' + len);
+				lineEl.setAttribute('stroke-dashoffset', len);
+				lineEl.setAttribute('opacity','0.55');
+				const mk = lineEl.getAttribute('marker-end');
+				if (mk) {
+					lineEl.dataset.markerEnd = mk;
+					lineEl.removeAttribute('marker-end');
+				}
+				return len;
+			}
+			// Helper: animate dashoffset → 0 (the actual "drawing"), then
+			// restore the marker-end so the arrowhead snaps in once we arrive.
+			function drawLine(lineEl, when, duration) {
+				const len = prepDraw(lineEl);
+				tl.fromTo(lineEl,
+					{ attr:{ 'stroke-dashoffset': len } },
+					{ attr:{ 'stroke-dashoffset': 0 }, duration: duration || 0.7, ease:'power2.inOut' },
+					when);
+				tl.add(() => {
+					if (lineEl.dataset.markerEnd) {
+						lineEl.setAttribute('marker-end', lineEl.dataset.markerEnd);
+					}
+				}, '>-=0.05');
+			}
+			// Helper: fly a mote along a vertical path from `from` to a copy chip,
+			// then "pop" the chip filled. Returns the time-position consumed.
+			function flyMoteToChip(fromEl, chip, when, color) {
+				const sr = stage.getBoundingClientRect();
+				const f  = fromEl.getBoundingClientRect();
+				const c  = chip.getBoundingClientRect();
+				const x1 = f.left - sr.left + f.width/2;
+				const y1 = f.bottom - sr.top - 4;
+				const x2 = c.left - sr.left + c.width/2;
+				const y2 = c.top  - sr.top + c.height/2;
+				const m = makeMote(x1, y1, color || getInk());
+				tl.fromTo(m,
+					{ opacity:0, scale:0.3, left:x1+'px', top:y1+'px' },
+					{ opacity:1, scale:1, duration:0.2 }, when);
+				tl.to(m, {
+					keyframes: { left:[x1+'px', x2+'px'], top:[y1+'px', y2+'px'] },
+					duration: 0.85, ease:'power1.inOut'
+				}, '<+=0.05');
+				tl.to(m, { opacity:0, scale:0.4, duration:0.15 }, '>-=0.05');
+				// Pop the chip filled the instant the mote arrives.
+				tl.add(() => {
+					chip.classList.add('filled');
+				}, '<-=0.1');
+				tl.fromTo(chip,
+					{ opacity:0, scale:0.4 },
+					{ opacity:1, scale:1, duration:0.35, ease:'back.out(2)' }, '<');
+			}
+
+			// ── Phase 1: "Your data" pill pops in
+			tl.fromTo(dataPill,
+				{ opacity:0, y:-20, scale:0.9 },
+				{ opacity:1, y:0, scale:1, duration:0.5, ease:'back.out(1.6)' }, 0);
+
+			// ── Phase 2: line draws downward, then mode pill pops
+			tl.add('drawL1', '+=0.25');
+			drawLine(a1.line, 'drawL1', 0.7);
+			tl.fromTo(modePill,
+				{ opacity:0, y:-15, scale:0.9 },
+				{ opacity:1, y:0, scale:1, duration:0.5, ease:'back.out(1.6)' }, '>-=0.05');
+
+			// ── Phase 3: primary region box reveals
+			tl.fromTo(primaryBox,
+				{ opacity:0, scale:0.96 },
+				{ opacity:1, scale:1, duration:0.55, ease:'power3.out' }, '+=0.2');
+
+			// ── Phase 4: each DC card pops in, line draws to it, copies
+			//             fly in one-by-one and pop the chip filled.
+			primaryDCEls.forEach((card, i) => {
+				const arrow = arrowsToPrimary[i].line;
+				// Card appears
+				tl.fromTo(card,
+					{ opacity:0, y:24, scale:0.9 },
+					{ opacity:1, y:0, scale:1, duration:0.45, ease:'back.out(1.6)' },
+					i === 0 ? '+=0.1' : '+=0.25');
+				// Line from mode pill draws down to the card
+				drawLine(arrow, '<+=0.05', 0.6);
+				// Copies fly one at a time from the mode pill into this DC's chips
+				const chips = card.querySelectorAll('.copy-chip');
+				chips.forEach((chip, k) => {
+					flyMoteToChip(modePill, chip,
+						k === 0 ? '>-=0.05' : '+=0.15',
+						getInk());
+				});
+			});
+
+			// ── Phase 5: secondary region (async)
+			if (hasSecondary) {
+				// Secondary region box drops in
+				tl.fromTo(secondaryBox,
+					{ opacity:0, scale:0.96, x:-10 },
+					{ opacity:1, scale:1, x:0, duration:0.55, ease:'power3.out' }, '+=0.4');
+
+				// Async arrow draws from primary → secondary
+				if (asyncArrow) {
+					drawLine(asyncArrow.line, '<+=0.15', 0.9);
+					// pink async line stays a touch more visible
+					tl.to(asyncArrow.line, { attr:{ opacity: 0.85 }, duration:0.2 }, '<+=0.1');
+				}
+				if (asyncLabel) {
+					tl.fromTo(asyncLabel,
+						{ opacity:0 },
+						{ opacity:1, duration:0.4 }, '<');
+				}
+
+				// Each secondary DC card pops, then its chips fill one-by-one
+				// via pink motes flying along the async path.
+				secondaryDCEls.forEach((card, i) => {
+					tl.fromTo(card,
+						{ opacity:0, y:24, scale:0.9 },
+						{ opacity:1, y:0, scale:1, duration:0.45, ease:'back.out(1.6)' },
+						i === 0 ? '+=0.1' : '+=0.3');
+					const chips = card.querySelectorAll('.copy-chip');
+					chips.forEach((chip, k) => {
+						// Async motes start from the right edge of the primary region
+						const sr = stage.getBoundingClientRect();
+						const pb = primaryBox.getBoundingClientRect();
+						const c  = chip.getBoundingClientRect();
+						const x1 = pb.right - sr.left - 6;
+						const y1 = pb.top   - sr.top + pb.height/2;
+						const x2 = c.left   - sr.left + c.width/2;
+						const y2 = c.top    - sr.top + c.height/2;
+						const m = makeMote(x1, y1, getPink());
+						const at = (k === 0 ? '>-=0.05' : '+=0.18');
+						tl.fromTo(m,
+							{ opacity:0, scale:0.3, left:x1+'px', top:y1+'px' },
+							{ opacity:1, scale:1, duration:0.2 }, at);
+						tl.to(m, {
+							keyframes: { left:[x1+'px', x2+'px'], top:[y1+'px', y2+'px'] },
+							duration: 1.0, ease:'power1.inOut'
+						}, '<+=0.05');
+						tl.to(m, { opacity:0, scale:0.4, duration:0.15 }, '>-=0.05');
+						tl.add(() => chip.classList.add('filled'), '<-=0.1');
+						tl.fromTo(chip,
+							{ opacity:0, scale:0.4 },
+							{ opacity:1, scale:1, duration:0.35, ease:'back.out(2)' }, '<');
+					});
+				});
+
+				if (asyncLabel) {
+					tl.to(asyncLabel, { opacity:0, duration:0.5 }, '+=0.5');
+				}
+
+				if (endpointEl) {
+					tl.fromTo(endpointEl,
+						{ opacity:0, y:-10 },
+						{ opacity:1, y:0, duration:0.5, ease:'back.out(1.4)' }, '<-=0.2');
+				}
+			}
+
+			if (calloutEl) {
+				tl.fromTo(calloutEl,
+					{ opacity:0, y:-8 },
+					{ opacity:1, y:0, duration:0.4, ease:'power3.out' }, '+=0.05');
+			}
+		}));
+	}
+
+	// ── BENEFITS LAYOUT ──────────────────────
+	function buildBenefits(step) {
+		const positions = [
+			{ left:'10%', top:'22%', width:'38%' },
+			{ left:'52%', top:'22%', width:'38%' },
+			{ left:'10%', top:'56%', width:'38%' },
+			{ left:'52%', top:'56%', width:'38%' }
+		];
+		const els = [];
+		step.benefits.forEach((b, i) => {
+			const el = document.createElement('div');
+			el.className = 'benefit-pill ' + b.cls;
+			el.style.left  = positions[i].left;
+			el.style.top   = positions[i].top;
+			el.style.width = positions[i].width;
+			el.innerHTML = `<div class="b-icon" aria-hidden="true">${b.icon}</div><div>${b.label}</div>`;
+			stage.appendChild(el);
+			liveEls.push(el);
+			els.push(el);
+		});
+		if (motionPaused) {
+			gsap.set(els, { opacity:1 });
+			animating = false;
+			return;
+		}
+		const tl = gsap.timeline({ onComplete: () => animating = false });
+		liveTimelines.push(tl);
+		tl.fromTo(els,
+			{ opacity:0, y:30, scale:0.93 },
+			{ opacity:1, y:0, scale:1, duration:0.55, stagger:0.16, ease:'back.out(1.5)' });
+	}
+
+	// ── COMPARE LAYOUT ───────────────────────
+	function buildCompare(step) {
+		const wrap = document.createElement('div');
+		wrap.style.position = 'absolute';
+		wrap.style.left = '50%';
+		wrap.style.top  = '50%';
+		wrap.style.transform = 'translate(-50%,-50%)';
+		wrap.style.width = 'min(1000px, 94%)';
+		wrap.style.background = 'var(--card)';
+		wrap.style.border = '1px solid var(--card-border)';
+		wrap.style.borderRadius = '14px';
+		wrap.style.boxShadow = 'var(--shadow-strong)';
+		wrap.style.overflow = 'hidden';
+		wrap.style.opacity = '0';
+		const headStyle = 'text-align:left;padding:0.85rem 1rem;border-bottom:2px solid var(--card-border);font-size:0.75rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-soft);';
+		const cellStyle = 'padding:0.8rem 1rem;border-bottom:1px solid var(--card-border);';
+		wrap.innerHTML = `
+			<table style="width:100%;border-collapse:collapse;color:var(--ink);font-size:0.95rem;line-height:1.4;">
+				<thead>
+					<tr style="background:var(--bg-soft);">
+						<th style="${headStyle}">Option</th>
+						<th style="${headStyle}">Copies</th>
+						<th style="${headStyle}">Spread</th>
+						<th style="${headStyle}">Survives zone outage</th>
+						<th style="${headStyle}">Survives region outage</th>
+					</tr>
+				</thead>
+				<tbody>
+					${step.rows.map(r => {
+						const dotColor = ({
+							blue:'var(--accent-blue)', purple:'var(--accent-purple)',
+							pink:'var(--accent-pink)', orange:'var(--accent-orange)',
+							plum:'var(--accent-plum)', green:'var(--accent-green)'
+						})[r.tier] || 'var(--accent-blue)';
+						const yes = v => /^✅/.test(v) ? `<span style="color:var(--accent-green);font-weight:600;">${v}</span>` :
+									 v === '❌' ? `<span style="color:var(--ink-soft);">${v}</span>` : v;
+						return `
+							<tr>
+								<td style="${cellStyle}font-weight:700;white-space:nowrap;">
+									<span style="display:inline-block;width:0.65rem;height:0.65rem;border-radius:50%;background:${dotColor};margin-right:0.5rem;vertical-align:middle;"></span>${r.name}
+								</td>
+								<td style="${cellStyle}">${r.copies}</td>
+								<td style="${cellStyle}">${r.spread}</td>
+								<td style="${cellStyle}">${yes(r.zone)}</td>
+								<td style="${cellStyle}">${yes(r.region)}</td>
+							</tr>
+						`;
+					}).join('')}
+				</tbody>
+			</table>
+		`;
+		stage.appendChild(wrap);
+		liveEls.push(wrap);
+
+		if (motionPaused) {
+			gsap.set(wrap, { opacity:1 });
+			animating = false;
+			return;
+		}
+		const tl = gsap.timeline({ onComplete: () => animating = false });
+		liveTimelines.push(tl);
+		tl.fromTo(wrap,
+			{ opacity:0, y:18 },
+			{ opacity:1, y:0, duration:0.55, ease:'power3.out' });
+		const rows = wrap.querySelectorAll('tbody tr');
+		tl.fromTo(rows,
+			{ opacity:0, x:-18 },
+			{ opacity:1, x:0, duration:0.35, stagger:0.08, ease:'power2.out' }, '-=0.3');
+	}
+
+	// ── RENDER ────────────────────────────────
+	function renderStep(stepIndex) {
+		if (stepIndex < 0 || stepIndex >= STEPS.length) return;
+		if (animating) {
+			liveTimelines.forEach(t => t.kill());
+			liveTimelines = [];
+			animating = false;
+		}
+		animating = true;
+		clearStage();
+
+		const step = STEPS[stepIndex];
+
+		switch (step.layout) {
+			case 'intro':       buildIntro(step);       break;
+			case 'redundancy':  buildRedundancy(step);  break;
+			case 'benefits':    buildBenefits(step);    break;
+			case 'compare':     buildCompare(step);     break;
+		}
+
+		current = stepIndex;
+		counter.textContent = `${current+1} / ${STEPS.length}`;
+		breadcrumb.textContent = step.caption;
+		progress.style.width = ((current+1)/STEPS.length * 100) + '%';
+		renderOutline(step, stepIndex);
+		announceStep(step, stepIndex);
+	}
+
+	// ── CONTROLS ──────────────────────────────
+	function interruptAnimation() {
+		liveTimelines.forEach(t => t.kill());
+		liveTimelines = [];
+		animating = false;
+	}
+	function next()   { interruptAnimation(); if (current < STEPS.length-1) renderStep(current+1); }
+	function prev()   { interruptAnimation(); if (current > 0) renderStep(current-1); }
+	function reset()  { interruptAnimation(); renderStep(0); }
+	function replay() { if (current < 0) return; interruptAnimation(); renderStep(current); }
+
+	document.getElementById('next-btn').addEventListener('click',   e => { e.stopPropagation(); next(); });
+	document.getElementById('prev-btn').addEventListener('click',   e => { e.stopPropagation(); prev(); });
+	document.getElementById('reset-btn').addEventListener('click',  e => { e.stopPropagation(); reset(); });
+	document.getElementById('replay-btn').addEventListener('click', e => { e.stopPropagation(); replay(); });
+
+	// Speed control
+	const SPEED_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+	let speedIndex = SPEED_STEPS.indexOf(1);
+	const speedLabel = document.getElementById('speed-label');
+	const speedDownBtn = document.getElementById('speed-down');
+	const speedUpBtn   = document.getElementById('speed-up');
+	function syncSpeedUI() {
+		const m = SPEED_STEPS[speedIndex];
+		speedLabel.textContent = m + '\u00d7';
+		speedDownBtn.disabled = speedIndex === 0;
+		speedUpBtn.disabled   = speedIndex === SPEED_STEPS.length - 1;
+		gsap.globalTimeline.timeScale(m);
+	}
+	syncSpeedUI();
+	speedDownBtn.addEventListener('click', e => { e.stopPropagation(); if (speedIndex > 0) { speedIndex--; syncSpeedUI(); } });
+	speedUpBtn.addEventListener('click',   e => { e.stopPropagation(); if (speedIndex < SPEED_STEPS.length - 1) { speedIndex++; syncSpeedUI(); } });
+
+	document.addEventListener('keydown', e => {
+		if (['Space','ArrowRight','Enter'].includes(e.code)) { e.preventDefault(); next(); }
+		else if (e.code === 'ArrowLeft') { e.preventDefault(); prev(); }
+		else if (e.code === 'KeyR') { e.preventDefault(); reset(); }
+		else if (e.code === 'KeyP') { e.preventDefault(); replay(); }
+	});
+
+	let resizeTimer;
+	window.addEventListener('resize', () => {
+		clearTimeout(resizeTimer);
+		resizeTimer = setTimeout(() => renderStep(current), 200);
+	});
+
+	counter.textContent = `1 / ${STEPS.length}`;
+	renderStep(0);
+</script>
+
+</body>
+</html>

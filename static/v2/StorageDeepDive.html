@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>☁ Storage Account — The Deep Dive Comic</title>
+<link href="https://fonts.googleapis.com/css2?family=Bangers&family=Patrick+Hand&family=Luckiest+Guy&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ink: #1a1a1a;
+    --paper: #fff8e7;
+    --pop-yellow: #ffd23f;
+    --pop-red: #ee4266;
+    --pop-blue: #4ea8de;
+    --pop-green: #7ae582;
+    --pop-purple: #b388ff;
+    --pop-orange: #ff8a3d;
+  }
+
+  body {
+    font-family: 'Patrick Hand', 'Comic Sans MS', cursive;
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at 20% 30%, #fff 0 2px, transparent 3px),
+      radial-gradient(circle at 70% 60%, #fff 0 2px, transparent 3px),
+      radial-gradient(circle at 40% 80%, #fff 0 1.5px, transparent 2.5px),
+      linear-gradient(135deg, #6dd5fa 0%, #2980b9 100%);
+    background-size: 60px 60px, 90px 90px, 45px 45px, 100% 100%;
+    overflow: hidden;
+    cursor: pointer;
+    user-select: none;
+    color: var(--ink);
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: radial-gradient(rgba(0,0,0,0.10) 1px, transparent 1.5px);
+    background-size: 6px 6px;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  header {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    padding: 0.8rem 1.4rem;
+    z-index: 30;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    pointer-events: none;
+  }
+
+  h1 {
+    font-family: 'Bangers', cursive;
+    font-size: 1.7rem;
+    color: #fff;
+    letter-spacing: 2px;
+    text-shadow:
+      3px 3px 0 var(--ink),
+      6px 6px 0 var(--pop-red);
+    transform: rotate(-2deg);
+  }
+
+  #breadcrumb {
+    font-family: 'Bangers', cursive;
+    font-size: 1rem;
+    background: var(--pop-yellow);
+    color: var(--ink);
+    padding: 0.35rem 0.8rem;
+    border: 3px solid var(--ink);
+    border-radius: 8px;
+    box-shadow: 4px 4px 0 var(--ink);
+    transform: rotate(2deg);
+    letter-spacing: 1px;
+  }
+
+  /* ── Stage takes the whole viewport ── */
+  #stage {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    z-index: 5;
+  }
+
+  /* SVG layer for connector lines */
+  #links-svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 6;
+    overflow: visible;
+  }
+
+  /* Generic node card */
+  .node {
+    position: absolute;
+    background: var(--paper);
+    border: 4px solid var(--ink);
+    border-radius: 16px;
+    box-shadow: 6px 6px 0 var(--ink);
+    padding: 0.7rem 0.9rem;
+    text-align: center;
+    transform-origin: center;
+    z-index: 10;
+    min-width: 130px;
+    opacity: 0;
+  }
+  .node .icon { width: 60px; height: 60px; margin: 0 auto 4px; display: block; }
+  .node .icon.lg { width: 90px; height: 90px; }
+  .node .label {
+    font-family: 'Bangers', cursive;
+    font-size: 1.15rem;
+    letter-spacing: 1px;
+    line-height: 1.1;
+  }
+  .node .sub {
+    font-size: 0.9rem;
+    opacity: 0.8;
+    margin-top: 2px;
+    line-height: 1.2;
+  }
+
+  .node.root   { background: linear-gradient(180deg,#fff,#fff3c4); border-color: var(--ink); }
+  .node.tier-s { background: linear-gradient(180deg,#e3f2fd,#bbdefb); }
+  .node.tier-p { background: linear-gradient(180deg,#f3e5f5,#e1bee7); }
+  .node.svc    { background: linear-gradient(180deg,#fff,#fff8e7); }
+  .node.access { background: linear-gradient(180deg,#fff,#ffe0b2); }
+  .node.blob   { background: linear-gradient(180deg,#fff,#c8e6c9); }
+  .node.repl   { background: linear-gradient(180deg,#fff,#d1c4e9); }
+
+  .node .badge {
+    position: absolute;
+    top: -12px; right: -12px;
+    background: var(--pop-red);
+    color: #fff;
+    font-family: 'Bangers', cursive;
+    padding: 2px 8px;
+    border: 3px solid var(--ink);
+    border-radius: 50px;
+    transform: rotate(8deg);
+    box-shadow: 2px 2px 0 var(--ink);
+    font-size: 0.75rem;
+    letter-spacing: 1px;
+  }
+
+  /* Layer caption (e.g. "LAYER 1 — THE ROOT") */
+  .layer-caption {
+    position: absolute;
+    top: 5rem;
+    left: 50%;
+    transform: translateX(-50%) rotate(-1.5deg);
+    font-family: 'Luckiest Guy', cursive;
+    font-size: 1.8rem;
+    color: var(--pop-yellow);
+    -webkit-text-stroke: 2px var(--ink);
+    text-shadow: 4px 4px 0 var(--ink);
+    z-index: 12;
+    letter-spacing: 2px;
+    text-align: center;
+    opacity: 0;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
+  /* Speech bubble popping in */
+  .speech {
+    position: absolute;
+    background: #fff;
+    color: var(--ink);
+    padding: 0.7rem 1rem;
+    border: 4px solid var(--ink);
+    border-radius: 18px;
+    box-shadow: 5px 5px 0 var(--ink);
+    font-size: 1.05rem;
+    max-width: 320px;
+    line-height: 1.3;
+    z-index: 14;
+    opacity: 0;
+  }
+
+  /* POW splash */
+  .pow {
+    position: absolute;
+    font-family: 'Luckiest Guy', cursive;
+    font-size: 2.2rem;
+    color: var(--pop-yellow);
+    -webkit-text-stroke: 2px var(--ink);
+    text-shadow: 5px 5px 0 var(--pop-red);
+    transform: rotate(-12deg);
+    pointer-events: none;
+    opacity: 0;
+    z-index: 15;
+  }
+
+  /* Bottom controls */
+  #controls {
+    position: fixed;
+    bottom: 1rem; left: 50%;
+    transform: translateX(-50%);
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    background: var(--paper);
+    border: 4px solid var(--ink);
+    border-radius: 50px;
+    padding: 0.4rem 0.9rem;
+    box-shadow: 5px 5px 0 var(--ink);
+  }
+
+  #controls button {
+    font-family: 'Bangers', cursive;
+    font-size: 1rem;
+    letter-spacing: 1px;
+    background: var(--pop-yellow);
+    color: var(--ink);
+    border: 3px solid var(--ink);
+    border-radius: 50px;
+    padding: 0.4rem 0.9rem;
+    cursor: pointer;
+    box-shadow: 3px 3px 0 var(--ink);
+    transition: transform 0.15s;
+  }
+  #controls button:hover { transform: translate(-1px,-1px); }
+  #controls button:active { transform: translate(2px,2px); box-shadow: 1px 1px 0 var(--ink); }
+  #controls .count {
+    font-family: 'Bangers', cursive;
+    font-size: 1rem;
+    min-width: 80px;
+    text-align: center;
+  }
+
+  #nav-links {
+    position: fixed;
+    bottom: 1.2rem;
+    right: 1.2rem;
+    display: flex;
+    gap: 0.4rem;
+    z-index: 50;
+  }
+  #nav-links a {
+    font-family: 'Bangers', cursive;
+    font-size: 0.85rem;
+    text-decoration: none;
+    color: var(--ink);
+    background: #fff;
+    padding: 0.25rem 0.6rem;
+    border: 3px solid var(--ink);
+    border-radius: 8px;
+    box-shadow: 3px 3px 0 var(--ink);
+    letter-spacing: 1px;
+  }
+  #nav-links a:hover { background: var(--pop-yellow); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>☁ Storage Account — Deep Dive!</h1>
+  <div id="breadcrumb">Step 1 / —</div>
+</header>
+
+<div id="stage">
+  <svg id="links-svg">
+    <defs>
+      <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+        <path d="M0,0 L0,10 L10,5 Z" fill="#1a1a1a"/>
+      </marker>
+    </defs>
+  </svg>
+</div>
+
+<div id="controls">
+  <button id="prev-btn">◀ Prev</button>
+  <div class="count" id="step-counter">0 / 0</div>
+  <button id="next-btn">Next ▶</button>
+  <button id="reset-btn">↻ Reset</button>
+</div>
+
+<div id="nav-links">
+  <a href="StorageComic.html">Comic</a>
+  <a href="StroageaAccount.html">Diagram</a>
+  <a href="AzureCompute.html">Compute</a>
+</div>
+
+<script>
+  // ════════════════════════════════════════════════════════════════
+  // SVG ICON FACTORY — comic-style inline SVGs returned as strings
+  // ════════════════════════════════════════════════════════════════
+  const ICONS = {
+    cloud: `<svg class="icon lg" viewBox="0 0 200 160">
+      <path d="M40,110 C10,110 10,70 40,70 C40,40 100,30 110,65 C130,40 175,55 175,90 C200,90 200,130 175,130 L40,130 Z"
+        fill="#fff" stroke="#1a1a1a" stroke-width="5" stroke-linejoin="round"/>
+      <rect x="75" y="78" width="50" height="38" fill="#ffd23f" stroke="#1a1a1a" stroke-width="3.5" rx="3"/>
+      <rect x="75" y="78" width="50" height="11" fill="#ee4266" stroke="#1a1a1a" stroke-width="3.5"/>
+      <circle cx="83" cy="100" r="6" fill="#fff" stroke="#1a1a1a" stroke-width="2.5"/>
+      <circle cx="117" cy="100" r="6" fill="#fff" stroke="#1a1a1a" stroke-width="2.5"/>
+      <circle cx="84" cy="101" r="2.5" fill="#1a1a1a"/>
+      <circle cx="118" cy="101" r="2.5" fill="#1a1a1a"/>
+      <path d="M93,112 Q100,118 107,112" fill="none" stroke="#1a1a1a" stroke-width="2.5" stroke-linecap="round"/>
+    </svg>`,
+
+    standard: `<svg class="icon" viewBox="0 0 100 100">
+      <rect x="20" y="30" width="60" height="50" fill="#90caf9" stroke="#1a1a1a" stroke-width="4" rx="6"/>
+      <text x="50" y="58" text-anchor="middle" font-family="Bangers" font-size="22" fill="#1a1a1a">HDD</text>
+    </svg>`,
+
+    premium: `<svg class="icon" viewBox="0 0 100 100">
+      <rect x="20" y="30" width="60" height="50" fill="#ce93d8" stroke="#1a1a1a" stroke-width="4" rx="6"/>
+      <text x="50" y="58" text-anchor="middle" font-family="Bangers" font-size="22" fill="#1a1a1a">SSD</text>
+      <path d="M5,45 L18,45 M3,58 L16,58 M5,71 L18,71" stroke="#1a1a1a" stroke-width="3" stroke-linecap="round"/>
+    </svg>`,
+
+    container: `<svg class="icon" viewBox="0 0 100 100">
+      <rect x="20" y="30" width="60" height="55" fill="#4ea8de" stroke="#1a1a1a" stroke-width="4" rx="3"/>
+      <rect x="20" y="30" width="60" height="13" fill="#1565c0" stroke="#1a1a1a" stroke-width="4"/>
+      <rect x="32" y="50" width="36" height="3" fill="#1a1a1a"/>
+      <rect x="32" y="58" width="36" height="3" fill="#1a1a1a"/>
+      <rect x="32" y="66" width="22" height="3" fill="#1a1a1a"/>
+    </svg>`,
+
+    files: `<svg class="icon" viewBox="0 0 100 100">
+      <path d="M15,38 L40,38 L48,30 L85,30 L85,80 L15,80 Z" fill="#7ae582" stroke="#1a1a1a" stroke-width="4" stroke-linejoin="round"/>
+      <line x1="15" y1="48" x2="85" y2="48" stroke="#1a1a1a" stroke-width="3"/>
+      <rect x="32" y="58" width="36" height="3" fill="#1a1a1a"/>
+      <rect x="32" y="66" width="36" height="3" fill="#1a1a1a"/>
+    </svg>`,
+
+    queue: `<svg class="icon" viewBox="0 0 100 100">
+      <rect x="55" y="32" width="35" height="22" fill="#ffd23f" stroke="#1a1a1a" stroke-width="3.5" rx="2"/>
+      <rect x="40" y="42" width="35" height="22" fill="#ffd23f" stroke="#1a1a1a" stroke-width="3.5" rx="2"/>
+      <rect x="25" y="52" width="35" height="22" fill="#ffd23f" stroke="#1a1a1a" stroke-width="3.5" rx="2"/>
+      <path d="M25,52 L42,63 L60,52" fill="none" stroke="#1a1a1a" stroke-width="2.5"/>
+    </svg>`,
+
+    table: `<svg class="icon" viewBox="0 0 100 100">
+      <rect x="15" y="30" width="70" height="50" fill="#b388ff" stroke="#1a1a1a" stroke-width="4" rx="4"/>
+      <line x1="15" y1="44" x2="85" y2="44" stroke="#1a1a1a" stroke-width="3"/>
+      <line x1="15" y1="58" x2="85" y2="58" stroke="#1a1a1a" stroke-width="2"/>
+      <line x1="38" y1="30" x2="38" y2="80" stroke="#1a1a1a" stroke-width="2"/>
+      <line x1="62" y1="30" x2="62" y2="80" stroke="#1a1a1a" stroke-width="2"/>
+    </svg>`,
+
+    blob: `<svg class="icon" viewBox="0 0 100 100">
+      <rect x="22" y="55" width="56" height="20" fill="#ee4266" stroke="#1a1a1a" stroke-width="4"/>
+      <rect x="28" y="38" width="44" height="18" fill="#ffd23f" stroke="#1a1a1a" stroke-width="4"/>
+      <rect x="34" y="22" width="32" height="16" fill="#7ae582" stroke="#1a1a1a" stroke-width="4"/>
+    </svg>`,
+
+    pageblob: `<svg class="icon" viewBox="0 0 100 100">
+      <ellipse cx="50" cy="50" rx="34" ry="34" fill="#b388ff" stroke="#1a1a1a" stroke-width="4"/>
+      <ellipse cx="50" cy="50" rx="11" ry="11" fill="#fff" stroke="#1a1a1a" stroke-width="3"/>
+      <circle cx="50" cy="50" r="3" fill="#1a1a1a"/>
+    </svg>`,
+
+    appendblob: `<svg class="icon" viewBox="0 0 100 100">
+      <rect x="25" y="20" width="50" height="65" fill="#fff" stroke="#1a1a1a" stroke-width="4"/>
+      <line x1="30" y1="32" x2="70" y2="32" stroke="#1a1a1a" stroke-width="2"/>
+      <line x1="30" y1="42" x2="70" y2="42" stroke="#1a1a1a" stroke-width="2"/>
+      <line x1="30" y1="52" x2="70" y2="52" stroke="#1a1a1a" stroke-width="2"/>
+      <line x1="30" y1="62" x2="55" y2="62" stroke="#ee4266" stroke-width="3"/>
+      <text x="63" y="76" font-family="Bangers" font-size="20" fill="#ee4266">+</text>
+    </svg>`,
+
+    hot: `<svg class="icon" viewBox="0 0 100 100">
+      <path d="M50,15 Q35,40 40,55 Q30,50 30,65 Q30,85 50,90 Q70,85 70,65 Q70,50 60,55 Q65,40 50,15 Z"
+        fill="#ee4266" stroke="#1a1a1a" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M50,40 Q42,55 45,68 Q50,75 55,68 Q58,55 50,40 Z" fill="#ffd23f" stroke="#1a1a1a" stroke-width="2"/>
+    </svg>`,
+
+    cool: `<svg class="icon" viewBox="0 0 100 100">
+      <g stroke="#1a1a1a" stroke-width="4" stroke-linecap="round" fill="none">
+        <line x1="50" y1="15" x2="50" y2="85"/>
+        <line x1="20" y1="50" x2="80" y2="50"/>
+        <line x1="28" y1="28" x2="72" y2="72"/>
+        <line x1="72" y1="28" x2="28" y2="72"/>
+      </g>
+      <circle cx="50" cy="50" r="6" fill="#4ea8de" stroke="#1a1a1a" stroke-width="3"/>
+    </svg>`,
+
+    cold: `<svg class="icon" viewBox="0 0 100 100">
+      <path d="M20,75 L40,40 L55,55 L70,30 L85,75 Z" fill="#bbdefb" stroke="#1a1a1a" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M20,75 L85,75 L80,90 L25,90 Z" fill="#64b5f6" stroke="#1a1a1a" stroke-width="3"/>
+    </svg>`,
+
+    archive: `<svg class="icon" viewBox="0 0 100 100">
+      <rect x="20" y="30" width="60" height="55" fill="#a1887f" stroke="#1a1a1a" stroke-width="4" rx="3"/>
+      <circle cx="50" cy="57" r="11" fill="#5d4037" stroke="#1a1a1a" stroke-width="3"/>
+      <rect x="48" y="55" width="4" height="14" fill="#1a1a1a"/>
+      <rect x="48" y="20" width="4" height="14" fill="#1a1a1a"/>
+    </svg>`,
+
+    lrs: `<svg class="icon" viewBox="0 0 100 100">
+      <rect x="20" y="32" width="60" height="40" fill="#90caf9" stroke="#1a1a1a" stroke-width="4" rx="4"/>
+      <text x="50" y="58" text-anchor="middle" font-family="Bangers" font-size="18" fill="#1a1a1a">×3</text>
+    </svg>`,
+
+    zrs: `<svg class="icon" viewBox="0 0 100 100">
+      <circle cx="28" cy="55" r="11" fill="#7ae582" stroke="#1a1a1a" stroke-width="3"/>
+      <circle cx="50" cy="35" r="11" fill="#7ae582" stroke="#1a1a1a" stroke-width="3"/>
+      <circle cx="72" cy="55" r="11" fill="#7ae582" stroke="#1a1a1a" stroke-width="3"/>
+    </svg>`,
+
+    grs: `<svg class="icon" viewBox="0 0 100 100">
+      <rect x="8" y="38" width="34" height="28" fill="#ffd23f" stroke="#1a1a1a" stroke-width="3" rx="3"/>
+      <rect x="58" y="38" width="34" height="28" fill="#ee4266" stroke="#1a1a1a" stroke-width="3" rx="3"/>
+      <path d="M44,52 L57,52" stroke="#1a1a1a" stroke-width="3"/>
+      <path d="M52,48 L58,52 L52,56 Z" fill="#1a1a1a"/>
+    </svg>`,
+
+    ragrs: `<svg class="icon" viewBox="0 0 100 100">
+      <rect x="8" y="38" width="34" height="28" fill="#ffd23f" stroke="#1a1a1a" stroke-width="3" rx="3"/>
+      <rect x="58" y="38" width="34" height="28" fill="#b388ff" stroke="#1a1a1a" stroke-width="3" rx="3"/>
+      <text x="75" y="80" text-anchor="middle" font-family="Bangers" font-size="11" fill="#1a1a1a">READ</text>
+    </svg>`,
+  };
+
+  // ════════════════════════════════════════════════════════════════
+  // LAYOUT — node positions are percentages of the stage
+  // ════════════════════════════════════════════════════════════════
+  // Each node: { id, label, sub, icon, cls, x%, y%, parents:[] }
+  const NODES = {
+    root:   { label: 'Storage Account', sub: 'The big cloud safe', icon: 'cloud', cls: 'root',   x: 50, y: 32 },
+
+    // Tier layer
+    std:    { label: 'Standard',  sub: 'HDD · cheap',     icon: 'standard', cls: 'tier-s', x: 28, y: 52, parents: ['root'] },
+    prm:    { label: 'Premium',   sub: 'SSD · fast',      icon: 'premium',  cls: 'tier-p', x: 72, y: 52, parents: ['root'] },
+
+    // Standard services
+    cont:   { label: 'Container', sub: 'Holds blobs',     icon: 'container', cls: 'svc',   x:  6,  y: 76, parents: ['std'] },
+    fil:    { label: 'Files',     sub: 'SMB share',       icon: 'files',     cls: 'svc',   x: 20,  y: 76, parents: ['std'] },
+    que:    { label: 'Queue',     sub: 'Messages',        icon: 'queue',     cls: 'svc',   x: 34,  y: 76, parents: ['std'] },
+    tbl:    { label: 'Table',     sub: 'NoSQL rows',      icon: 'table',     cls: 'svc',   x: 48,  y: 76, parents: ['std'] },
+
+    // Premium services
+    pblob:  { label: 'Blob',      sub: 'Block · fast',    icon: 'blob',      cls: 'svc',   x: 60,  y: 76, parents: ['prm'] },
+    ppage:  { label: 'Page Blob', sub: 'VM disks',        icon: 'pageblob',  cls: 'svc',   x: 76,  y: 76, parents: ['prm'] },
+    pfile:  { label: 'Files',     sub: 'SMB · SSD',       icon: 'files',     cls: 'svc',   x: 92,  y: 76, parents: ['prm'] },
+
+    // Blob types (deep dive — appear in step 4)
+    bblk:   { label: 'Block Blob',  sub: 'Files · media',  icon: 'blob',       cls: 'blob', x: 12, y: 78, parents: ['cont'] },
+    bapp:   { label: 'Append Blob', sub: 'Logs · audits',  icon: 'appendblob', cls: 'blob', x: 30, y: 78, parents: ['cont'] },
+    bpag:   { label: 'Page Blob',   sub: '512-byte pages', icon: 'pageblob',   cls: 'blob', x: 48, y: 78, parents: ['cont'] },
+
+    // Access tiers (deep dive — appear in step 5; parented to Block Blob)
+    aHot:   { label: 'Hot',     sub: 'Daily use',      icon: 'hot',     cls: 'access', x: 10, y: 78, parents: ['bblk'] },
+    aCool:  { label: 'Cool',    sub: '30+ days',       icon: 'cool',    cls: 'access', x: 28, y: 78, parents: ['bblk'] },
+    aCold:  { label: 'Cold',    sub: '90+ days',       icon: 'cold',    cls: 'access', x: 46, y: 78, parents: ['bblk'] },
+    aArc:   { label: 'Archive', sub: '180+ days',      icon: 'archive', cls: 'access', x: 64, y: 78, parents: ['bblk'] },
+
+    // Replication (deep dive — appear in step 6)
+    rLrs:   { label: 'LRS',    sub: '3 copies · 1 DC',     icon: 'lrs',   cls: 'repl', x: 14, y: 78, parents: ['root'] },
+    rZrs:   { label: 'ZRS',    sub: '3 zones',             icon: 'zrs',   cls: 'repl', x: 36, y: 78, parents: ['root'] },
+    rGrs:   { label: 'GRS',    sub: '2 regions',           icon: 'grs',   cls: 'repl', x: 58, y: 78, parents: ['root'] },
+    rRa:    { label: 'RA-GRS', sub: 'GRS + read replica',  icon: 'ragrs', cls: 'repl', x: 80, y: 78, parents: ['root'] },
+  };
+
+  // ════════════════════════════════════════════════════════════════
+  // STEPS — what's on stage at each step. Each step lists which
+  // nodes (and which links) are visible. Going forward = additive
+  // OR a controlled "deep dive" that hides previous siblings.
+  // ════════════════════════════════════════════════════════════════
+  const STEPS = [
+    {
+      title: 'LAYER 1 — THE ROOT',
+      caption: 'Meet the Storage Account!',
+      bubble: { text: "Hi! I'm your cloud safe. Everything starts with me.", x: 60, y: 18 },
+      pow: { text: 'WHOOSH!', x: 18, y: 22 },
+      nodes: ['root'],
+      links: [],
+      // Override positions for this step (root centered, large)
+      positions: { root: { x: 50, y: 50 } }
+    },
+    {
+      title: 'LAYER 2 — TWO TIERS',
+      caption: 'Pick your performance tier!',
+      bubble: { text: 'I come in TWO flavors — Standard for everyday, Premium for SPEED ⚡', x: 60, y: 14 },
+      pow: { text: 'CHOOSE!', x: 80, y: 28 },
+      nodes: ['root', 'std', 'prm'],
+      links: [['root','std'], ['root','prm']],
+      positions: {
+        root: { x: 50, y: 22 },
+        std:  { x: 30, y: 60 },
+        prm:  { x: 70, y: 60 },
+      }
+    },
+    {
+      title: 'LAYER 3 — STANDARD SERVICES',
+      caption: 'Standard offers FOUR services',
+      bubble: { text: 'Standard gives you Container, Files, Queue, and Table — all on HDD!', x: 70, y: 12 },
+      nodes: ['root','std','prm','cont','fil','que','tbl'],
+      links: [['root','std'], ['root','prm'], ['std','cont'], ['std','fil'], ['std','que'], ['std','tbl']],
+      positions: {
+        root: { x: 50, y: 14 },
+        std:  { x: 30, y: 38 },
+        prm:  { x: 78, y: 38 },
+        cont: { x: 10, y: 70 },
+        fil:  { x: 25, y: 70 },
+        que:  { x: 40, y: 70 },
+        tbl:  { x: 55, y: 70 },
+      }
+    },
+    {
+      title: 'LAYER 3 — PREMIUM SERVICES',
+      caption: 'Premium offers THREE services',
+      bubble: { text: 'Premium runs on SSD — Blob, Page Blob, and Files!', x: 18, y: 12 },
+      nodes: ['root','std','prm','cont','fil','que','tbl','pblob','ppage','pfile'],
+      links: [
+        ['root','std'], ['root','prm'],
+        ['std','cont'], ['std','fil'], ['std','que'], ['std','tbl'],
+        ['prm','pblob'], ['prm','ppage'], ['prm','pfile'],
+      ],
+      positions: {
+        root:  { x: 50, y: 12 },
+        std:   { x: 22, y: 36 },
+        prm:   { x: 78, y: 36 },
+        cont:  { x:  6, y: 68 },
+        fil:   { x: 18, y: 68 },
+        que:   { x: 30, y: 68 },
+        tbl:   { x: 42, y: 68 },
+        pblob: { x: 62, y: 68 },
+        ppage: { x: 78, y: 68 },
+        pfile: { x: 94, y: 68 },
+      }
+    },
+    {
+      title: 'LAYER 4 — INSIDE A CONTAINER (BLOB TYPES)',
+      caption: 'Inside Container → 3 Blob Types!',
+      bubble: { text: 'Open up Container — there are 3 blob types: Block, Append, Page!', x: 70, y: 14 },
+      pow: { text: 'DEEP DIVE!', x: 12, y: 30 },
+      nodes: ['root','std','cont','bblk','bapp','bpag'],
+      links: [
+        ['root','std'], ['std','cont'],
+        ['cont','bblk'], ['cont','bapp'], ['cont','bpag'],
+      ],
+      positions: {
+        root: { x: 50, y: 10 },
+        std:  { x: 50, y: 28 },
+        cont: { x: 50, y: 48 },
+        bblk: { x: 22, y: 75 },
+        bapp: { x: 50, y: 75 },
+        bpag: { x: 78, y: 75 },
+      }
+    },
+    {
+      title: 'LAYER 5 — ACCESS TIERS (HOT → ARCHIVE)',
+      caption: 'Each Block Blob has an Access Tier',
+      bubble: { text: 'Hot for daily, Cool 30+ days, Cold 90+, Archive 180+ — colder = cheaper!', x: 12, y: 14 },
+      pow: { text: 'BRRR!', x: 86, y: 32 },
+      nodes: ['root','std','cont','bblk','aHot','aCool','aCold','aArc'],
+      links: [
+        ['root','std'], ['std','cont'], ['cont','bblk'],
+        ['bblk','aHot'], ['bblk','aCool'], ['bblk','aCold'], ['bblk','aArc'],
+      ],
+      positions: {
+        root: { x: 50, y: 8 },
+        std:  { x: 50, y: 22 },
+        cont: { x: 50, y: 38 },
+        bblk: { x: 50, y: 54 },
+        aHot:  { x: 14, y: 80 },
+        aCool: { x: 38, y: 80 },
+        aCold: { x: 62, y: 80 },
+        aArc:  { x: 86, y: 80 },
+      }
+    },
+    {
+      title: 'LAYER 6 — REPLICATION (DURABILITY)',
+      caption: 'How many copies? Where?',
+      bubble: { text: 'No matter the tier, your data gets replicated: LRS, ZRS, GRS, or RA-GRS!', x: 70, y: 14 },
+      pow: { text: 'SAFE!', x: 12, y: 30 },
+      nodes: ['root','rLrs','rZrs','rGrs','rRa'],
+      links: [
+        ['root','rLrs'], ['root','rZrs'], ['root','rGrs'], ['root','rRa'],
+      ],
+      positions: {
+        root: { x: 50, y: 22 },
+        rLrs: { x: 14, y: 70 },
+        rZrs: { x: 38, y: 70 },
+        rGrs: { x: 62, y: 70 },
+        rRa:  { x: 86, y: 70 },
+      }
+    },
+    {
+      title: 'THE FULL PICTURE',
+      caption: 'Everything connected!',
+      bubble: { text: 'Storage Account → Tier → Service → Blob Type → Access Tier. All replicated!', x: 50, y: 8 },
+      pow: { text: 'BAM!', x: 8, y: 22 },
+      pow2: { text: 'WOW!', x: 88, y: 22 },
+      nodes: ['root','std','prm','cont','fil','que','tbl','pblob','ppage','pfile'],
+      links: [
+        ['root','std'], ['root','prm'],
+        ['std','cont'], ['std','fil'], ['std','que'], ['std','tbl'],
+        ['prm','pblob'], ['prm','ppage'], ['prm','pfile'],
+      ],
+      positions: {
+        root:  { x: 50, y: 22 },
+        std:   { x: 24, y: 46 },
+        prm:   { x: 76, y: 46 },
+        cont:  { x:  7, y: 75 },
+        fil:   { x: 20, y: 75 },
+        que:   { x: 33, y: 75 },
+        tbl:   { x: 46, y: 75 },
+        pblob: { x: 60, y: 75 },
+        ppage: { x: 76, y: 75 },
+        pfile: { x: 93, y: 75 },
+      }
+    },
+  ];
+
+  // ════════════════════════════════════════════════════════════════
+  // RENDER
+  // ════════════════════════════════════════════════════════════════
+  const stage = document.getElementById('stage');
+  const svg   = document.getElementById('links-svg');
+  const counter = document.getElementById('step-counter');
+  const breadcrumb = document.getElementById('breadcrumb');
+
+  let current = -1;
+  let animating = false;
+
+  // Track currently-rendered DOM elements so we can clear cleanly
+  let liveEls = [];
+
+  function clearStage() {
+    liveEls.forEach(el => el.remove());
+    liveEls = [];
+    // Clear all paths/labels but keep <defs>
+    Array.from(svg.children).forEach(child => {
+      if (child.tagName.toLowerCase() !== 'defs') child.remove();
+    });
+  }
+
+  function pct(v, dim) {
+    return dim === 'x' ? (v / 100) * stage.clientWidth : (v / 100) * stage.clientHeight;
+  }
+
+  function makeNode(id, pos) {
+    const n = NODES[id];
+    const el = document.createElement('div');
+    el.className = `node ${n.cls || ''}`;
+    el.dataset.id = id;
+    el.innerHTML = `
+      ${ICONS[n.icon] || ''}
+      <div class="label">${n.label}</div>
+      ${n.sub ? `<div class="sub">${n.sub}</div>` : ''}
+    `;
+    stage.appendChild(el);
+    // Position centered on (x%, y%)
+    const x = pct(pos.x, 'x');
+    const y = pct(pos.y, 'y');
+    // Use transform for centering AFTER measuring
+    requestAnimationFrame(() => {
+      const w = el.offsetWidth, h = el.offsetHeight;
+      el.style.left = (x - w / 2) + 'px';
+      el.style.top  = (y - h / 2) + 'px';
+    });
+    return el;
+  }
+
+  function nodeCenter(el) {
+    const r = el.getBoundingClientRect();
+    const sr = stage.getBoundingClientRect();
+    return {
+      x: r.left - sr.left + r.width / 2,
+      y: r.top  - sr.top  + r.height / 2,
+      w: r.width,
+      h: r.height,
+    };
+  }
+
+  function makeLink(fromEl, toEl) {
+    const a = nodeCenter(fromEl);
+    const b = nodeCenter(toEl);
+    // Anchor: from bottom of A to top of B (with small offset)
+    const x1 = a.x;
+    const y1 = a.y + a.h / 2 - 4;
+    const x2 = b.x;
+    const y2 = b.y - b.h / 2 + 4;
+    // Curve control points for a cartoon arc
+    const dy = y2 - y1;
+    const c1x = x1, c1y = y1 + dy * 0.45;
+    const c2x = x2, c2y = y2 - dy * 0.45;
+    const d = `M ${x1} ${y1} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${x2} ${y2}`;
+
+    // Outer "ink" stroke
+    const ink = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    ink.setAttribute('d', d);
+    ink.setAttribute('fill', 'none');
+    ink.setAttribute('stroke', '#1a1a1a');
+    ink.setAttribute('stroke-width', '7');
+    ink.setAttribute('stroke-linecap', 'round');
+    svg.appendChild(ink);
+
+    // Inner colored stroke
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    line.setAttribute('d', d);
+    line.setAttribute('fill', 'none');
+    line.setAttribute('stroke', '#ffd23f');
+    line.setAttribute('stroke-width', '3.5');
+    line.setAttribute('stroke-linecap', 'round');
+    line.setAttribute('marker-end', 'url(#arrow)');
+    svg.appendChild(line);
+
+    return { ink, line };
+  }
+
+  function renderStep(stepIndex) {
+    if (animating) return;
+    if (stepIndex < 0 || stepIndex >= STEPS.length) return;
+    animating = true;
+
+    clearStage();
+    const step = STEPS[stepIndex];
+
+    // Layer caption
+    const cap = document.createElement('div');
+    cap.className = 'layer-caption';
+    cap.textContent = step.title;
+    stage.appendChild(cap);
+    liveEls.push(cap);
+
+    // Render nodes
+    const nodeEls = {};
+    step.nodes.forEach(id => {
+      const pos = (step.positions && step.positions[id]) || NODES[id];
+      const el = makeNode(id, pos);
+      nodeEls[id] = el;
+      liveEls.push(el);
+    });
+
+    // Speech bubble
+    let bubbleEl = null;
+    if (step.bubble) {
+      bubbleEl = document.createElement('div');
+      bubbleEl.className = 'speech';
+      bubbleEl.textContent = step.bubble.text;
+      bubbleEl.style.left = step.bubble.x + '%';
+      bubbleEl.style.top  = step.bubble.y + '%';
+      bubbleEl.style.transform = 'translate(-50%, -50%) rotate(-1deg)';
+      stage.appendChild(bubbleEl);
+      liveEls.push(bubbleEl);
+    }
+
+    // POW splashes
+    const powEls = [];
+    ['pow','pow2'].forEach(key => {
+      if (step[key]) {
+        const p = document.createElement('div');
+        p.className = 'pow';
+        p.textContent = step[key].text;
+        p.style.left = step[key].x + '%';
+        p.style.top  = step[key].y + '%';
+        if (key === 'pow2') {
+          p.style.color = 'var(--pop-green)';
+          p.style.textShadow = '5px 5px 0 var(--pop-purple)';
+        }
+        stage.appendChild(p);
+        powEls.push(p);
+        liveEls.push(p);
+      }
+    });
+
+    // Wait one frame so node positions settle, then draw links + animate
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        // Draw links
+        const linkEls = step.links.map(([from, to]) => makeLink(nodeEls[from], nodeEls[to]));
+
+        // ── Animate caption ──
+        gsap.fromTo(cap, { y: -30, opacity: 0, rotation: -10 }, { y: 0, opacity: 1, rotation: -1.5, duration: 1.0, ease: 'back.out(2)' });
+
+        // ── Animate nodes (root first, then children stagger) ──
+        const rootIds = step.nodes.filter(id => !step.links.some(([_, t]) => t === id));
+        const otherIds = step.nodes.filter(id => !rootIds.includes(id));
+        const rootNodes  = rootIds.map(id => nodeEls[id]);
+        const otherNodes = otherIds.map(id => nodeEls[id]);
+
+        const tl = gsap.timeline({ onComplete: () => animating = false });
+
+        tl.fromTo(rootNodes,
+          { opacity: 0, scale: 0.3, rotation: -15, y: -20 },
+          { opacity: 1, scale: 1, rotation: 0, y: 0, duration: 1.1, ease: 'back.out(2)', stagger: 0.25 },
+          0.3
+        );
+
+        // Draw links one by one
+        linkEls.forEach((lk, i) => {
+          const len = lk.line.getTotalLength();
+          gsap.set([lk.ink, lk.line], { strokeDasharray: len, strokeDashoffset: len, opacity: 1 });
+          // Hide arrowhead until line is drawn
+          const marker = lk.line.getAttribute('marker-end');
+          lk.line.removeAttribute('marker-end');
+          tl.to([lk.ink, lk.line], {
+            strokeDashoffset: 0,
+            duration: 1.1,
+            ease: 'power2.inOut',
+            onComplete: () => lk.line.setAttribute('marker-end', marker)
+          }, i === 0 ? '+=0.2' : '+=0.15');
+
+          // Pop the child node when its link arrives
+          const childId = step.links[i][1];
+          const childEl = nodeEls[childId];
+          if (childEl && otherNodes.includes(childEl)) {
+            tl.fromTo(childEl,
+              { opacity: 0, scale: 0.3, rotation: -10, y: -10 },
+              { opacity: 1, scale: 1, rotation: 0, y: 0, duration: 0.85, ease: 'back.out(1.8)' },
+              '-=0.4'
+            );
+          }
+        });
+
+        // Speech + POW
+        if (bubbleEl) {
+          tl.fromTo(bubbleEl,
+            { opacity: 0, scale: 0.4, rotation: -8 },
+            { opacity: 1, scale: 1, rotation: -1, duration: 0.9, ease: 'back.out(2)' },
+            '+=0.1'
+          );
+        }
+        powEls.forEach(p => {
+          tl.fromTo(p,
+            { opacity: 0, scale: 0 },
+            { opacity: 1, scale: 1, duration: 0.8, ease: 'elastic.out(1, 0.5)' },
+            '-=0.4'
+          );
+          gsap.to(p, { scale: 1.15, duration: 1.2, yoyo: true, repeat: -1, ease: 'sine.inOut' });
+        });
+      });
+    });
+
+    current = stepIndex;
+    counter.textContent = `${current + 1} / ${STEPS.length}`;
+    breadcrumb.textContent = step.caption;
+  }
+
+  // ── Controls ──
+  function next()  { if (current < STEPS.length - 1) renderStep(current + 1); }
+  function prev()  { if (current > 0) renderStep(current - 1); }
+  function reset() { renderStep(0); }
+
+  document.getElementById('next-btn').addEventListener('click', e => { e.stopPropagation(); next(); });
+  document.getElementById('prev-btn').addEventListener('click', e => { e.stopPropagation(); prev(); });
+  document.getElementById('reset-btn').addEventListener('click', e => { e.stopPropagation(); reset(); });
+
+  document.body.addEventListener('click', (e) => {
+    if (e.target.closest('#controls') || e.target.closest('#nav-links') || e.target.closest('a') || e.target.closest('button')) return;
+    next();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (['Space','ArrowRight','Enter'].includes(e.code)) { e.preventDefault(); next(); }
+    else if (e.code === 'ArrowLeft') { e.preventDefault(); prev(); }
+    else if (e.code === 'KeyR') { e.preventDefault(); reset(); }
+  });
+
+  // Re-render on resize so links stay attached
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => renderStep(current), 200);
+  });
+
+  // Kick off
+  counter.textContent = `1 / ${STEPS.length}`;
+  renderStep(0);
+</script>
+
+</body>
+</html>

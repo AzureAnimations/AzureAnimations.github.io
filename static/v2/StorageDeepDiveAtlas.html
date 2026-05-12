@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>Storage Account — Deep Dive (Atlas)</title>
+
+<!-- Microsoft Atlas Design System -->
+<link rel="stylesheet" href="https://unpkg.com/@microsoft/atlas-css/dist/index.css" />
+
+<!-- GSAP for animations -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+<style>
+	/* ----------------------------------------------------------
+	   Local layout overrides — everything else uses Atlas tokens
+	   ---------------------------------------------------------- */
+	html, body {
+		height: 100%;
+		margin: 0;
+		overflow: hidden;
+	}
+
+	body {
+		display: flex;
+		flex-direction: column;
+		background:
+			radial-gradient(circle at 15% 20%, var(--theme-primary-translucent, rgba(0,120,212,0.18)) 0%, transparent 55%),
+			radial-gradient(circle at 85% 80%, var(--theme-tertiary-translucent, rgba(92,45,145,0.18)) 0%, transparent 55%),
+			var(--theme-body-background);
+		color: var(--theme-text);
+	}
+
+	/* Header — Atlas site-header pattern */
+	.app-header {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+		flex-shrink: 0;
+	}
+
+	/* Main stage */
+	#stage {
+		position: relative;
+		flex: 1 1 auto;
+		width: 100%;
+		overflow: hidden;
+	}
+
+	#links-svg {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		pointer-events: none;
+		z-index: 6;
+		overflow: visible;
+	}
+
+	/* Nodes — Atlas card aesthetic, absolutely positioned */
+	.node {
+		position: absolute;
+		min-width: 150px;
+		max-width: 200px;
+		padding: 0.75rem 0.85rem;
+		text-align: center;
+		background-color: var(--theme-body-background-translucent, var(--theme-body-background));
+		border: 3px solid var(--theme-text, #1a1a1a);
+		border-radius: 8px;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 12px rgba(0,0,0,0.18));
+		backdrop-filter: blur(8px);
+		transform-origin: center;
+		z-index: 10;
+		opacity: 0;
+		transition: border-color 0.2s ease, transform 0.2s ease;
+	}
+	.node:hover { border-color: var(--theme-primary); }
+
+	.node .icon-wrap {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		width: 56px;
+		height: 56px;
+		margin: 0 auto 0.4rem;
+	}
+	.node .icon-wrap svg { width: 100%; height: 100%; display: block; }
+	.node .icon-wrap.lg { width: 80px; height: 80px; }
+
+	.node .label {
+		font-weight: 600;
+		font-size: 0.95rem;
+		line-height: 1.2;
+	}
+	.node .sub {
+		font-size: 0.78rem;
+		color: var(--theme-text-subtle);
+		margin-top: 0.15rem;
+	}
+
+	/* Themed accent strips */
+	.node.root   { border-top-width: 6px; border-top-color: var(--theme-primary);   }
+	.node.tier-s { border-top-width: 6px; border-top-color: var(--theme-info);      }
+	.node.tier-p { border-top-width: 6px; border-top-color: var(--theme-tertiary);  }
+	.node.svc    { border-top-width: 6px; border-top-color: var(--theme-success);   }
+	.node.access { border-top-width: 6px; border-top-color: var(--theme-warning);   }
+	.node.blob   { border-top-width: 6px; border-top-color: var(--theme-success);   }
+	.node.repl   { border-top-width: 6px; border-top-color: var(--theme-tertiary);  }
+
+	/* Step caption — sits at top of stage */
+	.layer-caption {
+		position: absolute;
+		top: 1.25rem;
+		left: 50%;
+		transform: translateX(-50%);
+		font-size: 0.85rem;
+		font-weight: 600;
+		letter-spacing: 0.18em;
+		text-transform: uppercase;
+		color: var(--theme-primary);
+		background: var(--theme-body-background-translucent, var(--theme-body-background));
+		border: 1px solid var(--theme-border);
+		border-radius: 999px;
+		padding: 0.4rem 1rem;
+		z-index: 12;
+		opacity: 0;
+		pointer-events: none;
+		white-space: nowrap;
+	}
+
+	/* Speech / hint bubble — Atlas message-style */
+	.speech {
+		position: absolute;
+		max-width: 320px;
+		padding: 0.85rem 1rem;
+		background: var(--theme-body-background);
+		border: 1px solid var(--theme-border);
+		border-left: 3px solid var(--theme-primary);
+		border-radius: 6px;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2));
+		font-size: 0.95rem;
+		line-height: 1.4;
+		z-index: 14;
+		opacity: 0;
+	}
+
+	/* Subtle "highlight" text instead of POW splash */
+	.pow {
+		position: absolute;
+		font-weight: 700;
+		font-size: 0.8rem;
+		letter-spacing: 0.25em;
+		text-transform: uppercase;
+		color: var(--theme-primary);
+		background: var(--theme-primary-translucent, rgba(0,120,212,0.12));
+		border: 1px solid var(--theme-primary);
+		border-radius: 4px;
+		padding: 0.25rem 0.6rem;
+		z-index: 15;
+		opacity: 0;
+	}
+	.pow.alt {
+		color: var(--theme-tertiary);
+		background: var(--theme-tertiary-translucent, rgba(92,45,145,0.12));
+		border-color: var(--theme-tertiary);
+	}
+
+	/* Bottom controls bar */
+	#controls {
+		position: fixed;
+		bottom: 1.5rem;
+		left: 50%;
+		transform: translateX(-50%);
+		z-index: 40;
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.4rem 0.6rem;
+		background: var(--theme-body-background);
+		border: 1px solid var(--theme-border);
+		border-radius: 999px;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2));
+	}
+
+	.step-counter {
+		min-width: 70px;
+		text-align: center;
+		font-variant-numeric: tabular-nums;
+		font-size: 0.9rem;
+		color: var(--theme-text-subtle);
+	}
+
+	/* Progress bar under the header */
+	.progress-track {
+		position: relative;
+		height: 3px;
+		background: var(--theme-border);
+		flex-shrink: 0;
+	}
+	.progress-fill {
+		position: absolute;
+		left: 0; top: 0; bottom: 0;
+		width: 0%;
+		background: var(--theme-primary);
+		transition: width 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+	}
+
+	/* Visible focus indicators (WCAG 2.4.7) */
+	#stage:focus-visible,
+	button:focus-visible,
+	a:focus-visible {
+		outline: 2px solid var(--theme-primary, #0078d4);
+		outline-offset: 3px;
+		border-radius: 4px;
+	}
+
+	/* Screen-reader-only utility */
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border: 0;
+	}
+
+	/* Skip-to-content link (visible on focus) */
+	.skip-link {
+		position: absolute;
+		top: -100px;
+		left: 0.5rem;
+		z-index: 100;
+		padding: 0.5rem 1rem;
+		background: var(--theme-primary);
+		color: var(--theme-primary-invert, #fff);
+		border-radius: 4px;
+		text-decoration: none;
+		font-weight: 600;
+	}
+	.skip-link:focus {
+		top: 0.5rem;
+	}
+
+	/* Step outline panel — contains the same info as the diagram in HTML text */
+	#step-outline {
+		position: fixed;
+		top: 4.5rem;
+		right: 1rem;
+		width: 280px;
+		max-height: calc(100vh - 8rem);
+		overflow-y: auto;
+		padding: 1rem;
+		background: var(--theme-body-background);
+		border: 1px solid var(--theme-border);
+		border-radius: 6px;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2));
+		z-index: 35;
+		font-size: 0.85rem;
+		line-height: 1.5;
+	}
+	#step-outline[hidden] { display: none; }
+	#step-outline h2 {
+		font-size: 0.7rem;
+		font-weight: 700;
+		letter-spacing: 0.18em;
+		text-transform: uppercase;
+		color: var(--theme-primary);
+		margin-bottom: 0.5rem;
+	}
+	#step-outline ul { margin: 0.25rem 0 0.5rem 1.1rem; padding: 0; }
+	#step-outline li { margin-bottom: 0.15rem; }
+	#step-outline .outline-section {
+		margin-top: 0.6rem;
+		padding-top: 0.6rem;
+		border-top: 1px solid var(--theme-border);
+	}
+	#step-outline .outline-section:first-child {
+		margin-top: 0; padding-top: 0; border-top: 0;
+	}
+
+	@media (max-width: 900px) {
+		#step-outline {
+			position: static;
+			margin: 0.5rem;
+			width: auto;
+			max-height: 35vh;
+		}
+	}
+
+	/* Honor user's OS-level reduced-motion preference */
+	@media (prefers-reduced-motion: reduce) {
+		.node, .speech, .pow, .layer-caption {
+			transition: none !important;
+			animation: none !important;
+		}
+		.progress-fill { transition: none !important; }
+	}
+</style>
+</head>
+
+<body class="theme-dark">
+
+	<!-- Skip link for keyboard users -->
+	<a href="#stage" class="skip-link">Skip to diagram</a>
+
+	<!-- =========================================================== -->
+	<!-- Header                                                       -->
+	<!-- =========================================================== -->
+	<header class="app-header padding-block-xs padding-inline-md border-bottom" role="banner">
+		<a href="./index.html" class="display-flex align-items-center gap-xs color-text" aria-label="Back to home">
+			<span class="font-size-h6 font-weight-semibold">☁ Storage Account · Deep Dive</span>
+		</a>
+
+		<nav class="margin-inline-start-auto display-flex gap-xs align-items-center" aria-label="Primary">
+			<span id="breadcrumb" class="font-size-sm color-text-subtle">Step 1</span>
+			<button id="motion-toggle"
+					type="button"
+					class="button button-clear button-sm"
+					aria-pressed="false"
+					aria-label="Pause animations">
+				⏸ Pause
+			</button>
+			<button id="outline-toggle"
+					type="button"
+					class="button button-clear button-sm"
+					aria-controls="step-outline"
+					aria-expanded="true"
+					aria-label="Hide text outline">
+				📝 Outline
+			</button>
+			<a class="button button-clear button-sm" href="StorageComic.html">Comic</a>
+			<a class="button button-clear button-sm" href="index.html">Home</a>
+			<button id="theme-toggle"
+					type="button"
+					class="button button-clear button-sm"
+					aria-label="Toggle color theme">
+				🌓 Theme
+			</button>
+		</nav>
+	</header>
+
+	<div class="progress-track">
+		<div id="progress-fill" class="progress-fill"></div>
+	</div>
+
+	<!-- =========================================================== -->
+	<!-- Stage                                                        -->
+	<!-- =========================================================== -->
+	<main id="stage"
+		  tabindex="0"
+		  role="region"
+		   aria-labelledby="stage-heading"
+		  aria-describedby="stage-instructions">
+		<h1 id="stage-heading" class="sr-only">Azure Storage Account architecture diagram</h1>
+		<p id="stage-instructions" class="sr-only">
+			This is an interactive, multi-step diagram of an Azure Storage Account.
+			Use the Next and Previous buttons, or press the Right and Left arrow keys, to navigate steps.
+			Press R to restart from the beginning. A textual outline of each step is provided alongside the diagram.
+		</p>
+
+		<!-- Live region: announces each new step to screen readers -->
+		<div id="step-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+
+		<svg id="links-svg" aria-hidden="true" focusable="false">
+			<defs>
+				<marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
+					<path d="M0,0 L0,10 L10,5 Z" />
+				</marker>
+			</defs>
+		</svg>
+	</main>
+
+	<!-- =========================================================== -->
+	<!-- Text outline panel (same information as the diagram)         -->
+	<!-- =========================================================== -->
+	<aside id="step-outline" aria-label="Text outline of the current step">
+		<h2 id="outline-title">Step outline</h2>
+		<div id="outline-body"></div>
+	</aside>
+
+	<!-- =========================================================== -->
+	<!-- Controls                                                     -->
+	<!-- =========================================================== -->
+	<div id="controls" role="group" aria-label="Diagram navigation">
+		<button id="prev-btn" type="button" class="button button-sm"
+				aria-label="Previous step (left arrow)">◀ Prev</button>
+		<div class="step-counter" id="step-counter" aria-live="off">0 / 0</div>
+		<button id="next-btn" type="button" class="button button-primary button-filled button-sm"
+				aria-label="Next step (right arrow or space)">Next ▶</button>
+		<button id="reset-btn" type="button" class="button button-clear button-sm"
+				aria-label="Restart from step 1 (R)">↻ Restart</button>
+	</div>
+
+<script>
+	// ════════════════════════════════════════════════════════════════
+	// THEME TOGGLE
+	// ════════════════════════════════════════════════════════════════
+	(function () {
+		var body = document.body;
+		var btn = document.getElementById('theme-toggle');
+		var KEY = 'aw-theme';
+		var saved = localStorage.getItem(KEY);
+		if (saved) {
+			body.classList.remove('theme-dark', 'theme-light');
+			body.classList.add(saved);
+		}
+		btn.addEventListener('click', function () {
+			var next = body.classList.contains('theme-dark') ? 'theme-light' : 'theme-dark';
+			body.classList.remove('theme-dark', 'theme-light');
+			body.classList.add(next);
+			localStorage.setItem(KEY, next);
+			// Re-render so colors of links/arrows pick up new theme
+			renderStep(current);
+		});
+	})();
+
+	// ════════════════════════════════════════════════════════════════
+	// SVG ICONS — simple, theme-aware (use currentColor where it helps)
+	// ════════════════════════════════════════════════════════════════
+	const ICONS = {
+		cloud: `<svg viewBox="0 0 200 160" fill="none">
+			<path d="M40,110 C10,110 10,70 40,70 C40,40 100,30 110,65 C130,40 175,55 175,90 C200,90 200,130 175,130 L40,130 Z"
+				fill="var(--theme-primary)" stroke="var(--theme-primary)" stroke-width="3" stroke-linejoin="round" opacity="0.85"/>
+		</svg>`,
+
+		standard: `<svg viewBox="0 0 100 100">
+			<rect x="20" y="32" width="60" height="46" rx="4" fill="var(--theme-info)" opacity="0.85"/>
+			<text x="50" y="60" text-anchor="middle" font-family="system-ui" font-size="16" font-weight="700" fill="#fff">HDD</text>
+		</svg>`,
+
+		premium: `<svg viewBox="0 0 100 100">
+			<rect x="20" y="32" width="60" height="46" rx="4" fill="var(--theme-tertiary)" opacity="0.9"/>
+			<text x="50" y="60" text-anchor="middle" font-family="system-ui" font-size="16" font-weight="700" fill="#fff">SSD</text>
+		</svg>`,
+
+		container: `<svg viewBox="0 0 100 100">
+			<rect x="20" y="28" width="60" height="58" rx="3" fill="var(--theme-success)" opacity="0.85"/>
+			<rect x="20" y="28" width="60" height="14" fill="var(--theme-success)"/>
+			<rect x="32" y="50" width="36" height="2" fill="#fff" opacity="0.7"/>
+			<rect x="32" y="58" width="36" height="2" fill="#fff" opacity="0.7"/>
+			<rect x="32" y="66" width="22" height="2" fill="#fff" opacity="0.7"/>
+		</svg>`,
+
+		files: `<svg viewBox="0 0 100 100">
+			<path d="M15,38 L40,38 L48,30 L85,30 L85,80 L15,80 Z" fill="var(--theme-success)" opacity="0.85"/>
+			<line x1="15" y1="48" x2="85" y2="48" stroke="#fff" stroke-width="2" opacity="0.6"/>
+		</svg>`,
+
+		queue: `<svg viewBox="0 0 100 100">
+			<rect x="55" y="32" width="35" height="22" rx="2" fill="var(--theme-warning)" opacity="0.85"/>
+			<rect x="40" y="42" width="35" height="22" rx="2" fill="var(--theme-warning)" opacity="0.9"/>
+			<rect x="25" y="52" width="35" height="22" rx="2" fill="var(--theme-warning)"/>
+		</svg>`,
+
+		table: `<svg viewBox="0 0 100 100">
+			<rect x="15" y="30" width="70" height="50" rx="3" fill="var(--theme-tertiary)" opacity="0.85"/>
+			<line x1="15" y1="44" x2="85" y2="44" stroke="#fff" stroke-width="2" opacity="0.6"/>
+			<line x1="15" y1="58" x2="85" y2="58" stroke="#fff" stroke-width="1.5" opacity="0.5"/>
+			<line x1="38" y1="30" x2="38" y2="80" stroke="#fff" stroke-width="1.5" opacity="0.5"/>
+			<line x1="62" y1="30" x2="62" y2="80" stroke="#fff" stroke-width="1.5" opacity="0.5"/>
+		</svg>`,
+
+		blob: `<svg viewBox="0 0 100 100">
+			<rect x="22" y="55" width="56" height="20" fill="var(--theme-danger)" opacity="0.9"/>
+			<rect x="28" y="38" width="44" height="18" fill="var(--theme-warning)" opacity="0.9"/>
+			<rect x="34" y="22" width="32" height="16" fill="var(--theme-success)" opacity="0.9"/>
+		</svg>`,
+
+		pageblob: `<svg viewBox="0 0 100 100">
+			<circle cx="50" cy="50" r="30" fill="var(--theme-tertiary)" opacity="0.85"/>
+			<circle cx="50" cy="50" r="10" fill="var(--theme-body-background)"/>
+			<circle cx="50" cy="50" r="3" fill="var(--theme-tertiary)"/>
+		</svg>`,
+
+		appendblob: `<svg viewBox="0 0 100 100">
+			<rect x="25" y="20" width="50" height="65" rx="2" fill="var(--theme-body-background-alt, rgba(255,255,255,0.05))" stroke="var(--theme-text-subtle)" stroke-width="1.5"/>
+			<line x1="30" y1="32" x2="70" y2="32" stroke="var(--theme-text-subtle)" stroke-width="1.5"/>
+			<line x1="30" y1="42" x2="70" y2="42" stroke="var(--theme-text-subtle)" stroke-width="1.5"/>
+			<line x1="30" y1="52" x2="70" y2="52" stroke="var(--theme-text-subtle)" stroke-width="1.5"/>
+			<line x1="30" y1="62" x2="55" y2="62" stroke="var(--theme-success)" stroke-width="2"/>
+			<text x="65" y="76" font-family="system-ui" font-size="14" font-weight="700" fill="var(--theme-success)">+</text>
+		</svg>`,
+
+		hot: `<svg viewBox="0 0 100 100">
+			<path d="M50,15 Q35,40 40,55 Q30,50 30,65 Q30,85 50,90 Q70,85 70,65 Q70,50 60,55 Q65,40 50,15 Z"
+				fill="var(--theme-danger)" opacity="0.9"/>
+			<path d="M50,40 Q42,55 45,68 Q50,75 55,68 Q58,55 50,40 Z" fill="var(--theme-warning)"/>
+		</svg>`,
+
+		cool: `<svg viewBox="0 0 100 100">
+			<g stroke="var(--theme-info)" stroke-width="3" stroke-linecap="round" fill="none">
+				<line x1="50" y1="18" x2="50" y2="82"/>
+				<line x1="20" y1="50" x2="80" y2="50"/>
+				<line x1="28" y1="28" x2="72" y2="72"/>
+				<line x1="72" y1="28" x2="28" y2="72"/>
+			</g>
+			<circle cx="50" cy="50" r="5" fill="var(--theme-info)"/>
+		</svg>`,
+
+		cold: `<svg viewBox="0 0 100 100">
+			<path d="M20,75 L40,40 L55,55 L70,30 L85,75 Z" fill="var(--theme-info)" opacity="0.65"/>
+			<path d="M20,75 L85,75 L80,90 L25,90 Z" fill="var(--theme-info)" opacity="0.9"/>
+		</svg>`,
+
+		archive: `<svg viewBox="0 0 100 100">
+			<rect x="20" y="30" width="60" height="55" rx="3" fill="var(--theme-text-subtle)" opacity="0.7"/>
+			<circle cx="50" cy="57" r="9" fill="var(--theme-body-background)"/>
+			<rect x="48" y="55" width="4" height="12" fill="var(--theme-text-subtle)"/>
+		</svg>`,
+
+		lrs: `<svg viewBox="0 0 100 100">
+			<rect x="20" y="32" width="60" height="40" rx="3" fill="var(--theme-info)" opacity="0.85"/>
+			<text x="50" y="58" text-anchor="middle" font-family="system-ui" font-size="14" font-weight="700" fill="#fff">×3</text>
+		</svg>`,
+
+		zrs: `<svg viewBox="0 0 100 100">
+			<circle cx="28" cy="55" r="10" fill="var(--theme-success)" opacity="0.9"/>
+			<circle cx="50" cy="35" r="10" fill="var(--theme-success)" opacity="0.9"/>
+			<circle cx="72" cy="55" r="10" fill="var(--theme-success)" opacity="0.9"/>
+		</svg>`,
+
+		grs: `<svg viewBox="0 0 100 100">
+			<rect x="8" y="38" width="34" height="28" rx="3" fill="var(--theme-warning)" opacity="0.9"/>
+			<rect x="58" y="38" width="34" height="28" rx="3" fill="var(--theme-danger)" opacity="0.9"/>
+			<path d="M44,52 L57,52" stroke="currentColor" stroke-width="2.5"/>
+			<path d="M52,48 L58,52 L52,56 Z" fill="currentColor"/>
+		</svg>`,
+
+		ragrs: `<svg viewBox="0 0 100 100">
+			<rect x="8" y="38" width="34" height="28" rx="3" fill="var(--theme-warning)" opacity="0.9"/>
+			<rect x="58" y="38" width="34" height="28" rx="3" fill="var(--theme-tertiary)" opacity="0.9"/>
+			<text x="75" y="80" text-anchor="middle" font-family="system-ui" font-size="9" font-weight="700" fill="currentColor">READ</text>
+		</svg>`,
+	};
+
+	// ════════════════════════════════════════════════════════════════
+	// NODES
+	// ════════════════════════════════════════════════════════════════
+	const NODES = {
+		root:   { label: 'Storage Account',  sub: 'The cloud safe',     icon: 'cloud',      cls: 'root',   bigIcon: true },
+
+		std:    { label: 'Standard',         sub: 'HDD · cost-optimized', icon: 'standard', cls: 'tier-s' },
+		prm:    { label: 'Premium',          sub: 'SSD · low-latency',    icon: 'premium',  cls: 'tier-p' },
+
+		cont:   { label: 'Container',        sub: 'Holds blobs',          icon: 'container', cls: 'svc' },
+		fil:    { label: 'Files',            sub: 'SMB share',            icon: 'files',     cls: 'svc' },
+		que:    { label: 'Queue',            sub: 'Messages',             icon: 'queue',     cls: 'svc' },
+		tbl:    { label: 'Table',            sub: 'NoSQL rows',           icon: 'table',     cls: 'svc' },
+
+		pblob:  { label: 'Blob',             sub: 'Block · fast',         icon: 'blob',      cls: 'svc' },
+		ppage:  { label: 'Page Blob',        sub: 'VM disks',             icon: 'pageblob',  cls: 'svc' },
+		pfile:  { label: 'Files',            sub: 'SMB · SSD',            icon: 'files',     cls: 'svc' },
+
+		bblk:   { label: 'Block Blob',       sub: 'Files · media',        icon: 'blob',       cls: 'blob' },
+		bapp:   { label: 'Append Blob',      sub: 'Logs · audits',        icon: 'appendblob', cls: 'blob' },
+		bpag:   { label: 'Page Blob',        sub: '512-byte pages',       icon: 'pageblob',   cls: 'blob' },
+
+		aHot:   { label: 'Hot',              sub: 'Daily use',            icon: 'hot',     cls: 'access' },
+		aCool:  { label: 'Cool',             sub: '30+ days',             icon: 'cool',    cls: 'access' },
+		aCold:  { label: 'Cold',             sub: '90+ days',             icon: 'cold',    cls: 'access' },
+		aArc:   { label: 'Archive',          sub: '180+ days',            icon: 'archive', cls: 'access' },
+
+		rLrs:   { label: 'LRS',              sub: '3 copies · 1 DC',      icon: 'lrs',   cls: 'repl' },
+		rZrs:   { label: 'ZRS',              sub: '3 zones',              icon: 'zrs',   cls: 'repl' },
+		rGrs:   { label: 'GRS',              sub: '2 regions',            icon: 'grs',   cls: 'repl' },
+		rRa:    { label: 'RA-GRS',           sub: 'GRS + read replica',   icon: 'ragrs', cls: 'repl' },
+	};
+
+	// ════════════════════════════════════════════════════════════════
+	// STEPS
+	// ════════════════════════════════════════════════════════════════
+	const STEPS = [
+		{
+			title: 'Layer 1 · The Root',
+			caption: 'Meet the Storage Account',
+			description: 'A single Azure Storage Account is the top-level container for all storage services. Everything else in this diagram lives inside one storage account.',
+			bubble: { text: "I'm your cloud safe — every storage feature begins here.", x: 60, y: 18 },
+			pow: { text: 'Start', x: 18, y: 22 },
+			nodes: ['root'],
+			links: [],
+			positions: { root: { x: 50, y: 50 } }
+		},
+		{
+			title: 'Layer 2 · Two Tiers',
+			caption: 'Pick your performance tier',
+			description: 'A storage account is provisioned in one of two performance tiers: Standard, which is HDD-backed and cost-optimized, or Premium, which is SSD-backed and low-latency.',
+			bubble: { text: 'A storage account comes in two flavors: Standard (HDD) and Premium (SSD).', x: 60, y: 14 },
+			pow: { text: 'Choose', x: 80, y: 28 },
+			nodes: ['root', 'std', 'prm'],
+			links: [['root','std'], ['root','prm']],
+			positions: {
+				root: { x: 50, y: 22 },
+				std:  { x: 30, y: 60 },
+				prm:  { x: 70, y: 60 }
+			}
+		},
+		{
+			title: 'Layer 3 · Standard Services',
+			caption: 'Standard offers four services',
+			description: 'A Standard tier storage account exposes four services: Container (which holds blobs), Files (SMB shares), Queue (messages), and Table (NoSQL rows). All run on HDD.',
+			bubble: { text: 'Standard exposes Container (blobs), Files, Queue and Table — all on HDD.', x: 70, y: 12 },
+			nodes: ['root','std','prm','cont','fil','que','tbl'],
+			links: [['root','std'], ['root','prm'], ['std','cont'], ['std','fil'], ['std','que'], ['std','tbl']],
+			positions: {
+				root: { x: 50, y: 14 },
+				std:  { x: 30, y: 38 },
+				prm:  { x: 78, y: 38 },
+				cont: { x: 10, y: 70 },
+				fil:  { x: 25, y: 70 },
+				que:  { x: 40, y: 70 },
+				tbl:  { x: 55, y: 70 }
+			}
+		},
+		{
+			title: 'Layer 3 · Premium Services',
+			caption: 'Premium offers three services',
+			description: 'A Premium tier storage account exposes three SSD-backed services: Blob (block blobs, optimized for speed), Page Blob (used by VM disks), and Files (SMB shares on SSD).',
+			bubble: { text: 'Premium runs on SSD: Blob (block), Page Blob (VM disks), and Files.', x: 18, y: 12 },
+			nodes: ['root','std','prm','cont','fil','que','tbl','pblob','ppage','pfile'],
+			links: [
+				['root','std'], ['root','prm'],
+				['std','cont'], ['std','fil'], ['std','que'], ['std','tbl'],
+				['prm','pblob'], ['prm','ppage'], ['prm','pfile']
+			],
+			positions: {
+				root:  { x: 50, y: 12 },
+				std:   { x: 22, y: 36 },
+				prm:   { x: 78, y: 36 },
+				cont:  { x:  6, y: 68 },
+				fil:   { x: 18, y: 68 },
+				que:   { x: 30, y: 68 },
+				tbl:   { x: 42, y: 68 },
+				pblob: { x: 62, y: 68 },
+				ppage: { x: 78, y: 68 },
+				pfile: { x: 94, y: 68 }
+			}
+		},
+		{
+			title: 'Layer 4 · Inside a Container',
+			caption: 'Container → three blob types',
+			description: 'A Container holds three blob types. Block Blob is for files and media; Append Blob is optimized for logs and audits; Page Blob exposes 512-byte pages and is used for VM disks.',
+			bubble: { text: 'A Container holds three blob types: Block, Append, and Page.', x: 70, y: 14 },
+			pow: { text: 'Deep dive', x: 12, y: 30 },
+			nodes: ['root','std','cont','bblk','bapp','bpag'],
+			links: [['root','std'], ['std','cont'], ['cont','bblk'], ['cont','bapp'], ['cont','bpag']],
+			positions: {
+				root: { x: 50, y: 10 },
+				std:  { x: 50, y: 28 },
+				cont: { x: 50, y: 48 },
+				bblk: { x: 22, y: 75 },
+				bapp: { x: 50, y: 75 },
+				bpag: { x: 78, y: 75 }
+			}
+		},
+		{
+			title: 'Layer 5 · Access Tiers',
+			caption: 'Each Block Blob has an access tier',
+			description: 'Each Block Blob has one of four access tiers: Hot for active data; Cool for data accessed at least every 30 days; Cold for at least every 90 days; Archive for long-term storage of 180 or more days. Colder tiers are cheaper to store but more expensive to read.',
+			bubble: { text: 'Hot for active data; Cool 30+ days; Cold 90+; Archive 180+ — colder = cheaper.', x: 12, y: 14 },
+			pow: { text: 'Lifecycle', x: 86, y: 32 },
+			nodes: ['root','std','cont','bblk','aHot','aCool','aCold','aArc'],
+			links: [
+				['root','std'], ['std','cont'], ['cont','bblk'],
+				['bblk','aHot'], ['bblk','aCool'], ['bblk','aCold'], ['bblk','aArc']
+			],
+			positions: {
+				root: { x: 50, y: 8 },
+				std:  { x: 50, y: 22 },
+				cont: { x: 50, y: 38 },
+				bblk: { x: 50, y: 54 },
+				aHot:  { x: 14, y: 80 },
+				aCool: { x: 38, y: 80 },
+				aCold: { x: 62, y: 80 },
+				aArc:  { x: 86, y: 80 }
+			}
+		},
+		{
+			title: 'The Full Picture',
+			caption: 'Storage Account → Tier → Service → Blob → Access · all replicated',
+			description: 'Putting it all together: a Storage Account chooses a Tier (Standard or Premium), exposes Services (Container, Files, Queue, Table or Blob, Page Blob, Files), each Container holds Blobs of different types, each Block Blob has an Access Tier, and the whole account is replicated for durability.',
+			bubble: { text: 'You now have the full picture of an Azure Storage Account.', x: 50, y: 8 },
+			pow:  { text: 'Recap', x: 8, y: 22 },
+			pow2: { text: 'Done',  x: 88, y: 22 },
+			nodes: ['root','std','prm','cont','fil','que','tbl','pblob','ppage','pfile'],
+			links: [
+				['root','std'], ['root','prm'],
+				['std','cont'], ['std','fil'], ['std','que'], ['std','tbl'],
+				['prm','pblob'], ['prm','ppage'], ['prm','pfile']
+			],
+			positions: {
+				root:  { x: 50, y: 22 },
+				std:   { x: 24, y: 46 },
+				prm:   { x: 76, y: 46 },
+				cont:  { x:  7, y: 75 },
+				fil:   { x: 20, y: 75 },
+				que:   { x: 33, y: 75 },
+				tbl:   { x: 46, y: 75 },
+				pblob: { x: 60, y: 75 },
+				ppage: { x: 76, y: 75 },
+				pfile: { x: 93, y: 75 }
+			}
+		}
+	];
+
+	// ════════════════════════════════════════════════════════════════
+	// RENDER
+	// ════════════════════════════════════════════════════════════════
+	const stage      = document.getElementById('stage');
+	const svg        = document.getElementById('links-svg');
+	const counter    = document.getElementById('step-counter');
+	const breadcrumb = document.getElementById('breadcrumb');
+	const progress   = document.getElementById('progress-fill');
+	const announcer  = document.getElementById('step-announcer');
+	const outlineBody = document.getElementById('outline-body');
+	const outlinePanel = document.getElementById('step-outline');
+	const motionBtn  = document.getElementById('motion-toggle');
+	const outlineBtn = document.getElementById('outline-toggle');
+
+	let current = -1;
+	let animating = false;
+	let liveEls = [];
+
+	// Motion preference: respects prefers-reduced-motion AND a manual user pause toggle
+	const motionMQ = window.matchMedia('(prefers-reduced-motion: reduce)');
+	let motionPaused = motionMQ.matches;
+	function updateMotionButton() {
+		motionBtn.setAttribute('aria-pressed', String(motionPaused));
+		motionBtn.setAttribute('aria-label', motionPaused ? 'Play animations' : 'Pause animations');
+		motionBtn.textContent = motionPaused ? '▶ Play' : '⏸ Pause';
+	}
+	updateMotionButton();
+	motionBtn.addEventListener('click', () => {
+		motionPaused = !motionPaused;
+		updateMotionButton();
+		renderStep(current);
+	});
+	motionMQ.addEventListener('change', e => {
+		motionPaused = e.matches;
+		updateMotionButton();
+		renderStep(current);
+	});
+
+	// Outline panel toggle
+	outlineBtn.addEventListener('click', () => {
+		const hidden = outlinePanel.hasAttribute('hidden');
+		if (hidden) {
+			outlinePanel.removeAttribute('hidden');
+			outlineBtn.setAttribute('aria-expanded', 'true');
+			outlineBtn.setAttribute('aria-label', 'Hide text outline');
+		} else {
+			outlinePanel.setAttribute('hidden', '');
+			outlineBtn.setAttribute('aria-expanded', 'false');
+			outlineBtn.setAttribute('aria-label', 'Show text outline');
+		}
+	});
+
+	function renderOutline(step, stepIndex) {
+		const nodeListItems = step.nodes.map(id => {
+			const n = NODES[id];
+			return `<li><strong>${n.label}</strong>${n.sub ? ` — ${n.sub}` : ''}</li>`;
+		}).join('');
+
+		const linkListItems = step.links.length
+			? step.links.map(([from, to]) => `<li>${NODES[from].label} → ${NODES[to].label}</li>`).join('')
+			: '<li><em>No connections at this step.</em></li>';
+
+		outlineBody.innerHTML = `
+			<div class="outline-section">
+				<strong>Step ${stepIndex + 1} of ${STEPS.length}: ${step.title}</strong>
+				<p style="margin-top:0.4rem;">${step.description || step.caption}</p>
+			</div>
+			<div class="outline-section">
+				<strong>Components shown</strong>
+				<ul>${nodeListItems}</ul>
+			</div>
+			<div class="outline-section">
+				<strong>Relationships</strong>
+				<ul>${linkListItems}</ul>
+			</div>
+		`;
+	}
+
+	function announceStep(step, stepIndex) {
+		announcer.textContent =
+			`Step ${stepIndex + 1} of ${STEPS.length}: ${step.title}. ${step.description || step.caption}`;
+	}
+
+	function readThemeColors() {
+		const cs = getComputedStyle(document.body);
+		return {
+			line:    cs.getPropertyValue('--theme-primary').trim() || '#0078d4',
+			arrow:   cs.getPropertyValue('--theme-primary').trim() || '#0078d4',
+			ink:     cs.getPropertyValue('--theme-border').trim()  || '#444'
+		};
+	}
+
+	function clearStage() {
+		liveEls.forEach(el => el.remove());
+		liveEls = [];
+		Array.from(svg.children).forEach(child => {
+			if (child.tagName.toLowerCase() !== 'defs') child.remove();
+		});
+	}
+
+	function pct(v, dim) {
+		return dim === 'x' ? (v / 100) * stage.clientWidth : (v / 100) * stage.clientHeight;
+	}
+
+	function makeNode(id, pos) {
+		const n = NODES[id];
+		const el = document.createElement('div');
+		el.className = `node ${n.cls || ''}`;
+		el.dataset.id = id;
+		const accessibleName = n.sub ? `${n.label} — ${n.sub}` : n.label;
+		el.setAttribute('role', 'group');
+		el.setAttribute('aria-label', accessibleName);
+		el.innerHTML = `
+			<div class="icon-wrap${n.bigIcon ? ' lg' : ''}" role="img" aria-hidden="true">${ICONS[n.icon] || ''}</div>
+			<div class="label">${n.label}</div>
+			${n.sub ? `<div class="sub">${n.sub}</div>` : ''}
+		`;
+		stage.appendChild(el);
+		const x = pct(pos.x, 'x');
+		const y = pct(pos.y, 'y');
+		requestAnimationFrame(() => {
+			const w = el.offsetWidth, h = el.offsetHeight;
+			el.style.left = (x - w / 2) + 'px';
+			el.style.top  = (y - h / 2) + 'px';
+		});
+		return el;
+	}
+
+	function nodeCenter(el) {
+		const r = el.getBoundingClientRect();
+		const sr = stage.getBoundingClientRect();
+		return {
+			x: r.left - sr.left + r.width / 2,
+			y: r.top  - sr.top  + r.height / 2,
+			w: r.width,
+			h: r.height
+		};
+	}
+
+	function makeLink(fromEl, toEl) {
+		const colors = readThemeColors();
+		const a = nodeCenter(fromEl);
+		const b = nodeCenter(toEl);
+		const x1 = a.x;
+		const y1 = a.y + a.h / 2 - 4;
+		const x2 = b.x;
+		const y2 = b.y - b.h / 2 + 4;
+		const dy = y2 - y1;
+		const c1x = x1, c1y = y1 + dy * 0.45;
+		const c2x = x2, c2y = y2 - dy * 0.45;
+		const d = `M ${x1} ${y1} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${x2} ${y2}`;
+
+		// Update arrow marker color to match theme primary
+		const marker = document.querySelector('#arrow path');
+		if (marker) marker.setAttribute('fill', colors.arrow);
+
+		// Soft halo
+		const halo = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		halo.setAttribute('d', d);
+		halo.setAttribute('fill', 'none');
+		halo.setAttribute('stroke', colors.line);
+		halo.setAttribute('stroke-width', '6');
+		halo.setAttribute('stroke-linecap', 'round');
+		halo.setAttribute('opacity', '0.18');
+		svg.appendChild(halo);
+
+		// Main line
+		const line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		line.setAttribute('d', d);
+		line.setAttribute('fill', 'none');
+		line.setAttribute('stroke', colors.line);
+		line.setAttribute('stroke-width', '2');
+		line.setAttribute('stroke-linecap', 'round');
+		line.setAttribute('marker-end', 'url(#arrow)');
+		svg.appendChild(line);
+
+		return { ink: halo, line };
+	}
+
+	function renderStep(stepIndex) {
+		if (animating) return;
+		if (stepIndex < 0 || stepIndex >= STEPS.length) return;
+		animating = true;
+
+		clearStage();
+		const step = STEPS[stepIndex];
+
+		// Caption
+		const cap = document.createElement('div');
+		cap.className = 'layer-caption';
+		cap.textContent = step.title;
+		stage.appendChild(cap);
+		liveEls.push(cap);
+
+		// Nodes
+		const nodeEls = {};
+		step.nodes.forEach(id => {
+			const pos = (step.positions && step.positions[id]) || NODES[id];
+			const el = makeNode(id, pos);
+			nodeEls[id] = el;
+			liveEls.push(el);
+		});
+
+		// Speech bubble
+		let bubbleEl = null;
+		if (step.bubble) {
+			bubbleEl = document.createElement('div');
+			bubbleEl.className = 'speech';
+			bubbleEl.textContent = step.bubble.text;
+			bubbleEl.style.left = step.bubble.x + '%';
+			bubbleEl.style.top  = step.bubble.y + '%';
+			bubbleEl.style.transform = 'translate(-50%, -50%)';
+			stage.appendChild(bubbleEl);
+			liveEls.push(bubbleEl);
+		}
+
+		// Highlight pills
+		const powEls = [];
+		['pow','pow2'].forEach((key, idx) => {
+			if (step[key]) {
+				const p = document.createElement('div');
+				p.className = 'pow' + (idx === 1 ? ' alt' : '');
+				p.textContent = step[key].text;
+				p.style.left = step[key].x + '%';
+				p.style.top  = step[key].y + '%';
+				stage.appendChild(p);
+				powEls.push(p);
+				liveEls.push(p);
+			}
+		});
+
+		requestAnimationFrame(() => {
+			requestAnimationFrame(() => {
+				const linkEls = step.links.map(([from, to]) => makeLink(nodeEls[from], nodeEls[to]));
+
+				// Reduced-motion / paused: skip the timeline, set everything to its final state.
+				if (motionPaused) {
+					gsap.set(cap, { y: 0, opacity: 1 });
+					gsap.set(Object.values(nodeEls), { opacity: 1, scale: 1, y: 0 });
+					linkEls.forEach(lk => {
+						gsap.set([lk.ink, lk.line], { strokeDasharray: 'none', strokeDashoffset: 0, opacity: 1 });
+					});
+					if (bubbleEl) gsap.set(bubbleEl, { opacity: 1, y: 0 });
+					powEls.forEach(p => gsap.set(p, { opacity: 1, scale: 1 }));
+					animating = false;
+					return;
+				}
+
+				gsap.fromTo(cap,
+					{ y: -12, opacity: 0 },
+					{ y: 0, opacity: 1, duration: 0.5, ease: 'power3.out' }
+				);
+
+				const rootIds  = step.nodes.filter(id => !step.links.some(([_, t]) => t === id));
+				const otherIds = step.nodes.filter(id => !rootIds.includes(id));
+				const rootNodes  = rootIds.map(id => nodeEls[id]);
+				const otherNodes = otherIds.map(id => nodeEls[id]);
+
+				const tl = gsap.timeline({ onComplete: () => animating = false });
+
+				tl.fromTo(rootNodes,
+					{ opacity: 0, scale: 0.85, y: -12 },
+					{ opacity: 1, scale: 1, y: 0, duration: 0.6, ease: 'power3.out', stagger: 0.12 },
+					0.15
+				);
+
+				linkEls.forEach((lk, i) => {
+					const len = lk.line.getTotalLength();
+					gsap.set([lk.ink, lk.line], { strokeDasharray: len, strokeDashoffset: len, opacity: 1 });
+					const marker = lk.line.getAttribute('marker-end');
+					lk.line.removeAttribute('marker-end');
+					tl.to([lk.ink, lk.line], {
+						strokeDashoffset: 0,
+						duration: 0.7,
+						ease: 'power2.inOut',
+						onComplete: () => lk.line.setAttribute('marker-end', marker)
+					}, i === 0 ? '+=0.1' : '+=0.05');
+
+					const childId = step.links[i][1];
+					const childEl = nodeEls[childId];
+					if (childEl && otherNodes.includes(childEl)) {
+						tl.fromTo(childEl,
+							{ opacity: 0, scale: 0.85, y: -8 },
+							{ opacity: 1, scale: 1, y: 0, duration: 0.55, ease: 'power3.out' },
+							'-=0.35'
+						);
+					}
+				});
+
+				if (bubbleEl) {
+					tl.fromTo(bubbleEl,
+						{ opacity: 0, y: -8 },
+						{ opacity: 1, y: 0, duration: 0.45, ease: 'power3.out' },
+						'+=0.05'
+					);
+				}
+				powEls.forEach(p => {
+					tl.fromTo(p,
+						{ opacity: 0, scale: 0.8 },
+						{ opacity: 1, scale: 1, duration: 0.45, ease: 'back.out(2)' },
+						'-=0.25'
+					);
+				});
+			});
+		});
+
+		current = stepIndex;
+		counter.textContent = `${current + 1} / ${STEPS.length}`;
+		breadcrumb.textContent = step.caption;
+		progress.style.width = ((current + 1) / STEPS.length * 100) + '%';
+		renderOutline(step, stepIndex);
+		announceStep(step, stepIndex);
+	}
+
+	// Controls
+	function next()  { if (current < STEPS.length - 1) renderStep(current + 1); }
+	function prev()  { if (current > 0) renderStep(current - 1); }
+	function reset() { renderStep(0); }
+
+	document.getElementById('next-btn').addEventListener('click', e => { e.stopPropagation(); next(); });
+	document.getElementById('prev-btn').addEventListener('click', e => { e.stopPropagation(); prev(); });
+	document.getElementById('reset-btn').addEventListener('click', e => { e.stopPropagation(); reset(); });
+
+	// Click anywhere on the stage to advance
+	stage.addEventListener('click', (e) => {
+		if (e.target.closest('button') || e.target.closest('a')) return;
+		next();
+	});
+
+	document.addEventListener('keydown', (e) => {
+		if (['Space','ArrowRight','Enter'].includes(e.code)) { e.preventDefault(); next(); }
+		else if (e.code === 'ArrowLeft') { e.preventDefault(); prev(); }
+		else if (e.code === 'KeyR') { e.preventDefault(); reset(); }
+	});
+
+	let resizeTimer;
+	window.addEventListener('resize', () => {
+		clearTimeout(resizeTimer);
+		resizeTimer = setTimeout(() => renderStep(current), 200);
+	});
+
+	counter.textContent = `1 / ${STEPS.length}`;
+	renderStep(0);
+</script>
+
+</body>
+</html>

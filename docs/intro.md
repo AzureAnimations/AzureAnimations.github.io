@@ -10,6 +10,13 @@ title: Welcome to Azure Animations
 </div>
 
 
+## Special Thanks ❤️
+
+* **🎨 Animations Artists:** [Saki Homma](https://www.linkedin.com/in/sakkuru/), [Kristen Chan](https://www.linkedin.com/in/kristen-chan/), [Masato Kikukawa](https://www.linkedin.com/in/kikukawa9/)
+* **🎞️ Broadcasters:** [Laura Núñez Sierra](https://www.linkedin.com/in/lauransi/), [Ilan Nyska](https://www.linkedin.com/in/ilan-nyska/), [Bob Reinsch](https://www.linkedin.com/in/thebobster/), [Vincent Kok](https://www.linkedin.com/in/vincekok/), [Neeraj Kumar](https://www.linkedin.com/in/neerajtrainer/)
+* **🙏 Lead:** [Nuttapong .](https://www.linkedin.com/in/nutwongaree/)
+* **🤝 Project Sponsor:** [Felia Wong](https://www.linkedin.com/in/feliawong/)
+
 ## About
 
 At Azure Animations, we believe that understanding complex cloud technologies doesn't have to be difficult or boring. That's why we've reimagined learning with a fresh approach—by turning intricate concepts into engaging, fun Animations. Our platform brings the worlds of Developers 💻, DevSecOps - Security 🔐, Cloud ☁️, and AI 🤖 to life, making it easier for everyone, from beginners to experts, to grasp essential ideas and stay up-to-date with the latest in technology.
@@ -61,11 +68,3 @@ Let's work together to make learning fun and engaging for everyone!
 
 - Do you have suggestions for Azure Animations? The survey form is open 👉 <a href="https://forms.office.com/Pages/ResponsePage.aspx?id=v4j5cvGGr0GRqy180BHbR22gxP7xw1pMhQWs0QtOtapUMUMxM0o0U0UxQTJSS1NNTFA1V0tSSEpNOS4u&r0e12d862a54244be96ab296dbf4d8e28=%22Yes%22&r81f5983bb4d94b128c06aefdbe136577=%22Clear%22&r83fefac136b4415eac8ee24cc0084f7a=%22Engaging%22&r5f9a63e973e44bcb804b808f3b895f60=5" target="_blank">here</a> ℹ️.
 - Microsoft Technical Trainer team (FTE) 🙏, please capture class feedback on our Azure Animations 👉 <a href="https://aka.ms/MooDengTestimonial" target="_blank">here</a>: Do learners like it? Want more?
-
-## Special Thanks ❤️
-
-* **🎨 Animations Artists:** [Saki Homma](https://www.linkedin.com/in/sakkuru/), [Kristen Chan](https://www.linkedin.com/in/kristen-chan/), [Masato Kikukawa](https://www.linkedin.com/in/kikukawa9/), [Maria Cederhierta](https://www.linkedin.com/in/cederhierta/)
-* **✍️ Sketch illustrator:** [Payal Guruprasad](https://www.linkedin.com/in/payalguruprasad/)
-* **🎞️ Broadcasters:** [Laura Núñez Sierra](https://www.linkedin.com/in/lauransi/), [Ilan Nyska](https://www.linkedin.com/in/ilan-nyska/), [Bob Reinsch](https://www.linkedin.com/in/thebobster/), [Vincent Kok](https://www.linkedin.com/in/vincekok/), [Neeraj Kumar](https://www.linkedin.com/in/neerajtrainer/)
-* **🙏 Lead:** [Nuttapong .](https://www.linkedin.com/in/nutwongaree/)
-* **🤝 Project Sponsor:** [Felia Wong](https://www.linkedin.com/in/feliawong/)
