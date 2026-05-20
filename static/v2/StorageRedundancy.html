@@ -13,7 +13,6 @@
 <script src="lib/js/aw-motion.js"></script>
 <script src="lib/js/aw-theme.js"></script>
 <script src="lib/js/aw-keyboard.js"></script>
-<script src="lib/js/aw-outline.js"></script>
 
 <style>
 	html, body { height:100%; margin:0; }
@@ -34,7 +33,7 @@
 
 	#stage {
 		position:relative; flex:1 1 auto; width:100%;
-		min-height:560px;          /* keep diagram drawable */
+		min-height:720px;          /* keep diagram drawable */
 		overflow:auto;             /* scroll within stage if it can't shrink further */
 	}
 	#stage:focus-visible, button:focus-visible, a:focus-visible {
@@ -97,6 +96,16 @@
 	.dc.zone-c    .dc-shape { border-color: var(--theme-info); }
 	.dc.zone-c    .dc-shape::before { background: var(--theme-info); }
 
+	/* Compact DC variant — used when 3 zones must share a narrower primary
+	   region alongside a secondary region (e.g. GZRS step). */
+	.dc.compact .dc-shape { width:200px; height:150px; }
+	.dc.compact .dc-shape::before { top:-18px; height:18px; }
+	.dc.compact .dc-label { font-size:0.9rem; padding:0.25rem 0.65rem; }
+
+	/* Tall DC variant — narrower + taller, used for secondary region when
+	   copies are stacked vertically (one row per async replication trail). */
+	.dc.tall .dc-shape { width:220px; height:280px; }
+
 	.dc-label {
 		margin-top:0.7rem;
 		font-size:1.05rem; font-weight:700; letter-spacing:0.15em; text-transform:uppercase;
@@ -136,21 +145,31 @@
 		position:absolute;
 		width:64px; height:64px;
 		border-radius:12px;
-		background:linear-gradient(135deg, var(--theme-primary), var(--theme-tertiary, #5c2d91));
-		box-shadow:0 4px 12px rgba(0,0,0,0.35);
+		/* White tile with a subtle border so the floppy emoji stands out
+		   clearly, matching the look of the primary-region source tile. */
+		background:#ffffff;
+		border:2px solid rgba(0,0,0,0.08);
+		box-shadow:0 4px 12px rgba(0,0,0,0.18);
 		z-index:15;
 		opacity:0;
 		display:flex; align-items:center; justify-content:center;
 		color:#fff; font-size:1.7rem; font-weight:700;
 	}
-	.copy.read-only { box-shadow: 0 0 0 3px var(--theme-success), 0 4px 12px rgba(0,0,0,0.35); }
+	.copy.read-only {
+		border-color:#0b6a0b;
+		box-shadow: 0 0 0 2px #0b6a0b, 0 4px 12px rgba(0,0,0,0.18);
+	}
 	.copy.read-only::after {
-		content:'👁';
-		position:absolute; top:-1rem; right:-1rem;
-		width:1.875rem; height:1.875rem; border-radius:50%;
-		background:var(--theme-success); color:#fff;
-		font-size:1rem;
+		content:'R';
+		position:absolute; top:-0.85rem; right:-0.85rem;
+		width:1.6rem; height:1.6rem; border-radius:50%;
+		/* Explicit deep green + white text for WCAG-AA contrast in any theme. */
+		background:#0b6a0b; color:#ffffff;
+		border:2px solid #ffffff;
+		font-family: ui-sans-serif, system-ui, sans-serif;
+		font-size:0.85rem; font-weight:800; line-height:1;
 		display:flex; align-items:center; justify-content:center;
+		box-shadow: 0 2px 6px rgba(0,0,0,0.3);
 	}
 	.read-pulse {
 		position:absolute;
@@ -159,32 +178,90 @@
 		opacity:0; z-index:14; pointer-events:none;
 	}
 
+	/* ── ASYNC FLOW PARTICLE (continuous replication indicator) ── */
+	.async-particle {
+		position:absolute;
+		width:16px; height:16px;
+		border-radius:50%;
+		background: var(--theme-tertiary, #5c2d91);
+		box-shadow: 0 0 8px rgba(92,45,145,0.6);
+		z-index:18;
+		pointer-events:none;
+	}
+
+	/* ── REPLICA NUMBER LABEL (floats next to copy as it flies) ── */
+	.replica-label {
+		position:absolute;
+		padding:0.3rem 0.7rem;
+		background: var(--theme-primary, #0078d4);
+		color:#ffffff;
+		border:2px solid #ffffff;
+		border-radius:999px;
+		font-size:0.85rem; font-weight:700;
+		letter-spacing:0.08em; text-transform:uppercase;
+		white-space:nowrap;
+		box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+		z-index:19;
+		opacity:0;
+		pointer-events:none;
+		transform:translate(-50%, -50%);
+	}
+
 	/* ── READ ENDPOINT BADGE ──────────────── */
 	.read-endpoint {
 		position:absolute;
-		display:flex; align-items:center; gap:0.45rem;
-		padding:0.5rem 0.95rem;
+		display:flex; flex-direction:column; align-items:flex-start;
+		gap:0.25rem;
+		padding:0.6rem 1rem;
 		/* Use an explicit deep green so the white text always has WCAG-AA
 		   contrast — Atlas's --theme-success can render too pale in light
 		   theme, washing out the label. */
 		background: #0b6a0b;
 		color:#ffffff;
 		border:1px solid #074a07;
-		border-radius:999px;
-		font-size:0.95rem; font-weight:700;
+		border-radius:8px;
+		font-size:1.05rem; font-weight:700;
 		box-shadow: 0 6px 18px rgba(0,0,0,0.3);
 		z-index:16;
 		opacity:0;
-		white-space:nowrap;
+		max-width:320px;
+		line-height:1.3;
 		transform:translateX(-50%);
 	}
 	.read-endpoint::before { content:''; display:none; }
 	.read-endpoint .endpoint-url {
 		font-family: ui-monospace, Menlo, Consolas, monospace;
-		font-size:0.85rem; font-weight:600;
+		font-size:0.9rem; font-weight:600;
 		color:#ffffff;
-		padding-left:0.55rem; margin-left:0.45rem;
-		border-left:1px solid rgba(255,255,255,0.6);
+		word-break:break-all;
+		opacity:0.95;
+	}
+
+	/* ── PRIMARY ENDPOINT BADGE (write + read) ── */
+	.primary-endpoint {
+		position:absolute;
+		display:flex; flex-direction:column; align-items:flex-start;
+		gap:0.25rem;
+		padding:0.6rem 1rem;
+		/* Azure blue for primary / read-write access */
+		background: #0078d4;
+		color:#ffffff;
+		border:1px solid #005a9e;
+		border-radius:8px;
+		font-size:1.05rem; font-weight:700;
+		box-shadow: 0 6px 18px rgba(0,0,0,0.3);
+		z-index:16;
+		opacity:0;
+		max-width:320px;
+		line-height:1.3;
+		transform:translateX(-50%);
+	}
+	.primary-endpoint .endpoint-url {
+		font-family: ui-monospace, Menlo, Consolas, monospace;
+		font-size:0.9rem; font-weight:600;
+		color:#ffffff;
+		word-break:break-all;
+		opacity:0.95;
 	}
 
 	/* ── MODE TITLE PILL ───────────────────── */
@@ -393,10 +470,29 @@
 		font-size:1rem; font-weight:600;
 		color:var(--theme-text);
 	}
-	.progress-track { position:relative; height:3px; background:var(--theme-border); flex-shrink:0; }
+
+	/* ── RA TOGGLE (only visible on GRS / GZRS steps) ── */
+	.ra-toggle {
+		display:inline-flex; align-items:center; gap:0.45rem;
+		padding:0.4rem 0.85rem;
+		border:1px solid var(--theme-border);
+		border-radius:999px;
+		font-size:0.95rem; font-weight:600;
+		color:var(--theme-text);
+		cursor:pointer; user-select:none;
+		transition:background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+	}
+	.ra-toggle:hover { border-color:#0b6a0b; }
+	.ra-toggle input { accent-color:#0b6a0b; cursor:pointer; margin:0; }
+	.ra-toggle:has(input:checked) {
+		background:#0b6a0b; color:#ffffff; border-color:#074a07;
+	}
+	.ra-toggle[hidden] { display:none; }
+	.progress-track { position:relative; height:5px; background:var(--theme-border, #e0e0e0); flex-shrink:0; }
 	.progress-fill {
 		position:absolute; left:0; top:0; bottom:0; width:0%;
-		background:var(--theme-primary); transition:width 0.5s cubic-bezier(0.2,0.8,0.2,1);
+		background: #0078d4;
+		transition:width 0.5s cubic-bezier(0.2,0.8,0.2,1);
 	}
 
 	/* ── A11Y ───────────────────────────────── */
@@ -439,6 +535,25 @@
 	.theme-toggle[data-theme="dark"]  .icon-sun  { display:block; }
 	/* Light theme active → show the moon (click to go dark) */
 	.theme-toggle[data-theme="light"] .icon-moon { display:block; }
+
+	/* ── TOGGLE BUTTONS (callout / outline) ── */
+	#callout-toggle,
+	#outline-toggle {
+		border:1px solid var(--theme-border);
+		border-radius:4px;
+		transition:background 0.2s ease, color 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+	}
+	#callout-toggle.toggle-active,
+	#outline-toggle.toggle-active {
+		background:var(--theme-primary-translucent, rgba(0,120,212,0.12));
+		color:var(--theme-primary, #0078d4);
+		border-color:var(--theme-primary, #0078d4);
+		font-weight:600;
+	}
+	#callout-toggle:not(.toggle-active),
+	#outline-toggle:not(.toggle-active) {
+		opacity:0.6;
+	}
 
 	/* ── OUTLINE PANEL ──────────────────────── */
 	#step-outline {
@@ -592,6 +707,182 @@
 	body.theme-dark .dc.zone-a    .dc-shape { border-color: var(--theme-success);            box-shadow: 0 0 0 1px var(--theme-success), 0 0 16px rgba(16,124,16,0.45),    var(--theme-box-shadow-medium, 0 6px 20px rgba(0,0,0,0.45)); }
 	body.theme-dark .dc.zone-b    .dc-shape { border-color: var(--theme-warning);            box-shadow: 0 0 0 1px var(--theme-warning), 0 0 16px rgba(255,185,0,0.45),    var(--theme-box-shadow-medium, 0 6px 20px rgba(0,0,0,0.45)); }
 	body.theme-dark .dc.zone-c    .dc-shape { border-color: var(--theme-info);               box-shadow: 0 0 0 1px var(--theme-info),    0 0 16px rgba(0,188,242,0.45),    var(--theme-box-shadow-medium, 0 6px 20px rgba(0,0,0,0.45)); }
+
+	/* ── SUMMARY MINI-ANIMATION GRID ────────── */
+	.summary-grid {
+		position:absolute; left:50%; top:52%;
+		transform:translate(-50%,-50%);
+		display:grid;
+		grid-template-columns: repeat(3, 1fr);
+		grid-template-rows: repeat(2, 1fr);
+		gap:1.1rem;
+		width:min(1150px, 94%);
+		height:min(680px, 88%);
+		z-index:10;
+	}
+	.summary-tile {
+		position:relative;
+		background:var(--theme-body-background);
+		border:1px solid var(--theme-border);
+		border-radius:12px;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.18));
+		overflow:hidden;
+		display:flex; flex-direction:column;
+		opacity:0;
+	}
+	.summary-tile .mini-label {
+		position:absolute; top:0.6rem; left:50%; transform:translateX(-50%);
+		font-size:1rem; font-weight:800; letter-spacing:0.15em; text-transform:uppercase;
+		padding:0.3rem 0.9rem;
+		border-radius:999px;
+		z-index:5; white-space:nowrap;
+	}
+	.summary-tile.tier-local .mini-label {
+		background:#0078d4; color:#fff;
+	}
+	.summary-tile.tier-zone .mini-label {
+		background:var(--theme-info, #00bcf2); color:#fff;
+	}
+	.summary-tile.tier-geo .mini-label {
+		background:var(--theme-tertiary, #5c2d91); color:#fff;
+	}
+	.summary-tile.tier-geo-read .mini-label {
+		background:#0b6a0b; color:#fff;
+	}
+	.summary-tile .mini-stage {
+		position:relative; flex:1; margin-top:2.4rem;
+		overflow:hidden;
+	}
+	/* Mini info bar at bottom of each summary tile */
+	.mini-info {
+		padding:0.45rem 0.65rem;
+		border-top:1px solid var(--theme-border);
+		font-size:0.75rem; line-height:1.4;
+		color:var(--theme-text-subtle);
+		display:flex; flex-direction:column; gap:0.15rem;
+		background:var(--theme-body-background);
+		z-index:5;
+	}
+	.mini-info .info-row {
+		display:flex; justify-content:space-between; gap:0.5rem;
+	}
+	.mini-info .info-row .k { opacity:0.7; }
+	.mini-info .info-row .v { font-weight:700; color:var(--theme-text); }
+	/* Mini data center boxes */
+	.mini-dc {
+		position:absolute;
+		border-radius:6px;
+		border:2px solid var(--theme-text);
+		background:var(--theme-body-background);
+	}
+	.mini-dc.m-primary   { border-color:var(--theme-primary); }
+	.mini-dc.m-secondary { border-color:var(--theme-tertiary, #5c2d91); }
+	.mini-dc.m-zone-a    { border-color:var(--theme-success); }
+	.mini-dc.m-zone-b    { border-color:var(--theme-warning); }
+	.mini-dc.m-zone-c    { border-color:var(--theme-info); }
+	/* Mini data copies */
+	.mini-copy {
+		position:absolute;
+		width:22px; height:22px;
+		border-radius:6px;
+		background:#ffffff;
+		border:2px solid rgba(0,0,0,0.12);
+		box-shadow:0 2px 8px rgba(0,0,0,0.2);
+		opacity:0;
+		z-index:3;
+		display:flex; align-items:center; justify-content:center;
+		font-size:0.65rem;
+	}
+	.mini-copy.m-read {
+		background:#ffffff;
+		border:2px solid #0b6a0b;
+		box-shadow:0 0 0 1px #0b6a0b, 0 2px 6px rgba(0,0,0,0.3);
+	}
+	.mini-copy.m-read::after {
+		content:'R';
+		position:absolute; top:-8px; right:-8px;
+		width:14px; height:14px; border-radius:50%;
+		background:#0b6a0b; color:#fff;
+		font-size:0.55rem; font-weight:800;
+		display:flex; align-items:center; justify-content:center;
+	}
+	/* Mini animated trail line (SVG in mini-stage) */
+	.mini-stage svg.mini-svg {
+		position:absolute; inset:0; width:100%; height:100%;
+		pointer-events:none; z-index:2; overflow:visible;
+	}
+	/* Mini async trail */
+	.mini-trail {
+		position:absolute;
+		border-top:2px dashed var(--theme-tertiary, #5c2d91);
+		opacity:0.5; z-index:1;
+	}
+	/* Mini source dot */
+	.mini-source {
+		position:absolute;
+		width:22px; height:22px;
+		border-radius:6px;
+		background:linear-gradient(135deg, var(--theme-primary), var(--theme-tertiary, #5c2d91));
+		box-shadow:0 3px 10px rgba(0,0,0,0.4);
+		display:flex; align-items:center; justify-content:center;
+		font-size:0.7rem;
+		z-index:4;
+	}
+	/* Mini region wrapper */
+	.mini-region {
+		position:absolute;
+		border:2.5px solid var(--theme-primary);
+		border-radius:10px;
+		opacity:1;
+		z-index:1;
+	}
+	.mini-region.m-secondary { border-color:var(--theme-tertiary, #5c2d91); }
+	/* Mini user icon for RA types */
+	.mini-user {
+		position:absolute;
+		font-size:0.85rem;
+		opacity:0; z-index:4;
+	}
+	/* Mini endpoint badge */
+	.mini-endpoint {
+		position:absolute;
+		font-size:0.55rem; font-weight:700;
+		padding:0.15rem 0.4rem;
+		border-radius:4px;
+		background:#0b6a0b; color:#fff;
+		opacity:0; z-index:4;
+		white-space:nowrap;
+	}
+
+	body.theme-dark .mini-dc {
+		border-color:#ffffff;
+		background:#1f2329;
+		box-shadow:0 0 8px rgba(255,255,255,0.15);
+	}
+	body.theme-dark .mini-dc.m-primary   { border-color:var(--theme-primary); box-shadow:0 0 8px rgba(0,120,212,0.4); }
+	body.theme-dark .mini-dc.m-secondary { border-color:var(--theme-tertiary, #b083d9); box-shadow:0 0 8px rgba(176,131,217,0.4); }
+	body.theme-dark .mini-dc.m-zone-a    { border-color:var(--theme-success); box-shadow:0 0 8px rgba(16,124,16,0.4); }
+	body.theme-dark .mini-dc.m-zone-b    { border-color:var(--theme-warning); box-shadow:0 0 8px rgba(255,185,0,0.4); }
+	body.theme-dark .mini-dc.m-zone-c    { border-color:var(--theme-info); box-shadow:0 0 8px rgba(0,188,242,0.4); }
+	body.theme-dark .summary-tile {
+		background:#1a1d23;
+		border-color:rgba(255,255,255,0.15);
+	}
+
+	@media (max-width:900px) {
+		.summary-grid {
+			grid-template-columns: repeat(2, 1fr);
+			grid-template-rows: repeat(3, 1fr);
+		}
+	}
+	@media (max-width:500px) {
+		.summary-grid {
+			grid-template-columns: 1fr;
+			grid-template-rows: repeat(6, 1fr);
+			height:auto;
+		}
+		.summary-tile { min-height:140px; }
+	}
 </style>
 </head>
 
@@ -601,13 +892,22 @@
 
 	<header class="app-header padding-block-xs padding-inline-md border-bottom" role="banner">
 		<a href="./index.html" class="display-flex align-items-center gap-xs color-text" aria-label="Back to home">
-			<span class="font-size-h6 font-weight-semibold">🛡 Storage Redundancy</span>
+			<span class="font-size-h6 font-weight-semibold" data-i18n="brand">🛡 Storage Redundancy</span>
 		</a>
 		<nav class="margin-inline-start-auto display-flex gap-xs align-items-center" aria-label="Primary">
 			<span id="breadcrumb" class="font-size-sm color-text-subtle">Step 1</span>
+			<select id="lang-select" class="lang-select" aria-label="Language" title="Language"
+					style="padding:0.25rem 0.5rem; border-radius:4px; border:1px solid var(--theme-border); background:var(--theme-body-background); color:var(--theme-text); font-size:0.85rem; font-weight:600;">
+				<option value="en">EN</option>
+				<option value="es">ES</option>
+				<option value="ja">JA</option>
+				<option value="ko">KO</option>
+			</select>
+			<button id="callout-toggle" type="button" class="button button-clear button-sm"
+					aria-label="Toggle callouts" data-i18n="calloutOn">💬 Callout</button>
 			<button id="outline-toggle" type="button" class="button button-clear button-sm"
 					aria-controls="step-outline" aria-expanded="true"
-					aria-label="Hide text outline">📝 Outline</button>
+					aria-label="Hide text outline" data-i18n="outlineOn">📝 Outline</button>
 			<button id="theme-toggle" type="button" class="theme-toggle"
 					aria-label="Switch to light theme" title="Switch to light theme">
 				<svg class="theme-icon icon-moon" viewBox="0 0 24 24" width="20" height="20"
@@ -644,7 +944,7 @@
 		<div id="step-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
 
 		<div class="source" aria-hidden="true">
-			<div class="source-tile" id="source-tile">📦</div>
+			<div class="source-tile" id="source-tile">💾</div>
 			<div class="source-label">Your data</div>
 		</div>
 
@@ -658,18 +958,18 @@
 	</main>
 
 	<aside id="step-outline" aria-label="Text outline of the current redundancy option">
-		<h2 id="outline-title">Redundancy summary</h2>
+		<h2 id="outline-title" data-i18n="outlineTitle">Redundancy summary</h2>
 		<div id="outline-body"></div>
 	</aside>
 
 	<div id="controls" role="group" aria-label="Diagram navigation">
 		<button id="prev-btn" type="button" class="button"
-				aria-label="Previous step (left arrow)">◀ Prev</button>
+				aria-label="Previous step (left arrow)" data-i18n="prev">◀ Prev</button>
 		<div class="step-counter" id="step-counter">0 / 0</div>
 		<button id="next-btn" type="button" class="button button-primary button-filled"
-				aria-label="Next step (right arrow or space)">Next ▶</button>
+				aria-label="Next step (right arrow or space)" data-i18n="next">Next ▶</button>
 		<button id="replay-btn" type="button" class="button"
-				aria-label="Replay this step's animation (P)">↻ Replay this step</button>
+				aria-label="Replay this step's animation (P)" data-i18n="replay">↻ Replay this step</button>
 
 		<div class="speed-control" role="group" aria-label="Animation speed">
 			<button id="speed-down" type="button" class="button button-clear speed-btn"
@@ -681,7 +981,7 @@
 		</div>
 
 		<button id="reset-btn" type="button" class="button button-clear"
-				aria-label="Restart from step 1 (R)">↻ Restart</button>
+				aria-label="Restart from step 1 (R)" data-i18n="restart">↻ Restart</button>
 	</div>
 
 <script>
@@ -757,9 +1057,9 @@
 			callout:{ text:'One copy lands in each Availability Zone.', x:50, y:92 },
 			region:{ cls:'primary', label:'Primary region', x:6, y:38, w:88, h:48 },
 			dcs:[
-				{ id:'za', cls:'zone-a', label:'Zone 1', x:22, y:60 },
-				{ id:'zb', cls:'zone-b', label:'Zone 2', x:50, y:60 },
-				{ id:'zc', cls:'zone-c', label:'Zone 3', x:78, y:60 }
+				{ id:'za', cls:'zone-a', label:'Zone 1', x:22, y:65, centerY:true },
+				{ id:'zb', cls:'zone-b', label:'Zone 2', x:50, y:65, centerY:true },
+				{ id:'zc', cls:'zone-c', label:'Zone 3', x:78, y:65, centerY:true }
 			],
 			copies:[
 				{ dc:'za', sub:'sync' },
@@ -774,11 +1074,19 @@
 		{
 			id:'grs',
 			title:'GRS · Geo-Redundant Storage', short:'GRS', caption:'LRS in 2 regions',
-			description:'GRS keeps 3 sync copies in the primary data center, then asynchronously replicates 3 more copies to the paired secondary region. The secondary is not readable by your app.',
-			callout:{ text:'Async replication carries copies across regions. Secondary copies exist for failover, but apps cannot read from them.' },
+			description:'GRS keeps 3 sync copies in the primary data center, then asynchronously replicates 3 more copies to the paired secondary region. By default the secondary is NOT readable by your app.',
+			callout:{ text:'Async replication carries copies across regions. Secondary exists for failover only — toggle Read Access (RA-GRS) below to expose a read-only secondary endpoint.' },
+			readAccessToggle:true,
+			titleRA:'RA-GRS · Read-Access GRS', shortRA:'RA-GRS', captionRA:'GRS + readable secondary',
+			descriptionRA:'Same data layout as GRS, plus a separate read-only endpoint on the secondary region. Your app can read from the secondary while writes still go only to the primary.',
+			calloutRA:{ text:'Read Access ON → <account>-secondary.blob.core.windows.net is exposed. Apps can READ from the secondary; writes still go only to the primary.' },
+			primaryEndpointDC:'dc1',
+			primaryEndpoint:'<account>.blob.core.windows.net',
+			secondaryEndpointDC:'dc2',
+			secondaryEndpoint:'<account>-secondary.blob.core.windows.net',
 			dcs:[
-				{ id:'dc1', cls:'primary',   label:'Primary region',   x:25, y:60 },
-				{ id:'dc2', cls:'secondary', label:'Secondary region', x:75, y:60 }
+				{ id:'dc1', cls:'primary',   label:'Primary region',   x:25, y:60, centerY:true },
+				{ id:'dc2', cls:'secondary', label:'Secondary region', x:75, y:60, centerY:true, tall:true, copyLayout:'vertical' }
 			],
 			copies:[
 				{ dc:'dc1', sub:'sync' }, { dc:'dc1', sub:'sync' }, { dc:'dc1', sub:'sync' },
@@ -789,26 +1097,8 @@
 			stats:[
 				['Copies','6 (3 + 3)'], ['Spread','2 regions'], ['Durability','16 nines'],
 				['Read access','Primary only'], ['Survives region outage','✅']
-			]
-		},
-		{
-			id:'ra-grs',
-			title:'RA-GRS · Read-Access GRS', short:'RA-GRS', caption:'GRS + readable secondary',
-			description:'Same data layout as GRS, plus a separate read-only endpoint on the secondary region. Your app can read from the secondary while writes still go only to the primary.',
-			callout:{ text:'Enabling Read Access in the Azure Portal exposes <account>-secondary.blob.core.windows.net — a separate endpoint usable for read operations only.' },
-			secondaryEndpointDC:'dc2',
-			secondaryEndpoint:'<account>-secondary.blob.core.windows.net',
-			dcs:[
-				{ id:'dc1', cls:'primary',   label:'Primary region',                 x:25, y:60 },
-				{ id:'dc2', cls:'secondary', label:'Secondary region · READ',         x:75, y:60 }
 			],
-			copies:[
-				{ dc:'dc1', sub:'sync' }, { dc:'dc1', sub:'sync' }, { dc:'dc1', sub:'sync' },
-				{ dc:'dc2', sub:'async · read', async:true, readOnly:true },
-				{ dc:'dc2', sub:'async · read', async:true, readOnly:true },
-				{ dc:'dc2', sub:'async · read', async:true, readOnly:true }
-			],
-			stats:[
+			statsRA:[
 				['Copies','6 (3 + 3)'], ['Read access','Primary + Secondary (read-only)'],
 				['Endpoint','<account>-secondary'],
 				['Survives region outage','✅'], ['Use cases','DR testing · read scale-out']
@@ -817,14 +1107,22 @@
 		{
 			id:'gzrs',
 			title:'GZRS · Geo-Zone-Redundant', short:'GZRS', caption:'ZRS + LRS in 2 regions',
-			description:'GZRS combines ZRS in the primary region (3 zones) with async replication to a paired secondary region. The secondary is not readable by your app.',
-			callout:{ text:'Zone-redundant primary, geo-redundant secondary. Secondary is for failover only — not directly readable.' },
-			region:{ cls:'primary', label:'Primary region', x:4, y:38, w:62, h:48 },
+			description:'GZRS combines ZRS in the primary region (3 zones) with async replication to a paired secondary region. By default the secondary is NOT readable by your app.',
+			callout:{ text:'Zone-redundant primary, geo-redundant secondary. Toggle Read Access (RA-GZRS) below to expose a read-only secondary endpoint.' },
+			readAccessToggle:true,
+			titleRA:'RA-GZRS · Read-Access GZRS', shortRA:'RA-GZRS', captionRA:'GZRS + readable secondary',
+			descriptionRA:'GZRS with a read-only secondary endpoint. Zone-redundant primary, readable geo-redundant secondary — the most resilient option Azure Storage offers.',
+			calloutRA:{ text:'Read Access ON → <account>-secondary.blob.core.windows.net is exposed. Apps can READ from the secondary; writes still go only to the primary.' },
+			primaryEndpointDC:'za',
+			primaryEndpoint:'<account>.blob.core.windows.net',
+			secondaryEndpointDC:'dc2',
+			secondaryEndpoint:'<account>-secondary.blob.core.windows.net',
+			region:{ cls:'primary', label:'Primary region', x:3, y:44, w:52, h:46 },
 			dcs:[
-				{ id:'za',  cls:'zone-a',    label:'Zone 1',          x:14, y:60 },
-				{ id:'zb',  cls:'zone-b',    label:'Zone 2',          x:35, y:60 },
-				{ id:'zc',  cls:'zone-c',    label:'Zone 3',          x:56, y:60 },
-				{ id:'dc2', cls:'secondary', label:'Secondary region', x:84, y:60 }
+				{ id:'za',  cls:'zone-a',    label:'Zone 1',           x:12, y:70, centerY:true, compact:true },
+				{ id:'zb',  cls:'zone-b',    label:'Zone 2',           x:29, y:70, centerY:true, compact:true },
+				{ id:'zc',  cls:'zone-c',    label:'Zone 3',           x:46, y:70, centerY:true, compact:true },
+				{ id:'dc2', cls:'secondary', label:'Secondary region', x:80, y:70, centerY:true, tall:true, copyLayout:'vertical' }
 			],
 			copies:[
 				{ dc:'za', sub:'sync' },
@@ -838,60 +1136,27 @@
 				['Copies','6 (3 zones + 3)'], ['Primary spread','3 zones'],
 				['Durability','16 nines'], ['Read access','Primary only'],
 				['Survives region outage','✅']
-			]
-		},
-		{
-			id:'ra-gzrs',
-			title:'RA-GZRS · Read-Access GZRS', short:'RA-GZRS', caption:'GZRS + readable secondary',
-			description:'GZRS with a read-only secondary endpoint. Zone-redundant primary, readable geo-redundant secondary — the most resilient option Azure Storage offers.',
-			callout:{ text:'Enabling Read Access in the Azure Portal exposes <account>-secondary.blob.core.windows.net — a separate endpoint usable for read operations only.' },
-			secondaryEndpointDC:'dc2',
-			secondaryEndpoint:'<account>-secondary.blob.core.windows.net',
-			region:{ cls:'primary', label:'Primary region', x:4, y:38, w:62, h:48 },
-			dcs:[
-				{ id:'za',  cls:'zone-a',    label:'Zone 1',                 x:14, y:60 },
-				{ id:'zb',  cls:'zone-b',    label:'Zone 2',                 x:35, y:60 },
-				{ id:'zc',  cls:'zone-c',    label:'Zone 3',                 x:56, y:60 },
-				{ id:'dc2', cls:'secondary', label:'Secondary region · READ', x:84, y:60 }
 			],
-			copies:[
-				{ dc:'za', sub:'sync' },
-				{ dc:'zb', sub:'sync' },
-				{ dc:'zc', sub:'sync' },
-				{ dc:'dc2', sub:'async · read', async:true, readOnly:true },
-				{ dc:'dc2', sub:'async · read', async:true, readOnly:true },
-				{ dc:'dc2', sub:'async · read', async:true, readOnly:true }
-			],
-			stats:[
+			statsRA:[
 				['Copies','6 (3 zones + 3)'], ['Read access','Primary + Secondary (read-only)'],
 				['Endpoint','<account>-secondary'],
 				['Survives region outage','✅'], ['Use cases','Mission-critical apps']
 			]
 		},
 		{
-			id:'compare',
-			title:'Comparison', short:'Compare', caption:'When to pick which?',
-			description:'LRS = cheap and internal. ZRS = zone-resilient single-region. GRS / GZRS = cross-region DR. Add RA- when you need to read the secondary.',
-			callout:{ text:'Rule of thumb: start with ZRS or GZRS for production. Add RA only if you really need to read the secondary.', x:50, y:60 },
+			id:'summary',
+			title:'Complete Summary', short:'Summary', caption:'All redundancy types at a glance',
+			description:'All six Azure Storage redundancy options animated together — LRS, ZRS, GRS, RA-GRS, GZRS, and RA-GZRS — showing the data replication patterns side by side.',
+			callout:null,
 			dcs:[], copies:[],
-			compareTable:{
-				columns:['Option','Copies','Spread','Survives zone outage','Survives region outage'],
-				rows:[
-					{ name:'LRS',     tier:'local',    cells:['3',         '1 data center',                  '❌',          '❌'] },
-					{ name:'ZRS',     tier:'zone',     cells:['3',         '3 availability zones',           '✅',          '❌'] },
-					{ name:'GRS',     tier:'geo',      cells:['6 (3 + 3)', '2 regions (LRS + LRS)',          '❌',          '✅ (failover)'] },
-					{ name:'RA-GRS',  tier:'geo-read', cells:['6 (3 + 3)', '2 regions + readable secondary', '❌',          '✅ + read secondary'] },
-					{ name:'GZRS',    tier:'geo',      cells:['6 (3 + 3)', '3 zones + paired region',        '✅',          '✅ (failover)'] },
-					{ name:'RA-GZRS', tier:'geo-read', cells:['6 (3 + 3)', '3 zones + readable secondary',   '✅',          '✅ + read secondary'] }
-				]
-			},
+			summaryMinis: true,
 			stats:[
-				['LRS',     '3 · 1 DC'],
-				['ZRS',     '3 · 3 zones'],
-				['GRS',     'LRS + LRS · 2 regions'],
-				['RA-GRS',  'GRS + readable secondary'],
-				['GZRS',    'ZRS + LRS · 2 regions'],
-				['RA-GZRS', 'GZRS + readable secondary']
+				['LRS',     '3 copies · 1 data center'],
+				['ZRS',     '3 copies · 3 availability zones'],
+				['GRS',     '6 copies · 2 regions (LRS + LRS)'],
+				['RA-GRS',  '6 copies · readable secondary'],
+				['GZRS',    '6 copies · 3 zones + paired region'],
+				['RA-GZRS', '6 copies · most resilient option']
 			]
 		}
 	];
@@ -907,11 +1172,670 @@
 	const outlineBody = document.getElementById('outline-body');
 	const outlinePanel = document.getElementById('step-outline');
 	const outlineBtn = document.getElementById('outline-toggle');
+	const calloutBtn = document.getElementById('callout-toggle');
+	const langSelect = document.getElementById('lang-select');
 
 	let current = -1;
 	let animating = false;
 	let liveEls = [];
 	let liveTimelines = [];
+	let calloutEnabled = true;
+
+	// ── I18N ──────────────────────────────────
+	const LANG_KEY = 'aw-storage-redundancy-lang';
+	let CURRENT_LANG = 'en';
+
+	const I18N = {
+		en: {
+			ui: {
+				brand: '🛡 Storage Redundancy',
+				outlineTitle: 'Redundancy summary',
+				calloutOn: '💬 Callout: On',
+				calloutOff: '💬 Callout: Off',
+				calloutOnAria: 'Callouts are on — click to hide',
+				calloutOffAria: 'Callouts are off — click to show',
+				outlineOn: '📝 Outline: On',
+				outlineOff: '📝 Outline: Off',
+				outlineOnAria: 'Outline panel is visible — click to hide',
+				outlineOffAria: 'Outline panel is hidden — click to show',
+				prev: '◀ Prev',
+				next: 'Next ▶',
+				replay: '↻ Replay this step',
+				restart: '↻ Restart',
+				// Render content
+				yourData: 'Your data',
+				replica: 'Replica',
+				readOnlyReplica: 'Read-only replica',
+				stepOf: 'Step {0} of {1}',
+				summaryTitle: 'Azure Storage Redundancy',
+				primaryRegion: 'Primary region',
+				secondaryRegion: 'Secondary region',
+				zone1: 'Zone 1', zone2: 'Zone 2', zone3: 'Zone 3',
+				read: 'READ',
+				// Stats labels
+				copies: 'Copies', spread: 'Spread', durability: 'Durability',
+				readAccess: 'Read access', sla: 'SLA', survives: 'Survives',
+				survivesDCOutage: 'Survives DC outage',
+				survivesZoneOutage: 'Survives zone outage',
+				survivesRegionOutage: 'Survives region outage',
+				primaryOnly: 'Primary only',
+				// Summary mini info
+				zoneOutage: 'Zone outage', regionOutage: 'Region outage', readSecondary: 'Read secondary',
+				// Options grid
+				local: 'Local', zone: 'Zone', geo: 'Geo', geoRead: 'Geo · Read access', geoZone: 'Geo · Zone', geoZoneRead: 'Geo · Zone · Read access',
+				// Endpoint/replication labels
+				asyncReplication: 'async replication',
+				readOnlyEndpoint: 'Read-only endpoint',
+				readWriteEndpoint: 'Read + Write endpoint',
+				appUser: 'App / User',
+				// Stat values
+				val1DC: '1 data center',
+				val3Zones: '3 availability zones',
+				val2Regions: '2 regions',
+				val2RegionsLRS: '2 regions (LRS + LRS)',
+				val3ZonesPaired: '3 zones + paired region',
+				valPrimarySecondary: 'Primary + Secondary (read-only)',
+				valMissionCritical: 'Mission-critical apps',
+				valDRTesting: 'DR testing · read scale-out',
+				valDriveRack: 'Drive / rack failure',
+				valRegionFailover: 'Region outage (failover)',
+				valRegionReadable: 'Region outage · readable secondary',
+				valZoneRegion: 'Zone + region outage',
+				valMostResilient: 'Most resilient option',
+				val2RegionsSec: '2 regions + secondary endpoint',
+				val3ZonesReadable: '3 zones + readable secondary',
+				valBlastRadius: 'Blast radius vs. cost',
+				val3SyncPrimary: '3 sync copies in primary',
+				valReadableSec: 'Readable secondary endpoint',
+				valAccountSec: '&lt;account&gt;-secondary',
+				statOptions: 'Options', statChooseBy: 'Choose by',
+				statAlways: 'Always', statAddRA: 'Add RA- for',
+				statPrimarySpread: 'Primary spread',
+				statEndpoint: 'Endpoint', statUseCases: 'Use cases',
+				val3ZonesShort: '3 zones', val3ZonesRegion: '3 zones + region',
+				val11Nines: '11 nines', val12Nines: '12 nines', val16Nines: '16 nines',
+				valGe11Nines: '≥ 11 nines', valGe12Nines: '≥ 12 nines', valGe16Nines: '≥ 16 nines',
+				valSlaStd: '99.9% read · 99.9% write', valSlaRA: '99.99% read (sec) · 99.9% write',
+				valSum1: '3 copies · 1 data center', valSum2: '3 copies · 3 availability zones',
+				valSum3: '6 copies · 2 regions (LRS + LRS)', valSum4: '6 copies · readable secondary',
+				valSum5: '6 copies · 3 zones + paired region', valSum6: '6 copies · most resilient option',
+				valCopies6: '6 (3 + 3)', valCopies6Z: '6 (3 zones + 3)', valCopies6C: '6 (3+3)',
+				primaryDC: 'Primary · Data center',
+				// Accessibility / hover
+				skipLink: 'Skip to diagram',
+				ariaThemeLight: 'Switch to light theme', ariaThemeDark: 'Switch to dark theme',
+				ariaLang: 'Language',
+				ariaPrev: 'Previous step (left arrow)', ariaNext: 'Next step (right arrow or space)',
+				ariaReplay: 'Replay this step\'s animation (P)', ariaRestart: 'Restart from step 1 (R)',
+				ariaSpeed: 'Animation speed', ariaSlower: 'Slower', ariaFaster: 'Faster',
+				ariaSpeedCur: 'Current speed {0} times',
+				ariaOutline: 'Text outline of the current redundancy option',
+				ariaNav: 'Diagram navigation',
+				ariaBackHome: 'Back to home',
+				ariaNavPrimary: 'Primary',
+				srHeading: 'Azure Storage Redundancy options',
+				srInstructions: 'Animated explainer comparing LRS, ZRS, GRS and GZRS. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.'
+			}
+		},
+		es: {
+			ui: {
+				brand: '🛡 Redundancia de Almacenamiento',
+				outlineTitle: 'Resumen de redundancia',
+				calloutOn: '💬 Aviso: Sí',
+				calloutOff: '💬 Aviso: No',
+				calloutOnAria: 'Avisos activados — clic para ocultar',
+				calloutOffAria: 'Avisos desactivados — clic para mostrar',
+				outlineOn: '📝 Esquema: Sí',
+				outlineOff: '📝 Esquema: No',
+				outlineOnAria: 'Panel de esquema visible — clic para ocultar',
+				outlineOffAria: 'Panel de esquema oculto — clic para mostrar',
+				prev: '◀ Anterior',
+				next: 'Siguiente ▶',
+				replay: '↻ Repetir paso',
+				restart: '↻ Reiniciar',
+				yourData: 'Sus datos',
+				replica: 'Réplica',
+				readOnlyReplica: 'Réplica de solo lectura',
+				stepOf: 'Paso {0} de {1}',
+				summaryTitle: 'Redundancia de Azure Storage',
+				primaryRegion: 'Región primaria',
+				secondaryRegion: 'Región secundaria',
+				zone1: 'Zona 1', zone2: 'Zona 2', zone3: 'Zona 3',
+				read: 'LECTURA',
+				copies: 'Copias', spread: 'Distribución', durability: 'Durabilidad',
+				readAccess: 'Acceso de lectura', sla: 'SLA', survives: 'Sobrevive',
+				survivesDCOutage: 'Sobrevive fallo de DC',
+				survivesZoneOutage: 'Sobrevive fallo de zona',
+				survivesRegionOutage: 'Sobrevive fallo regional',
+				primaryOnly: 'Solo primaria',
+				zoneOutage: 'Fallo de zona', regionOutage: 'Fallo regional', readSecondary: 'Lectura secundaria',
+				local: 'Local', zone: 'Zona', geo: 'Geo', geoRead: 'Geo · Lectura', geoZone: 'Geo · Zona', geoZoneRead: 'Geo · Zona · Lectura',
+				asyncReplication: 'replicación asíncrona',
+				readOnlyEndpoint: 'Punto de acceso de solo lectura',
+				readWriteEndpoint: 'Punto de acceso lectura + escritura',
+				appUser: 'App / Usuario',
+				val1DC: '1 centro de datos',
+				val3Zones: '3 zonas de disponibilidad',
+				val2Regions: '2 regiones',
+				val2RegionsLRS: '2 regiones (LRS + LRS)',
+				val3ZonesPaired: '3 zonas + región emparejada',
+				valPrimarySecondary: 'Primaria + Secundaria (solo lectura)',
+				valMissionCritical: 'Aplicaciones de misión crítica',
+				valDRTesting: 'Pruebas DR · escalado de lectura',
+				valDriveRack: 'Fallo de disco / rack',
+				valRegionFailover: 'Fallo regional (conmutación)',
+				valRegionReadable: 'Fallo regional · secundaria legible',
+				valZoneRegion: 'Fallo de zona + región',
+				valMostResilient: 'Opción más resiliente',
+				val2RegionsSec: '2 regiones + punto de acceso secundario',
+				val3ZonesReadable: '3 zonas + secundaria legible',
+				valBlastRadius: 'Radio de impacto vs. costo',
+				val3SyncPrimary: '3 copias síncronas en primaria',
+				valReadableSec: 'Punto de acceso secundario legible',
+				valAccountSec: '&lt;cuenta&gt;-secondary (secundario)',
+				statOptions: 'Opciones', statChooseBy: 'Elegir por',
+				statAlways: 'Siempre', statAddRA: 'Agregar RA- para',
+				statPrimarySpread: 'Distribución primaria',
+				statEndpoint: 'Punto de acceso', statUseCases: 'Casos de uso',
+				val3ZonesShort: '3 zonas', val3ZonesRegion: '3 zonas + región',
+				val11Nines: '11 nueves', val12Nines: '12 nueves', val16Nines: '16 nueves',
+				valGe11Nines: '≥ 11 nueves', valGe12Nines: '≥ 12 nueves', valGe16Nines: '≥ 16 nueves',
+				valSlaStd: '99.9% lectura · 99.9% escritura', valSlaRA: '99.99% lectura (sec) · 99.9% escritura',
+				valSum1: '3 copias · 1 centro de datos', valSum2: '3 copias · 3 zonas de disponibilidad',
+				valSum3: '6 copias · 2 regiones (LRS + LRS)', valSum4: '6 copias · secundaria legible',
+				valSum5: '6 copias · 3 zonas + región emparejada', valSum6: '6 copias · máxima resiliencia',
+				valCopies6: '6 (3 + 3)', valCopies6Z: '6 (3 zonas + 3)', valCopies6C: '6 (3+3)',
+				primaryDC: 'Primaria · Centro de datos',
+				skipLink: 'Ir al diagrama',
+				ariaThemeLight: 'Cambiar a tema claro', ariaThemeDark: 'Cambiar a tema oscuro',
+				ariaLang: 'Idioma',
+				ariaPrev: 'Paso anterior (flecha izquierda)', ariaNext: 'Siguiente paso (flecha derecha o espacio)',
+				ariaReplay: 'Repetir animación de este paso (P)', ariaRestart: 'Reiniciar desde paso 1 (R)',
+				ariaSpeed: 'Velocidad de animación', ariaSlower: 'Más lento', ariaFaster: 'Más rápido',
+				ariaSpeedCur: 'Velocidad actual {0} veces',
+				ariaOutline: 'Esquema de texto de la opción de redundancia actual',
+				ariaNav: 'Navegación del diagrama',
+				ariaBackHome: 'Volver al inicio',
+				ariaNavPrimary: 'Principal',
+				srHeading: 'Opciones de redundancia de Azure Storage',
+				srInstructions: 'Explicación animada comparando LRS, ZRS, GRS y GZRS. Use los botones Siguiente/Anterior o las teclas de flecha para navegar. Pulse R para reiniciar.'
+			},
+			steps: [
+				{ title:'Redundancia de almacenamiento', short:'Resumen', caption:'Todas las opciones de redundancia',
+				  description:'Azure Storage siempre replica sus datos. Usted elige dónde viven las copias: mismo centro de datos (LRS), entre zonas (ZRS), en otra región (GRS / GZRS), o con un secundario legible (RA-).',
+				  callout:{ text:'Seis opciones, tres ejes de compensación: copias, radio de impacto y disponibilidad de lectura.' } },
+				{ title:'LRS · Redundancia local', short:'LRS', caption:'3 copias, 1 centro de datos',
+				  description:'3 copias sincrónicas en un único centro de datos. El nivel más económico.',
+				  callout:{ text:'3 copias permanecen dentro de un centro de datos.' } },
+				{ title:'ZRS · Redundancia de zona', short:'ZRS', caption:'3 copias, 3 zonas',
+				  description:'1 copia por zona de disponibilidad — sobrevive a una interrupción de zona completa.',
+				  callout:{ text:'Una copia aterriza en cada Zona de Disponibilidad.' } },
+				{ title:'GRS · Redundancia geográfica', short:'GRS', caption:'6 copias, 2 regiones',
+				  description:'LRS en la región primaria + replicación asíncrona a una región secundaria emparejada. La secundaria no es legible por defecto.',
+				  callout:{ text:'La replicación asíncrona lleva copias a través de regiones. La secundaria existe solo para conmutación por error.' },
+				  titleRA:'RA-GRS · GRS con acceso de lectura', shortRA:'RA-GRS', captionRA:'GRS + secundaria legible',
+				  descriptionRA:'Mismo diseño de datos que GRS, más un punto de acceso de solo lectura en la región secundaria.',
+				  calloutRA:{ text:'Acceso de lectura ON → <account>-secondary.blob.core.windows.net expuesto. Las apps pueden LEER de la secundaria; las escrituras van solo a la primaria.' } },
+				{ title:'GZRS · Redundancia geo-zonal', short:'GZRS', caption:'ZRS + LRS en 2 regiones',
+				  description:'GZRS combina ZRS en la región primaria (3 zonas) con replicación asíncrona a una región secundaria emparejada.',
+				  callout:{ text:'Primaria redundante por zona, secundaria geo-redundante.' },
+				  titleRA:'RA-GZRS · GZRS con acceso de lectura', shortRA:'RA-GZRS', captionRA:'GZRS + secundaria legible',
+				  descriptionRA:'GZRS con punto de acceso de solo lectura en la secundaria — la opción más resiliente.',
+				  calloutRA:{ text:'Acceso de lectura ON → <account>-secondary.blob.core.windows.net expuesto. Las apps pueden LEER de la secundaria; las escrituras van solo a la primaria.' } },
+				{ title:'Resumen completo', short:'Resumen', caption:'Todos los tipos de un vistazo',
+				  description:'Las seis opciones de redundancia de Azure Storage animadas juntas.' }
+			]
+		},
+		ja: {
+			ui: {
+				brand: '🛡 ストレージ冗長性',
+				outlineTitle: '冗長性の概要',
+				calloutOn: '💬 コールアウト: オン',
+				calloutOff: '💬 コールアウト: オフ',
+				calloutOnAria: 'コールアウト表示中 — クリックで非表示',
+				calloutOffAria: 'コールアウト非表示 — クリックで表示',
+				outlineOn: '📝 アウトライン: オン',
+				outlineOff: '📝 アウトライン: オフ',
+				outlineOnAria: 'アウトラインパネル表示中 — クリックで非表示',
+				outlineOffAria: 'アウトラインパネル非表示 — クリックで表示',
+				prev: '◀ 前へ',
+				next: '次へ ▶',
+				replay: '↻ リプレイ',
+				restart: '↻ 最初から',
+				yourData: 'あなたのデータ',
+				replica: 'レプリカ',
+				readOnlyReplica: '読み取り専用レプリカ',
+				stepOf: 'ステップ {0} / {1}',
+				summaryTitle: 'Azure ストレージ冗長性',
+				primaryRegion: 'プライマリリージョン',
+				secondaryRegion: 'セカンダリリージョン',
+				zone1: 'ゾーン 1', zone2: 'ゾーン 2', zone3: 'ゾーン 3',
+				read: '読取',
+				copies: 'コピー数', spread: '分散', durability: '耐久性',
+				readAccess: '読み取りアクセス', sla: 'SLA', survives: '耐性',
+				survivesDCOutage: 'DC障害に耐性',
+				survivesZoneOutage: 'ゾーン障害に耐性',
+				survivesRegionOutage: 'リージョン障害に耐性',
+				primaryOnly: 'プライマリのみ',
+				zoneOutage: 'ゾーン障害', regionOutage: 'リージョン障害', readSecondary: 'セカンダリ読取',
+				local: 'ローカル', zone: 'ゾーン', geo: '地理', geoRead: '地理 · 読取', geoZone: '地理 · ゾーン', geoZoneRead: '地理 · ゾーン · 読取',
+				asyncReplication: '非同期レプリケーション',
+				readOnlyEndpoint: '読み取り専用エンドポイント',
+				readWriteEndpoint: '読み取り+書き込みエンドポイント',
+				appUser: 'アプリ / ユーザー',
+				val1DC: '1データセンター',
+				val3Zones: '3可用性ゾーン',
+				val2Regions: '2リージョン',
+				val2RegionsLRS: '2リージョン（LRS + LRS）',
+				val3ZonesPaired: '3ゾーン + ペアリージョン',
+				valPrimarySecondary: 'プライマリ + セカンダリ（読取専用）',
+				valMissionCritical: 'ミッションクリティカルアプリ',
+				valDRTesting: 'DR テスト · 読取スケールアウト',
+				valDriveRack: 'ディスク / ラック障害',
+				valRegionFailover: 'リージョン障害（フェイルオーバー）',
+				valRegionReadable: 'リージョン障害 · 読取可能セカンダリ',
+				valZoneRegion: 'ゾーン + リージョン障害',
+				valMostResilient: '最も高い回復力',
+				val2RegionsSec: '2リージョン + セカンダリエンドポイント',
+				val3ZonesReadable: '3ゾーン + 読取可能セカンダリ',
+				valBlastRadius: '障害範囲 vs. コスト',
+				val3SyncPrimary: 'プライマリに3同期コピー',
+				valReadableSec: '読取可能セカンダリエンドポイント',
+				valAccountSec: '&lt;アカウント&gt;-secondary（セカンダリ）',
+				statOptions: 'オプション', statChooseBy: '選択基準',
+				statAlways: '常に', statAddRA: 'RA- 追加で',
+				statPrimarySpread: 'プライマリ分散',
+				statEndpoint: 'エンドポイント', statUseCases: '利用例',
+				val3ZonesShort: '3ゾーン', val3ZonesRegion: '3ゾーン + リージョン',
+				val11Nines: '11ナイン', val12Nines: '12ナイン', val16Nines: '16ナイン',
+				valGe11Nines: '≥ 11ナイン', valGe12Nines: '≥ 12ナイン', valGe16Nines: '≥ 16ナイン',
+				valSlaStd: '99.9% 読取 · 99.9% 書込', valSlaRA: '99.99% 読取 (セカンダリ) · 99.9% 書込',
+				valSum1: '3コピー · 1データセンター', valSum2: '3コピー · 3可用性ゾーン',
+				valSum3: '6コピー · 2リージョン (LRS + LRS)', valSum4: '6コピー · 読取可能セカンダリ',
+				valSum5: '6コピー · 3ゾーン + ペアリージョン', valSum6: '6コピー · 最高復元力',
+				valCopies6: '6 (3 + 3)', valCopies6Z: '6 (3ゾーン + 3)', valCopies6C: '6 (3+3)',
+				primaryDC: 'プライマリ · データセンター',
+				skipLink: '図にスキップ',
+				ariaThemeLight: 'ライトテーマに切替', ariaThemeDark: 'ダークテーマに切替',
+				ariaLang: '言語',
+				ariaPrev: '前のステップ（左矢印）', ariaNext: '次のステップ（右矢印またはスペース）',
+				ariaReplay: 'このステップのアニメーションを再生 (P)', ariaRestart: 'ステップ1から再開 (R)',
+				ariaSpeed: 'アニメーション速度', ariaSlower: '遅く', ariaFaster: '速く',
+				ariaSpeedCur: '現在の速度 {0} 倍',
+				ariaOutline: '現在の冗長オプションのテキスト概要',
+				ariaNav: '図のナビゲーション',
+				ariaBackHome: 'ホームに戻る',
+				ariaNavPrimary: 'メイン',
+				srHeading: 'Azure Storage 冗長性オプション',
+				srInstructions: 'LRS、ZRS、GRS、GZRSを比較するアニメーション解説。次/前ボタンまたは矢印キーで移動。Rで再開。'
+			},
+			steps: [
+				{ title:'ストレージ冗長性', short:'概要', caption:'すべての冗長オプション',
+				  description:'Azure Storageは常にデータを複製します。コピーの配置先を選択：同一データセンター（LRS）、ゾーン間（ZRS）、別リージョン（GRS / GZRS）、読み取り可能セカンダリ（RA-）。',
+				  callout:{ text:'6つのオプション、3つのトレードオフ軸：コピー数、障害範囲、読み取り可用性。' } },
+				{ title:'LRS · ローカル冗長', short:'LRS', caption:'3コピー、1データセンター',
+				  description:'単一データセンターに3つの同期コピー。最もコスト効率が良い。',
+				  callout:{ text:'3つのコピーは1つのデータセンター内に保存されます。' } },
+				{ title:'ZRS · ゾーン冗長', short:'ZRS', caption:'3コピー、3ゾーン',
+				  description:'可用性ゾーンごとに1コピー — ゾーン全体の障害に耐えます。',
+				  callout:{ text:'各可用性ゾーンに1コピーが配置されます。' } },
+				{ title:'GRS · 地理冗長', short:'GRS', caption:'6コピー、2リージョン',
+				  description:'プライマリリージョンのLRS + ペアセカンダリリージョンへの非同期レプリケーション。セカンダリはデフォルトでは読み取り不可。',
+				  callout:{ text:'非同期レプリケーションがリージョン間でコピーを転送。セカンダリはフェイルオーバー専用。' },
+				  titleRA:'RA-GRS · 読み取りアクセスGRS', shortRA:'RA-GRS', captionRA:'GRS + 読取可能セカンダリ',
+				  descriptionRA:'GRSと同じデータレイアウト + セカンダリリージョンに読み取り専用エンドポイント。',
+				  calloutRA:{ text:'読み取りアクセスON → <account>-secondary.blob.core.windows.netが公開。アプリはセカンダリからREAD可能、書き込みはプライマリのみ。' } },
+				{ title:'GZRS · 地理ゾーン冗長', short:'GZRS', caption:'ZRS + LRS（2リージョン）',
+				  description:'GZRSはプライマリリージョンのZRS（3ゾーン）とペアセカンダリリージョンへの非同期レプリケーションを組み合わせます。',
+				  callout:{ text:'ゾーン冗長プライマリ、地理冗長セカンダリ。' },
+				  titleRA:'RA-GZRS · 読み取りアクセスGZRS', shortRA:'RA-GZRS', captionRA:'GZRS + 読取可能セカンダリ',
+				  descriptionRA:'読み取り専用セカンダリエンドポイント付きGZRS — 最高の復元力オプション。',
+				  calloutRA:{ text:'読み取りアクセスON → <account>-secondary.blob.core.windows.netが公開。アプリはセカンダリからREAD可能、書き込みはプライマリのみ。' } },
+				{ title:'全体サマリー', short:'サマリー', caption:'すべてのタイプを一覧',
+				  description:'Azure Storageの6つの冗長オプションを並べてアニメーション表示。' }
+			]
+		},
+		ko: {
+			ui: {
+				brand: '🛡 스토리지 중복성',
+				outlineTitle: '중복성 요약',
+				calloutOn: '💬 콜아웃: 켜짐',
+				calloutOff: '💬 콜아웃: 꺼짐',
+				calloutOnAria: '콜아웃 표시 중 — 클릭하여 숨기기',
+				calloutOffAria: '콜아웃 숨김 — 클릭하여 표시',
+				outlineOn: '📝 개요: 켜짐',
+				outlineOff: '📝 개요: 꺼짐',
+				outlineOnAria: '개요 패널 표시 중 — 클릭하여 숨기기',
+				outlineOffAria: '개요 패널 숨김 — 클릭하여 표시',
+				prev: '◀ 이전',
+				next: '다음 ▶',
+				replay: '↻ 다시 재생',
+				restart: '↻ 처음부터',
+				yourData: '내 데이터',
+				replica: '복제본',
+				readOnlyReplica: '읽기 전용 복제본',
+				stepOf: '단계 {0} / {1}',
+				summaryTitle: 'Azure 스토리지 중복성',
+				primaryRegion: '기본 지역',
+				secondaryRegion: '보조 지역',
+				zone1: '영역 1', zone2: '영역 2', zone3: '영역 3',
+				read: '읽기',
+				copies: '복사본', spread: '분산', durability: '내구성',
+				readAccess: '읽기 액세스', sla: 'SLA', survives: '내결함성',
+				survivesDCOutage: 'DC 장애 내결함성',
+				survivesZoneOutage: '영역 장애 내결함성',
+				survivesRegionOutage: '지역 장애 내결함성',
+				primaryOnly: '기본만',
+				zoneOutage: '영역 장애', regionOutage: '지역 장애', readSecondary: '보조 읽기',
+				local: '로컬', zone: '영역', geo: '지리', geoRead: '지리 · 읽기', geoZone: '지리 · 영역', geoZoneRead: '지리 · 영역 · 읽기',
+				asyncReplication: '비동기 복제',
+				readOnlyEndpoint: '읽기 전용 엔드포인트',
+				readWriteEndpoint: '읽기+쓰기 엔드포인트',
+				appUser: '앱 / 사용자',
+				val1DC: '1개 데이터 센터',
+				val3Zones: '3개 가용성 영역',
+				val2Regions: '2개 지역',
+				val2RegionsLRS: '2개 지역 (LRS + LRS)',
+				val3ZonesPaired: '3개 영역 + 쌍 지역',
+				valPrimarySecondary: '기본 + 보조 (읽기 전용)',
+				valMissionCritical: '미션 크리티컬 앱',
+				valDRTesting: 'DR 테스트 · 읽기 스케일아웃',
+				valDriveRack: '디스크 / 랙 장애',
+				valRegionFailover: '지역 장애 (장애 조치)',
+				valRegionReadable: '지역 장애 · 읽기 가능 보조',
+				valZoneRegion: '영역 + 지역 장애',
+				valMostResilient: '가장 높은 복원력',
+				val2RegionsSec: '2개 지역 + 보조 엔드포인트',
+				val3ZonesReadable: '3개 영역 + 읽기 가능 보조',
+				valBlastRadius: '장애 범위 vs. 비용',
+				val3SyncPrimary: '기본에 3개 동기 복사본',
+				valReadableSec: '읽기 가능 보조 엔드포인트',
+				valAccountSec: '&lt;계정&gt;-secondary (보조)',
+				statOptions: '옵션', statChooseBy: '선택 기준',
+				statAlways: '항상', statAddRA: 'RA- 추가 시',
+				statPrimarySpread: '기본 분산',
+				statEndpoint: '엔드포인트', statUseCases: '사용 사례',
+				val3ZonesShort: '3개 영역', val3ZonesRegion: '3개 영역 + 지역',
+				val11Nines: '11 나인', val12Nines: '12 나인', val16Nines: '16 나인',
+				valGe11Nines: '≥ 11 나인', valGe12Nines: '≥ 12 나인', valGe16Nines: '≥ 16 나인',
+				valSlaStd: '99.9% 읽기 · 99.9% 쓰기', valSlaRA: '99.99% 읽기 (보조) · 99.9% 쓰기',
+				valSum1: '3개 복사본 · 1개 데이터 센터', valSum2: '3개 복사본 · 3개 가용성 영역',
+				valSum3: '6개 복사본 · 2개 지역 (LRS + LRS)', valSum4: '6개 복사본 · 읽기 가능 보조',
+				valSum5: '6개 복사본 · 3개 영역 + 쌍 지역', valSum6: '6개 복사본 · 최고 복원력',
+				valCopies6: '6 (3 + 3)', valCopies6Z: '6 (3개 영역 + 3)', valCopies6C: '6 (3+3)',
+				primaryDC: '기본 · 데이터 센터',
+				skipLink: '다이어그램으로 건너뛰기',
+				ariaThemeLight: '라이트 테마로 전환', ariaThemeDark: '다크 테마로 전환',
+				ariaLang: '언어',
+				ariaPrev: '이전 단계 (왼쪽 화살표)', ariaNext: '다음 단계 (오른쪽 화살표 또는 스페이스)',
+				ariaReplay: '이 단계 애니메이션 재생 (P)', ariaRestart: '1단계부터 다시 시작 (R)',
+				ariaSpeed: '애니메이션 속도', ariaSlower: '느리게', ariaFaster: '빠르게',
+				ariaSpeedCur: '현재 속도 {0}배',
+				ariaOutline: '현재 중복 옵션의 텍스트 개요',
+				ariaNav: '다이어그램 탐색',
+				ariaBackHome: '홈으로 돌아가기',
+				ariaNavPrimary: '기본',
+				srHeading: 'Azure Storage 중복성 옵션',
+				srInstructions: 'LRS, ZRS, GRS, GZRS를 비교하는 애니메이션 설명. 다음/이전 버튼 또는 화살표 키로 탐색. R을 눌러 다시 시작.'
+			},
+			steps: [
+				{ title:'스토리지 중복성', short:'개요', caption:'모든 중복 옵션',
+				  description:'Azure Storage는 항상 데이터를 복제합니다. 복사본 위치를 선택: 동일 데이터 센터(LRS), 영역 간(ZRS), 다른 지역(GRS / GZRS), 읽기 가능한 보조(RA-).',
+				  callout:{ text:'6가지 옵션, 3가지 트레이드오프 축: 복사본, 장애 범위, 읽기 가용성.' } },
+				{ title:'LRS · 로컬 중복', short:'LRS', caption:'3개 복사본, 1개 데이터 센터',
+				  description:'단일 데이터 센터에 3개 동기 복사본. 가장 비용 효율적.',
+				  callout:{ text:'3개 복사본이 하나의 데이터 센터 내에 유지됩니다.' } },
+				{ title:'ZRS · 영역 중복', short:'ZRS', caption:'3개 복사본, 3개 영역',
+				  description:'가용성 영역당 1개 복사본 — 전체 영역 중단에도 견딤.',
+				  callout:{ text:'각 가용성 영역에 복사본 하나가 배치됩니다.' } },
+				{ title:'GRS · 지역 중복', short:'GRS', caption:'6개 복사본, 2개 지역',
+				  description:'기본 지역의 LRS + 쌍으로 연결된 보조 지역으로의 비동기 복제. 보조는 기본적으로 읽기 불가.',
+				  callout:{ text:'비동기 복제가 지역 간에 복사본을 전달. 보조는 장애 조치 전용.' },
+				  titleRA:'RA-GRS · 읽기 액세스 GRS', shortRA:'RA-GRS', captionRA:'GRS + 읽기 가능 보조',
+				  descriptionRA:'GRS와 동일한 데이터 레이아웃 + 보조 지역의 읽기 전용 엔드포인트.',
+				  calloutRA:{ text:'읽기 액세스 ON → <account>-secondary.blob.core.windows.net 노출. 앱이 보조에서 읽기 가능, 쓰기는 기본만.' } },
+				{ title:'GZRS · 지역-영역 중복', short:'GZRS', caption:'ZRS + LRS (2개 지역)',
+				  description:'GZRS는 기본 지역의 ZRS(3개 영역)와 쌍 보조 지역으로의 비동기 복제를 결합합니다.',
+				  callout:{ text:'영역 중복 기본, 지역 중복 보조.' },
+				  titleRA:'RA-GZRS · 읽기 액세스 GZRS', shortRA:'RA-GZRS', captionRA:'GZRS + 읽기 가능 보조',
+				  descriptionRA:'읽기 전용 보조 엔드포인트가 있는 GZRS — 가장 높은 복원력 옵션.',
+				  calloutRA:{ text:'읽기 액세스 ON → <account>-secondary.blob.core.windows.net 노출. 앱이 보조에서 읽기 가능, 쓰기는 기본만.' } },
+				{ title:'전체 요약', short:'요약', caption:'모든 유형 한눈에',
+				  description:'Azure Storage의 6가지 중복 옵션을 나란히 애니메이션으로 표시.' }
+			]
+		}
+	};
+
+	// ── i18n helpers ──────────────────────────
+	// Store original English step text for restoration when switching back
+	const STEPS_EN = STEPS.map(s => ({
+		title: s.title, short: s.short, caption: s.caption,
+		description: s.description, callout: s.callout,
+		titleRA: s.titleRA, shortRA: s.shortRA, captionRA: s.captionRA,
+		descriptionRA: s.descriptionRA, calloutRA: s.calloutRA
+	}));
+
+	function syncCalloutBtn() {
+		const ui = I18N[CURRENT_LANG].ui;
+		calloutBtn.textContent = calloutEnabled ? ui.calloutOn : ui.calloutOff;
+		calloutBtn.setAttribute('aria-label', calloutEnabled ? ui.calloutOnAria : ui.calloutOffAria);
+		calloutBtn.classList.toggle('toggle-active', calloutEnabled);
+	}
+	function syncOutlineBtn() {
+		const ui = I18N[CURRENT_LANG].ui;
+		const on = !outlinePanel.hasAttribute('hidden');
+		outlineBtn.textContent = on ? ui.outlineOn : ui.outlineOff;
+		outlineBtn.setAttribute('aria-label', on ? ui.outlineOnAria : ui.outlineOffAria);
+		outlineBtn.classList.toggle('toggle-active', on);
+	}
+	/** Translate a UI key, with optional {0},{1} placeholder substitution */
+	function t(key, ...args) {
+		const ui = I18N[CURRENT_LANG].ui;
+		let s = ui[key] != null ? ui[key] : (I18N.en.ui[key] || key);
+		args.forEach((v, i) => { s = s.replace(`{${i}}`, v); });
+		return s;
+	}
+	/** Translate a DC label based on its English label */
+	function tLabel(label) {
+		const map = {
+			'Primary region': 'primaryRegion',
+			'Secondary region': 'secondaryRegion',
+			'Primary · Data center': 'primaryDC',
+			'Zone 1': 'zone1', 'Zone 2': 'zone2', 'Zone 3': 'zone3'
+		};
+		const key = map[label];
+		return key ? t(key) : label;
+	}
+	/** Translate a stat label (left column in stats tables) */
+	function tStat(label) {
+		const map = {
+			'Copies': 'copies', 'Spread': 'spread', 'Durability': 'durability',
+			'Read access': 'readAccess', 'SLA': 'sla', 'Survives': 'survives',
+			'Survives DC outage': 'survivesDCOutage',
+			'Survives zone outage': 'survivesZoneOutage',
+			'Survives region outage': 'survivesRegionOutage',
+			'Zone outage': 'zoneOutage', 'Region outage': 'regionOutage',
+			'Read secondary': 'readSecondary',
+			'Options': 'statOptions', 'Choose by': 'statChooseBy',
+			'Always': 'statAlways', 'Add RA- for': 'statAddRA',
+			'Primary spread': 'statPrimarySpread',
+			'Endpoint': 'statEndpoint', 'Use cases': 'statUseCases'
+		};
+		const key = map[label];
+		return key ? t(key) : label;
+	}
+	/** Translate stat value if it's a known translatable string */
+	function tStatVal(val) {
+		const map = {
+			'Primary only': 'primaryOnly',
+			'1 data center': 'val1DC',
+			'3 availability zones': 'val3Zones',
+			'2 regions': 'val2Regions',
+			'2 regions (LRS + LRS)': 'val2RegionsLRS',
+			'3 zones + paired region': 'val3ZonesPaired',
+			'Primary + Secondary (read-only)': 'valPrimarySecondary',
+			'Mission-critical apps': 'valMissionCritical',
+			'DR testing · read scale-out': 'valDRTesting',
+			'Drive / rack failure': 'valDriveRack',
+			'Zone outage': 'zoneOutage',
+			'Region outage (failover)': 'valRegionFailover',
+			'Region outage · readable secondary': 'valRegionReadable',
+			'Zone + region outage': 'valZoneRegion',
+			'Most resilient option': 'valMostResilient',
+			'2 regions + secondary endpoint': 'val2RegionsSec',
+			'3 zones + readable secondary': 'val3ZonesReadable',
+			'Blast radius vs. cost': 'valBlastRadius',
+			'3 sync copies in primary': 'val3SyncPrimary',
+			'Readable secondary endpoint': 'valReadableSec',
+			'3 zones': 'val3ZonesShort',
+			'3 zones + region': 'val3ZonesRegion',
+			'11 nines': 'val11Nines',
+			'12 nines': 'val12Nines',
+			'16 nines': 'val16Nines',
+			'≥ 11 nines': 'valGe11Nines',
+			'≥ 12 nines': 'valGe12Nines',
+			'≥ 16 nines': 'valGe16Nines',
+			'99.9% read · 99.9% write': 'valSlaStd',
+			'99.99% read (sec) · 99.9% write': 'valSlaRA',
+			'3 copies · 1 data center': 'valSum1',
+			'3 copies · 3 availability zones': 'valSum2',
+			'6 copies · 2 regions (LRS + LRS)': 'valSum3',
+			'6 copies · readable secondary': 'valSum4',
+			'6 copies · 3 zones + paired region': 'valSum5',
+			'6 copies · most resilient option': 'valSum6',
+			'6 (3 + 3)': 'valCopies6',
+			'6 (3 zones + 3)': 'valCopies6Z',
+			'6 (3+3)': 'valCopies6C',
+			'<account>-secondary': 'valAccountSec'
+		};
+		const key = map[val];
+		return key ? t(key) : val;
+	}
+	function applyLanguage(lang) {
+		if (!I18N[lang]) lang = 'en';
+		CURRENT_LANG = lang;
+		try { localStorage.setItem(LANG_KEY, lang); } catch (e) {}
+		document.documentElement.lang = lang;
+		const ui = I18N[lang].ui;
+		document.querySelectorAll('[data-i18n]').forEach(el => {
+			const k = el.dataset.i18n;
+			if (ui[k] != null) el.textContent = ui[k];
+		});
+		// Update static "Your data" label
+		const srcLabel = document.querySelector('.source-label');
+		if (srcLabel) srcLabel.textContent = ui.yourData;
+		syncCalloutBtn();
+		syncOutlineBtn();
+		// Restore English defaults first, then overlay translations
+		STEPS.forEach((step, i) => {
+			const en = STEPS_EN[i];
+			step.title = en.title; step.short = en.short;
+			step.caption = en.caption; step.description = en.description;
+			step.callout = en.callout;
+			step.titleRA = en.titleRA; step.shortRA = en.shortRA;
+			step.captionRA = en.captionRA; step.descriptionRA = en.descriptionRA;
+			step.calloutRA = en.calloutRA;
+		});
+		const langSteps = I18N[lang].steps;
+		if (langSteps) {
+			STEPS.forEach((step, i) => {
+				if (!langSteps[i]) return;
+				const ov = langSteps[i];
+				if (ov.title) step.title = ov.title;
+				if (ov.short) step.short = ov.short;
+				if (ov.caption) step.caption = ov.caption;
+				if (ov.description) step.description = ov.description;
+				if (ov.callout) step.callout = ov.callout;
+				if (ov.titleRA) step.titleRA = ov.titleRA;
+				if (ov.shortRA) step.shortRA = ov.shortRA;
+				if (ov.captionRA) step.captionRA = ov.captionRA;
+				if (ov.descriptionRA) step.descriptionRA = ov.descriptionRA;
+				if (ov.calloutRA) step.calloutRA = ov.calloutRA;
+			});
+		}
+		if (langSelect && langSelect.value !== lang) langSelect.value = lang;
+		// Translate accessibility / hover attributes
+		const skipEl = document.querySelector('.skip-link');
+		if (skipEl) skipEl.textContent = ui.skipLink;
+		const themeBtn = document.getElementById('theme-toggle');
+		if (themeBtn) {
+			const isDark = document.body.classList.contains('theme-dark');
+			const tl = isDark ? ui.ariaThemeLight : ui.ariaThemeDark;
+			themeBtn.setAttribute('aria-label', tl);
+			themeBtn.setAttribute('title', tl);
+		}
+		const langSel = document.getElementById('lang-select');
+		if (langSel) { langSel.setAttribute('aria-label', ui.ariaLang); langSel.setAttribute('title', ui.ariaLang); }
+		const prevBtn = document.getElementById('prev-btn');
+		if (prevBtn) prevBtn.setAttribute('aria-label', ui.ariaPrev);
+		const nextBtn = document.getElementById('next-btn');
+		if (nextBtn) nextBtn.setAttribute('aria-label', ui.ariaNext);
+		const replayBtn = document.getElementById('replay-btn');
+		if (replayBtn) replayBtn.setAttribute('aria-label', ui.ariaReplay);
+		const resetBtn = document.getElementById('reset-btn');
+		if (resetBtn) resetBtn.setAttribute('aria-label', ui.ariaRestart);
+		const speedGroup = document.querySelector('.speed-control');
+		if (speedGroup) speedGroup.setAttribute('aria-label', ui.ariaSpeed);
+		const speedDown = document.getElementById('speed-down');
+		if (speedDown) { speedDown.setAttribute('aria-label', ui.ariaSlower + ' (-)'); speedDown.setAttribute('title', ui.ariaSlower); }
+		const speedUp = document.getElementById('speed-up');
+		if (speedUp) { speedUp.setAttribute('aria-label', ui.ariaFaster + ' (+)'); speedUp.setAttribute('title', ui.ariaFaster); }
+		const outlineAside = document.getElementById('step-outline');
+		if (outlineAside) outlineAside.setAttribute('aria-label', ui.ariaOutline);
+		const controlsGroup = document.getElementById('controls');
+		if (controlsGroup) controlsGroup.setAttribute('aria-label', ui.ariaNav);
+		const homeLink = document.querySelector('a[href="./index.html"]');
+		if (homeLink) homeLink.setAttribute('aria-label', ui.ariaBackHome);
+		const navEl = document.querySelector('header nav');
+		if (navEl) navEl.setAttribute('aria-label', ui.ariaNavPrimary);
+		const srH1 = document.getElementById('stage-heading');
+		if (srH1) srH1.textContent = ui.srHeading;
+		const srP = document.getElementById('stage-instructions');
+		if (srP) srP.textContent = ui.srInstructions;
+		if (current >= 0) renderStep(current);
+	}
+
+	// Callout toggle
+	calloutBtn.addEventListener('click', () => {
+		calloutEnabled = !calloutEnabled;
+		syncCalloutBtn();
+		if (current >= 0) renderStep(current);
+	});
+
+	// Outline toggle
+	outlineBtn.addEventListener('click', () => {
+		const showing = !outlinePanel.hasAttribute('hidden');
+		if (showing) {
+			outlinePanel.setAttribute('hidden', '');
+			outlineBtn.setAttribute('aria-expanded', 'false');
+		} else {
+			outlinePanel.removeAttribute('hidden');
+			outlineBtn.setAttribute('aria-expanded', 'true');
+		}
+		syncOutlineBtn();
+	});
+
+	// Language selector
+	const savedLang = (function () {
+		try { return localStorage.getItem(LANG_KEY); } catch (e) { return null; }
+	})();
+	if (savedLang && I18N[savedLang]) {
+		CURRENT_LANG = savedLang;
+		langSelect.value = savedLang;
+	}
+	langSelect.addEventListener('change', e => applyLanguage(e.target.value));
+
+	// Keep theme toggle label in sync with current language when theme changes
+	if (window.AW && AW.theme && AW.theme.onChange) {
+		AW.theme.onChange(() => {
+			const btn = document.getElementById('theme-toggle');
+			if (!btn) return;
+			const isDark = document.body.classList.contains('theme-dark');
+			const lbl = isDark ? t('ariaThemeLight') : t('ariaThemeDark');
+			btn.setAttribute('aria-label', lbl);
+			btn.setAttribute('title', lbl);
+		});
+	}
 
 	// ── Reduced motion ────────────────────────
 	const motionMQ = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -920,14 +1844,15 @@
 		motionPaused = e.matches; renderStep(current);
 	});
 
-	// Outline panel toggle is handled by lib/js/aw-outline.js (auto-wires #outline-toggle).
+	// Outline panel toggle is handled inline above (replaces lib/js/aw-outline.js).
 
 	// ── Read Access ─────────────────────
-	// Read access (RA-GRS / RA-GZRS) is shown as always-enabled on the steps
-	// that opt-in via `readAccessToggle`. This mirrors the Azure Portal flow:
-	// once RA is turned on for the storage account, the secondary endpoint is
-	// always exposed for read operations — so there is no in-diagram toggle.
-	const readAccessOn = true;
+	// Read access (RA-GRS / RA-GZRS) is always shown on the GRS and GZRS
+	// steps (those that opt-in via `readAccessToggle`). The RA-specific
+	// elements — secondary endpoint badge, " · READ" DC label, read-only
+	// async copies, and the cloud user connecting to the secondary endpoint —
+	// fade in at the END of the normal replication animation so the viewer
+	// sees the basic flow first, then the read-access overlay.
 
 	// ── Helpers ───────────────────────────────
 	function readThemeColors() {
@@ -956,6 +1881,7 @@
 		});
 	}
 	function pctX(v) { return (v/100) * stage.clientWidth; }
+	function pctY(v) { return (v/100) * stage.clientHeight; }
 	function centerOf(el) {
 		const r  = el.getBoundingClientRect();
 		const sr = stage.getBoundingClientRect();
@@ -967,7 +1893,7 @@
 	function makeRegion(region) {
 		const el = document.createElement('div');
 		el.className = `region-wrap ${region.cls||''}`;
-		el.innerHTML = `<span class="region-tag">${region.label}</span>`;
+		el.innerHTML = `<span class="region-tag">${tLabel(region.label)}</span>`;
 		el.style.left   = region.x + '%';
 		el.style.top    = region.y + '%';
 		el.style.width  = region.w + '%';
@@ -977,17 +1903,28 @@
 	}
 	function makeDC(dc) {
 		const el = document.createElement('div');
-		el.className = `dc ${dc.cls||''}`;
+		el.className = `dc ${dc.cls||''}${dc.compact ? ' compact' : ''}${dc.tall ? ' tall' : ''}`;
 		el.style.left = dc.x + '%';
 		el.style.top  = dc.y + '%';
+		if (dc.copyLayout) el.dataset.copyLayout = dc.copyLayout;
+		const labelText = dc.readLabel
+			? tLabel(dc.label) + ' · ' + t('read')
+			: tLabel(dc.label);
 		el.innerHTML = `
 			<div class="dc-shape" aria-hidden="true"></div>
-			<div class="dc-label">${dc.label}</div>
+			<div class="dc-label">${labelText}</div>
 		`;
 		stage.appendChild(el);
 		requestAnimationFrame(() => {
 			const w = el.offsetWidth;
 			el.style.left = (pctX(dc.x) - w/2) + 'px';
+			// When centerY is set, interpret dc.y as the vertical CENTER of
+			// the DC element (matches how x is already a center coordinate).
+			// Without it, dc.y remains the top edge for backward compat.
+			if (dc.centerY) {
+				const h = el.offsetHeight;
+				el.style.top = (pctY(dc.y) - h/2) + 'px';
+			}
 		});
 		return el;
 	}
@@ -1004,11 +1941,26 @@
 		const halfCopy = 32;
 		const sideMargin = 24;
 		const padX = halfCopy + sideMargin;
-		const padBot = 60;
+
+		const vertical = dcEl.dataset.copyLayout === 'vertical';
+		if (vertical) {
+			// Stack copies vertically so each has its own row — used for the
+			// secondary region in GRS/GZRS so async replication trails can
+			// run as clean parallel horizontal lines from the primary edge.
+			const padY = halfCopy + 18;
+			const usableV = h - padY*2;
+			const slotV = totalInDC <= 1 ? 0 : usableV / (totalInDC - 1);
+			const x = cx + w/2;
+			const y = totalInDC === 1
+				? (cy + h/2)
+				: (cy + padY + slotV * indexInDC);
+			return { x, y };
+		}
+
 		const usable = w - padX*2;
 		const slot = totalInDC <= 1 ? 0 : usable / (totalInDC - 1);
 		const x = totalInDC === 1 ? (cx + w/2) : (cx + padX + slot * indexInDC);
-		const y = cy + h - padBot;
+		const y = cy + h / 2;  // center vertically within the data center
 		return { x, y };
 	}
 	function makeCopyEl(copy) {
@@ -1016,9 +1968,9 @@
 		el.className = 'copy' + (copy.readOnly ? ' read-only' : '');
 		el.setAttribute('role','group');
 		el.setAttribute('aria-label',
-			(copy.readOnly ? 'Read-only replica' : 'Replica') +
+			(copy.readOnly ? t('readOnlyReplica') : t('replica')) +
 			(copy.sub ? ' · ' + copy.sub : ''));
-		el.textContent = '📦';
+		el.textContent = '💾';
 		stage.appendChild(el);
 		return el;
 	}
@@ -1030,11 +1982,88 @@
 		stage.appendChild(el);
 		return el;
 	}
+
+	// Creates a small particle that flows along the async trail path.
+	function makeAsyncParticle() {
+		const el = document.createElement('div');
+		el.className = 'async-particle';
+		el.style.opacity = '0';
+		stage.appendChild(el);
+		return el;
+	}
+
+	// Creates a floating "Replica N" pill that appears next to a copy as it
+	// is cloned from the source, then fades out shortly after.
+	function makeReplicaLabel(text) {
+		const el = document.createElement('div');
+		el.className = 'replica-label';
+		el.textContent = text;
+		stage.appendChild(el);
+		return el;
+	}
+
+	// Sets up a continuous looping animation showing async replication flow.
+	// Takes an array of async copy animations to cycle through all targets.
+	// Returns the GSAP timeline so it can be tracked and killed on navigation.
+	function startContinuousAsyncFlow(asyncCopies, trails) {
+		if (!asyncCopies || asyncCopies.length === 0) return null;
+
+		// Keep all async trails visible with a subtle opacity
+		trails.forEach(trail => gsap.to(trail, { opacity: 0.35, duration: 0.3 }));
+
+		// Create particles - one for each target so they cycle through all replicas
+		const particles = [];
+		const particleCount = asyncCopies.length;
+		for (let i = 0; i < particleCount; i++) {
+			particles.push(makeAsyncParticle());
+		}
+
+		const loopTl = gsap.timeline({ repeat: -1 });
+
+		// Each particle targets a different replica, staggered in time.
+		// Travels in a straight line along its own async trail (each async
+		// copy has its own per-trail origin since trails are parallel
+		// horizontals, one per replica).
+		particles.forEach((p, i) => {
+			const from = asyncCopies[i].origin;
+			const target = asyncCopies[i].target;
+			const delay = i * 1.8; // stagger particles more for slower feel
+
+			loopTl.fromTo(p,
+				{ left: (from.x - 8) + 'px', top: (from.y - 8) + 'px', opacity: 0, scale: 0.6 },
+				{ opacity: 0.9, scale: 1, duration: 0.5, ease: 'power2.out' },
+				delay
+			);
+			loopTl.to(p, {
+				left: (target.x - 8) + 'px',
+				top:  (target.y - 8) + 'px',
+				duration: 3.5, // slower movement
+				ease: 'power1.inOut'
+			}, '<');
+			loopTl.to(p,
+				{ opacity: 0, scale: 0.6, duration: 0.5, ease: 'power2.in' },
+				'>-=0.4'
+			);
+		});
+
+		// Store particles for cleanup
+		loopTl.particles = particles;
+		return loopTl;
+	}
+
 	function makeTrail(from, to, asyncStyle) {
 		const colors = readThemeColors();
-		const midX = (from.x + to.x) / 2;
-		const midY = Math.min(from.y, to.y) - 60;
-		const d = `M ${from.x} ${from.y} Q ${midX} ${midY}, ${to.x} ${to.y}`;
+		// Async (cross-region replication) uses a clean straight line so the
+		// trail goes directly from the primary anchor to each replica in the
+		// secondary region — easier to read and avoids the messy curved arc.
+		let d;
+		if (asyncStyle) {
+			d = `M ${from.x} ${from.y} L ${to.x} ${to.y}`;
+		} else {
+			const midX = (from.x + to.x) / 2;
+			const midY = Math.min(from.y, to.y) - 60;
+			d = `M ${from.x} ${from.y} Q ${midX} ${midY}, ${to.x} ${to.y}`;
+		}
 		const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
 		p.setAttribute('d', d);
 		p.setAttribute('fill','none');
@@ -1048,20 +2077,23 @@
 	}
 	function asyncLabel(from, to) {
 		const colors = readThemeColors();
-		const midX = (from.x + to.x) / 2;
-		const midY = Math.min(from.y, to.y) - 64;
-		const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-		t.setAttribute('x', midX);
-		t.setAttribute('y', midY - 6);
-		t.setAttribute('text-anchor','middle');
-		t.setAttribute('fill', colors.primary);
-		t.setAttribute('font-family','system-ui, sans-serif');
-		t.setAttribute('font-size','16');
-		t.setAttribute('font-weight','700');
-		t.textContent = 'async replication';
-		t.setAttribute('opacity','0');
-		svg.appendChild(t);
-		return t;
+		// Place the label about 1/3 of the way from the primary anchor toward
+		// the secondary — keeps it over the open space between the two
+		// regions instead of overlapping the secondary region box.
+		const labelX = from.x + (to.x - from.x) * 0.33;
+		const labelY = Math.min(from.y, to.y) - 28;
+		const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+		txt.setAttribute('x', labelX);
+		txt.setAttribute('y', labelY);
+		txt.setAttribute('text-anchor','middle');
+		txt.setAttribute('fill', colors.primary);
+		txt.setAttribute('font-family','system-ui, sans-serif');
+		txt.setAttribute('font-size','16');
+		txt.setAttribute('font-weight','700');
+		txt.textContent = t('asyncReplication');
+		txt.setAttribute('opacity','0');
+		svg.appendChild(txt);
+		return txt;
 	}
 
 	// Badge that hovers above a DC building announcing the read endpoint.
@@ -1075,10 +2107,48 @@
 		el.className = 'read-endpoint';
 		el.setAttribute('role','status');
 		const labelSpan = document.createElement('span');
-		labelSpan.textContent = 'Secondary read endpoint (read-only)';
+		labelSpan.textContent = t('readOnlyEndpoint');
 		const urlSpan = document.createElement('span');
 		urlSpan.className = 'endpoint-url';
 		urlSpan.textContent = endpointUrl || '<account>-secondary.blob.core.windows.net';
+		el.appendChild(labelSpan);
+		el.appendChild(urlSpan);
+		stage.appendChild(el);
+		requestAnimationFrame(() => {
+			const h = el.offsetHeight || 36;
+			el.style.left = cx + 'px';
+			el.style.top  = (topY - h - 26) + 'px';
+		});
+		return el;
+	}
+
+	// Badge that hovers above a DC building announcing the PRIMARY endpoint (read + write).
+	// If regionEl is provided, position above the region center instead.
+	function makePrimaryEndpointBadge(dcEl, endpointUrl, regionEl) {
+		const sr    = stage.getBoundingClientRect();
+		let cx, topY;
+		
+		if (regionEl) {
+			// Position above the center of the region box
+			const r = regionEl.getBoundingClientRect();
+			cx    = r.left - sr.left + r.width/2;
+			topY  = r.top  - sr.top;
+		} else {
+			// Position above the DC building
+			const shape = dcEl.querySelector('.dc-shape');
+			const r     = shape.getBoundingClientRect();
+			cx    = r.left - sr.left + r.width/2;
+			topY  = r.top  - sr.top;
+		}
+		
+		const el = document.createElement('div');
+		el.className = 'primary-endpoint';
+		el.setAttribute('role','status');
+		const labelSpan = document.createElement('span');
+		labelSpan.textContent = t('readWriteEndpoint');
+		const urlSpan = document.createElement('span');
+		urlSpan.className = 'endpoint-url';
+		urlSpan.textContent = endpointUrl || '<account>.blob.core.windows.net';
 		el.appendChild(labelSpan);
 		el.appendChild(urlSpan);
 		stage.appendChild(el);
@@ -1096,7 +2166,7 @@
 		el.className = 'cloud-user';
 		el.innerHTML =
 			'<div class="user-icon" aria-hidden="true">👤</div>' +
-			'<div class="user-label">App / User</div>';
+			'<div class="user-label">' + t('appUser') + '</div>';
 		// Sit on the right edge, vertically near the source tile.
 		el.style.right = '2.5%';
 		el.style.top   = '8%';
@@ -1142,26 +2212,46 @@
 
 	// ── Outline + announce ───────────────────
 	function effectiveStep(step) {
-		if (step.readAccessToggle && readAccessOn) {
-			return {
-				...step,
-				title:       step.titleRA       || step.title,
-				short:       step.shortRA       || step.short,
-				caption:     step.captionRA     || step.caption,
-				description: step.descriptionRA || step.description,
-				stats:       step.statsRA       || step.stats
-			};
-		}
-		return step;
+		if (!step.readAccessToggle) return step;
+		// RA elements are always part of these steps now — they animate in
+		// at the END of the normal replication animation rather than being
+		// toggled by a button.
+		const RA = true;
+		return {
+			...step,
+			title:       RA ? (step.titleRA       || step.title)       : step.title,
+			short:       RA ? (step.shortRA       || step.short)       : step.short,
+			caption:     RA ? (step.captionRA     || step.caption)     : step.caption,
+			description: RA ? (step.descriptionRA || step.description) : step.description,
+			callout:     RA ? (step.calloutRA     || step.callout)     : step.callout,
+			stats:       RA ? (step.statsRA       || step.stats)       : step.stats,
+			// Primary endpoint is always shown on GRS/GZRS steps.
+			primaryEndpointDC:   step.primaryEndpointDC,
+			primaryEndpoint:     step.primaryEndpoint,
+			// Only expose the secondary endpoint + cloud user when RA is on.
+			secondaryEndpointDC: RA ? step.secondaryEndpointDC : null,
+			secondaryEndpoint:   RA ? step.secondaryEndpoint   : null,
+			showCloudUser:       RA,
+			dcs: (step.dcs || []).map(dc =>
+				RA && dc.id === step.secondaryEndpointDC
+					? { ...dc, label: dc.label, readLabel: true }
+					: dc
+			),
+			copies: (step.copies || []).map(c =>
+				RA && c.async
+					? { ...c, readOnly:true, sub:(c.sub || 'async') + ' · read' }
+					: c
+			)
+		};
 	}
 	function renderOutline(step, idx) {
 		const view = effectiveStep(step);
 		const statRows = (view.stats||[]).map(([k,v]) =>
-			`<div class="stat-row"><span>${k}</span><span>${v}</span></div>`
+			`<div class="stat-row"><span>${tStat(k)}</span><span>${tStatVal(v)}</span></div>`
 		).join('');
 		outlineBody.innerHTML = `
 			<div class="outline-section">
-				<strong>Step ${idx+1} of ${STEPS.length}: ${view.title}</strong>
+				<strong>${t('stepOf', idx+1, STEPS.length)}: ${view.title}</strong>
 				<p style="margin-top:0.4rem;">${view.description||view.caption}</p>
 			</div>
 			${statRows ? `<div class="outline-section">${statRows}</div>` : ''}
@@ -1169,7 +2259,7 @@
 	}
 	function announceStep(step, idx) {
 		const view = effectiveStep(step);
-		announcer.textContent = `Step ${idx+1} of ${STEPS.length}: ${view.title}. ${view.description||view.caption}`;
+		announcer.textContent = `${t('stepOf', idx+1, STEPS.length)}: ${view.title}. ${view.description||view.caption}`;
 	}
 
 	// ── RENDER ────────────────────────────────
@@ -1185,12 +2275,13 @@
 		animating = true;
 		clearStage();
 
-		const step = STEPS[stepIndex];
+		const rawStep = STEPS[stepIndex];
+		const step    = effectiveStep(rawStep);
 
 		// On the overview / compare steps the central "Your Data" tile and
 		// the mode-title pill add visual noise on top of the cards/table, so
 		// hide them. Other steps need them as the animation source.
-		const hideSource = step.id === 'intro' || step.id === 'compare';
+		const hideSource = step.id === 'intro' || step.id === 'compare' || step.id === 'summary';
 		document.querySelector('.source').style.display = hideSource ? 'none' : '';
 
 		let titleEl = null;
@@ -1225,7 +2316,9 @@
 			step.optionsGrid.forEach(opt => {
 				const card = document.createElement('div');
 				card.className = `option-card tier-${opt.tier||'local'}`;
-				const tag  = `<div class="opt-tag">${opt.tag||''}</div>`;
+				const tagMap = {'Local':'local','Zone':'zone','Geo':'geo','Geo · Read access':'geoRead','Geo · Zone':'geoZone','Geo · Zone · Read access':'geoZoneRead'};
+				const translatedTag = tagMap[opt.tag] ? t(tagMap[opt.tag]) : (opt.tag||'');
+				const tag  = `<div class="opt-tag">${translatedTag}</div>`;
 				const name = `<div class="opt-name">${opt.name}</div>`;
 				const rows = [
 					['Copies',     opt.copies],
@@ -1234,7 +2327,7 @@
 					['SLA',        opt.sla],
 					['Survives',   opt.survives]
 				].filter(([,v]) => !!v).map(([k,v]) =>
-					`<div class="opt-stat"><span class="k">${k}</span><span class="v">${v}</span></div>`
+					`<div class="opt-stat"><span class="k">${tStat(k)}</span><span class="v">${tStatVal(v)}</span></div>`
 				).join('');
 				card.innerHTML = tag + name + rows;
 				grid.appendChild(card);
@@ -1280,7 +2373,7 @@
 		}
 
 		let calloutEl = null;
-		if (step.callout) {
+		if (step.callout && calloutEnabled) {
 			calloutEl = document.createElement('div');
 			calloutEl.className = 'callout';
 			calloutEl.textContent = step.callout.text;
@@ -1295,6 +2388,473 @@
 			stage.appendChild(calloutEl);
 			liveEls.push(calloutEl);
 		}
+
+		// ── SUMMARY MINI-ANIMATIONS (step 6) ──────────────────────────────
+		if (step.summaryMinis) {
+			// Title above the grid
+			const titleEl = document.createElement('div');
+			titleEl.className = 'mode-title';
+			titleEl.textContent = t('summaryTitle');
+			titleEl.style.top = '1.5rem';
+			titleEl.style.opacity = '0';
+			stage.appendChild(titleEl);
+			liveEls.push(titleEl);
+
+			const grid = document.createElement('div');
+			grid.className = 'summary-grid';
+
+			const miniDefs = [
+				{
+					name: 'LRS', tier: 'local',
+					info: [['Copies','3'],['Spread','1 data center'],['Zone outage','❌'],['Region outage','❌'],['Read secondary','❌']],
+					dcs: [{ cls:'m-primary', x:'20%', y:'25%', w:'60%', h:'60%' }],
+					copies: [
+						{ dcIdx:0, tx:0.25, ty:0.35 },
+						{ dcIdx:0, tx:0.75, ty:0.35 },
+						{ dcIdx:0, tx:0.5,  ty:0.7 }
+					],
+					asyncTrails: []
+				},
+				{
+					name: 'ZRS', tier: 'zone',
+					info: [['Copies','3'],['Spread','3 zones'],['Zone outage','✅'],['Region outage','❌'],['Read secondary','❌']],
+					dcs: [
+						{ cls:'m-zone-a', x:'5%',  y:'25%', w:'26%', h:'60%' },
+						{ cls:'m-zone-b', x:'37%', y:'25%', w:'26%', h:'60%' },
+						{ cls:'m-zone-c', x:'69%', y:'25%', w:'26%', h:'60%' }
+					],
+					copies: [
+						{ dcIdx:0, tx:0.5, ty:0.5 },
+						{ dcIdx:1, tx:0.5, ty:0.5 },
+						{ dcIdx:2, tx:0.5, ty:0.5 }
+					],
+					asyncTrails: []
+				},
+				{
+					name: 'GRS', tier: 'geo',
+					info: [['Copies','6 (3+3)'],['Spread','2 regions'],['Zone outage','❌'],['Region outage','✅'],['Read secondary','❌']],
+					dcs: [
+						{ cls:'m-primary',   x:'5%',  y:'25%', w:'40%', h:'60%' },
+						{ cls:'m-secondary', x:'55%', y:'25%', w:'40%', h:'60%' }
+					],
+					copies: [
+						{ dcIdx:0, tx:0.25, ty:0.3 },
+						{ dcIdx:0, tx:0.75, ty:0.3 },
+						{ dcIdx:0, tx:0.5,  ty:0.7 },
+						{ dcIdx:1, tx:0.25, ty:0.3, async:true },
+						{ dcIdx:1, tx:0.75, ty:0.3, async:true },
+						{ dcIdx:1, tx:0.5,  ty:0.7, async:true }
+					],
+					asyncTrails: [{ fromDC:0, toDC:1 }]
+				},
+				{
+					name: 'RA-GRS', tier: 'geo-read',
+					info: [['Copies','6 (3+3)'],['Spread','2 regions'],['Zone outage','❌'],['Region outage','✅'],['Read secondary','✅']],
+					dcs: [
+						{ cls:'m-primary',   x:'5%',  y:'25%', w:'40%', h:'60%' },
+						{ cls:'m-secondary', x:'55%', y:'25%', w:'40%', h:'60%' }
+					],
+					copies: [
+						{ dcIdx:0, tx:0.25, ty:0.3 },
+						{ dcIdx:0, tx:0.75, ty:0.3 },
+						{ dcIdx:0, tx:0.5,  ty:0.7 },
+						{ dcIdx:1, tx:0.25, ty:0.3, async:true, read:true },
+						{ dcIdx:1, tx:0.75, ty:0.3, async:true, read:true },
+						{ dcIdx:1, tx:0.5,  ty:0.7, async:true, read:true }
+					],
+					asyncTrails: [{ fromDC:0, toDC:1 }],
+					readEndpoint: true
+				},
+				{
+					name: 'GZRS', tier: 'geo',
+					info: [['Copies','6 (3+3)'],['Spread','3 zones + region'],['Zone outage','✅'],['Region outage','✅'],['Read secondary','❌']],
+					primaryRegion: { x:'1%', y:'18%', w:'64%', h:'74%' },
+					dcs: [
+						{ cls:'m-zone-a', x:'3%',  y:'25%', w:'18%', h:'60%' },
+						{ cls:'m-zone-b', x:'24%', y:'25%', w:'18%', h:'60%' },
+						{ cls:'m-zone-c', x:'45%', y:'25%', w:'18%', h:'60%' },
+						{ cls:'m-secondary', x:'68%', y:'25%', w:'28%', h:'60%' }
+					],
+					copies: [
+						{ dcIdx:0, tx:0.5, ty:0.5 },
+						{ dcIdx:1, tx:0.5, ty:0.5 },
+						{ dcIdx:2, tx:0.5, ty:0.5 },
+						{ dcIdx:3, tx:0.5, ty:0.2, async:true },
+						{ dcIdx:3, tx:0.5, ty:0.5, async:true },
+						{ dcIdx:3, tx:0.5, ty:0.8, async:true }
+					],
+					asyncTrails: [{ fromDC:2, toDC:3 }]
+				},
+				{
+					name: 'RA-GZRS', tier: 'geo-read',
+					info: [['Copies','6 (3+3)'],['Spread','3 zones + region'],['Zone outage','✅'],['Region outage','✅'],['Read secondary','✅']],
+					primaryRegion: { x:'1%', y:'18%', w:'64%', h:'74%' },
+					dcs: [
+						{ cls:'m-zone-a', x:'3%',  y:'25%', w:'18%', h:'60%' },
+						{ cls:'m-zone-b', x:'24%', y:'25%', w:'18%', h:'60%' },
+						{ cls:'m-zone-c', x:'45%', y:'25%', w:'18%', h:'60%' },
+						{ cls:'m-secondary', x:'68%', y:'25%', w:'28%', h:'60%' }
+					],
+					copies: [
+						{ dcIdx:0, tx:0.5, ty:0.5 },
+						{ dcIdx:1, tx:0.5, ty:0.5 },
+						{ dcIdx:2, tx:0.5, ty:0.5 },
+						{ dcIdx:3, tx:0.5, ty:0.2, async:true, read:true },
+						{ dcIdx:3, tx:0.5, ty:0.5, async:true, read:true },
+						{ dcIdx:3, tx:0.5, ty:0.8, async:true, read:true }
+					],
+					asyncTrails: [{ fromDC:2, toDC:3 }],
+					readEndpoint: true
+				}
+			];
+
+			const summaryTiles = [];
+			miniDefs.forEach(def => {
+				const tile = document.createElement('div');
+				tile.className = `summary-tile tier-${def.tier}`;
+				const label = document.createElement('div');
+				label.className = 'mini-label';
+				label.textContent = def.name;
+				tile.appendChild(label);
+				const miniStage = document.createElement('div');
+				miniStage.className = 'mini-stage';
+				tile.appendChild(miniStage);
+				// Info bar at bottom
+				if (def.info && def.info.length) {
+					const infoEl = document.createElement('div');
+					infoEl.className = 'mini-info';
+					def.info.forEach(([k, v]) => {
+						const row = document.createElement('div');
+						row.className = 'info-row';
+						row.innerHTML = `<span class="k">${tStat(k)}</span><span class="v">${tStatVal(v)}</span>`;
+						infoEl.appendChild(row);
+					});
+					tile.appendChild(infoEl);
+				}
+				grid.appendChild(tile);
+				summaryTiles.push({ tile, miniStage, def });
+			});
+			stage.appendChild(grid);
+			liveEls.push(grid);
+
+			// After layout, create mini animations
+			requestAnimationFrame(() => requestAnimationFrame(() => {
+				// Build the mini scene elements for each tile (DCs, source, trails, copies)
+				function buildMiniScene(st) {
+					const { miniStage, def } = st;
+					const sw = miniStage.clientWidth;
+					const sh = miniStage.clientHeight;
+
+					const dcEls = [];
+					def.dcs.forEach(dc => {
+						const el = document.createElement('div');
+						el.className = `mini-dc ${dc.cls}`;
+						el.style.left = dc.x;
+						el.style.top = dc.y;
+						el.style.width = dc.w;
+						el.style.height = dc.h;
+						miniStage.appendChild(el);
+						dcEls.push(el);
+					});
+
+					// Render primary region wrapper if defined
+					if (def.primaryRegion) {
+						const regionEl = document.createElement('div');
+						regionEl.className = 'mini-region';
+						regionEl.style.left = def.primaryRegion.x;
+						regionEl.style.top = def.primaryRegion.y;
+						regionEl.style.width = def.primaryRegion.w;
+						regionEl.style.height = def.primaryRegion.h;
+						miniStage.appendChild(regionEl);
+					}
+
+					const src = document.createElement('div');
+					src.className = 'mini-source';
+					src.textContent = '💾';
+					src.style.left = 'calc(50% - 11px)';
+					src.style.top = '2px';
+					miniStage.appendChild(src);
+
+					def.asyncTrails.forEach(trail => {
+						const fromDC = dcEls[trail.fromDC];
+						const toDC = dcEls[trail.toDC];
+						const trailEl = document.createElement('div');
+						trailEl.className = 'mini-trail';
+						const fdcL = parseFloat(fromDC.style.left) + parseFloat(fromDC.style.width);
+						const tdcL = parseFloat(toDC.style.left);
+						const yMid = parseFloat(fromDC.style.top) + parseFloat(fromDC.style.height) / 2;
+						trailEl.style.left = fdcL + '%';
+						trailEl.style.top = yMid + '%';
+						trailEl.style.width = (tdcL - fdcL) + '%';
+						miniStage.appendChild(trailEl);
+					});
+
+					if (def.readEndpoint) {
+						const badge = document.createElement('div');
+						badge.className = 'mini-endpoint';
+						badge.textContent = '📖 ' + t('read');
+						badge.style.right = '4%';
+						badge.style.top = '20%';
+						miniStage.appendChild(badge);
+						if (motionPaused) gsap.set(badge, { opacity:1 });
+					}
+
+					if (def.readEndpoint) {
+						const user = document.createElement('div');
+						user.className = 'mini-user';
+						user.textContent = '👤';
+						user.style.right = '6%';
+						user.style.bottom = '8%';
+						miniStage.appendChild(user);
+						if (motionPaused) gsap.set(user, { opacity:1 });
+					}
+
+					def.copies.forEach(c => {
+						const el = document.createElement('div');
+						el.className = 'mini-copy' + (c.read ? ' m-read' : '');
+						el.textContent = '💾';
+						miniStage.appendChild(el);
+
+						const dc = dcEls[c.dcIdx];
+						const dcLeft = parseFloat(dc.style.left) / 100 * sw;
+						const dcTop = parseFloat(dc.style.top) / 100 * sh;
+						const dcW = parseFloat(dc.style.width) / 100 * sw;
+						const dcH = parseFloat(dc.style.height) / 100 * sh;
+						const targetX = dcLeft + dcW * c.tx - 11;
+						const targetY = dcTop + dcH * c.ty - 11;
+
+						el.style.left = targetX + 'px';
+						el.style.top = targetY + 'px';
+						if (motionPaused) gsap.set(el, { opacity:1 });
+					});
+				}
+
+				if (motionPaused) {
+					gsap.set(titleEl, { opacity:1 });
+					summaryTiles.forEach(st => {
+						gsap.set(st.tile, { opacity:1 });
+						buildMiniScene(st);
+					});
+					animating = false;
+					return;
+				}
+
+				const masterTl = gsap.timeline({ onComplete: () => animating = false });
+				masterTl.timeScale(0.25);
+				liveTimelines.push(masterTl);
+
+				// Fade in title
+				masterTl.to(titleEl, { opacity:1, duration:0.4, ease:'power2.out' }, 0);
+
+				// Stagger tile appearance
+				summaryTiles.forEach((st, i) => {
+					masterTl.fromTo(st.tile,
+						{ opacity:0, scale:0.9, y:20 },
+						{ opacity:1, scale:1, y:0, duration:0.5, ease:'back.out(1.4)' },
+						i * 0.15);
+				});
+
+				// After tiles appear, start mini animations
+				masterTl.addLabel('animStart', '+=0.3');
+
+				summaryTiles.forEach((st, tileIdx) => {
+					const { miniStage, def } = st;
+					const sw = miniStage.clientWidth;
+					const sh = miniStage.clientHeight;
+
+					// Create an SVG layer for trail lines
+					const miniSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+					miniSvg.setAttribute('class', 'mini-svg');
+					miniSvg.setAttribute('viewBox', `0 0 ${sw} ${sh}`);
+					miniSvg.setAttribute('preserveAspectRatio', 'none');
+					miniStage.appendChild(miniSvg);
+
+					// Create mini DCs
+					const dcEls = [];
+					def.dcs.forEach(dc => {
+						const el = document.createElement('div');
+						el.className = `mini-dc ${dc.cls}`;
+						el.style.left = dc.x;
+						el.style.top = dc.y;
+						el.style.width = dc.w;
+						el.style.height = dc.h;
+						miniStage.appendChild(el);
+						dcEls.push(el);
+					});
+
+					// Create mini source at top center
+					const srcEl = document.createElement('div');
+					srcEl.className = 'mini-source';
+					srcEl.textContent = '💾';
+					srcEl.style.left = 'calc(50% - 11px)';
+					srcEl.style.top = '2px';
+					miniStage.appendChild(srcEl);
+
+					const srcX = sw / 2;
+					const srcY = 13;
+
+					// Read endpoint badge
+					if (def.readEndpoint) {
+						const badge = document.createElement('div');
+						badge.className = 'mini-endpoint';
+						badge.textContent = '📖 ' + t('read');
+						badge.style.right = '2%';
+						badge.style.top = '15%';
+						miniStage.appendChild(badge);
+						masterTl.fromTo(badge,
+							{ opacity:0, scale:0.7 },
+							{ opacity:1, scale:1, duration:0.35, ease:'back.out(2)' },
+							'animStart+=' + (tileIdx * 0.15 + 2.5));
+					}
+
+					// Create mini user for RA types
+					if (def.readEndpoint) {
+						const user = document.createElement('div');
+						user.className = 'mini-user';
+						user.textContent = '👤';
+						user.style.right = '3%';
+						user.style.bottom = '5%';
+						miniStage.appendChild(user);
+						masterTl.fromTo(user,
+							{ opacity:0, scale:0.5 },
+							{ opacity:1, scale:1, duration:0.4, ease:'back.out(2)' },
+							'animStart+=' + (tileIdx * 0.15 + 2.8));
+					}
+
+					// Render primary region wrapper if defined
+					if (def.primaryRegion) {
+						const regionEl = document.createElement('div');
+						regionEl.className = 'mini-region';
+						regionEl.style.left = def.primaryRegion.x;
+						regionEl.style.top = def.primaryRegion.y;
+						regionEl.style.width = def.primaryRegion.w;
+						regionEl.style.height = def.primaryRegion.h;
+						miniStage.appendChild(regionEl);
+					}
+
+					// Compute async origin: right edge center of the last primary DC
+					// (the fromDC in asyncTrails) so secondary copies originate from
+					// the primary region, not from the "your data" source dot.
+					let asyncOriginX = srcX;
+					let asyncOriginY = srcY;
+					if (def.asyncTrails && def.asyncTrails.length > 0) {
+						const fromDC = dcEls[def.asyncTrails[0].fromDC];
+						const fdcLeft = parseFloat(fromDC.style.left) / 100 * sw;
+						const fdcTop = parseFloat(fromDC.style.top) / 100 * sh;
+						const fdcW = parseFloat(fromDC.style.width) / 100 * sw;
+						const fdcH = parseFloat(fromDC.style.height) / 100 * sh;
+						asyncOriginX = fdcLeft + fdcW; // right edge
+						asyncOriginY = fdcTop + fdcH / 2; // vertical center
+					}
+
+					// Calculate copy target positions and create trail paths + copies
+					const copyData = [];
+					def.copies.forEach((c, ci) => {
+						const dc = dcEls[c.dcIdx];
+						const dcLeft = parseFloat(dc.style.left) / 100 * sw;
+						const dcTop = parseFloat(dc.style.top) / 100 * sh;
+						const dcW = parseFloat(dc.style.width) / 100 * sw;
+						const dcH = parseFloat(dc.style.height) / 100 * sh;
+						const targetX = dcLeft + dcW * c.tx;
+						const targetY = dcTop + dcH * c.ty;
+
+						// Determine trail origin: async copies come from primary region,
+						// sync copies come from the source dot.
+						const originX = c.async ? asyncOriginX : srcX;
+						const originY = c.async ? asyncOriginY : srcY;
+
+						// SVG trail path
+						const midX = (originX + targetX) / 2;
+						const midY = Math.min(originY, targetY) - 8;
+						const d = c.async
+							? `M ${originX} ${originY} L ${targetX} ${targetY}`
+							: `M ${originX} ${originY} Q ${midX} ${midY}, ${targetX} ${targetY}`;
+						const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+						path.setAttribute('d', d);
+						path.setAttribute('fill', 'none');
+						path.setAttribute('stroke', c.async ? '#5c2d91' : '#0078d4');
+						path.setAttribute('stroke-width', c.async ? '2' : '2');
+						path.setAttribute('stroke-linecap', 'round');
+						path.setAttribute('opacity', '0');
+						// All trails use dashes for animated flow effect
+						path.setAttribute('stroke-dasharray', c.async ? '6 4' : '5 4');
+						miniSvg.appendChild(path);
+
+						// Create the copy element — starts at origin, flies to target
+						const el = document.createElement('div');
+						el.className = 'mini-copy' + (c.read ? ' m-read' : '');
+						el.textContent = '💾';
+						miniStage.appendChild(el);
+
+						el.style.left = (originX - 11) + 'px';
+						el.style.top = (originY - 11) + 'px';
+
+						copyData.push({ el, path, targetX: targetX - 11, targetY: targetY - 11, c, ci, originX, originY });
+					});
+
+					// Animate: copies fly from origin to target, trails appear as they move
+					copyData.forEach(({ el, path, targetX, targetY, c, ci, originX, originY }) => {
+						const delay = tileIdx * 0.15 + (c.async ? 1.2 : 0.3) + ci * 0.2;
+						// Show trail line
+						masterTl.to(path,
+							{ opacity: c.async ? 0.7 : 0.5, duration: 0.3 },
+							'animStart+=' + delay);
+						// Fly copy from origin to target
+						masterTl.fromTo(el,
+							{ opacity:0, scale:0.3, left: (originX-11)+'px', top: (originY-11)+'px' },
+							{ opacity:1, scale:1, left: targetX+'px', top: targetY+'px',
+							  duration: c.async ? 1.0 : 0.7,
+							  ease: 'power2.out' },
+							'animStart+=' + (delay + 0.1));
+					});
+
+					// Store copy data for looping animation
+					st._copyData = copyData;
+					st._srcX = srcX;
+					st._srcY = srcY;
+					st._miniSvg = miniSvg;
+					st._def = def;
+				});
+
+				// After all copies appear, start animated flowing dashes on trails
+				masterTl.add(() => {
+					summaryTiles.forEach(st => {
+						const { _copyData } = st;
+						if (!_copyData) return;
+
+						_copyData.forEach(({ path, c }, pi) => {
+							// Keep trail visible
+							gsap.set(path, { opacity: c.async ? 0.7 : 0.5 });
+
+							// Animate stroke-dashoffset for a flowing/moving effect
+							const pathLen = path.getTotalLength ? path.getTotalLength() : 50;
+							const dashSize = c.async ? 10 : 9;
+							path.setAttribute('stroke-dasharray', `${dashSize}`);
+							path.setAttribute('stroke-dashoffset', '0');
+
+							const flowTl = gsap.timeline({ repeat:-1 });
+							flowTl.to(path, {
+								strokeDashoffset: -dashSize * 2,
+								duration: c.async ? 1.2 : 0.8,
+								ease: 'none'
+							});
+							liveTimelines.push(flowTl);
+						});
+					});
+				}, '>');
+			}));
+
+			// For summary step we handle animation completion via the summary timeline
+			// so skip the normal copy animation flow below.
+			current = stepIndex;
+			counter.textContent = `${current+1} / ${STEPS.length}`;
+			breadcrumb.textContent = step.caption;
+			progress.style.width = ((current+1)/STEPS.length * 100) + '%';
+			renderOutline(rawStep, stepIndex);
+			announceStep(rawStep, stepIndex);
+			return;
+		}
+
 
 		// Wait two frames for layout
 		requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -1315,20 +2875,26 @@
 			if (regionEl) {
 				const r = regionEl.getBoundingClientRect();
 				primaryAnchor = {
-					x: r.right - sr.left - 8,
-					y: r.top   - sr.top + r.height/2
+					x: r.right - sr.left,
+					y: r.top   - sr.top + r.height/2,
+					yMin: r.top - sr.top + 16,
+					yMax: r.bottom - sr.top - 16
 				};
 			} else if (syncDCIds.size) {
 				// Right-edge midpoint of the rightmost sync DC building.
 				let best = null;
+				let topMost = Infinity, botMost = 0;
 				syncDCIds.forEach(id => {
 					const shape = dcEls[id] && dcEls[id].querySelector('.dc-shape');
 					if (!shape) return;
 					const r = shape.getBoundingClientRect();
 					if (!best || r.right > best.right) best = r;
+					topMost = Math.min(topMost, r.top - sr.top);
+					botMost = Math.max(botMost, r.bottom - sr.top);
 				});
 				primaryAnchor = best
-					? { x: best.right - sr.left, y: best.top - sr.top + best.height/2 }
+					? { x: best.right - sr.left, y: best.top - sr.top + best.height/2,
+					    yMin: topMost + 12, yMax: botMost - 12 }
 					: src;
 			} else {
 				primaryAnchor = src;
@@ -1341,9 +2907,19 @@
 					const target = copyTargetInDC(dcEl, i, list.length);
 					const el = makeCopyEl(c);
 					liveEls.push(el);
-					// Async copies depart from the primary region edge; sync
-					// copies depart from the source tile.
-					const origin = c.async ? primaryAnchor : src;
+					// Async copies depart from the primary region edge at the
+					// same Y as their target — clamped to stay within the
+					// primary region box for clean visuals.
+					// Sync copies depart from the source tile.
+					let origin;
+					if (c.async) {
+						let oy = target.y;
+						if (primaryAnchor.yMin != null) oy = Math.max(oy, primaryAnchor.yMin);
+						if (primaryAnchor.yMax != null) oy = Math.min(oy, primaryAnchor.yMax);
+						origin = { x: primaryAnchor.x, y: oy };
+					} else {
+						origin = src;
+					}
 					el.style.left = (origin.x - 32) + 'px';
 					el.style.top  = (origin.y - 32) + 'px';
 					const trail = makeTrail(origin, target, !!c.async);
@@ -1369,6 +2945,160 @@
 				liveEls.push(endpointBadge);
 			}
 
+			// PRIMARY endpoint badge above the primary DC (for GRS/GZRS steps).
+			// If there's a region box, position above its center instead.
+			let primaryBadge = null;
+			let primaryDcEl = null;
+			if (step.primaryEndpointDC && dcEls[step.primaryEndpointDC]) {
+				primaryDcEl = dcEls[step.primaryEndpointDC];
+				primaryBadge = makePrimaryEndpointBadge(primaryDcEl, step.primaryEndpoint, regionEl);
+				liveEls.push(primaryBadge);
+			}
+
+			// Cloud user connecting to the PRIMARY endpoint (read + write).
+			let primaryUserEl = null;
+			let primaryAccessLine = null;
+			let revealPrimaryUser = null;
+			if (primaryBadge && primaryDcEl) {
+				primaryUserEl = makeCloudUser();
+				liveEls.push(primaryUserEl);
+				// Position on the LEFT side of the stage near the primary DC.
+				primaryUserEl.style.right = 'auto';
+				primaryUserEl.style.left  = '-9999px';
+				primaryUserEl.style.top   = '0';
+				gsap.set(primaryUserEl, { opacity:0 });
+
+				revealPrimaryUser = () => {
+					requestAnimationFrame(() => {
+						const dcRect = primaryDcEl.getBoundingClientRect();
+						const dcLeft = dcRect.left - sr.left;
+						const dcTop  = dcRect.top  - sr.top;
+						const userH  = primaryUserEl.offsetHeight || 110;
+						const userW  = primaryUserEl.offsetWidth  || 100;
+
+						let badgeTop = dcTop - 62;
+						let badgeLeft = dcLeft;
+						let badgeCenterX = dcLeft + dcRect.width/2;
+						if (primaryBadge) {
+							const br = primaryBadge.getBoundingClientRect();
+							if (br.height) {
+								badgeTop  = br.top  - sr.top;
+								badgeLeft = br.left - sr.left;
+								badgeCenterX = badgeLeft + br.width/2;
+							}
+						}
+
+						// If there's a region box, place user ABOVE the region;
+						// otherwise place to the LEFT of the DC.
+						if (regionEl) {
+							const regionRect = regionEl.getBoundingClientRect();
+							const regionTop = regionRect.top - sr.top;
+							const regionCenterX = regionRect.left - sr.left + regionRect.width/2;
+							// Position user above-left of the badge, which is above the region
+							primaryUserEl.style.top  = Math.max(8, badgeTop - userH - 10) + 'px';
+							primaryUserEl.style.left = Math.max(8, badgeCenterX - userW - 60) + 'px';
+						} else {
+							// Place user to the LEFT of the primary DC.
+							primaryUserEl.style.top  = Math.max(8, badgeTop - userH/2) + 'px';
+							primaryUserEl.style.left = Math.max(8, dcLeft - userW - 40) + 'px';
+						}
+
+						const userC  = elCenterInStage(primaryUserEl);
+						const badgeC = primaryBadge
+							? elCenterInStage(primaryBadge)
+							: { x: dcLeft + dcRect.width/2, y: dcTop };
+						primaryAccessLine = makeAccessLine(userC, badgeC);
+						// Blue stroke for primary (read + write).
+						primaryAccessLine.setAttribute('stroke', '#0078d4');
+						primaryAccessLine.setAttribute('stroke-width', '3');
+						if (motionPaused) {
+							gsap.set(primaryUserEl,    { opacity:1 });
+							gsap.set(primaryAccessLine, { opacity:0.85 });
+						} else {
+							gsap.fromTo(primaryUserEl,
+								{ opacity:0, scale:0.8 },
+								{ opacity:1, scale:1, duration:0.5, ease:'back.out(1.4)' });
+							gsap.fromTo(primaryAccessLine,
+								{ opacity:0 },
+								{ opacity:0.85, duration:0.6, delay:0.2 });
+						}
+					});
+				};
+			}
+
+			// Cloud user + access line for SECONDARY (read-only) — appears at the END
+			// (after primary user) so the viewer sees the contrast.
+			let cloudUserEl = null;
+			let accessLineEl = null;
+			let revealCloudUser = null;
+			if (step.showCloudUser && step.secondaryEndpointDC && dcEls[step.secondaryEndpointDC]) {
+				cloudUserEl = makeCloudUser();
+				liveEls.push(cloudUserEl);
+				const dcEl = dcEls[step.secondaryEndpointDC];
+				// Hide off-screen until we can measure the badge + user and
+				// place the user CLEAR of the (wide) endpoint badge.
+				cloudUserEl.style.right = 'auto';
+				cloudUserEl.style.left  = '-9999px';
+				cloudUserEl.style.top   = '0';
+				gsap.set(cloudUserEl, { opacity:0 });
+
+				revealCloudUser = () => {
+					requestAnimationFrame(() => {
+						const dcRect = dcEl.getBoundingClientRect();
+						const dcLeft = dcRect.left - sr.left;
+						const dcTop  = dcRect.top  - sr.top;
+						const userH  = cloudUserEl.offsetHeight || 110;
+						const userW  = cloudUserEl.offsetWidth  || 100;
+
+						// Measure the endpoint badge so we can park the user CLEAR
+						// of it (badge centers on the secondary DC and is wide).
+						let badgeTop  = dcTop - 62;
+						let badgeLeft = dcLeft;
+						let badgeBottom = dcTop - 26;
+						if (endpointBadge) {
+							const br = endpointBadge.getBoundingClientRect();
+							if (br.height) {
+								badgeTop    = br.top    - sr.top;
+								badgeLeft   = br.left   - sr.left;
+								badgeBottom = br.bottom - sr.top;
+							}
+						}
+
+						// Prefer to sit ABOVE the badge if there is room; otherwise
+						// fall back to sitting LEFT of the badge so the icon + label
+						// never collide with the read-endpoint pill.
+						const roomAbove = badgeTop - 16;
+						if (roomAbove >= userH + 8) {
+							cloudUserEl.style.top  = (badgeTop - userH - 16) + 'px';
+							cloudUserEl.style.left = Math.max(12, dcLeft - userW - 20) + 'px';
+						} else {
+							cloudUserEl.style.top  = Math.max(8, badgeTop) + 'px';
+							cloudUserEl.style.left = Math.max(12, badgeLeft - userW - 14) + 'px';
+						}
+
+						const userC  = elCenterInStage(cloudUserEl);
+						const badgeC = endpointBadge
+							? elCenterInStage(endpointBadge)
+							: { x: dcLeft + dcRect.width/2, y: dcTop };
+						accessLineEl = makeAccessLine(userC, badgeC);
+						// Force a green stroke so it reads as "read access" not "replication".
+						accessLineEl.setAttribute('stroke', '#22c55e');
+						accessLineEl.setAttribute('stroke-dasharray', '6 5');
+						if (motionPaused) {
+							gsap.set(cloudUserEl,  { opacity:1 });
+							gsap.set(accessLineEl, { opacity:0.85 });
+						} else {
+							gsap.fromTo(cloudUserEl,
+								{ opacity:0, scale:0.8 },
+								{ opacity:1, scale:1, duration:0.5, ease:'back.out(1.4)' });
+							gsap.fromTo(accessLineEl,
+								{ opacity:0 },
+								{ opacity:0.85, duration:0.6, delay:0.2 });
+						}
+					});
+				};
+			}
+
 			if (motionPaused) {
 				if (titleEl) gsap.set(titleEl, { opacity:1 });
 				if (regionEl) gsap.set(regionEl, { opacity:1 });
@@ -1377,13 +3107,28 @@
 					a.el.style.left = (a.target.x - 32) + 'px';
 					a.el.style.top  = (a.target.y - 32) + 'px';
 					gsap.set(a.el, { opacity:1, scale:1 });
-					gsap.set(a.trail, { opacity:0 });
+					// Keep async trails visible for the continuous flow
+					gsap.set(a.trail, { opacity: a.async ? 0.3 : 0 });
 					if (a.readOnly) liveEls.push(makeReadPulse(a.target.x, a.target.y));
 				});
-				if (sharedAsyncLabel) gsap.set(sharedAsyncLabel, { opacity:1 });
+				// Start continuous async flow in paused mode too
+				const asyncList = allCopyAnims.filter(a => a.async);
+				if (asyncList.length) {
+					const trails = asyncList.map(a => a.trail);
+					const flowTl = startContinuousAsyncFlow(asyncList, trails);
+					if (flowTl) {
+						liveTimelines.push(flowTl);
+						if (flowTl.particles) flowTl.particles.forEach(p => liveEls.push(p));
+					}
+				}
+				if (sharedAsyncLabel) gsap.set(sharedAsyncLabel, { opacity:0.6 });
+				if (primaryBadge)     gsap.set(primaryBadge,     { opacity:1, y:0 });
 				if (endpointBadge)    gsap.set(endpointBadge,    { opacity:1, y:0 });
 				if (optionCards.length) gsap.set(optionCards, { opacity:1, y:0 });
 				if (calloutEl) gsap.set(calloutEl, { opacity:1 });
+				// Reveal both cloud users immediately in paused mode.
+				if (revealPrimaryUser) revealPrimaryUser();
+				if (revealCloudUser)   revealCloudUser();
 				animating = false;
 				return;
 			}
@@ -1426,13 +3171,6 @@
 					  ease:'back.out(1.3)', stagger:0.12 }, 0.2);
 			}
 
-			// Drop the read-endpoint badge in alongside the secondary DC.
-			if (endpointBadge) {
-				tl.fromTo(endpointBadge,
-					{ opacity:0, y:-10 },
-					{ opacity:1, y:0, duration:0.55, ease:'back.out(1.4)' }, 0.4);
-			}
-
 			// Group sync vs async to time them clearly
 			const syncCopies  = allCopyAnims.filter(a => !a.async);
 			const asyncCopies = allCopyAnims.filter(a =>  a.async);
@@ -1447,32 +3185,68 @@
 				tl.set(a.el, { opacity:0, scale:0.4 }, '<');
 				tl.to(a.el, { opacity:1, scale:1, duration:0.4, ease:'power2.out' }, '<');
 
+				// "Replica N" pill — appears at the source as the copy is
+				// cloned, floats up briefly, then fades out before the next
+				// replica is dispatched. Async copies continue numbering after
+				// the sync batch (e.g. GRS sync 1-3, async 4-6).
+				const replicaNumber = (a.async ? syncCopies.length : 0) + indexInBatch + 1;
+				const replicaLabel = makeReplicaLabel(t('replica') + ' ' + replicaNumber);
+				liveEls.push(replicaLabel);
 				const origin = a.origin;
+				const labelStartX = origin.x;
+				const labelStartY = origin.y - 60;
+				const labelEndY   = origin.y - 95;
+				tl.set(replicaLabel, {
+					left: labelStartX + 'px',
+					top:  labelStartY + 'px',
+					opacity: 0,
+					scale: 0.7
+				}, '<');
+				tl.to(replicaLabel,
+					{ opacity:1, scale:1, duration:0.3, ease:'back.out(2)' }, '<');
+				tl.to(replicaLabel,
+					{ top: labelEndY + 'px', duration:0.9, ease:'power1.out' }, '<');
+				tl.to(replicaLabel,
+					{ opacity:0, duration:0.35, ease:'power2.in' }, '<+=0.7');
+
 				const fromL = origin.x - 32, fromT = origin.y - 32;
 				const midX  = (origin.x + a.target.x)/2 - 32;
 				const midY  = Math.min(origin.y, a.target.y) - 70 - 32;
 				const toL   = a.target.x - 32, toT = a.target.y - 32;
 
-				tl.to(a.el, {
-					keyframes: {
-						left:[ fromL+'px', midX+'px', toL+'px' ],
-						top: [ fromT+'px', midY+'px', toT+'px' ]
-					},
-					duration: flyDur,
-					ease: a.async ? 'power1.inOut' : 'power2.inOut'
-				}, '<+=0.1');
+				if (a.async) {
+					// Async copies travel in a straight line along the async
+					// trail — matches the visual cue and looks cleaner across
+					// regions.
+					tl.fromTo(a.el,
+						{ left: fromL+'px', top: fromT+'px' },
+						{ left: toL+'px',   top: toT+'px',
+						  duration: flyDur, ease: 'power1.inOut' },
+						'<+=0.1');
+				} else {
+					tl.to(a.el, {
+						keyframes: {
+							left:[ fromL+'px', midX+'px', toL+'px' ],
+							top: [ fromT+'px', midY+'px', toT+'px' ]
+						},
+						duration: flyDur,
+						ease: 'power2.inOut'
+					}, '<+=0.1');
+				}
 
-				tl.to(a.trail, { opacity:0, duration:0.6, ease:'power2.in' }, '>-=0.3');
+				// Fade sync trails fully; async trails dim but stay visible for
+				// the continuous flow animation.
+				tl.to(a.trail, { opacity: a.async ? 0.15 : 0, duration:0.6, ease:'power2.in' }, '>-=0.3');
 
 				if (a.readOnly) {
 					tl.add(() => {
 						const ring = makeReadPulse(a.target.x, a.target.y);
 						liveEls.push(ring);
-						const t = gsap.timeline({ repeat:-1 });
-						t.fromTo(ring,
+						const pulseTl = gsap.timeline({ repeat:-1 });
+						pulseTl.fromTo(ring,
 							{ opacity:0.7, scale:1 },
 							{ opacity:0, scale:1.8, duration:1.8, ease:'power2.out' });
-						liveTimelines.push(t);
+						liveTimelines.push(pulseTl);
 					}, '>-0.05');
 				}
 			}
@@ -1493,10 +3267,29 @@
 						{ opacity:1, duration:0.6 }, 'async');
 				}
 				asyncCopies.forEach((a, i) => flyCopy(a, 'async', i));
+
+				// After async copies land, keep the label visible and start
+				// continuous flow animation to show ongoing async replication.
 				if (sharedAsyncLabel) {
+					// Don't fade out the label - keep it visible at reduced opacity
 					tl.to(sharedAsyncLabel,
-						{ opacity:0, duration:0.6, ease:'power2.in' }, '>+=0.4');
+						{ opacity:0.6, duration:0.4 }, '>+=0.3');
 				}
+
+				// Start continuous async flow targeting all async replicas
+				tl.add(() => {
+					if (asyncCopies.length) {
+						const trails = asyncCopies.map(a => a.trail);
+						const flowTl = startContinuousAsyncFlow(asyncCopies, trails);
+						if (flowTl) {
+							liveTimelines.push(flowTl);
+							// Track particles for cleanup
+							if (flowTl.particles) {
+								flowTl.particles.forEach(p => liveEls.push(p));
+							}
+						}
+					}
+				}, '>');
 			}
 
 			if (calloutEl) {
@@ -1504,14 +3297,44 @@
 					{ opacity:0, y:-8 },
 					{ opacity:1, y:0, duration:0.45, ease:'power3.out' }, '+=0.05');
 			}
+
+			// ── PRIMARY Endpoint reveal — shows the read+write endpoint after
+			// replication completes so viewer understands the primary is the
+			// main access point for apps/users ──
+			if (primaryBadge) {
+				tl.addLabel('primaryReveal', '+=0.4');
+				tl.fromTo(primaryBadge,
+					{ opacity:0, y:-10 },
+					{ opacity:1, y:0, duration:0.55, ease:'back.out(1.4)' }, 'primaryReveal');
+				if (revealPrimaryUser) {
+					tl.add(() => revealPrimaryUser(), 'primaryReveal+=0.35');
+				}
+			}
+
+			// ── SECONDARY (Read-only) Endpoint reveal — appears AFTER the
+			// primary so the viewer sees the contrast: primary = read+write,
+			// secondary = read-only (RA enabled) ──
+			if (endpointBadge) {
+				tl.addLabel('raReveal', '+=0.8');
+				tl.fromTo(endpointBadge,
+					{ opacity:0, y:-10 },
+					{ opacity:1, y:0, duration:0.55, ease:'back.out(1.4)' }, 'raReveal');
+				if (revealCloudUser) {
+					tl.add(() => revealCloudUser(), 'raReveal+=0.35');
+				}
+			} else if (revealCloudUser) {
+				tl.add(() => revealCloudUser(), '+=0.4');
+			}
 		}));
 
 		current = stepIndex;
 		counter.textContent = `${current+1} / ${STEPS.length}`;
 		breadcrumb.textContent = step.caption;
 		progress.style.width = ((current+1)/STEPS.length * 100) + '%';
-		renderOutline(step, stepIndex);
-		announceStep(step, stepIndex);
+		// Pass rawStep so effectiveStep re-derives cleanly each render — avoids
+		// double-appending ' · READ' to DC labels on repeated re-renders.
+		renderOutline(rawStep, stepIndex);
+		announceStep(rawStep, stepIndex);
 	}
 
 	// ── CONTROLS ───────────────────────────────
@@ -1545,7 +3368,7 @@
 	function syncSpeedUI() {
 		speedMultiplier = SPEED_STEPS[speedIndex];
 		speedLabel.textContent = speedMultiplier + '\u00d7';
-		speedLabel.setAttribute('aria-label', 'Current speed ' + speedMultiplier + ' times');
+		speedLabel.setAttribute('aria-label', t('ariaSpeedCur', speedMultiplier));
 		speedDownBtn.disabled = speedIndex === 0;
 		speedUpBtn.disabled   = speedIndex === SPEED_STEPS.length - 1;
 		// Apply globally so EVERY current and future tween/timeline retimes,
@@ -1582,6 +3405,7 @@
 	});
 
 	counter.textContent = `1 / ${STEPS.length}`;
+	applyLanguage(CURRENT_LANG);
 	renderStep(0);
 </script>
 
