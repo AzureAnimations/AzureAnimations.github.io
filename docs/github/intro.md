@@ -12,7 +12,7 @@ Dive into DevOps practices and learn how GitHub empowers developers to ship fast
 
 | Animation | Description |
 |-----------|-------------|
-| [Git Version Control & Workflows](./git-version-control) | Master Git fundamentals and workflow strategies |
+| [Git Version Control & GitHub Flow](./git-version-control) | Master Git fundamentals and GitHub Flow |
 
 
 <!--
