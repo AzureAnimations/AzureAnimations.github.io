@@ -1,10 +1,10 @@
 ---
-title: Git Version Control & Git Workflows
+title: Git Version Control & GitHub Flow
 ---
 
-# 🌳 Git Version Control & Workflows
+# 🌳 Git Version Control & GitHub Flow
 
-Git is the foundation of modern software development. Understanding version control and establishing effective Git workflows is essential for individual developers and teams alike. Master Git to collaborate seamlessly, maintain code history, and ship with confidence!
+Git is the foundation of modern software development. Understanding version control and establishing an effective GitHub Flow is essential for individual developers and teams alike. Master Git to collaborate seamlessly, maintain code history, and ship with confidence!
 
 <div style={{textAlign: 'center'}}>
   <a href="https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/main/static/images/animations-high-resolutions/Github/github_version_control_git_workflow.gif" target="_blank">
@@ -37,7 +37,7 @@ Without any version control system, their changes start to **conflict**.
 **Work is lost. Code gets overwritten.  
 All because version control wasn’t used from the start.**
 
-## 🎬 (Right Handside) Branches + Git Workflow — No More Overwritten Code
+## 🎬 (Right Handside) Branches + GitHub Flow — No More Overwritten Code
 
 ### 🌿 Two New Branches from Main
 - We create **two branches** from the main branch  
@@ -50,7 +50,7 @@ All because version control wasn’t used from the start.**
 - Developer B works safely on the **bug-fix branch**  
 - The **main branch stays clean** and unchanged during development
 
-### 🔄 Git Workflow in Action
+### 🔄 GitHub Flow in Action
 #### Developer A
 - Commit changes  
 - Open a **pull request**  
@@ -66,4 +66,4 @@ All because version control wasn’t used from the start.**
 ### 🎉 Final Result
 Both developers’ changes end up in the **main branch** —  
 **no code is lost, nothing gets overwritten, and everyone stays in sync.**  
-All thanks to **version control** and the **Git workflow**.
+All thanks to **version control** and **GitHub Flow**.
