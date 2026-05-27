@@ -1,0 +1,2680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<script src="/js/tracking.js"></script>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>Microsoft Foundry — New Experience</title>
+
+<link rel="stylesheet" href="https://unpkg.com/@microsoft/atlas-css/dist/index.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+<!-- AnimationWorks shared lib -->
+<script src="lib/js/aw-easings.js"></script>
+<script src="lib/js/aw-motion.js"></script>
+<script src="lib/js/aw-theme.js"></script>
+<script src="lib/js/aw-keyboard.js"></script>
+
+<style>
+	html, body { height:100%; margin:0; }
+	html { font-size:100%; }
+	body {
+		display:flex; flex-direction:column;
+		min-height:100vh;
+		overflow-x:hidden; overflow-y:auto;
+		padding-bottom:6rem;
+		background:
+			radial-gradient(circle at 15% 20%, rgba(92,45,145,0.18) 0%, transparent 55%),
+			radial-gradient(circle at 85% 80%, rgba(0,120,212,0.18) 0%, transparent 55%),
+			var(--theme-body-background);
+		color: var(--theme-text);
+	}
+
+	.app-header { display:flex; align-items:center; gap:1rem; flex-shrink:0; flex-wrap:wrap; font-size:16px; }
+
+	#stage {
+		position:relative; flex:1 1 auto; width:100%;
+		min-height:720px;
+		overflow:auto;
+	}
+	#stage:focus-visible, button:focus-visible, a:focus-visible {
+		outline:2px solid var(--theme-primary, #0078d4);
+		outline-offset:3px; border-radius:4px;
+	}
+
+	#fx-svg {
+		position:absolute; inset:0; width:100%; height:100%;
+		pointer-events:none; z-index:6; overflow:visible;
+	}
+
+	/* ── CALLOUT ─────────────────────────────── */
+	.callout {
+		position:absolute;
+		max-width:340px;
+		padding:1rem 1.2rem;
+		background:var(--theme-body-background);
+		border:1px solid var(--theme-border);
+		border-left:4px solid var(--theme-tertiary, #5c2d91);
+		border-radius:6px;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2));
+		font-size:1.05rem; line-height:1.45;
+		z-index:14; opacity:0;
+	}
+
+	/* ── BROWSER CARD (portal step) ──────── */
+	.browser-card {
+		width:min(600px, 100%);
+		margin-top:0.8rem;
+		background:var(--theme-body-background);
+		border:1.5px solid var(--theme-border);
+		border-radius:8px;
+		box-shadow: var(--theme-box-shadow-medium, 0 6px 24px rgba(0,0,0,0.2));
+		z-index:11;
+		overflow:hidden;
+		opacity:0;
+		position:relative;
+	}
+	.browser-card .browser-chrome {
+		display:flex; align-items:center; gap:0.5rem;
+		padding:0.4rem 0.6rem;
+		background:var(--theme-border);
+		border-bottom:1px solid var(--theme-border);
+	}
+	.browser-card .browser-tab {
+		display:flex; align-items:center; gap:0.4rem;
+		padding:0.25rem 0.7rem;
+		font-size:0.75rem; font-weight:500;
+		background:var(--theme-body-background);
+		border-radius:6px 6px 0 0;
+		border:1px solid var(--theme-border);
+		border-bottom:none;
+		color:var(--theme-text);
+	}
+	.browser-card .browser-tab .tab-icon {
+		width:14px; height:14px;
+	}
+	.browser-card .browser-url-bar {
+		flex:1;
+		display:flex; align-items:center; gap:0.4rem;
+		padding:0.2rem 0.6rem;
+		font-size:0.78rem; font-weight:500;
+		background:var(--theme-body-background);
+		border-radius:4px;
+		border:1px solid var(--theme-border);
+		color:var(--theme-text-subtle);
+	}
+	.browser-card .browser-url-bar .url-lock { font-size:0.7rem; }
+	.browser-card .browser-win-btns {
+		display:flex; align-items:center; gap:0;
+		margin-left:auto;
+	}
+	.browser-card .browser-win-btns span {
+		display:inline-flex; align-items:center; justify-content:center;
+		width:28px; height:22px;
+		font-size:0.75rem; font-weight:400;
+		color:var(--theme-text-subtle);
+		cursor:default;
+	}
+	.browser-card .browser-win-btns span:hover { background:rgba(128,128,128,0.2); }
+	.browser-card .browser-win-btns span.win-close:hover { background:#e81123; color:#fff; }
+	.browser-card .browser-content {
+		padding:1rem 1.2rem;
+	}
+	.browser-card .browser-topbar {
+		display:flex; align-items:center; justify-content:space-between;
+		padding-bottom:0.8rem;
+		border-bottom:1px solid var(--theme-border);
+		margin-bottom:0.8rem;
+	}
+	.browser-card .browser-logo {
+		font-size:1.1rem; font-weight:700;
+		color:var(--theme-text);
+	}
+	.browser-card .browser-toggle-area {
+		display:flex; align-items:center; gap:0.5rem;
+		position:relative;
+		padding:0.3rem 0.5rem;
+		border:2.5px solid #e81123;
+		border-radius:6px;
+		animation: highlightPulse 1.5s ease-in-out infinite;
+	}
+	@keyframes highlightPulse {
+		0%, 100% { border-color:#e81123; box-shadow:0 0 0 0 rgba(232,17,35,0.3); }
+		50% { border-color:#ff4d5e; box-shadow:0 0 8px 3px rgba(232,17,35,0.25); }
+	}
+	.browser-card .browser-cursor {
+		position:absolute;
+		bottom:-1.2rem; right:-0.8rem;
+		font-size:1.4rem;
+		animation: cursorBounce 1.2s ease-in-out infinite;
+		z-index:2;
+	}
+	@keyframes cursorBounce {
+		0%, 100% { transform:translate(0,0); }
+		50% { transform:translate(-3px, -4px); }
+	}
+	.browser-card .browser-toggle-label {
+		font-size:0.9rem; font-weight:600;
+		color:var(--theme-text);
+	}
+	.browser-card .browser-toggle-switch {
+		width:40px; height:22px;
+		border-radius:999px;
+		background:var(--theme-tertiary, #5c2d91);
+		position:relative;
+		display:inline-block;
+	}
+	.browser-card .browser-toggle-knob {
+		position:absolute;
+		top:3px; right:4px;
+		width:16px; height:16px;
+		border-radius:50%;
+		background:#fff;
+	}
+	.browser-card .browser-message {
+		font-size:0.92rem; line-height:1.5;
+		color:var(--theme-text);
+	}
+	.browser-card .browser-message p { margin:0 0 0.4rem; }
+	.browser-card .browser-hint {
+		font-size:0.8rem; color:var(--theme-text-subtle); font-weight:500;
+	}
+	.browser-card .foundry-portal-icon {
+		display:inline-flex; align-items:center;
+		margin-left:1rem;
+		opacity:0;
+		vertical-align:middle;
+	}
+	.browser-card .foundry-portal-icon img {
+		width:28px; height:28px;
+		filter: drop-shadow(0 2px 6px rgba(92,45,145,0.35));
+	}
+
+	/* ── SUMMARY SECTION (portal layout) ──── */
+	.summary-section {
+		position:absolute;
+		top:2%; left:50%; transform:translateX(-50%);
+		width:min(1000px, 94%);
+		z-index:10;
+		opacity:0;
+		display:flex; flex-direction:column; align-items:center;
+	}
+	.summary-new-foundry-text {
+		text-align:center;
+		margin-top:1rem;
+		font-size:1.15rem; line-height:1.5;
+		color:var(--theme-text);
+		max-width:700px;
+	}
+	.summary-new-foundry-text strong {
+		color:var(--theme-tertiary, #5c2d91);
+	}
+
+	/* ── RESOURCES SECTION (step 2) ──────── */
+	.resources-section {
+		position:absolute;
+		top:3%; left:50%; transform:translateX(-50%);
+		width:min(1100px, 96%);
+		z-index:10;
+		opacity:0;
+		display:flex; flex-direction:column; align-items:center;
+		gap:1.4rem;
+	}
+	.resources-title {
+		font-size:2.6rem; font-weight:700;
+		color:var(--theme-tertiary, #5c2d91);
+		margin:0; text-align:center;
+	}
+	.resources-subtitle {
+		margin:0; text-align:center;
+		font-size:1.5rem; color:var(--theme-text);
+		max-width:920px; line-height:1.55;
+	}
+	.resources-subtitle ul {
+		list-style:none; padding:0;
+		margin:1rem auto 0; max-width:760px;
+		text-align:left;
+		display:flex; flex-direction:column; gap:0.6rem;
+	}
+	.resources-subtitle li {
+		position:relative;
+		padding:0.6rem 0.9rem 0.6rem 2rem;
+		background: rgba(0,120,212,0.06);
+		border-left:3px solid var(--theme-primary, #0078d4);
+		border-radius:6px;
+		font-size:1.35rem; line-height:1.45;
+	}
+	.resources-subtitle li::before {
+		content:'▸';
+		position:absolute; left:0.7rem; top:0.55rem;
+		color:var(--theme-primary, #0078d4);
+		font-weight:bold;
+	}
+	.resource-parent {
+		position:relative;
+		width:min(680px, 92%);
+		padding:2rem 2rem 1.8rem;
+		background: linear-gradient(135deg, rgba(92,45,145,0.06), rgba(0,120,212,0.06));
+		border:2.5px dashed var(--theme-tertiary, #5c2d91);
+		border-radius:18px;
+		opacity:0;
+	}
+	.resource-badge {
+		position:absolute;
+		top:-1.1rem; right:1.4rem;
+		padding:0.4rem 1rem;
+		background:#d83b01; color:#fff;
+		font-size:1.05rem; font-weight:700;
+		letter-spacing:0.08em; text-transform:uppercase;
+		border-radius:999px;
+		box-shadow:0 4px 12px rgba(216,59,1,0.35);
+	}
+	.resource-header {
+		display:flex; align-items:center; gap:0.9rem;
+		padding-bottom:1rem;
+		border-bottom:1px solid var(--theme-border);
+	}
+	.resource-header img {
+		width:72px; height:72px;
+		filter: drop-shadow(0 2px 6px rgba(92,45,145,0.3));
+		flex-shrink:0;
+	}
+	.resource-title {
+		font-size:1.75rem; font-weight:700;
+		color:var(--theme-text);
+	}
+	.resource-subtitle {
+		font-size:1.25rem; color:var(--theme-text-subtle);
+		margin-top:0.2rem;
+	}
+	.resource-child {
+		margin-top:1rem;
+		display:flex; align-items:center; gap:0.9rem;
+		padding:0.9rem 1rem;
+		background:var(--theme-body-background);
+		border:2px solid var(--theme-primary, #0078d4);
+		border-radius:12px;
+		box-shadow:0 4px 14px rgba(0,120,212,0.18);
+		opacity:0;
+	}
+	.resource-child img {
+		width:58px; height:58px;
+		filter: drop-shadow(0 2px 4px rgba(0,120,212,0.3));
+		flex-shrink:0;
+	}
+	.resource-child .resource-title { font-size:1.5rem; }
+	.resource-child .resource-subtitle { font-size:1.15rem; }
+	.included-services {
+		width:min(900px, 96%);
+		display:flex; flex-direction:column; align-items:center;
+		gap:0.8rem;
+		opacity:0;
+	}
+	.included-label {
+		font-size:1.4rem; font-weight:600;
+		color:var(--theme-text);
+		text-align:center;
+	}
+	.included-label strong {
+		color:var(--theme-tertiary, #5c2d91);
+	}
+	.service-grid {
+		display:flex; flex-wrap:wrap; justify-content:center;
+		gap:0.7rem;
+	}
+	.service-chip {
+		display:flex; align-items:center; gap:0.7rem;
+		padding:0.8rem 1.3rem;
+		background:var(--theme-body-background);
+		border:1.5px solid var(--theme-border);
+		border-radius:999px;
+		font-size:1.3rem; font-weight:600;
+		color:var(--theme-text);
+		box-shadow:0 2px 8px rgba(0,0,0,0.08);
+		opacity:0;
+	}
+	.service-chip img {
+		width:36px; height:36px;
+	}
+
+	/* ── MODELS SECTION (step 3) ─────────── */
+	.models-section {
+		position:absolute;
+		top:3%; left:50%; transform:translateX(-50%);
+		width:min(1100px, 96%);
+		z-index:10;
+		opacity:0;
+		display:flex; flex-direction:column; align-items:center;
+		gap:1.6rem;
+	}
+	.models-title {
+		font-size:2.6rem; font-weight:700;
+		color:var(--theme-tertiary, #5c2d91);
+		margin:0; text-align:center;
+	}
+	.models-lead {
+		margin:0; text-align:center;
+		font-size:1.4rem; color:var(--theme-text);
+		max-width:800px; line-height:1.5;
+	}
+	.models-grid {
+		display:flex; flex-wrap:wrap; justify-content:center;
+		gap:1rem;
+		max-width:960px;
+	}
+	.company-card {
+		display:flex; flex-direction:column;
+		gap:0.8rem;
+		padding:1.4rem 1.6rem;
+		background:var(--theme-body-background);
+		border:2px solid var(--theme-border);
+		border-radius:14px;
+		box-shadow:0 3px 12px rgba(0,0,0,0.08);
+		width:220px; flex:0 0 220px;
+		opacity:0;
+		transition:border-color 0.3s ease, box-shadow 0.3s ease;
+	}
+	.company-card:hover {
+		box-shadow:0 6px 24px rgba(0,0,0,0.15);
+	}
+	.company-header {
+		display:flex; align-items:center; gap:0.7rem;
+		padding-bottom:0.5rem;
+		border-bottom:1px solid var(--theme-border);
+	}
+	.company-logo {
+		width:36px; height:36px;
+		object-fit:contain;
+		border-radius:6px;
+	}
+	.company-name {
+		font-size:1.15rem; font-weight:700;
+		color:#000;
+		white-space:nowrap;
+	}
+	.company-models {
+		display:flex; flex-direction:column;
+		gap:0.35rem;
+	}
+	.company-model-item {
+		display:flex; align-items:center; gap:0.5rem;
+		padding:0.35rem 0.6rem;
+		border-radius:8px;
+		background:rgba(0,0,0,0.03);
+	}
+	.model-item-logo {
+		width:24px; height:24px;
+		object-fit:contain;
+		border-radius:4px;
+	}
+	.model-item-name {
+		font-size:1.05rem; font-weight:600;
+		color:var(--theme-text);
+	}
+	.company-card[data-provider="microsoft"] { border-color:#5c2d91; }
+	.company-card[data-provider="anthropic"] { border-color:#d4956a; }
+	.company-card[data-provider="openai"] { border-color:#10a37f; }
+	.company-card[data-provider="meta"] { border-color:#0668e1; }
+	.company-card[data-provider="mistral"] { border-color:#ff7000; }
+	.company-card[data-provider="deepseek"] { border-color:#4a90d9; }
+	.models-more {
+		font-size:1.35rem; font-weight:600;
+		color:var(--theme-text-subtle);
+		padding:0.8rem 1.6rem;
+		border:2px dashed var(--theme-border);
+		border-radius:14px;
+		width:220px; flex:0 0 220px;
+		display:flex; align-items:center; justify-content:center;
+		opacity:0;
+	}
+
+	/* ── AGENT CTA (inside models step) ──── */
+	.agent-cta-wrapper {
+		display:flex; flex-direction:column; align-items:center;
+		gap:0.6rem;
+		margin-top:0.4rem;
+		opacity:0;
+	}
+	.agent-flow-arrow {
+		font-size:2rem;
+		color:var(--theme-tertiary, #5c2d91);
+		animation: agentArrowPulse 1.4s ease-in-out infinite;
+	}
+	@keyframes agentArrowPulse {
+		0%, 100% { transform:translateY(0); opacity:0.5; }
+		50% { transform:translateY(5px); opacity:1; }
+	}
+	.agent-cta-label {
+		font-size:1.2rem; font-weight:600;
+		color:var(--theme-text-subtle);
+		letter-spacing:0.04em;
+	}
+	.agent-card {
+		display:flex; align-items:center; gap:1.2rem;
+		padding:1.4rem 2.2rem;
+		background: linear-gradient(135deg, rgba(92,45,145,0.10), rgba(0,120,212,0.10));
+		border:2.5px solid var(--theme-tertiary, #5c2d91);
+		border-radius:18px;
+		box-shadow:0 6px 28px rgba(92,45,145,0.18);
+		opacity:0;
+		position:relative;
+		overflow:visible;
+	}
+	.agent-card::before {
+		content:'';
+		position:absolute; inset:0;
+		background: linear-gradient(135deg, rgba(92,45,145,0.05), rgba(0,120,212,0.08));
+		opacity:0;
+		animation: agentShimmer 3s ease-in-out infinite;
+	}
+	@keyframes agentShimmer {
+		0%, 100% { opacity:0; }
+		50% { opacity:1; }
+	}
+	.agent-icon {
+		font-size:3.2rem;
+		line-height:1;
+		filter: drop-shadow(0 2px 8px rgba(92,45,145,0.4));
+		animation: agentBounce 2s ease-in-out infinite;
+		position:relative; z-index:1;
+	}
+	@keyframes agentBounce {
+		0%, 100% { transform:translateY(0) scale(1); }
+		30% { transform:translateY(-6px) scale(1.08); }
+		60% { transform:translateY(2px) scale(0.97); }
+	}
+	.agent-card-text {
+		display:flex; flex-direction:column; gap:0.2rem;
+		position:relative; z-index:1;
+	}
+	.agent-card-text .agent-title {
+		font-size:1.8rem; font-weight:700;
+		color:var(--theme-tertiary, #5c2d91);
+	}
+	.agent-card-text .agent-subtitle {
+		font-size:1.3rem; color:var(--theme-text);
+		max-width:480px; line-height:1.45;
+	}
+	.agent-sparkles {
+		position:absolute;
+		top:-6px; right:-6px;
+		font-size:1.4rem;
+		animation: sparkleRotate 4s linear infinite;
+		z-index:2;
+	}
+	@keyframes sparkleRotate {
+		0% { transform:rotate(0deg) scale(1); opacity:0.7; }
+		25% { transform:rotate(90deg) scale(1.2); opacity:1; }
+		50% { transform:rotate(180deg) scale(1); opacity:0.7; }
+		75% { transform:rotate(270deg) scale(1.2); opacity:1; }
+		100% { transform:rotate(360deg) scale(1); opacity:0.7; }
+	}
+
+	/* dark overrides for agent card */
+	body.theme-dark .agent-card {
+		background: linear-gradient(135deg, rgba(146,78,217,0.15), rgba(80,170,255,0.12));
+		border-color:#a67dd8;
+		box-shadow:0 6px 28px rgba(146,78,217,0.25);
+	}
+	body.theme-dark .agent-card-text .agent-title { color:#c9a5e8; }
+	body.theme-dark .agent-flow-arrow { color:#c9a5e8; }
+
+	/* dark overrides for models */
+	body.theme-dark .models-title { color:#c9a5e8; }
+	body.theme-dark .company-card { background:rgba(255,255,255,0.04); border-color:rgba(255,255,255,0.15); }
+	body.theme-dark .company-model-item { background:rgba(255,255,255,0.06); }
+	body.theme-dark .company-card .company-name { color:#fff; }
+	body.theme-dark .company-card[data-provider="microsoft"] { border-color:#a67dd8; }
+	body.theme-dark .company-card[data-provider="anthropic"] { border-color:#d4956a; }
+	body.theme-dark .company-card[data-provider="openai"] { border-color:#10a37f; }
+	body.theme-dark .company-card[data-provider="meta"] { border-color:#5b9ef0; }
+	body.theme-dark .company-card[data-provider="mistral"] { border-color:#ff8c33; }
+	body.theme-dark .company-card[data-provider="deepseek"] { border-color:#6eb0ee; }
+	body.theme-dark .models-more { color:var(--theme-text-subtle); border-color:rgba(255,255,255,0.15); }
+
+	/* ── FEATURES SECTION (step 4) ────────── */
+	.features-section {
+		position:absolute;
+		top:3%; left:50%; transform:translateX(-50%);
+		width:min(1100px, 96%);
+		z-index:10;
+		opacity:0;
+		display:flex; flex-direction:column; align-items:center;
+		gap:1.6rem;
+	}
+	.features-title {
+		font-size:2.6rem; font-weight:700;
+		color:var(--theme-tertiary, #5c2d91);
+		margin:0; text-align:center;
+	}
+	.features-lead {
+		margin:0; text-align:center;
+		font-size:1.4rem; color:var(--theme-text);
+		max-width:800px; line-height:1.5;
+	}
+	/* Leaderboard card */
+	.leaderboard-card {
+		width:100%; max-width:1100px;
+		background:var(--theme-body-background);
+		border:2px solid var(--theme-tertiary, #5c2d91);
+		border-radius:16px;
+		padding:2rem 2.5rem;
+		box-shadow:0 4px 18px rgba(92,45,145,0.12);
+		opacity:0;
+	}
+	.leaderboard-header {
+		display:flex; align-items:center; gap:0.7rem;
+		margin-bottom:1rem;
+	}
+	.leaderboard-icon { font-size:2.2rem; }
+	.leaderboard-header h3 {
+		margin:0; font-size:1.8rem; font-weight:700; color:var(--theme-text);
+	}
+	.leaderboard-desc {
+		font-size:1.2rem; line-height:1.5; color:var(--theme-text);
+		margin-bottom:1.4rem;
+	}
+	.leaderboard-desc a {
+		color:var(--theme-primary, #0078d4);
+		text-decoration:underline;
+	}
+	.leaderboard-bars {
+		display:flex; gap:2rem;
+		justify-content:center;
+	}
+	.bar-group {
+		display:flex; flex-direction:column; align-items:stretch; gap:0.5rem;
+		flex:1; min-width:0;
+	}
+	.bar-group .bar-label {
+		font-size:1.1rem; font-weight:700; color:var(--theme-text);
+		text-align:center; margin-bottom:0.3rem;
+	}
+	.bar-row {
+		display:flex; align-items:center; gap:0.6rem;
+		width:100%;
+	}
+	.bar-model-label {
+		font-size:0.88rem; font-weight:600;
+		width:76px; flex-shrink:0;
+		text-align:right; color:var(--theme-text);
+		white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+	}
+	.bar-track {
+		flex:1; min-width:0; height:26px;
+		background:rgba(0,0,0,0.06);
+		border-radius:6px; overflow:hidden;
+		position:relative;
+	}
+	.bar-fill {
+		height:100%; border-radius:6px;
+		position:absolute; left:0; top:0;
+		width:0;
+	}
+	.bar-value {
+		position:absolute; right:8px; top:50%; transform:translateY(-50%);
+		font-size:0.82rem; font-weight:700; color:#fff;
+		white-space:nowrap;
+	}
+	/* Feature tiles */
+	.features-grid {
+		display:flex; flex-wrap:nowrap; justify-content:center;
+		gap:1.2rem;
+		width:100%; max-width:1100px;
+	}
+	.feature-tile {
+		display:flex; align-items:flex-start; gap:1rem;
+		padding:1.4rem 1.6rem;
+		background:var(--theme-body-background);
+		border:2px solid var(--theme-border);
+		border-radius:14px;
+		box-shadow:0 3px 12px rgba(0,0,0,0.08);
+		flex:1 1 0; min-width:0;
+		opacity:0;
+	}
+	.feature-tile-icon { font-size:2.2rem; line-height:1; flex-shrink:0; }
+	.feature-tile-text {
+		display:flex; flex-direction:column; gap:0.3rem;
+	}
+	.feature-tile-text strong {
+		font-size:1.25rem; color:var(--theme-text);
+	}
+	.feature-tile-text span {
+		font-size:1.05rem; color:var(--theme-text-subtle); line-height:1.4;
+	}
+	/* dark overrides for features */
+	body.theme-dark .features-title { color:#c9a5e8; }
+	body.theme-dark .leaderboard-card { background:rgba(255,255,255,0.04); border-color:#a67dd8; box-shadow:0 4px 18px rgba(146,78,217,0.2); }
+	body.theme-dark .bar-track { background:rgba(255,255,255,0.1); }
+	body.theme-dark .feature-tile { background:rgba(255,255,255,0.04); border-color:rgba(255,255,255,0.15); }
+
+	/* ── OVERVIEW / SUMMARY STEP 5 ──────────── */
+	.overview-section {
+		position:absolute; inset:0;
+		display:flex; flex-direction:column; align-items:center;
+		padding:1.5rem 2rem 5rem;
+		z-index:10; opacity:0;
+		gap:1.2rem;
+		overflow-y:auto;
+	}
+	.overview-title {
+		font-size:2.4rem; font-weight:700;
+		color:var(--theme-tertiary, #5c2d91);
+		margin:0; text-align:center;
+	}
+	/* ── Summary section cards ── */
+	.overview-strip {
+		width:100%; max-width:960px;
+		background:var(--theme-body-background);
+		border:1.5px solid var(--theme-border);
+		border-radius:14px;
+		padding:1.2rem 1.6rem;
+		box-shadow:0 3px 12px rgba(0,0,0,0.06);
+		opacity:0;
+	}
+	.overview-strip-header {
+		display:flex; align-items:center; gap:0.5rem;
+		margin-bottom:0.8rem;
+	}
+	.overview-strip-header .strip-icon {
+		font-size:1.4rem; flex-shrink:0;
+	}
+	.overview-strip-header h3 {
+		margin:0; font-size:1.2rem; font-weight:700;
+		color:var(--theme-tertiary, #5c2d91);
+	}
+	/* ── Resource nested boxes (step 2 recap) ── */
+	.ov-box {
+		border-radius:14px;
+		padding:1.2rem 1.5rem;
+		opacity:0;
+	}
+	.ov-box-label {
+		display:flex; align-items:center; gap:0.5rem;
+		font-weight:700; margin-bottom:0.6rem;
+		font-size:1.1rem;
+	}
+	.ov-box-label .box-icon { font-size:1.2rem; flex-shrink:0; }
+	.ov-box-label img { width:24px; height:24px; flex-shrink:0; }
+	.ov-box-badge {
+		display:inline-block;
+		padding:0.15rem 0.55rem;
+		background:#d83b01; color:#fff;
+		font-size:0.78rem; font-weight:700;
+		border-radius:999px;
+		text-transform:uppercase; letter-spacing:0.05em;
+		margin-left:0.3rem;
+	}
+	.ov-box.lv-sub {
+		background:rgba(0,120,212,0.05);
+		border:1.5px solid rgba(0,120,212,0.2);
+		font-size:1.1rem;
+	}
+	.ov-box.lv-sub > .ov-box-label { color:#0078d4; font-size:1.2rem; }
+	.ov-box.lv-rg {
+		background:rgba(0,183,130,0.05);
+		border:1.5px solid rgba(0,183,130,0.25);
+		font-size:1.05rem;
+		margin-top:0.5rem;
+	}
+	.ov-box.lv-rg > .ov-box-label { color:#00b782; font-size:1.15rem; }
+	.ov-box.lv-resource {
+		background:linear-gradient(135deg, rgba(92,45,145,0.06), rgba(0,120,212,0.04));
+		border:2px dashed var(--theme-tertiary, #5c2d91);
+		font-size:1.05rem;
+		margin-top:0.5rem;
+	}
+	.ov-box.lv-resource > .ov-box-label { color:var(--theme-tertiary, #5c2d91); font-size:1.15rem; }
+	.ov-box-svc {
+		display:flex; flex-wrap:wrap; gap:0.5rem;
+		margin-bottom:0.8rem;
+	}
+	.ov-box-svc-chip {
+		display:flex; align-items:center; gap:0.35rem;
+		padding:0.25rem 0.7rem;
+		background:var(--theme-body-background);
+		border:1px solid var(--theme-border);
+		border-radius:999px;
+		font-size:1rem; font-weight:600;
+		color:var(--theme-text);
+	}
+	.ov-box-svc-chip img { width:20px; height:20px; }
+	.ov-box.lv-project {
+		background:rgba(0,120,212,0.04);
+		border:1.5px solid var(--theme-primary, #0078d4);
+		font-size:1.15rem;
+		margin-top:0.5rem;
+	}
+	.ov-box.lv-project > .ov-box-label { color:var(--theme-primary, #0078d4); font-size:1.25rem; }
+	.ov-box-projects {
+		display:flex; gap:0.8rem; flex-wrap:wrap;
+	}
+	.ov-box.lv-proj-item {
+		background:rgba(92,45,145,0.04);
+		border:1.5px solid rgba(92,45,145,0.2);
+		font-size:1.1rem;
+		flex:1 1 0; min-width:180px;
+	}
+	.ov-box.lv-proj-item > .ov-box-label { color:#5c2d91; font-size:1.15rem; }
+	.ov-agent-row {
+		display:flex; gap:0.6rem; flex-wrap:wrap;
+	}
+	.ov-agent-chip {
+		display:flex; align-items:center; gap:0.35rem;
+		padding:0.35rem 0.8rem;
+		background:var(--theme-body-background);
+		border:1px solid var(--theme-border);
+		border-radius:8px;
+		font-size:1.05rem; font-weight:600;
+		color:var(--theme-text);
+	}
+	.ov-agent-chip .agent-dot {
+		width:9px; height:9px; border-radius:50%;
+		background:#10a37f; flex-shrink:0;
+	}
+	.ov-workspace-emoji {
+		display:inline-block;
+		font-size:1.1rem;
+		animation: ov-hammer 1s ease-in-out infinite;
+		transform-origin: bottom right;
+	}
+	@keyframes ov-hammer {
+		0%, 100% { transform: rotate(0deg); }
+		20% { transform: rotate(-18deg); }
+		40% { transform: rotate(8deg); }
+		60% { transform: rotate(-10deg); }
+		80% { transform: rotate(4deg); }
+	}
+	/* ── 3-column row for Models + Features + Benchmark ── */
+	.ov-three-col {
+		display:flex; gap:1rem;
+		width:100%; max-width:960px;
+	}
+	.ov-three-col > .overview-strip,
+	.ov-three-col > .ov-benchmark { flex:1 1 0; min-width:0; }
+	/* ── Model providers (step 3 recap) ── */
+	.overview-providers {
+		display:flex; flex-wrap:wrap; gap:0.5rem;
+	}
+	.overview-provider-pill {
+		display:flex; align-items:center; gap:0.4rem;
+		padding:0.4rem 0.8rem;
+		background:var(--theme-body-background);
+		border:1.5px solid var(--theme-border);
+		border-radius:999px;
+		font-size:0.88rem; font-weight:600;
+		color:var(--theme-text);
+		opacity:0;
+	}
+	.overview-provider-pill img { width:20px; height:20px; object-fit:contain; border-radius:4px; }
+	.overview-provider-pill[data-p="microsoft"] { border-color:#5c2d91; }
+	.overview-provider-pill[data-p="anthropic"] { border-color:#d4956a; }
+	.overview-provider-pill[data-p="openai"]    { border-color:#10a37f; }
+	.overview-provider-pill[data-p="meta"]      { border-color:#0668e1; }
+	.overview-provider-pill[data-p="mistral"]   { border-color:#ff7000; }
+	.overview-provider-pill[data-p="deepseek"]  { border-color:#4a90d9; }
+	.overview-provider-more {
+		padding:0.35rem 0.8rem;
+		border:1.5px dashed var(--theme-border);
+		border-radius:999px;
+		font-size:0.82rem; font-weight:600;
+		color:var(--theme-text-subtle);
+		opacity:0;
+	}
+	/* ── Features recap (step 4 recap) ── */
+	.overview-feat-row {
+		display:flex; flex-wrap:wrap; gap:0.5rem;
+	}
+	.overview-feat-chip {
+		display:flex; align-items:center; gap:0.4rem;
+		padding:0.4rem 0.8rem;
+		background:var(--theme-body-background);
+		border:1.5px solid var(--theme-border);
+		border-radius:10px;
+		font-size:0.9rem; font-weight:600;
+		color:var(--theme-text);
+		opacity:0;
+	}
+	.overview-feat-chip .feat-icon { font-size:1.2rem; flex-shrink:0; }
+	/* ── Compact benchmark bars (overview) ── */
+	.ov-benchmark {
+		background:var(--theme-body-background);
+		border:1.5px solid var(--theme-border);
+		border-radius:14px;
+		padding:1rem 1.2rem;
+		box-shadow:0 3px 12px rgba(0,0,0,0.06);
+		opacity:0;
+	}
+	.ov-benchmark-header {
+		display:flex; align-items:center; gap:0.4rem;
+		margin-bottom:0.5rem;
+	}
+	.ov-benchmark-header h3 {
+		margin:0; font-size:1.2rem; font-weight:700;
+		color:var(--theme-tertiary, #5c2d91);
+	}
+	.ov-benchmark-bars {
+		display:flex; flex-direction:column; gap:0.6rem;
+	}
+	.ov-bar-group {
+		display:flex; flex-direction:column; gap:0.2rem;
+	}
+	.ov-bar-group-label {
+		font-size:0.7rem; font-weight:700; color:var(--theme-text);
+		margin-bottom:0.05rem;
+	}
+	.ov-bar-row {
+		display:flex; align-items:center; gap:0.3rem;
+	}
+	.ov-bar-model {
+		font-size:0.62rem; font-weight:600;
+		width:50px; flex-shrink:0;
+		text-align:right; color:var(--theme-text);
+		white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+	}
+	.ov-bar-track {
+		flex:1; min-width:0; height:14px;
+		background:rgba(0,0,0,0.05);
+		border-radius:4px; overflow:hidden;
+		position:relative;
+	}
+	.ov-bar-fill {
+		height:100%; border-radius:4px;
+		position:absolute; left:0; top:0;
+		width:0;
+	}
+	.ov-bar-val {
+		position:absolute; right:4px; top:50%; transform:translateY(-50%);
+		font-size:0.55rem; font-weight:700; color:#fff;
+		white-space:nowrap;
+	}
+	/* Benefits row */
+	.overview-benefits {
+		display:grid; grid-template-columns:1fr 1fr;
+		gap:0.7rem 2.5rem;
+		max-width:960px; width:100%;
+		justify-items:center;
+	}
+	.overview-benefit {
+		display:flex; align-items:center; gap:0.6rem;
+		font-size:1.25rem; color:var(--theme-text);
+		opacity:0;
+		width:100%; max-width:360px;
+	}
+	.overview-benefit .ben-emoji {
+		font-size:1.3rem; flex-shrink:0;
+	}
+	.overview-benefit .check {
+		color:#2e7d32; font-size:1.3rem; flex-shrink:0;
+	}
+	/* Dark overrides for overview */
+	body.theme-dark .overview-title { color:#c9a5e8; }
+	body.theme-dark .overview-strip { background:rgba(255,255,255,0.04); border-color:rgba(255,255,255,0.15); }
+	body.theme-dark .overview-strip-header h3 { color:#c9a5e8; }
+	body.theme-dark .ov-box.lv-sub { background:rgba(0,120,212,0.08); border-color:rgba(0,120,212,0.2); }
+	body.theme-dark .ov-box.lv-sub > .ov-box-label { color:#50a0e8; }
+	body.theme-dark .ov-box.lv-rg { background:rgba(0,183,130,0.06); border-color:rgba(0,183,130,0.2); }
+	body.theme-dark .ov-box.lv-rg > .ov-box-label { color:#4dd9a8; }
+	body.theme-dark .ov-box.lv-resource { background:linear-gradient(135deg, rgba(146,78,217,0.12), rgba(80,170,255,0.08)); }
+	body.theme-dark .ov-box.lv-resource > .ov-box-label { color:#c9a5e8; }
+	body.theme-dark .ov-box.lv-project { background:rgba(0,120,212,0.06); border-color:rgba(0,120,212,0.25); }
+	body.theme-dark .ov-box.lv-project > .ov-box-label { color:#50a0e8; }
+	body.theme-dark .ov-box.lv-proj-item { background:rgba(146,78,217,0.06); border-color:rgba(146,78,217,0.2); }
+	body.theme-dark .ov-box.lv-proj-item > .ov-box-label { color:#c9a5e8; }
+	body.theme-dark .ov-box-svc-chip { background:rgba(255,255,255,0.04); border-color:rgba(255,255,255,0.12); }
+	body.theme-dark .ov-agent-chip { background:rgba(255,255,255,0.04); border-color:rgba(255,255,255,0.1); }
+	body.theme-dark .overview-provider-pill { background:rgba(255,255,255,0.04); }
+	body.theme-dark .overview-provider-pill[data-p="microsoft"] { border-color:#a67dd8; }
+	body.theme-dark .overview-provider-pill[data-p="anthropic"] { border-color:#d4956a; }
+	body.theme-dark .overview-provider-pill[data-p="openai"]    { border-color:#10a37f; }
+	body.theme-dark .overview-provider-pill[data-p="meta"]      { border-color:#5b9ef0; }
+	body.theme-dark .overview-provider-pill[data-p="mistral"]   { border-color:#ff8c33; }
+	body.theme-dark .overview-provider-pill[data-p="deepseek"]  { border-color:#6eb0ee; }
+	body.theme-dark .overview-provider-more { border-color:rgba(255,255,255,0.15); }
+	body.theme-dark .overview-feat-chip { background:rgba(255,255,255,0.04); border-color:rgba(255,255,255,0.12); }
+	body.theme-dark .ov-benchmark { background:rgba(255,255,255,0.04); border-color:rgba(255,255,255,0.15); }
+	body.theme-dark .ov-benchmark-header h3 { color:#c9a5e8; }
+	body.theme-dark .ov-bar-track { background:rgba(255,255,255,0.1); }
+
+	/* ── CONTROLS ───────────────────────────── */
+	#controls {
+		position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+		z-index:40;
+		display:flex; align-items:center; gap:12px;
+		padding:12px 16px;
+		background:var(--theme-body-background);
+		border:1px solid var(--theme-border); border-radius:999px;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2));
+		font-size:16px;
+	}
+	#controls .button { font-size:16.8px; padding:9.6px 17.6px; line-height:1.2; font-weight:600; }
+	.step-counter {
+		min-width:90px; text-align:center; font-variant-numeric:tabular-nums;
+		font-size:18.4px; font-weight:600; color:var(--theme-text-subtle);
+	}
+
+	/* ── SPEED CONTROL ───────────────────────── */
+	.speed-control {
+		display:inline-flex; align-items:center; gap:0.25rem;
+		padding:0.25rem 0.4rem;
+		border:1px solid var(--theme-border);
+		border-radius:999px;
+	}
+	.speed-control .speed-btn {
+		width:1.9rem; height:1.9rem;
+		padding:0; line-height:1;
+		font-size:1.15rem; font-weight:700;
+		border-radius:50%;
+	}
+	.speed-control .speed-btn[disabled] { opacity:0.4; cursor:not-allowed; }
+	.speed-label {
+		min-width:3.25rem; text-align:center;
+		font-variant-numeric:tabular-nums;
+		font-size:1rem; font-weight:600;
+		color:var(--theme-text);
+	}
+
+	/* ── TOGGLE BUTTONS ── */
+	#callout-toggle,
+	#outline-toggle {
+		border:1px solid var(--theme-border);
+		border-radius:4px;
+		transition:background 0.2s ease, color 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+	}
+	#callout-toggle.toggle-active,
+	#outline-toggle.toggle-active {
+		background:var(--theme-primary-translucent, rgba(0,120,212,0.12));
+		color:var(--theme-primary, #0078d4);
+		border-color:var(--theme-primary, #0078d4);
+		font-weight:600;
+	}
+	#callout-toggle:not(.toggle-active),
+	#outline-toggle:not(.toggle-active) { opacity:0.6; }
+
+	/* ── OUTLINE PANEL ──────────────────────── */
+	#step-outline {
+		position:fixed; top:4.5rem; right:1rem;
+		width:320px; max-height:calc(100vh - 8rem); overflow-y:auto;
+		padding:1.1rem;
+		background:var(--theme-body-background);
+		border:1px solid var(--theme-border);
+		border-radius:6px;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2));
+		z-index:35; font-size:1rem; line-height:1.55;
+	}
+	#step-outline[hidden] { display:none; }
+	#step-outline h2 {
+		font-size:0.85rem; font-weight:700; letter-spacing:0.18em; text-transform:uppercase;
+		color: var(--theme-tertiary, #5c2d91); margin-bottom:0.5rem;
+	}
+	#step-outline .outline-section {
+		margin-top:0.6rem; padding-top:0.6rem; border-top:1px solid var(--theme-border);
+	}
+	#step-outline .outline-section:first-child { margin-top:0; padding-top:0; border-top:0; }
+	#step-outline .stat-row {
+		display:flex; justify-content:space-between; align-items:baseline;
+		gap:0.75rem; padding:0.2rem 0;
+	}
+	#step-outline .stat-row span:first-child { color:var(--theme-text-subtle); flex:0 0 auto; max-width:45%; }
+	#step-outline .stat-row span:last-child { text-align:right; font-weight:600; color:var(--theme-tertiary, #5c2d91); flex:1 1 auto; }
+
+	.progress-track { position:relative; height:5px; background:var(--theme-border, #e0e0e0); flex-shrink:0; }
+	.progress-fill {
+		position:absolute; left:0; top:0; bottom:0; width:0%;
+		background: #5c2d91;
+		transition:width 0.5s cubic-bezier(0.2,0.8,0.2,1);
+	}
+
+	/* ── THEME TOGGLE ── */
+	.theme-toggle {
+		display:inline-flex; align-items:center; justify-content:center;
+		width:2.25rem; height:2.25rem;
+		padding:0; margin-inline-start:0.25rem;
+		background:transparent;
+		border:1px solid var(--theme-border);
+		border-radius:999px;
+		color:var(--theme-text);
+		cursor:pointer;
+		transition:background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+	}
+	.theme-toggle:hover {
+		background:var(--theme-primary-translucent, rgba(0,120,212,0.12));
+		color:var(--theme-primary);
+		border-color:var(--theme-primary);
+	}
+	.theme-toggle .theme-icon { display:none; }
+	.theme-toggle[data-theme="dark"]  .icon-sun  { display:block; }
+	.theme-toggle[data-theme="light"] .icon-moon { display:block; }
+
+	/* ── A11Y ─────────────────────────────── */
+	.sr-only {
+		position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+		overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
+	}
+	.skip-link {
+		position:absolute; top:-100px; left:0.5rem; z-index:100;
+		padding:0.5rem 1rem;
+		background:var(--theme-primary);
+		color:var(--theme-primary-invert, #fff);
+		border-radius:4px; text-decoration:none; font-weight:600;
+	}
+	.skip-link:focus { top:0.5rem; }
+
+	/* ── LANGUAGE SELECT ───────────────────── */
+	.lang-select {
+		appearance: none;
+		-webkit-appearance: none;
+		background: var(--theme-card-background, #fff);
+		color: var(--theme-body-text, #333);
+		border: 1px solid var(--theme-border, rgba(0,0,0,0.2));
+		border-radius: 4px;
+		padding: 4px 24px 4px 8px;
+		font-size: 0.8rem;
+		font-family: 'Segoe UI', sans-serif;
+		cursor: pointer;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+		background-repeat: no-repeat;
+		background-position: right 6px center;
+		min-width: 80px;
+	}
+	.lang-select:hover { border-color: var(--theme-primary, #0078d4); }
+	.lang-select:focus { outline: 2px solid var(--theme-primary, #0078d4); outline-offset: 1px; }
+	.lang-select option { background: var(--theme-card-background, #fff); color: var(--theme-body-text, #333); }
+	body.theme-dark .lang-select {
+		background-color: var(--theme-body-background, #1a1a2e);
+		color: var(--theme-body-text, #e0e0e0);
+		border-color: rgba(255,255,255,0.15);
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23aaa' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+	}
+	body.theme-dark .lang-select option { background: var(--theme-body-background, #1a1a2e); color: var(--theme-body-text, #e0e0e0); }
+
+	/* ── FONT SIZE CONTROLS ─────────────────── */
+	.font-size-controls {
+		display: flex;
+		align-items: center;
+		gap: 2px;
+	}
+	.font-size-btn {
+		background: var(--theme-card-background, #fff);
+		color: var(--theme-body-text, #333);
+		border: 1px solid var(--theme-border, rgba(0,0,0,0.2));
+		border-radius: 4px;
+		padding: 3px 8px;
+		font-size: 0.8rem;
+		font-weight: 700;
+		font-family: 'Segoe UI', sans-serif;
+		cursor: pointer;
+		line-height: 1.2;
+		transition: background 0.15s, border-color 0.15s;
+	}
+	.font-size-btn:hover { border-color: var(--theme-primary, #0078d4); background: var(--theme-hover-background, #f0f0f0); }
+	.font-size-btn:active { transform: scale(0.95); }
+	body.theme-dark .font-size-btn {
+		background: var(--theme-body-background, #1a1a2e);
+		color: var(--theme-body-text, #e0e0e0);
+		border-color: rgba(255,255,255,0.15);
+	}
+	body.theme-dark .font-size-btn:hover { background: rgba(255,255,255,0.08); }
+
+	/* ── DARK-THEME OVERRIDES ───────────────── */
+	body.theme-dark .summary-new-foundry-text strong { color:#c9a5e8; }
+	body.theme-dark #step-outline .stat-row span:last-child { color:#c9a5e8; }
+	body.theme-dark #step-outline h2 { color:#c9a5e8; }
+	body.theme-dark .resources-title { color:#c9a5e8; }
+	body.theme-dark .included-label strong { color:#c9a5e8; }
+	body.theme-dark .resource-parent { background: linear-gradient(135deg, rgba(146,78,217,0.12), rgba(80,170,255,0.12)); }
+	body.theme-dark .resource-child { background:rgba(255,255,255,0.04); }
+	body.theme-dark .service-chip { background:rgba(255,255,255,0.04); border-color:rgba(255,255,255,0.15); }
+
+	/* ── RESPONSIVE ─────────────────────────── */
+	@media (max-width:1100px), (max-height:720px) {
+		#stage { min-width:0; min-height:520px; overflow:visible; }
+		#step-outline { position:static; width:auto; margin:0.75rem 1rem; max-height:none; }
+		.callout { position:static !important; margin:0.75rem 1rem; max-width:none; transform:none !important; }
+		#controls {
+			position:fixed; left:0; right:0; bottom:0;
+			transform:none; border-radius:0;
+			justify-content:center; flex-wrap:wrap;
+			padding:0.5rem 0.75rem;
+		}
+	}
+	@media (max-width:640px) {
+		.app-header { font-size:0.95rem; }
+	}
+	@media (prefers-reduced-motion: reduce) {
+		*, *::before, *::after {
+			transition:none !important; animation:none !important;
+		}
+		.progress-fill { transition:none !important; }
+	}
+</style>
+</head>
+
+<body class="theme-dark" data-theme-preset="atlas">
+
+	<a href="#stage" class="skip-link">Skip to diagram</a>
+
+	<header class="app-header padding-block-xs padding-inline-md border-bottom" role="banner" style="justify-content:space-between;">
+	<script src="/js/tracking.js"></script>
+		<a href="./index.html" class="display-flex align-items-center gap-xs color-text" aria-label="Back to home">
+			<span id="page-title" class="font-size-h6 font-weight-semibold">🏗️ Microsoft Foundry — New Experience</span>
+		</a>
+		<nav class="display-flex gap-xs align-items-center" aria-label="Primary">
+			<span id="breadcrumb" class="font-size-sm color-text-subtle">Step 1</span>
+			<button id="callout-toggle" type="button" class="button button-clear button-sm"
+					aria-label="Toggle callouts">💬 Callout</button>
+			<button id="outline-toggle" type="button" class="button button-clear button-sm"
+					aria-controls="step-outline" aria-expanded="false"
+					aria-label="Hide text outline">📝 Outline</button>
+		</nav>
+		<div class="display-flex gap-xs align-items-center">
+			<select id="lang-select" class="lang-select" aria-label="Language">
+				<option value="en">English</option>
+				<option value="es">Español</option>
+				<option value="ja">日本語</option>
+				<option value="ko">한국어</option>
+				<option value="pt">Português</option>
+			</select>
+			<div class="font-size-controls">
+				<button id="font-decrease" type="button" class="font-size-btn" aria-label="Decrease font size" title="Smaller text">A−</button>
+				<button id="font-increase" type="button" class="font-size-btn" aria-label="Increase font size" title="Larger text">A+</button>
+			</div>
+			<button id="theme-toggle" type="button" class="theme-toggle"
+					aria-label="Switch to light theme" title="Switch to light theme">
+				<svg class="theme-icon icon-moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+					<path fill="currentColor" d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/>
+				</svg>
+				<svg class="theme-icon icon-sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+					<g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+						<circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/>
+						<line x1="12" y1="2"  x2="12" y2="5"/>
+						<line x1="12" y1="19" x2="12" y2="22"/>
+						<line x1="2"  y1="12" x2="5"  y2="12"/>
+						<line x1="19" y1="12" x2="22" y2="12"/>
+						<line x1="4.5"  y1="4.5"  x2="6.5"  y2="6.5"/>
+						<line x1="17.5" y1="17.5" x2="19.5" y2="19.5"/>
+						<line x1="4.5"  y1="19.5" x2="6.5"  y2="17.5"/>
+						<line x1="17.5" y1="6.5"  x2="19.5" y2="4.5"/>
+					</g>
+				</svg>
+			</button>
+		</div>
+	</header>
+
+	<div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
+
+	<main id="stage" tabindex="0" role="region"
+		  aria-labelledby="stage-heading" aria-describedby="stage-instructions">
+		<h1 id="stage-heading" class="sr-only">Microsoft Foundry — New Experience at ai.azure.com</h1>
+		<p id="stage-instructions" class="sr-only">
+			Animated explainer for the new unified Microsoft Foundry experience at ai.azure.com.
+			Use Next/Previous buttons or arrow keys to navigate. Press R to restart.
+		</p>
+		<div id="step-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+
+		<svg id="fx-svg" aria-hidden="true" focusable="false">
+			<defs>
+				<marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
+					<path d="M0,0 L0,10 L10,5 Z" fill="currentColor"/>
+				</marker>
+			</defs>
+		</svg>
+	</main>
+
+	<aside id="step-outline" hidden aria-label="Text outline of the current step">
+		<h2 id="outline-title">Step Details</h2>
+		<div id="outline-body"></div>
+	</aside>
+
+	<div id="controls" role="group" aria-label="Diagram navigation">
+		<button id="prev-btn" type="button" class="button"
+				aria-label="Previous step (left arrow)">◀ Prev</button>
+		<div class="step-counter" id="step-counter">0 / 0</div>
+		<button id="next-btn" type="button" class="button button-primary button-filled"
+				aria-label="Next step (right arrow or space)">Next ▶</button>
+		<button id="replay-btn" type="button" class="button"
+				aria-label="Replay this step's animation (P)">↻ Replay</button>
+
+		<div class="speed-control" role="group" aria-label="Animation speed">
+			<button id="speed-down" type="button" class="button button-clear speed-btn"
+					aria-label="Slower (-)" title="Slower">−</button>
+			<span id="speed-label" class="speed-label" aria-live="polite"
+				  aria-label="Current speed">1×</span>
+			<button id="speed-up" type="button" class="button button-clear speed-btn"
+					aria-label="Faster (+)" title="Faster">+</button>
+		</div>
+
+		<button id="reset-btn" type="button" class="button button-clear"
+				aria-label="Restart from step 1 (R)">↻ Restart</button>
+	</div>
+
+<script>
+// ── THEME ─────────────────────────────────
+if (window.AW && AW.theme) {
+	AW.theme.onChange(() => { if (typeof renderStep === 'function' && current >= 0) renderStep(current); });
+}
+
+// ── i18n ──────────────────────────────────
+let currentLang = 'en';
+const I18N = {
+	en: {
+		skipToMain: 'Skip to diagram',
+		pageTitle: 'Microsoft Foundry — New Experience',
+		stageHeading: 'Microsoft Foundry — New Experience at ai.azure.com',
+		stageInstructions: 'Animated explainer for the new unified Microsoft Foundry experience at ai.azure.com. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.',
+		prev: '◀ Prev',
+		next: 'Next ▶',
+		replay: '↻ Replay',
+		restart: '↻ Restart',
+		slower: 'Slower',
+		faster: 'Faster',
+		calloutOn: '💬 Callout: On',
+		calloutOff: '💬 Callout: Off',
+		outlineOn: '📝 Outline: On',
+		outlineOff: '📝 Outline: Off',
+		stepDetails: 'Step Details',
+		stepOf: 'Step',
+		summaryTitle: 'The New Foundry Experience',
+		summaryCaption: 'Unified console at ai.azure.com',
+		summaryDesc: 'The new unified Microsoft Foundry experience at ai.azure.com brings a modern console for building AI agents and apps — with improved UI and workflows.',
+		summaryExplain: '⬇ <strong>Highly recommended:</strong> Switch to the <strong>New Foundry</strong> experience at <strong>ai.azure.com</strong> for the latest unified console. Toggle it on from the top of the page — features come with improved UI and workflows.',
+		browserToggleLabel: 'New Foundry',
+		browserMessage: 'Enable the <strong>New Foundry</strong> toggle at <strong>ai.azure.com</strong> to try the new unified experience for AI Agent development.',
+		browserHint: 'Recommended for all new projects • Full lifecycle support',
+		resourcesTitle: 'Two Resources to Get Started',
+		resourcesCaption: 'Foundry Resource & Foundry Project',
+		resourcesDesc: 'Good news — when you jump into Microsoft Foundry, these two get spun up for you. Foundry Resource is the parent — billable and unlocks other AI services. Foundry Project is the child — where you actually build stuff.',
+		resourcesLead: 'Good news — when you jump into Microsoft Foundry, these two get spun up for you:',
+		resourcesL1: '<strong>Foundry Resource</strong> — the parent. This is what you pay for, and it unlocks the other AI services.',
+		resourcesL2: '<strong>Foundry Project</strong> — the child. Where you actually build stuff.',
+		resourceParentLabel: 'Foundry Resource',
+		resourceParentSub: 'Parent · Billable · Pay-as-you-go',
+		resourceChildLabel: 'Foundry Project',
+		resourceChildSub: 'Child workspace · Inherits parent access',
+		resourceBadge: '💰 Billable',
+		includedLabel: 'Foundry Resource includes access to <strong>other AI services</strong>:',
+		svcLanguage: 'Language',
+		svcSpeech: 'Speech',
+		svcTranslator: 'Translator',
+		svcContentUnderstanding: 'Content Understanding',
+		svcOpenAI: 'Azure OpenAI',
+		statParent: 'Parent (billable)',
+		statChild: 'Child workspace',
+		statIncluded: 'Included services',
+		statBilling: 'Billing model',
+		statHierarchy: 'Hierarchy',
+		// statPlatform/statHub/statProjects removed
+		statShared: 'Shared', statConfig: 'Config', statResult: 'Result',
+		modelsTitle: 'Why Microsoft Foundry?',
+		modelsCaption: 'Access to the latest advanced AI models',
+		modelsDesc: 'Microsoft Foundry provides a single console to access the latest advanced AI models from Microsoft, Anthropic, OpenAI, Meta, and other leading providers.',
+		modelsLead: 'Microsoft Foundry provides access to the latest, most advanced AI models — all from a single console:',
+		modelPhi4: 'Phi-4',
+		modelPhi4Provider: 'Microsoft',
+		modelMAIVoice: 'MAI-Voice-1',
+		modelMAIVoiceProvider: 'Microsoft',
+		modelClaude: 'Claude',
+		modelClaudeProvider: 'Anthropic',
+		modelGPT: 'GPT',
+		modelGPTProvider: 'Azure OpenAI',
+		modelLlama: 'Llama',
+		modelLlamaProvider: 'Meta',
+		modelMistral: 'Mistral',
+		modelMistralProvider: 'Mistral AI',
+		modelDeepSeek: 'DeepSeek',
+		modelDeepSeekProvider: 'DeepSeek',
+		modelsMore: 'and more…',
+		agentCta: 'Use these models to build',
+		agentLabel: 'AI Agents',
+		agentDesc: 'Intelligent agents that reason, plan, and take action — powered by the models above.',
+		// Step 4: Features
+		featuresTitle: 'And More Powerful Features',
+		featuresCaption: 'Model leaderboard, Agent Service, and more',
+		featuresDesc: 'Microsoft Foundry goes beyond model access with built-in tools for evaluation, agent orchestration, and local development.',
+		featuresLead: 'Beyond models — Microsoft Foundry includes powerful built-in capabilities:',
+		leaderboardTitle: 'Model Leaderboard',
+		leaderboardDesc: 'Compare model performance in quality index, safety, estimated cost, and throughput (tokens/sec), backed by industry-standard public benchmarks.',
+		leaderboardLearn: 'Learn more about our scoring methodology',
+		leaderboardQuality: 'Quality',
+		leaderboardCost: 'Benchmark Cost',
+		leaderboardThroughput: 'Throughput',
+		agentServiceTitle: 'Agent Service',
+		agentServiceDesc: 'Build, deploy, and scale AI agents with built-in orchestration, tool use, and memory.',
+		foundryIQTitle: 'Foundry IQ',
+		foundryIQDesc: 'Intelligent recommendations and insights to optimize your AI workloads.',
+		workflowsTitle: 'Workflows',
+		workflowsDesc: 'Visual designer for multi-step AI pipelines — chain models, tools, and data sources.',
+		foundryLocalTitle: 'Foundry Local',
+		foundryLocalDesc: 'Run AI models locally on your machine for development, testing, and offline scenarios.',
+		// Step 5: Summary
+		overviewTitle: 'Microsoft Foundry — All in One',
+		overviewCaption: 'Full architecture at a glance',
+		overviewDesc: 'Microsoft Foundry brings together resource management, model catalog, and built-in capabilities into a single unified platform.',
+		overviewResHeader: 'Azure',
+		overviewModelsHeader: 'Model Catalog',
+		overviewFeatHeader: 'Built-in Features',
+		overviewAzureSub: 'Azure Subscription',
+		overviewRG: 'Resource Group',
+		overviewProjectA: 'Project A',
+		overviewProjectB: 'Project B',
+		overviewAgentA1: 'Agent A1',
+		overviewAgentA2: 'Agent A2',
+		overviewAgentB1: 'Agent B1',
+		overviewAgentB2: 'Agent B2',
+		overviewBenefit1: 'One resource to manage everything',
+		overviewBenefit2: 'No hub needed',
+		overviewBenefit3: 'Built-in security & networking',
+		overviewBenefit4: 'Simple key or token auth',
+	},
+	es: {
+		skipToMain: 'Saltar al diagrama',
+		pageTitle: 'Microsoft Foundry — Nueva experiencia',
+		stageHeading: 'Microsoft Foundry — Nueva experiencia en ai.azure.com',
+		stageInstructions: 'Explicación animada de la nueva experiencia unificada de Microsoft Foundry en ai.azure.com. Use los botones Siguiente/Anterior o las teclas de flecha para navegar. Presione R para reiniciar.',
+		prev: '◀ Anterior',
+		next: 'Siguiente ▶',
+		replay: '↻ Repetir',
+		restart: '↻ Reiniciar',
+		slower: 'Más lento',
+		faster: 'Más rápido',
+		calloutOn: '💬 Info: Sí',
+		calloutOff: '💬 Info: No',
+		outlineOn: '📝 Esquema: Sí',
+		outlineOff: '📝 Esquema: No',
+		stepDetails: 'Detalles del paso',
+		stepOf: 'Paso',
+		summaryTitle: 'Arquitectura Completa',
+		summaryTitle: 'La nueva experiencia de Foundry',
+		summaryCaption: 'Consola unificada en ai.azure.com',
+		summaryDesc: 'La nueva experiencia unificada de Microsoft Foundry en ai.azure.com ofrece una consola moderna para crear agentes y apps de IA, con UI y flujos de trabajo mejorados.',
+		summaryExplain: '⬇ <strong>Muy recomendado:</strong> Cambie a la experiencia <strong>New Foundry</strong> en <strong>ai.azure.com</strong> para la consola unificada más reciente. Actívelo desde la parte superior de la página — con UI y flujos de trabajo mejorados.',
+		browserToggleLabel: 'New Foundry',
+		browserMessage: 'Active el toggle <strong>New Foundry</strong> en <strong>ai.azure.com</strong> para probar la nueva experiencia unificada para el desarrollo de agentes IA.',
+		browserHint: 'Recomendado para todos los proyectos nuevos • Soporte de ciclo de vida completo',
+		resourcesTitle: 'Dos recursos para comenzar',
+		resourcesCaption: 'Foundry Resource y Foundry Project',
+		resourcesDesc: 'Buenas noticias — cuando entras en Microsoft Foundry, estos dos se crean para ti. Foundry Resource es el padre — facturable y desbloquea los demás servicios de IA. Foundry Project es el hijo — donde realmente construyes cosas.',
+		resourcesLead: 'Buenas noticias — cuando entras en Microsoft Foundry, estos dos se crean para ti:',
+		resourcesL1: '<strong>Foundry Resource</strong> — el padre. Esto es lo que pagas, y desbloquea los demás servicios de IA.',
+		resourcesL2: '<strong>Foundry Project</strong> — el hijo. Donde realmente construyes cosas.',
+		resourceParentLabel: 'Foundry Resource',
+		resourceParentSub: 'Padre · Facturable · Pago por uso',
+		resourceChildLabel: 'Foundry Project',
+		resourceChildSub: 'Espacio de trabajo hijo · Hereda acceso del padre',
+		resourceBadge: '💰 Facturable',
+		includedLabel: 'Foundry Resource incluye acceso a <strong>otros servicios de IA</strong>:',
+		svcLanguage: 'Lenguaje',
+		svcSpeech: 'Voz',
+		svcTranslator: 'Traductor',
+		svcContentUnderstanding: 'Comprensión de contenido',
+		svcOpenAI: 'Azure OpenAI',
+		statParent: 'Padre (facturable)',
+		statChild: 'Espacio hijo',
+		statIncluded: 'Servicios incluidos',
+		statBilling: 'Modelo de facturación',
+		statHierarchy: 'Jerarquía',
+			   // statPlatform/statHub/statProjects removed
+		statShared: 'Compartidos', statConfig: 'Config', statResult: 'Resultado',
+		modelsTitle: '¿Por qué Microsoft Foundry?',
+		modelsCaption: 'Acceso a los modelos de IA más avanzados',
+		modelsDesc: 'Microsoft Foundry ofrece una consola única para acceder a los modelos de IA más avanzados de Microsoft, Anthropic, OpenAI, Meta y otros proveedores líderes.',
+		modelsLead: 'Microsoft Foundry ofrece acceso a los modelos de IA más avanzados — todo desde una sola consola:',
+		modelPhi4: 'Phi-4',
+		modelPhi4Provider: 'Microsoft',
+		modelMAIVoice: 'MAI-Voice-1',
+		modelMAIVoiceProvider: 'Microsoft',
+		modelClaude: 'Claude',
+		modelClaudeProvider: 'Anthropic',
+		modelGPT: 'GPT',
+		modelGPTProvider: 'Azure OpenAI',
+		modelLlama: 'Llama',
+		modelLlamaProvider: 'Meta',
+		modelMistral: 'Mistral',
+		modelMistralProvider: 'Mistral AI',
+		modelDeepSeek: 'DeepSeek',
+		modelDeepSeekProvider: 'DeepSeek',
+		modelsMore: 'y más…',
+		agentCta: 'Usa estos modelos para construir',
+		agentLabel: 'Agentes de IA',
+		agentDesc: 'Agentes inteligentes que razonan, planifican y actúan — impulsados por los modelos anteriores.',
+		// Step 4: Features
+		featuresTitle: 'Y más funciones potentes',
+		featuresCaption: 'Tabla de clasificación de modelos, Agent Service y más',
+		featuresDesc: 'Microsoft Foundry va más allá del acceso a modelos con herramientas integradas para evaluación, orquestación de agentes y desarrollo local.',
+		featuresLead: 'Más allá de los modelos — Microsoft Foundry incluye potentes capacidades integradas:',
+		leaderboardTitle: 'Tabla de modelos',
+		leaderboardDesc: 'Compare el rendimiento en índice de calidad, seguridad, costo estimado y rendimiento (tokens/seg), respaldado por benchmarks públicos estándar.',
+		leaderboardLearn: 'Más información sobre nuestra metodología',
+		leaderboardQuality: 'Calidad',
+		leaderboardCost: 'Costo referencial',
+		leaderboardThroughput: 'Rendimiento',
+		agentServiceTitle: 'Agent Service',
+		agentServiceDesc: 'Cree, implemente y escale agentes de IA con orquestación, herramientas y memoria integradas.',
+		foundryIQTitle: 'Foundry IQ',
+		foundryIQDesc: 'Recomendaciones inteligentes para optimizar sus cargas de trabajo de IA.',
+		workflowsTitle: 'Workflows',
+		workflowsDesc: 'Diseñador visual para pipelines de IA de múltiples pasos — encadene modelos, herramientas y fuentes de datos.',
+		foundryLocalTitle: 'Foundry Local',
+		foundryLocalDesc: 'Ejecute modelos de IA localmente para desarrollo, pruebas y escenarios sin conexión.',
+		// Step 5: Summary
+		overviewTitle: 'Microsoft Foundry — Todo en uno',
+		overviewCaption: 'Arquitectura completa de un vistazo',
+		overviewDesc: 'Microsoft Foundry reúne gestión de recursos, catálogo de modelos y capacidades integradas en una plataforma unificada.',
+		overviewResHeader: 'Azure',
+		overviewModelsHeader: 'Catálogo de modelos',
+		overviewFeatHeader: 'Funciones integradas',
+		overviewAzureSub: 'Suscripción de Azure',
+		overviewRG: 'Grupo de recursos',
+		overviewProjectA: 'Proyecto A',
+		overviewProjectB: 'Proyecto B',
+		overviewAgentA1: 'Agente A1',
+		overviewAgentA2: 'Agente A2',
+		overviewAgentB1: 'Agente B1',
+		overviewAgentB2: 'Agente B2',
+		overviewBenefit1: 'Un recurso para todo',
+		overviewBenefit2: 'Sin hub necesario',
+		overviewBenefit3: 'Seguridad y redes integradas',
+		overviewBenefit4: 'Autenticación simple con clave o token',
+	},
+	ja: {
+		skipToMain: 'ダイアグラムへスキップ',
+		pageTitle: 'Microsoft Foundry — 新しい体験',
+		stageHeading: 'Microsoft Foundry — ai.azure.comでの新しい体験',
+		stageInstructions: 'ai.azure.comのMicrosoft Foundry新統合体験についてのアニメーション説明。次へ/前へボタンまたは矢印キーで移動。Rで再開。',
+		prev: '◀ 前へ',
+		next: '次へ ▶',
+		replay: '↻ リプレイ',
+		restart: '↻ 最初から',
+		slower: '遅く',
+		faster: '速く',
+		calloutOn: '💬 吹出し: オン',
+		calloutOff: '💬 吹出し: オフ',
+		outlineOn: '📝 概要: オン',
+		outlineOff: '📝 概要: オフ',
+		stepDetails: 'ステップ詳細',
+		stepOf: 'ステップ',
+		summaryTitle: '完全なアーキテクチャ',
+		summaryCaption: 'ai.azure.comの統合コンソール',
+		summaryDesc: 'ai.azure.comの新しいMicrosoft Foundry統合体験で、AIエージェントやアプリを構築するためのモダンなコンソールを提供します。',
+		summaryExplain: '⬇ <strong>強く推奨：</strong><strong>ai.azure.com</strong>で<strong>New Foundry</strong>体験に切り替えて、最新の統合コンソールをお試しください。ページ上部のトグルをオンにするだけ — 改良されたUIとワークフローで機能が利用可能です。',
+		browserToggleLabel: 'New Foundry',
+		browserMessage: '<strong>ai.azure.com</strong>で<strong>New Foundry</strong>トグルを有効にして、AIエージェント開発の新しい統合体験をお試しください。',
+		browserHint: '全ての新プロジェクトに推奨 • フルライフサイクルサポート',
+		resourcesTitle: '開始に必要な2つのリソース',
+		resourcesCaption: 'Foundry Resource と Foundry Project',
+		resourcesDesc: 'ご安心を — Microsoft Foundryを使い始めると、この2つが用意されます。Foundry Resourceは親で、課金対象。他のAIサービスへのアクセスも含みます。Foundry Projectは子で、実際に作っていく場所です。',
+		resourcesLead: 'ご安心を — Microsoft Foundryを使い始めると、この2つが用意されます：',
+		resourcesL1: '<strong>Foundry Resource</strong> — 親。これが課金対象で、他のAIサービスへのアクセスも含みます。',
+		resourcesL2: '<strong>Foundry Project</strong> — 子。実際に作っていく場所です。',
+		resourceParentLabel: 'Foundry Resource',
+		resourceParentSub: '親 · 課金対象 · 従量課金',
+		resourceChildLabel: 'Foundry Project',
+		resourceChildSub: '子ワークスペース · 親のアクセスを継承',
+		resourceBadge: '💰 課金対象',
+		includedLabel: 'Foundry Resourceは<strong>他のAIサービス</strong>へのアクセスを含みます：',
+		svcLanguage: 'Language',
+		svcSpeech: 'Speech',
+		svcTranslator: 'Translator',
+		svcContentUnderstanding: 'Content Understanding',
+		svcOpenAI: 'Azure OpenAI',
+		statParent: '親 (課金)',
+		statChild: '子ワークスペース',
+		statIncluded: '含まれるサービス',
+		statBilling: '課金モデル',
+		statHierarchy: '階層',
+			   // statPlatform/statHub/statProjects removed
+		statShared: '共有', statConfig: '構成', statResult: '結果',
+		modelsTitle: 'なぜMicrosoft Foundryなのか？',
+		modelsCaption: '最新の高度なAIモデルへのアクセス',
+		modelsDesc: 'Microsoft Foundryは、Microsoft、Anthropic、OpenAI、Metaなど主要プロバイダーの最新AIモデルに単一のコンソールからアクセスできます。',
+		modelsLead: 'Microsoft Foundryは最新・最先端のAIモデルへのアクセスを単一のコンソールから提供します：',
+		modelPhi4: 'Phi-4',
+		modelPhi4Provider: 'Microsoft',
+		modelMAIVoice: 'MAI-Voice-1',
+		modelMAIVoiceProvider: 'Microsoft',
+		modelClaude: 'Claude',
+		modelClaudeProvider: 'Anthropic',
+		modelGPT: 'GPT',
+		modelGPTProvider: 'Azure OpenAI',
+		modelLlama: 'Llama',
+		modelLlamaProvider: 'Meta',
+		modelMistral: 'Mistral',
+		modelMistralProvider: 'Mistral AI',
+		modelDeepSeek: 'DeepSeek',
+		modelDeepSeekProvider: 'DeepSeek',
+		modelsMore: 'その他…',
+		agentCta: 'これらのモデルで構築',
+		agentLabel: 'AIエージェント',
+		agentDesc: '推論、計画、実行を行うインテリジェントエージェント — 上記のモデルで駆動。',
+		// Step 4: Features
+		featuresTitle: 'さらに強力な機能',
+		featuresCaption: 'モデルリーダーボード、エージェントサービスなど',
+		featuresDesc: 'Microsoft Foundryは、評価、エージェントオーケストレーション、ローカル開発のための組み込みツールを提供します。',
+		featuresLead: 'モデルだけではありません — Microsoft Foundryには強力な組み込み機能があります:',
+		leaderboardTitle: 'モデルリーダーボード',
+		leaderboardDesc: '品質指数、安全性、推定コスト、スループット（トークン/秒）でモデル性能を比較。業界標準のベンチマークに基づいています。',
+		leaderboardLearn: 'スコアリング方法論について詳しく',
+		leaderboardQuality: '品質',
+		leaderboardCost: 'ベンチマークコスト',
+		leaderboardThroughput: 'スループット',
+		agentServiceTitle: 'エージェントサービス',
+		agentServiceDesc: 'オーケストレーション、ツール使用、メモリを備えたAIエージェントの構築・デプロイ・スケーリング。',
+		foundryIQTitle: 'Foundry IQ',
+		foundryIQDesc: 'AIワークロードを最適化するインテリジェントな推奨とインサイト。',
+		workflowsTitle: 'ワークフロー',
+		workflowsDesc: 'マルチステップAIパイプラインのビジュアルデザイナー — モデル、ツール、データソースを連鎖。',
+		foundryLocalTitle: 'Foundry Local',
+		foundryLocalDesc: '開発、テスト、オフラインシナリオのためにAIモデルをローカルで実行。',
+		// Step 5: Summary
+		overviewTitle: 'Microsoft Foundry — オールインワン',
+		overviewCaption: 'アーキテクチャ全体を一目で',
+		overviewDesc: 'Microsoft Foundryはリソース管理、モデルカタログ、組み込み機能を1つの統合プラットフォームにまとめます。',
+		overviewResHeader: 'Azure',
+		overviewModelsHeader: 'モデルカタログ',
+		overviewFeatHeader: '組み込み機能',
+		overviewAzureSub: 'Azureサブスクリプション',
+		overviewRG: 'リソースグループ',
+		overviewProjectA: 'プロジェクト A',
+		overviewProjectB: 'プロジェクト B',
+		overviewAgentA1: 'エージェント A1',
+		overviewAgentA2: 'エージェント A2',
+		overviewAgentB1: 'エージェント B1',
+		overviewAgentB2: 'エージェント B2',
+		overviewBenefit1: '1つのリソースですべて管理',
+		overviewBenefit2: 'ハブ不要',
+		overviewBenefit3: 'セキュリティとネットワーク内蔵',
+		overviewBenefit4: 'キーまたはトークンで簡単認証',
+	},
+	ko: {
+		skipToMain: '다이어그램으로 건너뛰기',
+		pageTitle: 'Microsoft Foundry — 새로운 경험',
+		stageHeading: 'Microsoft Foundry — ai.azure.com에서의 새로운 경험',
+		stageInstructions: 'ai.azure.com의 새로운 통합 Microsoft Foundry 경험에 대한 애니메이션 설명입니다. 다음/이전 버튼 또는 화살표 키로 탐색하세요. R을 눌러 다시 시작합니다.',
+		prev: '◀ 이전',
+		next: '다음 ▶',
+		replay: '↻ 다시보기',
+		restart: '↻ 처음으로',
+		slower: '느리게',
+		faster: '빠르게',
+		calloutOn: '💬 설명: 켜짐',
+		calloutOff: '💬 설명: 꺼짐',
+		outlineOn: '📝 개요: 켜짐',
+		outlineOff: '📝 개요: 꺼짐',
+		stepDetails: '단계 상세',
+		stepOf: '단계',
+			   summaryTitle: '새로운 Foundry 경험',
+			   summaryCaption: 'ai.azure.com의 통합 콘솔',
+			   summaryDesc: 'ai.azure.com의 새로운 통합 Microsoft Foundry 경험은 AI 에이전트와 앱을 만드는 현대적 콘솔을 제공해요 — 향상된 UI와 워크플로우로.',
+			   summaryExplain: '⬇ <strong>적극 권장:</strong> <strong>ai.azure.com</strong>에서 <strong>New Foundry</strong> 경험으로 전환하세요. 페이지 상단의 토글을 켜기만 하면 돼요 — 개선된 UI와 워크플로우로 이용 가능해요.',
+		browserToggleLabel: 'New Foundry',
+		browserMessage: '<strong>ai.azure.com</strong>에서 <strong>New Foundry</strong> 토글을 활성화하여 AI 에이전트 개발을 위한 새로운 통합 경험을 체험하세요.',
+		browserHint: '모든 새 프로젝트에 권장 • 전체 라이프사이클 지원',
+		resourcesTitle: '시작에 필요한 두 가지 리소스',
+		resourcesCaption: 'Foundry Resource 와 Foundry Project',
+		resourcesDesc: '좋은 소식 이에요 — Microsoft Foundry를 시작하면 이 둘이 준비돼요. Foundry Resource는 부모로 결제 대상이며 다른 AI 서비스 액세스까지 제공해요. Foundry Project는 자식으로 실제로 구축하는 공간이에요.',
+		resourcesLead: '좋은 소식 이에요 — Microsoft Foundry를 시작하면 이 둘이 준비돼요:',
+		resourcesL1: '<strong>Foundry Resource</strong> — 부모. 결제 대상이며 다른 AI 서비스 액세스까지 제공해요.',
+		resourcesL2: '<strong>Foundry Project</strong> — 자식. 실제로 구축하는 공간이에요.',
+		resourceParentLabel: 'Foundry Resource',
+		resourceParentSub: '부모 · 청구 대상 · 종량제',
+		resourceChildLabel: 'Foundry Project',
+		resourceChildSub: '자식 워크스페이스 · 부모 액세스 상속',
+		resourceBadge: '💰 청구 대상',
+		includedLabel: 'Foundry Resource는 <strong>다른 AI 서비스</strong>에 대한 액세스를 포함합니다:',
+		svcLanguage: 'Language',
+		svcSpeech: 'Speech',
+		svcTranslator: 'Translator',
+		svcContentUnderstanding: 'Content Understanding',
+		svcOpenAI: 'Azure OpenAI',
+		statParent: '부모 (청구 대상)',
+		statChild: '자식 워크스페이스',
+		statIncluded: '포함 서비스',
+		statBilling: '청구 모델',
+		statHierarchy: '계층',
+			   // statPlatform/statHub/statProjects removed
+		statShared: '공유', statConfig: '구성', statResult: '결과',
+		modelsTitle: '왜 Microsoft Foundry인가요?',
+		modelsCaption: '최신 고급 AI 모델에 대한 접근',
+		modelsDesc: 'Microsoft Foundry는 Microsoft, Anthropic, OpenAI, Meta 등 주요 공급업체의 최신 고급 AI 모델에 단일 콘솔에서 접근할 수 있는 환경을 제공합니다.',
+		modelsLead: 'Microsoft Foundry는 최신·최고의 AI 모델에 대한 접근을 단일 콘솔에서 제공합니다:',
+		modelPhi4: 'Phi-4',
+		modelPhi4Provider: 'Microsoft',
+		modelMAIVoice: 'MAI-Voice-1',
+		modelMAIVoiceProvider: 'Microsoft',
+		modelClaude: 'Claude',
+		modelClaudeProvider: 'Anthropic',
+		modelGPT: 'GPT',
+		modelGPTProvider: 'Azure OpenAI',
+		modelLlama: 'Llama',
+		modelLlamaProvider: 'Meta',
+		modelMistral: 'Mistral',
+		modelMistralProvider: 'Mistral AI',
+		modelDeepSeek: 'DeepSeek',
+		modelDeepSeekProvider: 'DeepSeek',
+		modelsMore: '그 외…',
+		agentCta: '이 모델로 구축하세요',
+		agentLabel: 'AI 에이전트',
+		agentDesc: '추론하고, 계획하고, 실행하는 인텔리전트 에이전트 — 위의 모델로 구동됩니다.',
+		// Step 4: Features
+		featuresTitle: '더 많은 강력한 기능',
+		featuresCaption: '모델 리더보드, 에이전트 서비스 등',
+		featuresDesc: 'Microsoft Foundry는 모델 액세스를 넘어 평가, 에이전트 오케스트레이션, 로컬 개발을 위한 내장 도구를 제공합니다.',
+		featuresLead: '모델 그 이상 — Microsoft Foundry에는 강력한 내장 기능이 포함되어 있습니다:',
+		leaderboardTitle: '모델 리더보드',
+		leaderboardDesc: '품질 지수, 안전성, 예상 비용, 처리량(토큰/초)으로 모델 성능을 비교하세요. 업계 표준 공개 벤치마크 기반.',
+		leaderboardLearn: '점수 산정 방법론 자세히 보기',
+		leaderboardQuality: '품질',
+		leaderboardCost: '벤치마크 비용',
+		leaderboardThroughput: '처리량',
+		agentServiceTitle: '에이전트 서비스',
+		agentServiceDesc: '오케스트레이션, 도구 사용, 메모리가 내장된 AI 에이전트를 구축, 배포, 확장하세요.',
+		foundryIQTitle: 'Foundry IQ',
+		foundryIQDesc: 'AI 워크로드를 최적화하는 지능형 추천 및 인사이트.',
+		workflowsTitle: '워크플로',
+		workflowsDesc: '다단계 AI 파이프라인을 위한 비주얼 디자이너 — 모델, 도구, 데이터 소스를 연결합니다.',
+		foundryLocalTitle: 'Foundry Local',
+		foundryLocalDesc: '개발, 테스트, 오프라인 시나리오를 위해 로컬에서 AI 모델을 실행합니다.',
+		// Step 5: Summary
+		overviewTitle: 'Microsoft Foundry — 올인원',
+		overviewCaption: '한눈에 보는 전체 아키텍처',
+		overviewDesc: 'Microsoft Foundry는 리소스 관리, 모델 카탈로그, 기본 제공 기능을 하나의 통합 플랫폼으로 결합합니다.',
+		overviewResHeader: 'Azure',
+		overviewModelsHeader: '모델 카탈로그',
+		overviewFeatHeader: '기본 제공 기능',
+		overviewAzureSub: 'Azure 구독',
+		overviewRG: '리소스 그룹',
+		overviewProjectA: '프로젝트 A',
+		overviewProjectB: '프로젝트 B',
+		overviewAgentA1: '에이전트 A1',
+		overviewAgentA2: '에이전트 A2',
+		overviewAgentB1: '에이전트 B1',
+		overviewAgentB2: '에이전트 B2',
+		overviewBenefit1: '하나의 리소스로 모두 관리',
+		overviewBenefit2: '허브 불필요',
+		overviewBenefit3: '보안 및 네트워크 기본 제공',
+		overviewBenefit4: '키 또는 토큰으로 간편 인증',
+	},
+	pt: {
+		skipToMain: 'Pular para o diagrama',
+		pageTitle: 'Microsoft Foundry — Nova Experiência',
+		stageHeading: 'Microsoft Foundry — Nova Experiência em ai.azure.com',
+		stageInstructions: 'Explicação animada da nova experiência unificada do Microsoft Foundry em ai.azure.com. Use os botões Próximo/Anterior ou as teclas de seta para navegar. Pressione R para reiniciar.',
+		prev: '◀ Anterior',
+		next: 'Próximo ▶',
+		replay: '↻ Repetir',
+		restart: '↻ Reiniciar',
+		slower: 'Mais lento',
+		faster: 'Mais rápido',
+		calloutOn: '💬 Info: Sim',
+		calloutOff: '💬 Info: Não',
+		outlineOn: '📝 Esquema: Sim',
+		outlineOff: '📝 Esquema: Não',
+		stepDetails: 'Detalhes da etapa',
+		stepOf: 'Etapa',
+		summaryTitle: 'A Nova Experiência Foundry',
+		summaryCaption: 'Console unificado em ai.azure.com',
+		summaryDesc: 'A nova experiência unificada do Microsoft Foundry em ai.azure.com oferece um console moderno para criar agentes e apps de IA, com UI e fluxos de trabalho aprimorados.',
+		summaryExplain: '⬇ <strong>Altamente recomendado:</strong> Mude para a experiência <strong>New Foundry</strong> em <strong>ai.azure.com</strong> para o console unificado mais recente. Ative-o no topo da página — com UI e fluxos de trabalho aprimorados.',
+		browserToggleLabel: 'New Foundry',
+		browserMessage: 'Ative o toggle <strong>New Foundry</strong> em <strong>ai.azure.com</strong> para experimentar a nova experiência unificada para desenvolvimento de agentes de IA.',
+		browserHint: 'Recomendado para todos os novos projetos • Suporte completo ao ciclo de vida',
+		resourcesTitle: 'Dois recursos para começar',
+		resourcesCaption: 'Foundry Resource e Foundry Project',
+		resourcesDesc: 'Boas notícias — quando você entra no Microsoft Foundry, esses dois são criados para você. Foundry Resource é o pai — faturável e desbloqueia outros serviços de IA. Foundry Project é o filho — onde você realmente constrói.',
+		resourcesLead: 'Boas notícias — quando você entra no Microsoft Foundry, esses dois são criados para você:',
+		resourcesL1: '<strong>Foundry Resource</strong> — o pai. É o que você paga, e desbloqueia os outros serviços de IA.',
+		resourcesL2: '<strong>Foundry Project</strong> — o filho. Onde você realmente constrói.',
+		resourceParentLabel: 'Foundry Resource',
+		resourceParentSub: 'Pai · Faturável · Pagamento por uso',
+		resourceChildLabel: 'Foundry Project',
+		resourceChildSub: 'Espaço de trabalho filho · Herda acesso do pai',
+		resourceBadge: '💰 Faturável',
+		includedLabel: 'Foundry Resource inclui acesso a <strong>outros serviços de IA</strong>:',
+		svcLanguage: 'Linguagem',
+		svcSpeech: 'Fala',
+		svcTranslator: 'Tradutor',
+		svcContentUnderstanding: 'Compreensão de conteúdo',
+		svcOpenAI: 'Azure OpenAI',
+		statParent: 'Pai (faturável)',
+		statChild: 'Espaço filho',
+		statIncluded: 'Serviços incluídos',
+		statBilling: 'Modelo de faturamento',
+		statHierarchy: 'Hierarquia',
+		statShared: 'Compartilhados', statConfig: 'Config', statResult: 'Resultado',
+		modelsTitle: 'Por que Microsoft Foundry?',
+		modelsCaption: 'Acesso aos modelos de IA mais avançados',
+		modelsDesc: 'O Microsoft Foundry oferece um console único para acessar os modelos de IA mais avançados da Microsoft, Anthropic, OpenAI, Meta e outros provedores líderes.',
+		modelsLead: 'O Microsoft Foundry oferece acesso aos modelos de IA mais avançados — tudo em um único console:',
+		modelPhi4: 'Phi-4',
+		modelPhi4Provider: 'Microsoft',
+		modelMAIVoice: 'MAI-Voice-1',
+		modelMAIVoiceProvider: 'Microsoft',
+		modelClaude: 'Claude',
+		modelClaudeProvider: 'Anthropic',
+		modelGPT: 'GPT',
+		modelGPTProvider: 'Azure OpenAI',
+		modelLlama: 'Llama',
+		modelLlamaProvider: 'Meta',
+		modelMistral: 'Mistral',
+		modelMistralProvider: 'Mistral AI',
+		modelDeepSeek: 'DeepSeek',
+		modelDeepSeekProvider: 'DeepSeek',
+		modelsMore: 'e mais…',
+		agentCta: 'Use esses modelos para criar',
+		agentLabel: 'Agentes de IA',
+		agentDesc: 'Agentes inteligentes que raciocinam, planejam e agem — alimentados pelos modelos acima.',
+		featuresTitle: 'E mais recursos poderosos',
+		featuresCaption: 'Tabela de modelos, Agent Service e mais',
+		featuresDesc: 'O Microsoft Foundry vai além do acesso a modelos com ferramentas integradas para avaliação, orquestração de agentes e desenvolvimento local.',
+		featuresLead: 'Além dos modelos — o Microsoft Foundry inclui recursos integrados poderosos:',
+		leaderboardTitle: 'Tabela de Modelos',
+		leaderboardDesc: 'Compare o desempenho em índice de qualidade, segurança, custo estimado e throughput (tokens/seg), com base em benchmarks públicos padrão.',
+		leaderboardLearn: 'Saiba mais sobre nossa metodologia',
+		leaderboardQuality: 'Qualidade',
+		leaderboardCost: 'Custo referencial',
+		leaderboardThroughput: 'Throughput',
+		agentServiceTitle: 'Agent Service',
+		agentServiceDesc: 'Crie, implante e escale agentes de IA com orquestração, ferramentas e memória integradas.',
+		foundryIQTitle: 'Foundry IQ',
+		foundryIQDesc: 'Recomendações inteligentes para otimizar suas cargas de trabalho de IA.',
+		workflowsTitle: 'Workflows',
+		workflowsDesc: 'Designer visual para pipelines de IA em múltiplas etapas — encadeie modelos, ferramentas e fontes de dados.',
+		foundryLocalTitle: 'Foundry Local',
+		foundryLocalDesc: 'Execute modelos de IA localmente para desenvolvimento, testes e cenários offline.',
+		overviewTitle: 'Microsoft Foundry — Tudo em um',
+		overviewCaption: 'Arquitetura completa em um relance',
+		overviewDesc: 'O Microsoft Foundry reúne gerenciamento de recursos, catálogo de modelos e recursos integrados em uma plataforma unificada.',
+		overviewResHeader: 'Azure',
+		overviewModelsHeader: 'Catálogo de Modelos',
+		overviewFeatHeader: 'Recursos Integrados',
+		overviewAzureSub: 'Assinatura do Azure',
+		overviewRG: 'Grupo de recursos',
+		overviewProjectA: 'Projeto A',
+		overviewProjectB: 'Projeto B',
+		overviewAgentA1: 'Agente A1',
+		overviewAgentA2: 'Agente A2',
+		overviewAgentB1: 'Agente B1',
+		overviewAgentB2: 'Agente B2',
+		overviewBenefit1: 'Um recurso para gerenciar tudo',
+		overviewBenefit2: 'Sem hub necessário',
+		overviewBenefit3: 'Segurança e rede integradas',
+		overviewBenefit4: 'Autenticação simples por chave ou token',
+	}
+};
+
+function t(key) { return (I18N[currentLang] && I18N[currentLang][key]) || I18N.en[key] || key; }
+
+function setLanguage(lang) {
+	currentLang = lang;
+	document.getElementById('page-title').textContent = '🏗️ ' + t('pageTitle');
+	document.getElementById('prev-btn').textContent = t('prev');
+	document.getElementById('next-btn').textContent = t('next');
+	document.getElementById('replay-btn').textContent = t('replay');
+	document.getElementById('reset-btn').textContent = t('restart');
+	document.getElementById('speed-down').title = t('slower');
+	document.getElementById('speed-up').title = t('faster');
+	document.getElementById('outline-title').textContent = t('stepDetails');
+	document.querySelector('.skip-link').textContent = t('skipToMain');
+	document.getElementById('stage-heading').textContent = t('stageHeading');
+	document.getElementById('stage-instructions').textContent = t('stageInstructions');
+	syncCalloutBtn();
+	syncOutlineBtn();
+	if (current >= 0) renderStep(current);
+}
+
+// ── STEPS ─────────────────────────────────
+const STEPS = [
+	{
+		id: 'portal',
+		title: 'The New Foundry Experience',
+		short: 'Portal',
+		caption: 'Unified console at ai.azure.com',
+		description: 'The new unified Microsoft Foundry experience at ai.azure.com brings a modern console for building AI agents and apps — with improved UI and workflows.',
+		callout: null,
+		stats: [
+			['Portal', 'ai.azure.com'],
+			['Toggle', 'New Foundry'],
+			['Console', 'Unified experience'],
+			['Recommended', 'For all new projects']
+		]
+	},
+	{
+		id: 'resources',
+		short: 'Resources',
+		callout: null,
+		stats: [
+			['statParent', 'Foundry Resource'],
+			['statChild', 'Foundry Project'],
+			['statIncluded', 'Language · Speech · Translator · Content Understanding'],
+			['statBilling', 'Per Foundry Resource'],
+			['statHierarchy', 'Resource → Project']
+		]
+	},
+	{
+		id: 'models',
+		short: 'Models',
+		callout: null,
+		stats: [
+			['Microsoft', 'Phi-4 · MAI-Voice-1'],
+			['Anthropic', 'Claude'],
+			['Azure OpenAI', 'GPT'],
+			['Meta', 'Llama'],
+			['Mistral AI', 'Mistral'],
+			['DeepSeek', 'DeepSeek']
+		]
+	},
+	{
+		id: 'features',
+		short: 'Features',
+		callout: null,
+		stats: [
+			['Model Leaderboard', 'Quality · Cost · Throughput'],
+			['Agent Service', 'Orchestration · Tools · Memory'],
+			['Foundry IQ', 'Intelligent recommendations'],
+			['Workflows', 'Multi-step AI pipelines'],
+			['Foundry Local', 'Local model execution']
+		]
+	},
+	{
+		id: 'overview',
+		short: 'Summary',
+		callout: null,
+		stats: [
+			['Resources', 'Foundry Resource → Foundry Project'],
+			['AI Services', 'Language · Speech · Translator · Content Understanding'],
+			['Model Catalog', 'Microsoft · Anthropic · Azure OpenAI · Meta · Mistral · DeepSeek'],
+			['Features', 'Agent Service · Foundry IQ · Workflows · Foundry Local'],
+			['Benefits', 'Single resource · No hub · Unified RBAC · Endpoint auth']
+		]
+	}
+];
+
+// ── DOM REFS ──────────────────────────────
+const stage       = document.getElementById('stage');
+const svg         = document.getElementById('fx-svg');
+const counter     = document.getElementById('step-counter');
+const breadcrumb  = document.getElementById('breadcrumb');
+const progress    = document.getElementById('progress-fill');
+const announcer   = document.getElementById('step-announcer');
+const outlineBody = document.getElementById('outline-body');
+const outlinePanel= document.getElementById('step-outline');
+const outlineBtn  = document.getElementById('outline-toggle');
+const calloutBtn  = document.getElementById('callout-toggle');
+const langSelect  = document.getElementById('lang-select');
+
+// ── Language select ───────────────────────
+langSelect.addEventListener('change', (e) => { setLanguage(e.target.value); });
+
+// ── Font size controls ────────────────────
+const fontScales = [0.8, 0.9, 1, 1.1, 1.2, 1.35];
+let fontScaleIdx = 2; // default = 1 (100%)
+const fontDecBtn = document.getElementById('font-decrease');
+const fontIncBtn = document.getElementById('font-increase');
+const baseFontSize = parseFloat(getComputedStyle(document.documentElement).fontSize);
+
+function applyFontScale() {
+	document.documentElement.style.fontSize = (baseFontSize * fontScales[fontScaleIdx]) + 'px';
+	const controls = document.getElementById('controls');
+	if (controls) controls.style.fontSize = (baseFontSize) + 'px';
+}
+fontDecBtn.addEventListener('click', () => {
+	if (fontScaleIdx > 0) { fontScaleIdx--; applyFontScale(); }
+});
+fontIncBtn.addEventListener('click', () => {
+	if (fontScaleIdx < fontScales.length - 1) { fontScaleIdx++; applyFontScale(); }
+});
+
+let current = -1;
+let animating = false;
+let liveEls = [];
+let liveTimelines = [];
+let calloutEnabled = false;
+
+// ── Callout toggle ────────────────────────
+function syncCalloutBtn() {
+	calloutBtn.textContent = calloutEnabled ? t('calloutOn') : t('calloutOff');
+	calloutBtn.classList.toggle('toggle-active', calloutEnabled);
+}
+calloutBtn.addEventListener('click', () => {
+	calloutEnabled = !calloutEnabled;
+	syncCalloutBtn();
+	if (current >= 0) renderStep(current);
+});
+syncCalloutBtn();
+
+// ── Outline toggle ────────────────────────
+function syncOutlineBtn() {
+	const on = !outlinePanel.hasAttribute('hidden');
+	outlineBtn.textContent = on ? t('outlineOn') : t('outlineOff');
+	outlineBtn.classList.toggle('toggle-active', on);
+}
+outlineBtn.addEventListener('click', () => {
+	const showing = !outlinePanel.hasAttribute('hidden');
+	if (showing) {
+		outlinePanel.setAttribute('hidden', '');
+		outlineBtn.setAttribute('aria-expanded', 'false');
+	} else {
+		outlinePanel.removeAttribute('hidden');
+		outlineBtn.setAttribute('aria-expanded', 'true');
+	}
+	syncOutlineBtn();
+});
+syncOutlineBtn();
+
+// ── Reduced motion ────────────────────────
+const motionMQ = window.matchMedia('(prefers-reduced-motion: reduce)');
+let motionPaused = motionMQ.matches;
+motionMQ.addEventListener('change', e => { motionPaused = e.matches; renderStep(current); });
+
+// ── Helpers ───────────────────────────────
+function clearStage() {
+	liveTimelines.forEach(t => t.kill());
+	liveTimelines = [];
+	liveEls.forEach(el => el.remove());
+	liveEls = [];
+	Array.from(svg.children).forEach(child => {
+		if (child.tagName.toLowerCase() !== 'defs') child.remove();
+	});
+}
+
+// ── Outline + Announce ────────────────────
+function stepTitle(step) {
+	if (step.id === 'resources') return t('resourcesTitle');
+	if (step.id === 'models') return t('modelsTitle');
+	if (step.id === 'features') return t('featuresTitle');
+	if (step.id === 'overview') return t('overviewTitle');
+	return t('summaryTitle');
+}
+function stepDesc(step) {
+	if (step.id === 'resources') return t('resourcesDesc');
+	if (step.id === 'models') return t('modelsDesc');
+	if (step.id === 'features') return t('featuresDesc');
+	if (step.id === 'overview') return t('overviewDesc');
+	return t('summaryDesc');
+}
+function stepCaption(step) {
+	if (step.id === 'resources') return t('resourcesCaption');
+	if (step.id === 'models') return t('modelsCaption');
+	if (step.id === 'features') return t('featuresCaption');
+	if (step.id === 'overview') return t('overviewCaption');
+	return t('summaryCaption');
+}
+function renderOutline(step, idx) {
+	const statRows = (step.stats||[]).map(([k,v]) => {
+		const label = I18N[currentLang] && I18N[currentLang][k] ? t(k) : k;
+		return `<div class="stat-row"><span>${label}</span><span>${v}</span></div>`;
+	}).join('');
+	outlineBody.innerHTML = `
+		<div class="outline-section">
+			<strong>${t('stepOf')} ${idx+1} / ${STEPS.length}: ${stepTitle(step)}</strong>
+			<p style="margin-top:0.4rem;">${stepDesc(step)}</p>
+		</div>
+		${statRows ? `<div class="outline-section">${statRows}</div>` : ''}
+	`;
+}
+function announceStep(step, idx) {
+	announcer.textContent = `${t('stepOf')} ${idx+1} / ${STEPS.length}: ${stepTitle(step)}. ${stepDesc(step)}`;
+}
+
+// ── RENDER STEP ───────────────────────────
+function renderStep(stepIndex) {
+	if (stepIndex < 0 || stepIndex >= STEPS.length) return;
+	if (animating) {
+		liveTimelines.forEach(t => t.kill());
+		liveTimelines = [];
+		animating = false;
+	}
+	animating = true;
+
+	const step = STEPS[stepIndex];
+	clearStage();
+
+	if (step.id === 'portal') {
+		renderPortalStep();
+	} else if (step.id === 'resources') {
+		renderResourcesStep();
+	} else if (step.id === 'models') {
+		renderModelsStep();
+	} else if (step.id === 'features') {
+		renderFeaturesStep();
+	} else if (step.id === 'overview') {
+		renderOverviewStep();
+	}
+
+	current = stepIndex;
+	counter.textContent = `${t('stepOf')} ${current+1} / ${STEPS.length}`;
+	breadcrumb.textContent = stepCaption(step);
+	progress.style.width = ((current+1)/STEPS.length * 100) + '%';
+	renderOutline(step, stepIndex);
+	announceStep(step, stepIndex);
+}
+
+// ── PORTAL STEP ───────────────────────────
+function renderPortalStep() {
+	const section = document.createElement('div');
+	section.className = 'summary-section';
+	section.style.opacity = '1';
+
+	const explainText = document.createElement('div');
+	explainText.className = 'summary-new-foundry-text';
+	explainText.innerHTML = t('summaryExplain');
+	section.appendChild(explainText);
+
+	const browserCard = document.createElement('div');
+	browserCard.className = 'browser-card';
+	browserCard.style.opacity = '1';
+	browserCard.innerHTML = `
+		<div class="browser-chrome">
+			<div class="browser-tab"><span class="tab-icon">🌐</span> Microsoft Foundry</div>
+			<div class="browser-url-bar"><span class="url-lock">🔒</span> ai.azure.com</div>
+			<div class="browser-win-btns"><span>─</span><span>☐</span><span class="win-close">✕</span></div>
+		</div>
+		<div class="browser-content">
+			<div class="browser-topbar">
+				<span class="browser-logo">Microsoft Foundry</span>
+				<span class="browser-toggle-area">
+					<span class="browser-toggle-label">${t('browserToggleLabel')}</span>
+					<span class="browser-toggle-switch"><span class="browser-toggle-knob"></span></span>
+					<span class="browser-cursor">👆</span>
+				</span>
+			</div>
+			<div class="browser-message">
+				<p>${t('browserMessage')}</p>
+				<p class="browser-hint">${t('browserHint')}</p>
+			</div>
+		</div>
+	`;
+	section.appendChild(browserCard);
+	stage.appendChild(section);
+	liveEls.push(section);
+
+	const foundryIcon = document.createElement('span');
+	foundryIcon.className = 'foundry-portal-icon';
+	foundryIcon.innerHTML = '<img src="lib/icons/Azure_Public_Service_Icons/ai + machine learning/03513-icon-service-AI-Studio.svg" alt="Microsoft Foundry">';
+	const logoEl = browserCard.querySelector('.browser-logo');
+	logoEl.appendChild(foundryIcon);
+
+	if (motionPaused) {
+		gsap.set(explainText, { scale:2, y:60, transformOrigin:'center center' });
+		gsap.set(browserCard, { scale:2, y:300, transformOrigin:'center center' });
+		gsap.set(foundryIcon, { opacity:1 });
+		animating = false;
+	} else {
+		const tl = gsap.timeline({ onComplete: () => animating = false });
+		tl.timeScale(0.3);
+		liveTimelines.push(tl);
+		tl.to(browserCard, { boxShadow:'0 8px 40px rgba(0,120,212,0.4)', duration:0.5, ease:'power2.out' }, 0);
+		tl.to(explainText, { scale:2, y:60, transformOrigin:'center center', duration:0.8, ease:'power2.inOut' }, 0);
+		tl.to(browserCard, { scale:2, y:300, transformOrigin:'center center', duration:0.8, ease:'power2.inOut' }, 0);
+		tl.to(foundryIcon, { opacity:1, duration:0.8, ease:'power2.out' }, '>');
+	}
+}
+
+// ── RESOURCES STEP ────────────────────────
+function renderResourcesStep() {
+	const ICON_BASE = 'lib/icons/Azure_Public_Service_Icons/ai + machine learning/';
+	const FOUNDRY_ICON = ICON_BASE + '03513-icon-service-AI-Studio.svg';
+	const services = [
+		{ icon: ICON_BASE + '02876-icon-service-Language.svg', label: t('svcLanguage') },
+		{ icon: ICON_BASE + '00797-icon-service-Speech-Services.svg', label: t('svcSpeech') },
+		{ icon: ICON_BASE + '00800-icon-service-Translator-Text.svg', label: t('svcTranslator') },
+		{ icon: ICON_BASE + '10162-icon-service-Cognitive-Services.svg', label: t('svcContentUnderstanding') }
+	];
+
+	const section = document.createElement('div');
+	section.className = 'resources-section';
+	section.style.opacity = '1';
+	section.innerHTML = `
+		<h2 class="resources-title">${t('resourcesTitle')}</h2>
+		<div class="resources-subtitle">
+			<p class="rs-lead">${t('resourcesLead')}</p>
+			<ul>
+				<li class="rs-li1">${t('resourcesL1')}</li>
+				<li class="rs-li2">${t('resourcesL2')}</li>
+			</ul>
+		</div>
+		<div class="resource-parent">
+			<div class="resource-badge">${t('resourceBadge')}</div>
+			<div class="resource-header">
+				<img src="${FOUNDRY_ICON}" alt="Foundry Resource">
+				<div>
+					<div class="resource-title">${t('resourceParentLabel')}</div>
+					<div class="resource-subtitle">${t('resourceParentSub')}</div>
+				</div>
+			</div>
+			<div class="resource-child">
+				<img src="${FOUNDRY_ICON}" alt="Foundry Project">
+				<div>
+					<div class="resource-title">${t('resourceChildLabel')}</div>
+					<div class="resource-subtitle">${t('resourceChildSub')}</div>
+				</div>
+			</div>
+		</div>
+		<div class="included-services">
+			<div class="included-label">${t('includedLabel')}</div>
+			<div class="service-grid">
+				${services.map(s => `
+					<div class="service-chip">
+						<img src="${s.icon}" alt="${s.label}">
+						<span>${s.label}</span>
+					</div>
+				`).join('')}
+			</div>
+		</div>
+	`;
+	stage.appendChild(section);
+	liveEls.push(section);
+
+	const parentBox = section.querySelector('.resource-parent');
+	const childBox  = section.querySelector('.resource-child');
+	const included  = section.querySelector('.included-services');
+	const chips     = section.querySelectorAll('.service-chip');
+	const li1       = section.querySelector('.rs-li1');
+	const li2       = section.querySelector('.rs-li2');
+
+	if (motionPaused) {
+		gsap.set([li1, li2], { opacity:1 });
+		gsap.set(parentBox, { opacity:1 });
+		gsap.set(childBox, { opacity:1 });
+		gsap.set(included, { opacity:1 });
+		gsap.set(chips, { opacity:1 });
+		animating = false;
+	} else {
+		const tl = gsap.timeline({ onComplete: () => animating = false });
+		tl.timeScale(0.4);
+		liveTimelines.push(tl);
+		tl.fromTo(li1, { opacity:0, y:8 }, { opacity:1, y:0, duration:1.0, ease:'power2.out' });
+		tl.fromTo(li2, { opacity:0, y:8 }, { opacity:1, y:0, duration:1.0, ease:'power2.out' }, '+=0.5');
+		tl.fromTo(parentBox, { opacity:0, y:-20 }, { opacity:1, y:0, duration:1.2, ease:'power2.out' }, '+=0.4');
+		tl.fromTo(childBox,  { opacity:0, scale:0.85 }, { opacity:1, scale:1, duration:1.0, ease:'back.out(1.8)' }, '+=0.4');
+		tl.fromTo(included,  { opacity:0, y:15 }, { opacity:1, y:0, duration:1.0, ease:'power2.out' }, '+=0.5');
+		tl.fromTo(chips, { opacity:0, y:10, scale:0.9 }, { opacity:1, y:0, scale:1, duration:0.8, stagger:0.25, ease:'back.out(1.6)' }, '-=0.3');
+	}
+}
+
+// ── MODELS STEP ───────────────────────────
+const COMPANY_LOGOS = {
+	microsoft: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3QgeD0iMS4zMzMyNSIgeT0iMS4zMzM1IiB3aWR0aD0iNi4zMzMzMyIgaGVpZ2h0PSI2LjMzMzMzIiBmaWxsPSIjRjI1MDIyIi8+CjxyZWN0IHg9IjguMzMzMjUiIHk9IjEuMzMzNSIgd2lkdGg9IjYuMzMzMzMiIGhlaWdodD0iNi4zMzMzMyIgZmlsbD0iIzgwQkEwMSIvPgo8cmVjdCB4PSI4LjMzMzI1IiB5PSI4LjMzMzUiIHdpZHRoPSI2LjMzMzMzIiBoZWlnaHQ9IjYuMzMzMzMiIGZpbGw9IiNGRkI5MDIiLz4KPHJlY3QgeD0iMS4zMzMyNSIgeT0iOC4zMzM1IiB3aWR0aD0iNi4zMzMzMyIgaGVpZ2h0PSI2LjMzMzMzIiBmaWxsPSIjMDJBNEVGIi8+Cjwvc3ZnPgo=',
+	anthropic: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGZpbGw9Im5vbmUiIHZpZXdCb3g9IjAgMCAyNCAyNCIgaWQ9IkFudGhyb3BpYy1JY29uLVN2Zy1Mb2dvcyIgaGVpZ2h0PSIyNCIgd2lkdGg9IjI0Ij4KICA8ZGVzYz4KICAgIEFudGhyb3BpYyBJY29uCiAgPC9kZXNjPgogIDxwYXRoIGZpbGw9IiMxODE4MTgiIGQ9Im0xMy43ODg4MjUgMy45MzIgNi40MzMyNSAxNi4xMzYwNzVoMy41Mjc5TDE3LjMxNjcyNSAzLjkzMkgxMy43ODg4MjVaIiBzdHJva2Utd2lkdGg9IjAuMjUiPjwvcGF0aD4KICA8cGF0aCBmaWxsPSIjMTgxODE4IiBkPSJtNi4zMjUzNzUgMTMuNjgyNzc1IDIuMjAxMjUgLTUuNjcwNjUgMi4yMDEyNzUgNS42NzA2NUg2LjMyNTM3NVpNNi42ODIyNSAzLjkzMiAwLjI1IDIwLjA2ODA3NWgzLjU5NjUyNWwxLjMxNTUgLTMuMzg4Nmg2LjcyOTQyNWwxLjMxNTI3NSAzLjM4ODZoMy41OTY1NUwxMC4zNzEgMy45MzJINi42ODIyNVoiIHN0cm9rZS13aWR0aD0iMC4yNSI+PC9wYXRoPgo8L3N2Zz4=',
+	openai: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyMyIgZmlsbD0ibm9uZSI+PHBhdGggZmlsbD0idXJsKCNhKSIgZD0iTTE5LjA4IDMuMjI1YS4yMTcuMjE3IDAgMCAxLS4yMTUuMjI3aC04LjQ4MWMtLjk0NyAwLTEuODQuNDcyLTIuMzQ0IDEuMjdhMy45IDMuOSAwIDAgMSAxLjM2My0xLjMyNmw1LjE1OS0yLjk4Yy45ODMtLjU2NyAyLjIxMy0uNTYzIDMuMTYuMDY0LjY5OC40NjMgMS4zMDEgMS4yODYgMS4zNTcgMi43NDV6Ii8+PHBhdGggZmlsbD0idXJsKCNiKSIgZD0iTTE5LjA4IDMuMjI1YS4yMTcuMjE3IDAgMCAxLS4yMTUuMjI3aC04LjQ4MWMtLjk0NyAwLTEuODQuNDcyLTIuMzQ0IDEuMjdhMy45IDMuOSAwIDAgMSAxLjM2My0xLjMyNmw1LjE1OS0yLjk4Yy45ODMtLjU2NyAyLjIxMy0uNTYzIDMuMTYuMDY0LjY5OC40NjMgMS4zMDEgMS4yODYgMS4zNTcgMi43NDV6Ii8+PHBhdGggZmlsbD0idXJsKCNjKSIgZD0iTTIyLjI5NyAxMy4yNTlhLjIxNy4yMTcgMCAwIDEtLjMwMy0uMDc0bC00LjI0MS03LjM0NmMtLjQ3NC0uODItMS4zMy0xLjM1OC0yLjI3MS0xLjM5NWEzLjkgMy45IDAgMCAxIDEuODMuNTE4bDUuMTU4IDIuOThjLjk4My41NjcgMS41OTUgMS42MzQgMS41MjUgMi43NjctLjA1Mi44MzYtLjQ2MyAxLjc3LTEuNjk5IDIuNTQ5eiIvPjxwYXRoIGZpbGw9InVybCgjZCkiIGQ9Ik0xOS40NjUgOC44MDZhLjk3Ljk3IDAgMCAwLS44MzktLjQ4NWgtNC45NTNhLjMyMy4zMjMgMCAwIDEtLjMyMy0uMzIzdi0zLjIzYzAtLjE4LjE0NC0uMzI0LjMyMy0uMzI0aDEuNzAxcS4wNTQgMCAuMTA5LjAwM2EyLjc2IDIuNzYgMCAwIDEgMi4yNzEgMS4zOTRsMS43MTIgMi45NjZ6Ii8+PHBhdGggZmlsbD0idXJsKCNlKSIgZD0iTTE1LjIxNyAyMS4wNjNhLjIxNi4yMTYgMCAwIDEtLjA4Ny0uM2w0LjI0LTcuMzQ1Yy40NzQtLjgyLjUxLTEuODMxLjA3My0yLjY2NS4zMTMuNTguNDY2IDEuMjE3LjQ2NiAxLjg0NHY1Ljk1OGMwIDEuMTM1LS42MTggMi4xOTktMS42MzUgMi43MDUtLjc1LjM3My0xLjc2NS40ODQtMy4wNTYtLjE5NnoiLz48cGF0aCBmaWxsPSJ1cmwoI2YpIiBkPSJNMTcuNjU5IDE2LjM4M2EuOTcuOTcgMCAwIDAgMC0uOTY5bC0yLjQ3Ny00LjI5YS4zMjMuMzIzIDAgMCAxIC4xMTgtLjQ0MmwyLjc5OC0xLjYxNWEuMzIzLjMyMyAwIDAgMSAuNDQxLjExOGwuODUxIDEuNDczLjA1My4wOTVjLjQ0LjgzNS40MDEgMS44NDUtLjA3MiAyLjY2NHoiLz48cGF0aCBmaWxsPSJ1cmwoI2cpIiBkPSJNNC45MiAxOC44MzJhLjIxNy4yMTcgMCAwIDEgLjIxNS0uMjI2aDguNDgyYy45NDYgMCAxLjg0LS40NzMgMi4zNDMtMS4yN2EzLjkgMy45IDAgMCAxLTEuMzY0IDEuMzI2bC01LjE1OCAyLjk3OWMtLjk4My41NjctMi4yMTMuNTY0LTMuMTYtLjA2NC0uNjk4LS40NjMtMS4zMDEtMS4yODYtMS4zNTctMi43NDV6Ii8+PHBhdGggZmlsbD0idXJsKCNoKSIgZD0iTTEwLjE5MiAxOC42MDZhLjk3Ljk3IDAgMCAwIC44MzktLjQ4NGwyLjQ3Ny00LjI5YS4zMjQuMzI0IDAgMCAxIC40NDEtLjEybDIuNzk4IDEuNjE2Yy4xNTQuMDkuMjA4LjI4Ny4xMTkuNDQybC0uODUxIDEuNDczLS4wNTYuMDkyYTIuNzYgMi43NiAwIDAgMS0yLjM0NCAxLjI3aC0zLjQyNHoiLz48cGF0aCBmaWxsPSJ1cmwoI2kpIiBkPSJNMS43MDMgOC43OTlhLjIxNy4yMTcgMCAwIDEgLjMwMy4wNzRsNC4yNDEgNy4zNDZjLjQ3NC44MiAxLjMzIDEuMzU4IDIuMjcxIDEuMzk0YTMuOSAzLjkgMCAwIDEtMS44My0uNTE4TDEuNTMgMTQuMTE3Yy0uOTgzLS41NjgtMS41OTUtMS42MzUtMS41MjUtMi43NjguMDUyLS44MzcuNDY0LTEuNzcgMS42OTktMi41NXoiLz48cGF0aCBmaWxsPSJ1cmwoI2opIiBkPSJNNC41MzUgMTMuMjUyYS45Ny45NyAwIDAgMCAuODM5LjQ4NGg0Ljk1NGMuMTc4IDAgLjMyMy4xNDYuMzIzLjMyM3YzLjIzMWEuMzIzLjMyMyAwIDAgMS0uMzIzLjMyM0g4LjYyNnEtLjA1NCAwLS4xMDktLjAwMmEyLjc2IDIuNzYgMCAwIDEtMi4yNy0xLjM5NWwtMS43MTMtMi45NjUiLz48cGF0aCBmaWxsPSJ1cmwoI2spIiBkPSJNOC43ODMuOTk1YS4yMTYuMjE2IDAgMCAxIC4wODguM0w0LjYzIDguNjRjLS40NzQuODItLjUxIDEuODMxLS4wNzIgMi42NjVBMy45IDMuOSAwIDAgMSA0LjA5IDkuNDZWMy41MDNjMC0xLjEzNS42MTgtMi4xOTkgMS42MzUtMi43MDUuNzUtLjM3MyAxLjc2NS0uNDg0IDMuMDU2LjE5NnoiLz48cGF0aCBmaWxsPSJ1cmwoI2wpIiBkPSJNNi4zNDIgNS42NzVhLjk3Ljk3IDAgMCAwIDAgLjk2OWwyLjQ3NyA0LjI5YS4zMjMuMzIzIDAgMCAxLS4xMTkuNDQyTDUuOTAzIDEyLjk5YS4zMjMuMzIzIDAgMCAxLS40NDItLjExOGwtLjg1LTEuNDczLS4wNTMtLjA5NUEyLjc2IDIuNzYgMCAwIDEgNC42MyA4LjY0eiIvPjxwYXRoIGZpbGw9InVybCgjbSkiIGQ9Ik02LjM0MiA1LjY3NWEuOTcuOTcgMCAwIDAgMCAuOTY5bDIuNDc3IDQuMjlhLjMyMy4zMjMgMCAwIDEtLjExOS40NDJMNS45MDMgMTIuOTlhLjMyMy4zMjMgMCAwIDEtLjQ0Mi0uMTE4bC0uODUtMS40NzMtLjA1My0uMDk1QTIuNzYgMi43NiAwIDAgMSA0LjYzIDguNjR6Ii8+PHBhdGggZmlsbD0idXJsKCNuKSIgZD0iTTEzLjgwOCAzLjQ1MmEuOTcuOTcgMCAwIDAtLjgzOS40ODVsLTIuNDc3IDQuMjlhLjMyNC4zMjQgMCAwIDEtLjQ0MS4xMThMNy4yNTMgNi43M2EuMzI0LjMyNCAwIDAgMS0uMTE5LS40NDJsLjg1MS0xLjQ3My4wNTYtLjA5MmEyLjc2IDIuNzYgMCAwIDEgMi4zNDMtMS4yN2gzLjQyNXoiLz48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImEiIHgxPSIxMy4yNjkiIHgyPSIxNC4zMjciIHkxPSI1LjY0MyIgeTI9Ii0uMzYxIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHN0b3Agc3RvcC1jb2xvcj0iIzkxODlGNyIvPjxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iIzQxMzVFOSIvPjwvbGluZWFyR3JhZGllbnQ+PGxpbmVhckdyYWRpZW50IGlkPSJiIiB4MT0iMjQuNjc2IiB4Mj0iOS4xMDEiIHkxPSIzLjQyOCIgeTI9IjMuNTE0IiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHN0b3Agc3RvcC1jb2xvcj0iIzRGNDJGRCIvPjxzdG9wIG9mZnNldD0iLjYiIHN0b3AtY29sb3I9IiM3Mjc0RkYiLz48L2xpbmVhckdyYWRpZW50PjxsaW5lYXJHcmFkaWVudCBpZD0iYyIgeDE9IjI0LjIzMSIgeDI9IjE3LjAyMyIgeTE9IjE2Ljc3MiIgeTI9IjQuNzE2IiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHN0b3Agc3RvcC1jb2xvcj0iIzRGNDJGRCIvPjxzdG9wIG9mZnNldD0iLjYiIHN0b3AtY29sb3I9IiM3Mjc0RkYiLz48L2xpbmVhckdyYWRpZW50PjxsaW5lYXJHcmFkaWVudCBpZD0iZCIgeDE9IjE5LjQ2NiIgeDI9IjE0LjAwMiIgeTE9IjYuNjI2IiB5Mj0iNC45ODgiIGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIj48c3RvcCBzdG9wLWNvbG9yPSIjMkMwOEFDIi8+PHN0b3Agb2Zmc2V0PSIuNyIgc3RvcC1jb2xvcj0iIzRGNDJGRCIvPjwvbGluZWFyR3JhZGllbnQ+PGxpbmVhckdyYWRpZW50IGlkPSJlIiB4MT0iMTMuMzMzIiB4Mj0iMjAuMTAyIiB5MT0iMjQuMDY2IiB5Mj0iMTIuMDQ2IiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHN0b3Agc3RvcC1jb2xvcj0iIzRGNDJGRCIvPjxzdG9wIG9mZnNldD0iLjYiIHN0b3AtY29sb3I9IiM3Mjc0RkYiLz48L2xpbmVhckdyYWRpZW50PjxsaW5lYXJHcmFkaWVudCBpZD0iZiIgeDE9IjE5Ljc1IiB4Mj0iMTUuNDEzIiB5MT0iMTUuMDc0IiB5Mj0iMTIuMjIzIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHN0b3Agc3RvcC1jb2xvcj0iIzJDMDhBQyIvPjxzdG9wIG9mZnNldD0iLjciIHN0b3AtY29sb3I9IiM0RjQyRkQiLz48L2xpbmVhckdyYWRpZW50PjxsaW5lYXJHcmFkaWVudCBpZD0iZyIgeDE9Ii4wMzIiIHgyPSIxNi40MDQiIHkxPSIxNy45MDEiIHkyPSIxNy45MDEiIGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIj48c3RvcCBzdG9wLWNvbG9yPSIjNEY0MkZEIi8+PHN0b3Agb2Zmc2V0PSIuNiIgc3RvcC1jb2xvcj0iIzcyNzRGRiIvPjwvbGluZWFyR3JhZGllbnQ+PGxpbmVhckdyYWRpZW50IGlkPSJoIiB4MT0iMTAuMTkxIiB4Mj0iMTMuMTY5IiB5MT0iMTguNjA2IiB5Mj0iMTMuNjY5IiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHN0b3Agc3RvcC1jb2xvcj0iIzJDMDhBQyIvPjxzdG9wIG9mZnNldD0iLjciIHN0b3AtY29sb3I9IiM0RjQyRkQiLz48L2xpbmVhckdyYWRpZW50PjxsaW5lYXJHcmFkaWVudCBpZD0iaSIgeDE9IjAiIHgyPSI3LjEwNSIgeTE9IjUuNjc4IiB5Mj0iMTcuNjEzIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHN0b3Agc3RvcC1jb2xvcj0iIzRGNDJGRCIvPjxzdG9wIG9mZnNldD0iLjYiIHN0b3AtY29sb3I9IiM3Mjc0RkYiLz48L2xpbmVhckdyYWRpZW50PjxsaW5lYXJHcmFkaWVudCBpZD0iaiIgeDE9IjQuNTM0IiB4Mj0iMTAuNjUxIiB5MT0iMTMuMjUxIiB5Mj0iMTMuMjUxIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHN0b3Agc3RvcC1jb2xvcj0iIzJDMDhBQyIvPjxzdG9wIG9mZnNldD0iLjciIHN0b3AtY29sb3I9IiM0RjQyRkQiLz48L2xpbmVhckdyYWRpZW50PjxsaW5lYXJHcmFkaWVudCBpZD0iayIgeDE9IjExLjA5NyIgeDI9IjMuNzIyIiB5MT0iLTIuNjQ2IiB5Mj0iMTAuMjgzIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHN0b3Agc3RvcC1jb2xvcj0iIzRGNDJGRCIvPjxzdG9wIG9mZnNldD0iLjYiIHN0b3AtY29sb3I9IiM3Mjc0RkYiLz48L2xpbmVhckdyYWRpZW50PjxsaW5lYXJHcmFkaWVudCBpZD0ibCIgeDE9IjkuMTA3IiB4Mj0iNC41MjIiIHkxPSIxMC40ODEiIHkyPSI4LjgxMyIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiPjxzdG9wIHN0b3AtY29sb3I9IiM5MTg5RjciLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiM0MTM1RTkiLz48L2xpbmVhckdyYWRpZW50PjxsaW5lYXJHcmFkaWVudCBpZD0ibSIgeDE9IjYuMjAyIiB4Mj0iOS4xNiIgeTE9IjUuNjc1IiB5Mj0iMTEuMDU0IiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHN0b3Agc3RvcC1jb2xvcj0iIzJDMDhBQyIvPjxzdG9wIG9mZnNldD0iLjciIHN0b3AtY29sb3I9IiM0RjQyRkQiLz48L2xpbmVhckdyYWRpZW50PjxsaW5lYXJHcmFkaWVudCBpZD0ibiIgeDE9IjEzLjAzNSIgeDI9IjkuMDQ3IiB5MT0iMy40NTIiIHkyPSI3LjIyOCIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiPjxzdG9wIHN0b3AtY29sb3I9IiMyQzA4QUMiLz48c3RvcCBvZmZzZXQ9Ii43IiBzdG9wLWNvbG9yPSIjNEY0MkZEIi8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PC9zdmc+',
+	meta: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjgiIGhlaWdodD0iMjAiIHZpZXdCb3g9IjAgMCAyOCAyMCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayI+CiAgPHJlY3QgeD0iMCIgeT0iMCIgd2lkdGg9IjI4IiBoZWlnaHQ9IjIwIiBmaWxsPSJ1cmwoI3BhdHRlcm4wKSIvPgogIDxkZWZzPgogICAgPHBhdHRlcm4gaWQ9InBhdHRlcm4wIiBwYXR0ZXJuVW5pdHM9InVzZXJTcGFjZU9uVXNlIiB4PSIwIiB5PSIwIiB3aWR0aD0iMjgiIGhlaWdodD0iMjAiPgogICAgICA8aW1hZ2UgaWQ9ImltYWdlMF9tZXRhIiAKICAgICAgICB4PSIwIiB5PSIwIiAKICAgICAgICB3aWR0aD0iMjgiIGhlaWdodD0iMjAiCiAgICAgICAgcHJlc2VydmVBc3BlY3RSYXRpbz0ieE1pZFlNaWQgbWVldCIKICAgICAgICBpbWFnZS1yZW5kZXJpbmc9Im9wdGltaXplUXVhbGl0eSIKICAgICAgICB4bGluazpocmVmPSJkYXRhOmltYWdlL3BuZztiYXNlNjQsaVZCT1J3MEtHZ29BQUFBTlNVaEVVZ0FBQUdRQUFBQTRDQVlBQUFBTHJsM1lBQUFBQkdkQlRVRUFBTEdPZlB0Umt3QUFBQ0JqU0ZKTkFBQ0hEZ0FBakJJQUFRcFlBQUI4M1FBQWJ5d0FBUWVXQUFBOGlBQUFGcDdQZ2J5akFBQUtxR2xEUTFCSlEwTWdVSEp2Wm1sc1pRQUFTTWV0bDNkUVU5a1h4Kzk3NlNHaEpVUkFTdWhOZWdzZ0pZUVdRT2xWVkVJU0lKUVFBMEhBaml5dTRGb1FFUUVidWlpaTRGb0FzUUdpMkJiRkFsZzN5Q0tpcklzRkd5cS9Cd3pCM1puZkg3K1ozOG1jT1orY09mZmNjOSs4Ty9OOUFKQVZPU0pSR3F3SVFMb3dTeHpxNjBtUGpvbWw0NFlBRnZrUmdENmdjYmlaSW1ad2NDQkFiQ2IrMHo3MEFHZ3kzaldmN0FYK04xUGk4VE81QUVEQkNDZndNcm5wQ0o5Qy9DVlhKTTRDQUxVUHllc3R6eEpOY2dmQ1ZERXlJTUo5azV3MHpTT1RuRERGYURCVkV4N0tRcGdLQUo3RTRZaVRBQ0RSa1R3OW01dUU5Q0Y1SUd3bDVBbUVDSXNRZGt0UHorQWhmQnhoWTZRR3laRW0rek1TZnVpVDlJK2VDYktlSEU2U2pLZlBNbVY0TDBHbUtJMlRDLzdmbHA0bW1kbkRFR0ZTc3RndkZJbkt5RFByUzgwSWtMRXdZV0hRREF0NFUvVlRuQ3p4aTVoaGJpWXJkb1o1SEs4QTJkcTBoWUV6bkNqd1ljdjZaTEhEWjVpZjZSMDJ3K0tNVU5sZWlXSVdjNFk1NHRsOUpha1Jzbnd5bnkzcm41Y2NIalhEMllMSWhUT2NtUm9XTUZ2RGt1WEZrbERaL0h5aHIrZnN2ajZ5czZkbi9uQmVBVnUyTmlzNTNFOTJkczdzL0h3aGM3Wm5aclJzTmg3ZnkzdTJKa0pXTDhyeWxPMGxTZ3VXMWZQVGZHWDV6T3d3MmRvczVJV2NYUnNzZTRZcEhQL2dHUVlza0FIU0VCY0RPZ2hFL25rQmtNWFB5Wm84Q0N0RGxDc1dKQ1ZuMFpuSURlUFQyVUt1eFR5NmpaV05MUUNUOTNYNmRYaEhtN3FIRU8zNmJHNzlIZ0JjVDAxTVRKeWR6UVcwQUhDeUdBQmk3MnpPYUJVQThtMEFYSzNrU3NUWjA3bXB1NFFCUktBQXFFQU5hQUU5WUF6TWdRMXdBQzdBQTNnRGZ4QUV3a0VNV0FLNElCbWtJNU12Qnl2Qk9sQUlpc0ZXc0FOVWdMM2dBRGdNam9FVG9BbWNBMjNnQ3JnQmJvUDc0QkdRZ2tId0NveUNEMkFjZ2lBY1JJWW9rQnFrRFJsQVpwQU54SURjSUc4b0VBcUZZcUI0S0FrU1FoSm9KYlFlS29aS29BcG9QMVFML1FhZGdkcWdhMUEzOUFEcWg0YWh0OUFYR0FXVFlDcXNDUnZDbGpBRFpzSUJjRGk4R0U2Q2w4RjVjQUc4R1M2SHErR2pjQ1BjQnQrQTc4TlMrQlU4aGdJb09SUU5wWU15UnpGUUxGUVFLaGFWaUJLalZxT0tVR1dvYWxROXFnWFZpYnFMa3FKR1VKL1JXRFFGVFVlYm8xM1FmdWdJTkJlOURMMGF2UWxkZ1Q2TWJrUjNvTytpKzlHajZPOFlNa1lEWTRaeHhyQXgwWmdrekhKTUlhWU1VNE01amJtTXVZOFp4SHpBWXJFMHJCSFdFZXVIamNHbVlGZGdOMkYzWXh1d3JkaHU3QUIyRElmRHFlSE1jSzY0SUJ3SGw0VXJ4TzNDSGNWZHhOM0JEZUkrNGVYdzJuZ2J2QTgrRmkvRTUrUEw4RWZ3Ri9CMzhFUDRjWUlpd1lEZ1RBZ2k4QWk1aEMyRWc0UVd3aTNDSUdHY3FFUTBJcm9TdzRrcHhIWEVjbUk5OFRMeE1mR2RuSnljcnB5VFhJaWNRRzZ0WExuY2NibXJjdjF5bjBuS0pGTVNpeFJIa3BBMmt3NlJXa2tQU08vSVpMSWgyWU1jUzg0aWJ5YlhraStSbjVJL3lWUGtMZVRaOGp6NU5mS1Y4bzN5ZCtSZkt4QVVEQlNZQ2tzVThoVEtGRTRxM0ZJWVVTUW9HaXF5RkRtS3F4VXJGYzhvOWlxT0tWR1VySldDbE5LVk5pa2RVYnFtOUVJWnAyeW83SzNNVXk1UVBxQjhTWG1BZ3FMb1VWZ1VMbVU5NVNEbE1tV1FpcVVhVWRuVUZHb3g5UmkxaXpxcW9xeGlweEtwa3FOU3FYSmVSVXBEMFF4cGJGb2FiUXZ0QksySDltV081aHptSFA2Y2pYUHE1OXlaODFGMXJxcUhLbCsxU0xWQjliN3FGelc2bXJkYXF0bzJ0U2ExSitwb2RWUDFFUFhsNm52VUw2dVB6S1hPZFpuTG5WczA5OFRjaHhxd2hxbEdxTVlLalFNYU56WEdOTFUwZlRWRm1yczBMMm1PYU5HMFBMUlN0RXExTG1nTmExTzAzYlFGMnFYYUY3VmYwbFhvVEhvYXZaemVRUi9WMGREeDA1SG83TmZwMGhuWE5kS04wTTNYYmRCOW9rZlVZK2dsNnBYcXRldU42bXZyTDlCZnFWK24vOUNBWU1Bd1NEYllhZEJwOE5IUXlEREtjSU5oaytFTEkxVWp0bEdlVVozUlkyT3lzYnZ4TXVOcTQzc21XQk9HU2FySmJwUGJwckNwdldteWFhWHBMVFBZek1GTVlMYmJySHNlWnA3VFBPRzg2bm05NWlSenBubTJlWjE1dndYTkl0QWkzNkxKNHJXbHZtV3M1VGJMVHN2dlZ2WldhVllIclI1WksxdjdXK2RidDFpL3RURzE0ZHBVMnR5ekpkdjYySzZ4YmJaOVkyZG14N2ZiWTlkblQ3RmZZTC9CdnQzK200T2pnOWloM21IWVVkOHgzckhLc1pkQlpRUXpOakd1T21HY1BKM1dPSjF6K3V6czRKemxmTUw1YnhkemwxU1hJeTR2NWh2TjU4OC9PSC9BVmRlVjQ3cmZWZXBHZDR0MzIrY21kZGR4NTdoWHV6L3owUFBnZWRSNERERk5tQ25Nbzh6WG5sYWVZcy9Ubmg5WnpxeFZyRll2bEpldlY1RlhsN2V5ZDRSM2hmZFRIMTJmSko4Nm4xRmZlOThWdnExK0dMOEF2MjErdld4Tk5wZGR5eDcxZC9SZjVkOFJRQW9JQzZnSWVCWm9HaWdPYkZrQUwvQmZzSDNCNDRVR0M0VUxtNEpBRUR0b2U5Q1RZS1BnWmNGblE3QWh3U0dWSWM5RHJVTlhobmFHVWNLV2hoMEoreER1R2I0bC9GR0VjWVFrb2oxU0lUSXVzamJ5WTVSWFZFbVVOTm95ZWxYMGpSajFHRUZNY3l3dU5qSzJKblpza2ZlaUhZc0c0K3pqQ3VONkZoc3R6bGw4YlluNmtyUWw1NWNxTE9Vc1BSbVBpWStLUHhML2xSUEVxZWFNSmJBVHFoSkd1U3p1VHU0cm5nZXZsRGZNZCtXWDhJY1NYUk5MRWw4a3VTWnRUeHBPZGs4dVN4NFJzQVFWZ2pjcGZpbDdVejZtQnFVZVNwMUlpMHByU01lbng2ZWZFU29MVTRVZEdWb1pPUm5kSWpOUm9VaTZ6SG5aam1XajRnQnhUU2FVdVRpek9ZdUtDS09iRW1QSlQ1TCtiTGZzeXV4UHl5T1huOHhSeWhIbTNNdzF6ZDJZTzVUbmsvZnJDdlFLN29yMmxUb3IxNjNzWDhWY3RYODF0RHBoZGZzYXZUVUZhd2JYK3E0OXZJNjRMblhkNy9sVytTWDU3OWRIclc4cDBDeFlXekR3ays5UGRZWHloZUxDM2cwdUcvYitqUDVaOEhQWFJ0dU51elorTCtJVlhTKzJLaTRyL3JxSnUrbjZMOWEvbFA4eXNUbHhjOWNXaHkxN3RtSzNDcmYyYkhQZmRyaEVxU1N2WkdEN2d1Mk5wZlRTb3RMM081YnV1RlptVjdaM0ozR25aS2UwUExDOGVaZitycTI3dmxZa1Y5eXY5S3hzcU5LbzJsajFjVGR2OTUwOUhudnE5MnJ1TGQ3N1paOWdYOTkrMy8yTjFZYlZaUWV3QjdJUFBEOFllYkR6VjhhdnRUWHFOY1UxM3c0SkQwa1BoeDd1cUhXc3JUMmljV1JMSFZ3bnFScytHbmYwOWpHdlk4MzE1dlg3RzJnTnhjZkJjY254bDcvRi85WnpJdUJFKzBuR3lmcFRCcWVxVGxOT0Z6VkNqYm1ObzAzSlRkTG1tT2J1TS81bjJsdGNXazZmdFRoNzZKek91Y3J6S3VlM1hDQmVLTGd3Y1RIdjRsaXJxSFdrTGFsdG9IMXArNk5MMFpmdWRZUjBkRjBPdUh6MWlzK1ZTNTNNem90WFhhK2V1K1o4N2N4MXh2V21HdzQzR20vYTN6ejl1LzN2cDdzY3VocHZPZDVxdnUxMHU2VjdmdmVGTys1MzJ1NTYzYjF5ajMzdnh2MkY5N3Q3SW5yNmV1TjZwWDI4dmhjUDBoNjhlWmo5Y1B6UjJzZVl4MFZQRkorVVBkVjRXdjJIeVI4TlVnZnArWDZ2L3B2UHdwNDlHdUFPdlBvejg4K3Znd1hQeWMvTGhyU0hhbC9ZdkRnMzdETjgrK1dpbDRPdlJLL0dSd3IvVXZxcjZyWHg2MU4vZS94OWN6UjZkUENOK00zRTIwM3YxTjRkZW0vM3ZuMHNlT3pwaC9RUDR4K0xQcWw5T3Z5WjhibnpTOVNYb2ZIbFgzRmZ5NytaZkd2NUh2RDk4VVQ2eElTSUkrWk1TUUVVNG5CaUlnQnZEd0ZBamdHQWNodlJENHVtOWZTVVFkUGZBRk1FL2h0UGErNHBjd0NnSGdtVHNvalZDc0J4eEEwUlhVNUc0cVFrQ3ZjQXNLMnR6R2UwNzVST256UXM4c1d5ejJ1U0hteGZ2UGJmR25sYXcvOHc5NzhqbU94cUIvNGQvd05ZcGdnUW9CcDhSQUFBQUFsd1NGbHpBQUFXSlFBQUZpVUJTVklrOEFBQUFEaGxXRWxtVFUwQUtnQUFBQWdBQVlkcEFBUUFBQUFCQUFBQUdnQUFBQUFBQXFBQ0FBUUFBQUFCQUFBUEFLQURBQVFBQUFBQkFBQUljQUFBQUFDRDBwdjlBQUFCaDJsVVdIUllUVXc2WTI5dExtRmtiMkpsTG5odGNBQUFBQUFBUEQ5NGNHRmphMlYwSUdKbFoybHVQU2Z2dTc4bklHbGtQU2RYTlUwd1RYQkRaV2hwU0hweVpWTjZUbFJqZW10ak9XUW5QejROQ2p4NE9uaHRjRzFsZEdFZ2VHMXNibk02ZUQwaVlXUnZZbVU2Ym5NNmJXVjBZUzhpUGp4eVpHWTZVa1JHSUhodGJHNXpPbkprWmowaWFIUjBjRG92TDNkM2R5NTNNeTV2Y21jdk1UazVPUzh3TWk4eU1pMXlaR1l0YzNsdWRHRjRMVzV6SXlJK1BISmtaanBFWlhOamNtbHdkR2x2YmlCeVpHWTZZV0p2ZFhROUluVjFhV1E2Wm1GbU5XSmtaRFV0WW1FelpDMHhNV1JoTFdGa016RXRaRE16WkRjMU1UZ3laakZpSWlCNGJXeHVjenAwYVdabVBTSm9kSFJ3T2k4dmJuTXVZV1J2WW1VdVkyOXRMM1JwWm1Zdk1TNHdMeUkrUEhScFptWTZUM0pwWlc1MFlYUnBiMjQrTVR3dmRHbG1aanBQY21sbGJuUmhkR2x2Ymo0OEwzSmtaanBFWlhOamNtbHdkR2x2Ymo0OEwzSmtaanBTUkVZK1BDOTRPbmh0Y0cxbGRHRStEUW84UDNod1lXTnJaWFFnWlc1a1BTZDNKejgrTEpTWUN3QUFFNFZKUkVGVWVGN05uSG1VWlVWOXh6Ky9xbnZmMnQzVHcvU0Fzc3pDR3RFamlPUFJPV29pS21na0JvMklPWW1nTElJZ0NEZ293Z0JOTThDQUkyb0NrUXpMSVBHWUdNQVRGU05DNGhKRWoxR0N1N0xLTmlQbzdMMjg1UzcxeXgvM3Z1NzM3bnZkNy9VeTZ1ZWNlL3IwL1ZYZHBiNVY5YXY2VmQwbi9MRTRZM1NJZU5jZ09jOG5kREdTRzZNd3RJTWJURDJiZEk5enZTdFNZUWdOK3JBb21oc2psTzJNU0MyYmRFOGoyUk43akRNZUdUSTZjSnlLSG9lTFg0bnFmaGliVitNQkRsd1lnMnpEMkVmQlBBRGN3OFlYL3pCN21RVmpYWFVsNHA4QXZBM0hTNEdsV0p2WW9sQVIyWXFSWHdIL2pZdS96T1g1WDJZdnNTZlk4NEtjL09oK2t1KzdBT0ZrL0w2bHFJTzRCaTRDZGFpUVBvYUFzV0R6eVJGT2dNWVA0dmdNdCt6N3BleGw1OHpheW5MSytZdFJUcUpnU2tSQUNEZ0ZORWtqQWtiQUF5eFFpeDBpWDhQRkc3Z3M5MkQya2d2Sm5oWGs5QzNuaXBFcnlBM3NSYkFiNGlDYkFwVnBIa0VNK0gxZ0xCSld2NlZoOVVJMnJmeHhOdG1zV0JlZGhlRWFDbmFRS2hCSDJSU2RNUjRVZ0Fod2JoUGJKeTdpVXdQYnNza1dnbWxLWTU2ODl5ZDdTM0hwSnZLTGppTVlUVnJFTkxlYVZwQVVJMEIrTWNUVmtDaTQyTjJ5N1Bwc21xNnNlYjdNNHFGYktYcC9TdzJJZWhRaWkxZ29DOVRpWjZpRnA3Q3UrTzFza3ZreWMybk1oVk9mZUpuNHBTL2o5eDlFdFhzbG1rNFFTWHVPQkFXVGcvd2dXdHY1Yi9wczVSUytjV2h2enYrakUvc3ltUDhLQmJ1SzhYaXFXNW9yQ2hROGNNNVJqejdBU0g1VE5zbDg2RndhYytYOWp4OGx1Yjc3OGZKTHFPL3E2ZktkQkJHWkxxZEFhU2xhMi9HZ21oMS96VTB2MzVsTjBjTGF5bkpLdWY4aVp3K2hNbDJyRUxBMjhSV1NqQytJU1h6Y1RIZ2UrTUJFZUI0anVYL01tdWRLNS9lZUM2YzkraEt4QTkvRitrc0lSbnUrZEZhUTZjVm9vRkJjQ3NIb3cyNWkxN0Y4L3ZEdDJSUUFESSsvQ0wvd0FIbDdDQk5SaDRzS0ZHeHl2aGFONG5nT29Rb01naTZqNU9lSWdmb01yY3A2a0FmR2FxZHpaZkcyckhrdXREM21uRGhwOHhJcDZJL3d5eXQ3YXhrQ05nYzJqeG9EcW9nTEVCZUF1bXppTmtRVWlrTm9mZmZEenE4Y3pRMkhqcllrV09QS0RMb0hLTmlqMnNSUXdFOXJkeEEvZ1BKWmpQa09hODN2QUhpM1dvN2lBT0w0emNEcDVPeXJDWUd3azZocFN6RUtsZmpOclBPL21UWFBsazYzbURWeTZsUDNVeG82aHVyVzdwZk05U2QvZy9FdHFIdFV4WXdqOUJ1UmxkamNDdnd5QktQZ3dyWnJ0VGFtcEtWb2ZjZDMzRDRISE1PSVRQVXhWMFpmcFd6ZnpsZ0hNUW9leFBFNGp2TzV6T3RlcTlkRnAyRGtrL2htTHlyVGlKTHpJSXEyVXcyTzRKcnlscXg1TnBqc2lkbGlUbjN5RXNwN0g1TTQ4RTVQUytxVVBTanNCVkh0dXhyVzM2SDEvR0c2NmNBM2NkdUs0N2wxeFJ2ZHZzc09jOGhxRGNadVJreElmckNscTJoM05RTFZyVWhoNkEzMnQ4L2NNWG42c3VxMWxPM2JHWS9ieFNoNUVNVlBVNDFmMTVNWUFKZDV0eE1FcnlhSWYwclo2OXg3MVNNb2VrdkkrZitTTmMyV3R0ZWNGYWM5K1hLeHhZZFJaNU1hM1FrRnJ3aXFxczVkeUszN2Z5cWJvbzNUbnpyU2VJVWJ5UFcvanRwMnBHTXBOQkJNYVNrNjhjTDUwYklESGhYcjNhdGhoMzYvNEVIb2ZrTllQNXFSMHJPdHhoNzQrSzdGbFB2dXAyQlh0WFdEa0JSbG40WFI4RU9NNUQ2YnRmWksyMlZuZzV6Mm0rK1RYN3lhK3M1cExwV0tnZFEwcXI2TDIxWitQWnRpZW9hTm5IbjZQNW5DNEFlcDdlem9Xd1FRa1dSKzRDTGl3ZjVRK3hmNUdzVmcwc2F2Q2prZjRtZzc5WGcxVnhVZXoxNm5aeTUyU3luSFA4THpsbFB2TUFyelBIRFJHRkkvakV2N25zK2FlMkh1WGRhcHZ6bUo0dERxR1oyNHlRR2lHdTQrWVhaaUFJdzQzWGpBV2RSMlhrTmhjVEp6YjJKU0RBQ053VmpzZU4yWFduV3lmeFBuRUJFa0NwUksrSzU1aVFHdzNtd2wxQk53Y1RRWjkyb21pcURrOVJONlYyZE52VEkzUWQ3M1ZFR1Fxd2lyV1VzcnVRRTBHRCtmVFlmOVo5YlVLL0hHWld1cDdkaEFZYS9KY3lJeUpVWURkUkRXTWJ2SGtqVHFFcUVLSGhyVTFyQys5RCt0R2ViSVNPNGhhdEhsRktWelJhdzQ4TzM3R2E0ZG5qWDF3dHdFeWRsVDZWdTZqS2lTdGFSbzRzQnIyNy9LN1FmUGU5SVViMXorTWFyYnZ5Q2xwWmlaNWluR1lPcDF2TEZSSUVaS1JSaWJ1SWVyRm4wNm0zUmVTUDQ2eHFOZmtPL1FTcHlEZ2llSVdaczE5Y0xzQlRsRGZVeDhvYm9hNmhtMFV3blpQQVJqbzZxMXN6S1dPUk96OVJTcDdmeGgwbEk2TzNraEZXVnNIQk1acEJyOFRtTjNXamJkdkJrUmgyTk5jc1BzeXdOVkJTc25NbHc5TUd2cXh1d0ZrV2VPcHpDMGtuQWkrZDhJYWcxcTA1QTFhVmNWMWE1bTAwdCsyNUozUHR5OEtyVENDUVFUTy9CS2JhSzBGb3RnSjBLb1Y4OWwvY0RXRnROQ01lTGZUelY2a0dLblZoSkR5Zk1RYzJiVzFJM1pDK0k0RzQyelowRUVOWUlXeW1pd2ZUUE96cnVyeWxLN2FmL25YRmg1SDhaTFJsWXBiWFZVUUtJUWI5dTIxVm5UZ2hMSDErTG85QVJRQjVDVEdOWkMxalFUc3hQazlNMkhHai8vRnlhc1lNUzBPMVlVL0RJZzEzUEh5ajJ5L0JuZmV0RFhtTml4WHZ5K1pLU1ZUWkRVRFlnbW9MVGtndnlaVHg2VHRTOFlKbjh2RTdYSDhHd3l2RzRtaktIa3Z4anF4N1lhWm1aMmd1VGNpWlFXR3lRR0l4Z3hXR014WWpBaWlDMUFkZnRPaUc3UFpsMUl3Z09Xald1K2tLN3l0VEpaUnpSR2NJajFiK2FNTGFWTXNvVmhSQnpXZmc0L25lODQxeVNNSnJYRjJQZGtjczNJckFRUjVKM3E2cWdJaXVKRVVWRVFRY1JnQ29zUStDSTNIN1E3bTNmQkdLNGZTZEViaVVwcHBMWnAxYlc1d1lvSWhHTkljV2hGM3RTdm1ySXNNQnJmUlRXTU1SMThTUUNvSHNzR1Y4NmFwcU4zUWM1ODdoQ01keVJoT3ZFeUp2RWJJcWdCWjhCRkZWUmszdkdjYVZFVlJHN0RpS2UrSlI0WVFOUzF4Ym1tL2hlMHRnUHh5eGNVejNoaVZXdXFCV0trK0FTeGV3Zy9GYVQ1WWFJWUN2NFE0M0hQdnF4blFZeHYzMGhwTDVNMHlYUTFwMUV0UlNCWGhtamlNZmJaZjgvdEZMbTBlaEY5L2xGVVkzQ09lR0FBemVlU3JpSWxLdzR1UW13ZVo3eWJNcFlGdzdqbzNza3hSb3N2MFdTamhMZzNOWjJja1o0RmNaNS90QnFMR3B1RU1jU21oMGszSlBTRDhiL0dpTFFIblJhQ1MydUhrZmRIcUdsTFB4VU9EaVpkWmljeElHa2w5ZDFJZWU5VitiT2ZtZlV3dEJlY05kOGsxS1NTWm4xSkRJaDVYVGJQZFBRbXlQQzNQWnkraXJDZWRGTkdVR05vQ0tUR1F6Vkd4Yjh2bTNXaEVPUVc4bDZPdUduSTdSeWFMeEFQTGtHczN6N1NhVUxEY1REZStyNHp0Z3hsYmZPbU12RlRhcFVkMHNtUGhBRDZNb1ozRG1aTm5laE5rSjBIcnhReEszQ2Q5aFdrcTMvMVhhTkUzbyt5MWdYaGt1clpPcEI3UGJVTzh4OGpSTVg4ODg0RlcvQ21HZkk3aGJDS0ZCWXZEbXg0WGRZOGJ6WXNIY1B3Y3p5VG5hOG1yY1h6QnpIbHd6S1dqdlFtaUZkNEthVkJZMUNNTVJoamtNWWhndmhGUk16UHVXbHc1azBIYzJGdDVRREplZGNSTkhWVjZTaEt4Q0FGQWQvN3NCZEdKNHRmU2lwSU00MVdvNkRWblVpdS85VENoNTdxMmNuMmpKcWZURzZVb0tuL1ZBYzVRTFduWUdOdmdtQVBWODhtSTZuMDBQVEFDT3I3cURYL2w4MjFJRmg3azVhOHZ1YTlWS1pSRVlvR21ZaC94bHB6OThTdEIzOUxLOXZ2azhMaUtlR2EzWTBxeENFaUZuWDJSdEk5a3d1RlNqUzExVFI3WlFFd2Y1WTUyNUdlQkJFcmh5YURxVFRzM1hSTUJoZkYvQ3liYjk0TVYvNk8vdHh4MU9MSkdtY2FDMC9wLzZMNmtVWnlSM3l1aHVOQnNnNlRIZkdBS0ZEZGhaU0dqc3AvOEptelc0enpSZVR4eEY5SXV5SU9RQTlxUGRtWm5nUUJYWTVMSm9Da29rd2RCb2tETVBheGJLNTU4ZkhkUy9EOGZ5QnNMMWdBaW9KVzQzdmk0YW1kSHNIR2d4L1hzUElKS1N6dW5DZEY2NlBnNWE0cWYvRDV2Yk8ydWVOdEpxaTR5WlhLWmh3Z3NsLzJkQ2M2NU02aUFyd0lUZGVSSmRsTE5YbDRIaHBWSTNMeDVtek9lWkV2ZnBxU04wVFFZYW5VR0FoY3BKNjVNR3VxbC94cnRMcnRhZncrUUJGdFgxK1hzSXJrQndkRDZodGFEUE9oWHQ4T3VodlN1Rlp6aFVoYXlCREQyclc4dXlaZ3pRc2x0V1pReGFWRFhaT0UyUnVIOWNDd0N5L3V2R0Z0TGd5SHgxTHlUMkxDdGJWK1ZhQUVHcm9idWNTMHQ4cFBMNnU2T0R4ZnhFT2NRMVdUMWNNV0JLM3VRQXFMVHM2ZjlkVFJHZVBjT0dyUktMQ3I0MXhJQVdTQWtuWU5vWFFYaEw0eVNsK25UUVpBTWpsVTJRVkx4ck9tT1hHQksyTDQ1OFFoZDdpbloyRENiVlBmdXpKcmFoQnNQUEFyV3ZuZE55US9nR2dTY1dsckpTNGRRb3U5aVRQVWJ6SE9oUk1sUm1TME9iNDJpUUpvaVYxMERYSjJGNlJnaTJKTXpyVDVqaVRhYTZ5SHNUSzJZRFAwZ2ZocStyeVZIWGQxSUdnZWlIV1lpMlhHSWJZalBrL0Q4UkRqSTA3YUNra2cyWkJYV25xWWI1Nit0TlU2Vjh4NEo1K2UzanRIVHZJWlN4dmRCWW5EUEFiZmlVNTJVNUwrblF3cUNndXo5akVTcktaZ0w2QXlqYlo1QzJQUkw5MHY3TWFzS1V0dzYrR1BFZFUzU0g0d0dWNWx1ejVJU3E2MkMrT1hMc21kKzNSUDg0UVpVYWxQbG1oNzMyVklJbHN6MGwwUUVhT1NCSXMwUFZ6RHNVOW05NmNwd1Ztd1VYMlEyekRTRWl5Y1JDUjVXbUVOZDBtSEtYczdWVHQrdGRhMlAwdXV3NFN4c2R6c0FzaVZQTEEzdHlhWUMrbUR0NHZSTTkwRnlma1JpaE14YVpUWEFnYWhNVnNIRWRmOU90MTRQcnFHUHU4bDFEcDFWVURSd2tSd0w4T3ppSmZkdktwQ0hIMEVMOThxU0VzUEptaDlGNVQzZm0zKzNHYy9OSlZvTHFTanFNNkNPS0pxMTRyVXZTQkRWeFZqQXNSSHhDYUhNY21PNzhaOWplbkw1Sm9kdzhHZmsvY3VuTGFyc2hhQ09NVHFCVmxUTjZxYkR2MlNWbmZjM3p5RDcvUUpCUFZSMUJhdnk1LzMvSW9XNDJ4UUxXZDlGYVIxUWFsVEtreTNiMnFTN29MNHhUSFVqazhsZGVtTEpkNUxIU2l5RDJ0Nlh4VnI0VHJYajJmdVFLWmFmQnRGZ1ZDdjUvTENvMWxUTHppajU3VE00SnNGU2VkVHhEWEk5WlZqcDcxdHdzN3k3anN0SWtzN3prY0ZFQm1qUU5lUmFIZEJycEF4a0cwMElzdGlVTEhwSWNtV0YydVhzaWljVzgycXhiZFF0Q3VtN2FweUhreEV6NkxldXF5cFY0S05CejlPV0x0YUNvTkpxS2VKcWFtYW9OV2QwTGZQRzcwUGJ6bXZKVkV2SEg3Y1Bxalp0OU02UHdaUTNjWWEwMldyWnkrQ2lLaUtQcTArcUUxalZ5WmR3alVtYVRFbFQ0amw5ZG1zWGJrOE9JK3k5eDRtTXA4T05CQkpYSlp5RGlQU3RiblBSRTEyckhmVmJiK21zR2hxb3RDSXlaRW9vd0lTakNLNXZnMytlWnVQYkxsQU41eStnbUtoMFBITDNpUUsvSFQyZENlNkN3TGcyWjhtUzVHTkYyaHQ4bW1zNXIzTldicHlXZmdXQ3ZZekxTdUF6U2hRc2xBSjcyYll2eWRybmpVM3J3ckYwdy9nWXBCazlEblZXZ1JGa3BYUHVBNDI1NnN0M3NsSHQ2WmZGM1ZIMEJPU1hxVER1eGdBK1huMmRDZDZFOFR4L1drM2hKRitoMWYwWHN0dytOYXNxU1BEd1dzb21ydkIwTElDMkV6T2cxcThnM3I5bkt4cHJ0UnVYUEU5Z3QyZmtlS1NwSlUzWGtkTjRoVWJsYTIrR3lrdFBzUVRlK2YwTDkzRWNHVVpubi9pZEpQWjVDTlNldHByMEpzZ2VmczlxdEY0eHkzNGtLNGpBem01bGVIcXpMNWtPSHdiZVhzZll2bzZCZzVKVzUwUFJQSFpyTzlQdnYxYklPcmVpbzlyYmZ1aldteDBYV2w1Ti9rV0l3YXRib1BDNHJkNkg5dDFGMi85K3ZRejdIZmZhVVc0ZzF5K1JKeCt0TlRzMmEyRldsU0IyZyttVGs1UGQvVWJYQkg4QjJYL0hkTitYcXhBMFlNdzNneDZQa3U5cjNLbVRIMVdOVnc5RUM5M0x0YWNEMERRNlN1azlEcjlIb3hIbjJmWVB6bHJYZ2k4RHovN0ttTkxQMENkSVk1eFFqS1VCNFFrQWpIWm5aV1c0T0tKaHdUdm92anE0cmRhTG5USnhDckoyUTNrODIrZ1dnRU1ta3pNcG54VDBZTktjRDlYNU4vU2tuY2FPaFZKWjBiQ3Y2VG9mWjFxZXpoN0VrMjdHZ1BVb3lkUmZRU2hqc3ArR0k2ZzZCV29hVEl5NjBSRDFDQituR2o3VVl6czAzV1lPRmR5NXp5N1JzcjdmVEt1L2g0YUMyOHBhcHNLVkJRdDdRV3hnN0Q2YTJma2NaQlloQlVZK3dvdEZxSGVHRzhJMnRnUFpFeFN2R1VMbGZqdnVkejcxOGtiekVEdmdxZ0tJOUdQS1hwSFREdEVuVVRBdDFPUkc5ZjRnWmN1K1R3UGlPc0U4V3NZeWY4a2ExNW92SE8yM0UzL2k5OGwxZDlQRm9XS2dHMHFGcE9PTFBIQUs2TzVkTWRrRElSVjFMZ3A4UURGVHJXUXZBOUJ0Qm5uSGRMclR6MzE1a01BUkJTTlBvYlE5bmxaTzVwODExMU5qM3JVWFF4akU3OVI1MzEvQ0RFQW9pV2NURzNIenlndW1lcjNNNjgyMVJjNE5KcUEyamhVeHlFWVQ3N1F5aUNxeVZLeGtteHVFRm5YcXhpMDM3NExJOFg3bVFodnAyOTIyYnBpYkRJYm42aGZ4SlhldjJmTmU0eVIvU3FSMVA1S2c0bm5LQ3llM0tjOGlacXArSjJhcEtBemREcUhVNlRvdzJqd3YxeG1iOG1hWjJJT0pldWZ6WGowRUgxZEk4bTlZYjFVakdpRWtjSW5zdVk5enFmMmY4N1VKNDdWdUxhRjhsQ3JmMngwUGJQWm9DSXhGUEpRaTNaVHI3NDMrZG1KM3BtOUlDTlNvMXA5RzVYb1lmcTlIcnF2YVdnTUFKSWZjUGtvdy80VjJTUi9LSUliOTN2RTFuZjlCV0hsRjVTWFRyWVNiUTZnVGtkTGNTc1V5cUJSUmVQcThWdzcrRVN6dFJmbVZwcnJCN1l5dXVzTlZOd1hLUm5JZTdNYUgyQzhaR2lyOGZOVW91TVp6bjB5bStRUFRmMkc1VTlHbFJkZVMyMzBDK1FYbzRXQlpHN1MxRHF5VWVMa1pLcUk5YUd2REZIMHBGWXJiMkxkd0p5Kyt1MXdoMWx5WlhRaWxrdnc3QkhZZERRVkovM29aUFVSazBqdnBVY3Ryb0Yram5GN0JldlRIMzM1RThKZXVQT2QrTjVhY3FWWFlrenlXVUVjcE5vMDNrbVNpbVg5WkZrNUNDcXEzRUwxaFJHdVhUN2o4dkpNekY4UUFGUzRKbm9MenJ3RDFkV29Xd0ZtQUdPVDUzZGhqSmh0Q0k4ZzNJZWFPN25NUEptOXlwOGFkbTMxV0ZUL1J0SFY0dHh5RlJiaHBadTZYUlFqZHFzYTh5dXg1aHRPNDdzWUtmWVVRSnlKQlJJa3czV3VuNEJCb25vZUQwWHlGZnJad1hsL2hKK0FYU2l1Yy8xVVdFUjl0SUROS3hwWDJLZTA0Ty8wLzMxbFdjaThVS1JrQUFBQUFFbEZUa1N1UW1DQyIgLz4KICAgIDwvcGF0dGVybj4KICA8L2RlZnM+Cjwvc3ZnPgo=',
+	mistral: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTc5IiBoZWlnaHQ9IjE3OSIgdmlld0JveD0iMCAwIDE3OSAxNzkiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik01Ny40MDU2IDM1LjI1MThIMzUuNzA2M1Y1Ni45NTExSDU3LjQwNTZWMzUuMjUxOFoiIGZpbGw9IiNGRkQ3MDAiLz4KPHBhdGggZD0iTTE0NC4yMDMgMzUuMjUxOEgxMjIuNTAzVjU2Ljk1MTFIMTQ0LjIwM1YzNS4yNTE4WiIgZmlsbD0iI0ZGRDcwMCIvPgo8cGF0aCBkPSJNNzkuMTA0OSA1Ni45NTFIMzUuNzA2M1Y3OC42NTA0SDc5LjEwNDlWNTYuOTUxWiIgZmlsbD0iI0ZGQUYwMCIvPgo8cGF0aCBkPSJNMTQ0LjIwMyA1Ni45NTFIMTAwLjgwNFY3OC42NTA0SDE0NC4yMDNWNTYuOTUxWiIgZmlsbD0iI0ZGQUYwMCIvPgo8cGF0aCBkPSJNMTQ0LjIwMyA3OC42NTAzSDM1LjcwNjNWMTAwLjM1SDE0NC4yMDNWNzguNjUwM1oiIGZpbGw9IiNGRjgyMDUiLz4KPHBhdGggZD0iTTU3LjQwNTYgMTAwLjM1SDM1LjcwNjNWMTIyLjA0OUg1Ny40MDU2VjEwMC4zNVoiIGZpbGw9IiNGQTUwMEYiLz4KPHBhdGggZD0iTTEwMC44MDQgMTAwLjM1SDc5LjEwNDlWMTIyLjA0OUgxMDAuODA0VjEwMC4zNVoiIGZpbGw9IiNGQTUwMEYiLz4KPHBhdGggZD0iTTE0NC4yMDMgMTAwLjM1SDEyMi41MDNWMTIyLjA0OUgxNDQuMjAzVjEwMC4zNVoiIGZpbGw9IiNGQTUwMEYiLz4KPHBhdGggZD0iTTc5LjEwNDkgMTIyLjA0OUgxNC4wMDdWMTQzLjc0OEg3OS4xMDQ5VjEyMi4wNDlaIiBmaWxsPSIjRTEwNTAwIi8+CjxwYXRoIGQ9Ik0xNjUuOTAyIDEyMi4wNDlIMTAwLjgwNFYxNDMuNzQ4SDE2NS45MDJWMTIyLjA0OVoiIGZpbGw9IiNFMTA1MDAiLz4KPC9zdmc+',
+	deepseek: 'data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyBpZD0iTGF5ZXJfMiIgZGF0YS1uYW1lPSJMYXllciAyIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzNzcuMSAyNzcuODYiPgogIDxkZWZzPgogICAgPHN0eWxlPgogICAgICAuY2xzLTEgewogICAgICAgIGZpbGw6ICM0ZDZiZmU7CiAgICAgICAgc3Ryb2tlLXdpZHRoOiAwcHg7CiAgICAgIH0KICAgIDwvc3R5bGU+CiAgPC9kZWZzPgogIDxnIGlkPSJMYXllcl8xLTIiIGRhdGEtbmFtZT0iTGF5ZXIgMSI+CiAgICA8cGF0aCBpZD0icGF0aCIgY2xhc3M9ImNscy0xIiBkPSJNMzczLjE1LDIzLjMyYy00LTEuOTUtNS43MiwxLjc3LTguMDYsMy42Ni0uNzkuNjItMS40NywxLjQzLTIuMTQsMi4xNC01Ljg1LDYuMjYtMTIuNjcsMTAuMzYtMjEuNTcsOS44Ni0xMy4wNC0uNzEtMjQuMTYsMy4zOC0zMy45OSwxMy4zNy0yLjA5LTEyLjMxLTkuMDQtMTkuNjYtMTkuNi0yNC4zOC01LjU0LTIuNDUtMTEuMTMtNC45LTE0Ljk5LTEwLjIzLTIuNzEtMy43OC0zLjQ0LTgtNC44MS0xMi4xNi0uODUtMi41MS0xLjcyLTUuMDktNC42LTUuNTItMy4xMy0uNS00LjM2LDIuMTQtNS41OCw0LjM0LTQuOTMsOC45OS02LjgyLDE4LjkyLTYuNjUsMjguOTcuNDMsMjIuNTgsOS45Nyw0MC41NiwyOC44OSw1My4zNywyLjE2LDEuNDYsMi43MSwyLjk1LDIuMDMsNS4wOS0xLjI5LDQuNC0yLjgyLDguNjgtNC4xOSwxMy4wOS0uODUsMi44Mi0yLjE0LDMuNDQtNS4xNSwyLjItMTAuMzktNC4zNC0xOS4zNy0xMC43Ni0yNy4yOS0xOC41NS0xMy40Ni0xMy4wMi0yNS42My0yNy40MS00MC44MS0zOC42Ny0zLjU3LTIuNjQtNy4xMi01LjA5LTEwLjgxLTcuNDEtMTUuNDktMTUuMDcsMi4wMy0yNy40NSw2LjA4LTI4LjksNC4yNS0xLjUyLDEuNDctNi43OS0xMi4yMy02LjczLTEzLjY5LjA2LTI2LjI0LDQuNjUtNDIuMjEsMTAuNzYtMi4zNC45My00Ljc5LDEuNjEtNy4zMiwyLjE0LTE0LjUtMi43My0yOS41NS0zLjM1LTQ1LjI5LTEuNTgtMjkuNjIsMy4zMi01My4yOCwxNy4zNC03MC42OCw0MS4yOEMxLjI5LDg4LjItMy42MywxMjAuODgsMi4zOSwxNTVjNi4zMywzNS45MSwyNC42NCw2NS42OCw1Mi44LDg4Ljk0LDI5LjE4LDI0LjEsNjIuOCwzNS45MSwxMDEuMTUsMzMuNjUsMjMuMjktMS4zMyw0OS4yMy00LjQ2LDc4LjQ4LTI5LjI0LDcuMzgsMy42NiwxNS4xMiw1LjEyLDI3Ljk3LDYuMjMsOS44OS45MywxOS40MS0uNSwyNi43OS0yLjAyLDExLjU1LTIuNDUsMTAuNzUtMTMuMTUsNi41OC0xNS4xMy0zMy44Ny0xNS43OC0yNi40NC05LjM2LTMzLjItMTQuNTQsMTcuMjEtMjAuNDEsNDMuMTUtNDEuNTksNTMuMy0xMTAuMTkuNzktNS40Ni4xMS04Ljg3LDAtMTMuMy0uMDYtMi42Ny41NC0zLjcyLDMuNjEtNC4wMyw4LjQ4LS45NiwxNi43Mi0zLjI5LDI0LjI4LTcuNDcsMjEuOTQtMTIsMzAuNzgtMzEuNjksMzIuODctNTUuMzMuMzEtMy42LS4wNi03LjM1LTMuODYtOS4yNFpNMTgxLjk2LDIzNS45N2MtMzIuODMtMjUuODMtNDguNzQtMzQuMzMtNTUuMzEtMzMuOTYtNi4xNC4zNC01LjA0LDcuMzgtMy42OSwxMS45NywxLjQxLDQuNTMsMy4yNiw3LjY2LDUuODUsMTEuNjMsMS43OCwyLjY0LDMuMDEsNi41Ny0xLjc4LDkuNDktMTAuNTcsNi41OC0yOC45NS0yLjItMjkuODItMi42NC0yMS4zOC0xMi41OS0zOS4yNi0yOS4yNC01MS44Ny01Mi4wMS0xMi4xNi0yMS45Mi0xOS4yMy00NS40My0yMC4zOS03MC41Mi0uMzEtNi4wOCwxLjQ3LTguMjIsNy40OS05LjMsNy45Mi0xLjQ2LDE2LjExLTEuNzcsMjQuMDMtLjYyLDMzLjQ5LDQuOSw2Mi4wMSwxOS45MSw4NS45LDQzLjYzLDEzLjY1LDEzLjU1LDIzLjk3LDI5LjcxLDM0LjYxLDQ1LjQ5LDExLjMsMTYuNzgsMjMuNDgsMzIuNzUsMzguOTcsNDUuODQsNS40Niw0LjU5LDkuODMsOC4wOSwxNCwxMC42Ny0xMi41OSwxLjQtMzMuNjIsMS43MS00Ny45OS05LjY4Wk0xOTcuNjksMTM0LjY1YzAtMi43LDIuMTUtNC44NCw0Ljg3LTQuODQuNiwwLDEuMTYuMTIsMS42Ni4zMS42Ny4yNSwxLjI5LjYyLDEuNzcsMS4xOC44Ny44NCwxLjM2LDIuMDgsMS4zNiwzLjM1LDAsMi43LTIuMTUsNC44NC00Ljg1LDQuODRzLTQuODEtMi4xNC00LjgxLTQuODRaTTI0Ni41NSwxNTkuNzdjLTMuMTMsMS4yNy02LjI2LDIuMzktOS4yNywyLjUxLTQuNjcuMjItOS43Ny0xLjY4LTEyLjU1LTQtNC4zLTMuNi03LjM2LTUuNjEtOC42Ny0xMS45NC0uNTQtMi43LS4yMy02Ljg1LjI1LTkuMjQsMS4xMi01LjE1LS4xMi04LjQ0LTMuNzQtMTEuNDQtMi45Ni0yLjQ1LTYuNy0zLjEtMTAuODItMy4xLTEuNTQsMC0yLjk1LS42OC00LTEuMjQtMS43Mi0uODctMy4xMy0zLjAxLTEuNzgtNS42NC40My0uODQsMi41My0yLjkyLDMuMDItMy4yOSw1LjU4LTMuMTksMTIuMDMtMi4xNCwxOCwuMjUsNS41NCwyLjI2LDkuNzEsNi40MiwxNS43MiwxMi4yOCw2LjE2LDcuMSw3LjI2LDkuMDksMTAuNzYsMTQuMzksMi43Niw0LjE5LDUuMjksOC40Nyw3LjAxLDEzLjM3LDEuMDQsMy4wNC0uMzEsNS41NS0zLjk0LDcuMVoiLz4KICA8L2c+Cjwvc3ZnPg=='
+};
+const MODEL_LOGOS = {
+	gpt: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDg0IiBoZWlnaHQ9IjQ4MCIgdmlld0JveD0iMTE4LjU1NyAxMTkuOTU4IDQ4NC4xMzkgNDc5LjgxOCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMzA0LjI0NiAyOTQuNjExVjI0OS4wMjhDMzA0LjI0NiAyNDUuMTg5IDMwNS42ODcgMjQyLjMwOSAzMDkuMDQ0IDI0MC4zOTJMNDAwLjY5MiAxODcuNjEyQzQxMy4xNjcgMTgwLjQxNSA0MjguMDQyIDE3Ny4wNTggNDQzLjM5NCAxNzcuMDU4QzUwMC45NzEgMTc3LjA1OCA1MzcuNDQgMjIxLjY4MiA1MzcuNDQgMjY5LjE4MkM1MzcuNDQgMjcyLjU0IDUzNy40NCAyNzYuMzc5IDUzNi45NTkgMjgwLjIxOEw0NDEuOTU0IDIyNC41NThDNDM2LjE5NyAyMjEuMjAxIDQzMC40MzcgMjIxLjIwMSA0MjQuNjggMjI0LjU1OEwzMDQuMjQ2IDI5NC42MTFaTTUxOC4yNDUgNDcyLjE0NVYzNjMuMjI0QzUxOC4yNDUgMzU2LjUwNSA1MTUuMzY0IDM1MS43MDcgNTA5LjYwOCAzNDguMzQ5TDM4OS4xNzQgMjc4LjI5Nkw0MjguNTE5IDI1NS43NDNDNDMxLjg3NyAyNTMuODI2IDQzNC43NTcgMjUzLjgyNiA0MzguMTE1IDI1NS43NDNMNTI5Ljc2MiAzMDguNTIzQzU1Ni4xNTQgMzIzLjg3OSA1NzMuOTA1IDM1Ni41MDUgNTczLjkwNSAzODguMTcxQzU3My45MDUgNDI0LjYzNiA1NTIuMzE1IDQ1OC4yMjUgNTE4LjI0NSA0NzIuMTQxVjQ3Mi4xNDVaTTI3NS45MzcgMzc2LjE4MkwyMzYuNTkyIDM1My4xNTJDMjMzLjIzNSAzNTEuMjM1IDIzMS43OTQgMzQ4LjM1NCAyMzEuNzk0IDM0NC41MTVWMjM4Ljk1NkMyMzEuNzk0IDE4Ny42MTcgMjcxLjEzOSAxNDguNzQ5IDMyNC40IDE0OC43NDlDMzQ0LjU1NSAxNDguNzQ5IDM2My4yNjQgMTU1LjQ2OCAzNzkuMTAyIDE2Ny40NjNMMjg0LjU3OCAyMjIuMTY0QzI3OC44MjIgMjI1LjUyMSAyNzUuOTQyIDIzMC4zMTkgMjc1Ljk0MiAyMzcuMDM5VjM3Ni4xODZMMjc1LjkzNyAzNzYuMTgyWk0zNjAuNjI2IDQyNS4xMjJMMzA0LjI0NiAzOTMuNDU1VjMyNi4yODNMMzYwLjYyNiAyOTQuNjE2TDQxNy4wMDIgMzI2LjI4M1YzOTMuNDU1TDM2MC42MjYgNDI1LjEyMlpNMzk2Ljg1MiA1NzAuOTg5QzM3Ni42OTggNTcwLjk4OSAzNTcuOTg5IDU2NC4yNyAzNDIuMTUxIDU1Mi4yNzZMNDM2LjY3NCA0OTcuNTc0QzQ0Mi40MzEgNDk0LjIxNyA0NDUuMzExIDQ4OS40MTkgNDQ1LjMxMSA0ODIuNjk5VjM0My41NTJMNDg1LjEzOCAzNjYuNTgyQzQ4OC40OTUgMzY4LjQ5OSA0ODkuOTM2IDM3MS4zNzkgNDg5LjkzNiAzNzUuMjE5VjQ4MC43NzhDNDg5LjkzNiA1MzIuMTE3IDQ1MC4xMDkgNTcwLjk4NSAzOTYuODUyIDU3MC45ODVWNTcwLjk4OVpNMjgzLjEzNCA0NjMuOTlMMTkxLjQ4NiA0MTEuMjExQzE2NS4wOTQgMzk1Ljg1NCAxNDcuMzQzIDM2My4yMjkgMTQ3LjM0MyAzMzEuNTYyQzE0Ny4zNDMgMjk0LjYxNiAxNjkuNDE1IDI2MS41MDkgMjAzLjQ4IDI0Ny41OTNWMzU2Ljk5MUMyMDMuNDggMzYzLjcxIDIwNi4zNjEgMzY4LjUwOCAyMTIuMTE3IDM3MS44NjZMMzMyLjA3NCA0NDEuNDM3TDI5Mi43MjkgNDYzLjk5QzI4OS4zNzIgNDY1LjkwNyAyODYuNDkxIDQ2NS45MDcgMjgzLjEzNCA0NjMuOTlaTTI3Ny44NTkgNTQyLjY4QzIyMy42MzkgNTQyLjY4IDE4My44MTMgNTAxLjg5NSAxODMuODEzIDQ1MS41MTRDMTgzLjgxMyA0NDcuNjc1IDE4NC4yOTQgNDQzLjgzNiAxODQuNzcxIDQzOS45OTdMMjc5LjI5NSA0OTQuNjk4QzI4NS4wNTEgNDk4LjA1NiAyOTAuODEyIDQ5OC4wNTYgMjk2LjU2OCA0OTQuNjk4TDQxNy4wMDIgNDI1LjEyN1Y0NzAuNzFDNDE3LjAwMiA0NzQuNTQ5IDQxNS41NjIgNDc3LjQyOSA0MTIuMjA0IDQ3OS4zNDZMMzIwLjU1NyA1MzIuMTI2QzMwOC4wODEgNTM5LjMyMyAyOTMuMjA2IDU0Mi42OCAyNzcuODU0IDU0Mi42OEgyNzcuODU5Wk0zOTYuODUyIDU5OS43NzZDNDU0LjkxMSA1OTkuNzc2IDUwMy4zNyA1NTguNTEzIDUxNC40MSA1MDMuODEyQzU2OC4xNDkgNDg5Ljg5NiA2MDIuNjk2IDQzOS41MTUgNjAyLjY5NiAzODguMTc2QzYwMi42OTYgMzU0LjU4NyA1ODguMzAzIDMyMS45NjIgNTYyLjM5MiAyOTguNDVDNTY0Ljc5MSAyODguMzczIDU2Ni4yMzEgMjc4LjI5NiA1NjYuMjMxIDI2OC4yMjRDNTY2LjIzMSAxOTkuNjExIDUxMC41NzEgMTQ4LjI2NyA0NDYuMjc0IDE0OC4yNjdDNDMzLjMyMiAxNDguMjY3IDQyMC44NDYgMTUwLjE4NCA0MDguMzcgMTU0LjUwNUMzODYuNzc1IDEzMy4zOTIgMzU3LjAyNiAxMTkuOTU4IDMyNC40IDExOS45NThDMjY2LjM0MiAxMTkuOTU4IDIxNy44ODMgMTYxLjIyIDIwNi44NDMgMjE1LjkyMUMxNTMuMTA0IDIyOS44MzcgMTE4LjU1NyAyODAuMjE4IDExOC41NTcgMzMxLjU1N0MxMTguNTU3IDM2NS4xNDYgMTMyLjk1IDM5Ny43NzEgMTU4Ljg2MSA0MjEuMjgzQzE1Ni40NjIgNDMxLjM2IDE1NS4wMjIgNDQxLjQzNyAxNTUuMDIyIDQ1MS41MUMxNTUuMDIyIDUyMC4xMjMgMjEwLjY4MiA1NzEuNDY2IDI3NC45NzggNTcxLjQ2NkMyODcuOTMxIDU3MS40NjYgMzAwLjQwNyA1NjkuNTQ5IDMxMi44ODMgNTY1LjIyOEMzMzQuNDczIDU4Ni4zNDEgMzY0LjIyMiA1OTkuNzc2IDM5Ni44NTIgNTk5Ljc3NloiIGZpbGw9ImJsYWNrIi8+PC9zdmc+Cg==',
+	claude: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMjgiIGhlaWdodD0iMTI4IiBmaWxsPSJub25lIj48ZyBjbGlwLXBhdGg9InVybCgjYSkiPjxyZWN0IHdpZHRoPSIxMjgiIGhlaWdodD0iMTI4IiBmaWxsPSJ1cmwoI2IpIiByeD0iMzAiLz48cGF0aCBmaWxsPSIjRDk3NzU3IiBkPSJNMCAwaDEyOHYxMjhIMHoiIG9wYWNpdHk9Ii4zNSIvPjxwYXRoIGZpbGw9IiNGQUZBRjgiIGQ9Im0zNS4wMTYgNzkuNjk0IDE4LjQxNi0xMC4zMjguMzA0LS45MDQtLjMwNC0uNTA0aC0uOTFsLTMuMDg3LS4xODgtMTAuNTI0LS4yODEtOS4xMDctLjM3Ni04Ljg1NC0uNDctMi4yMjYtLjQ2OS0yLjA3NC0yLjc2OS4yMDItMS4zNjEgMS44NzItMS4yNjggMi42ODIuMjM1IDUuOTIuNDIyIDguOTA0LjYxIDYuNDI2LjM3NiA5LjU2Mi45ODZoMS41MThsLjIwMi0uNjEtLjUwNi0uMzc2LS40MDUtLjM3NUw0My44MiA1NS44bC05Ljk2Ny02LjU3Mi01LjIxMS0zLjgwMi0yLjc4My0xLjkyNS0xLjQxNi0xLjc4NC0uNjA4LTMuOTQzIDIuNTMtMi44MTYgMy40NC4yMzUuODYuMjM0IDMuNDkyIDIuNjc2IDcuNDM3IDUuNzc0IDkuNzE0IDcuMTM1IDEuNDE3IDEuMTczLjU3LS4zODUuMDg4LS4yNzItLjY1OC0xLjA4LTUuMjYyLTkuNTI5LTUuNjE2LTkuNzE2LTIuNTMtNC4wMzctLjY1Ny0yLjM5NGMtLjI1NS0xLjAwNS0uNDA1LTEuODM2LS40MDUtMi44NjRsMi44ODQtMy45NDMgMS42MTktLjUxNiAzLjg5Ni41MTYgMS42MTkgMS40MDkgMi40MjggNS41MzggMy44OTYgOC42ODUgNi4wNzEgMTEuODI5IDEuNzcxIDMuNTIuOTYxIDMuMjQuMzU1Ljk4NWguNjA3di0uNTYzbC41MDYtNi42NjYuOTEtOC4xNjguOTExLTEwLjUxNC4zMDMtMi45NTggMS40NjgtMy41NjcgMi45MzQtMS45MjUgMi4yNzcgMS4wOCAxLjg3MiAyLjY3Ni0uMjUzIDEuNzM2LTEuMTEzIDcuMjNMNzIgNDIuODQ0bC0xLjQxNiA3LjYwNGguODFsLjk2LS45ODUgMy44NDYtNS4wNyA2LjQyNS04LjA3NCAyLjgzNC0zLjE5MiAzLjMzOS0zLjUyIDIuMTI1LTEuNjloNC4wNDdsMi45MzUgNC40MTItMS4zMTYgNC41NTMtNC4xNDggNS4yNThMODkgNDYuNmwtNC45MzQgNi42MDgtMy4wNiA1LjMxNC4yNzQuNDM5LjczNy0uMDYzIDExLjEzLTIuMzk0IDYuMDIyLTEuMDggNy4xODQtMS4yMiAzLjIzOCAxLjUwMi4zNTQgMS41NDktMS4yNjUgMy4xNDUtNy42OSAxLjg3Ny05LjAwNiAxLjgzMS0xMy40MSAzLjE1Ny0uMTUuMTIuMTc2LjI2IDYuMDQ4LjU0NyAyLjU4LjE0aDYuMzI1bDExLjc4OC44OTMgMy4wODYgMi4wMTggMS44MjIgMi40ODgtLjMwNCAxLjkyNS00Ljc1NiAyLjM5NC02LjM3NC0xLjUwMy0xNC45MjYtMy41NjctNS4xMS0xLjI2N2gtLjcwOHYuNDIybDQuMjUgNC4xNzggNy44NDIgNy4wNCA5Ljc2NSA5LjEwNy41MDYgMi4yNTQtMS4yNjUgMS43ODMtMS4zMTYtLjE4OC04LjYtNi40NzctMy4zNC0yLjkxLTcuNDg4LTYuMzM4aC0uNTA2di42NThsMS43MiAyLjUzNCA5LjE1OCAxMy43NTQuNDU1IDQuMjI1LS42NTggMS4zNjEtMi4zNzcuODQ1LTIuNTgtLjQ3LTUuNDE1LTcuNTU3LTUuNTE0LTguNDUtNC40NTMtNy42MDQtLjUzNy4zNC0yLjY1IDI4LjI5NC0xLjIxNCAxLjQ1NS0yLjgzNCAxLjA4LTIuMzc4LTEuNzg0LTEuMjY0LTIuOTEgMS4yNjQtNS43NzQgMS41MTgtNy41MSAxLjIxNS01Ljk2MiAxLjExMy03LjQxNi42OC0yLjQ3OC0uMDYtLjE2Ni0uNTQ0LjA5MS01LjU5MSA3LjY2OS04LjUgMTEuNS02LjczIDcuMTgyLTEuNjE4LjY1OC0yLjc4My0xLjQ1Ni4yNTMtMi41ODEgMS41NjktMi4zIDkuMzA5LTExLjgzIDUuNjE2LTcuMzcgMy42Mi00LjIzLS4wMzYtLjYxMS0uMi0uMDE4TDMyLjc0IDg5Ljg4bC00LjQwMi41NjMtMS45MjItMS43ODQuMjUzLTIuOTEuOTEtLjkzOSA3LjQzOC01LjExN1oiLz48L2c+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJiIiB4MT0iNTIuNSIgeDI9IjUyLjUiIHkxPSIxMjgiIHkyPSIwIiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHN0b3Agc3RvcC1jb2xvcj0iI0RDNjAzOCIvPjxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iI0Q5Nzc1NyIvPjwvbGluZWFyR3JhZGllbnQ+PGNsaXBQYXRoIGlkPSJhIj48cmVjdCB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgZmlsbD0iI2ZmZiIgcng9IjMwIi8+PC9jbGlwUGF0aD48L2RlZnM+PC9zdmc+'
+};
+
+function renderModelsStep() {
+	const companies = [
+		{ key: 'microsoft', name: t('modelPhi4Provider'), logo: COMPANY_LOGOS.microsoft, models: [
+			{ name: t('modelPhi4') },
+			{ name: t('modelMAIVoice') }
+		]},
+		{ key: 'anthropic', name: t('modelClaudeProvider'), logo: COMPANY_LOGOS.anthropic, models: [
+			{ name: t('modelClaude'), logo: MODEL_LOGOS.claude }
+		]},
+		{ key: 'openai', name: t('modelGPTProvider'), logo: COMPANY_LOGOS.openai, models: [
+			{ name: t('modelGPT'), logo: MODEL_LOGOS.gpt }
+		]},
+		{ key: 'meta', name: t('modelLlamaProvider'), logo: COMPANY_LOGOS.meta, models: [
+			{ name: t('modelLlama') }
+		]},
+		{ key: 'mistral', name: t('modelMistralProvider'), logo: COMPANY_LOGOS.mistral, models: [
+			{ name: t('modelMistral') }
+		]},
+		{ key: 'deepseek', name: t('modelDeepSeekProvider'), logo: COMPANY_LOGOS.deepseek, models: [
+			{ name: t('modelDeepSeek') }
+		]}
+	];
+
+	const section = document.createElement('div');
+	section.className = 'models-section';
+	section.style.opacity = '1';
+	section.innerHTML = `
+		<h2 class="models-title">${t('modelsTitle')}</h2>
+		<p class="models-lead">${t('modelsLead')}</p>
+		<div class="models-grid">
+			${companies.map(c => `
+				<div class="company-card" data-provider="${c.key}">
+					<div class="company-header">
+						<img class="company-logo" src="${c.logo}" alt="${c.name}">
+						<span class="company-name">${c.name}</span>
+					</div>
+					<div class="company-models">
+						${c.models.map(m => `
+							<div class="company-model-item">
+								${m.logo ? `<img class="model-item-logo" src="${m.logo}" alt="${m.name}">` : ''}
+								<span class="model-item-name">${m.name}</span>
+							</div>
+						`).join('')}
+					</div>
+				</div>
+			`).join('')}
+			<div class="models-more">${t('modelsMore')}</div>
+		</div>
+		<div class="agent-cta-wrapper">
+			<span class="agent-flow-arrow">⬇</span>
+			<span class="agent-cta-label">${t('agentCta')}</span>
+		</div>
+		<div class="agent-card">
+			<span class="agent-sparkles">✨</span>
+			<span class="agent-icon">🤖</span>
+			<div class="agent-card-text">
+				<span class="agent-title">${t('agentLabel')}</span>
+				<span class="agent-subtitle">${t('agentDesc')}</span>
+			</div>
+		</div>
+	`;
+	stage.appendChild(section);
+	liveEls.push(section);
+
+	const cards = section.querySelectorAll('.company-card');
+	const moreEl = section.querySelector('.models-more');
+	const titleEl = section.querySelector('.models-title');
+	const leadEl = section.querySelector('.models-lead');
+	const ctaWrapper = section.querySelector('.agent-cta-wrapper');
+	const agentCard = section.querySelector('.agent-card');
+
+	if (motionPaused) {
+		gsap.set([titleEl, leadEl], { opacity:1 });
+		gsap.set(cards, { opacity:1 });
+		gsap.set(moreEl, { opacity:1 });
+		gsap.set(ctaWrapper, { opacity:1 });
+		gsap.set(agentCard, { opacity:1 });
+		animating = false;
+	} else {
+		const tl = gsap.timeline({ onComplete: () => animating = false });
+		tl.timeScale(0.4);
+		liveTimelines.push(tl);
+		tl.fromTo(titleEl, { opacity:0, y:-20 }, { opacity:1, y:0, duration:1.0, ease:'power2.out' });
+		tl.fromTo(leadEl, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.8, ease:'power2.out' }, '+=0.3');
+		tl.fromTo(cards, { opacity:0, y:20, scale:0.85 }, { opacity:1, y:0, scale:1, duration:0.8, stagger:0.3, ease:'back.out(1.6)' }, '+=0.4');
+		tl.fromTo(moreEl, { opacity:0, scale:0.9 }, { opacity:1, scale:1, duration:0.8, ease:'power2.out' }, '+=0.3');
+		// Agent CTA flow animation
+		tl.fromTo(ctaWrapper, { opacity:0, y:-10 }, { opacity:1, y:0, duration:0.8, ease:'power2.out' }, '+=0.5');
+		tl.fromTo(agentCard, { opacity:0, y:30, scale:0.8 }, { opacity:1, y:0, scale:1, duration:1.2, ease:'back.out(2.0)' }, '+=0.3');
+		// Extra punch: flash the agent card border
+		tl.fromTo(agentCard, { boxShadow:'0 0 0 0 rgba(92,45,145,0)' }, { boxShadow:'0 0 30px 8px rgba(92,45,145,0.35)', duration:0.6, ease:'power2.out' }, '-=0.4');
+		tl.to(agentCard, { boxShadow:'0 6px 28px rgba(92,45,145,0.18)', duration:0.8, ease:'power2.inOut' });
+	}
+}
+
+// ── FEATURES STEP ─────────────────────────
+function renderFeaturesStep() {
+	const featureTiles = [
+		{ icon: '🤖', titleKey: 'agentServiceTitle', descKey: 'agentServiceDesc' },
+		{ icon: '🧠', titleKey: 'foundryIQTitle', descKey: 'foundryIQDesc' },
+		{ icon: '⚡', titleKey: 'workflowsTitle', descKey: 'workflowsDesc' },
+		{ icon: '💻', titleKey: 'foundryLocalTitle', descKey: 'foundryLocalDesc' }
+	];
+
+	// Model comparison data for leaderboard
+	const models = [
+		{ name: 'GPT-4o',     color: '#10a37f', quality: { w:'92%', v:'92'     }, cost: { w:'30%',  v:'$2.50'  }, throughput: { w:'71%',  v:'128 t/s' } },
+		{ name: 'Claude 3.5', color: '#d97706', quality: { w:'89%', v:'89'     }, cost: { w:'25%',  v:'$3.00'  }, throughput: { w:'53%',  v:'95 t/s'  } },
+		{ name: 'Llama 3.1',  color: '#0078d4', quality: { w:'84%', v:'84'     }, cost: { w:'72%',  v:'$0.60'  }, throughput: { w:'87%',  v:'156 t/s' } },
+		{ name: 'Phi-4',      color: '#5c2d91', quality: { w:'78%', v:'78'     }, cost: { w:'95%',  v:'$0.14'  }, throughput: { w:'100%', v:'180 t/s' } }
+	];
+
+	function barsHTML(metric) {
+		return models.map(m => `
+			<div class="bar-row">
+				<span class="bar-model-label">${m.name}</span>
+				<div class="bar-track">
+					<div class="bar-fill" style="background:linear-gradient(90deg, ${m.color}, ${m.color}aa);" data-target="${m[metric].w}">
+						<span class="bar-value">${m[metric].v}</span>
+					</div>
+				</div>
+			</div>
+		`).join('');
+	}
+
+	const section = document.createElement('div');
+	section.className = 'features-section';
+	section.style.opacity = '1';
+	section.innerHTML = `
+		<h2 class="features-title">${t('featuresTitle')}</h2>
+		<p class="features-lead">${t('featuresLead')}</p>
+		<div class="leaderboard-card">
+			<div class="leaderboard-header">
+				<span class="leaderboard-icon">🏆</span>
+				<h3>${t('leaderboardTitle')}</h3>
+			</div>
+			<p class="leaderboard-desc">${t('leaderboardDesc')} <a href="https://learn.microsoft.com/azure/ai-studio/how-to/model-benchmarks" target="_blank" rel="noopener">${t('leaderboardLearn')}</a></p>
+			<div class="leaderboard-bars">
+				<div class="bar-group">
+					<span class="bar-label">${t('leaderboardQuality')}</span>
+					${barsHTML('quality')}
+				</div>
+				<div class="bar-group">
+					<span class="bar-label">${t('leaderboardCost')}</span>
+					${barsHTML('cost')}
+				</div>
+				<div class="bar-group">
+					<span class="bar-label">${t('leaderboardThroughput')}</span>
+					${barsHTML('throughput')}
+				</div>
+			</div>
+		</div>
+		<div class="features-grid">
+			${featureTiles.map(f => `
+				<div class="feature-tile">
+					<span class="feature-tile-icon">${f.icon}</span>
+					<div class="feature-tile-text">
+						<strong>${t(f.titleKey)}</strong>
+						<span>${t(f.descKey)}</span>
+					</div>
+				</div>
+			`).join('')}
+		</div>
+	`;
+	stage.appendChild(section);
+	liveEls.push(section);
+
+	const titleEl = section.querySelector('.features-title');
+	const leadEl = section.querySelector('.features-lead');
+	const lbCard = section.querySelector('.leaderboard-card');
+	const bars = section.querySelectorAll('.bar-fill');
+	const tiles = section.querySelectorAll('.feature-tile');
+
+	if (motionPaused) {
+		gsap.set([titleEl, leadEl], { opacity:1 });
+		gsap.set(lbCard, { opacity:1 });
+		bars.forEach(b => b.style.width = b.dataset.target);
+		gsap.set(tiles, { opacity:1 });
+		animating = false;
+	} else {
+		const tl = gsap.timeline({ onComplete: () => animating = false });
+		tl.timeScale(0.4);
+		liveTimelines.push(tl);
+		tl.fromTo(titleEl, { opacity:0, y:-20 }, { opacity:1, y:0, duration:1.0, ease:'power2.out' });
+		tl.fromTo(leadEl, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.8, ease:'power2.out' }, '+=0.3');
+		tl.fromTo(lbCard, { opacity:0, y:20, scale:0.95 }, { opacity:1, y:0, scale:1, duration:1.0, ease:'power2.out' }, '+=0.4');
+		// Animate bars growing — stagger across all 12 bars
+		bars.forEach((bar, i) => {
+			const offset = i === 0 ? '+=0.2' : '-=0.85';
+			tl.fromTo(bar, { width:'0%' }, { width: bar.dataset.target, duration:1.0, ease:'power2.out' }, offset);
+		});
+		// Animate feature tiles
+		tl.fromTo(tiles, { opacity:0, y:20, scale:0.85 }, { opacity:1, y:0, scale:1, duration:0.8, stagger:0.25, ease:'back.out(1.6)' }, '+=0.4');
+	}
+}
+
+// ── OVERVIEW STEP ─────────────────────────
+function renderOverviewStep() {
+	const ICON_BASE = 'lib/icons/Azure_Public_Service_Icons/ai + machine learning/';
+	const FOUNDRY_ICON = ICON_BASE + '03513-icon-service-AI-Studio.svg';
+	const services = [
+		{ icon: ICON_BASE + '02876-icon-service-Language.svg', label: t('svcLanguage') },
+		{ icon: ICON_BASE + '00797-icon-service-Speech-Services.svg', label: t('svcSpeech') },
+		{ icon: ICON_BASE + '00800-icon-service-Translator-Text.svg', label: t('svcTranslator') },
+		{ icon: ICON_BASE + '10162-icon-service-Cognitive-Services.svg', label: t('svcContentUnderstanding') }
+	];
+
+	const providers = [
+		{ key: 'microsoft', name: t('modelPhi4Provider'), logo: COMPANY_LOGOS.microsoft },
+		{ key: 'anthropic', name: t('modelClaudeProvider'), logo: COMPANY_LOGOS.anthropic },
+		{ key: 'openai',    name: t('modelGPTProvider'),    logo: COMPANY_LOGOS.openai },
+		{ key: 'meta',      name: t('modelLlamaProvider'),  logo: COMPANY_LOGOS.meta },
+		{ key: 'mistral',   name: t('modelMistralProvider'),logo: COMPANY_LOGOS.mistral },
+		{ key: 'deepseek',  name: t('modelDeepSeekProvider'),logo: COMPANY_LOGOS.deepseek }
+	];
+
+	const features = [
+		{ icon: '🤖', name: t('agentServiceTitle') },
+		{ icon: '🧠', name: t('foundryIQTitle') },
+		{ icon: '⚡', name: t('workflowsTitle') },
+		{ icon: '💻', name: t('foundryLocalTitle') }
+	];
+
+	// Compact benchmark data (reused from Step 3)
+	const benchModels = [
+		{ name: 'GPT-4o',     color: '#10a37f', quality: { w:'92%', v:'92'     }, cost: { w:'30%',  v:'$2.50'  }, throughput: { w:'71%',  v:'128 t/s' } },
+		{ name: 'Claude 3.5', color: '#d97706', quality: { w:'89%', v:'89'     }, cost: { w:'25%',  v:'$3.00'  }, throughput: { w:'53%',  v:'95 t/s'  } },
+		{ name: 'Llama 3.1',  color: '#0078d4', quality: { w:'84%', v:'84'     }, cost: { w:'72%',  v:'$0.60'  }, throughput: { w:'87%',  v:'156 t/s' } },
+		{ name: 'Phi-4',      color: '#5c2d91', quality: { w:'78%', v:'78'     }, cost: { w:'95%',  v:'$0.14'  }, throughput: { w:'100%', v:'180 t/s' } }
+	];
+	function ovBars(metric) {
+		return benchModels.map(m => `
+			<div class="ov-bar-row">
+				<span class="ov-bar-model">${m.name}</span>
+				<div class="ov-bar-track">
+					<div class="ov-bar-fill" style="background:linear-gradient(90deg, ${m.color}, ${m.color}aa);" data-target="${m[metric].w}">
+						<span class="ov-bar-val">${m[metric].v}</span>
+					</div>
+				</div>
+			</div>
+		`).join('');
+	}
+
+	const section = document.createElement('div');
+	section.className = 'overview-section';
+	section.style.opacity = '1';
+		section.innerHTML = `
+		<h2 class="overview-title">${t('overviewTitle')}</h2>
+
+		<!-- Resources nested boxes (Step 2) -->
+		<div class="overview-strip" id="ov-resources">
+			<div class="overview-strip-header">
+				<img src="https://cdn-dynmedia-1.microsoft.com/is/content/microsoftcorp/430500-Hero-Icon-24x24?resMode=sharp2&op_usm=1.5,0.65,15,0&qlt=100&fit=constrain" alt="Azure" style="width:28px;height:28px;">
+				<h3>${t('overviewResHeader')}</h3>
+			</div>
+			<div class="ov-box lv-sub">
+				<div class="ov-box-label"><img src="lib/icons/Azure_Public_Service_Icons/general/10002-icon-service-Subscriptions.svg" alt="Subscription"> ${t('overviewAzureSub')}</div>
+				<div class="ov-box lv-rg">
+					<div class="ov-box-label"><img src="lib/icons/Azure_Public_Service_Icons/general/10007-icon-service-Resource-Groups.svg" alt="Resource Group"> ${t('overviewRG')}</div>
+					<div class="ov-box lv-resource">
+						<div class="ov-box-label">
+							<img src="${FOUNDRY_ICON}" alt="Foundry Resource">
+							${t('resourceParentLabel')}
+							<span class="ov-box-badge">${t('resourceBadge')}</span>
+						</div>
+						<div class="ov-box-svc">
+							${services.map(s => `
+								<span class="ov-box-svc-chip">
+									<img src="${s.icon}" alt="${s.label}">
+									${s.label}
+								</span>
+							`).join('')}
+						</div>
+						<div class="ov-box lv-project">
+							<div class="ov-box-label">
+								<img src="${FOUNDRY_ICON}" alt="Foundry Project">
+								${t('resourceChildLabel')}
+							</div>
+							<div class="ov-box-projects">
+								<div class="ov-box lv-proj-item">
+									<div class="ov-box-label"><span class="box-icon">📂</span> ${t('overviewProjectA')}</div>
+									<div class="ov-agent-row">
+										<span class="ov-agent-chip"><span class="agent-dot"></span> ${t('overviewAgentA1')}</span>
+										<span class="ov-agent-chip"><span class="agent-dot"></span> ${t('overviewAgentA2')}</span>
+									</div>
+								</div>
+								<div class="ov-box lv-proj-item">
+									<div class="ov-box-label"><span class="box-icon">📂</span> ${t('overviewProjectB')}</div>
+									<div class="ov-agent-row">
+										<span class="ov-agent-chip"><span class="agent-dot"></span> ${t('overviewAgentB1')}</span>
+										<span class="ov-agent-chip"><span class="agent-dot"></span> ${t('overviewAgentB2')}</span>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- 2-column: Models (left) + Features (right) -->
+		<!-- 3-column: Models | Features | Benchmark -->
+		<div class="ov-three-col">
+			<div class="overview-strip" id="ov-models">
+				<div class="overview-strip-header">
+					<span class="strip-icon">🧩</span>
+					<h3>${t('overviewModelsHeader')}</h3>
+				</div>
+				<div class="overview-providers">
+					${providers.map(p => `
+						<span class="overview-provider-pill" data-p="${p.key}">
+							<img src="${p.logo}" alt="${p.name}">
+							${p.name}
+						</span>
+					`).join('')}
+					<span class="overview-provider-more">${t('modelsMore')}</span>
+				</div>
+			</div>
+
+			<div class="overview-strip" id="ov-features">
+				<div class="overview-strip-header">
+					<span class="strip-icon">🚀</span>
+					<h3>${t('overviewFeatHeader')}</h3>
+				</div>
+				<div class="overview-feat-row">
+					${features.map(f => `
+						<span class="overview-feat-chip">
+							<span class="feat-icon">${f.icon}</span>
+							${f.name}
+						</span>
+					`).join('')}
+				</div>
+			</div>
+
+			<div class="ov-benchmark" id="ov-benchmark">
+				<div class="ov-benchmark-header">
+					<span class="strip-icon">🏆</span>
+					<h3>${t('leaderboardTitle')}</h3>
+				</div>
+				<div class="ov-benchmark-bars">
+					<div class="ov-bar-group">
+						<span class="ov-bar-group-label">${t('leaderboardQuality')}</span>
+						${ovBars('quality')}
+					</div>
+					<div class="ov-bar-group">
+						<span class="ov-bar-group-label">${t('leaderboardThroughput')}</span>
+						${ovBars('throughput')}
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="overview-benefits" id="ov-benefits">
+			<span class="overview-benefit"><span class="check">✅</span> ${t('overviewBenefit1')}</span>
+			<span class="overview-benefit"><span class="check">🚀</span> ${t('overviewBenefit2')}</span>
+			<span class="overview-benefit"><span class="check">🔒</span> ${t('overviewBenefit3')}</span>
+			<span class="overview-benefit"><span class="check">🔑</span> ${t('overviewBenefit4')}</span>
+		</div>
+	`;
+	stage.appendChild(section);
+	liveEls.push(section);
+
+	const titleEl      = section.querySelector('.overview-title');
+	const resStrip     = section.querySelector('#ov-resources');
+	const nestedBoxes  = section.querySelectorAll('.ov-box');
+	const modelsStrip  = section.querySelector('#ov-models');
+	const providerPills= section.querySelectorAll('.overview-provider-pill');
+	const moreEl       = section.querySelector('.overview-provider-more');
+	const featStrip    = section.querySelector('#ov-features');
+	const featChips    = section.querySelectorAll('.overview-feat-chip');
+	const benchEl      = section.querySelector('#ov-benchmark');
+	const ovBarFills   = section.querySelectorAll('.ov-bar-fill');
+	const benefitItems = section.querySelectorAll('.overview-benefit');
+
+	if (motionPaused) {
+		gsap.set(titleEl, { opacity:1 });
+		gsap.set([resStrip, modelsStrip, featStrip, benchEl], { opacity:1 });
+		gsap.set(nestedBoxes, { opacity:1 });
+		gsap.set(providerPills, { opacity:1 });
+		gsap.set(moreEl, { opacity:1 });
+		gsap.set(featChips, { opacity:1 });
+		ovBarFills.forEach(b => b.style.width = b.dataset.target);
+		gsap.set(benefitItems, { opacity:1 });
+		animating = false;
+	} else {
+		const tl = gsap.timeline({ onComplete: () => animating = false });
+		tl.timeScale(0.4);
+		liveTimelines.push(tl);
+
+		// Title
+		tl.fromTo(titleEl, { opacity:0, y:-20 }, { opacity:1, y:0, duration:1.0, ease:'power2.out' });
+
+		// Resources strip + nested boxes cascade
+		tl.fromTo(resStrip, { opacity:0, y:20 }, { opacity:1, y:0, duration:1.0, ease:'power2.out' }, '+=0.3');
+		tl.fromTo(nestedBoxes, { opacity:0, scale:0.92 }, { opacity:1, scale:1, duration:0.6, stagger:0.1, ease:'back.out(1.4)' }, '-=0.5');
+
+		// Models + Features + Benchmark (3-column)
+		tl.fromTo(modelsStrip, { opacity:0, y:20 }, { opacity:1, y:0, duration:0.8, ease:'power2.out' }, '+=0.3');
+		tl.fromTo(providerPills, { opacity:0, scale:0.8 }, { opacity:1, scale:1, duration:0.5, stagger:0.08, ease:'back.out(1.6)' }, '-=0.4');
+		tl.fromTo(moreEl, { opacity:0 }, { opacity:1, duration:0.4, ease:'power2.out' }, '-=0.2');
+		tl.fromTo(featStrip, { opacity:0, y:20 }, { opacity:1, y:0, duration:0.8, ease:'power2.out' }, '-=1.2');
+		tl.fromTo(featChips, { opacity:0, y:10, scale:0.85 }, { opacity:1, y:0, scale:1, duration:0.5, stagger:0.1, ease:'back.out(1.6)' }, '-=0.4');
+		tl.fromTo(benchEl, { opacity:0, y:20 }, { opacity:1, y:0, duration:0.8, ease:'power2.out' }, '-=1.4');
+		ovBarFills.forEach((bar, i) => {
+			const offset = i === 0 ? '-=0.1' : '-=0.55';
+			tl.fromTo(bar, { width:'0%' }, { width: bar.dataset.target, duration:0.6, ease:'power2.out' }, offset);
+		});
+
+		// Benefits - staggered per item
+		tl.fromTo(benefitItems, { opacity:0, x:-15 }, { opacity:1, x:0, duration:0.6, stagger:0.15, ease:'back.out(1.4)' }, '+=0.3');
+	}
+}
+
+// ── CONTROLS ───────────────────────────────
+function interruptAnimation() {
+	liveTimelines.forEach(t => t.kill());
+	liveTimelines = [];
+	animating = false;
+}
+function next()   { interruptAnimation(); if (current < STEPS.length-1) renderStep(current+1); }
+function prev()   { interruptAnimation(); if (current > 0) renderStep(current-1); }
+function reset()  { interruptAnimation(); renderStep(0); }
+function replay() { if (current < 0) return; interruptAnimation(); renderStep(current); }
+
+document.getElementById('next-btn').addEventListener('click', e => { e.stopPropagation(); next(); });
+document.getElementById('prev-btn').addEventListener('click', e => { e.stopPropagation(); prev(); });
+document.getElementById('reset-btn').addEventListener('click', e => { e.stopPropagation(); reset(); });
+document.getElementById('replay-btn').addEventListener('click', e => { e.stopPropagation(); replay(); });
+
+// ── Speed control ────────────────────────
+const SPEED_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+let speedIndex = SPEED_STEPS.indexOf(1);
+const speedLabel = document.getElementById('speed-label');
+const speedDownBtn = document.getElementById('speed-down');
+const speedUpBtn   = document.getElementById('speed-up');
+function syncSpeedUI() {
+	const spd = SPEED_STEPS[speedIndex];
+	speedLabel.textContent = spd + '\u00d7';
+	speedDownBtn.disabled = speedIndex === 0;
+	speedUpBtn.disabled   = speedIndex === SPEED_STEPS.length - 1;
+	gsap.globalTimeline.timeScale(spd);
+}
+syncSpeedUI();
+speedDownBtn.addEventListener('click', e => { e.stopPropagation(); if (speedIndex > 0) { speedIndex--; syncSpeedUI(); } });
+speedUpBtn.addEventListener('click', e => { e.stopPropagation(); if (speedIndex < SPEED_STEPS.length-1) { speedIndex++; syncSpeedUI(); } });
+
+// ── Keyboard ──────────────────────────────
+if (window.AW && AW.keyboard) {
+	AW.keyboard.bind({ next, prev, reset, replay });
+} else {
+	document.addEventListener('keydown', e => {
+		if (['Space','ArrowRight','Enter'].includes(e.code)) { e.preventDefault(); next(); }
+		else if (e.code === 'ArrowLeft') { e.preventDefault(); prev(); }
+		else if (e.code === 'KeyR') { e.preventDefault(); reset(); }
+		else if (e.code === 'KeyP') { e.preventDefault(); replay(); }
+	});
+}
+
+// ── Resize ────────────────────────────────
+let resizeTimer;
+window.addEventListener('resize', () => {
+	clearTimeout(resizeTimer);
+	resizeTimer = setTimeout(() => renderStep(current), 200);
+});
+
+// ── Init ──────────────────────────────────
+counter.textContent = `1 / ${STEPS.length}`;
+renderStep(0);
+</script>
+
+</body>
+</html>
