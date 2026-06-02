@@ -1,0 +1,3216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<script src="/js/tracking.js"></script>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>What Makes an Agent — Microsoft Foundry</title>
+
+<link rel="stylesheet" href="https://unpkg.com/@microsoft/atlas-css/dist/index.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+<!-- AnimationWorks shared lib -->
+<script src="../../lib/js/aw-easings.js"></script>
+<script src="../../lib/js/aw-motion.js"></script>
+<script src="../../lib/js/aw-theme.js"></script>
+<script src="../../lib/js/aw-keyboard.js"></script>
+
+<style>
+	html, body { height:100%; margin:0; }
+	html { font-size:100%; }
+	body {
+		display:flex; flex-direction:column;
+		min-height:100vh;
+		overflow-x:hidden; overflow-y:auto;
+		padding-bottom:6rem;
+		background:
+			radial-gradient(circle at 15% 20%, rgba(92,45,145,0.18) 0%, transparent 55%),
+			radial-gradient(circle at 85% 80%, rgba(0,120,212,0.18) 0%, transparent 55%),
+			var(--theme-body-background);
+		color: var(--theme-text);
+	}
+
+	.app-header { display:flex; align-items:center; gap:1rem; flex-shrink:0; flex-wrap:wrap; font-size:16px; }
+
+	#stage {
+		position:relative; flex:1 1 auto; width:100%;
+		min-height:760px;
+		overflow:auto;
+	}
+	#stage:focus-visible, button:focus-visible, a:focus-visible {
+		outline:2px solid var(--theme-primary, #0078d4);
+		outline-offset:3px; border-radius:4px;
+	}
+
+	#fx-svg {
+		position:absolute; inset:0; width:100%; height:100%;
+		pointer-events:none; z-index:6; overflow:visible;
+	}
+
+	/* ── GENERIC SCENE WRAPPER ──────────────── */
+	.scene {
+		position:absolute;
+		top:3%; left:50%; transform:translateX(-50%);
+		width:min(1150px, 96%);
+		z-index:10;
+		display:flex; flex-direction:column; align-items:center;
+		gap:1.4rem;
+	}
+	.scene-title {
+		font-size:2.5rem; font-weight:700;
+		color:var(--theme-tertiary, #5c2d91);
+		margin:0; text-align:center;
+		opacity:0;
+	}
+	.scene-lead {
+		margin:0; text-align:center;
+		font-size:1.35rem; color:var(--theme-text);
+		max-width:880px; line-height:1.5;
+		opacity:0;
+	}
+	body.theme-dark .scene-title { color:#c9a5e8; }
+
+	/* ── CALLOUT ────────────────────────────── */
+	.callout {
+		position:absolute;
+		max-width:340px;
+		padding:1rem 1.2rem;
+		background:var(--theme-body-background);
+		border:1px solid var(--theme-border);
+		border-left:4px solid var(--theme-tertiary, #5c2d91);
+		border-radius:6px;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2));
+		font-size:1.05rem; line-height:1.45;
+		z-index:14; opacity:0;
+	}
+
+	/* ── STEP 1 · ANATOMY ───────────────────── */
+	.anatomy {
+		position:relative;
+		width:min(720px, 94vw);
+		height:520px;
+		margin-top:3rem;
+		margin-bottom:5rem;
+		opacity:0;
+	}
+	.anatomy-ring {
+		position:absolute; inset:0;
+		border:3px dashed var(--theme-tertiary, #5c2d91);
+		border-radius:50%;
+		opacity:0.55;
+	}
+	.anatomy-ring-label {
+		position:absolute; top:-1.1rem; left:50%; transform:translateX(-50%);
+		padding:0.25rem 0.9rem;
+		background:var(--theme-body-background);
+		border:1.5px solid var(--theme-tertiary, #5c2d91);
+		border-radius:999px;
+		font-size:1.05rem; font-weight:700; letter-spacing:0.05em;
+		color:var(--theme-tertiary, #5c2d91);
+		white-space:nowrap;
+	}
+	.core {
+		position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+		width:180px; height:180px; border-radius:50%;
+		display:flex; flex-direction:column; align-items:center; justify-content:center;
+		gap:0.2rem;
+		background: radial-gradient(circle at 50% 35%, rgba(0,120,212,0.18), rgba(92,45,145,0.16));
+		border:3px solid var(--theme-primary, #0078d4);
+		box-shadow:0 8px 30px rgba(0,120,212,0.25);
+		text-align:center;
+	}
+	.core .core-icon { font-size:3rem; line-height:1; }
+	.core .core-label { font-size:1.2rem; font-weight:700; color:var(--theme-text); }
+	.core .core-sub { font-size:0.82rem; line-height:1.3; color:var(--theme-text-subtle); max-width:140px; }
+
+	.satellite {
+		position:absolute;
+		display:flex; align-items:center; gap:0.6rem;
+		padding:0.7rem 1.1rem;
+		background:var(--theme-body-background);
+		border:2px solid var(--theme-border);
+		border-radius:14px;
+		box-shadow:0 4px 16px rgba(0,0,0,0.12);
+		opacity:0;
+		min-width:150px;
+	}
+	.satellite .sat-icon { font-size:1.7rem; line-height:1; }
+	.satellite .sat-label { font-size:1.18rem; font-weight:700; color:var(--theme-text); }
+	.satellite .sat-sub { font-size:0.92rem; color:var(--theme-text-subtle); display:block; }
+	.satellite[data-part="instructions"] { top:-1.4rem; left:50%; transform:translateX(-50%); border-color:#5c2d91; }
+	.satellite[data-part="knowledge"]    { top:50%; left:-1.4rem; transform:translateY(-50%); border-color:#10a37f; }
+	.satellite[data-part="tools"]        { top:50%; right:-1.4rem; transform:translateY(-50%); border-color:#e97526; }
+	.satellite[data-part="memory"]       { bottom:-1.4rem; left:50%; transform:translateX(-50%); border-color:#0078d4; }
+	.equals-badge {
+		position:absolute; bottom:-5.6rem; left:50%; transform:translateX(-50%);
+		display:flex; align-items:center; gap:0.6rem;
+		padding:0.7rem 1.6rem;
+		background: linear-gradient(135deg, rgba(92,45,145,0.12), rgba(0,120,212,0.12));
+		border:2.5px solid var(--theme-tertiary, #5c2d91);
+		border-radius:999px;
+		font-size:1.35rem; font-weight:700; color:var(--theme-text);
+		box-shadow:0 6px 24px rgba(92,45,145,0.2);
+		opacity:0; white-space:nowrap;
+	}
+	body.theme-dark .satellite { background:rgba(255,255,255,0.05); }
+
+	/* ── EDITOR / CARD (steps 2) ────────────── */
+	.editor-card {
+		width:min(760px, 96%);
+		background:var(--theme-body-background);
+		border:1.5px solid var(--theme-border);
+		border-radius:10px;
+		box-shadow:0 8px 30px rgba(0,0,0,0.2);
+		overflow:hidden; opacity:0;
+	}
+	.editor-chrome {
+		display:flex; align-items:center; gap:0.5rem;
+		padding:0.5rem 0.8rem;
+		background:var(--theme-border);
+		font-size:0.85rem; font-weight:600; color:var(--theme-text);
+	}
+	.editor-chrome .dot { width:11px; height:11px; border-radius:50%; }
+	.editor-chrome .dot-r { background:#e81123; }
+	.editor-chrome .dot-y { background:#ffb902; }
+	.editor-chrome .dot-g { background:#16c60c; }
+	.editor-chrome .editor-name { margin-left:0.6rem; }
+	.editor-body {
+		padding:1.2rem 1.4rem;
+		font-family:'Consolas','Courier New',monospace;
+		font-size:1.2rem; line-height:1.75;
+	}
+	.code-line { opacity:0; display:flex; gap:0.6rem; }
+	.code-key { color:var(--theme-tertiary, #5c2d91); font-weight:700; white-space:nowrap; }
+	body.theme-dark .code-key { color:#c9a5e8; }
+	.code-val { color:var(--theme-text); }
+	/* System / User message roles */
+	.role-legend { display:flex; gap:0.9rem; flex-wrap:wrap; justify-content:center; width:min(760px, 96%); }
+	.role-card {
+		flex:1; min-width:240px;
+		display:flex; flex-direction:column; gap:0.3rem;
+		padding:0.75rem 1rem;
+		border-radius:10px;
+		border:1.5px solid var(--theme-border);
+		background:var(--theme-card-background, #fff);
+		opacity:0;
+	}
+	.role-card.is-system { border-left:4px solid var(--theme-tertiary, #5c2d91); }
+	.role-card.is-user { border-left:4px solid var(--theme-primary, #0078d4); }
+	.role-name { display:flex; align-items:center; gap:0.45rem; font-weight:700; font-size:1.18rem; color:var(--theme-text); }
+	.role-card.is-system .role-name { color:var(--theme-tertiary, #5c2d91); }
+	body.theme-dark .role-card.is-system .role-name { color:#c9a5e8; }
+	.role-card.is-user .role-name { color:var(--theme-primary, #0078d4); }
+	.role-text { font-size:1.05rem; color:var(--theme-text-subtle); line-height:1.5; }
+	/* Coding-style messages[] example */
+	.msg-code {
+		width:min(760px, 96%);
+		border:1.5px solid var(--theme-border);
+		border-radius:10px;
+		background:#1e1e2e;
+		box-shadow:0 8px 30px rgba(0,0,0,0.25);
+		overflow:hidden; opacity:0;
+	}
+	.mc-head {
+		display:flex; align-items:center; gap:0.5rem;
+		padding:0.45rem 0.85rem;
+		background:#181825; color:#cdd6f4;
+		font-size:1rem; font-weight:600;
+	}
+	.mc-head .mc-fav { color:#89b4fa; font-weight:800; }
+	.mc-body {
+		padding:0.9rem 1.1rem;
+		font-family:'Consolas','Courier New',monospace;
+		font-size:1.12rem; line-height:1.7;
+		color:#cdd6f4;
+	}
+	.mc-line { opacity:0; white-space:pre-wrap; overflow-wrap:anywhere; padding-left:1.6rem; text-indent:-1.6rem; }
+	.mc-ind { padding-left:1.6rem; }
+	.mc-var { color:#89b4fa; }
+	.mc-punct { color:#9399b2; }
+	.mc-prop { color:#94e2d5; }
+	.mc-role-sys { color:#cba6f7; font-weight:700; }
+	.mc-role-user { color:#89b4fa; font-weight:700; }
+	.mc-str { color:#a6e3a1; }
+	.mc-comment { color:#6c7086; font-style:italic; }
+	.chip-row { display:flex; flex-wrap:wrap; gap:0.7rem; justify-content:center; }
+	.pill {
+		display:inline-flex; align-items:center; gap:0.5rem;
+		padding:0.55rem 1.1rem;
+		border-radius:999px;
+		font-size:1.05rem; font-weight:600;
+		border:2px solid var(--theme-tertiary, #5c2d91);
+		background:rgba(92,45,145,0.08);
+		color:var(--theme-text);
+		opacity:0;
+	}
+
+	/* ── AGENT NODE (shared center) ─────────── */
+	.agent-node {
+		display:flex; flex-direction:column; align-items:center; justify-content:center;
+		gap:0.2rem;
+		width:160px; height:160px; border-radius:24px;
+		background: linear-gradient(135deg, rgba(92,45,145,0.12), rgba(0,120,212,0.12));
+		border:2.5px solid var(--theme-tertiary, #5c2d91);
+		box-shadow:0 8px 28px rgba(92,45,145,0.2);
+		flex-shrink:0;
+	}
+	.agent-node .an-icon { font-size:3rem; line-height:1; }
+	.agent-node .an-label { font-size:1.05rem; font-weight:700; color:var(--theme-text); }
+
+	/* ── STEP 3 · KNOWLEDGE ─────────────────── */
+	.flow-3col {
+		display:flex; align-items:center; justify-content:center; gap:2rem;
+		flex-wrap:wrap; width:100%;
+	}
+	/* 3-column grid that fills the width — no vertical scrolling */
+	.know-grid {
+		display:grid;
+		grid-template-columns: minmax(200px,1fr) minmax(210px,1.05fr) minmax(210px,1fr);
+		gap:1.5rem 3rem;
+		align-items:stretch;
+		width:100%; max-width:1180px; margin:2.5rem auto 0;
+		position:relative;
+	}
+	.know-wires {
+		position:absolute; inset:0; width:100%; height:100%;
+		overflow:visible; pointer-events:none; z-index:0;
+	}
+	.kg-col { display:flex; flex-direction:column; gap:1.5rem; position:relative; z-index:1; }
+	.kg-col.kg-conv { align-items:center; }
+	.kg-col.kg-retrieve { align-items:center; }
+	.kg-spacer { flex:1 1 auto; min-height:0.5rem; }
+	.agent-node.thinking { animation: agentpulse 0.7s ease-in-out 2; }
+	@keyframes agentpulse {
+		0%,100% { box-shadow:0 8px 28px rgba(92,45,145,0.2); }
+		50% { box-shadow:0 0 0 10px rgba(92,45,145,0.16), 0 8px 28px rgba(92,45,145,0.4); }
+	}
+	.kg-colhead {
+		font-size:0.95rem; font-weight:800; text-transform:uppercase; letter-spacing:0.08em;
+		color:var(--theme-text-subtle); text-align:center; opacity:0;
+		margin-bottom:0.6rem;
+	}
+	.know-grid .bubble { max-width:none; width:100%; }
+	.know-grid .agent-node { width:118px; height:118px; }
+	.know-grid .agent-node .an-icon { font-size:2.3rem; }
+	.know-grid .know-search { width:100%; }
+	.know-grid .know-snippet { width:100%; }
+	.know-grid .source-stack { width:100%; }
+	.know-grid .know-source { min-width:0; }
+	@media (max-width: 720px) {
+		.know-grid { grid-template-columns: 1fr; }
+		.know-wires { display:none; }
+	}
+	.bubble {
+		max-width:260px;
+		padding:0.9rem 1.2rem;
+		border-radius:16px;
+		font-size:1.22rem; line-height:1.45;
+		box-shadow:0 4px 16px rgba(0,0,0,0.12);
+		opacity:0;
+	}
+	.bubble.user { background:rgba(0,120,212,0.1); border:2px solid #0078d4; border-bottom-left-radius:4px; }
+	.bubble.answer { background:rgba(16,163,127,0.1); border:2px solid #10a37f; border-bottom-right-radius:4px; }
+	.bubble .bubble-tag { display:block; font-size:0.92rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--theme-text-subtle); margin-bottom:0.25rem; }
+	.source-stack { display:flex; flex-direction:column; gap:0.5rem; }
+	.know-source {
+		display:flex; align-items:center; gap:0.6rem;
+		padding:0.5rem 0.85rem;
+		background:var(--theme-body-background);
+		border:2px solid var(--theme-border);
+		border-radius:12px;
+		font-size:1.12rem; font-weight:600; color:var(--theme-text);
+		box-shadow:0 2px 10px rgba(0,0,0,0.08);
+		opacity:0; min-width:230px;
+	}
+	.know-source .ks-icon { font-size:1.5rem; }
+	.know-source .ks-label { flex:1; }
+	.know-source .ks-score {
+		margin-left:auto; flex-shrink:0;
+		padding:0.1rem 0.55rem; border-radius:999px;
+		background:#10a37f; color:#fff;
+		font-size:0.95rem; font-weight:800; letter-spacing:0.02em;
+		opacity:0; transform:scale(0.6);
+	}
+	.know-source.lit { border-color:#10a37f; box-shadow:0 0 0 3px rgba(16,163,127,0.25); }
+	.know-source.scanning { border-color:var(--theme-primary,#0078d4); box-shadow:0 0 0 3px rgba(0,120,212,0.28); transform:translateX(4px); }
+	.know-source.matched { border-color:#10a37f; box-shadow:0 0 0 3px rgba(16,163,127,0.3); }
+	.know-source.dimmed { opacity:0.4; }
+	.know-source { transition:opacity 0.3s, box-shadow 0.25s, border-color 0.25s, transform 0.25s; }
+	body.theme-dark .know-source { background:rgba(255,255,255,0.05); }
+
+	/* search box (RAG query) */
+	.know-search {
+		display:flex; align-items:center; gap:0.55rem;
+		width:min(440px,100%);
+		padding:0.65rem 1rem;
+		border:2px solid var(--theme-primary,#0078d4);
+		border-radius:999px;
+		background:var(--theme-body-background);
+		box-shadow:0 4px 18px rgba(0,120,212,0.18);
+		opacity:0; font-size:1.12rem;
+	}
+	.know-search .ks-glass { font-size:1.4rem; line-height:1; flex-shrink:0; }
+	.know-search .ks-typed { font-weight:600; color:var(--theme-text); white-space:nowrap; overflow:hidden; text-overflow:clip; }
+	.know-search .ks-caret {
+		width:2px; height:1.15em; margin-left:1px;
+		background:var(--theme-primary,#0078d4);
+		display:inline-block; animation:ksblink 0.9s step-end infinite;
+	}
+	@keyframes ksblink { 50% { opacity:0; } }
+	.know-status {
+		font-size:1.08rem; font-weight:700; letter-spacing:0.02em;
+		color:var(--theme-primary,#0078d4); opacity:0; min-height:1.2em;
+	}
+	/* retrieved snippet */
+	.know-snippet {
+		width:min(560px,96%);
+		border:2px solid #10a37f;
+		border-radius:14px;
+		background:rgba(16,163,127,0.07);
+		padding:0.75rem 1rem;
+		box-shadow:0 6px 24px rgba(16,163,127,0.18);
+		opacity:0;
+	}
+	body.theme-dark .know-snippet { background:rgba(16,163,127,0.14); }
+	.know-snippet .kn-title {
+		display:flex; align-items:center; gap:0.4rem;
+		font-size:1.02rem; font-weight:800; text-transform:uppercase; letter-spacing:0.04em;
+		color:#0a7a5e; margin-bottom:0.35rem;
+	}
+	body.theme-dark .know-snippet .kn-title { color:#6ee7b7; }
+	.know-snippet .kn-text { font-size:1.14rem; line-height:1.5; color:var(--theme-text); font-style:italic; }
+
+	/* tools flow reuses the knowledge grid, with orange tool accents + a tech subtitle */
+	.know-source .ks-sub { display:block; font-size:0.9rem; font-weight:500; color:var(--theme-text-subtle); margin-top:0.1rem; }
+	.know-source .ks-pick {
+		margin-left:auto; flex-shrink:0;
+		padding:0.1rem 0.6rem; border-radius:999px;
+		background:#e97526; color:#fff;
+		font-size:0.92rem; font-weight:800; letter-spacing:0.02em; white-space:nowrap;
+		opacity:0; transform:scale(0.6);
+	}
+	.know-source.calling { border-color:#e97526; box-shadow:0 0 0 3px rgba(233,117,38,0.3); transform:translateX(4px); }
+	.know-source.picked { border-color:#e97526; box-shadow:0 0 0 3px rgba(233,117,38,0.35); }
+	.know-search.tools { border-color:#e97526; box-shadow:0 4px 18px rgba(233,117,38,0.2); }
+	.know-search.tools .ks-caret { background:#e97526; }
+	.know-status.tools { color:#e97526; }
+	/* tool call(s) can be long (chained) — let them wrap instead of clipping */
+	.know-search.tools { align-items:flex-start; border-radius:16px; font-size:1.02rem; padding:0.6rem 0.9rem; }
+	.know-search.tools .ks-glass { margin-top:0.1rem; }
+	.know-search.tools .ks-typed { white-space:normal; overflow:visible; text-overflow:clip; word-break:break-word; line-height:1.45; }
+	.know-search.tools .ks-caret { height:1.1em; }
+	.bubble .bubble-body { display:block; }
+	/* tools step cycles through 3 scenarios — extra top room for the indicator */
+	.know-grid.tools-grid { margin-top:4.6rem; }
+	.kg-scenario {
+		position:absolute; top:-3.8rem; left:50%; transform:translateX(-50%);
+		display:flex; flex-direction:column; align-items:center; gap:0.3rem; z-index:2;
+		font-size:1.02rem; font-weight:800; letter-spacing:0.01em; white-space:nowrap;
+	}
+	.kg-scenario .kgs-row { display:flex; align-items:center; gap:0.55rem; }
+	.kg-scenario .kgs-dot {
+		width:9px; height:9px; border-radius:50%; cursor:pointer;
+		background:var(--theme-border); transition:background 0.3s, transform 0.3s;
+	}
+	.kg-scenario .kgs-dot:hover { background:#f0a868; }
+	.kg-scenario .kgs-dot.active { background:#e97526; transform:scale(1.35); }
+	.kg-scenario .kgs-label { color:#e97526; }
+	.kg-scenario .kgs-nav {
+		border:none; background:transparent; cursor:pointer;
+		font-size:1.5rem; line-height:1; font-weight:800;
+		color:var(--theme-text-subtle); padding:0 0.2rem; border-radius:6px;
+		transition:color 0.2s, background 0.2s;
+	}
+	.kg-scenario .kgs-nav:hover { color:#e97526; background:rgba(233,117,38,0.12); }
+	.kg-scenario .kgs-nav:focus-visible { outline:2px solid #e97526; outline-offset:2px; }
+	@media (max-width: 720px) {
+		.know-grid.tools-grid { margin-top:3.8rem; }
+		.kg-scenario { font-size:0.92rem; }
+	}
+
+	/* ── STEP 4 · TOOLS ─────────────────────── */
+	.tool-orbit {
+		position:relative; width:min(820px,96vw); min-height:430px;
+		display:flex; align-items:center; justify-content:center;
+	}
+	.tool-grid {
+		display:grid; grid-template-columns:repeat(3, minmax(180px,1fr));
+		gap:1rem; width:100%;
+	}
+	.tool-chip {
+		display:flex; align-items:center; gap:0.7rem;
+		padding:0.85rem 1.1rem;
+		background:var(--theme-body-background);
+		border:2px solid #e97526;
+		border-radius:14px;
+		font-size:1.12rem; font-weight:600; color:var(--theme-text);
+		box-shadow:0 3px 12px rgba(233,117,38,0.15);
+		opacity:0;
+	}
+	.tool-chip .tc-icon { font-size:1.6rem; line-height:1; }
+	.tool-chip .tc-sub { display:block; font-size:0.92rem; font-weight:500; color:var(--theme-text-subtle); }
+	body.theme-dark .tool-chip { background:rgba(255,255,255,0.05); }
+
+	/* ── STEP 5 · MEMORY / THREAD ───────────── */
+	.thread {
+		width:min(620px,96%);
+		padding:1.2rem;
+		border:2px solid var(--theme-primary, #0078d4);
+		border-radius:16px;
+		background:rgba(0,120,212,0.04);
+		display:flex; flex-direction:column; gap:0.7rem;
+		opacity:0;
+	}
+	.thread-head {
+		display:flex; align-items:center; gap:0.6rem;
+		font-size:1.15rem; font-weight:700; color:var(--theme-primary,#0078d4);
+		padding-bottom:0.4rem; border-bottom:1px dashed var(--theme-border);
+	}
+	.run-label {
+		font-size:0.9rem; font-weight:700; text-transform:uppercase; letter-spacing:0.1em;
+		color:var(--theme-text-subtle); margin-top:0.4rem; opacity:0;
+	}
+	.turn {
+		display:flex; gap:0.6rem; align-items:flex-start;
+		padding:0.6rem 0.9rem; border-radius:12px;
+		font-size:1.15rem; line-height:1.45; opacity:0;
+	}
+	.turn.user { background:rgba(0,120,212,0.1); }
+	.turn.assistant { background:rgba(16,163,127,0.1); }
+	.turn .turn-who { font-weight:700; white-space:nowrap; }
+	.memory-note {
+		font-size:1.05rem; text-align:center; color:var(--theme-text);
+		max-width:640px; opacity:0;
+	}
+	.memory-note strong { color:var(--theme-tertiary,#5c2d91); }
+
+	/* ── STEP 6 · RUN LOOP ──────────────────── */
+	.loop {
+		position:relative; width:min(900px,96vw); min-height:420px;
+		display:grid; grid-template-columns:repeat(3,1fr); gap:1.2rem 2.2rem;
+		align-items:center; justify-items:center;
+	}
+	.loop-node {
+		position:relative;
+		width:100%; max-width:240px;
+		padding:1rem 1.1rem;
+		background:var(--theme-body-background);
+		border:2px solid var(--theme-border);
+		border-radius:14px;
+		box-shadow:0 4px 16px rgba(0,0,0,0.1);
+		text-align:center; opacity:0;
+	}
+	.loop-node .ln-num {
+		position:absolute; top:-0.8rem; left:-0.8rem;
+		width:1.9rem; height:1.9rem; border-radius:50%;
+		display:flex; align-items:center; justify-content:center;
+		background:var(--theme-tertiary,#5c2d91); color:#fff;
+		font-size:0.95rem; font-weight:700;
+	}
+	.loop-node .ln-icon { font-size:1.8rem; line-height:1; }
+	.loop-node .ln-title { font-size:1.15rem; font-weight:700; color:var(--theme-text); margin-top:0.2rem; }
+	.loop-node .ln-sub { font-size:0.95rem; color:var(--theme-text-subtle); }
+	.loop-node[data-kind="answer"] { border-color:#10a37f; }
+	.loop-node[data-kind="reason"] { border-color:#5c2d91; }
+	.loop-node[data-kind="act"] { border-color:#e97526; }
+	.loop-node[data-kind="user"] { border-color:#0078d4; }
+	.loop-iterate {
+		grid-column:1 / -1; text-align:center;
+		font-size:1.05rem; font-weight:600; color:var(--theme-tertiary,#5c2d91);
+		opacity:0;
+	}
+	body.theme-dark .loop-node { background:rgba(255,255,255,0.05); }
+
+	/* ── STEP 7 · WORKFLOWS ─────────────────── */
+	.wf-stage { display:flex; align-items:center; justify-content:center; gap:1.4rem; flex-wrap:wrap; }
+	.wf-agent {
+		display:flex; flex-direction:column; align-items:center; gap:0.3rem;
+		padding:1rem 1.2rem; min-width:150px;
+		background:var(--theme-body-background);
+		border:2.5px solid var(--theme-tertiary,#5c2d91);
+		border-radius:16px;
+		box-shadow:0 4px 18px rgba(92,45,145,0.15);
+		opacity:0;
+	}
+	.wf-agent .wfa-icon { font-size:2.2rem; line-height:1; }
+	.wf-agent .wfa-label { font-size:1.15rem; font-weight:700; color:var(--theme-text); }
+	.wf-agent .wfa-sub { font-size:0.92rem; color:var(--theme-text-subtle); }
+	.wf-arrow { font-size:2rem; color:var(--theme-tertiary,#5c2d91); opacity:0; }
+	.wf-specialists { display:flex; gap:1rem; flex-wrap:wrap; justify-content:center; }
+	.pattern-chip {
+		display:inline-flex; align-items:center; gap:0.5rem;
+		padding:0.55rem 1.1rem; border-radius:999px;
+		font-size:1rem; font-weight:600;
+		border:2px solid var(--theme-border);
+		background:var(--theme-body-background); color:var(--theme-text);
+		opacity:0;
+	}
+	body.theme-dark .wf-agent, body.theme-dark .pattern-chip { background:rgba(255,255,255,0.05); }
+
+	/* ── STEP 8 · RECAP ─────────────────────── */
+	.recap-eq {
+		display:flex; flex-wrap:wrap; align-items:stretch; justify-content:center; gap:0.8rem;
+	}
+	.recap-item {
+		display:flex; flex-direction:column; align-items:center; gap:0.3rem;
+		padding:1rem 1.2rem; min-width:150px;
+		background:var(--theme-body-background);
+		border:2px solid var(--theme-border);
+		border-radius:14px; box-shadow:0 3px 12px rgba(0,0,0,0.1);
+		opacity:0;
+	}
+	.recap-item .ri-icon { font-size:1.9rem; line-height:1; }
+	.recap-item .ri-label { font-size:1.12rem; font-weight:700; color:var(--theme-text); }
+	.recap-item .ri-sub { font-size:0.92rem; color:var(--theme-text-subtle); text-align:center; }
+	.recap-plus { display:flex; align-items:center; font-size:1.8rem; font-weight:700; color:var(--theme-tertiary,#5c2d91); opacity:0; }
+	.recap-agent {
+		display:flex; align-items:center; gap:1rem;
+		padding:1.2rem 2rem;
+		background: linear-gradient(135deg, rgba(92,45,145,0.12), rgba(0,120,212,0.12));
+		border:2.5px solid var(--theme-tertiary,#5c2d91);
+		border-radius:18px; box-shadow:0 6px 28px rgba(92,45,145,0.2);
+		opacity:0;
+	}
+	.recap-agent .ra-icon { font-size:2.8rem; }
+	.recap-agent .ra-title { font-size:1.5rem; font-weight:700; color:var(--theme-text); }
+	.recap-agent .ra-sub { font-size:1.1rem; color:var(--theme-text-subtle); }
+	.recap-foot { font-size:1.05rem; color:var(--theme-text); text-align:center; max-width:760px; opacity:0; }
+	body.theme-dark .recap-item { background:rgba(255,255,255,0.05); }
+
+	/* ── HEADER BACK LINK ───────────────────── */
+	.header-back-link {
+		display:inline-flex; align-items:center; gap:0.25rem;
+		padding:0.2rem 0.6rem;
+		font-size:0.8rem; font-weight:600;
+		color:var(--theme-text-subtle);
+		border:1px solid var(--theme-border);
+		border-radius:999px;
+		text-decoration:none; white-space:nowrap;
+		transition:background 0.15s, color 0.15s, border-color 0.15s;
+	}
+	.header-back-link:hover {
+		color:var(--theme-primary);
+		border-color:var(--theme-primary);
+		background:var(--theme-primary-translucent, rgba(0,120,212,0.12));
+	}
+
+	/* ── CONTOSO BROWSER + CHAT (before / after) ── */
+	.biz-browser {
+		width:min(620px, 96%);
+		border:1.5px solid var(--theme-border);
+		border-radius:10px;
+		background:var(--theme-card-background, #fff);
+		box-shadow:0 8px 30px rgba(0,0,0,0.2);
+		overflow:hidden; opacity:0;
+	}
+	/* Microsoft Edge chrome */
+	.edge-tabstrip {
+		display:flex; align-items:center; gap:0.3rem;
+		padding:0.35rem 0.5rem 0;
+		background:#dfe3e8;
+	}
+	body.theme-dark .edge-tabstrip { background:#2b2b2b; }
+	.edge-logo { width:18px; height:18px; flex-shrink:0; margin:0 0.25rem; }
+	.edge-logo svg { display:block; width:100%; height:100%; }
+	.edge-tab {
+		display:flex; align-items:center; gap:0.45rem;
+		padding:0.45rem 0.7rem;
+		background:var(--theme-card-background, #fff);
+		border-radius:8px 8px 0 0;
+		max-width:240px; box-shadow:0 -1px 2px rgba(0,0,0,0.06);
+	}
+	body.theme-dark .edge-tab { background:#3b3b3b; }
+	.edge-tab-fav {
+		width:15px; height:15px; flex-shrink:0; border-radius:3px;
+		display:flex; align-items:center; justify-content:center;
+		background:#0078d4; color:#fff; font-size:0.6rem; font-weight:800;
+	}
+	.edge-tab-title { font-size:0.85rem; color:var(--theme-text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+	.edge-tab-close { margin-left:0.2rem; color:var(--theme-text-subtle); font-size:0.8rem; }
+	.edge-newtab { color:var(--theme-text-subtle); font-size:1.05rem; padding:0 0.35rem; }
+	.edge-wincontrols { margin-left:auto; display:flex; gap:0.85rem; color:var(--theme-text-subtle); font-size:0.78rem; padding-right:0.25rem; }
+	.edge-toolbar {
+		display:flex; align-items:center; gap:0.35rem;
+		padding:0.4rem 0.6rem;
+		background:var(--theme-card-background, #fff);
+		border-bottom:1px solid var(--theme-border);
+	}
+	.edge-navbtn {
+		width:1.7rem; height:1.7rem; border-radius:50%; flex-shrink:0;
+		display:flex; align-items:center; justify-content:center;
+		color:var(--theme-text-subtle); font-size:0.95rem;
+	}
+	.edge-navbtn.is-dim { opacity:0.38; }
+	.edge-omnibox {
+		flex:1; display:flex; align-items:center; gap:0.45rem;
+		padding:0.35rem 0.8rem; margin:0 0.2rem;
+		background:var(--theme-subtle-bg, #f1f3f5);
+		border-radius:999px; font-size:0.9rem;
+	}
+	body.theme-dark .edge-omnibox { background:rgba(255,255,255,0.08); }
+	.edge-omni-lock { font-size:0.8rem; color:#00b782; }
+	.edge-omni-url { flex:1; color:var(--theme-text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+	.edge-omni-url .om-dim { color:var(--theme-text-subtle); }
+	.edge-omni-star { color:var(--theme-text-subtle); font-size:0.95rem; }
+	.edge-body { padding:1rem 1.1rem; display:flex; flex-direction:column; gap:0.5rem; }
+	.biz-body { padding:1rem 1.1rem; display:flex; flex-direction:column; gap:0.5rem; }
+	.biz-hero { font-size:1.6rem; font-weight:700; color:var(--theme-primary, #0078d4); }
+	.biz-tagline { font-size:1.1rem; color:var(--theme-text-subtle); line-height:1.4; }
+	.biz-cards { display:flex; gap:0.5rem; }
+	.biz-card {
+		flex:1; padding:0.5rem; text-align:center;
+		background:var(--theme-subtle-bg, #f6f6f6);
+		border:1px solid var(--theme-border); border-radius:6px;
+		font-size:1rem; color:var(--theme-text-subtle); white-space:nowrap;
+		overflow:hidden; text-overflow:ellipsis;
+	}
+	body.theme-dark .biz-card, body.theme-dark .biz-url { background:rgba(255,255,255,0.06); }
+
+	.biz-chat {
+		margin-top:0.5rem; width:100%;
+		border:1.5px solid var(--theme-primary, #0078d4);
+		border-radius:10px;
+		background:var(--theme-card-background, #fff);
+		box-shadow:0 4px 16px rgba(0,0,0,0.12);
+		overflow:hidden; opacity:0;
+	}
+	.biz-chat-standalone { width:min(420px, 100%); margin-top:0; }
+	.biz-chat-head {
+		display:flex; align-items:center; gap:0.45rem;
+		padding:0.5rem 0.8rem;
+		background:var(--theme-primary, #0078d4);
+		color:#fff; font-size:1.15rem; font-weight:700;
+	}
+	.biz-chat-badge {
+		margin-left:auto; font-size:0.8rem; font-weight:800;
+		text-transform:uppercase; letter-spacing:0.05em;
+		padding:0.15rem 0.5rem; border-radius:999px;
+		background:rgba(255,255,255,0.22);
+	}
+	.biz-chat.is-risk .biz-chat-head { background:#a4262c; }
+	.biz-chat.is-agent .biz-chat-head { background:#107c10; }
+	.biz-risk {
+		padding:0.5rem 0.75rem;
+		background:rgba(253,231,233,0.92);
+		border-bottom:1px solid rgba(209,52,56,0.24);
+	}
+	body.theme-dark .biz-chat.is-risk .biz-risk { background:rgba(164,38,44,0.18); }
+	.biz-risk-label { font-size:0.95rem; font-weight:700; color:#a4262c; margin-bottom:0.35rem; opacity:0; }
+	body.theme-dark .biz-risk-label { color:#ef9a9a; }
+	.biz-topic-grid { display:flex; flex-wrap:wrap; gap:0.35rem; }
+	.biz-topic-chip {
+		display:inline-flex; align-items:center;
+		padding:0.22rem 0.55rem; border-radius:999px;
+		background:#fff8f8; border:1.5px solid rgba(232,17,35,0.34);
+		color:#d13438; font-size:0.92rem; font-weight:700; opacity:0;
+	}
+	body.theme-dark .biz-topic-chip { background:rgba(232,17,35,0.12); }
+	.biz-topic-chip::before {
+		content:'!'; display:inline-flex; align-items:center; justify-content:center;
+		width:0.9rem; height:0.9rem; margin-right:0.25rem;
+		border-radius:999px; background:#d13438; color:#fff; font-size:0.62rem; font-weight:800;
+	}
+	.biz-chat-area { padding:0.7rem 0.8rem; display:flex; flex-direction:column; gap:0.45rem; }
+	.biz-msg {
+		position:relative; max-width:88%;
+		padding:0.45rem 0.75rem; border-radius:10px;
+		font-size:1.08rem; line-height:1.35; opacity:0;
+	}
+	.biz-msg-user { align-self:flex-end; background:#0078d4; color:#fff; border-bottom-right-radius:3px; }
+	.biz-msg-bot {
+		align-self:flex-start;
+		background:var(--theme-subtle-bg, #f0f0f0); color:var(--theme-text);
+		border-bottom-left-radius:3px;
+	}
+	body.theme-dark .biz-msg-bot { background:rgba(255,255,255,0.08); }
+	.biz-msg-good { border:1.5px solid #107c10; }
+	.biz-msg-check {
+		position:absolute; top:-9px; left:-9px;
+		width:1.4rem; height:1.4rem; border-radius:50%;
+		display:flex; align-items:center; justify-content:center;
+		background:#107c10; color:#fff; font-size:0.85rem; font-weight:800;
+		border:2px solid var(--theme-card-background, #fff);
+	}
+	.biz-msg-topic {
+		display:block; font-size:0.82rem; font-weight:800;
+		text-transform:uppercase; letter-spacing:0.04em;
+		opacity:0.7; margin-bottom:0.1rem;
+	}
+	.biz-msg-x {
+		position:absolute; top:-12px; right:-10px;
+		width:26px; height:26px; border-radius:50%;
+		border:3px solid var(--theme-card-background, #fff);
+		box-shadow:0 4px 12px rgba(209,52,56,0.38);
+		opacity:0; transform:rotate(-12deg);
+	}
+	.biz-msg-x svg { display:block; width:100%; height:100%; }
+
+	.transition-line {
+		font-size:1.2rem; font-weight:700;
+		color:var(--theme-tertiary, #5c2d91);
+		text-align:center; opacity:0;
+	}
+
+	/* ── BUILD STEP ─────────────────────────── */
+	.build-cols {
+		display:flex; gap:1.5rem; flex-wrap:wrap;
+		align-items:flex-start; justify-content:center; width:100%;
+	}
+	.build-steps {
+		flex:1 1 300px; max-width:420px;
+		display:flex; flex-direction:column; gap:0.5rem;
+	}
+	.build-steps-title {
+		font-size:0.95rem; font-weight:800; letter-spacing:0.1em; text-transform:uppercase;
+		color:var(--theme-tertiary, #5c2d91); opacity:0;
+	}
+	.build-step {
+		display:flex; align-items:center; gap:0.7rem;
+		padding:0.55rem 0.8rem;
+		background:var(--theme-body-background);
+		border:1px solid var(--theme-border); border-radius:10px;
+		opacity:0;
+	}
+	.build-num {
+		flex-shrink:0; width:1.7rem; height:1.7rem; border-radius:50%;
+		display:flex; align-items:center; justify-content:center;
+		background:var(--theme-tertiary, #5c2d91); color:#fff; font-weight:700; font-size:0.9rem;
+	}
+	.build-step-label { font-size:1.1rem; font-weight:700; color:var(--theme-text); display:block; }
+	.build-step-sub { font-size:0.92rem; color:var(--theme-text-subtle); display:block; }
+	body.theme-dark .build-step { background:rgba(255,255,255,0.05); }
+
+	/* ── BUILD STEP · INTEGRATE (code) ──────── */
+	.integrate-block {
+		flex:1 1 360px; max-width:520px;
+		display:flex; flex-direction:column; align-items:stretch; gap:0.4rem;
+	}
+	.integrate-head { text-align:left; opacity:0; }
+	.integrate-title {
+		display:block; font-size:1rem; font-weight:800;
+		color:var(--theme-tertiary, #5c2d91);
+	}
+	.integrate-sub {
+		display:block; font-size:0.82rem; color:var(--theme-text-subtle); margin-top:0.1rem;
+	}
+	.code-card {
+		width:100%;
+		border:1px solid #30363d; border-radius:8px;
+		background:#1e1e1e; overflow:hidden; opacity:0;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.25));
+	}
+	.code-head {
+		display:flex; align-items:center; justify-content:space-between; gap:0.5rem;
+		padding:0 0 0 0.85rem; background:#323233; border-bottom:1px solid #1e1e1e;
+	}
+	.code-file { font-size:0.9rem; color:#cccccc; font-weight:500; padding:0.6rem 0; }
+	.code-winctrls { display:flex; align-items:stretch; height:100%; }
+	.code-wbtn {
+		display:flex; align-items:center; justify-content:center;
+		width:2.6rem; align-self:stretch; padding:0.55rem 0;
+		color:#cccccc; font-family:'Segoe UI Symbol','Segoe MDL2 Assets',sans-serif; font-size:0.7rem;
+	}
+	.code-wbtn.is-close:hover { background:#e81123; color:#fff; }
+	.code-wbtn:hover { background:rgba(255,255,255,0.1); }
+	.code-body {
+		margin:0; padding:0.8rem 1rem;
+		font-family:'Cascadia Code', 'Consolas', 'SFMono-Regular', monospace;
+		font-size:0.86rem; line-height:1.5; color:#d4d4d4;
+		white-space:pre-wrap; overflow-wrap:break-word; word-break:break-word; tab-size:4;
+	}
+	.code-body .tok-com { color:#6a9955; }
+	.code-body .tok-kw  { color:#569cd6; }
+	.code-body .tok-str { color:#ce9178; }
+	.code-body .tok-fn  { color:#dcdcaa; }
+	.code-body .tok-mod { color:#4ec9b0; }
+
+	/* Roomier spacing for the Build step (recap row removed to free space) */
+	.scene-build { gap:1.55rem; top:3%; justify-content:flex-start; }
+	.scene-build .scene-title { font-size:2.4rem; }
+	.scene-build .scene-lead { font-size:1.25rem; max-width:880px; }
+	.scene-build .build-cols { gap:1.4rem; align-items:stretch; flex-wrap:nowrap; }
+	.scene-build .build-steps { flex:1 1 280px; max-width:330px; }
+	.scene-build .biz-chat-standalone { width:min(330px, 100%); flex:1 1 280px; }
+	.scene-build .integrate-block { flex:1 1 380px; max-width:470px; }
+	.scene-build .build-step { padding:0.6rem 0.9rem; }
+	.scene-build .build-step-label { font-size:1.12rem; }
+	.scene-build .build-step-sub { font-size:0.98rem; }
+	.scene-build .value-grid { gap:0.6rem; }
+	.scene-build .value-chip { padding:0.5rem 1.05rem; font-size:1.02rem; }
+	.scene-build .recap-foot { font-size:1.05rem; max-width:900px; }
+	.scene-build .integrate-title { font-size:1.18rem; }
+	.scene-build .integrate-sub { font-size:0.92rem; }
+
+	.value-grid { display:flex; flex-wrap:wrap; gap:0.6rem; justify-content:center; }
+	.value-chip {
+		display:inline-flex; align-items:center; gap:0.4rem;
+		padding:0.5rem 1rem; border-radius:999px;
+		font-size:1rem; font-weight:700;
+		border:2px solid #107c10; background:rgba(16,124,16,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .value-chip { background:rgba(16,124,16,0.16); }
+
+	/* ── CONTROLS ───────────────────────────── */
+	#controls {
+		position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+		z-index:40;
+		display:flex; align-items:center; gap:12px;
+		padding:12px 16px;
+		background:var(--theme-body-background);
+		border:1px solid var(--theme-border); border-radius:999px;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2));
+		font-size:16px;
+	}
+	#controls .button { font-size:16.8px; padding:9.6px 17.6px; line-height:1.2; font-weight:600; }
+	.step-counter {
+		min-width:90px; text-align:center; font-variant-numeric:tabular-nums;
+		font-size:18.4px; font-weight:600; color:var(--theme-text-subtle);
+	}
+	.speed-control {
+		display:inline-flex; align-items:center; gap:0.25rem;
+		padding:0.25rem 0.4rem;
+		border:1px solid var(--theme-border);
+		border-radius:999px;
+	}
+	.speed-control .speed-btn {
+		width:1.9rem; height:1.9rem;
+		padding:0; line-height:1;
+		font-size:1.15rem; font-weight:700;
+		border-radius:50%;
+	}
+	.speed-control .speed-btn[disabled] { opacity:0.4; cursor:not-allowed; }
+	.speed-label {
+		min-width:3.25rem; text-align:center;
+		font-variant-numeric:tabular-nums;
+		font-size:1rem; font-weight:600;
+		color:var(--theme-text);
+	}
+
+	#callout-toggle, #outline-toggle {
+		border:1px solid var(--theme-border);
+		border-radius:4px;
+		transition:background 0.2s ease, color 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+	}
+	#callout-toggle.toggle-active, #outline-toggle.toggle-active {
+		background:var(--theme-primary-translucent, rgba(0,120,212,0.12));
+		color:var(--theme-primary, #0078d4);
+		border-color:var(--theme-primary, #0078d4);
+		font-weight:600;
+	}
+	#callout-toggle:not(.toggle-active), #outline-toggle:not(.toggle-active) { opacity:0.6; }
+
+	#step-outline {
+		position:fixed; top:4.5rem; right:1rem;
+		width:320px; max-height:calc(100vh - 8rem); overflow-y:auto;
+		padding:1.1rem;
+		background:var(--theme-body-background);
+		border:1px solid var(--theme-border);
+		border-radius:6px;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2));
+		z-index:35; font-size:1rem; line-height:1.55;
+	}
+	#step-outline[hidden] { display:none; }
+	#step-outline h2 {
+		font-size:0.85rem; font-weight:700; letter-spacing:0.18em; text-transform:uppercase;
+		color: var(--theme-tertiary, #5c2d91); margin-bottom:0.5rem;
+	}
+	#step-outline .outline-section {
+		margin-top:0.6rem; padding-top:0.6rem; border-top:1px solid var(--theme-border);
+	}
+	#step-outline .outline-section:first-child { margin-top:0; padding-top:0; border-top:0; }
+	#step-outline .stat-row {
+		display:flex; justify-content:space-between; align-items:baseline;
+		gap:0.75rem; padding:0.2rem 0;
+	}
+	#step-outline .stat-row span:first-child { color:var(--theme-text-subtle); flex:0 0 auto; max-width:45%; }
+	#step-outline .stat-row span:last-child { text-align:right; font-weight:600; color:var(--theme-tertiary, #5c2d91); flex:1 1 auto; }
+
+	.progress-track { position:relative; height:5px; background:var(--theme-border, #e0e0e0); flex-shrink:0; }
+	.progress-fill {
+		position:absolute; left:0; top:0; bottom:0; width:0%;
+		background: #5c2d91;
+		transition:width 0.5s cubic-bezier(0.2,0.8,0.2,1);
+	}
+
+	.theme-toggle {
+		display:inline-flex; align-items:center; justify-content:center;
+		width:2.25rem; height:2.25rem;
+		padding:0; margin-inline-start:0.25rem;
+		background:transparent;
+		border:1px solid var(--theme-border);
+		border-radius:999px;
+		color:var(--theme-text);
+		cursor:pointer;
+		transition:background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+	}
+	.theme-toggle:hover {
+		background:var(--theme-primary-translucent, rgba(0,120,212,0.12));
+		color:var(--theme-primary);
+		border-color:var(--theme-primary);
+	}
+	.theme-toggle .theme-icon { display:none; }
+	.theme-toggle[data-theme="dark"]  .icon-sun  { display:block; }
+	.theme-toggle[data-theme="light"] .icon-moon { display:block; }
+
+	.sr-only {
+		position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+		overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
+	}
+	.skip-link {
+		position:absolute; top:-100px; left:0.5rem; z-index:100;
+		padding:0.5rem 1rem;
+		background:var(--theme-primary);
+		color:var(--theme-primary-invert, #fff);
+		border-radius:4px; text-decoration:none; font-weight:600;
+	}
+	.skip-link:focus { top:0.5rem; }
+
+	.lang-select {
+		appearance: none; -webkit-appearance: none;
+		background: var(--theme-card-background, #fff);
+		color: var(--theme-body-text, #333);
+		border: 1px solid var(--theme-border, rgba(0,0,0,0.2));
+		border-radius: 4px;
+		padding: 4px 24px 4px 8px;
+		font-size: 0.8rem; font-family: 'Segoe UI', sans-serif; cursor: pointer;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+		background-repeat: no-repeat; background-position: right 6px center; min-width: 80px;
+	}
+	.lang-select:hover { border-color: var(--theme-primary, #0078d4); }
+	.lang-select:focus { outline: 2px solid var(--theme-primary, #0078d4); outline-offset: 1px; }
+	body.theme-dark .lang-select {
+		background-color: var(--theme-body-background, #1a1a2e);
+		color: var(--theme-body-text, #e0e0e0);
+		border-color: rgba(255,255,255,0.15);
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23aaa' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+	}
+	body.theme-dark .lang-select option { background: var(--theme-body-background, #1a1a2e); color: var(--theme-body-text, #e0e0e0); }
+
+	.font-size-controls { display:flex; align-items:center; gap:2px; }
+	.font-size-btn {
+		background: var(--theme-card-background, #fff);
+		color: var(--theme-body-text, #333);
+		border: 1px solid var(--theme-border, rgba(0,0,0,0.2));
+		border-radius: 4px; padding: 3px 8px;
+		font-size: 0.8rem; font-weight: 700; font-family: 'Segoe UI', sans-serif;
+		cursor: pointer; line-height: 1.2;
+		transition: background 0.15s, border-color 0.15s;
+	}
+	.font-size-btn:hover { border-color: var(--theme-primary, #0078d4); }
+	body.theme-dark .font-size-btn {
+		background: var(--theme-body-background, #1a1a2e);
+		color: var(--theme-body-text, #e0e0e0);
+		border-color: rgba(255,255,255,0.15);
+	}
+
+	@media (max-width:640px) {
+		.app-header { font-size:0.95rem; }
+		.scene-title { font-size:1.9rem; }
+		.tool-grid { grid-template-columns:1fr; }
+		.loop { grid-template-columns:1fr; }
+	}
+	@media (prefers-reduced-motion: reduce) {
+		*, *::before, *::after { transition:none !important; animation:none !important; }
+		.progress-fill { transition:none !important; }
+	}
+</style>
+</head>
+
+<body class="theme-dark" data-theme-preset="atlas">
+
+	<a href="#stage" class="skip-link">Skip to diagram</a>
+
+	<header class="app-header padding-block-xs padding-inline-md border-bottom" role="banner" style="justify-content:space-between;">
+		<div class="display-flex align-items-center gap-xs">
+			<a href="ModelDeployment.html" class="header-back-link" aria-label="Back to the Model Deployment story" title="Previous story: Model Deployment">← Model Deployment</a>
+			<a href="../../index.html" class="display-flex align-items-center gap-xs color-text" aria-label="Back to home">
+				<span id="page-title" class="font-size-h6 font-weight-semibold">🤖 What Makes an Agent</span>
+			</a>
+		</div>
+		<nav class="display-flex gap-xs align-items-center" aria-label="Primary">
+			<span id="breadcrumb" class="font-size-sm color-text-subtle">Step 1</span>
+			<button id="callout-toggle" type="button" class="button button-clear button-sm" aria-label="Toggle callouts">💬 Callout</button>
+			<button id="outline-toggle" type="button" class="button button-clear button-sm"
+					aria-controls="step-outline" aria-expanded="false" aria-label="Hide text outline">📝 Outline</button>
+		</nav>
+		<div class="display-flex gap-xs align-items-center">
+			<select id="lang-select" class="lang-select" aria-label="Language">
+				<option value="en">English</option>
+				<option value="es">Español</option>
+				<option value="ja">日本語</option>
+				<option value="ko">한국어</option>
+				<option value="pt">Português</option>
+			</select>
+			<div class="font-size-controls">
+				<button id="font-decrease" type="button" class="font-size-btn" aria-label="Decrease font size" title="Smaller text">A−</button>
+				<button id="font-increase" type="button" class="font-size-btn" aria-label="Increase font size" title="Larger text">A+</button>
+			</div>
+			<button id="theme-toggle" type="button" class="theme-toggle" aria-label="Switch to light theme" title="Switch to light theme">
+				<svg class="theme-icon icon-moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+					<path fill="currentColor" d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/>
+				</svg>
+				<svg class="theme-icon icon-sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+					<g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+						<circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/>
+						<line x1="12" y1="2"  x2="12" y2="5"/>
+						<line x1="12" y1="19" x2="12" y2="22"/>
+						<line x1="2"  y1="12" x2="5"  y2="12"/>
+						<line x1="19" y1="12" x2="22" y2="12"/>
+						<line x1="4.5"  y1="4.5"  x2="6.5"  y2="6.5"/>
+						<line x1="17.5" y1="17.5" x2="19.5" y2="19.5"/>
+						<line x1="4.5"  y1="19.5" x2="6.5"  y2="17.5"/>
+						<line x1="17.5" y1="6.5"  x2="19.5" y2="4.5"/>
+					</g>
+				</svg>
+			</button>
+		</div>
+	</header>
+
+	<div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
+
+	<main id="stage" tabindex="0" role="region" aria-labelledby="stage-heading" aria-describedby="stage-instructions">
+		<h1 id="stage-heading" class="sr-only">What Makes an Agent — Microsoft Foundry</h1>
+		<p id="stage-instructions" class="sr-only">
+			Animated explainer for what makes up an AI Agent in Microsoft Foundry.
+			Use Next/Previous buttons or arrow keys to navigate. Press R to restart.
+		</p>
+		<div id="step-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+
+		<svg id="fx-svg" aria-hidden="true" focusable="false">
+			<defs>
+				<marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
+					<path d="M0,0 L0,10 L10,5 Z" fill="currentColor"/>
+				</marker>
+			</defs>
+		</svg>
+	</main>
+
+	<aside id="step-outline" hidden aria-label="Text outline of the current step">
+		<h2 id="outline-title">Step Details</h2>
+		<div id="outline-body"></div>
+	</aside>
+
+	<div id="controls" role="group" aria-label="Diagram navigation">
+		<button id="prev-btn" type="button" class="button" aria-label="Previous step (left arrow)">◀ Prev</button>
+		<div class="step-counter" id="step-counter">0 / 0</div>
+		<button id="next-btn" type="button" class="button button-primary button-filled" aria-label="Next step (right arrow or space)">Next ▶</button>
+		<button id="replay-btn" type="button" class="button" aria-label="Replay this step's animation (P)">↻ Replay</button>
+		<div class="speed-control" role="group" aria-label="Animation speed">
+			<button id="speed-down" type="button" class="button button-clear speed-btn" aria-label="Slower (-)" title="Slower">−</button>
+			<span id="speed-label" class="speed-label" aria-live="polite" aria-label="Current speed">1×</span>
+			<button id="speed-up" type="button" class="button button-clear speed-btn" aria-label="Faster (+)" title="Faster">+</button>
+		</div>
+		<button id="reset-btn" type="button" class="button button-clear" aria-label="Restart from step 1 (R)">↻ Restart</button>
+	</div>
+
+<script>
+// ── THEME ─────────────────────────────────
+if (window.AW && AW.theme) {
+	AW.theme.onChange(() => { if (typeof renderStep === 'function' && current >= 0) renderStep(current); });
+}
+
+// ── i18n ──────────────────────────────────
+// English is the source language. To add more languages, add a sibling object
+// (es/ja/ko/pt) with the same keys and a matching <option> in #lang-select.
+let currentLang = 'en';
+const I18N = {
+	en: {
+		skipToMain: 'Skip to diagram',
+		pageTitle: 'What Makes an Agent',
+		stageHeading: 'What Makes an Agent — Microsoft Foundry',
+		stageInstructions: 'Explore what makes up an AI Agent in Microsoft Foundry — instructions, knowledge, tools, memory, and the run loop. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.',
+		prev: '◀ Prev', next: 'Next ▶', replay: '↻ Replay', restart: '↻ Restart',
+		slower: 'Slower', faster: 'Faster',
+		calloutOn: '💬 Callout: On', calloutOff: '💬 Callout: Off',
+		outlineOn: '📝 Outline: On', outlineOff: '📝 Outline: Off',
+		stepDetails: 'Step Details', stepOf: 'Step',
+
+		// ── Step 1 · Problem (recap of Model Deployment) ──
+		problemTitle: 'Previously: A Deployment That Answers Anything',
+		problemCaption: 'Where the Model Deployment story left off',
+		problemDesc: 'On contoso.com, the AI Shopping Assistant runs on a direct model deployment. With no instructions, it will happily answer travel, finance, health — anything — far outside the shop.',
+		problemCallout: 'A raw deployment has no scope. Asked about vacations, stocks, or symptoms, it just answers. <strong>Let\'s rebuild it as a Contoso Retail Agent.</strong>',
+		problemBrowserTitle: 'Contoso Retail',
+		problemUrl: 'https://www.contoso.com',
+		problemHero: 'Welcome to Contoso Retail',
+		problemTagline: 'Discover the latest products, deals, and AI-powered shopping assistance.',
+		problemCard1: '🛍️ New Arrivals', problemCard2: '🔥 Hot Deals', problemCard3: '⭐ Top Rated',
+		problemChatHeader: '💬 AI Shopping Assistant',
+		problemBadge: 'Direct deployment',
+		problemRiskLabel: 'Unscoped topics users could ask about:',
+		problemTopicTravel: 'Travel', problemTopicFinance: 'Finance', problemTopicHealth: 'Health', problemTopicHistory: 'History',
+		problemUserLabel: 'You',
+		problemPrompt1: 'Can you plan a 7-day vacation itinerary for me?',
+		problemPrompt2: 'Should I invest in these stocks this month?',
+		problemPrompt3: 'What could these symptoms mean?',
+		problemPrompt4: 'Explain the fall of the Roman Empire.',
+		problemReplyLabel: 'AI Assistant',
+		problemReply: 'Without instructions, I may try to answer anything the user asks.',
+		problemTransition: '↓ Let\'s rebuild it as a Contoso Retail Agent',
+		problemStat1: 'Where', problemStat1v: 'Contoso Retail shopping assistant',
+		problemStat2: 'Running on', problemStat2v: 'A direct model deployment (no scope)',
+		problemStat3: 'Problem', problemStat3v: 'Answers anything — travel, finance, health',
+
+		// ── Step 1 · Anatomy ──
+		anatomyTitle: 'What Is an Agent?',
+		anatomyCaption: 'A model is the brain — an agent is the whole worker',
+		anatomyDesc: 'A deployed model is stateless and will answer anything. A Foundry Agent wraps that same model with Instructions, Knowledge, Tools, and Memory — turning it into Contoso\'s focused shopping assistant.',
+		anatomyCallout: 'Take the model from the Contoso chat and wrap it. <strong>Instructions + Knowledge + Tools + Memory</strong> turn "answers anything" into an agent that follows a brief, looks things up, takes actions, and remembers.',
+		anatomyCoreLabel: 'Model', anatomyCoreSub: 'Deployed LLM · reasoning engine',
+		anatomyRing: 'Orchestration',
+		anatomyInstr: 'Instructions', anatomyInstrSub: 'How it should behave',
+		anatomyKnow: 'Knowledge', anatomyKnowSub: 'What it can look up',
+		anatomyTools: 'Tools', anatomyToolsSub: 'What it can do',
+		anatomyMem: 'Memory', anatomyMemSub: 'What it remembers',
+		anatomyEquals: '🤖  = a Microsoft Foundry Agent',
+		anatomyStat1: 'Core', anatomyStat1v: 'Deployed model (the reasoning engine)',
+		anatomyStat2: 'Wrappers', anatomyStat2v: 'Instructions · Knowledge · Tools · Memory',
+		anatomyStat3: 'Glue', anatomyStat3v: 'Orchestration / run loop',
+
+		// ── Step 2 · Instructions ──
+		instrTitle: 'Instructions: the Contoso Shopping Brief',
+		instrCaption: 'The system prompt that scopes the assistant',
+		instrDesc: 'Instructions are the durable system prompt. They make the assistant a Contoso shopping expert — and tell it to politely refuse travel, finance, health, and history.',
+		instrCallout: 'Instructions fix the "answers anything" problem. They define <strong>who the assistant is, what it helps with, and what it must refuse</strong> — on every single run.',
+		instrEditorName: 'contoso-shopping-assistant.instructions',
+		instrK1: 'Persona', instrV1: 'You are Contoso Retail\'s friendly shopping assistant.',
+		instrK2: 'Scope', instrV2: 'Only help with products, orders, and returns.',
+		instrK3: 'Refuse', instrV3: 'Decline travel, finance, health, and history.',
+		instrK4: 'Tone', instrV4: 'Be warm, concise, and on-brand.',
+		instrPill1: '🎭 Persona', instrPill2: '🛍️ Scope', instrPill3: '🚫 Refuse off-topic', instrPill4: '🎙️ Tone',
+		instrSysRole: '🛡️ System Message',
+		instrSysDesc: 'The brief above is sent as the <strong>system message</strong> — once, on every run. It sets the durable rules the model must always follow.',
+		instrUserRole: '💬 User Messages',
+		instrUserDesc: 'What the shopper types each turn ("Where\'s my order?"). These change constantly and can never override the system message.',
+		instrCodeFile: 'instructions.py',
+		instrCodeSysContent: 'You are Contoso Retail\'s shopping assistant. Only help with products, orders, and returns. Decline travel, finance, health, and history. Be warm, concise, and on-brand.',
+		instrCodeUser1: 'Where\'s my order #10482?',
+		instrCodeUser1Note: '# in scope → answered',
+		instrCodeUser2: 'Can you plan my weekend vacation?',
+		instrCodeUser2Note: '# out of scope → politely refused',
+		instrStat1: 'What', instrStat1v: 'Durable system prompt for the assistant',
+		instrStat2: 'Fixes', instrStat2v: 'The "answers anything" problem',
+		instrStat3: 'Defines', instrStat3v: 'Persona · scope · refusals · tone',
+
+		// ── Step 3 · Knowledge ──
+		knowTitle: 'Knowledge: Grounding in Contoso Data',
+		knowCaption: 'Answer from the catalog, not guesses (RAG)',
+		knowDesc: 'Knowledge connects the assistant to Contoso\'s catalog, order history, and returns policy, so answers are grounded in real data instead of made up.',
+		knowCallout: 'Grounding = Retrieval-Augmented Generation. The assistant searches Contoso sources, pulls the right passage, and answers <strong>citing real policy</strong>.',
+		knowUser: 'What\'s the return window for the Contoso X2 headphones?',
+		knowUserTag: 'You',
+		knowSearchQuery: 'Contoso X2 — return window',
+		knowStatusSearch: '🔎 Searching connected knowledge…',
+		knowStatusMatch: '✅ 3 matches found — retrieving best passage',
+		knowSnippetTitle: '📄 Returns policy · §4.2',
+		knowSnippet: '"Audio products, including the Contoso X2 headphones, may be returned within 30 days of delivery for a full refund."',
+		knowAnswer: '30 days — the Contoso X2 headphones can be returned within 30 days for a full refund. ✅',
+		knowAnswerTag: 'Grounded answer',
+		knowAgent: 'Agent',
+		knowS1: 'Product catalog (vector store)', knowS2: 'Azure AI Search', knowS3: 'Returns policy (SharePoint)',
+		knowS4: 'Order history (Fabric)', knowS5: 'Store hours (Bing)', knowS6: 'contoso.com pages',
+		knowStat1: 'Why', knowStat1v: 'Ground answers in Contoso data (RAG)',
+		knowStat2: 'Sources', knowStat2v: 'Catalog · AI Search · policies · orders · web',
+		knowStat3: 'Result', knowStat3v: 'Accurate, citable shopping answers',
+
+		// ── Step 4 · Tools ──
+		toolsTitle: 'Tools: Letting the Assistant Act',
+		toolsCaption: 'From answering to doing real retail tasks',
+		toolsDesc: 'Tools let the assistant take real Contoso actions — check an order, start a return, look up stock. The model picks a tool, it runs, and the result shapes the reply.',
+		toolsCallout: 'One agent, many paths. The model decides which tool(s) to run — <strong>check an order, start a return (and email you), or proactively recommend</strong> — then chains the results into the reply.',
+		toolsT1: 'Check order status', toolsT1s: 'Function calling',
+		toolsT2: 'Start a return', toolsT2s: 'Logic Apps · email',
+		toolsT3: 'Check inventory', toolsT3s: 'Azure Functions',
+		toolsT4: 'Apply a coupon', toolsT4s: 'Logic Apps',
+		toolsT5: 'Recommend products', toolsT5s: 'Code Interpreter',
+		toolsT6: 'Loyalty lookup', toolsT6s: 'MCP tools',
+		toolsStat1: 'Why', toolsStat1v: 'Take retail actions, not just answer',
+		toolsStat2: 'Examples', toolsStat2v: 'Order status · returns · inventory · recommendations',
+		toolsStat3: 'Flow', toolsStat3v: 'Model picks tool(s) → runs → result returns',
+		toolsAgent: 'Agent',
+		// scenario 1 — order status (single tool)
+		toolsS1Label: 'Scenario 1 · Order status',
+		toolsS1UserTag: 'You', toolsS1User: 'Where\'s my order #10482?',
+		toolsS1Call: 'check_order_status("#10482")',
+		toolsS1StatusCall: '🛠️ Calling check_order_status…',
+		toolsS1ResultTitle: '📦 check_order_status · result',
+		toolsS1Result: '"Order #10482 — Shipped via Contoso Express. ETA Jun 3."',
+		toolsS1AnswerTag: 'Order update', toolsS1Answer: 'Your order #10482 shipped — arriving Jun 3. 📦',
+		// scenario 2 — start a return + Logic App email (single tool, side-effect)
+		toolsS2Label: 'Scenario 2 · Return + email',
+		toolsS2UserTag: 'You', toolsS2User: 'I\'d like to return my recent order.',
+		toolsS2Call: 'start_return("#10318") → send_email()',
+		toolsS2StatusCall: '🛠️ Calling start_return → Logic App email…',
+		toolsS2ResultTitle: '📧 start_return · result',
+		toolsS2Result: '"Return #RT-7741 opened. Confirmation email sent to the shopper."',
+		toolsS2AnswerTag: 'Return started', toolsS2Answer: 'Your return is set up — I\'ve emailed the label and a confirmation. 📧✅',
+		// scenario 3 — proactive recommendation (multi-tool chain)
+		toolsS3Label: 'Scenario 3 · Proactive offer',
+		toolsS3UserTag: 'Context', toolsS3User: 'Shopper is browsing winter jackets…',
+		toolsS3Call: 'recommend_products() → check_inventory() → loyalty_lookup()',
+		toolsS3StatusCall: '🛠️ Chaining 3 tools…',
+		toolsS3ResultTitle: '🧠 multi-tool · result',
+		toolsS3Result: '"Aurora Parka in stock · 2,400 loyalty pts can take $24 off."',
+		toolsS3AnswerTag: 'Proactive offer', toolsS3Answer: 'You might love the Aurora Parka — in stock, and your points knock $24 off. 💡⭐',
+		toolsStatusDone: '✅ Result returned',
+
+		// ── Step 5 · Memory ──
+		memTitle: 'Memory: Threads That Remember the Shopper',
+		memCaption: 'Stateful shopping across turns',
+		memDesc: 'A model call is stateless. A thread stores the shopper\'s conversation — every message and run — so the assistant keeps context like their size, cart, and earlier questions.',
+		memCallout: 'Each shopper conversation lives in a <strong>thread</strong>. The assistant remembers what they said two turns — or two visits — ago.',
+		memThreadLabel: 'Thread · shopper conversation',
+		memRun1: 'Run 1', memRun2: 'Run 2',
+		memU1: 'I\'m looking for size M running shoes.', memA1: 'Great — here are Contoso\'s size M runners. 👟',
+		memU2: 'Add my usual size to the cart.', memA2: 'Added size M — remembered from earlier. 🛒',
+		memWho: 'You', memWhoA: 'Agent',
+		memNote: 'Because the thread persists, turn 2 <strong>remembers</strong> the shopper\'s size from turn 1.',
+		memStat1: 'What', memStat1v: 'Thread = persisted shopper state',
+		memStat2: 'Stores', memStat2v: 'Messages + runs, in order',
+		memStat3: 'Effect', memStat3v: 'Size, cart, context survive turns',
+
+		// ── Step 6 · Run loop ──
+		loopTitle: 'The Agentic Run Loop',
+		loopCaption: 'How "Where\'s my order?" gets answered',
+		loopDesc: 'When a shopper asks "Where\'s my order #1842?", the agent starts a run: it reasons, calls the order-status tool, observes the result, and answers — looping until done.',
+		loopCallout: 'The loop is the heart of the agent. It can call tools <strong>multiple times</strong>, feeding each result back, before replying to the shopper.',
+		loopN1: 'Shopper asks', loopN1s: '"Where\'s my order #1842?"',
+		loopN2: 'Agent reasons', loopN2s: 'Needs order status',
+		loopN3: 'Call order tool', loopN3s: 'requires_action',
+		loopN4: 'Observe result', loopN4s: 'Shipped · arrives Thu',
+		loopN5: 'Reply to shopper', loopN5s: 'Streamed back',
+		loopIterate: '↻ Reason and act repeat until the shopper has an answer',
+		loopStat1: 'Trigger', loopStat1v: 'Shopper message starts a run',
+		loopStat2: 'Cycle', loopStat2v: 'Reason → call tool → observe → repeat',
+		loopStat3: 'End', loopStat3v: 'Run completes → reply appended to thread',
+
+		// ── Step 7 · Workflows ──
+		wfTitle: 'Workflows: Contoso Agents Working Together',
+		wfCaption: 'Route shoppers to the right specialist',
+		wfDesc: 'One assistant can hand off to specialists. A Contoso triage agent routes each request to the Orders or Returns agent — each with its own instructions, knowledge, and tools.',
+		wfCallout: 'A single agent is powerful; a <strong>team of Contoso agents</strong> is more. Triage routes the shopper to the specialist that can actually help.',
+		wfTriage: 'Triage agent', wfTriageSub: 'Routes the shopper',
+		wfBilling: 'Orders agent', wfBillingSub: 'Status & tracking',
+		wfTech: 'Returns agent', wfTechSub: 'Refunds & exchanges',
+		wfHandoff: 'hand-off',
+		wfPat1: '➡️ Sequential', wfPat2: '🔀 Hand-off', wfPat3: '🧭 Orchestrator',
+		wfStat1: 'Why', wfStat1v: 'Handle any shopper request as a team',
+		wfStat2: 'Patterns', wfStat2v: 'Sequential · hand-off · orchestrator',
+		wfStat3: 'Each agent', wfStat3v: 'Own instructions, knowledge, and tools',
+
+		// ── Step 8 · Recap ──
+		recapTitle: 'Putting It All Together',
+		recapCaption: 'Model + Instructions + Knowledge + Tools + Memory',
+		recapDesc: 'An agent is a deployed model plus instructions, knowledge, tools, and memory — driven by the run loop and composable into workflows. That is what you build in Microsoft Foundry.',
+		recapCallout: 'Deploy a model to get raw intelligence. <strong>Add instructions, knowledge, tools, and memory</strong> — and run the loop — to ship an agent that gets real work done.',
+		recapModel: 'Model', recapModelSub: 'Reasoning',
+		recapInstr: 'Instructions', recapInstrSub: 'Behavior',
+		recapKnow: 'Knowledge', recapKnowSub: 'Grounding',
+		recapTools: 'Tools', recapToolsSub: 'Actions',
+		recapMem: 'Memory', recapMemSub: 'Threads',
+		recapAgentTitle: 'Microsoft Foundry Agent', recapAgentSub: 'Run loop + workflows orchestrate it all',
+		recapFoot: 'Build it in the unified Foundry console at ai.azure.com — from model deployment to a production-ready agent.',
+		recapStat1: 'Agent', recapStat1v: 'Model + instructions + knowledge + tools + memory',
+		recapStat2: 'Driven by', recapStat2v: 'The agentic run loop',
+		recapStat3: 'Scales via', recapStat3v: 'Multi-agent workflows',
+
+		// ── Step 9 · Build it in Foundry ──
+		buildTitle: 'Build It in Foundry — and Ship the Win',
+		buildCaption: 'From a raw deployment to a production Contoso agent',
+		buildDesc: 'Wrap the same deployment as a Foundry Agent: add instructions, knowledge, tools, and memory, run the loop, and publish back to contoso.com. Now it stays on-brand and gets real work done.',
+		buildCallout: 'Same model, now an agent. It <strong>refuses off-topic questions</strong> and <strong>helps with real shopping tasks</strong> — scoped, grounded, and actionable.',
+		buildStepsTitle: 'How to build it',
+		buildStep1: 'Deploy a model', buildStep1s: 'Pick a GPT-class model in Foundry',
+		buildStep2: 'Add instructions', buildStep2s: 'Scope it to Contoso shopping',
+		buildStep3: 'Connect knowledge', buildStep3s: 'Catalog, orders, returns (RAG)',
+		buildStep4: 'Add tools', buildStep4s: 'Order status, returns, inventory',
+		buildStep5: 'Enable memory', buildStep5s: 'Threads keep shopper context',
+		buildStep6: 'Publish', buildStep6s: 'Embed back on contoso.com',
+		buildValueTitle: 'Why the business wins',
+		buildVal1: '🎯 On-brand', buildVal2: '✅ Accurate', buildVal3: '⚡ Takes action', buildVal4: '🔒 Safe', buildVal5: '📈 Scales',
+		buildChatHeader: '💬 AI Shopping Assistant',
+		buildBadge: 'Agent-powered',
+		buildReplyLabel: 'AI Assistant',
+		buildAfterUserLabel: 'You',
+		buildAfterUser1: 'Should I invest in these stocks this month?',
+		buildAfterBot1: 'I can only help with Contoso shopping — products, orders, and returns. 🛍️',
+		buildAfterUser2: 'Where\'s my order #1842?',
+		buildAfterBot2: 'Order #1842 shipped today and arrives Thursday. Want the tracking link? 📦',
+		buildFoot: 'Build it in the unified Foundry console at ai.azure.com — the same place you deployed the model.',
+		buildIntegrateTitle: 'Integrate it into your app',
+		buildIntegrateSub: 'Call your published agent from code with the Microsoft Agent Framework + Foundry SDK',
+		buildStat1: 'Build order', buildStat1v: 'Deploy → instruct → knowledge → tools → memory → publish',
+		buildStat2: 'Business value', buildStat2v: 'On-brand, accurate, actionable, safe, scalable',
+		buildStat3: 'Where', buildStat3v: 'Foundry console (ai.azure.com)'
+	},
+	es: {
+		skipToMain: 'Saltar al diagrama',
+		pageTitle: 'Qué hace a un agente',
+		stageHeading: 'Qué hace a un agente — Microsoft Foundry',
+		stageInstructions: 'Explora qué compone a un agente de IA en Microsoft Foundry — instrucciones, conocimiento, herramientas, memoria y el bucle de ejecución. Use los botones Siguiente/Anterior o las teclas de flecha para navegar. Presione R para reiniciar.',
+		prev: '◀ Anterior', next: 'Siguiente ▶', replay: '↻ Repetir', restart: '↻ Reiniciar',
+		slower: 'Más lento', faster: 'Más rápido',
+		calloutOn: '💬 Info: Sí', calloutOff: '💬 Info: No',
+		outlineOn: '📝 Esquema: Sí', outlineOff: '📝 Esquema: No',
+		stepDetails: 'Detalles del paso', stepOf: 'Paso',
+		problemTitle: 'Antes: una implementación que responde cualquier cosa',
+		problemCaption: 'Donde quedó la historia de la implementación del modelo',
+		problemDesc: 'En contoso.com, el Asistente de Compras IA se ejecuta sobre una implementación directa del modelo. Sin instrucciones, responderá felizmente sobre viajes, finanzas, salud — cualquier cosa — muy fuera de la tienda.',
+		problemCallout: 'Una implementación pura no tiene alcance. Si le preguntan por vacaciones, acciones o síntomas, simplemente responde. <strong>Reconstruyámoslo como un Agente de Contoso Retail.</strong>',
+		problemBrowserTitle: 'Contoso Retail',
+		problemUrl: 'https://www.contoso.com',
+		problemHero: 'Bienvenido a Contoso Retail',
+		problemTagline: 'Descubre los últimos productos, ofertas y asistencia de compras con IA.',
+		problemCard1: '🛍️ Novedades', problemCard2: '🔥 Ofertas', problemCard3: '⭐ Mejor valorados',
+		problemChatHeader: '💬 Asistente de Compras IA',
+		problemBadge: 'Implementación directa',
+		problemRiskLabel: 'Temas sin alcance que los usuarios podrían preguntar:',
+		problemTopicTravel: 'Viajes', problemTopicFinance: 'Finanzas', problemTopicHealth: 'Salud', problemTopicHistory: 'Historia',
+		problemUserLabel: 'Tú',
+		problemPrompt1: '¿Puedes planificar un itinerario de vacaciones de 7 días para mí?',
+		problemPrompt2: '¿Debería invertir en estas acciones este mes?',
+		problemPrompt3: '¿Qué podrían significar estos síntomas?',
+		problemPrompt4: 'Explica la caída del Imperio Romano.',
+		problemReplyLabel: 'Asistente IA',
+		problemReply: 'Sin instrucciones, puedo intentar responder cualquier cosa que el usuario pregunte.',
+		problemTransition: '↓ Reconstruyámoslo como un Agente de Contoso Retail',
+		problemStat1: 'Dónde', problemStat1v: 'Asistente de compras de Contoso Retail',
+		problemStat2: 'Se ejecuta en', problemStat2v: 'Una implementación directa del modelo (sin alcance)',
+		problemStat3: 'Problema', problemStat3v: 'Responde cualquier cosa — viajes, finanzas, salud',
+		anatomyTitle: '¿Qué es un agente?',
+		anatomyCaption: 'Un modelo es el cerebro — un agente es todo el trabajador',
+		anatomyDesc: 'Un modelo implementado es sin estado y responderá cualquier cosa. Un Agente de Foundry envuelve ese mismo modelo con Instrucciones, Conocimiento, Herramientas y Memoria — convirtiéndolo en el asistente de compras enfocado de Contoso.',
+		anatomyCallout: 'Toma el modelo del chat de Contoso y envuélvelo. <strong>Instrucciones + Conocimiento + Herramientas + Memoria</strong> convierten "responde cualquier cosa" en un agente que sigue un brief, busca información, toma acciones y recuerda.',
+		anatomyCoreLabel: 'Modelo', anatomyCoreSub: 'LLM implementado · motor de razonamiento',
+		anatomyRing: 'Orquestación',
+		anatomyInstr: 'Instrucciones', anatomyInstrSub: 'Cómo debe comportarse',
+		anatomyKnow: 'Conocimiento', anatomyKnowSub: 'Qué puede consultar',
+		anatomyTools: 'Herramientas', anatomyToolsSub: 'Qué puede hacer',
+		anatomyMem: 'Memoria', anatomyMemSub: 'Qué recuerda',
+		anatomyEquals: '🤖  = un Agente de Microsoft Foundry',
+		anatomyStat1: 'Núcleo', anatomyStat1v: 'Modelo implementado (el motor de razonamiento)',
+		anatomyStat2: 'Envolturas', anatomyStat2v: 'Instrucciones · Conocimiento · Herramientas · Memoria',
+		anatomyStat3: 'Unión', anatomyStat3v: 'Orquestación / bucle de ejecución',
+		instrTitle: 'Instrucciones: el brief de compras de Contoso',
+		instrCaption: 'El system prompt que da alcance al asistente',
+		instrDesc: 'Las instrucciones son el system prompt duradero. Hacen del asistente un experto en compras de Contoso — y le dicen que rechace cortésmente viajes, finanzas, salud e historia.',
+		instrCallout: 'Las instrucciones solucionan el problema de "responde cualquier cosa". Definen <strong>quién es el asistente, en qué ayuda y qué debe rechazar</strong> — en cada ejecución.',
+		instrEditorName: 'contoso-shopping-assistant.instructions',
+		instrK1: 'Persona', instrV1: 'Eres el amable asistente de compras de Contoso Retail.',
+		instrK2: 'Alcance', instrV2: 'Solo ayuda con productos, pedidos y devoluciones.',
+		instrK3: 'Rechazar', instrV3: 'Rechaza viajes, finanzas, salud e historia.',
+		instrK4: 'Tono', instrV4: 'Sé cálido, conciso y fiel a la marca.',
+		instrPill1: '🎭 Persona', instrPill2: '🛍️ Alcance', instrPill3: '🚫 Rechazar fuera de tema', instrPill4: '🎙️ Tono',
+		instrSysRole: '🛡️ Mensaje del sistema',
+		instrSysDesc: 'El brief anterior se envía como <strong>mensaje del sistema</strong> — una vez, en cada ejecución. Establece las reglas duraderas que el modelo siempre debe seguir.',
+		instrUserRole: '💬 Mensajes del usuario',
+		instrUserDesc: 'Lo que el comprador escribe en cada turno ("¿Dónde está mi pedido?"). Cambian constantemente y nunca pueden anular el mensaje del sistema.',
+		instrCodeFile: 'instructions.py',
+		instrCodeSysContent: 'Eres el asistente de compras de Contoso Retail. Solo ayuda con productos, pedidos y devoluciones. Rechaza viajes, finanzas, salud e historia. Sé cálido, conciso y fiel a la marca.',
+		instrCodeUser1: '¿Dónde está mi pedido #10482?',
+		instrCodeUser1Note: '# dentro de alcance → respondido',
+		instrCodeUser2: '¿Puedes planificar mis vacaciones de fin de semana?',
+		instrCodeUser2Note: '# fuera de alcance → rechazado cortésmente',
+		instrStat1: 'Qué', instrStat1v: 'System prompt duradero para el asistente',
+		instrStat2: 'Soluciona', instrStat2v: 'El problema de "responde cualquier cosa"',
+		instrStat3: 'Define', instrStat3v: 'Persona · alcance · rechazos · tono',
+		knowTitle: 'Conocimiento: fundamentación en datos de Contoso',
+		knowCaption: 'Responde desde el catálogo, no con suposiciones (RAG)',
+		knowDesc: 'El conocimiento conecta al asistente con el catálogo, el historial de pedidos y la política de devoluciones de Contoso, para que las respuestas se basen en datos reales en lugar de inventarse.',
+		knowCallout: 'Fundamentación = Generación Aumentada por Recuperación. El asistente busca en las fuentes de Contoso, extrae el pasaje correcto y responde <strong>citando la política real</strong>.',
+		knowUser: '¿Cuál es el plazo de devolución de los auriculares Contoso X2?',
+		knowUserTag: 'Tú',
+		knowSearchQuery: 'Contoso X2 — plazo de devolución',
+		knowStatusSearch: '🔎 Buscando en el conocimiento conectado…',
+		knowStatusMatch: '✅ 3 coincidencias — recuperando el mejor pasaje',
+		knowSnippetTitle: '📄 Política de devoluciones · §4.2',
+		knowSnippet: '"Los productos de audio, incluidos los auriculares Contoso X2, pueden devolverse dentro de los 30 días de la entrega para un reembolso completo."',
+		knowAnswer: '30 días — los auriculares Contoso X2 pueden devolverse dentro de los 30 días para un reembolso completo. ✅',
+		knowAnswerTag: 'Respuesta fundamentada',
+		knowAgent: 'Agente',
+		knowS1: 'Catálogo de productos (vector store)', knowS2: 'Azure AI Search', knowS3: 'Política de devoluciones (SharePoint)',
+		knowS4: 'Historial de pedidos (Fabric)', knowS5: 'Horario de tienda (Bing)', knowS6: 'páginas de contoso.com',
+		knowStat1: 'Por qué', knowStat1v: 'Fundamentar respuestas en datos de Contoso (RAG)',
+		knowStat2: 'Fuentes', knowStat2v: 'Catálogo · AI Search · políticas · pedidos · web',
+		knowStat3: 'Resultado', knowStat3v: 'Respuestas de compras precisas y citables',
+		toolsTitle: 'Herramientas: dejar que el asistente actúe',
+		toolsCaption: 'De responder a realizar tareas reales de retail',
+		toolsDesc: 'Las herramientas permiten al asistente realizar acciones reales de Contoso — consultar un pedido, iniciar una devolución, verificar stock. El modelo elige una herramienta, esta se ejecuta y el resultado da forma a la respuesta.',
+		toolsCallout: 'Un agente, muchos caminos. El modelo decide qué herramienta(s) ejecutar — <strong>consultar un pedido, iniciar una devolución (y enviarte un email) o recomendar de forma proactiva</strong> — y luego encadena los resultados en la respuesta.',
+		toolsT1: 'Consultar estado del pedido', toolsT1s: 'Function calling',
+		toolsT2: 'Iniciar una devolución', toolsT2s: 'Logic Apps · email',
+		toolsT3: 'Verificar inventario', toolsT3s: 'Azure Functions',
+		toolsT4: 'Aplicar un cupón', toolsT4s: 'Logic Apps',
+		toolsT5: 'Recomendar productos', toolsT5s: 'Code Interpreter',
+		toolsT6: 'Consulta de fidelidad', toolsT6s: 'Herramientas MCP',
+		toolsStat1: 'Por qué', toolsStat1v: 'Realizar acciones de retail, no solo responder',
+		toolsStat2: 'Ejemplos', toolsStat2v: 'Estado de pedido · devoluciones · inventario · recomendaciones',
+		toolsStat3: 'Flujo', toolsStat3v: 'El modelo elige herramienta(s) → ejecuta → devuelve resultado',
+		toolsAgent: 'Agente',
+		toolsS1Label: 'Escenario 1 · Estado del pedido',
+		toolsS1UserTag: 'Tú', toolsS1User: '¿Dónde está mi pedido #10482?',
+		toolsS1Call: 'check_order_status("#10482")',
+		toolsS1StatusCall: '🛠️ Llamando a check_order_status…',
+		toolsS1ResultTitle: '📦 check_order_status · resultado',
+		toolsS1Result: '"Pedido #10482 — Enviado vía Contoso Express. ETA 3 de jun."',
+		toolsS1AnswerTag: 'Actualización del pedido', toolsS1Answer: 'Tu pedido #10482 fue enviado — llega el 3 de jun. 📦',
+		toolsS2Label: 'Escenario 2 · Devolución + email',
+		toolsS2UserTag: 'Tú', toolsS2User: 'Quisiera devolver mi pedido reciente.',
+		toolsS2Call: 'start_return("#10318") → send_email()',
+		toolsS2StatusCall: '🛠️ Llamando a start_return → email de Logic App…',
+		toolsS2ResultTitle: '📧 start_return · resultado',
+		toolsS2Result: '"Devolución #RT-7741 abierta. Email de confirmación enviado al comprador."',
+		toolsS2AnswerTag: 'Devolución iniciada', toolsS2Answer: 'Tu devolución está lista — te envié la etiqueta y una confirmación. 📧✅',
+		toolsS3Label: 'Escenario 3 · Oferta proactiva',
+		toolsS3UserTag: 'Contexto', toolsS3User: 'El comprador está viendo chaquetas de invierno…',
+		toolsS3Call: 'recommend_products() → check_inventory() → loyalty_lookup()',
+		toolsS3StatusCall: '🛠️ Encadenando 3 herramientas…',
+		toolsS3ResultTitle: '🧠 multi-herramienta · resultado',
+		toolsS3Result: '"Parka Aurora en stock · 2.400 pts de fidelidad pueden dar $24 de descuento."',
+		toolsS3AnswerTag: 'Oferta proactiva', toolsS3Answer: 'Quizás te encante la Parka Aurora — en stock, y tus puntos te ahorran $24. 💡⭐',
+		toolsStatusDone: '✅ Resultado devuelto',
+		memTitle: 'Memoria: hilos que recuerdan al comprador',
+		memCaption: 'Compras con estado a través de los turnos',
+		memDesc: 'Una llamada al modelo es sin estado. Un hilo almacena la conversación del comprador — cada mensaje y ejecución — para que el asistente conserve el contexto como su talla, carrito y preguntas anteriores.',
+		memCallout: 'Cada conversación del comprador vive en un <strong>hilo</strong>. El asistente recuerda lo que dijo hace dos turnos — o dos visitas.',
+		memThreadLabel: 'Hilo · conversación del comprador',
+		memRun1: 'Ejecución 1', memRun2: 'Ejecución 2',
+		memU1: 'Busco zapatillas de correr talla M.', memA1: 'Genial — aquí están las zapatillas talla M de Contoso. 👟',
+		memU2: 'Agrega mi talla habitual al carrito.', memA2: 'Agregué la talla M — recordada de antes. 🛒',
+		memWho: 'Tú', memWhoA: 'Agente',
+		memNote: 'Como el hilo persiste, el turno 2 <strong>recuerda</strong> la talla del comprador del turno 1.',
+		memStat1: 'Qué', memStat1v: 'Hilo = estado persistente del comprador',
+		memStat2: 'Almacena', memStat2v: 'Mensajes + ejecuciones, en orden',
+		memStat3: 'Efecto', memStat3v: 'Talla, carrito y contexto sobreviven los turnos',
+		loopTitle: 'El bucle de ejecución agéntico',
+		loopCaption: 'Cómo se responde "¿Dónde está mi pedido?"',
+		loopDesc: 'Cuando un comprador pregunta "¿Dónde está mi pedido #1842?", el agente inicia una ejecución: razona, llama a la herramienta de estado del pedido, observa el resultado y responde — repitiendo hasta terminar.',
+		loopCallout: 'El bucle es el corazón del agente. Puede llamar herramientas <strong>varias veces</strong>, retroalimentando cada resultado, antes de responder al comprador.',
+		loopN1: 'El comprador pregunta', loopN1s: '"¿Dónde está mi pedido #1842?"',
+		loopN2: 'El agente razona', loopN2s: 'Necesita el estado del pedido',
+		loopN3: 'Llama a la herramienta', loopN3s: 'requires_action',
+		loopN4: 'Observa el resultado', loopN4s: 'Enviado · llega el jueves',
+		loopN5: 'Responde al comprador', loopN5s: 'Transmitido en streaming',
+		loopIterate: '↻ Razonar y actuar se repiten hasta que el comprador tiene una respuesta',
+		loopStat1: 'Disparador', loopStat1v: 'El mensaje del comprador inicia una ejecución',
+		loopStat2: 'Ciclo', loopStat2v: 'Razonar → llamar herramienta → observar → repetir',
+		loopStat3: 'Fin', loopStat3v: 'La ejecución termina → respuesta añadida al hilo',
+		wfTitle: 'Flujos de trabajo: agentes de Contoso trabajando juntos',
+		wfCaption: 'Dirige a los compradores al especialista correcto',
+		wfDesc: 'Un asistente puede delegar a especialistas. Un agente de triaje de Contoso dirige cada solicitud al agente de Pedidos o Devoluciones — cada uno con sus propias instrucciones, conocimiento y herramientas.',
+		wfCallout: 'Un solo agente es poderoso; un <strong>equipo de agentes de Contoso</strong> lo es más. El triaje dirige al comprador al especialista que realmente puede ayudar.',
+		wfTriage: 'Agente de triaje', wfTriageSub: 'Dirige al comprador',
+		wfBilling: 'Agente de pedidos', wfBillingSub: 'Estado y seguimiento',
+		wfTech: 'Agente de devoluciones', wfTechSub: 'Reembolsos y cambios',
+		wfHandoff: 'delegación',
+		wfPat1: '➡️ Secuencial', wfPat2: '🔀 Delegación', wfPat3: '🧭 Orquestador',
+		wfStat1: 'Por qué', wfStat1v: 'Atender cualquier solicitud del comprador en equipo',
+		wfStat2: 'Patrones', wfStat2v: 'Secuencial · delegación · orquestador',
+		wfStat3: 'Cada agente', wfStat3v: 'Sus propias instrucciones, conocimiento y herramientas',
+		recapTitle: 'Juntándolo todo',
+		recapCaption: 'Modelo + Instrucciones + Conocimiento + Herramientas + Memoria',
+		recapDesc: 'Un agente es un modelo implementado más instrucciones, conocimiento, herramientas y memoria — impulsado por el bucle de ejecución y componible en flujos de trabajo. Eso es lo que construyes en Microsoft Foundry.',
+		recapCallout: 'Implementa un modelo para obtener inteligencia pura. <strong>Agrega instrucciones, conocimiento, herramientas y memoria</strong> — y ejecuta el bucle — para lanzar un agente que hace trabajo real.',
+		recapModel: 'Modelo', recapModelSub: 'Razonamiento',
+		recapInstr: 'Instrucciones', recapInstrSub: 'Comportamiento',
+		recapKnow: 'Conocimiento', recapKnowSub: 'Fundamentación',
+		recapTools: 'Herramientas', recapToolsSub: 'Acciones',
+		recapMem: 'Memoria', recapMemSub: 'Hilos',
+		recapAgentTitle: 'Agente de Microsoft Foundry', recapAgentSub: 'El bucle de ejecución + flujos de trabajo lo orquestan todo',
+		recapFoot: 'Constrúyelo en la consola unificada de Foundry en ai.azure.com — desde la implementación del modelo hasta un agente listo para producción.',
+		recapStat1: 'Agente', recapStat1v: 'Modelo + instrucciones + conocimiento + herramientas + memoria',
+		recapStat2: 'Impulsado por', recapStat2v: 'El bucle de ejecución agéntico',
+		recapStat3: 'Escala mediante', recapStat3v: 'Flujos de trabajo multiagente',
+		buildTitle: 'Constrúyelo en Foundry — y entrega el resultado',
+		buildCaption: 'De una implementación pura a un agente de Contoso en producción',
+		buildDesc: 'Envuelve la misma implementación como un Agente de Foundry: agrega instrucciones, conocimiento, herramientas y memoria, ejecuta el bucle y publícalo de vuelta en contoso.com. Ahora se mantiene fiel a la marca y hace trabajo real.',
+		buildCallout: 'El mismo modelo, ahora un agente. <strong>Rechaza preguntas fuera de tema</strong> y <strong>ayuda con tareas reales de compras</strong> — con alcance, fundamentado y accionable.',
+		buildStepsTitle: 'Cómo construirlo',
+		buildStep1: 'Implementa un modelo', buildStep1s: 'Elige un modelo clase GPT en Foundry',
+		buildStep2: 'Agrega instrucciones', buildStep2s: 'Acótalo a las compras de Contoso',
+		buildStep3: 'Conecta conocimiento', buildStep3s: 'Catálogo, pedidos, devoluciones (RAG)',
+		buildStep4: 'Agrega herramientas', buildStep4s: 'Estado de pedido, devoluciones, inventario',
+		buildStep5: 'Habilita memoria', buildStep5s: 'Los hilos mantienen el contexto del comprador',
+		buildStep6: 'Publica', buildStep6s: 'Insértalo de vuelta en contoso.com',
+		buildValueTitle: 'Por qué gana el negocio',
+		buildVal1: '🎯 Fiel a la marca', buildVal2: '✅ Preciso', buildVal3: '⚡ Toma acción', buildVal4: '🔒 Seguro', buildVal5: '📈 Escala',
+		buildChatHeader: '💬 Asistente de Compras IA',
+		buildBadge: 'Impulsado por agente',
+		buildReplyLabel: 'Asistente IA',
+		buildAfterUserLabel: 'Tú',
+		buildAfterUser1: '¿Debería invertir en estas acciones este mes?',
+		buildAfterBot1: 'Solo puedo ayudar con compras de Contoso — productos, pedidos y devoluciones. 🛍️',
+		buildAfterUser2: '¿Dónde está mi pedido #1842?',
+		buildAfterBot2: 'El pedido #1842 se envió hoy y llega el jueves. ¿Quieres el enlace de seguimiento? 📦',
+		buildFoot: 'Constrúyelo en la consola unificada de Foundry en ai.azure.com — el mismo lugar donde implementaste el modelo.',
+		buildIntegrateTitle: 'Intégralo en tu app',
+		buildIntegrateSub: 'Llama a tu agente publicado desde el código con Microsoft Agent Framework + Foundry SDK',
+		buildStat1: 'Orden de construcción', buildStat1v: 'Implementar → instruir → conocimiento → herramientas → memoria → publicar',
+		buildStat2: 'Valor de negocio', buildStat2v: 'Fiel a la marca, preciso, accionable, seguro, escalable',
+		buildStat3: 'Dónde', buildStat3v: 'Consola de Foundry (ai.azure.com)'
+	},
+	ja: {
+		skipToMain: 'ダイアグラムへスキップ',
+		pageTitle: 'エージェントを構成する要素',
+		stageHeading: 'エージェントを構成する要素 — Microsoft Foundry',
+		stageInstructions: 'Microsoft FoundryでAIエージェントを構成する要素 — 指示、ナレッジ、ツール、メモリ、実行ループ — を探ります。次へ/前へボタンまたは矢印キーで移動。Rで再開。',
+		prev: '◀ 前へ', next: '次へ ▶', replay: '↻ リプレイ', restart: '↻ 最初から',
+		slower: '遅く', faster: '速く',
+		calloutOn: '💬 吹出し: オン', calloutOff: '💬 吹出し: オフ',
+		outlineOn: '📝 概要: オン', outlineOff: '📝 概要: オフ',
+		stepDetails: 'ステップ詳細', stepOf: 'ステップ',
+		problemTitle: '前回：何でも答えるデプロイメント',
+		problemCaption: 'モデルデプロイメントの話の続きから',
+		problemDesc: 'contoso.comでは、AIショッピングアシスタントが直接モデルデプロイメント上で動作しています。指示がなければ、旅行、金融、健康など — ショップとは全く関係ないこと — でも喜んで答えてしまいます。',
+		problemCallout: '素のデプロイメントにはスコープがありません。休暇、株、症状を聞かれても、ただ答えるだけです。<strong>これをContoso Retailエージェントとして作り直しましょう。</strong>',
+		problemBrowserTitle: 'Contoso Retail',
+		problemUrl: 'https://www.contoso.com',
+		problemHero: 'Contoso Retailへようこそ',
+		problemTagline: '最新の製品、お得な情報、AIによるショッピングサポートを見つけましょう。',
+		problemCard1: '🛍️ 新着', problemCard2: '🔥 お得情報', problemCard3: '⭐ 高評価',
+		problemChatHeader: '💬 AIショッピングアシスタント',
+		problemBadge: '直接デプロイメント',
+		problemRiskLabel: 'ユーザーが聞きうるスコープ外のトピック：',
+		problemTopicTravel: '旅行', problemTopicFinance: '金融', problemTopicHealth: '健康', problemTopicHistory: '歴史',
+		problemUserLabel: 'あなた',
+		problemPrompt1: '7日間の休暇の旅程を計画してくれますか？',
+		problemPrompt2: '今月これらの株に投資すべきですか？',
+		problemPrompt3: 'これらの症状は何を意味しますか？',
+		problemPrompt4: 'ローマ帝国の崩壊を説明してください。',
+		problemReplyLabel: 'AIアシスタント',
+		problemReply: '指示がなければ、ユーザーが聞くことに何でも答えようとしてしまいます。',
+		problemTransition: '↓ Contoso Retailエージェントとして作り直しましょう',
+		problemStat1: '場所', problemStat1v: 'Contoso Retailショッピングアシスタント',
+		problemStat2: '動作環境', problemStat2v: '直接モデルデプロイメント（スコープなし）',
+		problemStat3: '問題', problemStat3v: '何でも答える — 旅行、金融、健康',
+		anatomyTitle: 'エージェントとは？',
+		anatomyCaption: 'モデルは頭脳 — エージェントは働き手全体',
+		anatomyDesc: 'デプロイされたモデルはステートレスで何でも答えます。Foundryエージェントは同じモデルを指示、ナレッジ、ツール、メモリで包み — Contosoの焦点を絞ったショッピングアシスタントに変えます。',
+		anatomyCallout: 'Contosoチャットのモデルを取り出して包みます。<strong>指示 + ナレッジ + ツール + メモリ</strong>が「何でも答える」をブリーフに従い、調べ、行動し、記憶するエージェントに変えます。',
+		anatomyCoreLabel: 'モデル', anatomyCoreSub: 'デプロイ済みLLM · 推論エンジン',
+		anatomyRing: 'オーケストレーション',
+		anatomyInstr: '指示', anatomyInstrSub: 'どう振る舞うべきか',
+		anatomyKnow: 'ナレッジ', anatomyKnowSub: '何を調べられるか',
+		anatomyTools: 'ツール', anatomyToolsSub: '何ができるか',
+		anatomyMem: 'メモリ', anatomyMemSub: '何を覚えているか',
+		anatomyEquals: '🤖  = Microsoft Foundryエージェント',
+		anatomyStat1: 'コア', anatomyStat1v: 'デプロイ済みモデル（推論エンジン）',
+		anatomyStat2: 'ラッパー', anatomyStat2v: '指示 · ナレッジ · ツール · メモリ',
+		anatomyStat3: '接着剤', anatomyStat3v: 'オーケストレーション / 実行ループ',
+		instrTitle: '指示：Contosoショッピングブリーフ',
+		instrCaption: 'アシスタントのスコープを定めるシステムプロンプト',
+		instrDesc: '指示は永続的なシステムプロンプトです。アシスタントをContosoショッピングの専門家にし、旅行、金融、健康、歴史を丁寧に断るよう指示します。',
+		instrCallout: '指示は「何でも答える」問題を解決します。<strong>アシスタントが誰で、何を手伝い、何を断るべきか</strong>を — 毎回の実行で定義します。',
+		instrEditorName: 'contoso-shopping-assistant.instructions',
+		instrK1: 'ペルソナ', instrV1: 'あなたはContoso Retailのフレンドリーなショッピングアシスタントです。',
+		instrK2: 'スコープ', instrV2: '製品、注文、返品のみを手伝います。',
+		instrK3: '拒否', instrV3: '旅行、金融、健康、歴史を断ります。',
+		instrK4: 'トーン', instrV4: '温かく、簡潔に、ブランドに沿って。',
+		instrPill1: '🎭 ペルソナ', instrPill2: '🛍️ スコープ', instrPill3: '🚫 トピック外を拒否', instrPill4: '🎙️ トーン',
+		instrSysRole: '🛡️ システムメッセージ',
+		instrSysDesc: '上記のブリーフは<strong>システムメッセージ</strong>として — 毎回の実行で一度 — 送信されます。モデルが常に従うべき永続的なルールを設定します。',
+		instrUserRole: '💬 ユーザーメッセージ',
+		instrUserDesc: '買い物客が各ターンで入力する内容（「注文はどこ？」）。常に変化し、システムメッセージを上書きすることはできません。',
+		instrCodeFile: 'instructions.py',
+		instrCodeSysContent: 'あなたはContoso Retailのショッピングアシスタントです。製品、注文、返品のみを手伝います。旅行、金融、健康、歴史を断ります。温かく、簡潔に、ブランドに沿って。',
+		instrCodeUser1: '注文 #10482 はどこですか？',
+		instrCodeUser1Note: '# スコープ内 → 回答',
+		instrCodeUser2: '週末の休暇を計画してくれますか？',
+		instrCodeUser2Note: '# スコープ外 → 丁寧に拒否',
+		instrStat1: '何', instrStat1v: 'アシスタントの永続的なシステムプロンプト',
+		instrStat2: '解決', instrStat2v: '「何でも答える」問題',
+		instrStat3: '定義', instrStat3v: 'ペルソナ · スコープ · 拒否 · トーン',
+		knowTitle: 'ナレッジ：Contosoデータでのグラウンディング',
+		knowCaption: '推測ではなくカタログから回答（RAG）',
+		knowDesc: 'ナレッジはアシスタントをContosoのカタログ、注文履歴、返品ポリシーに接続し、回答を作り話ではなく実データに基づかせます。',
+		knowCallout: 'グラウンディング = 検索拡張生成（RAG）。アシスタントはContosoのソースを検索し、正しい一節を取り出し、<strong>実際のポリシーを引用して</strong>回答します。',
+		knowUser: 'Contoso X2ヘッドホンの返品期間はどれくらいですか？',
+		knowUserTag: 'あなた',
+		knowSearchQuery: 'Contoso X2 — 返品期間',
+		knowStatusSearch: '🔎 接続されたナレッジを検索中…',
+		knowStatusMatch: '✅ 3件一致 — 最適な一節を取得中',
+		knowSnippetTitle: '📄 返品ポリシー · §4.2',
+		knowSnippet: '「Contoso X2ヘッドホンを含むオーディオ製品は、配達後30日以内であれば全額返金で返品できます。」',
+		knowAnswer: '30日 — Contoso X2ヘッドホンは30日以内に全額返金で返品できます。✅',
+		knowAnswerTag: 'グラウンディングされた回答',
+		knowAgent: 'エージェント',
+		knowS1: '製品カタログ（ベクトルストア）', knowS2: 'Azure AI Search', knowS3: '返品ポリシー（SharePoint）',
+		knowS4: '注文履歴（Fabric）', knowS5: '営業時間（Bing）', knowS6: 'contoso.comのページ',
+		knowStat1: '理由', knowStat1v: 'Contosoデータで回答をグラウンディング（RAG）',
+		knowStat2: 'ソース', knowStat2v: 'カタログ · AI Search · ポリシー · 注文 · Web',
+		knowStat3: '結果', knowStat3v: '正確で引用可能なショッピング回答',
+		toolsTitle: 'ツール：アシスタントに行動させる',
+		toolsCaption: '回答から実際のリテール業務へ',
+		toolsDesc: 'ツールはアシスタントがContosoの実際のアクション — 注文確認、返品開始、在庫確認 — を行えるようにします。モデルがツールを選び、実行され、結果が回答を形作ります。',
+		toolsCallout: '1つのエージェント、多くの道。モデルがどのツールを実行するか決定します — <strong>注文を確認、返品を開始（メール送信）、または積極的に推奨</strong> — そして結果を回答につなげます。',
+		toolsT1: '注文状況を確認', toolsT1s: 'Function calling',
+		toolsT2: '返品を開始', toolsT2s: 'Logic Apps · メール',
+		toolsT3: '在庫を確認', toolsT3s: 'Azure Functions',
+		toolsT4: 'クーポンを適用', toolsT4s: 'Logic Apps',
+		toolsT5: '製品を推奨', toolsT5s: 'Code Interpreter',
+		toolsT6: 'ロイヤルティ照会', toolsT6s: 'MCPツール',
+		toolsStat1: '理由', toolsStat1v: '回答だけでなくリテールのアクションを実行',
+		toolsStat2: '例', toolsStat2v: '注文状況 · 返品 · 在庫 · 推奨',
+		toolsStat3: 'フロー', toolsStat3v: 'モデルがツールを選択 → 実行 → 結果を返す',
+		toolsAgent: 'エージェント',
+		toolsS1Label: 'シナリオ1 · 注文状況',
+		toolsS1UserTag: 'あなた', toolsS1User: '注文 #10482 はどこですか？',
+		toolsS1Call: 'check_order_status("#10482")',
+		toolsS1StatusCall: '🛠️ check_order_statusを呼び出し中…',
+		toolsS1ResultTitle: '📦 check_order_status · 結果',
+		toolsS1Result: '「注文 #10482 — Contoso Expressで発送。到着予定6月3日。」',
+		toolsS1AnswerTag: '注文の更新', toolsS1Answer: 'ご注文 #10482 は発送済み — 6月3日に到着します。📦',
+		toolsS2Label: 'シナリオ2 · 返品 + メール',
+		toolsS2UserTag: 'あなた', toolsS2User: '最近の注文を返品したいです。',
+		toolsS2Call: 'start_return("#10318") → send_email()',
+		toolsS2StatusCall: '🛠️ start_returnを呼び出し → Logic Appメール…',
+		toolsS2ResultTitle: '📧 start_return · 結果',
+		toolsS2Result: '「返品 #RT-7741 を開始。確認メールを買い物客に送信しました。」',
+		toolsS2AnswerTag: '返品開始', toolsS2Answer: '返品の準備ができました — ラベルと確認をメールしました。📧✅',
+		toolsS3Label: 'シナリオ3 · 積極的な提案',
+		toolsS3UserTag: 'コンテキスト', toolsS3User: '買い物客が冬用ジャケットを見ています…',
+		toolsS3Call: 'recommend_products() → check_inventory() → loyalty_lookup()',
+		toolsS3StatusCall: '🛠️ 3つのツールを連鎖中…',
+		toolsS3ResultTitle: '🧠 マルチツール · 結果',
+		toolsS3Result: '「Auroraパーカ在庫あり · 2,400ロイヤルティポイントで$24引き。」',
+		toolsS3AnswerTag: '積極的な提案', toolsS3Answer: 'Auroraパーカがおすすめです — 在庫あり、ポイントで$24引きになります。💡⭐',
+		toolsStatusDone: '✅ 結果が返されました',
+		memTitle: 'メモリ：買い物客を覚えるスレッド',
+		memCaption: 'ターンをまたいだステートフルなショッピング',
+		memDesc: 'モデル呼び出しはステートレスです。スレッドは買い物客の会話 — すべてのメッセージと実行 — を保存し、アシスタントはサイズ、カート、以前の質問などのコンテキストを保持します。',
+		memCallout: '各買い物客の会話は<strong>スレッド</strong>に存在します。アシスタントは2ターン前 — または2回の訪問前 — に言ったことを覚えています。',
+		memThreadLabel: 'スレッド · 買い物客の会話',
+		memRun1: '実行1', memRun2: '実行2',
+		memU1: 'サイズMのランニングシューズを探しています。', memA1: 'いいですね — ContosoのサイズMランナーはこちらです。👟',
+		memU2: 'いつものサイズをカートに追加して。', memA2: 'サイズMを追加しました — 先ほどから覚えています。🛒',
+		memWho: 'あなた', memWhoA: 'エージェント',
+		memNote: 'スレッドが持続するため、ターン2はターン1の買い物客のサイズを<strong>覚えています</strong>。',
+		memStat1: '何', memStat1v: 'スレッド = 永続化された買い物客の状態',
+		memStat2: '保存', memStat2v: 'メッセージ + 実行、順番に',
+		memStat3: '効果', memStat3v: 'サイズ、カート、コンテキストがターンをまたいで残る',
+		loopTitle: 'エージェント実行ループ',
+		loopCaption: '「注文はどこ？」がどう答えられるか',
+		loopDesc: '買い物客が「注文 #1842 はどこ？」と聞くと、エージェントは実行を開始します：推論し、注文状況ツールを呼び、結果を観察し、答える — 完了までループします。',
+		loopCallout: 'ループはエージェントの中心です。買い物客に返答する前に、各結果をフィードバックしながらツールを<strong>複数回</strong>呼び出せます。',
+		loopN1: '買い物客が質問', loopN1s: '「注文 #1842 はどこ？」',
+		loopN2: 'エージェントが推論', loopN2s: '注文状況が必要',
+		loopN3: '注文ツールを呼ぶ', loopN3s: 'requires_action',
+		loopN4: '結果を観察', loopN4s: '発送済み · 木曜到着',
+		loopN5: '買い物客に返答', loopN5s: 'ストリーミングで返信',
+		loopIterate: '↻ 買い物客が答えを得るまで推論と行動が繰り返される',
+		loopStat1: 'トリガー', loopStat1v: '買い物客のメッセージが実行を開始',
+		loopStat2: 'サイクル', loopStat2v: '推論 → ツール呼び出し → 観察 → 繰り返し',
+		loopStat3: '終了', loopStat3v: '実行完了 → 返答がスレッドに追加',
+		wfTitle: 'ワークフロー：協働するContosoエージェント',
+		wfCaption: '買い物客を適切な専門家へ案内',
+		wfDesc: '1つのアシスタントが専門家に引き継げます。Contosoのトリアージエージェントが各リクエストを注文または返品エージェントに振り分けます — それぞれ独自の指示、ナレッジ、ツールを持ちます。',
+		wfCallout: '単一のエージェントは強力です。<strong>Contosoエージェントのチーム</strong>はさらに強力です。トリアージは実際に役立つ専門家に買い物客を案内します。',
+		wfTriage: 'トリアージエージェント', wfTriageSub: '買い物客を振り分け',
+		wfBilling: '注文エージェント', wfBillingSub: '状況と追跡',
+		wfTech: '返品エージェント', wfTechSub: '返金と交換',
+		wfHandoff: '引き継ぎ',
+		wfPat1: '➡️ 順次', wfPat2: '🔀 引き継ぎ', wfPat3: '🧭 オーケストレーター',
+		wfStat1: '理由', wfStat1v: 'チームとしてあらゆる買い物客のリクエストに対応',
+		wfStat2: 'パターン', wfStat2v: '順次 · 引き継ぎ · オーケストレーター',
+		wfStat3: '各エージェント', wfStat3v: '独自の指示、ナレッジ、ツール',
+		recapTitle: 'すべてをまとめる',
+		recapCaption: 'モデル + 指示 + ナレッジ + ツール + メモリ',
+		recapDesc: 'エージェントはデプロイ済みモデルに指示、ナレッジ、ツール、メモリを加えたもの — 実行ループで駆動され、ワークフローに構成できます。これがMicrosoft Foundryで構築するものです。',
+		recapCallout: 'モデルをデプロイして素の知性を得ます。<strong>指示、ナレッジ、ツール、メモリを加え</strong> — ループを実行して — 実際の仕事をこなすエージェントを出荷します。',
+		recapModel: 'モデル', recapModelSub: '推論',
+		recapInstr: '指示', recapInstrSub: '振る舞い',
+		recapKnow: 'ナレッジ', recapKnowSub: 'グラウンディング',
+		recapTools: 'ツール', recapToolsSub: 'アクション',
+		recapMem: 'メモリ', recapMemSub: 'スレッド',
+		recapAgentTitle: 'Microsoft Foundryエージェント', recapAgentSub: '実行ループ + ワークフローがすべてをオーケストレーション',
+		recapFoot: 'ai.azure.comの統合Foundryコンソールで構築 — モデルデプロイメントから本番対応エージェントまで。',
+		recapStat1: 'エージェント', recapStat1v: 'モデル + 指示 + ナレッジ + ツール + メモリ',
+		recapStat2: '駆動', recapStat2v: 'エージェント実行ループ',
+		recapStat3: 'スケール', recapStat3v: 'マルチエージェントワークフロー',
+		buildTitle: 'Foundryで構築 — そして成果を出荷',
+		buildCaption: '素のデプロイメントから本番Contosoエージェントへ',
+		buildDesc: '同じデプロイメントをFoundryエージェントとして包みます：指示、ナレッジ、ツール、メモリを加え、ループを実行し、contoso.comに公開します。これでブランドに沿い、実際の仕事をこなします。',
+		buildCallout: '同じモデル、今はエージェント。<strong>トピック外の質問を拒否</strong>し、<strong>実際のショッピング業務を手伝います</strong> — スコープあり、グラウンディング済み、アクション可能。',
+		buildStepsTitle: '構築方法',
+		buildStep1: 'モデルをデプロイ', buildStep1s: 'FoundryでGPTクラスのモデルを選択',
+		buildStep2: '指示を追加', buildStep2s: 'Contosoショッピングにスコープを限定',
+		buildStep3: 'ナレッジを接続', buildStep3s: 'カタログ、注文、返品（RAG）',
+		buildStep4: 'ツールを追加', buildStep4s: '注文状況、返品、在庫',
+		buildStep5: 'メモリを有効化', buildStep5s: 'スレッドが買い物客のコンテキストを保持',
+		buildStep6: '公開', buildStep6s: 'contoso.comに埋め込み',
+		buildValueTitle: 'ビジネスが勝つ理由',
+		buildVal1: '🎯 ブランドに沿う', buildVal2: '✅ 正確', buildVal3: '⚡ 行動する', buildVal4: '🔒 安全', buildVal5: '📈 スケール',
+		buildChatHeader: '💬 AIショッピングアシスタント',
+		buildBadge: 'エージェント駆動',
+		buildReplyLabel: 'AIアシスタント',
+		buildAfterUserLabel: 'あなた',
+		buildAfterUser1: '今月これらの株に投資すべきですか？',
+		buildAfterBot1: 'Contosoのショッピング — 製品、注文、返品のみお手伝いできます。🛍️',
+		buildAfterUser2: '注文 #1842 はどこですか？',
+		buildAfterBot2: '注文 #1842 は本日発送され、木曜に到着します。追跡リンクが必要ですか？📦',
+		buildFoot: 'ai.azure.comの統合Foundryコンソールで構築 — モデルをデプロイしたのと同じ場所です。',
+		buildIntegrateTitle: 'アプリに統合する',
+		buildIntegrateSub: 'Microsoft Agent Framework + Foundry SDK で、公開したエージェントをコードから呼び出します',
+		buildStat1: '構築の順序', buildStat1v: 'デプロイ → 指示 → ナレッジ → ツール → メモリ → 公開',
+		buildStat2: 'ビジネス価値', buildStat2v: 'ブランドに沿い、正確、アクション可能、安全、スケーラブル',
+		buildStat3: '場所', buildStat3v: 'Foundryコンソール（ai.azure.com）'
+	},
+	ko: {
+		skipToMain: '다이어그램으로 건너뛰기',
+		pageTitle: '에이전트를 구성하는 요소',
+		stageHeading: '에이전트를 구성하는 요소 — Microsoft Foundry',
+		stageInstructions: 'Microsoft Foundry에서 AI 에이전트를 구성하는 요소 — 지침, 지식, 도구, 메모리, 실행 루프 — 를 살펴봅니다. 다음/이전 버튼 또는 화살표 키로 탐색하세요. R을 눌러 다시 시작합니다.',
+		prev: '◀ 이전', next: '다음 ▶', replay: '↻ 다시보기', restart: '↻ 처음으로',
+		slower: '느리게', faster: '빠르게',
+		calloutOn: '💬 설명: 켜짐', calloutOff: '💬 설명: 꺼짐',
+		outlineOn: '📝 개요: 켜짐', outlineOff: '📝 개요: 꺼짐',
+		stepDetails: '단계 상세', stepOf: '단계',
+		problemTitle: '이전: 무엇이든 답하는 배포',
+		problemCaption: '모델 배포 이야기가 끝난 지점',
+		problemDesc: 'contoso.com에서 AI 쇼핑 어시스턴트는 직접 모델 배포 위에서 실행됩니다. 지침이 없으면 여행, 금융, 건강 등 — 무엇이든 — 매장과 전혀 무관한 것도 기꺼이 답합니다.',
+		problemCallout: '원시 배포에는 범위가 없습니다. 휴가, 주식, 증상을 물으면 그냥 답합니다. <strong>이것을 Contoso Retail 에이전트로 다시 만들어 봅시다.</strong>',
+		problemBrowserTitle: 'Contoso Retail',
+		problemUrl: 'https://www.contoso.com',
+		problemHero: 'Contoso Retail에 오신 것을 환영합니다',
+		problemTagline: '최신 제품, 할인, AI 기반 쇼핑 지원을 만나보세요.',
+		problemCard1: '🛍️ 신상품', problemCard2: '🔥 핫딜', problemCard3: '⭐ 최고 평점',
+		problemChatHeader: '💬 AI 쇼핑 어시스턴트',
+		problemBadge: '직접 배포',
+		problemRiskLabel: '사용자가 물어볼 수 있는 범위 밖 주제:',
+		problemTopicTravel: '여행', problemTopicFinance: '금융', problemTopicHealth: '건강', problemTopicHistory: '역사',
+		problemUserLabel: '나',
+		problemPrompt1: '7일 휴가 일정을 계획해 줄 수 있나요?',
+		problemPrompt2: '이번 달에 이 주식에 투자해야 할까요?',
+		problemPrompt3: '이 증상은 무엇을 의미할까요?',
+		problemPrompt4: '로마 제국의 멸망을 설명해 주세요.',
+		problemReplyLabel: 'AI 어시스턴트',
+		problemReply: '지침이 없으면 사용자가 묻는 무엇이든 답하려 할 수 있습니다.',
+		problemTransition: '↓ Contoso Retail 에이전트로 다시 만들어 봅시다',
+		problemStat1: '위치', problemStat1v: 'Contoso Retail 쇼핑 어시스턴트',
+		problemStat2: '실행 환경', problemStat2v: '직접 모델 배포 (범위 없음)',
+		problemStat3: '문제', problemStat3v: '무엇이든 답함 — 여행, 금융, 건강',
+		anatomyTitle: '에이전트란?',
+		anatomyCaption: '모델은 두뇌 — 에이전트는 작업자 전체',
+		anatomyDesc: '배포된 모델은 상태가 없고 무엇이든 답합니다. Foundry 에이전트는 같은 모델을 지침, 지식, 도구, 메모리로 감싸 — Contoso의 집중된 쇼핑 어시스턴트로 바꿉니다.',
+		anatomyCallout: 'Contoso 채팅의 모델을 가져와 감쌉니다. <strong>지침 + 지식 + 도구 + 메모리</strong>가 "무엇이든 답함"을 브리프를 따르고, 조회하고, 행동하고, 기억하는 에이전트로 바꿉니다.',
+		anatomyCoreLabel: '모델', anatomyCoreSub: '배포된 LLM · 추론 엔진',
+		anatomyRing: '오케스트레이션',
+		anatomyInstr: '지침', anatomyInstrSub: '어떻게 행동해야 하는가',
+		anatomyKnow: '지식', anatomyKnowSub: '무엇을 조회할 수 있는가',
+		anatomyTools: '도구', anatomyToolsSub: '무엇을 할 수 있는가',
+		anatomyMem: '메모리', anatomyMemSub: '무엇을 기억하는가',
+		anatomyEquals: '🤖  = Microsoft Foundry 에이전트',
+		anatomyStat1: '핵심', anatomyStat1v: '배포된 모델 (추론 엔진)',
+		anatomyStat2: '래퍼', anatomyStat2v: '지침 · 지식 · 도구 · 메모리',
+		anatomyStat3: '접착제', anatomyStat3v: '오케스트레이션 / 실행 루프',
+		instrTitle: '지침: Contoso 쇼핑 브리프',
+		instrCaption: '어시스턴트의 범위를 정하는 시스템 프롬프트',
+		instrDesc: '지침은 지속적인 시스템 프롬프트입니다. 어시스턴트를 Contoso 쇼핑 전문가로 만들고 — 여행, 금융, 건강, 역사를 정중히 거절하도록 지시합니다.',
+		instrCallout: '지침은 "무엇이든 답함" 문제를 해결합니다. <strong>어시스턴트가 누구인지, 무엇을 돕고, 무엇을 거절해야 하는지</strong>를 — 매 실행마다 정의합니다.',
+		instrEditorName: 'contoso-shopping-assistant.instructions',
+		instrK1: '페르소나', instrV1: '당신은 Contoso Retail의 친절한 쇼핑 어시스턴트입니다.',
+		instrK2: '범위', instrV2: '제품, 주문, 반품만 돕습니다.',
+		instrK3: '거절', instrV3: '여행, 금융, 건강, 역사를 거절합니다.',
+		instrK4: '어조', instrV4: '따뜻하고 간결하며 브랜드에 맞게.',
+		instrPill1: '🎭 페르소나', instrPill2: '🛍️ 범위', instrPill3: '🚫 주제 밖 거절', instrPill4: '🎙️ 어조',
+		instrSysRole: '🛡️ 시스템 메시지',
+		instrSysDesc: '위 브리프는 <strong>시스템 메시지</strong>로 — 매 실행마다 한 번 — 전송됩니다. 모델이 항상 따라야 하는 지속적인 규칙을 설정합니다.',
+		instrUserRole: '💬 사용자 메시지',
+		instrUserDesc: '쇼핑객이 매 턴 입력하는 내용 ("내 주문 어디 있어요?"). 끊임없이 바뀌며 시스템 메시지를 절대 덮어쓸 수 없습니다.',
+		instrCodeFile: 'instructions.py',
+		instrCodeSysContent: '당신은 Contoso Retail의 쇼핑 어시스턴트입니다. 제품, 주문, 반품만 돕습니다. 여행, 금융, 건강, 역사를 거절합니다. 따뜻하고 간결하며 브랜드에 맞게.',
+		instrCodeUser1: '내 주문 #10482 어디 있어요?',
+		instrCodeUser1Note: '# 범위 내 → 답변됨',
+		instrCodeUser2: '주말 휴가를 계획해 줄 수 있나요?',
+		instrCodeUser2Note: '# 범위 밖 → 정중히 거절됨',
+		instrStat1: '무엇', instrStat1v: '어시스턴트를 위한 지속적인 시스템 프롬프트',
+		instrStat2: '해결', instrStat2v: '"무엇이든 답함" 문제',
+		instrStat3: '정의', instrStat3v: '페르소나 · 범위 · 거절 · 어조',
+		knowTitle: '지식: Contoso 데이터 기반 그라운딩',
+		knowCaption: '추측이 아닌 카탈로그에서 답변 (RAG)',
+		knowDesc: '지식은 어시스턴트를 Contoso의 카탈로그, 주문 내역, 반품 정책에 연결하여 답변이 지어낸 것이 아닌 실제 데이터에 근거하도록 합니다.',
+		knowCallout: '그라운딩 = 검색 증강 생성(RAG). 어시스턴트는 Contoso 소스를 검색하고, 올바른 구절을 가져와 <strong>실제 정책을 인용하여</strong> 답변합니다.',
+		knowUser: 'Contoso X2 헤드폰의 반품 기간은 얼마인가요?',
+		knowUserTag: '나',
+		knowSearchQuery: 'Contoso X2 — 반품 기간',
+		knowStatusSearch: '🔎 연결된 지식 검색 중…',
+		knowStatusMatch: '✅ 3건 일치 — 최적의 구절 검색 중',
+		knowSnippetTitle: '📄 반품 정책 · §4.2',
+		knowSnippet: '"Contoso X2 헤드폰을 포함한 오디오 제품은 배송 후 30일 이내에 전액 환불로 반품할 수 있습니다."',
+		knowAnswer: '30일 — Contoso X2 헤드폰은 30일 이내에 전액 환불로 반품할 수 있습니다. ✅',
+		knowAnswerTag: '근거 있는 답변',
+		knowAgent: '에이전트',
+		knowS1: '제품 카탈로그 (벡터 스토어)', knowS2: 'Azure AI Search', knowS3: '반품 정책 (SharePoint)',
+		knowS4: '주문 내역 (Fabric)', knowS5: '매장 운영 시간 (Bing)', knowS6: 'contoso.com 페이지',
+		knowStat1: '이유', knowStat1v: 'Contoso 데이터로 답변 근거화 (RAG)',
+		knowStat2: '소스', knowStat2v: '카탈로그 · AI Search · 정책 · 주문 · 웹',
+		knowStat3: '결과', knowStat3v: '정확하고 인용 가능한 쇼핑 답변',
+		toolsTitle: '도구: 어시스턴트가 행동하게 하기',
+		toolsCaption: '답변에서 실제 리테일 작업으로',
+		toolsDesc: '도구는 어시스턴트가 실제 Contoso 작업 — 주문 확인, 반품 시작, 재고 조회 — 을 수행하게 합니다. 모델이 도구를 선택하면 실행되고 결과가 답변을 형성합니다.',
+		toolsCallout: '하나의 에이전트, 여러 경로. 모델이 어떤 도구를 실행할지 결정합니다 — <strong>주문 확인, 반품 시작 (그리고 이메일 발송), 또는 능동적 추천</strong> — 그리고 결과를 답변으로 연결합니다.',
+		toolsT1: '주문 상태 확인', toolsT1s: 'Function calling',
+		toolsT2: '반품 시작', toolsT2s: 'Logic Apps · 이메일',
+		toolsT3: '재고 확인', toolsT3s: 'Azure Functions',
+		toolsT4: '쿠폰 적용', toolsT4s: 'Logic Apps',
+		toolsT5: '제품 추천', toolsT5s: 'Code Interpreter',
+		toolsT6: '멤버십 조회', toolsT6s: 'MCP 도구',
+		toolsStat1: '이유', toolsStat1v: '답변만이 아닌 리테일 작업 수행',
+		toolsStat2: '예시', toolsStat2v: '주문 상태 · 반품 · 재고 · 추천',
+		toolsStat3: '흐름', toolsStat3v: '모델이 도구 선택 → 실행 → 결과 반환',
+		toolsAgent: '에이전트',
+		toolsS1Label: '시나리오 1 · 주문 상태',
+		toolsS1UserTag: '나', toolsS1User: '내 주문 #10482 어디 있어요?',
+		toolsS1Call: 'check_order_status("#10482")',
+		toolsS1StatusCall: '🛠️ check_order_status 호출 중…',
+		toolsS1ResultTitle: '📦 check_order_status · 결과',
+		toolsS1Result: '"주문 #10482 — Contoso Express로 발송. 도착 예정 6월 3일."',
+		toolsS1AnswerTag: '주문 업데이트', toolsS1Answer: '주문 #10482 발송됨 — 6월 3일 도착 예정입니다. 📦',
+		toolsS2Label: '시나리오 2 · 반품 + 이메일',
+		toolsS2UserTag: '나', toolsS2User: '최근 주문을 반품하고 싶어요.',
+		toolsS2Call: 'start_return("#10318") → send_email()',
+		toolsS2StatusCall: '🛠️ start_return 호출 → Logic App 이메일…',
+		toolsS2ResultTitle: '📧 start_return · 결과',
+		toolsS2Result: '"반품 #RT-7741 접수됨. 확인 이메일이 쇼핑객에게 발송되었습니다."',
+		toolsS2AnswerTag: '반품 시작됨', toolsS2Answer: '반품이 준비되었습니다 — 라벨과 확인서를 이메일로 보냈습니다. 📧✅',
+		toolsS3Label: '시나리오 3 · 능동적 제안',
+		toolsS3UserTag: '컨텍스트', toolsS3User: '쇼핑객이 겨울 재킷을 둘러보는 중…',
+		toolsS3Call: 'recommend_products() → check_inventory() → loyalty_lookup()',
+		toolsS3StatusCall: '🛠️ 3개 도구 연결 중…',
+		toolsS3ResultTitle: '🧠 멀티 도구 · 결과',
+		toolsS3Result: '"Aurora 파카 재고 있음 · 2,400 멤버십 포인트로 $24 할인 가능."',
+		toolsS3AnswerTag: '능동적 제안', toolsS3Answer: 'Aurora 파카를 좋아하실 것 같아요 — 재고 있고, 포인트로 $24 할인됩니다. 💡⭐',
+		toolsStatusDone: '✅ 결과 반환됨',
+		memTitle: '메모리: 쇼핑객을 기억하는 스레드',
+		memCaption: '턴을 넘나드는 상태 유지 쇼핑',
+		memDesc: '모델 호출은 상태가 없습니다. 스레드는 쇼핑객의 대화 — 모든 메시지와 실행 — 를 저장하여 어시스턴트가 사이즈, 장바구니, 이전 질문 같은 컨텍스트를 유지합니다.',
+		memCallout: '각 쇼핑객 대화는 <strong>스레드</strong>에 존재합니다. 어시스턴트는 두 턴 전 — 또는 두 번의 방문 전 — 에 말한 것을 기억합니다.',
+		memThreadLabel: '스레드 · 쇼핑객 대화',
+		memRun1: '실행 1', memRun2: '실행 2',
+		memU1: '사이즈 M 러닝화를 찾고 있어요.', memA1: '좋아요 — Contoso의 사이즈 M 러너입니다. 👟',
+		memU2: '제 평소 사이즈를 장바구니에 담아주세요.', memA2: '사이즈 M을 담았습니다 — 앞서 기억했어요. 🛒',
+		memWho: '나', memWhoA: '에이전트',
+		memNote: '스레드가 유지되므로 턴 2는 턴 1의 쇼핑객 사이즈를 <strong>기억합니다</strong>.',
+		memStat1: '무엇', memStat1v: '스레드 = 유지되는 쇼핑객 상태',
+		memStat2: '저장', memStat2v: '메시지 + 실행, 순서대로',
+		memStat3: '효과', memStat3v: '사이즈, 장바구니, 컨텍스트가 턴을 넘어 유지됨',
+		loopTitle: '에이전트 실행 루프',
+		loopCaption: '"내 주문 어디 있어요?"가 답해지는 방식',
+		loopDesc: '쇼핑객이 "내 주문 #1842 어디 있어요?"라고 물으면 에이전트는 실행을 시작합니다: 추론하고, 주문 상태 도구를 호출하고, 결과를 관찰하고, 답합니다 — 완료될 때까지 반복합니다.',
+		loopCallout: '루프는 에이전트의 핵심입니다. 쇼핑객에게 응답하기 전에 각 결과를 다시 피드백하며 도구를 <strong>여러 번</strong> 호출할 수 있습니다.',
+		loopN1: '쇼핑객이 질문', loopN1s: '"내 주문 #1842 어디 있어요?"',
+		loopN2: '에이전트가 추론', loopN2s: '주문 상태 필요',
+		loopN3: '주문 도구 호출', loopN3s: 'requires_action',
+		loopN4: '결과 관찰', loopN4s: '발송됨 · 목요일 도착',
+		loopN5: '쇼핑객에게 응답', loopN5s: '스트리밍으로 반환',
+		loopIterate: '↻ 쇼핑객이 답을 얻을 때까지 추론과 행동이 반복됨',
+		loopStat1: '트리거', loopStat1v: '쇼핑객 메시지가 실행을 시작',
+		loopStat2: '주기', loopStat2v: '추론 → 도구 호출 → 관찰 → 반복',
+		loopStat3: '종료', loopStat3v: '실행 완료 → 응답이 스레드에 추가됨',
+		wfTitle: '워크플로우: 함께 일하는 Contoso 에이전트',
+		wfCaption: '쇼핑객을 올바른 전문가에게 연결',
+		wfDesc: '하나의 어시스턴트가 전문가에게 인계할 수 있습니다. Contoso 트리아지 에이전트가 각 요청을 주문 또는 반품 에이전트로 라우팅합니다 — 각각 자체 지침, 지식, 도구를 갖습니다.',
+		wfCallout: '단일 에이전트는 강력합니다. <strong>Contoso 에이전트 팀</strong>은 더 강력합니다. 트리아지는 실제로 도울 수 있는 전문가에게 쇼핑객을 연결합니다.',
+		wfTriage: '트리아지 에이전트', wfTriageSub: '쇼핑객을 라우팅',
+		wfBilling: '주문 에이전트', wfBillingSub: '상태 및 추적',
+		wfTech: '반품 에이전트', wfTechSub: '환불 및 교환',
+		wfHandoff: '인계',
+		wfPat1: '➡️ 순차', wfPat2: '🔀 인계', wfPat3: '🧭 오케스트레이터',
+		wfStat1: '이유', wfStat1v: '팀으로서 모든 쇼핑객 요청 처리',
+		wfStat2: '패턴', wfStat2v: '순차 · 인계 · 오케스트레이터',
+		wfStat3: '각 에이전트', wfStat3v: '자체 지침, 지식, 도구',
+		recapTitle: '모두 합치기',
+		recapCaption: '모델 + 지침 + 지식 + 도구 + 메모리',
+		recapDesc: '에이전트는 배포된 모델에 지침, 지식, 도구, 메모리를 더한 것 — 실행 루프로 구동되고 워크플로우로 구성됩니다. 이것이 Microsoft Foundry에서 만드는 것입니다.',
+		recapCallout: '모델을 배포해 원시 지능을 얻습니다. <strong>지침, 지식, 도구, 메모리를 추가하고</strong> — 루프를 실행하여 — 실제 작업을 해내는 에이전트를 출시합니다.',
+		recapModel: '모델', recapModelSub: '추론',
+		recapInstr: '지침', recapInstrSub: '행동',
+		recapKnow: '지식', recapKnowSub: '그라운딩',
+		recapTools: '도구', recapToolsSub: '액션',
+		recapMem: '메모리', recapMemSub: '스레드',
+		recapAgentTitle: 'Microsoft Foundry 에이전트', recapAgentSub: '실행 루프 + 워크플로우가 모든 것을 오케스트레이션',
+		recapFoot: 'ai.azure.com의 통합 Foundry 콘솔에서 구축 — 모델 배포부터 프로덕션 준비 에이전트까지.',
+		recapStat1: '에이전트', recapStat1v: '모델 + 지침 + 지식 + 도구 + 메모리',
+		recapStat2: '구동', recapStat2v: '에이전트 실행 루프',
+		recapStat3: '확장', recapStat3v: '멀티 에이전트 워크플로우',
+		buildTitle: 'Foundry에서 구축 — 그리고 성과를 출시',
+		buildCaption: '원시 배포에서 프로덕션 Contoso 에이전트로',
+		buildDesc: '같은 배포를 Foundry 에이전트로 감쌉니다: 지침, 지식, 도구, 메모리를 추가하고, 루프를 실행하고, contoso.com에 다시 게시합니다. 이제 브랜드에 맞게 유지되며 실제 작업을 해냅니다.',
+		buildCallout: '같은 모델, 이제 에이전트. <strong>주제 밖 질문을 거절</strong>하고 <strong>실제 쇼핑 작업을 돕습니다</strong> — 범위가 정해지고, 근거가 있으며, 실행 가능합니다.',
+		buildStepsTitle: '구축 방법',
+		buildStep1: '모델 배포', buildStep1s: 'Foundry에서 GPT급 모델 선택',
+		buildStep2: '지침 추가', buildStep2s: 'Contoso 쇼핑으로 범위 한정',
+		buildStep3: '지식 연결', buildStep3s: '카탈로그, 주문, 반품 (RAG)',
+		buildStep4: '도구 추가', buildStep4s: '주문 상태, 반품, 재고',
+		buildStep5: '메모리 활성화', buildStep5s: '스레드가 쇼핑객 컨텍스트 유지',
+		buildStep6: '게시', buildStep6s: 'contoso.com에 다시 임베드',
+		buildValueTitle: '비즈니스가 이기는 이유',
+		buildVal1: '🎯 브랜드에 맞음', buildVal2: '✅ 정확함', buildVal3: '⚡ 행동함', buildVal4: '🔒 안전함', buildVal5: '📈 확장됨',
+		buildChatHeader: '💬 AI 쇼핑 어시스턴트',
+		buildBadge: '에이전트 기반',
+		buildReplyLabel: 'AI 어시스턴트',
+		buildAfterUserLabel: '나',
+		buildAfterUser1: '이번 달에 이 주식에 투자해야 할까요?',
+		buildAfterBot1: 'Contoso 쇼핑 — 제품, 주문, 반품만 도울 수 있습니다. 🛍️',
+		buildAfterUser2: '내 주문 #1842 어디 있어요?',
+		buildAfterBot2: '주문 #1842는 오늘 발송되어 목요일에 도착합니다. 추적 링크를 드릴까요? 📦',
+		buildFoot: 'ai.azure.com의 통합 Foundry 콘솔에서 구축 — 모델을 배포한 바로 그곳입니다.',
+		buildIntegrateTitle: '앱에 통합하기',
+		buildIntegrateSub: 'Microsoft Agent Framework + Foundry SDK로 게시된 에이전트를 코드에서 호출합니다',
+		buildStat1: '구축 순서', buildStat1v: '배포 → 지침 → 지식 → 도구 → 메모리 → 게시',
+		buildStat2: '비즈니스 가치', buildStat2v: '브랜드에 맞고, 정확하고, 실행 가능하고, 안전하고, 확장 가능',
+		buildStat3: '위치', buildStat3v: 'Foundry 콘솔 (ai.azure.com)'
+	},
+	pt: {
+		skipToMain: 'Pular para o diagrama',
+		pageTitle: 'O que compõe um agente',
+		stageHeading: 'O que compõe um agente — Microsoft Foundry',
+		stageInstructions: 'Explore o que compõe um agente de IA no Microsoft Foundry — instruções, conhecimento, ferramentas, memória e o loop de execução. Use os botões Próximo/Anterior ou as teclas de seta para navegar. Pressione R para reiniciar.',
+		prev: '◀ Anterior', next: 'Próximo ▶', replay: '↻ Repetir', restart: '↻ Reiniciar',
+		slower: 'Mais lento', faster: 'Mais rápido',
+		calloutOn: '💬 Aviso: Ligado', calloutOff: '💬 Aviso: Desligado',
+		outlineOn: '📝 Resumo: Ligado', outlineOff: '📝 Resumo: Desligado',
+		stepDetails: 'Detalhes da etapa', stepOf: 'Etapa',
+		problemTitle: 'Anteriormente: uma implantação que responde qualquer coisa',
+		problemCaption: 'Onde a história da implantação do modelo parou',
+		problemDesc: 'No contoso.com, o Assistente de Compras IA roda sobre uma implantação direta do modelo. Sem instruções, ele responderá alegremente sobre viagens, finanças, saúde — qualquer coisa — muito fora da loja.',
+		problemCallout: 'Uma implantação pura não tem escopo. Perguntado sobre férias, ações ou sintomas, ele simplesmente responde. <strong>Vamos reconstruí-lo como um Agente da Contoso Retail.</strong>',
+		problemBrowserTitle: 'Contoso Retail',
+		problemUrl: 'https://www.contoso.com',
+		problemHero: 'Bem-vindo à Contoso Retail',
+		problemTagline: 'Descubra os últimos produtos, ofertas e assistência de compras com IA.',
+		problemCard1: '🛍️ Novidades', problemCard2: '🔥 Ofertas', problemCard3: '⭐ Mais bem avaliados',
+		problemChatHeader: '💬 Assistente de Compras IA',
+		problemBadge: 'Implantação direta',
+		problemRiskLabel: 'Tópicos sem escopo que os usuários poderiam perguntar:',
+		problemTopicTravel: 'Viagens', problemTopicFinance: 'Finanças', problemTopicHealth: 'Saúde', problemTopicHistory: 'História',
+		problemUserLabel: 'Você',
+		problemPrompt1: 'Você pode planejar um roteiro de férias de 7 dias para mim?',
+		problemPrompt2: 'Devo investir nessas ações este mês?',
+		problemPrompt3: 'O que esses sintomas podem significar?',
+		problemPrompt4: 'Explique a queda do Império Romano.',
+		problemReplyLabel: 'Assistente IA',
+		problemReply: 'Sem instruções, posso tentar responder qualquer coisa que o usuário perguntar.',
+		problemTransition: '↓ Vamos reconstruí-lo como um Agente da Contoso Retail',
+		problemStat1: 'Onde', problemStat1v: 'Assistente de compras da Contoso Retail',
+		problemStat2: 'Rodando em', problemStat2v: 'Uma implantação direta do modelo (sem escopo)',
+		problemStat3: 'Problema', problemStat3v: 'Responde qualquer coisa — viagens, finanças, saúde',
+		anatomyTitle: 'O que é um agente?',
+		anatomyCaption: 'Um modelo é o cérebro — um agente é o trabalhador inteiro',
+		anatomyDesc: 'Um modelo implantado é sem estado e responderá qualquer coisa. Um Agente do Foundry envolve esse mesmo modelo com Instruções, Conhecimento, Ferramentas e Memória — transformando-o no assistente de compras focado da Contoso.',
+		anatomyCallout: 'Pegue o modelo do chat da Contoso e envolva-o. <strong>Instruções + Conhecimento + Ferramentas + Memória</strong> transformam "responde qualquer coisa" em um agente que segue um brief, pesquisa, age e lembra.',
+		anatomyCoreLabel: 'Modelo', anatomyCoreSub: 'LLM implantado · motor de raciocínio',
+		anatomyRing: 'Orquestração',
+		anatomyInstr: 'Instruções', anatomyInstrSub: 'Como deve se comportar',
+		anatomyKnow: 'Conhecimento', anatomyKnowSub: 'O que pode consultar',
+		anatomyTools: 'Ferramentas', anatomyToolsSub: 'O que pode fazer',
+		anatomyMem: 'Memória', anatomyMemSub: 'O que lembra',
+		anatomyEquals: '🤖  = um Agente do Microsoft Foundry',
+		anatomyStat1: 'Núcleo', anatomyStat1v: 'Modelo implantado (o motor de raciocínio)',
+		anatomyStat2: 'Invólucros', anatomyStat2v: 'Instruções · Conhecimento · Ferramentas · Memória',
+		anatomyStat3: 'Cola', anatomyStat3v: 'Orquestração / loop de execução',
+		instrTitle: 'Instruções: o brief de compras da Contoso',
+		instrCaption: 'O system prompt que dá escopo ao assistente',
+		instrDesc: 'As instruções são o system prompt duradouro. Tornam o assistente um especialista em compras da Contoso — e dizem para recusar educadamente viagens, finanças, saúde e história.',
+		instrCallout: 'As instruções resolvem o problema de "responde qualquer coisa". Definem <strong>quem é o assistente, com o que ajuda e o que deve recusar</strong> — a cada execução.',
+		instrEditorName: 'contoso-shopping-assistant.instructions',
+		instrK1: 'Persona', instrV1: 'Você é o simpático assistente de compras da Contoso Retail.',
+		instrK2: 'Escopo', instrV2: 'Ajude apenas com produtos, pedidos e devoluções.',
+		instrK3: 'Recusar', instrV3: 'Recuse viagens, finanças, saúde e história.',
+		instrK4: 'Tom', instrV4: 'Seja caloroso, conciso e fiel à marca.',
+		instrPill1: '🎭 Persona', instrPill2: '🛍️ Escopo', instrPill3: '🚫 Recusar fora do tema', instrPill4: '🎙️ Tom',
+		instrSysRole: '🛡️ Mensagem do sistema',
+		instrSysDesc: 'O brief acima é enviado como <strong>mensagem do sistema</strong> — uma vez, a cada execução. Define as regras duradouras que o modelo deve sempre seguir.',
+		instrUserRole: '💬 Mensagens do usuário',
+		instrUserDesc: 'O que o comprador digita a cada turno ("Cadê meu pedido?"). Mudam constantemente e nunca podem substituir a mensagem do sistema.',
+		instrCodeFile: 'instructions.py',
+		instrCodeSysContent: 'Você é o assistente de compras da Contoso Retail. Ajude apenas com produtos, pedidos e devoluções. Recuse viagens, finanças, saúde e história. Seja caloroso, conciso e fiel à marca.',
+		instrCodeUser1: 'Cadê meu pedido #10482?',
+		instrCodeUser1Note: '# dentro do escopo → respondido',
+		instrCodeUser2: 'Você pode planejar minhas férias de fim de semana?',
+		instrCodeUser2Note: '# fora do escopo → recusado educadamente',
+		instrStat1: 'O quê', instrStat1v: 'System prompt duradouro para o assistente',
+		instrStat2: 'Resolve', instrStat2v: 'O problema de "responde qualquer coisa"',
+		instrStat3: 'Define', instrStat3v: 'Persona · escopo · recusas · tom',
+		knowTitle: 'Conhecimento: fundamentação em dados da Contoso',
+		knowCaption: 'Responda a partir do catálogo, não de suposições (RAG)',
+		knowDesc: 'O conhecimento conecta o assistente ao catálogo, ao histórico de pedidos e à política de devoluções da Contoso, para que as respostas se baseiem em dados reais em vez de inventadas.',
+		knowCallout: 'Fundamentação = Geração Aumentada por Recuperação (RAG). O assistente busca nas fontes da Contoso, extrai a passagem certa e responde <strong>citando a política real</strong>.',
+		knowUser: 'Qual é o prazo de devolução dos fones Contoso X2?',
+		knowUserTag: 'Você',
+		knowSearchQuery: 'Contoso X2 — prazo de devolução',
+		knowStatusSearch: '🔎 Buscando no conhecimento conectado…',
+		knowStatusMatch: '✅ 3 correspondências — recuperando a melhor passagem',
+		knowSnippetTitle: '📄 Política de devoluções · §4.2',
+		knowSnippet: '"Produtos de áudio, incluindo os fones Contoso X2, podem ser devolvidos em até 30 dias após a entrega para reembolso total."',
+		knowAnswer: '30 dias — os fones Contoso X2 podem ser devolvidos em até 30 dias para reembolso total. ✅',
+		knowAnswerTag: 'Resposta fundamentada',
+		knowAgent: 'Agente',
+		knowS1: 'Catálogo de produtos (vector store)', knowS2: 'Azure AI Search', knowS3: 'Política de devoluções (SharePoint)',
+		knowS4: 'Histórico de pedidos (Fabric)', knowS5: 'Horário da loja (Bing)', knowS6: 'páginas do contoso.com',
+		knowStat1: 'Por quê', knowStat1v: 'Fundamentar respostas em dados da Contoso (RAG)',
+		knowStat2: 'Fontes', knowStat2v: 'Catálogo · AI Search · políticas · pedidos · web',
+		knowStat3: 'Resultado', knowStat3v: 'Respostas de compras precisas e citáveis',
+		toolsTitle: 'Ferramentas: deixar o assistente agir',
+		toolsCaption: 'De responder a executar tarefas reais de varejo',
+		toolsDesc: 'As ferramentas permitem que o assistente execute ações reais da Contoso — verificar um pedido, iniciar uma devolução, consultar estoque. O modelo escolhe uma ferramenta, ela executa e o resultado molda a resposta.',
+		toolsCallout: 'Um agente, muitos caminhos. O modelo decide quais ferramentas executar — <strong>verificar um pedido, iniciar uma devolução (e enviar um email) ou recomendar proativamente</strong> — e então encadeia os resultados na resposta.',
+		toolsT1: 'Verificar status do pedido', toolsT1s: 'Function calling',
+		toolsT2: 'Iniciar uma devolução', toolsT2s: 'Logic Apps · email',
+		toolsT3: 'Verificar estoque', toolsT3s: 'Azure Functions',
+		toolsT4: 'Aplicar um cupom', toolsT4s: 'Logic Apps',
+		toolsT5: 'Recomendar produtos', toolsT5s: 'Code Interpreter',
+		toolsT6: 'Consulta de fidelidade', toolsT6s: 'Ferramentas MCP',
+		toolsStat1: 'Por quê', toolsStat1v: 'Executar ações de varejo, não apenas responder',
+		toolsStat2: 'Exemplos', toolsStat2v: 'Status do pedido · devoluções · estoque · recomendações',
+		toolsStat3: 'Fluxo', toolsStat3v: 'O modelo escolhe ferramentas → executa → retorna resultado',
+		toolsAgent: 'Agente',
+		toolsS1Label: 'Cenário 1 · Status do pedido',
+		toolsS1UserTag: 'Você', toolsS1User: 'Cadê meu pedido #10482?',
+		toolsS1Call: 'check_order_status("#10482")',
+		toolsS1StatusCall: '🛠️ Chamando check_order_status…',
+		toolsS1ResultTitle: '📦 check_order_status · resultado',
+		toolsS1Result: '"Pedido #10482 — Enviado via Contoso Express. Previsão 3 de jun."',
+		toolsS1AnswerTag: 'Atualização do pedido', toolsS1Answer: 'Seu pedido #10482 foi enviado — chega em 3 de jun. 📦',
+		toolsS2Label: 'Cenário 2 · Devolução + email',
+		toolsS2UserTag: 'Você', toolsS2User: 'Gostaria de devolver meu pedido recente.',
+		toolsS2Call: 'start_return("#10318") → send_email()',
+		toolsS2StatusCall: '🛠️ Chamando start_return → email do Logic App…',
+		toolsS2ResultTitle: '📧 start_return · resultado',
+		toolsS2Result: '"Devolução #RT-7741 aberta. Email de confirmação enviado ao comprador."',
+		toolsS2AnswerTag: 'Devolução iniciada', toolsS2Answer: 'Sua devolução está pronta — enviei a etiqueta e uma confirmação por email. 📧✅',
+		toolsS3Label: 'Cenário 3 · Oferta proativa',
+		toolsS3UserTag: 'Contexto', toolsS3User: 'O comprador está vendo jaquetas de inverno…',
+		toolsS3Call: 'recommend_products() → check_inventory() → loyalty_lookup()',
+		toolsS3StatusCall: '🛠️ Encadeando 3 ferramentas…',
+		toolsS3ResultTitle: '🧠 multi-ferramenta · resultado',
+		toolsS3Result: '"Parka Aurora em estoque · 2.400 pts de fidelidade podem dar $24 de desconto."',
+		toolsS3AnswerTag: 'Oferta proativa', toolsS3Answer: 'Você pode adorar a Parka Aurora — em estoque, e seus pontos abatem $24. 💡⭐',
+		toolsStatusDone: '✅ Resultado retornado',
+		memTitle: 'Memória: threads que lembram do comprador',
+		memCaption: 'Compras com estado ao longo dos turnos',
+		memDesc: 'Uma chamada ao modelo é sem estado. Uma thread armazena a conversa do comprador — cada mensagem e execução — para que o assistente mantenha o contexto como seu tamanho, carrinho e perguntas anteriores.',
+		memCallout: 'Cada conversa do comprador vive em uma <strong>thread</strong>. O assistente lembra o que ele disse dois turnos — ou duas visitas — atrás.',
+		memThreadLabel: 'Thread · conversa do comprador',
+		memRun1: 'Execução 1', memRun2: 'Execução 2',
+		memU1: 'Estou procurando tênis de corrida tamanho M.', memA1: 'Ótimo — aqui estão os tênis tamanho M da Contoso. 👟',
+		memU2: 'Adicione meu tamanho de sempre ao carrinho.', memA2: 'Adicionei o tamanho M — lembrado de antes. 🛒',
+		memWho: 'Você', memWhoA: 'Agente',
+		memNote: 'Como a thread persiste, o turno 2 <strong>lembra</strong> o tamanho do comprador do turno 1.',
+		memStat1: 'O quê', memStat1v: 'Thread = estado persistido do comprador',
+		memStat2: 'Armazena', memStat2v: 'Mensagens + execuções, em ordem',
+		memStat3: 'Efeito', memStat3v: 'Tamanho, carrinho e contexto sobrevivem aos turnos',
+		loopTitle: 'O loop de execução agêntico',
+		loopCaption: 'Como "Cadê meu pedido?" é respondido',
+		loopDesc: 'Quando um comprador pergunta "Cadê meu pedido #1842?", o agente inicia uma execução: raciocina, chama a ferramenta de status do pedido, observa o resultado e responde — repetindo até concluir.',
+		loopCallout: 'O loop é o coração do agente. Ele pode chamar ferramentas <strong>várias vezes</strong>, realimentando cada resultado, antes de responder ao comprador.',
+		loopN1: 'O comprador pergunta', loopN1s: '"Cadê meu pedido #1842?"',
+		loopN2: 'O agente raciocina', loopN2s: 'Precisa do status do pedido',
+		loopN3: 'Chama a ferramenta', loopN3s: 'requires_action',
+		loopN4: 'Observa o resultado', loopN4s: 'Enviado · chega quinta',
+		loopN5: 'Responde ao comprador', loopN5s: 'Transmitido em streaming',
+		loopIterate: '↻ Raciocinar e agir se repetem até o comprador ter uma resposta',
+		loopStat1: 'Gatilho', loopStat1v: 'A mensagem do comprador inicia uma execução',
+		loopStat2: 'Ciclo', loopStat2v: 'Raciocinar → chamar ferramenta → observar → repetir',
+		loopStat3: 'Fim', loopStat3v: 'Execução conclui → resposta anexada à thread',
+		wfTitle: 'Workflows: agentes da Contoso trabalhando juntos',
+		wfCaption: 'Direcione compradores ao especialista certo',
+		wfDesc: 'Um assistente pode transferir para especialistas. Um agente de triagem da Contoso roteia cada solicitação ao agente de Pedidos ou Devoluções — cada um com suas próprias instruções, conhecimento e ferramentas.',
+		wfCallout: 'Um único agente é poderoso; uma <strong>equipe de agentes da Contoso</strong> é mais. A triagem direciona o comprador ao especialista que pode realmente ajudar.',
+		wfTriage: 'Agente de triagem', wfTriageSub: 'Roteia o comprador',
+		wfBilling: 'Agente de pedidos', wfBillingSub: 'Status e rastreamento',
+		wfTech: 'Agente de devoluções', wfTechSub: 'Reembolsos e trocas',
+		wfHandoff: 'transferência',
+		wfPat1: '➡️ Sequencial', wfPat2: '🔀 Transferência', wfPat3: '🧭 Orquestrador',
+		wfStat1: 'Por quê', wfStat1v: 'Atender qualquer solicitação do comprador como equipe',
+		wfStat2: 'Padrões', wfStat2v: 'Sequencial · transferência · orquestrador',
+		wfStat3: 'Cada agente', wfStat3v: 'Suas próprias instruções, conhecimento e ferramentas',
+		recapTitle: 'Juntando tudo',
+		recapCaption: 'Modelo + Instruções + Conhecimento + Ferramentas + Memória',
+		recapDesc: 'Um agente é um modelo implantado mais instruções, conhecimento, ferramentas e memória — guiado pelo loop de execução e combinável em workflows. É isso que você cria no Microsoft Foundry.',
+		recapCallout: 'Implante um modelo para obter inteligência pura. <strong>Adicione instruções, conhecimento, ferramentas e memória</strong> — e rode o loop — para lançar um agente que faz trabalho real.',
+		recapModel: 'Modelo', recapModelSub: 'Raciocínio',
+		recapInstr: 'Instruções', recapInstrSub: 'Comportamento',
+		recapKnow: 'Conhecimento', recapKnowSub: 'Fundamentação',
+		recapTools: 'Ferramentas', recapToolsSub: 'Ações',
+		recapMem: 'Memória', recapMemSub: 'Threads',
+		recapAgentTitle: 'Agente do Microsoft Foundry', recapAgentSub: 'O loop de execução + workflows orquestram tudo',
+		recapFoot: 'Construa no console unificado do Foundry em ai.azure.com — da implantação do modelo a um agente pronto para produção.',
+		recapStat1: 'Agente', recapStat1v: 'Modelo + instruções + conhecimento + ferramentas + memória',
+		recapStat2: 'Guiado por', recapStat2v: 'O loop de execução agêntico',
+		recapStat3: 'Escala via', recapStat3v: 'Workflows multiagente',
+		buildTitle: 'Construa no Foundry — e entregue o resultado',
+		buildCaption: 'De uma implantação pura a um agente da Contoso em produção',
+		buildDesc: 'Envolva a mesma implantação como um Agente do Foundry: adicione instruções, conhecimento, ferramentas e memória, rode o loop e publique de volta no contoso.com. Agora ele se mantém fiel à marca e faz trabalho real.',
+		buildCallout: 'O mesmo modelo, agora um agente. Ele <strong>recusa perguntas fora do tema</strong> e <strong>ajuda com tarefas reais de compras</strong> — com escopo, fundamentado e acionável.',
+		buildStepsTitle: 'Como construir',
+		buildStep1: 'Implante um modelo', buildStep1s: 'Escolha um modelo classe GPT no Foundry',
+		buildStep2: 'Adicione instruções', buildStep2s: 'Limite-o às compras da Contoso',
+		buildStep3: 'Conecte conhecimento', buildStep3s: 'Catálogo, pedidos, devoluções (RAG)',
+		buildStep4: 'Adicione ferramentas', buildStep4s: 'Status do pedido, devoluções, estoque',
+		buildStep5: 'Habilite memória', buildStep5s: 'Threads mantêm o contexto do comprador',
+		buildStep6: 'Publique', buildStep6s: 'Incorpore de volta no contoso.com',
+		buildValueTitle: 'Por que o negócio ganha',
+		buildVal1: '🎯 Fiel à marca', buildVal2: '✅ Preciso', buildVal3: '⚡ Toma ação', buildVal4: '🔒 Seguro', buildVal5: '📈 Escala',
+		buildChatHeader: '💬 Assistente de Compras IA',
+		buildBadge: 'Movido por agente',
+		buildReplyLabel: 'Assistente IA',
+		buildAfterUserLabel: 'Você',
+		buildAfterUser1: 'Devo investir nessas ações este mês?',
+		buildAfterBot1: 'Só posso ajudar com compras da Contoso — produtos, pedidos e devoluções. 🛍️',
+		buildAfterUser2: 'Cadê meu pedido #1842?',
+		buildAfterBot2: 'O pedido #1842 foi enviado hoje e chega na quinta. Quer o link de rastreamento? 📦',
+		buildFoot: 'Construa no console unificado do Foundry em ai.azure.com — o mesmo lugar onde você implantou o modelo.',
+		buildIntegrateTitle: 'Integre no seu app',
+		buildIntegrateSub: 'Chame seu agente publicado a partir do código com o Microsoft Agent Framework + Foundry SDK',
+		buildStat1: 'Ordem de construção', buildStat1v: 'Implantar → instruir → conhecimento → ferramentas → memória → publicar',
+		buildStat2: 'Valor de negócio', buildStat2v: 'Fiel à marca, preciso, acionável, seguro, escalável',
+		buildStat3: 'Onde', buildStat3v: 'Console do Foundry (ai.azure.com)'
+	}
+};
+function t(key) { return (I18N[currentLang] && I18N[currentLang][key]) || I18N.en[key] || key; }
+
+function setLanguage(lang) {
+	currentLang = lang;
+	document.documentElement.lang = lang;
+	document.getElementById('page-title').textContent = '🤖 ' + t('pageTitle');
+	document.getElementById('prev-btn').textContent = t('prev');
+	document.getElementById('next-btn').textContent = t('next');
+	document.getElementById('replay-btn').textContent = t('replay');
+	document.getElementById('reset-btn').textContent = t('restart');
+	document.getElementById('speed-down').title = t('slower');
+	document.getElementById('speed-up').title = t('faster');
+	document.getElementById('outline-title').textContent = t('stepDetails');
+	document.querySelector('.skip-link').textContent = t('skipToMain');
+	document.getElementById('stage-heading').textContent = t('stageHeading');
+	document.getElementById('stage-instructions').textContent = t('stageInstructions');
+	syncCalloutBtn();
+	syncOutlineBtn();
+	if (current >= 0) renderStep(current);
+}
+
+// ── STEPS ─────────────────────────────────
+const STEPS = [
+	{ id:'problem', short:'Recap', titleKey:'problemTitle', captionKey:'problemCaption', descKey:'problemDesc', calloutKey:'problemCallout',
+		stats:[['problemStat1','problemStat1v'],['problemStat2','problemStat2v'],['problemStat3','problemStat3v']] },
+	{ id:'anatomy', short:'Anatomy', titleKey:'anatomyTitle', captionKey:'anatomyCaption', descKey:'anatomyDesc', calloutKey:'anatomyCallout',
+		stats:[['anatomyStat1','anatomyStat1v'],['anatomyStat2','anatomyStat2v'],['anatomyStat3','anatomyStat3v']] },
+	{ id:'instructions', short:'Instructions', titleKey:'instrTitle', captionKey:'instrCaption', descKey:'instrDesc', calloutKey:'instrCallout',
+		stats:[['instrStat1','instrStat1v'],['instrStat2','instrStat2v'],['instrStat3','instrStat3v']] },
+	{ id:'knowledge', short:'Knowledge', titleKey:'knowTitle', captionKey:'knowCaption', descKey:'knowDesc', calloutKey:'knowCallout',
+		stats:[['knowStat1','knowStat1v'],['knowStat2','knowStat2v'],['knowStat3','knowStat3v']] },
+	{ id:'tools', short:'Tools', titleKey:'toolsTitle', captionKey:'toolsCaption', descKey:'toolsDesc', calloutKey:'toolsCallout',
+		stats:[['toolsStat1','toolsStat1v'],['toolsStat2','toolsStat2v'],['toolsStat3','toolsStat3v']] },
+	{ id:'memory', short:'Memory', titleKey:'memTitle', captionKey:'memCaption', descKey:'memDesc', calloutKey:'memCallout',
+		stats:[['memStat1','memStat1v'],['memStat2','memStat2v'],['memStat3','memStat3v']] },
+	{ id:'build', short:'Build', titleKey:'buildTitle', captionKey:'buildCaption', descKey:'buildDesc', calloutKey:'buildCallout',
+		stats:[['buildStat1','buildStat1v'],['buildStat2','buildStat2v'],['buildStat3','buildStat3v']] }
+];
+
+// ── DOM REFS ──────────────────────────────
+const stage       = document.getElementById('stage');
+const svg         = document.getElementById('fx-svg');
+const counter     = document.getElementById('step-counter');
+const breadcrumb  = document.getElementById('breadcrumb');
+const progress    = document.getElementById('progress-fill');
+const announcer   = document.getElementById('step-announcer');
+const outlineBody = document.getElementById('outline-body');
+const outlinePanel= document.getElementById('step-outline');
+const outlineBtn  = document.getElementById('outline-toggle');
+const calloutBtn  = document.getElementById('callout-toggle');
+const langSelect  = document.getElementById('lang-select');
+
+langSelect.addEventListener('change', (e) => { setLanguage(e.target.value); });
+// Honor ?lang= from the landing page so the animation opens in the chosen language.
+const urlLang = new URLSearchParams(location.search).get('lang');
+if (urlLang && I18N[urlLang]) { currentLang = urlLang; langSelect.value = urlLang; }
+
+// ── Font size controls ────────────────────
+const fontScales = [0.8, 0.9, 1, 1.1, 1.2, 1.35];
+let fontScaleIdx = 2;
+const fontDecBtn = document.getElementById('font-decrease');
+const fontIncBtn = document.getElementById('font-increase');
+const baseFontSize = parseFloat(getComputedStyle(document.documentElement).fontSize);
+function applyFontScale() {
+	document.documentElement.style.fontSize = (baseFontSize * fontScales[fontScaleIdx]) + 'px';
+	const controls = document.getElementById('controls');
+	if (controls) controls.style.fontSize = (baseFontSize) + 'px';
+}
+fontDecBtn.addEventListener('click', () => { if (fontScaleIdx > 0) { fontScaleIdx--; applyFontScale(); } });
+fontIncBtn.addEventListener('click', () => { if (fontScaleIdx < fontScales.length - 1) { fontScaleIdx++; applyFontScale(); } });
+
+let current = -1;
+let animating = false;
+let liveEls = [];
+let liveTimelines = [];
+let calloutEnabled = false;
+
+// ── Callout toggle ────────────────────────
+function syncCalloutBtn() {
+	calloutBtn.textContent = calloutEnabled ? t('calloutOn') : t('calloutOff');
+	calloutBtn.classList.toggle('toggle-active', calloutEnabled);
+}
+calloutBtn.addEventListener('click', () => { calloutEnabled = !calloutEnabled; syncCalloutBtn(); if (current >= 0) renderStep(current); });
+syncCalloutBtn();
+
+// ── Outline toggle ────────────────────────
+function syncOutlineBtn() {
+	const on = !outlinePanel.hasAttribute('hidden');
+	outlineBtn.textContent = on ? t('outlineOn') : t('outlineOff');
+	outlineBtn.classList.toggle('toggle-active', on);
+}
+outlineBtn.addEventListener('click', () => {
+	const showing = !outlinePanel.hasAttribute('hidden');
+	if (showing) { outlinePanel.setAttribute('hidden', ''); outlineBtn.setAttribute('aria-expanded', 'false'); }
+	else { outlinePanel.removeAttribute('hidden'); outlineBtn.setAttribute('aria-expanded', 'true'); }
+	syncOutlineBtn();
+});
+syncOutlineBtn();
+
+// ── Reduced motion ────────────────────────
+const motionMQ = window.matchMedia('(prefers-reduced-motion: reduce)');
+let motionPaused = motionMQ.matches;
+motionMQ.addEventListener('change', e => { motionPaused = e.matches; renderStep(current); });
+
+// ── Helpers ───────────────────────────────
+function clearStage() {
+	liveTimelines.forEach(t => t.kill());
+	liveTimelines = [];
+	liveEls.forEach(el => el.remove());
+	liveEls = [];
+	Array.from(svg.children).forEach(child => { if (child.tagName.toLowerCase() !== 'defs') child.remove(); });
+}
+function el(cls, html) { const d = document.createElement('div'); if (cls) d.className = cls; if (html != null) d.innerHTML = html; return d; }
+
+function stepTitle(step)   { return t(step.titleKey); }
+function stepDesc(step)    { return t(step.descKey); }
+function stepCaption(step) { return t(step.captionKey); }
+
+function renderOutline(step, idx) {
+	const statRows = (step.stats||[]).map(([k,v]) => {
+		const label = I18N[currentLang] && I18N[currentLang][k] ? t(k) : k;
+		const value = I18N[currentLang] && I18N[currentLang][v] ? t(v) : v;
+		return `<div class="stat-row"><span>${label}</span><span>${value}</span></div>`;
+	}).join('');
+	outlineBody.innerHTML = `
+		<div class="outline-section">
+			<strong>${t('stepOf')} ${idx+1} / ${STEPS.length}: ${stepTitle(step)}</strong>
+			<p style="margin-top:0.4rem;">${stepDesc(step)}</p>
+		</div>
+		${statRows ? `<div class="outline-section">${statRows}</div>` : ''}
+	`;
+}
+function announceStep(step, idx) {
+	announcer.textContent = `${t('stepOf')} ${idx+1} / ${STEPS.length}: ${stepTitle(step)}. ${stepDesc(step)}`;
+}
+
+// Build the shared title + lead header for a scene, returns the scene wrapper.
+function buildScene(step) {
+	const scene = el('scene');
+	scene.appendChild(el('scene-title', stepTitle(step)));
+	scene.appendChild(el('scene-lead', stepDesc(step)));
+	return scene;
+}
+function maybeCallout(step) {
+	if (!calloutEnabled) return null;
+	const c = el('callout', t(step.calloutKey));
+	c.style.left = '1.5rem'; c.style.top = '1.5rem'; c.style.right = 'auto'; c.style.bottom = 'auto';
+	stage.appendChild(c); liveEls.push(c);
+	return c;
+}
+function headerEls(scene) { return [scene.querySelector('.scene-title'), scene.querySelector('.scene-lead')]; }
+function stepById(id) { return STEPS.find(s => s.id === id); }
+
+// ── RENDER STEP ───────────────────────────
+function renderStep(stepIndex) {
+	if (stepIndex < 0 || stepIndex >= STEPS.length) return;
+	if (animating) { liveTimelines.forEach(t => t.kill()); liveTimelines = []; animating = false; }
+	animating = true;
+	const step = STEPS[stepIndex];
+	clearStage();
+
+	if (step.id === 'problem') renderProblemStep();
+	else if (step.id === 'anatomy') renderAnatomyStep();
+	else if (step.id === 'instructions') renderInstructionsStep();
+	else if (step.id === 'knowledge') renderKnowledgeStep();
+	else if (step.id === 'tools') renderToolsStep();
+	else if (step.id === 'memory') renderMemoryStep();
+	else if (step.id === 'runloop') renderRunLoopStep();
+	else if (step.id === 'workflows') renderWorkflowsStep();
+	else if (step.id === 'build') renderBuildStep();
+
+	current = stepIndex;
+	counter.textContent = `${t('stepOf')} ${current+1} / ${STEPS.length}`;
+	breadcrumb.textContent = stepCaption(step);
+	progress.style.width = ((current+1)/STEPS.length * 100) + '%';
+	renderOutline(step, stepIndex);
+	announceStep(step, stepIndex);
+}
+
+// ── STEP 1 · ANATOMY ──────────────────────
+function renderAnatomyStep() {
+	const step = stepById('anatomy');
+	const scene = buildScene(step);
+	const anatomy = el('anatomy');
+	anatomy.innerHTML = `
+		<div class="anatomy-ring"><span class="anatomy-ring-label">${t('anatomyRing')}</span></div>
+		<div class="core"><span class="core-icon">🧠</span><span class="core-label">${t('anatomyCoreLabel')}</span><span class="core-sub">${t('anatomyCoreSub')}</span></div>
+		<div class="satellite" data-part="instructions"><span class="sat-icon">📋</span><span><span class="sat-label">${t('anatomyInstr')}</span><span class="sat-sub">${t('anatomyInstrSub')}</span></span></div>
+		<div class="satellite" data-part="knowledge"><span class="sat-icon">📚</span><span><span class="sat-label">${t('anatomyKnow')}</span><span class="sat-sub">${t('anatomyKnowSub')}</span></span></div>
+		<div class="satellite" data-part="tools"><span class="sat-icon">🛠️</span><span><span class="sat-label">${t('anatomyTools')}</span><span class="sat-sub">${t('anatomyToolsSub')}</span></span></div>
+		<div class="satellite" data-part="memory"><span class="sat-icon">🧵</span><span><span class="sat-label">${t('anatomyMem')}</span><span class="sat-sub">${t('anatomyMemSub')}</span></span></div>
+		<div class="equals-badge">${t('anatomyEquals')}</div>
+	`;
+	scene.appendChild(anatomy);
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl = maybeCallout(step);
+
+	const core = anatomy.querySelector('.core');
+	const ring = anatomy.querySelector('.anatomy-ring');
+	const sats = anatomy.querySelectorAll('.satellite');
+	const eq = anatomy.querySelector('.equals-badge');
+
+	if (motionPaused) {
+		gsap.set([...headerEls(scene), anatomy, core, ring, ...sats, eq], { opacity:1 });
+		if (cEl) gsap.set(cEl, { opacity:1 });
+		animating = false; return;
+	}
+	const tl = gsap.timeline({ onComplete:()=>animating=false }); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), { opacity:0, y:-14 }, { opacity:1, y:0, duration:0.55, stagger:0.12, ease:'power2.out' });
+	tl.to(anatomy, { opacity:1, duration:0.3 }, '-=0.1');
+	tl.fromTo(core, { opacity:0, scale:0.5 }, { opacity:1, scale:1, duration:0.6, ease:'back.out(1.6)' });
+	tl.fromTo(ring, { opacity:0, scale:0.7 }, { opacity:0.55, scale:1, duration:0.6, ease:'power2.out' }, '-=0.2');
+	tl.fromTo(sats, { opacity:0, scale:0.7 }, { opacity:1, scale:1, duration:0.5, stagger:0.18, ease:'back.out(1.6)' }, '-=0.1');
+	tl.fromTo(eq, { opacity:0, y:16, scale:0.9 }, { opacity:1, y:0, scale:1, duration:0.6, ease:'back.out(1.5)' }, '+=0.2');
+	if (cEl) tl.fromTo(cEl, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.6 }, '-=0.3');
+}
+
+// ── STEP 2 · INSTRUCTIONS ─────────────────
+function renderInstructionsStep() {
+	const step = stepById('instructions');
+	const scene = buildScene(step);
+	const rows = [
+		['instrK1','instrV1'],['instrK2','instrV2'],['instrK3','instrV3'],['instrK4','instrV4']
+	].map(([k,v]) => `<div class="code-line"><span class="code-key">${t(k)}:</span><span class="code-val">${t(v)}</span></div>`).join('');
+	const editor = el('editor-card', `
+		<div class="edge-tabstrip">
+			<span class="edge-logo">${EDGE_LOGO_SVG}</span>
+			<div class="edge-tab">
+				<span class="edge-tab-fav">C</span>
+				<span class="edge-tab-title">${t('instrEditorName')}</span>
+				<span class="edge-tab-close">${'\u2715'}</span>
+			</div>
+			<span class="edge-newtab">+</span>
+			<span class="edge-wincontrols"><span>&#x2014;</span><span>&#x25A1;</span><span>${'\u2715'}</span></span>
+		</div>
+		<div class="editor-body">${rows}</div>
+	`);
+	const roles = el('role-legend', `
+		<div class="role-card is-system">
+			<div class="role-name">${t('instrSysRole')}</div>
+			<div class="role-text">${t('instrSysDesc')}</div>
+		</div>
+		<div class="role-card is-user">
+			<div class="role-name">${t('instrUserRole')}</div>
+			<div class="role-text">${t('instrUserDesc')}</div>
+		</div>
+	`);
+	const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+	const codeLines = [
+		`<span class="mc-var">messages</span> <span class="mc-punct">= [</span>`,
+		`<span class="mc-ind"></span><span class="mc-punct">{</span> <span class="mc-prop">"role"</span><span class="mc-punct">:</span> <span class="mc-role-sys">"system"</span><span class="mc-punct">,</span> <span class="mc-prop">"content"</span><span class="mc-punct">:</span> <span class="mc-str">"${esc(t('instrCodeSysContent'))}"</span> <span class="mc-punct">},</span>`,
+		`<span class="mc-ind"></span><span class="mc-punct">{</span> <span class="mc-prop">"role"</span><span class="mc-punct">:</span> <span class="mc-role-user">"user"</span><span class="mc-punct">,</span> <span class="mc-prop">"content"</span><span class="mc-punct">:</span> <span class="mc-str">"${esc(t('instrCodeUser1'))}"</span> <span class="mc-punct">},</span>  <span class="mc-comment">${esc(t('instrCodeUser1Note'))}</span>`,
+		`<span class="mc-ind"></span><span class="mc-punct">{</span> <span class="mc-prop">"role"</span><span class="mc-punct">:</span> <span class="mc-role-user">"user"</span><span class="mc-punct">,</span> <span class="mc-prop">"content"</span><span class="mc-punct">:</span> <span class="mc-str">"${esc(t('instrCodeUser2'))}"</span> <span class="mc-punct">},</span>  <span class="mc-comment">${esc(t('instrCodeUser2Note'))}</span>`,
+		`<span class="mc-punct">]</span>`
+	].map(h => `<div class="mc-line">${h}</div>`).join('');
+	const codeCard = el('msg-code', `
+		<div class="mc-head"><span class="mc-fav">{\u2009}</span> ${t('instrCodeFile')}</div>
+		<div class="mc-body">${codeLines}</div>
+	`);
+	const pills = el('chip-row', `
+		<span class="pill">${t('instrPill1')}</span><span class="pill">${t('instrPill2')}</span>
+		<span class="pill">${t('instrPill3')}</span><span class="pill">${t('instrPill4')}</span>
+	`);
+	scene.appendChild(editor); scene.appendChild(roles); scene.appendChild(codeCard); scene.appendChild(pills);
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl = maybeCallout(step);
+
+	const lines = editor.querySelectorAll('.code-line');
+	const roleEls = roles.querySelectorAll('.role-card');
+	const codeRows = codeCard.querySelectorAll('.mc-line');
+	const pillEls = pills.querySelectorAll('.pill');
+	if (motionPaused) {
+		gsap.set([...headerEls(scene), editor, ...lines, ...roleEls, codeCard, ...codeRows, ...pillEls], { opacity:1 });
+		if (cEl) gsap.set(cEl, { opacity:1 }); animating=false; return;
+	}
+	const tl = gsap.timeline({ onComplete:()=>animating=false }); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), { opacity:0, y:-14 }, { opacity:1, y:0, duration:0.55, stagger:0.12, ease:'power2.out' });
+	tl.fromTo(editor, { opacity:0, y:20, scale:0.97 }, { opacity:1, y:0, scale:1, duration:0.6, ease:'power2.out' }, '-=0.1');
+	tl.fromTo(lines, { opacity:0, x:-18 }, { opacity:1, x:0, duration:0.45, stagger:0.25, ease:'power2.out' }, '-=0.1');
+	tl.fromTo(roleEls, { opacity:0, y:16 }, { opacity:1, y:0, duration:0.5, stagger:0.18, ease:'power2.out' }, '+=0.05');
+	tl.fromTo(codeCard, { opacity:0, y:18, scale:0.98 }, { opacity:1, y:0, scale:1, duration:0.5, ease:'power2.out' }, '+=0.05');
+	tl.fromTo(codeRows, { opacity:0, x:-14 }, { opacity:1, x:0, duration:0.4, stagger:0.16, ease:'power2.out' }, '-=0.1');
+	tl.fromTo(pillEls, { opacity:0, y:12, scale:0.85 }, { opacity:1, y:0, scale:1, duration:0.45, stagger:0.12, ease:'back.out(1.8)' }, '+=0.1');
+	if (cEl) tl.fromTo(cEl, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.6 }, '-=0.3');
+}
+
+// ── STEP 3 · KNOWLEDGE ────────────────────
+function renderKnowledgeStep() {
+	const step = stepById('knowledge');
+	const scene = buildScene(step);
+	const grid = el('know-grid');
+	const NS = 'http://www.w3.org/2000/svg';
+
+	// Col 1 — shopper (question top, answer returns at bottom)
+	const conv = el('kg-col kg-conv');
+	conv.innerHTML = `
+		<div class="kg-colhead">① The shopper asks</div>
+		<div class="bubble user"><span class="bubble-tag">${t('knowUserTag')}</span>${t('knowUser')}</div>
+		<div class="kg-spacer"></div>
+		<div class="bubble answer"><span class="bubble-tag">${t('knowAnswerTag')}</span>${t('knowAnswer')}</div>
+	`;
+
+	// Col 2 — agent + retrieval
+	const retrieve = el('kg-col kg-retrieve');
+	retrieve.innerHTML = `
+		<div class="kg-colhead">② Agent thinks &amp; searches</div>
+		<div class="agent-node"><span class="an-icon">🤖</span><span class="an-label">${t('knowAgent')}</span></div>
+		<div class="know-search"><span class="ks-glass">🔎</span><span class="ks-typed"></span><span class="ks-caret"></span></div>
+		<div class="know-status"></div>
+		<div class="know-snippet"><div class="kn-title">${t('knowSnippetTitle')}</div><div class="kn-text">${t('knowSnippet')}</div></div>
+	`;
+
+	// Col 3 — sources
+	const srcCol = el('kg-col');
+	const srcHead = el('kg-colhead', '③ Connected knowledge');
+	const sources = el('source-stack');
+	// [icon, i18nKey, relevanceScore|null]
+	[['📦','knowS1',96],['🔎','knowS2',null],['📄','knowS3',92],['🗂️','knowS4',null],['🌐','knowS5',null],['🛍️','knowS6',81]]
+		.forEach(([ic,k,score]) => {
+			const html = `<span class="ks-icon">${ic}</span><span class="ks-label">${t(k)}</span>`
+				+ (score!=null ? `<span class="ks-score">${score}%</span>` : '');
+			sources.appendChild(el('know-source', html));
+		});
+	srcCol.appendChild(srcHead); srcCol.appendChild(sources);
+
+	grid.appendChild(conv); grid.appendChild(retrieve); grid.appendChild(srcCol);
+	// SVG wire overlay (drawn behind the cards)
+	const wires = document.createElementNS(NS, 'svg');
+	wires.setAttribute('class', 'know-wires');
+	grid.appendChild(wires);
+	scene.appendChild(grid);
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl = maybeCallout(step);
+
+	const colHeads = scene.querySelectorAll('.kg-colhead');
+	const userB = conv.querySelector('.bubble.user');
+	const answerB = conv.querySelector('.bubble.answer');
+	const agent = retrieve.querySelector('.agent-node');
+	const searchBox = retrieve.querySelector('.know-search');
+	const typed = retrieve.querySelector('.ks-typed');
+	const status = retrieve.querySelector('.know-status');
+	const snippet = retrieve.querySelector('.know-snippet');
+	const srcEls = [...sources.querySelectorAll('.know-source')];
+	const query = t('knowSearchQuery');
+	const matchEls = srcEls.filter(s => s.querySelector('.ks-score'));
+
+	// ── wire geometry (measured at natural layout positions) ──
+	const g = grid.getBoundingClientRect();
+	function anchor(elm, side) {
+		const r = elm.getBoundingClientRect();
+		const xs = { l:r.left, r:r.right, c:r.left + r.width/2 };
+		const ys = { t:r.top, b:r.bottom, m:r.top + r.height/2 };
+		return { x: xs[side[0]] - g.left, y: ys[side[1]] - g.top };
+	}
+	function pathD(a, b, dir) {
+		if (dir === 'h') { const dx = Math.max(28, Math.abs(b.x-a.x)*0.5);
+			return `M ${a.x} ${a.y} C ${a.x+dx} ${a.y}, ${b.x-dx} ${b.y}, ${b.x} ${b.y}`; }
+		const dy = Math.max(20, Math.abs(b.y-a.y)*0.5);
+		return `M ${a.x} ${a.y} C ${a.x} ${a.y+dy}, ${b.x} ${b.y-dy}, ${b.x} ${b.y}`;
+	}
+	function mkWire(a, b, dir, color, w) {
+		const p = document.createElementNS(NS, 'path');
+		p.setAttribute('d', pathD(a, b, dir));
+		p.setAttribute('fill', 'none');
+		p.setAttribute('stroke', color);
+		p.setAttribute('stroke-width', w || 2.5);
+		p.setAttribute('stroke-linecap', 'round');
+		wires.appendChild(p);
+		p._len = p.getTotalLength();
+		gsap.set(p, { opacity:0 });
+		return p;
+	}
+	const wQA = mkWire(anchor(userB,'rm'), anchor(agent,'lm'), 'h', '#0078d4', 3);
+	const wAS = mkWire(anchor(agent,'cb'), anchor(searchBox,'ct'), 'v', '#5c2d91', 3);
+	const wSrc = srcEls.map(s => mkWire(anchor(searchBox,'rm'), anchor(s,'lm'), 'h', '#0078d4', 2.5));
+	const wRet = mkWire(anchor(snippet,'lm'), anchor(answerB,'rm'), 'h', '#10a37f', 3.5);
+	// travelling "response" dot for the return path
+	const dot = document.createElementNS(NS, 'circle');
+	dot.setAttribute('r', '6'); dot.setAttribute('fill', '#10a37f');
+	wires.appendChild(dot); gsap.set(dot, { opacity:0 });
+	const dotObj = { d:0 };
+
+	if (motionPaused) {
+		typed.textContent = query;
+		status.textContent = t('knowStatusMatch');
+		matchEls.forEach(s => s.classList.add('matched'));
+		srcEls.forEach((s,i) => { if (!matchEls.includes(s)) gsap.set(wSrc[i], { opacity:0.12 }); });
+		matchEls.forEach(s => { const i = srcEls.indexOf(s); wSrc[i].setAttribute('stroke','#10a37f'); });
+		gsap.set([...headerEls(scene), ...colHeads, userB, agent, answerB, searchBox, status, snippet, ...srcEls], { opacity:1 });
+		gsap.set([wQA, wAS, wRet, ...wSrc], { opacity:1, strokeDashoffset:0 });
+		gsap.set(matchEls.map(s=>s.querySelector('.ks-score')), { opacity:1, scale:1 });
+		if (cEl) gsap.set(cEl, { opacity:1 }); animating=false; return;
+	}
+	gsap.set(agent, { opacity:0 });
+	const tl = gsap.timeline({ onComplete:()=>animating=false }); liveTimelines.push(tl);
+	const drawWire = (p, pos, dur) => tl.fromTo(p,
+		{ strokeDasharray:p._len, strokeDashoffset:p._len, opacity:1 },
+		{ strokeDashoffset:0, duration:dur, ease:'power1.inOut' }, pos);
+
+	tl.fromTo(headerEls(scene), { opacity:0, y:-14 }, { opacity:1, y:0, duration:0.6, stagger:0.14, ease:'power2.out' });
+	tl.fromTo(colHeads, { opacity:0, y:-8 }, { opacity:1, y:0, duration:0.4, stagger:0.1, ease:'power2.out' }, '-=0.2');
+	// connected sources slide in (present as targets)
+	tl.fromTo(srcEls, { opacity:0, x:28 }, { opacity:1, x:0, duration:0.5, stagger:0.12, ease:'power2.out' }, '-=0.1');
+	// 1) shopper asks
+	tl.fromTo(userB, { opacity:0, x:-20 }, { opacity:1, x:0, duration:0.6, ease:'power2.out' }, '+=0.15');
+	// 2) wire: shopper → agent, then agent appears & thinks
+	drawWire(wQA, '+=0.1', 0.6);
+	tl.fromTo(agent, { opacity:0, scale:0.6 }, { opacity:1, scale:1, duration:0.6, ease:'back.out(1.6)' }, '-=0.15');
+	tl.add(() => agent.classList.add('thinking'), '+=0.05');
+	tl.to({}, { duration:1.0 }); // let it think
+	tl.add(() => agent.classList.remove('thinking'));
+	// 3) wire: agent → search, search box appears & types query
+	tl.fromTo(searchBox, { opacity:0, y:12, scale:0.92 }, { opacity:1, y:0, scale:1, duration:0.55, ease:'back.out(1.5)' }, '-=0.2');
+	drawWire(wAS, '-=0.3', 0.55);
+	tl.to({ n:0 }, { n:query.length, duration:1.5, ease:'none',
+		onUpdate:function(){ typed.textContent = query.slice(0, Math.ceil(this.targets()[0].n)); } }, '+=0.05');
+	// 4) status: searching
+	tl.add(() => { status.textContent = t('knowStatusSearch'); });
+	tl.fromTo(status, { opacity:0, y:6 }, { opacity:1, y:0, duration:0.45 }, '+=0.05');
+	// 5) fan out: draw a wire to each source as it is scanned
+	srcEls.forEach((s, i) => {
+		drawWire(wSrc[i], '+=0.05', 0.34);
+		tl.add(() => s.classList.add('scanning'));
+		tl.add(() => s.classList.remove('scanning'), '+=0.28');
+	});
+	// 6) matches lock in: dim non-matches & their wires, keep matched wires green
+	tl.add(() => {
+		status.textContent = t('knowStatusMatch');
+		srcEls.forEach((s, i) => {
+			if (!matchEls.includes(s)) { s.classList.add('dimmed'); gsap.to(wSrc[i], { opacity:0.12, duration:0.4 }); }
+		});
+		matchEls.forEach(s => {
+			const i = srcEls.indexOf(s);
+			s.classList.remove('dimmed'); s.classList.add('matched');
+			wSrc[i].setAttribute('stroke', '#10a37f'); wSrc[i].setAttribute('stroke-width', '3.5');
+		});
+	}, '+=0.25');
+	tl.fromTo(matchEls.map(s=>s.querySelector('.ks-score')),
+		{ opacity:0, scale:0.6 }, { opacity:1, scale:1, duration:0.45, stagger:0.18, ease:'back.out(2)' }, '+=0.1');
+	// 7) retrieved passage flies in
+	tl.fromTo(snippet, { opacity:0, y:18, scale:0.95 }, { opacity:1, y:0, scale:1, duration:0.7, ease:'back.out(1.4)' }, '+=0.3');
+	// 8) return the response to the shopper: draw wire + travelling dot, then answer
+	drawWire(wRet, '+=0.3', 0.6);
+	tl.set(dot, { opacity:1 });
+	tl.to(dotObj, { d:wRet._len, duration:0.65, ease:'power1.inOut',
+		onUpdate:function(){ const pt = wRet.getPointAtLength(dotObj.d); dot.setAttribute('cx', pt.x); dot.setAttribute('cy', pt.y); } });
+	tl.to(dot, { opacity:0, duration:0.2 });
+	tl.fromTo(answerB, { opacity:0, x:-20, scale:0.95 }, { opacity:1, x:0, scale:1, duration:0.7, ease:'back.out(1.5)' }, '-=0.1');
+	if (cEl) tl.fromTo(cEl, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.6 }, '-=0.3');
+}
+
+// ── STEP 4 · TOOLS ────────────────────────
+function renderToolsStep() {
+	const step = stepById('tools');
+	const scene = buildScene(step);
+	const grid = el('know-grid tools-grid');
+	const NS = 'http://www.w3.org/2000/svg';
+
+	// scenario indicator (label on top, prev · 3 dots · next below) — a slider above the grid
+	const scen = el('kg-scenario');
+	scen.innerHTML = `<span class="kgs-label"></span>`
+		+ `<span class="kgs-row">`
+		+ `<button class="kgs-nav kgs-prev" type="button" aria-label="Previous scenario" title="Previous scenario">‹</button>`
+		+ `<span class="kgs-dot"></span><span class="kgs-dot"></span><span class="kgs-dot"></span>`
+		+ `<button class="kgs-nav kgs-next" type="button" aria-label="Next scenario" title="Next scenario">›</button>`
+		+ `</span>`;
+
+	// Col 1 — the request (top) + the agent's reply (bottom)
+	const conv = el('kg-col kg-conv');
+	conv.innerHTML = `
+		<div class="kg-colhead">① The request</div>
+		<div class="bubble user"><span class="bubble-tag"></span><span class="bubble-body"></span></div>
+		<div class="kg-spacer"></div>
+		<div class="bubble answer"><span class="bubble-tag"></span><span class="bubble-body"></span></div>
+	`;
+
+	// Col 2 — agent + tool call + result
+	const act = el('kg-col kg-retrieve');
+	act.innerHTML = `
+		<div class="kg-colhead">② Agent picks tool(s)</div>
+		<div class="agent-node"><span class="an-icon">🤖</span><span class="an-label">${t('toolsAgent')}</span></div>
+		<div class="know-search tools"><span class="ks-glass">⚙️</span><span class="ks-typed"></span><span class="ks-caret"></span></div>
+		<div class="know-status tools"></div>
+		<div class="know-snippet"><div class="kn-title"></div><div class="kn-text"></div></div>
+	`;
+
+	// Col 3 — available tools (static catalogue)
+	const toolCol = el('kg-col');
+	const toolHead = el('kg-colhead', '③ Available tools');
+	const tools = el('source-stack');
+	// [icon, labelKey, subKey]
+	[['🔧','toolsT1','toolsT1s'],['📧','toolsT2','toolsT2s'],['📦','toolsT3','toolsT3s'],
+	 ['🏷️','toolsT4','toolsT4s'],['💡','toolsT5','toolsT5s'],['⭐','toolsT6','toolsT6s']]
+		.forEach(([ic,k,s]) => {
+			tools.appendChild(el('know-source',
+				`<span class="ks-icon">${ic}</span><span class="ks-label">${t(k)}<span class="ks-sub">${t(s)}</span></span><span class="ks-pick">✓ picked</span>`));
+		});
+	toolCol.appendChild(toolHead); toolCol.appendChild(tools);
+
+	grid.appendChild(scen);
+	grid.appendChild(conv); grid.appendChild(act); grid.appendChild(toolCol);
+	// SVG wire overlay (drawn behind the cards)
+	const wires = document.createElementNS(NS, 'svg');
+	wires.setAttribute('class', 'know-wires');
+	grid.appendChild(wires);
+	scene.appendChild(grid);
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl = maybeCallout(step);
+
+	const colHeads = scene.querySelectorAll('.kg-colhead');
+	const scenDots = [...scen.querySelectorAll('.kgs-dot')];
+	const scenLabel = scen.querySelector('.kgs-label');
+	const scenPrev = scen.querySelector('.kgs-prev');
+	const scenNext = scen.querySelector('.kgs-next');
+	const userB = conv.querySelector('.bubble.user');
+	const userTag = userB.querySelector('.bubble-tag');
+	const userBody = userB.querySelector('.bubble-body');
+	const answerB = conv.querySelector('.bubble.answer');
+	const answerTag = answerB.querySelector('.bubble-tag');
+	const answerBody = answerB.querySelector('.bubble-body');
+	const agent = act.querySelector('.agent-node');
+	const callBox = act.querySelector('.know-search');
+	const typed = act.querySelector('.ks-typed');
+	const status = act.querySelector('.know-status');
+	const snippet = act.querySelector('.know-snippet');
+	const snipTitle = snippet.querySelector('.kn-title');
+	const snipText = snippet.querySelector('.kn-text');
+	const toolEls = [...tools.querySelectorAll('.know-source')];
+	const pickBadges = toolEls.map(s => s.querySelector('.ks-pick'));
+
+	// the three retail scenarios the agent can take
+	const scenarios = [
+		{ label:t('toolsS1Label'), userTag:t('toolsS1UserTag'), user:t('toolsS1User'),
+		  call:t('toolsS1Call'), statusCall:t('toolsS1StatusCall'),
+		  resultTitle:t('toolsS1ResultTitle'), result:t('toolsS1Result'),
+		  answerTag:t('toolsS1AnswerTag'), answer:t('toolsS1Answer'), picks:[0] },
+		{ label:t('toolsS2Label'), userTag:t('toolsS2UserTag'), user:t('toolsS2User'),
+		  call:t('toolsS2Call'), statusCall:t('toolsS2StatusCall'),
+		  resultTitle:t('toolsS2ResultTitle'), result:t('toolsS2Result'),
+		  answerTag:t('toolsS2AnswerTag'), answer:t('toolsS2Answer'), picks:[1] },
+		{ label:t('toolsS3Label'), userTag:t('toolsS3UserTag'), user:t('toolsS3User'),
+		  call:t('toolsS3Call'), statusCall:t('toolsS3StatusCall'),
+		  resultTitle:t('toolsS3ResultTitle'), result:t('toolsS3Result'),
+		  answerTag:t('toolsS3AnswerTag'), answer:t('toolsS3Answer'), picks:[4,2,5] }
+	];
+
+	// ── wire geometry (measured at natural layout positions) ──
+	const g = grid.getBoundingClientRect();
+	function anchor(elm, side) {
+		const r = elm.getBoundingClientRect();
+		const xs = { l:r.left, r:r.right, c:r.left + r.width/2 };
+		const ys = { t:r.top, b:r.bottom, m:r.top + r.height/2 };
+		return { x: xs[side[0]] - g.left, y: ys[side[1]] - g.top };
+	}
+	function pathD(a, b, dir) {
+		if (dir === 'h') { const sx = b.x >= a.x ? 1 : -1; const dx = Math.max(28, Math.abs(b.x-a.x)*0.5);
+			return `M ${a.x} ${a.y} C ${a.x+dx*sx} ${a.y}, ${b.x-dx*sx} ${b.y}, ${b.x} ${b.y}`; }
+		const sy = b.y >= a.y ? 1 : -1; const dy = Math.max(20, Math.abs(b.y-a.y)*0.5);
+		return `M ${a.x} ${a.y} C ${a.x} ${a.y+dy*sy}, ${b.x} ${b.y-dy*sy}, ${b.x} ${b.y}`;
+	}
+	function mkWire(a, b, dir, color, w) {
+		const p = document.createElementNS(NS, 'path');
+		p.setAttribute('d', pathD(a, b, dir));
+		p.setAttribute('fill', 'none');
+		p.setAttribute('stroke', color);
+		p.setAttribute('stroke-width', w || 2.5);
+		p.setAttribute('stroke-linecap', 'round');
+		wires.appendChild(p);
+		p._len = p.getTotalLength();
+		gsap.set(p, { opacity:0 });
+		return p;
+	}
+	const wQA = mkWire(anchor(userB,'rm'), anchor(agent,'lm'), 'h', '#0078d4', 3);
+	const wAC = mkWire(anchor(agent,'cb'), anchor(callBox,'ct'), 'v', '#5c2d91', 3);
+	const wTool = toolEls.map(s => mkWire(anchor(callBox,'rm'), anchor(s,'lm'), 'h', '#e97526', 2.5));
+	const wRet = mkWire(anchor(snippet,'lm'), anchor(answerB,'rm'), 'h', '#10a37f', 3.5);
+	// travelling "result" dot for the return path
+	const dot = document.createElementNS(NS, 'circle');
+	dot.setAttribute('r', '6'); dot.setAttribute('fill', '#10a37f');
+	wires.appendChild(dot); gsap.set(dot, { opacity:0 });
+	const dotObj = { d:0 };
+
+	// paint a scenario's text content into the shared cards
+	function setText(sc, idx) {
+		scenDots.forEach((d,i) => d.classList.toggle('active', i===idx));
+		scenLabel.textContent = sc.label;
+		userTag.textContent = sc.userTag; userBody.innerHTML = sc.user;
+		answerTag.textContent = sc.answerTag; answerBody.innerHTML = sc.answer;
+		snipTitle.textContent = sc.resultTitle; snipText.innerHTML = sc.result;
+	}
+
+	if (motionPaused) {
+		const sc = scenarios[2]; // show the richest (multi-tool) case at rest
+		setText(sc, 2);
+		// card heights vary per scenario — recompute the return wire to current boxes
+		gsap.set([snippet, answerB], { x:0, y:0, scale:1 });
+		wRet.setAttribute('d', pathD(anchor(snippet,'lm'), anchor(answerB,'rm'), 'h'));
+		wRet._len = wRet.getTotalLength();
+		typed.textContent = sc.call;
+		status.textContent = t('toolsStatusDone');
+		toolEls.forEach((s,i) => {
+			if (sc.picks.includes(i)) { s.classList.add('picked'); wTool[i].setAttribute('stroke','#e97526'); gsap.set(wTool[i], { opacity:1, strokeDashoffset:0 }); }
+			else { s.classList.add('dimmed'); gsap.set(wTool[i], { opacity:0 }); }
+		});
+		gsap.set([...headerEls(scene), ...colHeads, scen, userB, agent, answerB, callBox, status, snippet, ...toolEls], { opacity:1 });
+		gsap.set([wQA, wAC, wRet], { opacity:1, strokeDashoffset:0 });
+		gsap.set(sc.picks.map(i=>pickBadges[i]), { opacity:1, scale:1 });
+		gsap.set(pickBadges.filter((b,i)=>!sc.picks.includes(i)), { opacity:0 });
+		if (cEl) gsap.set(cEl, { opacity:1 }); animating=false; return;
+	}
+
+	const drawWire = (tl, p, pos, dur) => tl.fromTo(p,
+		{ strokeDasharray:p._len, strokeDashoffset:p._len, opacity:1 },
+		{ strokeDashoffset:0, duration:dur, ease:'power1.inOut' }, pos);
+
+	// ── intro plays once: header, column heads, the tool catalogue ──
+	const master = gsap.timeline(); liveTimelines.push(master);
+	master.fromTo(headerEls(scene), { opacity:0, y:-14 }, { opacity:1, y:0, duration:0.6, stagger:0.14, ease:'power2.out' });
+	master.fromTo(colHeads, { opacity:0, y:-8 }, { opacity:1, y:0, duration:0.4, stagger:0.1, ease:'power2.out' }, '-=0.2');
+	master.fromTo(toolEls, { opacity:0, x:28 }, { opacity:1, x:0, duration:0.5, stagger:0.12, ease:'power2.out' }, '-=0.1');
+	if (cEl) master.fromTo(cEl, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.6 }, '-=0.1');
+	master.add(() => { animating = false; }); // don't block navigation while it loops
+
+	// build one scenario beat
+	function buildScenario(sc, idx) {
+		const seg = gsap.timeline();
+		// sync text now so card heights reflect this scenario, then recompute the
+		// return wire — the PROACTIVE OFFER / RESULT boxes change size per scenario
+		setText(sc, idx);
+		gsap.set([snippet, answerB], { x:0, y:0, scale:1 });
+		wRet.setAttribute('d', pathD(anchor(snippet,'lm'), anchor(answerB,'rm'), 'h'));
+		wRet._len = wRet.getTotalLength();
+		// reset everything this scenario will animate
+		seg.add(() => {
+			setText(sc, idx);
+			typed.textContent = ''; status.textContent = '';
+			toolEls.forEach(s => s.classList.remove('picked','dimmed','calling'));
+			pickBadges.forEach(b => gsap.set(b, { opacity:0, scale:0.6 }));
+			wTool.forEach(w => { w.setAttribute('stroke','#e97526'); w.setAttribute('stroke-width','2.5'); gsap.set(w, { opacity:0 }); });
+			gsap.set([wQA, wAC, wRet], { opacity:0 });
+			gsap.set([userB, answerB, callBox, status, snippet, agent, dot], { opacity:0 });
+		});
+		// 1) the request arrives
+		seg.fromTo(userB, { opacity:0, x:-20 }, { opacity:1, x:0, duration:0.6, ease:'power2.out' }, '+=0.1');
+		// 2) wire request → agent, agent appears & thinks
+		drawWire(seg, wQA, '+=0.1', 0.55);
+		seg.fromTo(agent, { opacity:0, scale:0.6 }, { opacity:1, scale:1, duration:0.55, ease:'back.out(1.6)' }, '-=0.15');
+		seg.add(() => agent.classList.add('thinking'), '+=0.05');
+		seg.to({}, { duration:0.85 });
+		seg.add(() => agent.classList.remove('thinking'));
+		// 3) wire agent → tool-call box, type the function call(s)
+		seg.fromTo(callBox, { opacity:0, y:12, scale:0.92 }, { opacity:1, y:0, scale:1, duration:0.5, ease:'back.out(1.5)' }, '-=0.2');
+		drawWire(seg, wAC, '-=0.3', 0.5);
+		seg.to({ n:0 }, { n:sc.call.length, duration:1.3, ease:'none',
+			onUpdate:function(){ typed.textContent = sc.call.slice(0, Math.ceil(this.targets()[0].n)); } }, '+=0.05');
+		// 4) status: calling
+		seg.add(() => { status.textContent = sc.statusCall; });
+		seg.fromTo(status, { opacity:0, y:6 }, { opacity:1, y:0, duration:0.4 }, '+=0.05');
+		// 5) dim the tools that aren't used, then draw a wire straight to the picked one(s)
+		seg.add(() => {
+			toolEls.forEach((s, i) => { if (!sc.picks.includes(i)) s.classList.add('dimmed'); });
+		}, '+=0.1');
+		sc.picks.forEach((i) => {
+			const s = toolEls[i];
+			wTool[i].setAttribute('stroke', '#e97526'); wTool[i].setAttribute('stroke-width', '3.5');
+			drawWire(seg, wTool[i], '+=0.05', 0.4);
+			seg.add(() => s.classList.add('picked'), '-=0.1');
+		});
+		seg.add(() => { status.textContent = t('toolsStatusDone'); }, '+=0.05');
+		seg.fromTo(sc.picks.map(i=>pickBadges[i]),
+			{ opacity:0, scale:0.6 }, { opacity:1, scale:1, duration:0.45, stagger:0.16, ease:'back.out(2)' }, '+=0.1');
+		// 7) tool result flies in
+		seg.fromTo(snippet, { opacity:0, y:18, scale:0.95 }, { opacity:1, y:0, scale:1, duration:0.65, ease:'back.out(1.4)' }, '+=0.25');
+		// 8) return to the shopper: wire + travelling dot, then the reply
+		drawWire(seg, wRet, '+=0.25', 0.55);
+		seg.set(dot, { opacity:1 });
+		dotObj.d = 0;
+		seg.to(dotObj, { d:wRet._len, duration:0.6, ease:'power1.inOut',
+			onUpdate:function(){ const pt = wRet.getPointAtLength(dotObj.d); dot.setAttribute('cx', pt.x); dot.setAttribute('cy', pt.y); } });
+		seg.to(dot, { opacity:0, duration:0.2 });
+		seg.fromTo(answerB, { opacity:0, x:-20, scale:0.95 }, { opacity:1, x:0, scale:1, duration:0.65, ease:'back.out(1.5)' }, '-=0.1');
+		seg.to({}, { duration:1.8 }); // hold so viewers can read
+		return seg;
+	}
+
+	// ── slider: play one scenario at a time; the user can switch back and forth ──
+	let current = 0;
+	let segTl = null;
+	function playScenario(idx) {
+		current = ((idx % scenarios.length) + scenarios.length) % scenarios.length;
+		if (segTl) segTl.kill();
+		segTl = buildScenario(scenarios[current], current);
+		liveTimelines.push(segTl);
+	}
+	scenDots.forEach((d, i) => d.addEventListener('click', () => playScenario(i)));
+	scenPrev.addEventListener('click', () => playScenario(current - 1));
+	scenNext.addEventListener('click', () => playScenario(current + 1));
+	// after the intro, play the first scenario
+	master.add(() => playScenario(0));
+}
+
+// ── STEP 5 · MEMORY ───────────────────────
+function renderMemoryStep() {
+	const step = stepById('memory');
+	const scene = buildScene(step);
+	const thread = el('thread', `
+		<div class="thread-head"><span>🧵</span><span>${t('memThreadLabel')}</span></div>
+		<div class="run-label" data-run="1">${t('memRun1')}</div>
+		<div class="turn user"><span class="turn-who">${t('memWho')}:</span><span>${t('memU1')}</span></div>
+		<div class="turn assistant"><span class="turn-who">${t('memWhoA')}:</span><span>${t('memA1')}</span></div>
+		<div class="run-label" data-run="2">${t('memRun2')}</div>
+		<div class="turn user"><span class="turn-who">${t('memWho')}:</span><span>${t('memU2')}</span></div>
+		<div class="turn assistant"><span class="turn-who">${t('memWhoA')}:</span><span>${t('memA2')}</span></div>
+	`);
+	const note = el('memory-note', t('memNote'));
+	scene.appendChild(thread); scene.appendChild(note);
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl = maybeCallout(step);
+
+	const runLabels = thread.querySelectorAll('.run-label');
+	const turns = thread.querySelectorAll('.turn');
+	if (motionPaused) {
+		gsap.set([...headerEls(scene), thread, ...runLabels, ...turns, note], { opacity:1 });
+		if (cEl) gsap.set(cEl, { opacity:1 }); animating=false; return;
+	}
+	const tl = gsap.timeline({ onComplete:()=>animating=false }); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), { opacity:0, y:-14 }, { opacity:1, y:0, duration:0.55, stagger:0.12, ease:'power2.out' });
+	tl.fromTo(thread, { opacity:0, y:18 }, { opacity:1, y:0, duration:0.5, ease:'power2.out' }, '-=0.1');
+	// append turns in order, interleaving run labels
+	tl.fromTo(runLabels[0], { opacity:0 }, { opacity:1, duration:0.3 });
+	tl.fromTo(turns[0], { opacity:0, x:-16 }, { opacity:1, x:0, duration:0.45, ease:'power2.out' }, '+=0.1');
+	tl.fromTo(turns[1], { opacity:0, x:16 }, { opacity:1, x:0, duration:0.45, ease:'power2.out' }, '+=0.1');
+	tl.fromTo(runLabels[1], { opacity:0 }, { opacity:1, duration:0.3 }, '+=0.2');
+	tl.fromTo(turns[2], { opacity:0, x:-16 }, { opacity:1, x:0, duration:0.45, ease:'power2.out' }, '+=0.1');
+	// highlight recall on the answer
+	tl.fromTo(turns[3], { opacity:0, x:16 }, { opacity:1, x:0, duration:0.45, ease:'power2.out' }, '+=0.1');
+	tl.to(turns[3], { boxShadow:'0 0 0 3px rgba(92,45,145,0.35)', duration:0.25 }, '+=0.05');
+	tl.to(turns[3], { boxShadow:'none', duration:0.4 }, '+=0.4');
+	tl.fromTo(note, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.5, ease:'power2.out' }, '-=0.2');
+	if (cEl) tl.fromTo(cEl, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.6 }, '-=0.3');
+}
+
+// ── STEP 6 · RUN LOOP ─────────────────────
+function renderRunLoopStep() {
+	const step = stepById('runloop');
+	const scene = buildScene(step);
+	const loop = el('loop');
+	const nodes = [
+		['user','1','💬','loopN1','loopN1s'],
+		['reason','2','🧠','loopN2','loopN2s'],
+		['act','3','🛠️','loopN3','loopN3s'],
+		['answer','5','✅','loopN5','loopN5s'],
+		['reason','','','',''],          // spacer (hidden) to position observe under act
+		['act','4','👀','loopN4','loopN4s']
+	];
+	// Layout: row1 = 1,2,3 ; row2 = 5(answer) , spacer, 4(observe)
+	const order = [nodes[0], nodes[1], nodes[2], nodes[3], null, nodes[5]];
+	order.forEach(n => {
+		if (!n) { const sp = el(null); sp.style.visibility='hidden'; loop.appendChild(sp); return; }
+		const [kind,num,ic,k,s] = n;
+		loop.appendChild(el('loop-node', `<span class="ln-num">${num}</span><span class="ln-icon">${ic}</span><div class="ln-title">${t(k)}</div><div class="ln-sub">${t(s)}</div>`)).setAttribute('data-kind', kind);
+	});
+	const iterate = el('loop-iterate', t('loopIterate'));
+	loop.appendChild(iterate);
+	scene.appendChild(loop);
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl = maybeCallout(step);
+
+	const realNodes = loop.querySelectorAll('.loop-node');
+	if (motionPaused) {
+		gsap.set([...headerEls(scene), ...realNodes, iterate], { opacity:1 });
+		if (cEl) gsap.set(cEl, { opacity:1 }); animating=false; return;
+	}
+	const tl = gsap.timeline({ onComplete:()=>animating=false }); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), { opacity:0, y:-14 }, { opacity:1, y:0, duration:0.55, stagger:0.12, ease:'power2.out' });
+	// reveal in logical run order: 1,2,3,4(observe),loop pulse,5
+	const byNum = {};
+	realNodes.forEach(n => { byNum[n.querySelector('.ln-num').textContent] = n; });
+	['1','2','3','4'].forEach(numb => {
+		const node = byNum[numb];
+		tl.fromTo(node, { opacity:0, scale:0.85 }, { opacity:1, scale:1, duration:0.45, ease:'back.out(1.5)' }, '+=0.1');
+	});
+	// loop pulse between reason(2) and act(3) and observe(4)
+	tl.fromTo(iterate, { opacity:0, y:8 }, { opacity:1, y:0, duration:0.4 }, '+=0.1');
+	[byNum['2'], byNum['3'], byNum['4']].forEach(node => {
+		tl.to(node, { boxShadow:'0 0 0 3px rgba(92,45,145,0.3)', duration:0.18 }, '+=0.02');
+		tl.to(node, { boxShadow:'0 4px 16px rgba(0,0,0,0.1)', duration:0.18 });
+	});
+	tl.fromTo(byNum['5'], { opacity:0, scale:0.85 }, { opacity:1, scale:1, duration:0.5, ease:'back.out(1.6)' }, '+=0.1');
+	if (cEl) tl.fromTo(cEl, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.6 }, '-=0.3');
+}
+
+// ── STEP 7 · WORKFLOWS ────────────────────
+function renderWorkflowsStep() {
+	const step = stepById('workflows');
+	const scene = buildScene(step);
+	const wf = el('wf-stage');
+	const triage = el('wf-agent', `<span class="wfa-icon">🧭</span><span class="wfa-label">${t('wfTriage')}</span><span class="wfa-sub">${t('wfTriageSub')}</span>`);
+	const arrow = el('wf-arrow', '➡️');
+	const specialists = el('wf-specialists');
+	specialists.appendChild(el('wf-agent', `<span class="wfa-icon">�</span><span class="wfa-label">${t('wfBilling')}</span><span class="wfa-sub">${t('wfBillingSub')}</span>`));
+	specialists.appendChild(el('wf-agent', `<span class="wfa-icon">↩️</span><span class="wfa-label">${t('wfTech')}</span><span class="wfa-sub">${t('wfTechSub')}</span>`));
+	wf.appendChild(triage); wf.appendChild(arrow); wf.appendChild(specialists);
+	const patterns = el('chip-row');
+	[['wfPat1'],['wfPat2'],['wfPat3']].forEach(([k]) => patterns.appendChild(el('pattern-chip', t(k))));
+	scene.appendChild(wf); scene.appendChild(patterns);
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl = maybeCallout(step);
+
+	const specEls = specialists.querySelectorAll('.wf-agent');
+	const patEls = patterns.querySelectorAll('.pattern-chip');
+	if (motionPaused) {
+		gsap.set([...headerEls(scene), triage, arrow, ...specEls, ...patEls], { opacity:1 });
+		if (cEl) gsap.set(cEl, { opacity:1 }); animating=false; return;
+	}
+	const tl = gsap.timeline({ onComplete:()=>animating=false }); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), { opacity:0, y:-14 }, { opacity:1, y:0, duration:0.55, stagger:0.12, ease:'power2.out' });
+	tl.fromTo(triage, { opacity:0, x:-24, scale:0.9 }, { opacity:1, x:0, scale:1, duration:0.55, ease:'back.out(1.5)' }, '-=0.1');
+	tl.fromTo(arrow, { opacity:0, scale:0.5 }, { opacity:1, scale:1, duration:0.4, ease:'back.out(2)' });
+	tl.fromTo(specEls, { opacity:0, x:24, scale:0.9 }, { opacity:1, x:0, scale:1, duration:0.5, stagger:0.15, ease:'back.out(1.5)' }, '-=0.1');
+	tl.fromTo(patEls, { opacity:0, y:12, scale:0.85 }, { opacity:1, y:0, scale:1, duration:0.45, stagger:0.12, ease:'back.out(1.8)' }, '+=0.1');
+	if (cEl) tl.fromTo(cEl, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.6 }, '-=0.3');
+}
+
+// Shared Microsoft Edge logo (used by the Edge-style window chrome)
+const EDGE_LOGO_SVG = '<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><defs>'
+	+ '<linearGradient id="edBody" x1="3" y1="16" x2="29" y2="16" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#0b5cab"/><stop offset="1" stop-color="#2aa7e0"/></linearGradient>'
+	+ '<linearGradient id="edHi" x1="9" y1="3" x2="24" y2="16" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#52e34f"/><stop offset=".5" stop-color="#2fc9a8"/><stop offset="1" stop-color="#1ea3e6"/></linearGradient>'
+	+ '</defs>'
+	+ '<path fill="url(#edBody)" d="M16 2C8.8 2 3 7.8 3 15c0 7.2 5.8 13 13 13 4.4 0 8.3-2.2 10.7-5.6-2.4 1.6-5.2 2.6-8.2 2.6-6 0-10.5-3.9-10.5-9.2 0-3.4 2.4-6.3 5.6-7.1-2 1.3-3.1 3.2-3.1 5.6 0 3.9 3.4 6.7 7.9 6.7 4.7 0 8.1-2.9 8.1-7.4C29 7.2 23.2 2 16 2z"/>'
+	+ '<path fill="url(#edHi)" d="M16 2C10.7 2 6.2 5.2 4.3 9.8 6.3 6.9 9.7 5 13.6 5c4.9 0 8.9 3.4 8.9 8 0-.2 0-.4 0-.6C22.3 6.8 19.6 2 16 2z" opacity=".92"/></svg>';
+
+// ── STEP 1 · PROBLEM (Contoso "before") ───
+function renderProblemStep() {
+	const step = stepById('problem');
+	const scene = buildScene(step);
+	const topics = ['problemTopicTravel','problemTopicFinance','problemTopicHealth','problemTopicHistory'];
+	const prompts = ['problemPrompt1','problemPrompt2','problemPrompt3','problemPrompt4'];
+	const xSvg = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#d13438"/><path d="M8.1 8.1 15.9 15.9M15.9 8.1 8.1 15.9" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>';
+	const edgeLogo = EDGE_LOGO_SVG;
+	const rawUrl = t('problemUrl');
+	const urlHtml = rawUrl.replace(/^(https?:\/\/(?:www\.)?)(.*)$/i, '<span class="om-dim">$1</span>$2');
+	const browser = el('biz-browser');
+	browser.innerHTML = `
+		<div class="edge-tabstrip">
+			<span class="edge-logo">${edgeLogo}</span>
+			<div class="edge-tab">
+				<span class="edge-tab-fav">C</span>
+				<span class="edge-tab-title">${t('problemBrowserTitle')}</span>
+				<span class="edge-tab-close">${'\u2715'}</span>
+			</div>
+			<span class="edge-newtab">+</span>
+			<span class="edge-wincontrols"><span>&#x2014;</span><span>&#x25A1;</span><span>${'\u2715'}</span></span>
+		</div>
+		<div class="edge-toolbar">
+			<span class="edge-navbtn">${'\u2190'}</span>
+			<span class="edge-navbtn is-dim">${'\u2192'}</span>
+			<span class="edge-navbtn">${'\u21BB'}</span>
+			<div class="edge-omnibox"><span class="edge-omni-lock">🔒</span><span class="edge-omni-url">${urlHtml}</span><span class="edge-omni-star">${'\u2606'}</span></div>
+			<span class="edge-navbtn">${'\u22EF'}</span>
+		</div>
+		<div class="biz-body">
+			<div class="biz-hero">${t('problemHero')}</div>
+			<div class="biz-tagline">${t('problemTagline')}</div>
+			<div class="biz-cards"><div class="biz-card">${t('problemCard1')}</div><div class="biz-card">${t('problemCard2')}</div><div class="biz-card">${t('problemCard3')}</div></div>
+			<div class="biz-chat is-risk">
+				<div class="biz-chat-head"><span>${t('problemChatHeader')}</span><span class="biz-chat-badge">${t('problemBadge')}</span></div>
+				<div class="biz-risk">
+					<div class="biz-risk-label">${t('problemRiskLabel')}</div>
+					<div class="biz-topic-grid">${topics.map(k=>`<span class="biz-topic-chip">${t(k)}</span>`).join('')}</div>
+				</div>
+				<div class="biz-chat-area">
+					${prompts.map(k=>`<div class="biz-msg biz-msg-user"><span class="biz-msg-x" aria-hidden="true">${xSvg}</span><span class="biz-msg-topic">${t('problemUserLabel')}</span>${t(k)}</div>`).join('')}
+					<div class="biz-msg biz-msg-bot"><span class="biz-msg-topic">${t('problemReplyLabel')}</span>${t('problemReply')}</div>
+				</div>
+			</div>
+		</div>`;
+	const transition = el('transition-line', t('problemTransition'));
+	scene.appendChild(browser); scene.appendChild(transition);
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl = maybeCallout(step);
+
+	const chat = browser.querySelector('.biz-chat');
+	const userMsgs = browser.querySelectorAll('.biz-msg-user');
+	const botMsg = browser.querySelector('.biz-msg-bot');
+	const xMarks = browser.querySelectorAll('.biz-msg-x');
+	const topicChips = browser.querySelectorAll('.biz-topic-chip');
+	const riskLabel = browser.querySelector('.biz-risk-label');
+	if (motionPaused) {
+		gsap.set([...headerEls(scene), browser, chat, riskLabel, ...topicChips, ...userMsgs, botMsg, transition], { opacity:1 });
+		gsap.set(xMarks, { opacity:1, scale:1, rotation:-12 });
+		if (cEl) gsap.set(cEl, { opacity:1 }); animating=false; return;
+	}
+	const tl = gsap.timeline({ onComplete:()=>animating=false }); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), { opacity:0, y:-14 }, { opacity:1, y:0, duration:0.55, stagger:0.12, ease:'power2.out' });
+	tl.fromTo(browser, { opacity:0, y:20, scale:0.97 }, { opacity:1, y:0, scale:1, duration:0.6, ease:'power2.out' }, '-=0.1');
+	tl.to(chat, { opacity:1, duration:0.3 }, '-=0.2');
+	tl.fromTo(riskLabel, { opacity:0 }, { opacity:1, duration:0.3 });
+	tl.fromTo(topicChips, { opacity:0, scale:0.8 }, { opacity:1, scale:1, duration:0.35, stagger:0.08, ease:'back.out(1.6)' }, '-=0.1');
+	userMsgs.forEach((m,i) => {
+		tl.fromTo(m, { opacity:0, x:18 }, { opacity:1, x:0, duration:0.4, ease:'power2.out' }, '+=0.05');
+		tl.fromTo(xMarks[i], { opacity:0, scale:0.35, rotation:-12 }, { opacity:1, scale:1, rotation:-12, duration:0.35, ease:'back.out(2)' }, '-=0.1');
+	});
+	tl.fromTo(botMsg, { opacity:0, x:-18 }, { opacity:1, x:0, duration:0.45, ease:'power2.out' }, '+=0.1');
+	tl.fromTo(transition, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.5, ease:'power2.out' }, '+=0.15');
+	if (cEl) tl.fromTo(cEl, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.6 }, '-=0.3');
+}
+
+// ── STEP 9 · BUILD IT IN FOUNDRY ──────────
+function renderBuildStep() {
+	const step = stepById('build');
+	const scene = buildScene(step);
+	scene.classList.add('scene-build');
+
+	const cols = el('build-cols');
+	const stepsList = el('build-steps');
+	stepsList.appendChild(el('build-steps-title', t('buildStepsTitle')));
+	[['1','buildStep1','buildStep1s'],['2','buildStep2','buildStep2s'],['3','buildStep3','buildStep3s'],
+	 ['4','buildStep4','buildStep4s'],['5','buildStep5','buildStep5s'],['6','buildStep6','buildStep6s']]
+		.forEach(([n,k,s]) => stepsList.appendChild(el('build-step', `<span class="build-num">${n}</span><span><span class="build-step-label">${t(k)}</span><span class="build-step-sub">${t(s)}</span></span>`)));
+
+	const chat = el('biz-chat is-agent biz-chat-standalone');
+	chat.innerHTML = `
+		<div class="biz-chat-head"><span>${t('buildChatHeader')}</span><span class="biz-chat-badge">${t('buildBadge')}</span></div>
+		<div class="biz-chat-area">
+			<div class="biz-msg biz-msg-user"><span class="biz-msg-topic">${t('buildAfterUserLabel')}</span>${t('buildAfterUser1')}</div>
+			<div class="biz-msg biz-msg-bot"><span class="biz-msg-topic">${t('buildReplyLabel')}</span>${t('buildAfterBot1')}</div>
+			<div class="biz-msg biz-msg-user"><span class="biz-msg-topic">${t('buildAfterUserLabel')}</span>${t('buildAfterUser2')}</div>
+			<div class="biz-msg biz-msg-bot biz-msg-good"><span class="biz-msg-check" aria-hidden="true">✓</span><span class="biz-msg-topic">${t('buildReplyLabel')}</span>${t('buildAfterBot2')}</div>
+		</div>`;
+	cols.appendChild(stepsList); cols.appendChild(chat);
+
+	const values = el('value-grid');
+	[['buildVal1'],['buildVal2'],['buildVal3'],['buildVal4'],['buildVal5']].forEach(([k]) => values.appendChild(el('value-chip', t(k))));
+
+	// Integrate it into your app — Microsoft Agent Framework + Foundry SDK
+	const integrate = el('integrate-block');
+	integrate.appendChild(el('integrate-head',
+		`<span class="integrate-title">${t('buildIntegrateTitle')}</span><span class="integrate-sub">${t('buildIntegrateSub')}</span>`));
+	const codeCard = el('code-card');
+	codeCard.innerHTML = `
+		<div class="code-head">
+			<span class="code-file">app.py · Microsoft Agent Framework</span>
+			<span class="code-winctrls">
+				<span class="code-wbtn">&#8211;</span>
+				<span class="code-wbtn">&#9633;</span>
+				<span class="code-wbtn is-close">&#10005;</span>
+			</span>
+		</div>
+<pre class="code-body"><span class="tok-kw">from</span> <span class="tok-mod">agent_framework.azure</span> <span class="tok-kw">import</span> AzureAIAgentClient
+<span class="tok-kw">from</span> <span class="tok-mod">azure.identity</span> <span class="tok-kw">import</span> AzureCliCredential
+
+<span class="tok-com"># Connect to your published Foundry agent</span>
+client = <span class="tok-fn">AzureAIAgentClient</span>(async_credential=<span class="tok-fn">AzureCliCredential</span>())
+agent  = client.<span class="tok-fn">get_agent</span>(<span class="tok-str">"contoso-retail-agent"</span>)
+
+<span class="tok-com"># Use it anywhere in your app</span>
+reply = <span class="tok-kw">await</span> agent.<span class="tok-fn">run</span>(<span class="tok-str">"Where's my order #1842?"</span>)
+<span class="tok-fn">print</span>(reply.text)   <span class="tok-com"># → "Order #1842 shipped today…"</span></pre>`;
+	integrate.appendChild(codeCard);
+
+	const foot = el('recap-foot', t('buildFoot'));
+
+	cols.appendChild(integrate);
+	scene.appendChild(cols); scene.appendChild(values); scene.appendChild(foot);
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl = maybeCallout(step);
+
+	const stepsTitle = stepsList.querySelector('.build-steps-title');
+	const stepEls = stepsList.querySelectorAll('.build-step');
+	const msgs = chat.querySelectorAll('.biz-msg');
+	const valEls = values.querySelectorAll('.value-chip');
+	const integrateHead = integrate.querySelector('.integrate-head');
+	if (motionPaused) {
+		gsap.set([...headerEls(scene), stepsTitle, ...stepEls, chat, ...msgs, ...valEls, integrateHead, codeCard, foot], { opacity:1 });
+		if (cEl) gsap.set(cEl, { opacity:1 }); animating=false; return;
+	}
+	const tl = gsap.timeline({ onComplete:()=>animating=false }); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), { opacity:0, y:-14 }, { opacity:1, y:0, duration:0.55, stagger:0.12, ease:'power2.out' });
+	tl.fromTo(stepsTitle, { opacity:0, x:-14 }, { opacity:1, x:0, duration:0.4 }, '+=0.05');
+	tl.fromTo(stepEls, { opacity:0, x:-16 }, { opacity:1, x:0, duration:0.4, stagger:0.1, ease:'power2.out' }, '-=0.1');
+	tl.fromTo(chat, { opacity:0, x:18, scale:0.97 }, { opacity:1, x:0, scale:1, duration:0.5, ease:'power2.out' }, '-=0.5');
+	tl.fromTo(msgs, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.35, stagger:0.12, ease:'power2.out' }, '-=0.1');
+	tl.fromTo(valEls, { opacity:0, y:12, scale:0.85 }, { opacity:1, y:0, scale:1, duration:0.4, stagger:0.1, ease:'back.out(1.8)' }, '+=0.05');
+	tl.fromTo(integrateHead, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.4, ease:'power2.out' }, '+=0.05');
+	tl.fromTo(codeCard, { opacity:0, y:16, scale:0.98 }, { opacity:1, y:0, scale:1, duration:0.5, ease:'power2.out' }, '-=0.1');
+	tl.fromTo(foot, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.45, ease:'power2.out' }, '-=0.1');
+	if (cEl) tl.fromTo(cEl, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.6 }, '-=0.3');
+}
+
+
+// ── CONTROLS ───────────────────────────────
+function interruptAnimation() { liveTimelines.forEach(t => t.kill()); liveTimelines = []; animating = false; }
+function next()   { interruptAnimation(); if (current < STEPS.length-1) renderStep(current+1); }
+function prev()   { interruptAnimation(); if (current > 0) renderStep(current-1); }
+function reset()  { interruptAnimation(); renderStep(0); }
+function replay() { if (current < 0) return; interruptAnimation(); renderStep(current); }
+
+document.getElementById('next-btn').addEventListener('click', e => { e.stopPropagation(); next(); });
+document.getElementById('prev-btn').addEventListener('click', e => { e.stopPropagation(); prev(); });
+document.getElementById('reset-btn').addEventListener('click', e => { e.stopPropagation(); reset(); });
+document.getElementById('replay-btn').addEventListener('click', e => { e.stopPropagation(); replay(); });
+
+// ── Speed control ────────────────────────
+const SPEED_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+const BASE_TIMESCALE = 0.25; // global slowdown so reveals feel calmer (1× plays ~75% slower)
+let speedIndex = SPEED_STEPS.indexOf(1);
+const speedLabel = document.getElementById('speed-label');
+const speedDownBtn = document.getElementById('speed-down');
+const speedUpBtn   = document.getElementById('speed-up');
+function syncSpeedUI() {
+	const spd = SPEED_STEPS[speedIndex];
+	speedLabel.textContent = spd + '\u00d7';
+	speedDownBtn.disabled = speedIndex === 0;
+	speedUpBtn.disabled   = speedIndex === SPEED_STEPS.length - 1;
+	gsap.globalTimeline.timeScale(spd * BASE_TIMESCALE);
+}
+syncSpeedUI();
+speedDownBtn.addEventListener('click', e => { e.stopPropagation(); if (speedIndex > 0) { speedIndex--; syncSpeedUI(); } });
+speedUpBtn.addEventListener('click', e => { e.stopPropagation(); if (speedIndex < SPEED_STEPS.length-1) { speedIndex++; syncSpeedUI(); } });
+
+// ── Keyboard ──────────────────────────────
+if (window.AW && AW.keyboard) {
+	AW.keyboard.bind({ next, prev, reset, replay });
+} else {
+	document.addEventListener('keydown', e => {
+		if (['Space','ArrowRight','Enter'].includes(e.code)) { e.preventDefault(); next(); }
+		else if (e.code === 'ArrowLeft') { e.preventDefault(); prev(); }
+		else if (e.code === 'KeyR') { e.preventDefault(); reset(); }
+		else if (e.code === 'KeyP') { e.preventDefault(); replay(); }
+	});
+}
+
+// ── Resize ────────────────────────────────
+let resizeTimer;
+window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => renderStep(current), 200); });
+
+// ── Init ──────────────────────────────────
+setLanguage(currentLang);
+counter.textContent = `1 / ${STEPS.length}`;
+renderStep(0);
+</script>
+
+</body>
+</html>
