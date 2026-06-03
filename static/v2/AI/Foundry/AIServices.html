@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<script src="../../../js/tracking.js"></script>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>Speech, Vision & Content Understanding — Microsoft Foundry</title>
+
+<link rel="stylesheet" href="https://unpkg.com/@microsoft/atlas-css/dist/index.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+<!-- AnimationWorks shared lib -->
+<script src="../../lib/js/aw-easings.js"></script>
+<script src="../../lib/js/aw-motion.js"></script>
+<script src="../../lib/js/aw-theme.js"></script>
+<script src="../../lib/js/aw-keyboard.js"></script>
+
+<style>
+	html, body { height:100%; margin:0; }
+	html { font-size:100%; }
+	body {
+		display:flex; flex-direction:column;
+		min-height:100vh;
+		overflow-x:hidden; overflow-y:auto;
+		padding-bottom:6rem;
+		background:
+			radial-gradient(circle at 15% 20%, rgba(92,45,145,0.18) 0%, transparent 55%),
+			radial-gradient(circle at 85% 80%, rgba(0,120,212,0.18) 0%, transparent 55%),
+			var(--theme-body-background);
+		color:var(--theme-text);
+		font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif;
+	}
+
+	.app-header { display:flex; align-items:center; gap:1rem; flex-shrink:0; flex-wrap:wrap; font-size:16px; }
+	#stage { position:relative; flex:1 1 auto; width:100%; min-height:720px; overflow:auto; }
+	#stage:focus-visible, button:focus-visible, a:focus-visible, select:focus-visible {
+		outline:2px solid var(--theme-primary, #0078d4); outline-offset:3px; border-radius:4px;
+	}
+	#fx-svg { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:6; overflow:visible; }
+
+	.lang-select {
+		appearance:none; -webkit-appearance:none;
+		background:var(--theme-card-background, #fff);
+		color:var(--theme-text, #333);
+		border:1px solid var(--theme-border, rgba(0,0,0,0.2));
+		border-radius:6px;
+		padding:5px 26px 5px 10px;
+		font-size:0.8rem; font-family:'Segoe UI', sans-serif; cursor:pointer;
+		background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+		background-repeat:no-repeat; background-position:right 8px center; min-width:96px;
+	}
+	.lang-select:hover { border-color:var(--theme-primary, #0078d4); }
+	body.theme-dark .lang-select {
+		background-color:color-mix(in srgb, var(--theme-body-background) 85%, transparent);
+		color:var(--theme-text, #e0e0e0);
+		border-color:rgba(255,255,255,0.18);
+		background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23aaa' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+	}
+	body.theme-dark .lang-select option { background:var(--theme-body-background, #1a1a2e); color:var(--theme-text, #e0e0e0); }
+
+	.font-size-controls { display:inline-flex; gap:0.2rem; border:1px solid var(--theme-border); border-radius:999px; padding:0.18rem; }
+	.font-size-btn, .theme-toggle {
+		display:inline-flex; align-items:center; justify-content:center;
+		border:1px solid var(--theme-border); background:var(--theme-body-background); color:var(--theme-text);
+		cursor:pointer;
+	}
+	.font-size-btn { min-width:2.2rem; height:1.85rem; border-radius:999px; font-weight:700; font-size:0.78rem; }
+	.theme-toggle { width:36px; height:36px; border-radius:999px; }
+	.theme-toggle .theme-icon { display:none; }
+	.theme-toggle[data-theme="dark"] .icon-sun { display:block; }
+	.theme-toggle[data-theme="light"] .icon-moon { display:block; }
+
+	.callout {
+		position:absolute;
+		max-width:340px;
+		padding:1rem 1.2rem;
+		background:var(--theme-body-background);
+		border:1px solid var(--theme-border);
+		border-left:4px solid var(--theme-tertiary, #5c2d91);
+		border-radius:6px;
+		box-shadow:var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2));
+		font-size:1.05rem; line-height:1.45;
+		z-index:14; opacity:0;
+	}
+
+	.service-section {
+		position:absolute; top:3%; left:50%; transform:translateX(-50%);
+		width:min(1120px, 96%);
+		z-index:10; opacity:1;
+		display:flex; flex-direction:column; align-items:center;
+		gap:1.25rem;
+		padding-bottom:5rem;
+	}
+	.service-title {
+		font-size:2.6rem; font-weight:800; color:var(--theme-tertiary, #5c2d91);
+		margin:0; text-align:center; line-height:1.12;
+	}
+	.service-lead {
+		margin:0; text-align:center; font-size:1.28rem; color:var(--theme-text);
+		max-width:860px; line-height:1.5;
+	}
+	.card-panel {
+		background:var(--theme-body-background);
+		border:1.5px solid var(--theme-border);
+		border-radius:14px;
+		box-shadow:0 3px 12px rgba(0,0,0,0.08);
+		padding:1.2rem 1.4rem;
+		opacity:0;
+	}
+	.panel-heading { display:flex; align-items:center; gap:0.55rem; margin-bottom:0.8rem; }
+	.panel-heading .glyph { font-size:1.8rem; line-height:1; }
+	.panel-heading h3 { margin:0; font-size:1.45rem; font-weight:800; color:var(--theme-text); }
+	.panel-copy { margin:0 0 1rem; font-size:1.02rem; line-height:1.45; color:var(--theme-text-subtle, var(--theme-text)); }
+
+	/* Speech */
+	.speech-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; width:100%; max-width:1040px; }
+	.wave-panel { min-height:250px; display:flex; flex-direction:column; }
+	.waveform { width:100%; height:86px; margin:0.3rem 0 0.7rem; }
+	.waveform path { fill:none; stroke:var(--theme-primary, #0078d4); stroke-width:4; stroke-linecap:round; stroke-dasharray:520; stroke-dashoffset:520; }
+	.transcript, .tts-output {
+		min-height:72px;
+		padding:0.85rem 1rem;
+		border-radius:10px;
+		background:rgba(0,120,212,0.06);
+		border:1px solid rgba(0,120,212,0.2);
+		font-size:1.1rem; font-weight:600; line-height:1.45;
+	}
+	.language-row, .voice-row, .badge-row { display:flex; flex-wrap:wrap; gap:0.5rem; }
+	.pill {
+		display:inline-flex; align-items:center; gap:0.35rem;
+		padding:0.35rem 0.75rem; border-radius:999px;
+		background:var(--theme-body-background); border:1.5px solid var(--theme-border);
+		font-size:0.9rem; font-weight:700; color:var(--theme-text); opacity:0;
+	}
+	.voice-card { display:flex; flex-direction:column; gap:0.6rem; }
+	.voice-pill { border-color:#0078d4; transition:box-shadow 0.35s ease, transform 0.35s ease; }
+	.voice-pill.voice-hot { box-shadow:0 0 12px rgba(0,120,212,0.45); }
+	.speaker-orb {
+		width:92px; height:92px; border-radius:50%; margin:0.6rem auto;
+		display:flex; align-items:center; justify-content:center;
+		font-size:2.4rem;
+		background:linear-gradient(135deg, rgba(92,45,145,0.16), rgba(0,120,212,0.16));
+		border:2px solid rgba(0,120,212,0.35);
+		box-shadow:0 6px 22px rgba(0,120,212,0.18);
+	}
+
+	/* Vision */
+	.vision-showcase { display:grid; grid-template-columns:1.2fr 0.8fr; gap:1rem; width:100%; max-width:1060px; }
+	.image-frame {
+		position:relative; min-height:430px; overflow:hidden;
+		background:
+			linear-gradient(135deg, rgba(0,120,212,0.12), rgba(92,45,145,0.12)),
+			repeating-linear-gradient(45deg, rgba(0,120,212,0.05) 0 14px, transparent 14px 28px);
+	}
+	.image-scene {
+		position:absolute; inset:1rem; border-radius:12px; overflow:hidden;
+		background:
+			radial-gradient(circle at 30% 28%, rgba(255,255,255,0.65), transparent 8%),
+			radial-gradient(circle at 70% 55%, rgba(0,183,130,0.25), transparent 14%),
+			linear-gradient(145deg, #7fb8ff, #d8efff 44%, #83d4a4 45%, #4aa96c 100%);
+		border:1px solid rgba(0,0,0,0.12);
+	}
+	.scan-line { position:absolute; left:1rem; right:1rem; top:1rem; height:3px; background:#00b7c3; box-shadow:0 0 14px rgba(0,183,195,0.9); opacity:0; }
+	.bbox { position:absolute; border:3px solid #e81123; border-radius:8px; opacity:0; box-shadow:0 0 10px rgba(232,17,35,0.45); }
+	.bbox.one { left:18%; top:22%; width:26%; height:22%; }
+	.bbox.two { right:16%; bottom:18%; width:28%; height:30%; border-color:#10a37f; box-shadow:0 0 10px rgba(16,163,127,0.45); }
+	.output-stack { display:flex; flex-direction:column; gap:0.75rem; }
+	.output-card { opacity:0; }
+	.output-card h4 { margin:0 0 0.55rem; font-size:1.05rem; color:var(--theme-tertiary, #5c2d91); }
+	.tag-row { display:flex; flex-wrap:wrap; gap:0.4rem; }
+	.tag { opacity:0; padding:0.3rem 0.65rem; border-radius:999px; font-size:0.82rem; font-weight:700; background:rgba(0,120,212,0.08); border:1px solid rgba(0,120,212,0.22); }
+
+	/* Content Understanding */
+	.doc-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:0.9rem; width:100%; max-width:1050px; }
+	.doc-card { min-height:145px; position:relative; overflow:hidden; }
+	.doc-title { display:flex; align-items:center; gap:0.55rem; font-size:1.18rem; font-weight:800; margin-bottom:0.75rem; }
+	.field-list { display:flex; flex-wrap:wrap; gap:0.38rem; }
+	.field-chip { opacity:0; padding:0.25rem 0.55rem; border-radius:999px; font-size:0.78rem; font-weight:700; background:rgba(92,45,145,0.08); border:1px solid rgba(92,45,145,0.22); }
+	.extraction-stage { width:100%; max-width:1050px; min-height:210px; position:relative; display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+	.document-preview { border:1.5px dashed rgba(92,45,145,0.35); border-radius:12px; padding:1rem; background:rgba(92,45,145,0.06); }
+	.doc-line { height:13px; border-radius:999px; background:rgba(0,0,0,0.12); margin:0.65rem 0; transform-origin:left; opacity:0; }
+	.key-values { display:flex; flex-direction:column; gap:0.55rem; }
+	.kv { opacity:0; display:flex; justify-content:space-between; gap:1rem; border:1px solid var(--theme-border); border-radius:10px; padding:0.6rem 0.75rem; background:var(--theme-body-background); font-weight:700; }
+	.kv span:first-child { color:var(--theme-text-subtle); }
+	.kv span:last-child { color:var(--theme-tertiary, #5c2d91); }
+	.extract-svg { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; overflow:visible; z-index:4; }
+	.extract-svg path { fill:none; stroke:#0078d4; stroke-width:3; stroke-linecap:round; stroke-dasharray:300; stroke-dashoffset:300; }
+
+	/* Integration */
+	.integration-grid { display:grid; grid-template-columns:1.1fr 0.9fr; gap:1rem; width:100%; max-width:1080px; }
+	.nest-box { border-radius:14px; padding:1rem 1.2rem; opacity:0; }
+	.nest-label { display:flex; align-items:center; gap:0.55rem; font-size:1.15rem; font-weight:800; margin-bottom:0.65rem; }
+	.nest-sub { background:rgba(0,120,212,0.06); border:1.5px solid rgba(0,120,212,0.25); }
+	.nest-rg { background:rgba(0,183,130,0.06); border:1.5px solid rgba(0,183,130,0.25); margin-top:0.6rem; }
+	.nest-resource { background:linear-gradient(135deg, rgba(92,45,145,0.08), rgba(0,120,212,0.05)); border:2px dashed var(--theme-tertiary, #5c2d91); margin-top:0.6rem; }
+	.service-chip-row { display:flex; flex-wrap:wrap; gap:0.5rem; }
+	.service-chip { opacity:0; display:inline-flex; align-items:center; gap:0.35rem; padding:0.42rem 0.8rem; border:1.5px solid var(--theme-border); border-radius:999px; font-weight:800; background:var(--theme-body-background); }
+	.endpoint-card { display:flex; flex-direction:column; justify-content:center; gap:0.8rem; }
+	.endpoint-badge { display:inline-flex; align-self:flex-start; padding:0.42rem 0.85rem; border-radius:999px; background:#0078d4; color:#fff; font-weight:800; box-shadow:0 0 0 rgba(0,120,212,0); }
+	.code-block { font-family:Consolas, 'Courier New', monospace; font-size:0.92rem; line-height:1.55; border-radius:10px; padding:1rem; background:#111827; color:#e5e7eb; overflow:auto; opacity:0; }
+	.code-block .kw { color:#7dd3fc; } .code-block .str { color:#bef264; } .code-block .svc { color:#f0abfc; }
+
+	/* Overview */
+	.recap-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:1rem; width:100%; max-width:1060px; }
+	.recap-card { min-height:255px; transition:opacity 0.45s ease, border-color 0.45s ease, box-shadow 0.45s ease; }
+	.recap-card.dim { opacity:0.45 !important; }
+	.recap-card.hot { border-color:var(--theme-primary, #0078d4); box-shadow:0 0 14px rgba(0,120,212,0.35); }
+	.recap-glyph { font-size:2.6rem; margin-bottom:0.5rem; }
+	.recap-card h3 { margin:0 0 0.6rem; font-size:1.35rem; }
+	.recap-card ul { margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:0.45rem; }
+	.recap-card li { opacity:0; padding:0.45rem 0.65rem; border-radius:8px; background:rgba(0,120,212,0.06); font-weight:700; }
+	.benefits { display:grid; grid-template-columns:1fr 1fr; gap:0.7rem 2rem; width:100%; max-width:860px; }
+	.benefit { opacity:0; display:flex; align-items:center; gap:0.65rem; font-size:1.15rem; font-weight:700; }
+
+	#step-outline {
+		position:fixed; right:1rem; top:5rem; width:320px;
+		max-height:calc(100vh - 8rem); overflow:auto;
+		padding:1rem 1.2rem;
+		background:var(--theme-body-background);
+		border:1px solid var(--theme-border);
+		border-radius:12px;
+		box-shadow:var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2));
+		z-index:30;
+	}
+	#step-outline[hidden] { display:none; }
+	#step-outline h2 { margin:0 0 0.7rem; font-size:1.2rem; color:var(--theme-tertiary, #5c2d91); }
+	#step-outline p { margin:0 0 0.8rem; line-height:1.45; }
+	.stat-row { display:flex; justify-content:space-between; gap:1rem; padding:0.45rem 0; border-top:1px solid var(--theme-border); }
+	.stat-row span:first-child { color:var(--theme-text-subtle); }
+	.stat-row span:last-child { font-weight:800; text-align:right; }
+
+	#controls {
+		position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+		z-index:40;
+		display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+		padding:12px 16px;
+		background:var(--theme-body-background);
+		border:1px solid var(--theme-border); border-radius:999px;
+		box-shadow:var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2));
+		font-size:16px;
+	}
+	#controls .button { font-size:16.8px; padding:9.6px 17.6px; line-height:1.2; font-weight:600; }
+	.step-counter { min-width:90px; text-align:center; font-variant-numeric:tabular-nums; font-size:18.4px; font-weight:600; color:var(--theme-text-subtle); }
+	.speed-control { display:inline-flex; align-items:center; gap:0.25rem; padding:0.25rem 0.4rem; border:1px solid var(--theme-border); border-radius:999px; }
+	.speed-control .speed-btn { width:1.9rem; height:1.9rem; padding:0; line-height:1; font-size:1.15rem; font-weight:700; border-radius:50%; }
+	.speed-control .speed-btn[disabled] { opacity:0.4; cursor:not-allowed; }
+	.speed-label { min-width:3.25rem; text-align:center; font-variant-numeric:tabular-nums; font-size:1rem; font-weight:600; color:var(--theme-text); }
+
+	body.theme-dark .service-title, body.theme-dark #step-outline h2 { color:#c9a5e8; }
+	body.theme-dark .card-panel, body.theme-dark #step-outline, body.theme-dark #controls { background:rgba(255,255,255,0.07); border-color:rgba(255,255,255,0.22); }
+	body.theme-dark .transcript, body.theme-dark .tts-output { background:rgba(0,120,212,0.12); border-color:rgba(0,120,212,0.4); }
+	body.theme-dark .pill, body.theme-dark .service-chip { background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.22); color:#e0e0e0; }
+	body.theme-dark .tag { background:rgba(0,120,212,0.16); border-color:rgba(0,120,212,0.35); color:#e0e0e0; }
+	body.theme-dark .field-chip { background:rgba(146,78,217,0.18); border-color:rgba(146,78,217,0.4); color:#e0e0e0; }
+	body.theme-dark .kv { background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.2); }
+	body.theme-dark .kv span:last-child { color:#d4b4f0; }
+	body.theme-dark .doc-line { background:rgba(255,255,255,0.18); }
+	body.theme-dark .nest-sub { background:rgba(0,120,212,0.12); border-color:rgba(0,120,212,0.4); }
+	body.theme-dark .nest-rg { background:rgba(0,183,130,0.1); border-color:rgba(0,183,130,0.4); }
+	body.theme-dark .nest-resource { background:linear-gradient(135deg, rgba(146,78,217,0.18), rgba(80,170,255,0.12)); border-color:rgba(146,78,217,0.45); }
+	body.theme-dark .recap-card li { background:rgba(0,120,212,0.14); }
+
+	@media (max-width:1100px), (max-height:720px) {
+		#stage { min-height:560px; }
+		#step-outline { position:static; width:auto; margin:0.75rem 1rem; max-height:none; }
+		#controls { left:0.75rem; right:0.75rem; transform:none; justify-content:center; border-radius:18px; }
+		.service-section { position:relative; top:auto; left:auto; transform:none; width:auto; margin:1rem; }
+		.speech-grid, .vision-showcase, .integration-grid, .extraction-stage { grid-template-columns:1fr; }
+		.recap-grid, .doc-grid { grid-template-columns:1fr; }
+	}
+	@media (max-width:640px) {
+		html { font-size:95%; }
+		.app-header { font-size:0.95rem; }
+		.service-title { font-size:2rem; }
+		.benefits { grid-template-columns:1fr; }
+	}
+	@media (prefers-reduced-motion:reduce) {
+		*, *::before, *::after { animation:none !important; transition:none !important; scroll-behavior:auto !important; }
+	}
+</style>
+</head>
+<body class="theme-dark" data-theme-preset="atlas">
+	<header class="app-header padding-block-xs padding-inline-md border-bottom" role="banner" style="justify-content:space-between;">
+		<span id="page-title" class="font-size-h6 font-weight-semibold">🎙️ Foundry AI Services</span>
+		<nav class="display-flex gap-xs align-items-center" aria-label="Primary">
+			<span id="breadcrumb" class="font-size-sm color-text-subtle">Step 1</span>
+			<button id="callout-toggle" type="button" class="button button-clear button-sm" aria-label="Toggle callouts">💬 Callout</button>
+			<button id="outline-toggle" type="button" class="button button-clear button-sm" aria-controls="step-outline" aria-expanded="false" aria-label="Hide text outline">📝 Outline</button>
+		</nav>
+		<div class="display-flex gap-xs align-items-center">
+			<select id="lang-select" class="lang-select" aria-label="Language">
+				<option value="en">English</option>
+				<option value="es">Español</option>
+				<option value="ja">日本語</option>
+				<option value="ko">한국어</option>
+				<option value="pt">Português</option>
+			</select>
+			<div class="font-size-controls">
+				<button id="font-decrease" type="button" class="font-size-btn" aria-label="Decrease font size" title="Smaller text">A−</button>
+				<button id="font-increase" type="button" class="font-size-btn" aria-label="Increase font size" title="Larger text">A+</button>
+			</div>
+			<button id="theme-toggle" type="button" class="theme-toggle" aria-label="Switch to light theme" title="Switch to light theme">
+				<svg class="theme-icon icon-moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path fill="currentColor" d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg>
+				<svg class="theme-icon icon-sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.5" y1="4.5" x2="6.5" y2="6.5"/><line x1="17.5" y1="17.5" x2="19.5" y2="19.5"/><line x1="4.5" y1="19.5" x2="6.5" y2="17.5"/><line x1="17.5" y1="6.5" x2="19.5" y2="4.5"/></g></svg>
+			</button>
+		</div>
+	</header>
+
+	<main id="stage" tabindex="-1" aria-live="polite" aria-label="Foundry AI Services animation stage">
+		<svg id="fx-svg" aria-hidden="true"></svg>
+	</main>
+
+	<aside id="step-outline" hidden aria-label="Text outline of the current step">
+		<h2 id="outline-title">Step Details</h2>
+		<div id="outline-body"></div>
+	</aside>
+
+	<div id="controls" role="group" aria-label="Diagram navigation">
+		<button id="prev-btn" type="button" class="button" aria-label="Previous step (left arrow)">◀ Prev</button>
+		<div class="step-counter" id="step-counter">0 / 0</div>
+		<button id="next-btn" type="button" class="button button-primary button-filled" aria-label="Next step (right arrow or space)">Next ▶</button>
+		<button id="replay-btn" type="button" class="button" aria-label="Replay this step's animation (P)">↻ Replay</button>
+		<div class="speed-control" role="group" aria-label="Animation speed">
+			<button id="speed-down" type="button" class="button button-clear speed-btn" aria-label="Slower (-)" title="Slower">−</button>
+			<span id="speed-label" class="speed-label" aria-live="polite" aria-label="Current speed">1×</span>
+			<button id="speed-up" type="button" class="button button-clear speed-btn" aria-label="Faster (+)" title="Faster">+</button>
+		</div>
+		<button id="reset-btn" type="button" class="button button-clear" aria-label="Restart from step 1 (R)">↻ Restart</button>
+	</div>
+
+<script>
+let currentLang = 'en';
+const I18N = {
+	en: {
+		pageTitle:'Foundry AI Services', stageHeading:'Speech, Vision & Content Understanding', prev:'◀ Prev', next:'Next ▶', replay:'↻ Replay', restart:'↻ Restart', calloutOn:'💬 Callout: On', calloutOff:'💬 Callout: Off', outlineOn:'📝 Outline: On', outlineOff:'📝 Outline: Off', stepLabel:'Step', detailsTitle:'Step Details',
+		speechTitle:'Speech in Microsoft Foundry', speechLead:'Build voice-enabled apps with speech-to-text, text-to-speech, real-time transcription, and a wide range of natural voices.', speechCallout:'💡 Speech gives applications ears and a voice: capture spoken input, generate natural speech, and choose voices that fit the experience.',
+		visionTitle:'Vision and Image Analysis', visionLead:'Advanced models can analyze, detect, classify, and describe images so apps can reason about visual content.', visionCallout:'💡 Vision turns images into structured signals: objects, labels, captions, safety checks, and searchable metadata.',
+		contentTitle:'Content Understanding', contentLead:'Extract information from invoices, receipts, identification documents, forms, OCR, tables, and more.', contentCallout:'💡 Content Understanding combines OCR, layout analysis, and extraction so documents become usable data.',
+		integrationTitle:'One Foundry Resource, Many AI Services', integrationLead:'Speech, Vision, Content Understanding, Language, Translator, and models can live under the same Foundry resource boundary.', integrationCallout:'💡 Foundry simplifies operations: one place to govern, secure, authenticate, and bill across multiple AI services.',
+		overviewTitle:'Foundry AI Services — Clean Building Blocks', overviewLead:'Use Speech, Vision, and Content Understanding together to build multimodal apps that listen, see, read, and act.', overviewCallout:'💡 These services are reusable building blocks for agents, copilots, automation, and intelligent document workflows.',
+		stt:'Speech-to-Text', tts:'Text-to-Speech', sttCopy:'Audio streams become accurate, timestamped text for search, captions, analytics, and agent input.', ttsCopy:'Text becomes natural speech with multiple voices, styles, languages, and speaking patterns.', transcript:'Customer says: I need help with my invoice and delivery status.', ttsText:'Sure — I can help check that for you.', voices:'Multiple voices supported', languages:'Languages', realtime:'Real-time', bidirectional:'Bidirectional',
+		detect:'Detect', classify:'Classify', analyze:'Analyze', describe:'Describe', visionDetect:'Objects detected', visionClassify:'Classified tags', visionAnalyze:'Generated analysis',
+		invoice:'Invoice', receipt:'Receipt', idDoc:'ID Document', businessCard:'Business Card', taxForm:'Tax Form', customDoc:'Custom', extracted:'Extracted fields',
+		oneEndpoint:'One endpoint, one key, all services', codeTitle:'Use the right service for each input',
+		benefit1:'Voice experiences', benefit2:'Visual intelligence', benefit3:'Document automation', benefit4:'Unified governance',
+		statDirection:'Direction', statLanguages:'Languages', statVoices:'Voices', statRealtime:'Real-time', statCapabilities:'Capabilities', statModels:'Models', statInput:'Input', statOutput:'Output', statDocTypes:'Document types', statExtraction:'Extraction', statOCR:'OCR', statCustom:'Custom', statServices:'Services', statAuth:'Authentication', statEndpoint:'Endpoint', statBilling:'Billing'
+	}
+};
+I18N.es = { ...I18N.en,
+	pageTitle:'Servicios de IA en Foundry', stageHeading:'Voz, visión y comprensión de contenido', prev:'◀ Anterior', next:'Siguiente ▶', replay:'↻ Repetir', restart:'↻ Reiniciar', calloutOn:'💬 Nota: Activa', calloutOff:'💬 Nota: Inactiva', outlineOn:'📝 Esquema: Activo', outlineOff:'📝 Esquema: Inactivo', stepLabel:'Paso', detailsTitle:'Detalles del paso',
+	speechTitle:'Voz en Microsoft Foundry', speechLead:'Crea apps con voz usando conversión de voz a texto, texto a voz, transcripción en tiempo real y muchas voces naturales.', speechCallout:'💡 Speech da oídos y voz a las aplicaciones: captura entrada hablada, genera voz natural y elige voces adecuadas para la experiencia.',
+	visionTitle:'Visión y análisis de imágenes', visionLead:'Los modelos avanzados pueden analizar, detectar, clasificar y describir imágenes para que las apps razonen sobre contenido visual.', visionCallout:'💡 Vision convierte imágenes en señales estructuradas: objetos, etiquetas, descripciones, revisiones de seguridad y metadatos buscables.',
+	contentTitle:'Comprensión de contenido', contentLead:'Extrae información de facturas, recibos, documentos de identificación, formularios, OCR, tablas y más.', contentCallout:'💡 Content Understanding combina OCR, análisis de diseño y extracción para convertir documentos en datos utilizables.',
+	integrationTitle:'Un recurso de Foundry, muchos servicios de IA', integrationLead:'Speech, Vision, Content Understanding, Language, Translator y los modelos pueden vivir bajo el mismo límite de recurso de Foundry.', integrationCallout:'💡 Foundry simplifica las operaciones: un lugar para gobernar, proteger, autenticar y facturar varios servicios de IA.',
+	overviewTitle:'Servicios de IA de Foundry: bloques claros', overviewLead:'Usa Speech, Vision y Content Understanding juntos para crear apps multimodales que escuchan, ven, leen y actúan.', overviewCallout:'💡 Estos servicios son bloques reutilizables para agentes, copilotos, automatización y flujos inteligentes de documentos.',
+	stt:'Voz a texto', tts:'Texto a voz', sttCopy:'Los flujos de audio se convierten en texto preciso con marcas de tiempo para búsqueda, subtítulos, análisis y entrada de agentes.', ttsCopy:'El texto se convierte en voz natural con múltiples voces, estilos, idiomas y patrones de habla.', transcript:'Cliente dice: necesito ayuda con mi factura y el estado de entrega.', ttsText:'Claro, puedo ayudarte a revisar eso.', voices:'Múltiples voces disponibles', languages:'Idiomas', realtime:'Tiempo real', bidirectional:'Bidireccional',
+	detect:'Detectar', classify:'Clasificar', analyze:'Analizar', describe:'Describir', visionDetect:'Objetos detectados', visionClassify:'Etiquetas clasificadas', visionAnalyze:'Análisis generado',
+	invoice:'Factura', receipt:'Recibo', idDoc:'Documento de identidad', businessCard:'Tarjeta de presentación', taxForm:'Formulario fiscal', customDoc:'Personalizado', extracted:'Campos extraídos',
+	oneEndpoint:'Un endpoint, una clave, todos los servicios', codeTitle:'Usa el servicio adecuado para cada entrada', benefit1:'Experiencias de voz', benefit2:'Inteligencia visual', benefit3:'Automatización documental', benefit4:'Gobernanza unificada'
+};
+I18N.ja = { ...I18N.en,
+	pageTitle:'Foundry AI サービス', stageHeading:'音声、ビジョン、コンテンツ理解', prev:'◀ 前へ', next:'次へ ▶', replay:'↻ 再生', restart:'↻ 最初から', calloutOn:'💬 コールアウト: オン', calloutOff:'💬 コールアウト: オフ', outlineOn:'📝 アウトライン: オン', outlineOff:'📝 アウトライン: オフ', stepLabel:'ステップ', detailsTitle:'ステップ詳細',
+	speechTitle:'Microsoft Foundry の音声', speechLead:'音声テキスト変換、テキスト音声変換、リアルタイム文字起こし、多彩な自然音声で音声対応アプリを構築します。', speechCallout:'💡 Speech はアプリに耳と声を与えます。話し言葉を取り込み、自然な音声を生成し、体験に合う声を選べます。',
+	visionTitle:'ビジョンと画像分析', visionLead:'高度なモデルは画像を分析、検出、分類、説明し、アプリが視覚コンテンツを理解できるようにします。', visionCallout:'💡 Vision は画像を、オブジェクト、ラベル、キャプション、安全性チェック、検索可能なメタデータへ変換します。',
+	contentTitle:'コンテンツ理解', contentLead:'請求書、領収書、身分証明書、フォーム、OCR、表などから情報を抽出します。', contentCallout:'💡 Content Understanding は OCR、レイアウト分析、抽出を組み合わせ、ドキュメントを使えるデータに変えます。',
+	integrationTitle:'1 つの Foundry リソースで多くの AI サービス', integrationLead:'Speech、Vision、Content Understanding、Language、Translator、モデルを同じ Foundry リソース境界で扱えます。', integrationCallout:'💡 Foundry は運用を簡素化します。複数の AI サービスを 1 か所でガバナンス、保護、認証、課金できます。',
+	overviewTitle:'Foundry AI サービス: 明確な構成要素', overviewLead:'Speech、Vision、Content Understanding を組み合わせ、聞く、見る、読む、動くマルチモーダル アプリを構築します。', overviewCallout:'💡 これらのサービスは、エージェント、コパイロット、自動化、インテリジェントな文書ワークフローの再利用可能な構成要素です。',
+	stt:'音声テキスト変換', tts:'テキスト音声変換', sttCopy:'音声ストリームを、検索、字幕、分析、エージェント入力に使える正確なタイムスタンプ付きテキストにします。', ttsCopy:'テキストを、複数の声、スタイル、言語、話し方を持つ自然な音声に変換します。', transcript:'顧客: 請求書と配送状況について確認したいです。', ttsText:'もちろんです。確認をお手伝いします。', voices:'複数の音声に対応', languages:'言語', realtime:'リアルタイム', bidirectional:'双方向',
+	detect:'検出', classify:'分類', analyze:'分析', describe:'説明', visionDetect:'検出されたオブジェクト', visionClassify:'分類されたタグ', visionAnalyze:'生成された分析',
+	invoice:'請求書', receipt:'領収書', idDoc:'身分証明書', businessCard:'名刺', taxForm:'税務フォーム', customDoc:'カスタム', extracted:'抽出されたフィールド',
+	oneEndpoint:'1 つのエンドポイント、1 つのキー、すべてのサービス', codeTitle:'入力ごとに適切なサービスを使用', benefit1:'音声体験', benefit2:'視覚インテリジェンス', benefit3:'文書自動化', benefit4:'統合ガバナンス'
+};
+I18N.ko = { ...I18N.en,
+	pageTitle:'Foundry AI 서비스', stageHeading:'음성, 비전 및 콘텐츠 이해', prev:'◀ 이전', next:'다음 ▶', replay:'↻ 다시 재생', restart:'↻ 다시 시작', calloutOn:'💬 설명: 켬', calloutOff:'💬 설명: 끔', outlineOn:'📝 개요: 켬', outlineOff:'📝 개요: 끔', stepLabel:'단계', detailsTitle:'단계 세부 정보',
+	speechTitle:'Microsoft Foundry의 음성', speechLead:'음성-텍스트, 텍스트-음성, 실시간 전사, 다양한 자연스러운 음성으로 음성 지원 앱을 만듭니다.', speechCallout:'💡 Speech는 앱에 귀와 목소리를 제공합니다. 말한 내용을 캡처하고 자연스러운 음성을 생성하며 경험에 맞는 음성을 선택합니다.',
+	visionTitle:'비전 및 이미지 분석', visionLead:'고급 모델은 이미지를 분석, 감지, 분류, 설명하여 앱이 시각 콘텐츠를 이해하도록 돕습니다.', visionCallout:'💡 Vision은 이미지를 개체, 레이블, 캡션, 안전 점검, 검색 가능한 메타데이터 같은 구조화된 신호로 바꿉니다.',
+	contentTitle:'콘텐츠 이해', contentLead:'청구서, 영수증, 신분증, 양식, OCR, 표 등에서 정보를 추출합니다.', contentCallout:'💡 Content Understanding은 OCR, 레이아웃 분석, 추출을 결합해 문서를 사용할 수 있는 데이터로 바꿉니다.',
+	integrationTitle:'하나의 Foundry 리소스, 여러 AI 서비스', integrationLead:'Speech, Vision, Content Understanding, Language, Translator 및 모델을 같은 Foundry 리소스 경계 안에서 사용할 수 있습니다.', integrationCallout:'💡 Foundry는 운영을 단순화합니다. 여러 AI 서비스를 한곳에서 관리, 보호, 인증, 청구할 수 있습니다.',
+	overviewTitle:'Foundry AI 서비스: 깔끔한 구성 요소', overviewLead:'Speech, Vision, Content Understanding을 함께 사용해 듣고, 보고, 읽고, 행동하는 멀티모달 앱을 만듭니다.', overviewCallout:'💡 이러한 서비스는 에이전트, 코파일럿, 자동화, 지능형 문서 워크플로에 재사용 가능한 구성 요소입니다.',
+	stt:'음성-텍스트', tts:'텍스트-음성', sttCopy:'오디오 스트림을 검색, 자막, 분석, 에이전트 입력에 사용할 수 있는 정확한 타임스탬프 텍스트로 변환합니다.', ttsCopy:'텍스트를 여러 음성, 스타일, 언어, 말하기 패턴을 가진 자연스러운 음성으로 변환합니다.', transcript:'고객: 청구서와 배송 상태 확인을 도와주세요.', ttsText:'물론입니다. 확인을 도와드릴게요.', voices:'여러 음성 지원', languages:'언어', realtime:'실시간', bidirectional:'양방향',
+	detect:'감지', classify:'분류', analyze:'분석', describe:'설명', visionDetect:'감지된 개체', visionClassify:'분류된 태그', visionAnalyze:'생성된 분석',
+	invoice:'청구서', receipt:'영수증', idDoc:'신분증 문서', businessCard:'명함', taxForm:'세금 양식', customDoc:'사용자 지정', extracted:'추출된 필드',
+	oneEndpoint:'하나의 엔드포인트, 하나의 키, 모든 서비스', codeTitle:'각 입력에 맞는 서비스 사용', benefit1:'음성 경험', benefit2:'시각 지능', benefit3:'문서 자동화', benefit4:'통합 거버넌스'
+};
+I18N.pt = { ...I18N.en,
+	pageTitle:'Serviços de IA no Foundry', stageHeading:'Fala, visão e compreensão de conteúdo', prev:'◀ Anterior', next:'Próximo ▶', replay:'↻ Repetir', restart:'↻ Reiniciar', calloutOn:'💬 Destaque: Ativo', calloutOff:'💬 Destaque: Inativo', outlineOn:'📝 Roteiro: Ativo', outlineOff:'📝 Roteiro: Inativo', stepLabel:'Etapa', detailsTitle:'Detalhes da etapa',
+	speechTitle:'Fala no Microsoft Foundry', speechLead:'Crie apps com voz usando fala para texto, texto para fala, transcrição em tempo real e uma ampla variedade de vozes naturais.', speechCallout:'💡 Speech dá ouvidos e voz aos aplicativos: captura entrada falada, gera fala natural e escolhe vozes adequadas à experiência.',
+	visionTitle:'Visão e análise de imagens', visionLead:'Modelos avançados podem analisar, detectar, classificar e descrever imagens para que apps entendam conteúdo visual.', visionCallout:'💡 Vision transforma imagens em sinais estruturados: objetos, rótulos, legendas, verificações de segurança e metadados pesquisáveis.',
+	contentTitle:'Compreensão de conteúdo', contentLead:'Extraia informações de faturas, recibos, documentos de identificação, formulários, OCR, tabelas e muito mais.', contentCallout:'💡 Content Understanding combina OCR, análise de layout e extração para transformar documentos em dados utilizáveis.',
+	integrationTitle:'Um recurso do Foundry, muitos serviços de IA', integrationLead:'Speech, Vision, Content Understanding, Language, Translator e modelos podem ficar sob o mesmo limite de recurso do Foundry.', integrationCallout:'💡 Foundry simplifica operações: um lugar para governar, proteger, autenticar e faturar vários serviços de IA.',
+	overviewTitle:'Serviços de IA do Foundry: blocos claros', overviewLead:'Use Speech, Vision e Content Understanding juntos para criar apps multimodais que ouvem, veem, leem e agem.', overviewCallout:'💡 Esses serviços são blocos reutilizáveis para agentes, copilotos, automação e fluxos inteligentes de documentos.',
+	stt:'Fala para texto', tts:'Texto para fala', sttCopy:'Fluxos de áudio viram texto preciso com marcação de tempo para busca, legendas, análise e entrada de agentes.', ttsCopy:'Texto vira fala natural com várias vozes, estilos, idiomas e padrões de fala.', transcript:'Cliente diz: preciso de ajuda com minha fatura e status da entrega.', ttsText:'Claro, posso ajudar a verificar isso.', voices:'Várias vozes disponíveis', languages:'Idiomas', realtime:'Tempo real', bidirectional:'Bidirecional',
+	detect:'Detectar', classify:'Classificar', analyze:'Analisar', describe:'Descrever', visionDetect:'Objetos detectados', visionClassify:'Rótulos classificados', visionAnalyze:'Análise gerada',
+	invoice:'Fatura', receipt:'Recibo', idDoc:'Documento de identidade', businessCard:'Cartão de visita', taxForm:'Formulário fiscal', customDoc:'Personalizado', extracted:'Campos extraídos',
+	oneEndpoint:'Um endpoint, uma chave, todos os serviços', codeTitle:'Use o serviço certo para cada entrada', benefit1:'Experiências de voz', benefit2:'Inteligência visual', benefit3:'Automação documental', benefit4:'Governança unificada'
+};
+function t(key) { return (I18N[currentLang] && I18N[currentLang][key]) || I18N.en[key] || key; }
+
+const STEPS = [
+	{ id:'speech', short:'Speech', callout:'speechCallout', stats:[[ 'statDirection','bidirectional' ],[ 'statLanguages','100+' ],[ 'statVoices','400+' ],[ 'statRealtime','Yes' ]] },
+	{ id:'vision', short:'Vision', callout:'visionCallout', stats:[[ 'statCapabilities','Detect · Classify · Analyze' ],[ 'statModels','GPT-4o · Phi-4-multimodal' ],[ 'statInput','Images · Video frames' ],[ 'statOutput','Structured JSON' ]] },
+	{ id:'content', short:'Content', callout:'contentCallout', stats:[[ 'statDocTypes','Invoice · Receipt · ID · More' ],[ 'statExtraction','Key-value · Tables · Signatures' ],[ 'statOCR','Printed + Handwritten' ],[ 'statCustom','Prebuilt + Custom' ]] },
+	{ id:'integration', short:'Integration', callout:'integrationCallout', stats:[[ 'statServices','Speech · Vision · Content' ],[ 'statAuth','Key or token' ],[ 'statEndpoint','Unified boundary' ],[ 'statBilling','One Foundry Resource' ]] },
+	{ id:'overview', short:'Overview', callout:'overviewCallout', stats:[[ 'Speech','STT · TTS · Voices' ],[ 'Vision','Detect · Classify · Analyze' ],[ 'Content','OCR · Forms · Extraction' ],[ 'Use cases','Agents · Apps · Automation' ]] }
+];
+
+const stage = document.getElementById('stage');
+const outline = document.getElementById('step-outline');
+const outlineTitle = document.getElementById('outline-title');
+const outlineBody = document.getElementById('outline-body');
+const breadcrumb = document.getElementById('breadcrumb');
+const stepCounter = document.getElementById('step-counter');
+const prevBtn = document.getElementById('prev-btn');
+const nextBtn = document.getElementById('next-btn');
+let current = -1;
+let animating = false;
+let calloutEnabled = true;
+let liveEls = [];
+let liveTimelines = [];
+let loopTimers = [];
+const motionPaused = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function sectionShell(title, lead, inner) {
+	const section = document.createElement('section');
+	section.className = 'service-section';
+	section.innerHTML = `<h1 class="service-title">${title}</h1><p class="service-lead">${lead}</p>${inner}`;
+	stage.appendChild(section);
+	liveEls.push(section);
+	return section;
+}
+function addCallout(text, top='17%', left='4%') {
+	if (!calloutEnabled) return null;
+	const c = document.createElement('div'); c.className = 'callout'; c.innerHTML = text; c.style.top = top; c.style.left = left;
+	stage.appendChild(c); liveEls.push(c); return c;
+}
+function animateIn(tl, targets, vars={}, pos) {
+	tl.fromTo(targets, { opacity:0, y:18, scale:1, ...vars.from }, { opacity:1, y:0, scale:1, duration:0.65, ease:'power2.out', ...vars.to }, pos);
+}
+function startLoop(fn, delay) { const id = setTimeout(fn, delay); loopTimers.push(id); return id; }
+function clearLoops() { loopTimers.forEach(clearTimeout); loopTimers = []; }
+
+function renderOutline(step, idx) {
+	outlineTitle.textContent = `${t('stepLabel')} ${idx + 1}: ${step.short}`;
+	const rows = step.stats.map(([k,v]) => `<div class="stat-row"><span>${t(k)}</span><span>${t(v)}</span></div>`).join('');
+	outlineBody.innerHTML = `<p>${t(step.callout).replace(/^💡\s*/, '')}</p>${rows}`;
+}
+function syncUI() {
+	const step = STEPS[current];
+	document.getElementById('page-title').textContent = '🎙️ ' + t('pageTitle');
+	document.title = t('stageHeading') + ' — Microsoft Foundry';
+	breadcrumb.textContent = `${t('stepLabel')} ${current + 1}`;
+	stepCounter.textContent = `${current + 1} / ${STEPS.length}`;
+	prevBtn.textContent = t('prev'); nextBtn.textContent = t('next');
+	document.getElementById('replay-btn').textContent = t('replay');
+	document.getElementById('reset-btn').textContent = t('restart');
+	document.getElementById('callout-toggle').textContent = calloutEnabled ? t('calloutOn') : t('calloutOff');
+	document.getElementById('outline-toggle').textContent = outline.hidden ? t('outlineOff') : t('outlineOn');
+	prevBtn.disabled = current === 0; nextBtn.disabled = current === STEPS.length - 1;
+	renderOutline(step, current);
+}
+function interruptAnimation() {
+	liveTimelines.forEach(tl => tl.kill()); liveTimelines = [];
+	liveEls.forEach(el => el.remove()); liveEls = [];
+	clearLoops(); animating = false;
+}
+function renderStep(index) {
+	interruptAnimation(); current = index; syncUI(); animating = true;
+	const id = STEPS[index].id;
+	if (id === 'speech') renderSpeechStep();
+	if (id === 'vision') renderVisionStep();
+	if (id === 'content') renderContentStep();
+	if (id === 'integration') renderIntegrationStep();
+	if (id === 'overview') renderOverviewStep();
+	stage.focus({ preventScroll:true });
+}
+
+function renderSpeechStep() {
+	const section = sectionShell(t('speechTitle'), t('speechLead'), `
+		<div class="speech-grid">
+			<div class="card-panel wave-panel" id="stt-card"><div class="panel-heading"><span class="glyph">🎤</span><h3>${t('stt')}</h3></div><p class="panel-copy">${t('sttCopy')}</p><svg class="waveform" viewBox="0 0 520 90"><path d="M10 52 C40 10,70 88,100 45 S160 20,190 55 S255 80,290 35 S360 10,395 48 S455 82,510 30"/></svg><div class="transcript" data-text="${t('transcript')}"></div><div class="language-row"><span class="pill">English</span><span class="pill">Español</span><span class="pill">日本語</span><span class="pill">한국어</span><span class="pill">Português</span></div></div>
+			<div class="card-panel wave-panel" id="tts-card"><div class="panel-heading"><span class="glyph">🗣️</span><h3>${t('tts')}</h3></div><p class="panel-copy">${t('ttsCopy')}</p><div class="tts-output">${t('ttsText')}</div><div class="speaker-orb">🔊</div><div class="voice-row"><span class="pill voice-pill">Jenny · cheerful</span><span class="pill voice-pill">Guy · warm</span><span class="pill voice-pill">Aria · news</span><span class="pill voice-pill">Davis · calm</span><span class="pill voice-pill">Sara · friendly</span></div></div>
+		</div>`);
+	const callout = addCallout(t('speechCallout'), '19%', '4%');
+	const tl = gsap.timeline({ onComplete:() => { animating = false; startVoiceLoop(section); } }); tl.timeScale(0.55); liveTimelines.push(tl);
+	if (motionPaused) { gsap.set(section.querySelectorAll('*'), { opacity:1 }); return; }
+	animateIn(tl, section.querySelector('.service-title'), { from:{ y:-18 } });
+	animateIn(tl, section.querySelector('.service-lead'), {}, '-=0.35');
+	animateIn(tl, '#stt-card', {}, '+=0.2'); animateIn(tl, '#tts-card', {}, '-=0.45');
+	tl.to(section.querySelector('.waveform path'), { strokeDashoffset:0, duration:1.2, ease:'power2.out' }, '-=0.2');
+	tl.call(() => typeText(section.querySelector('.transcript'), section.querySelector('.transcript').dataset.text, 24), null, '-=0.3');
+
+tl.fromTo(section.querySelector('.speaker-orb'), { opacity:0, scale:0.65 }, { opacity:1, scale:1, duration:0.6, ease:'back.out(1.8)' }, '+=0.35');
+
+tl.fromTo(section.querySelectorAll('.pill'), { opacity:0, y:8, scale:0.85 }, { opacity:1, y:0, scale:1, duration:0.45, stagger:0.07, ease:'back.out(1.6)' }, '-=0.2');
+	if (callout) tl.to(callout, { opacity:1, duration:0.5 }, '-=0.2');
+}
+function typeText(el, text, speed=22) { el.textContent = ''; let i = 0; const tick = () => { el.textContent = text.slice(0, i++); if (i <= text.length) startLoop(tick, speed); }; tick(); }
+function startVoiceLoop(section) { const voices = section.querySelectorAll('.voice-pill'); let idx = 0; const loop = () => { voices.forEach(v => { v.classList.remove('voice-hot'); gsap.to(v, { scale:1, duration:0.35 }); }); const v = voices[idx]; if (v) { v.classList.add('voice-hot'); gsap.to(v, { scale:1.08, duration:0.35, ease:'power2.out' }); } idx = (idx + 1) % voices.length; startLoop(loop, 1600); }; loop(); }
+
+function renderVisionStep() {
+	const section = sectionShell(t('visionTitle'), t('visionLead'), `
+		<div class="vision-showcase"><div class="card-panel image-frame"><div class="image-scene"></div><div class="scan-line"></div><div class="bbox one"></div><div class="bbox two"></div></div><div class="output-stack"><div class="card-panel output-card"><h4>🔎 ${t('visionDetect')}</h4><div class="tag-row"><span class="tag">person</span><span class="tag">package</span><span class="tag">logo</span></div></div><div class="card-panel output-card"><h4>🏷️ ${t('visionClassify')}</h4><div class="tag-row"><span class="tag">retail</span><span class="tag">delivery</span><span class="tag">outdoor</span></div></div><div class="card-panel output-card"><h4>🧠 ${t('visionAnalyze')}</h4><p class="panel-copy">A courier is delivering a package near a storefront. The image includes people, brand signage, and contextual scene details.</p></div><div class="badge-row"><span class="pill">GPT-4o</span><span class="pill">Phi-4-multimodal</span><span class="pill">JSON output</span></div></div></div>`);
+	const callout = addCallout(t('visionCallout'), '18%', '4%');
+	const tl = gsap.timeline({ onComplete:() => animating = false }); tl.timeScale(0.55); liveTimelines.push(tl);
+	if (motionPaused) { gsap.set(section.querySelectorAll('*'), { opacity:1 }); return; }
+	animateIn(tl, section.querySelector('.service-title'), { from:{ y:-18 } }); animateIn(tl, section.querySelector('.service-lead'), {}, '-=0.35'); animateIn(tl, section.querySelector('.image-frame'), {}, '+=0.2');
+	tl.fromTo(section.querySelector('.scan-line'), { opacity:0, y:0 }, { opacity:1, y:380, duration:1.45, ease:'power1.inOut' });
+
+tl.to(section.querySelector('.scan-line'), { opacity:0, duration:0.25 });
+
+tl.fromTo(section.querySelectorAll('.bbox'), { opacity:0, scale:0.85 }, { opacity:1, scale:1, duration:0.5, stagger:0.15, ease:'back.out(1.5)' }, '-=0.1');
+
+tl.fromTo(section.querySelectorAll('.output-card'), { opacity:0, x:24 }, { opacity:1, x:0, duration:0.55, stagger:0.16, ease:'power2.out' }, '-=0.2');
+
+tl.fromTo(section.querySelectorAll('.tag, .pill'), { opacity:0, scale:0.85 }, { opacity:1, scale:1, duration:0.42, stagger:0.06, ease:'back.out(1.6)' }, '-=0.2');
+	if (callout) tl.to(callout, { opacity:1, duration:0.5 }, '-=0.25');
+}
+
+function renderContentStep() {
+	const docs = [[t('invoice'),'📄',['Vendor','Total','Due date']], [t('receipt'),'🧾',['Merchant','Tax','Items']], [t('idDoc'),'🪪',['Name','DOB','ID #']], [t('businessCard'),'💼',['Email','Phone','Role']], [t('taxForm'),'📑',['TIN','Wages','Year']], [t('customDoc'),'🧩',['Custom field','Table','Signature']]];
+	const cards = docs.map(([name, icon, fields]) => `<div class="card-panel doc-card"><div class="doc-title"><span>${icon}</span>${name}</div><div class="field-list">${fields.map(f => `<span class="field-chip">${f}</span>`).join('')}</div></div>`).join('');
+	const section = sectionShell(t('contentTitle'), t('contentLead'), `<div class="doc-grid">${cards}</div><div class="card-panel extraction-stage"><svg class="extract-svg" viewBox="0 0 1000 220"><path d="M330 62 C430 52,520 50,620 54"/><path d="M330 112 C440 120,520 124,620 118"/><path d="M330 162 C440 172,520 178,620 170"/></svg><div class="document-preview"><div class="doc-title"><span>🧾</span>${t('receipt')}</div><div class="doc-line" style="width:72%"></div><div class="doc-line" style="width:92%"></div><div class="doc-line" style="width:58%"></div><div class="doc-line" style="width:85%"></div></div><div class="key-values"><div class="kv"><span>Merchant</span><span>Contoso Market</span></div><div class="kv"><span>Total</span><span>$42.18</span></div><div class="kv"><span>Date</span><span>2026-06-03</span></div></div></div><div class="badge-row"><span class="pill">OCR</span><span class="pill">Layout</span><span class="pill">Prebuilt models</span><span class="pill">Custom extraction</span></div>`);
+	const callout = addCallout(t('contentCallout'), '18%', '4%');
+	const tl = gsap.timeline({ onComplete:() => animating = false }); tl.timeScale(0.55); liveTimelines.push(tl);
+	if (motionPaused) { gsap.set(section.querySelectorAll('*'), { opacity:1 }); return; }
+	animateIn(tl, section.querySelector('.service-title'), { from:{ y:-18 } }); animateIn(tl, section.querySelector('.service-lead'), {}, '-=0.35');
+	tl.fromTo(section.querySelectorAll('.doc-card'), { opacity:0, y:20, scale:0.92 }, { opacity:1, y:0, scale:1, duration:0.55, stagger:0.08, ease:'back.out(1.4)' }, '+=0.2');
+	tl.fromTo(section.querySelectorAll('.field-chip'), { opacity:0, scale:0.8 }, { opacity:1, scale:1, duration:0.34, stagger:0.025, ease:'back.out(1.8)' }, '-=0.2');
+	animateIn(tl, section.querySelector('.extraction-stage'), {}, '+=0.25');
+
+tl.fromTo(section.querySelectorAll('.doc-line'), { opacity:0, scaleX:0 }, { opacity:1, scaleX:1, duration:0.5, stagger:0.08, ease:'power2.out' }, '-=0.2');
+
+tl.to(section.querySelectorAll('.extract-svg path'), { strokeDashoffset:0, duration:0.75, stagger:0.12, ease:'power2.out' }, '-=0.1');
+
+tl.fromTo(section.querySelectorAll('.kv'), { opacity:0, x:22 }, { opacity:1, x:0, duration:0.5, stagger:0.12, ease:'power2.out' }, '-=0.35');
+
+tl.fromTo(section.querySelectorAll('.badge-row .pill'), { opacity:0, y:8, scale:0.85 }, { opacity:1, y:0, scale:1, duration:0.42, stagger:0.07, ease:'back.out(1.6)' }, '+=0.15');
+	if (callout) tl.to(callout, { opacity:1, duration:0.5 }, '-=0.25');
+}
+
+function renderIntegrationStep() {
+	const section = sectionShell(t('integrationTitle'), t('integrationLead'), `<div class="integration-grid"><div class="card-panel"><div class="nest-box nest-sub"><div class="nest-label">🔑 Azure Subscription</div><div class="nest-box nest-rg"><div class="nest-label">📦 Resource Group</div><div class="nest-box nest-resource"><div class="nest-label">🧠 Foundry Resource</div><div class="service-chip-row"><span class="service-chip">🎙️ Speech</span><span class="service-chip">👁️ Vision</span><span class="service-chip">📄 Content Understanding</span><span class="service-chip">🗣️ Language</span><span class="service-chip">🌐 Translator</span></div></div></div></div></div><div class="card-panel endpoint-card"><span class="endpoint-badge">${t('oneEndpoint')}</span><p class="panel-copy">${t('codeTitle')}</p><pre class="code-block"><span class="kw">const</span> foundry = <span class="kw">new</span> FoundryClient(endpoint, credential);
+
+<span class="kw">await</span> foundry.<span class="svc">speech</span>.transcribe(audio);
+<span class="kw">await</span> foundry.<span class="svc">vision</span>.analyze(image);
+<span class="kw">await</span> foundry.<span class="svc">content</span>.extract(document);</pre></div></div>`);
+	const callout = addCallout(t('integrationCallout'), '19%', '4%');
+	const tl = gsap.timeline({ onComplete:() => animating = false }); tl.timeScale(0.55); liveTimelines.push(tl);
+	if (motionPaused) { gsap.set(section.querySelectorAll('*'), { opacity:1 }); return; }
+	animateIn(tl, section.querySelector('.service-title'), { from:{ y:-18 } }); animateIn(tl, section.querySelector('.service-lead'), {}, '-=0.35');
+
+tl.fromTo(section.querySelectorAll('.card-panel'), { opacity:0, y:22 }, { opacity:1, y:0, duration:0.65, stagger:0.12, ease:'power2.out' }, '+=0.2');
+
+tl.fromTo(section.querySelectorAll('.nest-box'), { opacity:0, scale:0.94 }, { opacity:1, scale:1, duration:0.52, stagger:0.12, ease:'back.out(1.4)' }, '-=0.35');
+
+tl.fromTo(section.querySelectorAll('.service-chip'), { opacity:0, y:8, scale:0.82 }, { opacity:1, y:0, scale:1, duration:0.43, stagger:0.07, ease:'back.out(1.7)' }, '-=0.15');
+
+tl.fromTo(section.querySelector('.endpoint-badge'), { opacity:0, scale:0.8 }, { opacity:1, scale:1, duration:0.55, ease:'back.out(1.7)' }, '-=0.3');
+
+tl.to(section.querySelector('.endpoint-badge'), { boxShadow:'0 0 18px rgba(0,120,212,0.55)', duration:0.8, repeat:1, yoyo:true }, '+=0.05');
+
+tl.fromTo(section.querySelector('.code-block'), { opacity:0, y:12 }, { opacity:1, y:0, duration:0.55, ease:'power2.out' }, '-=0.35');
+	if (callout) tl.to(callout, { opacity:1, duration:0.5 }, '-=0.25');
+}
+
+function renderOverviewStep() {
+	const section = sectionShell(t('overviewTitle'), t('overviewLead'), `<div class="recap-grid"><div class="card-panel recap-card"><div class="recap-glyph">🎙️</div><h3>Speech</h3><ul><li>Speech-to-text</li><li>Text-to-speech</li><li>Multiple voices</li></ul></div><div class="card-panel recap-card"><div class="recap-glyph">👁️</div><h3>Vision</h3><ul><li>Analyze images</li><li>Detect objects</li><li>Classify content</li></ul></div><div class="card-panel recap-card"><div class="recap-glyph">📄</div><h3>Content Understanding</h3><ul><li>Extract invoices</li><li>Read receipts</li><li>OCR and layout</li></ul></div></div><div class="benefits"><span class="benefit">✅ ${t('benefit1')}</span><span class="benefit">🧠 ${t('benefit2')}</span><span class="benefit">📄 ${t('benefit3')}</span><span class="benefit">🔒 ${t('benefit4')}</span></div>`);
+	const callout = addCallout(t('overviewCallout'), '18%', '4%');
+	const tl = gsap.timeline({ onComplete:() => { animating = false; startRecapLoop(section); } }); tl.timeScale(0.55); liveTimelines.push(tl);
+	if (motionPaused) { gsap.set(section.querySelectorAll('*'), { opacity:1 }); return; }
+	animateIn(tl, section.querySelector('.service-title'), { from:{ y:-18 } }); animateIn(tl, section.querySelector('.service-lead'), {}, '-=0.35');
+	tl.fromTo(section.querySelectorAll('.recap-card'), { opacity:0, y:20, scale:0.92 }, { opacity:1, y:0, scale:1, duration:0.58, stagger:0.14, ease:'back.out(1.4)' }, '+=0.2');
+	tl.fromTo(section.querySelectorAll('.recap-card li'), { opacity:0, x:-12 }, { opacity:1, x:0, duration:0.42, stagger:0.06, ease:'power2.out' }, '-=0.25');
+
+tl.fromTo(section.querySelectorAll('.benefit'), { opacity:0, y:12 }, { opacity:1, y:0, duration:0.5, stagger:0.12, ease:'power2.out' }, '+=0.2');
+	if (callout) tl.to(callout, { opacity:1, duration:0.5 }, '-=0.25');
+}
+function startRecapLoop(section) { const cards = section.querySelectorAll('.recap-card'); let idx = 0; const loop = () => { cards.forEach(c => { c.classList.add('dim'); c.classList.remove('hot'); gsap.to(c, { scale:1, duration:0.4 }); }); const active = cards[idx]; active.classList.remove('dim'); active.classList.add('hot'); gsap.to(active, { scale:1.04, duration:0.4, ease:'power2.out' }); idx = (idx + 1) % cards.length; startLoop(loop, 1800); }; loop(); }
+
+function next() { if (current < STEPS.length - 1) renderStep(current + 1); }
+function prev() { if (current > 0) renderStep(current - 1); }
+function reset() { renderStep(0); }
+function replay() { if (current >= 0) renderStep(current); }
+
+document.getElementById('next-btn').addEventListener('click', e => { e.stopPropagation(); next(); });
+document.getElementById('prev-btn').addEventListener('click', e => { e.stopPropagation(); prev(); });
+document.getElementById('reset-btn').addEventListener('click', e => { e.stopPropagation(); reset(); });
+document.getElementById('replay-btn').addEventListener('click', e => { e.stopPropagation(); replay(); });
+document.getElementById('callout-toggle').addEventListener('click', () => { calloutEnabled = !calloutEnabled; renderStep(current); });
+document.getElementById('outline-toggle').addEventListener('click', () => { outline.hidden = !outline.hidden; syncUI(); });
+
+const SPEED_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+let speedIndex = SPEED_STEPS.indexOf(1);
+const speedLabel = document.getElementById('speed-label');
+const speedDownBtn = document.getElementById('speed-down');
+const speedUpBtn = document.getElementById('speed-up');
+function syncSpeedUI() { const speed = SPEED_STEPS[speedIndex]; speedLabel.textContent = speed + '×'; speedDownBtn.disabled = speedIndex === 0; speedUpBtn.disabled = speedIndex === SPEED_STEPS.length - 1; gsap.globalTimeline.timeScale(speed); }
+speedDownBtn.addEventListener('click', e => { e.stopPropagation(); if (speedIndex > 0) { speedIndex--; syncSpeedUI(); } });
+speedUpBtn.addEventListener('click', e => { e.stopPropagation(); if (speedIndex < SPEED_STEPS.length - 1) { speedIndex++; syncSpeedUI(); } });
+
+const FONT_KEY = 'aw-font-scale';
+let fontScale = Number(localStorage.getItem(FONT_KEY) || 100);
+function applyFontScale() { document.documentElement.style.fontSize = fontScale + '%'; try { localStorage.setItem(FONT_KEY, fontScale); } catch(e) {} }
+document.getElementById('font-decrease').addEventListener('click', () => { fontScale = Math.max(80, fontScale - 10); applyFontScale(); });
+document.getElementById('font-increase').addEventListener('click', () => { fontScale = Math.min(130, fontScale + 10); applyFontScale(); });
+applyFontScale();
+
+const themeToggle = document.getElementById('theme-toggle');
+function setTheme(theme) { document.body.classList.toggle('theme-dark', theme === 'dark'); document.body.classList.toggle('theme-light', theme !== 'dark'); themeToggle.dataset.theme = theme; themeToggle.setAttribute('aria-label', theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'); try { localStorage.setItem('aw-theme', theme); } catch(e) {} }
+themeToggle.addEventListener('click', () => setTheme(document.body.classList.contains('theme-dark') ? 'light' : 'dark'));
+setTheme(localStorage.getItem('aw-theme') || (document.body.classList.contains('theme-dark') ? 'dark' : 'light'));
+
+const langSelect = document.getElementById('lang-select');
+function applyLanguage(lang) { currentLang = I18N[lang] ? lang : 'en'; document.documentElement.lang = currentLang; langSelect.value = currentLang; if (current >= 0) renderStep(current); try { localStorage.setItem('aw-lang', currentLang); } catch(e) {} }
+langSelect.addEventListener('change', e => applyLanguage(e.target.value));
+const params = new URLSearchParams(location.search);
+const startLang = params.get('lang') || localStorage.getItem('aw-lang') || 'en';
+
+if (window.AW && AW.keyboard) { AW.keyboard.bind({ next, prev, reset, replay }); }
+else {
+	document.addEventListener('keydown', e => { if (['INPUT','SELECT','TEXTAREA','BUTTON'].includes(document.activeElement.tagName)) return; if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'Enter') { e.preventDefault(); next(); } if (e.key === 'ArrowLeft') { e.preventDefault(); prev(); } if (e.key.toLowerCase() === 'r') reset(); if (e.key.toLowerCase() === 'p') replay(); });
+}
+
+syncSpeedUI();
+applyLanguage(startLang);
+renderStep(0);
+</script>
+</body>
+</html>
