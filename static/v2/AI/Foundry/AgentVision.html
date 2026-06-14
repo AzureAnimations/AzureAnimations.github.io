@@ -1,0 +1,2201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<script src="/js/tracking.js"></script>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>Get Started with Computer Vision — Microsoft Foundry</title>
+
+<link rel="stylesheet" href="https://unpkg.com/@microsoft/atlas-css/dist/index.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+<!-- AnimationWorks shared lib -->
+<script src="../../lib/js/aw-easings.js"></script>
+<script src="../../lib/js/aw-motion.js"></script>
+<script src="../../lib/js/aw-theme.js"></script>
+<script src="../../lib/js/aw-keyboard.js"></script>
+
+<style>
+	html, body { height:100%; margin:0; }
+	html { font-size:100%; }
+	body {
+		display:flex; flex-direction:column;
+		min-height:100vh;
+		overflow-x:hidden; overflow-y:auto;
+		padding-bottom:6rem;
+		background:
+			radial-gradient(circle at 15% 20%, rgba(0,183,195,0.18) 0%, transparent 55%),
+			radial-gradient(circle at 85% 80%, rgba(124,77,255,0.18) 0%, transparent 55%),
+			var(--theme-body-background);
+		color: var(--theme-text);
+		font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif;
+	}
+
+	.app-header { display:flex; align-items:center; gap:1rem; flex-shrink:0; flex-wrap:wrap; font-size:16px; }
+
+	#stage {
+		position:relative; flex:1 1 auto; width:100%;
+		min-height:760px;
+		overflow:auto;
+	}
+	#stage:focus-visible, button:focus-visible, a:focus-visible, select:focus-visible {
+		outline:2px solid var(--theme-primary, #0078d4);
+		outline-offset:3px; border-radius:4px;
+	}
+
+	#fx-svg {
+		position:absolute; inset:0; width:100%; height:100%;
+		pointer-events:none; z-index:6; overflow:visible;
+	}
+
+	/* ── GENERIC SCENE WRAPPER ──────────────── */
+	.scene {
+		position:absolute;
+		top:3%; left:50%; transform:translateX(-50%);
+		width:min(1150px, 96%);
+		z-index:10;
+		display:flex; flex-direction:column; align-items:center;
+		gap:1.4rem;
+	}
+	.scene-title {
+		font-size:2.5rem; font-weight:700;
+		color:var(--theme-tertiary, #5c2d91);
+		margin:0; text-align:center;
+		opacity:0;
+	}
+	.scene-lead {
+		margin:0; text-align:center;
+		font-size:1.35rem; color:var(--theme-text);
+		max-width:880px; line-height:1.5;
+		opacity:0;
+	}
+	body.theme-dark .scene-title { color:#7fe0e8; }
+
+	/* ── CALLOUT ────────────────────────────── */
+	.callout {
+		position:absolute;
+		max-width:340px;
+		padding:1rem 1.2rem;
+		background:var(--theme-body-background);
+		border:1px solid var(--theme-border);
+		border-left:4px solid var(--theme-tertiary, #5c2d91);
+		border-radius:6px;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2));
+		font-size:1.05rem; line-height:1.45;
+		z-index:14; opacity:0;
+	}
+
+	/* ── SHARED PANELS ──────────────────────── */
+	.ta-card {
+		width:min(1080px, 98%);
+		border:1.5px solid var(--theme-border);
+		border-radius:14px;
+		background:var(--theme-card-background, #fff);
+		box-shadow:0 8px 30px rgba(0,0,0,0.16);
+		padding:1.1rem 1.3rem;
+		opacity:0;
+	}
+	body.theme-dark .ta-card { background:rgba(255,255,255,0.05); }
+	.ta-card-head {
+		display:flex; align-items:center; gap:0.5rem;
+		font-size:1rem; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;
+		color:var(--theme-text-subtle); margin-bottom:0.6rem;
+	}
+
+	.chip-row { display:flex; flex-wrap:wrap; gap:0.7rem; justify-content:center; }
+	.pill {
+		display:inline-flex; align-items:center; gap:0.5rem;
+		padding:0.55rem 1.1rem;
+		border-radius:999px;
+		font-size:1.05rem; font-weight:600;
+		border:2px solid var(--theme-tertiary, #5c2d91);
+		background:rgba(92,45,145,0.08);
+		color:var(--theme-text);
+		opacity:0;
+	}
+
+	/* ── CODE CARD (shared, VS Code style) ──── */
+	.code-card {
+		width:min(560px,96%);
+		border:1px solid #30363d; border-radius:8px;
+		background:#1e1e1e; overflow:hidden; opacity:0;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.25));
+	}
+	.code-head {
+		display:flex; align-items:center; justify-content:space-between; gap:0.5rem;
+		padding:0 0 0 0.85rem; background:#323233; border-bottom:1px solid #1e1e1e;
+	}
+	.code-file { font-size:0.9rem; color:#cccccc; font-weight:500; padding:0.6rem 0; }
+	.code-winctrls { display:flex; align-items:stretch; height:100%; }
+	.code-wbtn {
+		display:flex; align-items:center; justify-content:center;
+		width:2.6rem; padding:0.55rem 0;
+		color:#cccccc; font-family:'Segoe UI Symbol','Segoe MDL2 Assets',sans-serif; font-size:0.7rem;
+	}
+	.code-wbtn.is-close:hover { background:#e81123; color:#fff; }
+	.code-wbtn:hover { background:rgba(255,255,255,0.1); }
+	.code-body {
+		margin:0; padding:0.8rem 1rem;
+		font-family:'Cascadia Code', 'Consolas', 'SFMono-Regular', monospace;
+		font-size:0.86rem; line-height:1.5; color:#d4d4d4;
+		white-space:pre-wrap; overflow-wrap:break-word; word-break:break-word; tab-size:4;
+	}
+	.code-body .tok-com { color:#6a9955; }
+	.code-body .tok-kw  { color:#569cd6; }
+	.code-body .tok-str { color:#ce9178; }
+	.code-body .tok-fn  { color:#dcdcaa; }
+	.code-body .tok-mod { color:#4ec9b0; }
+	.code-body .tok-prop{ color:#9cdcfe; }
+	.code-body .tok-num { color:#b5cea8; }
+	.code-body .tok-punct { color:#d4d4d4; }
+	/* request / response code pair */
+	.code-duo {
+		display:flex; gap:1.1rem; flex-wrap:wrap;
+		align-items:flex-start; justify-content:center; width:100%;
+	}
+	.code-duo .code-card { flex:1 1 380px; max-width:480px; }
+	.code-duo .code-body { font-size:0.8rem; line-height:1.45; }
+	.code-arrow {
+		align-self:center; font-size:1.8rem; line-height:1;
+		color:var(--theme-tertiary,#5c2d91); opacity:0; flex:none;
+	}
+	.code-arrow.is-big { font-size:2.9rem; }
+	@media (max-width:760px) { .code-arrow { transform:rotate(90deg); } }
+
+	/* ── VALUE CHIPS (See / Understand / Automate) ── */
+	.vv-chip {
+		display:inline-flex; align-items:center; gap:0.5rem;
+		padding:0.6rem 1.2rem; border-radius:999px;
+		font-size:1.08rem; font-weight:700;
+		border:2px solid var(--theme-primary,#0078d4); background:rgba(0,120,212,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	.vv-chip .vv-ico { font-size:1.4rem; line-height:1; }
+	.vv-chip[data-v="understand"] { border-color:#7c4dff; background:rgba(124,77,255,0.08); }
+	.vv-chip[data-v="automate"] { border-color:#10a37f; background:rgba(16,163,127,0.08); }
+	body.theme-dark .vv-chip { background:rgba(0,120,212,0.16); }
+	body.theme-dark .vv-chip[data-v="understand"] { background:rgba(124,77,255,0.18); }
+	body.theme-dark .vv-chip[data-v="automate"] { background:rgba(16,163,127,0.18); }
+	.voice-value-row { display:flex; flex-wrap:wrap; gap:0.8rem; justify-content:center; }
+
+	/* ── USE-CASE GRID (apps) ───────────────── */
+	.uc-grid {
+		display:grid; grid-template-columns:repeat(2, minmax(0,1fr));
+		gap:1.1rem; width:min(980px,96%);
+	}
+	@media (max-width:720px) { .uc-grid { grid-template-columns:1fr; } }
+	.uc-card {
+		display:flex; flex-direction:column; gap:0.5rem;
+		padding:1rem 1.15rem;
+		border:1.5px solid var(--theme-border);
+		border-top:4px solid var(--theme-primary,#0078d4);
+		border-radius:14px;
+		background:var(--theme-card-background, #fff);
+		box-shadow:0 6px 22px rgba(0,0,0,0.12);
+		opacity:0;
+		transition:transform 0.2s ease, box-shadow 0.2s ease;
+	}
+	.uc-card:hover { transform:translateY(-4px); box-shadow:0 12px 30px rgba(0,0,0,0.18); }
+	body.theme-dark .uc-card { background:rgba(255,255,255,0.05); }
+	.uc-card[data-uc="defect"]   { border-top-color:#e97526; }
+	.uc-card[data-uc="medical"]  { border-top-color:#10a37f; }
+	.uc-card[data-uc="shelf"]    { border-top-color:#5c2d91; }
+	.uc-card[data-uc="auto"]     { border-top-color:#0078d4; }
+	.uc-head { display:flex; align-items:center; gap:0.55rem; font-size:1.25rem; font-weight:700; color:var(--theme-text); }
+	.uc-head .uc-icon { font-size:1.7rem; display:inline-block; }
+	.uc-desc { font-size:0.98rem; line-height:1.55; color:var(--theme-text-subtle); }
+	.uc-ex {
+		font-size:0.9rem; line-height:1.45; font-style:italic;
+		color:var(--theme-text); opacity:0;
+		padding:0.5rem 0.7rem; border-radius:8px;
+		border-left:3px solid var(--theme-border);
+		background:rgba(0,0,0,0.03);
+	}
+	body.theme-dark .uc-ex { background:rgba(255,255,255,0.05); }
+	.uc-card[data-uc="defect"]  .uc-ex { border-left-color:#e97526; }
+	.uc-card[data-uc="medical"] .uc-ex { border-left-color:#10a37f; }
+	.uc-card[data-uc="shelf"]   .uc-ex { border-left-color:#5c2d91; }
+	.uc-card[data-uc="auto"]    .uc-ex { border-left-color:#0078d4; }
+	.uc-caps { display:flex; flex-wrap:wrap; gap:0.4rem; margin-top:0.2rem; }
+	.uc-cap {
+		display:inline-flex; align-items:center; gap:0.3rem;
+		padding:0.25rem 0.7rem; border-radius:999px;
+		font-size:0.88rem; font-weight:700;
+		background:rgba(0,120,212,0.1); color:var(--theme-text);
+		border:1.5px solid rgba(0,120,212,0.4);
+		opacity:0;
+	}
+
+	/* ── MODEL GALLERY (catalog) ────────────── */
+	.voice-gallery { display:flex; flex-wrap:wrap; gap:0.7rem; justify-content:center; }
+	.voice-tile {
+		display:flex; align-items:center; gap:0.55rem;
+		padding:0.6rem 1rem; border-radius:14px;
+		border:2px solid var(--theme-border);
+		background:var(--theme-card-background, #fff);
+		box-shadow:0 4px 16px rgba(0,0,0,0.1); opacity:0;
+	}
+	body.theme-dark .voice-tile { background:rgba(255,255,255,0.05); }
+	.voice-tile[data-kind="fast"]     { border-color:#00b7c3; }
+	.voice-tile[data-kind="flagship"] { border-color:#7c4dff; }
+	.voice-tile[data-kind="partner"]  { border-color:#e97526; border-style:dashed; }
+	.voice-tile .vt-avatar { font-size:1.8rem; line-height:1; }
+	.voice-tile .vt-name { font-size:1.05rem; font-weight:700; color:var(--theme-text); display:block; }
+	.voice-tile .vt-meta { font-size:0.82rem; color:var(--theme-text-subtle); display:block; }
+	.voice-tile .vt-tag {
+		margin-left:0.2rem; padding:0.15rem 0.55rem; border-radius:999px;
+		font-size:0.7rem; font-weight:800; letter-spacing:0.03em;
+		background:rgba(0,183,195,0.16); color:#067d86; border:1px solid rgba(0,183,195,0.45);
+	}
+	.voice-tile[data-kind="flagship"] .vt-tag { background:rgba(124,77,255,0.16); color:#7c4dff; border-color:rgba(124,77,255,0.45); }
+	.voice-tile[data-kind="partner"]  .vt-tag { background:rgba(233,117,38,0.16); color:#c75f12; border-color:rgba(233,117,38,0.45); }
+	body.theme-dark .voice-tile .vt-tag { color:#7fe0e8; }
+	body.theme-dark .voice-tile[data-kind="flagship"] .vt-tag { color:#c9b5ff; }
+	body.theme-dark .voice-tile[data-kind="partner"]  .vt-tag { color:#f3b27a; }
+
+	/* ── TWO-PANEL SPLIT (image gen vs video gen) ── */
+	.cap-split { display:flex; gap:1.4rem; flex-wrap:wrap; justify-content:center; width:100%; align-items:stretch; }
+	.cap-panel {
+		flex:1 1 380px; max-width:480px;
+		display:flex; flex-direction:column; gap:0.9rem; align-items:center;
+		padding:1.3rem 1.2rem;
+		border:2px solid #0078d4; border-radius:18px;
+		background:var(--theme-card-background, #fff);
+		box-shadow:0 8px 30px rgba(0,120,212,0.14);
+		opacity:0;
+	}
+	body.theme-dark .cap-panel { background:rgba(255,255,255,0.05); }
+	.cap-panel.is-vid { border-color:#7c4dff; box-shadow:0 8px 30px rgba(124,77,255,0.16); }
+	.cap-panel .cp-tag {
+		display:inline-flex; align-items:center; gap:0.4rem;
+		font-size:0.82rem; font-weight:800; text-transform:uppercase; letter-spacing:0.06em;
+		color:#0078d4;
+	}
+	.cap-panel.is-vid .cp-tag { color:#7c4dff; }
+	.cap-panel .cp-title { font-size:1.55rem; font-weight:800; color:var(--theme-text); text-align:center; }
+	.cap-panel .cp-models { font-size:0.95rem; font-weight:700; color:var(--theme-text-subtle); text-align:center; }
+	.cap-panel .cp-modes { display:flex; flex-wrap:wrap; gap:0.4rem; justify-content:center; }
+	.cp-mode {
+		display:inline-flex; align-items:center; gap:0.3rem;
+		padding:0.3rem 0.75rem; border-radius:999px; font-size:0.85rem; font-weight:700;
+		border:1.5px solid rgba(0,120,212,0.4); background:rgba(0,120,212,0.08); color:var(--theme-text);
+		opacity:0;
+	}
+	.cap-panel.is-vid .cp-mode { border-color:rgba(124,77,255,0.4); background:rgba(124,77,255,0.1); }
+
+	/* ════════════════════════════════════════ */
+	/* ── COMPUTER-VISION-SPECIFIC BLOCKS ───── */
+	/* ════════════════════════════════════════ */
+
+	/* ── STEP 1 · hero image frame with scanning beam ── */
+	.cv-hero {
+		position:relative; width:min(440px,90%); aspect-ratio:4/3;
+		border-radius:18px; overflow:hidden; opacity:0;
+		border:3px solid var(--theme-primary,#0078d4);
+		background:linear-gradient(135deg, rgba(0,120,212,0.2), rgba(0,183,195,0.18), rgba(124,77,255,0.18));
+		box-shadow:0 14px 44px rgba(0,120,212,0.25);
+		display:flex; align-items:center; justify-content:center;
+		margin-top:0.4rem;
+	}
+	.cv-hero .cvh-eye { font-size:5.2rem; line-height:1; filter:drop-shadow(0 6px 16px rgba(0,0,0,0.3)); position:relative; z-index:2; }
+	.cv-grid-overlay {
+		position:absolute; inset:0; pointer-events:none; z-index:1;
+		background-image:linear-gradient(rgba(255,255,255,0.10) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.10) 1px, transparent 1px);
+		background-size:34px 34px;
+	}
+	.cv-scan {
+		position:absolute; left:0; right:0; top:6%; height:4px; z-index:3;
+		background:linear-gradient(90deg, transparent, #00b7c3, #28e6d8, #00b7c3, transparent);
+		box-shadow:0 0 20px 5px rgba(40,230,216,0.6);
+	}
+	.cv-hero .cvh-badge {
+		position:absolute; bottom:12px; right:12px; z-index:4;
+		width:52px; height:52px; border-radius:13px; padding:7px;
+		background:rgba(255,255,255,0.92); box-shadow:0 4px 14px rgba(0,0,0,0.25);
+		display:flex; align-items:center; justify-content:center;
+	}
+	.cv-hero .cvh-badge img { width:100%; height:100%; display:block; }
+
+	/* ── STEP 3 · detection frame with bounding boxes + OCR ── */
+	.cv-frame {
+		position:relative; width:min(580px,94%); aspect-ratio:16/10;
+		border-radius:16px; overflow:hidden; opacity:0;
+		border:2px solid var(--theme-border);
+		background:linear-gradient(160deg, rgba(0,120,212,0.12), rgba(124,77,255,0.14));
+		box-shadow:0 10px 34px rgba(0,0,0,0.18);
+		display:flex; align-items:center; justify-content:center;
+	}
+	body.theme-dark .cv-frame { background:linear-gradient(160deg, rgba(0,120,212,0.2), rgba(124,77,255,0.24)); }
+	.cv-frame .cvf-subj { position:absolute; display:flex; align-items:center; justify-content:center; }
+	.cv-frame .cvf-ico { font-size:3.1rem; line-height:1; filter:drop-shadow(0 4px 10px rgba(0,0,0,0.25)); }
+	.cv-box {
+		position:absolute; inset:-16px -20px; border:2.5px solid #28e6d8; border-radius:6px;
+		box-shadow:0 0 0 1px rgba(0,0,0,0.25); opacity:0;
+	}
+	.cv-box::after {
+		content:attr(data-label); position:absolute; top:-1.45rem; left:-2px;
+		padding:0.1rem 0.5rem; font-size:0.78rem; font-weight:800; white-space:nowrap;
+		background:#28e6d8; color:#06363a; border-radius:4px;
+	}
+	.cv-box[data-c="b"] { border-color:#7c4dff; } .cv-box[data-c="b"]::after { background:#7c4dff; color:#fff; }
+	.cv-box[data-c="o"] { border-color:#e97526; } .cv-box[data-c="o"]::after { background:#e97526; color:#fff; }
+	.cv-ocr {
+		position:absolute; padding:0.2rem 0.6rem; border-radius:6px; opacity:0;
+		font-family:'Cascadia Code','Consolas',monospace; font-weight:800; font-size:0.95rem;
+		background:rgba(255,255,255,0.92); color:#0a3d62; border:2px dashed #0078d4;
+	}
+	.cv-scene-chips { display:flex; flex-wrap:wrap; gap:0.5rem; justify-content:center; }
+	.cv-scene-chip {
+		display:inline-flex; align-items:center; gap:0.35rem;
+		padding:0.35rem 0.85rem; border-radius:999px; font-size:0.92rem; font-weight:700;
+		border:1.5px solid #00b7c3; background:rgba(0,183,195,0.08); color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .cv-scene-chip { background:rgba(0,183,195,0.18); }
+	.cv-cap-row { display:flex; flex-wrap:wrap; gap:0.6rem; justify-content:center; }
+	.cv-cap {
+		display:inline-flex; align-items:center; gap:0.45rem;
+		padding:0.5rem 1rem; border-radius:12px; font-size:1rem; font-weight:700;
+		border:2px solid var(--theme-border); background:var(--theme-card-background,#fff);
+		color:var(--theme-text); opacity:0; box-shadow:0 4px 14px rgba(0,0,0,0.1);
+	}
+	body.theme-dark .cv-cap { background:rgba(255,255,255,0.05); }
+	.cv-cap .cvc-ico { font-size:1.3rem; line-height:1; }
+	.cv-cap[data-k="object"]  { border-color:#28e6d8; }
+	.cv-cap[data-k="pattern"] { border-color:#7c4dff; }
+	.cv-cap[data-k="ocr"]     { border-color:#0078d4; }
+	.cv-cap[data-k="scene"]   { border-color:#00b7c3; }
+
+	/* ── STEP 4 · multimodal fusion ─────────── */
+	.cv-fusion { display:flex; align-items:center; justify-content:center; gap:1rem; flex-wrap:wrap; width:100%; }
+	.cv-inputs { display:flex; flex-direction:column; gap:0.8rem; }
+	.cv-in {
+		display:flex; align-items:center; gap:0.6rem; min-width:230px;
+		padding:0.7rem 1rem; border-radius:14px; opacity:0;
+		border:2px solid var(--theme-border); background:var(--theme-card-background,#fff);
+		box-shadow:0 4px 16px rgba(0,0,0,0.12);
+	}
+	body.theme-dark .cv-in { background:rgba(255,255,255,0.05); }
+	.cv-in.is-text { border-color:#0078d4; }
+	.cv-in.is-img { border-color:#28e6d8; }
+	.cv-in .cvi-ico { font-size:1.9rem; line-height:1; flex:none; }
+	.cv-in .cvi-label { font-size:1.08rem; font-weight:700; color:var(--theme-text); display:block; }
+	.cv-in .cvi-sub { font-size:0.84rem; color:var(--theme-text-subtle); display:block; }
+	.cv-merge { font-size:2rem; line-height:1; color:var(--theme-tertiary,#5c2d91); opacity:0; flex:none; }
+	.cv-model {
+		display:flex; flex-direction:column; align-items:center; gap:0.3rem; text-align:center;
+		padding:1.1rem 1.3rem; border-radius:20px; opacity:0;
+		border:3px solid #7c4dff;
+		background:linear-gradient(135deg, rgba(124,77,255,0.16), rgba(0,120,212,0.14));
+		box-shadow:0 10px 30px rgba(124,77,255,0.22);
+	}
+	.cv-model .cvm-ico { font-size:2.6rem; line-height:1; }
+	.cv-model .cvm-ico img { width:54px; height:54px; display:block; }
+	.cv-model .cvm-title { font-size:1.2rem; font-weight:800; color:var(--theme-text); }
+	.cv-model .cvm-sub { font-size:0.85rem; color:var(--theme-text-subtle); }
+	.cv-answer {
+		display:flex; align-items:center; gap:0.5rem; max-width:220px;
+		padding:0.8rem 1.1rem; border-radius:14px; opacity:0;
+		border:2px solid #10a37f; background:rgba(16,163,127,0.08);
+		box-shadow:0 6px 22px rgba(16,163,127,0.16);
+	}
+	body.theme-dark .cv-answer { background:rgba(16,163,127,0.18); }
+	.cv-answer .cva-ico { font-size:1.7rem; flex:none; }
+	.cv-answer .cva-text { font-size:1rem; font-weight:700; color:var(--theme-text); line-height:1.4; }
+	.cv-examples { display:flex; flex-wrap:wrap; gap:0.6rem; justify-content:center; }
+	.cv-example {
+		display:inline-flex; align-items:center; gap:0.45rem;
+		padding:0.5rem 1rem; border-radius:999px; font-size:0.98rem; font-weight:700;
+		border:1.5px solid #7c4dff; background:rgba(124,77,255,0.08); color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .cv-example { background:rgba(124,77,255,0.18); }
+	@media (max-width:760px){ .cv-merge { transform:rotate(90deg); } }
+
+	/* ── STEP 7 · generation visuals ────────── */
+	.cv-prompt {
+		display:inline-flex; align-items:center; gap:0.5rem;
+		padding:0.5rem 1rem; border-radius:10px; opacity:0;
+		font-style:italic; font-size:0.98rem; color:var(--theme-text);
+		border:1.5px dashed var(--theme-border); background:rgba(0,0,0,0.03);
+	}
+	body.theme-dark .cv-prompt { background:rgba(255,255,255,0.05); }
+	.cv-genimg {
+		width:140px; height:140px; border-radius:14px; opacity:0;
+		background:linear-gradient(135deg,#ffb86b,#ff7eb3,#7c4dff,#00b7c3);
+		background-size:300% 300%; animation:cvShimmer 6s ease infinite;
+		display:flex; align-items:center; justify-content:center; font-size:2.8rem;
+		box-shadow:0 10px 30px rgba(124,77,255,0.28);
+	}
+	@keyframes cvShimmer { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
+	.cv-filmstrip { display:flex; gap:0.45rem; flex-wrap:wrap; justify-content:center; }
+	.cv-film {
+		width:80px; height:60px; border-radius:8px; opacity:0;
+		border:2px solid #7c4dff; position:relative; overflow:hidden;
+		background:linear-gradient(135deg, rgba(0,183,195,0.5), rgba(124,77,255,0.55));
+		display:flex; align-items:center; justify-content:center; font-size:1.5rem;
+	}
+	.cv-film::before, .cv-film::after {
+		content:''; position:absolute; top:0; bottom:0; width:8px;
+		background-image:radial-gradient(circle, rgba(0,0,0,0.4) 2px, transparent 2px);
+		background-size:8px 12px;
+	}
+	.cv-film::before { left:0; } .cv-film::after { right:0; }
+
+	/* ── BUILD STEP ─────────────────────────── */
+	.build-hero { display:flex; flex-direction:column; align-items:center; gap:0.8rem; width:100%; margin-bottom:0.4rem; }
+	.build-hero-title {
+		font-size:1.3rem; font-weight:800; text-align:center; opacity:0;
+		color:var(--theme-tertiary, #5c2d91);
+	}
+	body.theme-dark .build-hero-title { color:#c9b5ff; }
+	.build-wire { display:flex; align-items:center; justify-content:center; gap:1.1rem; flex-wrap:wrap; }
+	.bw-left { display:flex; flex-direction:column; gap:1rem; }
+	.bw-node {
+		display:flex; align-items:center; gap:0.7rem;
+		padding:0.7rem 1rem; min-width:230px;
+		border:2px solid var(--theme-border); border-radius:14px;
+		background:var(--theme-card-background, #fff);
+		box-shadow:0 4px 16px rgba(0,0,0,0.12); opacity:0;
+	}
+	body.theme-dark .bw-node { background:rgba(255,255,255,0.05); }
+	.bw-node.is-app { border-color:#0078d4; }
+	.bw-node.is-agent { border-color:#7c4dff; }
+	.bw-node .bw-ico { font-size:2rem; line-height:1; flex:none; }
+	.bw-node .bw-txt { display:flex; flex-direction:column; }
+	.bw-node .bw-label { font-size:1.1rem; font-weight:700; color:var(--theme-text); }
+	.bw-node .bw-sub { font-size:0.85rem; color:var(--theme-text-subtle); }
+	.bw-conns { display:flex; flex-direction:column; justify-content:center; gap:1.6rem; }
+	.bw-conn { display:flex; flex-direction:column; align-items:center; gap:0.1rem; opacity:0; }
+	.bw-conn .bw-path {
+		font-size:0.78rem; font-weight:800; letter-spacing:0.04em; text-transform:uppercase;
+		color:var(--theme-tertiary, #5c2d91);
+	}
+	.bw-conn .bw-arrow { font-size:2rem; line-height:0.8; color:var(--theme-tertiary, #5c2d91); }
+	.bw-lang {
+		display:flex; flex-direction:column; align-items:center; gap:0.3rem; text-align:center;
+		padding:1.1rem 1.4rem; border-radius:20px;
+		border:3px solid #00b7c3;
+		background:linear-gradient(135deg, rgba(0,183,195,0.14), rgba(124,77,255,0.12));
+		box-shadow:0 10px 30px rgba(0,183,195,0.22); opacity:0;
+	}
+	.bw-lang img { width:58px; height:58px; display:block; }
+	.bw-lang .bw-lang-label { font-size:1.2rem; font-weight:800; color:var(--theme-text); }
+	.bw-lang .bw-lang-sub { font-size:0.85rem; color:var(--theme-text-subtle); }
+	@media (max-width:640px) { .bw-conn .bw-arrow { transform:rotate(90deg); } }
+	.build-cols { display:flex; gap:1.5rem; flex-wrap:wrap; align-items:flex-start; justify-content:center; width:100%; }
+	.build-steps { flex:1 1 300px; max-width:430px; display:flex; flex-direction:column; gap:0.5rem; }
+	.build-steps-title {
+		font-size:0.95rem; font-weight:800; letter-spacing:0.1em; text-transform:uppercase;
+		color:var(--theme-tertiary, #5c2d91); opacity:0;
+	}
+	.build-step {
+		display:flex; align-items:center; gap:0.7rem;
+		padding:0.55rem 0.8rem;
+		background:var(--theme-body-background);
+		border:1px solid var(--theme-border); border-radius:10px;
+		opacity:0;
+	}
+	.build-num {
+		flex-shrink:0; width:1.7rem; height:1.7rem; border-radius:50%;
+		display:flex; align-items:center; justify-content:center;
+		background:var(--theme-tertiary, #5c2d91); color:#fff; font-weight:700; font-size:0.9rem;
+	}
+	.build-step-label { font-size:1.1rem; font-weight:700; color:var(--theme-text); display:block; }
+	.build-step-sub { font-size:0.92rem; color:var(--theme-text-subtle); display:block; }
+	body.theme-dark .build-step { background:rgba(255,255,255,0.05); }
+	.integrate-block { flex:1 1 360px; max-width:520px; display:flex; flex-direction:column; gap:0.4rem; }
+	.integrate-head { text-align:left; opacity:0; }
+	.integrate-title { display:block; font-size:1.1rem; font-weight:800; color:var(--theme-tertiary, #5c2d91); }
+	.integrate-sub { display:block; font-size:0.9rem; color:var(--theme-text-subtle); margin-top:0.1rem; }
+	.value-grid { display:flex; flex-wrap:wrap; gap:0.6rem; justify-content:center; }
+	.value-chip {
+		display:inline-flex; align-items:center; gap:0.4rem;
+		padding:0.5rem 1rem; border-radius:999px;
+		font-size:1rem; font-weight:700;
+		border:2px solid #107c10; background:rgba(16,124,16,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .value-chip { background:rgba(16,124,16,0.16); }
+
+	/* ── HEADER BACK LINK ───────────────────── */
+	.header-back-link {
+		display:inline-flex; align-items:center; gap:0.25rem;
+		padding:0.2rem 0.6rem;
+		font-size:0.8rem; font-weight:600;
+		color:var(--theme-text-subtle);
+		border:1px solid var(--theme-border);
+		border-radius:999px;
+		text-decoration:none; white-space:nowrap;
+		transition:background 0.15s, color 0.15s, border-color 0.15s;
+	}
+	.header-back-link:hover {
+		color:var(--theme-primary);
+		border-color:var(--theme-primary);
+		background:var(--theme-primary-translucent, rgba(0,120,212,0.12));
+	}
+
+	/* ── CONTROLS · icon dock ─────────────────── */
+	#controls {
+		position:fixed; bottom:14px; left:50%; transform:translateX(-50%);
+		z-index:40;
+		display:flex; align-items:center; gap:5px;
+		padding:5px 7px;
+		background:var(--theme-body-background-translucent, rgba(255,255,255,0.82));
+		backdrop-filter:blur(12px) saturate(1.4); -webkit-backdrop-filter:blur(12px) saturate(1.4);
+		border:1px solid var(--theme-border); border-radius:999px;
+		box-shadow: 0 8px 26px rgba(0,0,0,0.18);
+		font-size:13px;
+	}
+	body.theme-dark #controls { background:var(--theme-body-background-translucent, rgba(32,32,36,0.82)); }
+	#controls .ctrl-icon {
+		width:2.15rem; height:2.15rem; min-width:0; padding:0;
+		display:inline-flex; align-items:center; justify-content:center;
+		border-radius:50%; font-size:0.95rem; line-height:1; font-weight:600;
+		transition:background 0.18s ease, color 0.18s ease, transform 0.12s ease, box-shadow 0.18s ease;
+	}
+	#controls .ctrl-icon:hover { transform:translateY(-1px); }
+	#controls .ctrl-icon:active { transform:scale(0.92); }
+	#controls .ctrl-icon-next {
+		width:2.55rem; height:2.55rem; font-size:1.1rem;
+		box-shadow:0 2px 8px var(--theme-primary-translucent, rgba(0,120,212,0.45));
+	}
+	.step-counter {
+		min-width:52px; text-align:center; font-variant-numeric:tabular-nums;
+		font-size:14px; font-weight:700; color:var(--theme-text);
+		padding:0 6px; white-space:nowrap; letter-spacing:0.02em;
+	}
+	.ctrl-sep { width:1px; align-self:stretch; margin:4px 2px; background:var(--theme-border); }
+	.speed-control {
+		display:inline-flex; align-items:center; gap:1px;
+		padding:2px 3px;
+		border:1px solid var(--theme-border);
+		border-radius:999px;
+	}
+	.speed-control .speed-btn {
+		width:1.7rem; height:1.7rem; min-width:0; padding:0;
+		display:inline-flex; align-items:center; justify-content:center;
+		font-size:0.95rem; font-weight:700; border-radius:50%;
+	}
+	.speed-control .speed-btn[disabled] { opacity:0.4; cursor:not-allowed; }
+	.speed-label {
+		min-width:2.4rem; text-align:center;
+		font-variant-numeric:tabular-nums; font-size:0.82rem; font-weight:700; color:var(--theme-text);
+	}
+
+	#callout-toggle, #outline-toggle {
+		border:1px solid var(--theme-border); border-radius:4px;
+		transition:background 0.2s ease, color 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+	}
+	#callout-toggle.toggle-active, #outline-toggle.toggle-active {
+		background:var(--theme-primary-translucent, rgba(0,120,212,0.12));
+		color:var(--theme-primary, #0078d4);
+		border-color:var(--theme-primary, #0078d4);
+		font-weight:600;
+	}
+	#callout-toggle:not(.toggle-active), #outline-toggle:not(.toggle-active) { opacity:0.6; }
+
+	/* ── HIDE / SHOW TOP BAR ─────────────────── */
+	#header-hide {
+		display:inline-flex; align-items:center; justify-content:center;
+		width:2rem; height:2rem; padding:0;
+		border:1px solid var(--theme-border); border-radius:50%;
+		color:var(--theme-text-subtle);
+		transition:background 0.2s ease, color 0.2s ease, transform 0.18s ease;
+	}
+	#header-hide:hover { color:var(--theme-text); transform:translateY(-1px); }
+	#header-hide svg { width:16px; height:16px; }
+	body.chrome-hidden .app-header,
+	body.chrome-hidden .progress-track { display:none; }
+	#header-reveal {
+		position:fixed; top:0; left:50%; transform:translateX(-50%) translateY(-100%);
+		z-index:45;
+		display:inline-flex; align-items:center; gap:0.35rem;
+		padding:5px 14px 6px;
+		font-size:12px; font-weight:600; line-height:1;
+		color:var(--theme-text-subtle);
+		background:var(--theme-body-background-translucent, rgba(255,255,255,0.88));
+		backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+		border:1px solid var(--theme-border); border-top:none;
+		border-radius:0 0 12px 12px;
+		box-shadow:0 4px 14px rgba(0,0,0,0.14);
+		cursor:pointer;
+		transition:transform 0.28s cubic-bezier(0.2,0.7,0.3,1), color 0.2s ease, background 0.2s ease;
+	}
+	body.theme-dark #header-reveal { background:var(--theme-body-background-translucent, rgba(32,32,36,0.88)); }
+	#header-reveal:hover { color:var(--theme-text); }
+	body.chrome-hidden #header-reveal { transform:translateX(-50%) translateY(0); }
+	#header-reveal svg { width:14px; height:14px; }
+
+	#step-outline {
+		position:fixed; top:4.5rem; right:1rem;
+		width:320px; max-height:calc(100vh - 8rem); overflow-y:auto;
+		padding:1.1rem;
+		background:var(--theme-body-background);
+		border:1px solid var(--theme-border);
+		border-radius:6px;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2));
+		z-index:35; font-size:1rem; line-height:1.55;
+	}
+	#step-outline[hidden] { display:none; }
+	#step-outline h2 {
+		font-size:0.85rem; font-weight:700; letter-spacing:0.18em; text-transform:uppercase;
+		color: var(--theme-tertiary, #5c2d91); margin-bottom:0.5rem;
+	}
+	#step-outline .outline-section { margin-top:0.6rem; padding-top:0.6rem; border-top:1px solid var(--theme-border); }
+	#step-outline .outline-section:first-child { margin-top:0; padding-top:0; border-top:0; }
+	#step-outline .stat-row { display:flex; justify-content:space-between; align-items:baseline; gap:0.75rem; padding:0.2rem 0; }
+	#step-outline .stat-row span:first-child { color:var(--theme-text-subtle); flex:0 0 auto; max-width:45%; }
+	#step-outline .stat-row span:last-child { text-align:right; font-weight:600; color:var(--theme-tertiary, #5c2d91); flex:1 1 auto; }
+
+	.progress-track { position:relative; height:5px; background:var(--theme-border, #e0e0e0); flex-shrink:0; }
+	.progress-fill {
+		position:absolute; left:0; top:0; bottom:0; width:0%;
+		background:#00b7c3; transition:width 0.5s cubic-bezier(0.2,0.8,0.2,1);
+	}
+
+	.theme-toggle {
+		display:inline-flex; align-items:center; justify-content:center;
+		width:2.25rem; height:2.25rem; padding:0; margin-inline-start:0.25rem;
+		background:transparent; border:1px solid var(--theme-border); border-radius:999px;
+		color:var(--theme-text); cursor:pointer;
+		transition:background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+	}
+	.theme-toggle:hover { background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary); border-color:var(--theme-primary); }
+	.theme-toggle .theme-icon { display:none; }
+	.theme-toggle[data-theme="dark"]  .icon-sun  { display:block; }
+	.theme-toggle[data-theme="light"] .icon-moon { display:block; }
+
+	.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+	.skip-link {
+		position:absolute; top:-100px; left:0.5rem; z-index:100;
+		padding:0.5rem 1rem; background:var(--theme-primary); color:var(--theme-primary-invert, #fff);
+		border-radius:4px; text-decoration:none; font-weight:600;
+	}
+	.skip-link:focus { top:0.5rem; }
+
+	.lang-select {
+		appearance: none; -webkit-appearance: none;
+		background: var(--theme-card-background, #fff);
+		color: var(--theme-body-text, #333);
+		border: 1px solid var(--theme-border, rgba(0,0,0,0.2));
+		border-radius: 4px; padding: 4px 24px 4px 8px;
+		font-size: 0.8rem; font-family: 'Segoe UI', sans-serif; cursor: pointer;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+		background-repeat: no-repeat; background-position: right 6px center; min-width: 80px;
+	}
+	.lang-select:hover { border-color: var(--theme-primary, #0078d4); }
+	.lang-select:focus { outline: 2px solid var(--theme-primary, #0078d4); outline-offset: 1px; }
+	body.theme-dark .lang-select {
+		background-color: var(--theme-body-background, #1a1a2e);
+		color: var(--theme-body-text, #e0e0e0);
+		border-color: rgba(255,255,255,0.15);
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23aaa' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+	}
+	body.theme-dark .lang-select option { background: var(--theme-body-background, #1a1a2e); color: var(--theme-body-text, #e0e0e0); }
+
+	.font-size-controls { display:flex; align-items:center; gap:2px; }
+	.font-size-btn {
+		background: var(--theme-card-background, #fff);
+		color: var(--theme-body-text, #333);
+		border: 1px solid var(--theme-border, rgba(0,0,0,0.2));
+		border-radius: 4px; padding: 3px 8px;
+		font-size: 0.8rem; font-weight: 700; font-family: 'Segoe UI', sans-serif;
+		cursor: pointer; line-height: 1.2; transition: background 0.15s, border-color 0.15s;
+	}
+	.font-size-btn:hover { border-color: var(--theme-primary, #0078d4); }
+	body.theme-dark .font-size-btn {
+		background: var(--theme-body-background, #1a1a2e);
+		color: var(--theme-body-text, #e0e0e0);
+		border-color: rgba(255,255,255,0.15);
+	}
+
+	@media (max-width:640px) {
+		.app-header { font-size:0.95rem; }
+		.scene-title { font-size:1.9rem; }
+	}
+	@media (prefers-reduced-motion: reduce) {
+		*, *::before, *::after { transition:none !important; animation:none !important; }
+		.progress-fill { transition:none !important; }
+		.cv-genimg { animation:none !important; }
+	}
+</style>
+</head>
+
+<body class="theme-dark" data-theme-preset="atlas">
+
+	<a href="#stage" class="skip-link">Skip to diagram</a>
+
+	<header class="app-header padding-block-xs padding-inline-md border-bottom" role="banner" style="justify-content:space-between;">
+		<div class="display-flex align-items-center gap-xs">
+			<a href="index.html" class="header-back-link" aria-label="Back to the Foundry journey" title="Back to the Foundry journey">← Foundry journey</a>
+			<span id="page-title" class="font-size-h6 font-weight-semibold">👁️ Get Started with Computer Vision</span>
+		</div>
+		<nav class="display-flex gap-xs align-items-center" aria-label="Primary">
+			<span id="breadcrumb" class="font-size-sm color-text-subtle">Step 1</span>
+			<button id="callout-toggle" type="button" class="button button-clear button-sm" aria-label="Toggle callouts">💬 Callout</button>
+			<button id="outline-toggle" type="button" class="button button-clear button-sm"
+					aria-controls="step-outline" aria-expanded="false" aria-label="Hide text outline">📝 Outline</button>
+		</nav>
+		<div class="display-flex gap-xs align-items-center">
+			<select id="lang-select" class="lang-select" aria-label="Language">
+				<option value="en">English</option>
+				<option value="es">Español</option>
+				<option value="ja">日本語</option>
+				<option value="ko">한국어</option>
+				<option value="pt">Português</option>
+			</select>
+			<div class="font-size-controls">
+				<button id="font-decrease" type="button" class="font-size-btn" aria-label="Decrease font size" title="Smaller text">A−</button>
+				<button id="font-increase" type="button" class="font-size-btn" aria-label="Increase font size" title="Larger text">A+</button>
+			</div>
+			<button id="theme-toggle" type="button" class="theme-toggle" aria-label="Switch to light theme" title="Switch to light theme">
+				<svg class="theme-icon icon-moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+					<path fill="currentColor" d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/>
+				</svg>
+				<svg class="theme-icon icon-sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+					<g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+						<circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/>
+						<line x1="12" y1="2"  x2="12" y2="5"/>
+						<line x1="12" y1="19" x2="12" y2="22"/>
+						<line x1="2"  y1="12" x2="5"  y2="12"/>
+						<line x1="19" y1="12" x2="22" y2="12"/>
+						<line x1="4.5"  y1="4.5"  x2="6.5"  y2="6.5"/>
+						<line x1="17.5" y1="17.5" x2="19.5" y2="19.5"/>
+						<line x1="4.5"  y1="19.5" x2="6.5"  y2="17.5"/>
+						<line x1="17.5" y1="6.5"  x2="19.5" y2="4.5"/>
+					</g>
+				</svg>
+			</button>
+			<button id="header-hide" type="button" aria-label="Hide top bar" title="Hide top bar">
+				<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+					<path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/>
+				</svg>
+			</button>
+		</div>
+	</header>
+
+	<button id="header-reveal" type="button" aria-label="Show top bar" title="Show top bar">
+		<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+			<path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/>
+		</svg>
+		<span>Toolbar</span>
+	</button>
+
+	<div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
+
+	<main id="stage" tabindex="0" role="region" aria-labelledby="stage-heading" aria-describedby="stage-instructions">
+		<h1 id="stage-heading" class="sr-only">Get Started with Computer Vision — Microsoft Foundry</h1>
+		<p id="stage-instructions" class="sr-only">
+			Animated explainer for Computer Vision in Microsoft Foundry — analyzing images with multimodal models,
+			and generating images and video with GPT-Image and Sora. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.
+		</p>
+		<div id="step-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+
+		<svg id="fx-svg" aria-hidden="true" focusable="false">
+			<defs>
+				<marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
+					<path d="M0,0 L0,10 L10,5 Z" fill="currentColor"/>
+				</marker>
+			</defs>
+		</svg>
+	</main>
+
+	<aside id="step-outline" hidden aria-label="Text outline of the current step">
+		<h2 id="outline-title">Step Details</h2>
+		<div id="outline-body"></div>
+	</aside>
+
+	<div id="controls" role="group" aria-label="Diagram navigation">
+		<button id="prev-btn" type="button" class="button ctrl-icon" aria-label="Previous step (left arrow)">◀</button>
+		<div class="step-counter" id="step-counter">0 / 0</div>
+		<button id="next-btn" type="button" class="button button-primary button-filled ctrl-icon ctrl-icon-next" aria-label="Next step (right arrow or space)">▶</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="replay-btn" type="button" class="button ctrl-icon" aria-label="Replay this step's animation (P)">↻</button>
+		<div class="speed-control" role="group" aria-label="Animation speed">
+			<button id="speed-down" type="button" class="button button-clear speed-btn" aria-label="Slower (-)" title="Slower">−</button>
+			<span id="speed-label" class="speed-label" aria-live="polite" aria-label="Current speed">1×</span>
+			<button id="speed-up" type="button" class="button button-clear speed-btn" aria-label="Faster (+)" title="Faster">+</button>
+		</div>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="reset-btn" type="button" class="button button-clear ctrl-icon" aria-label="Restart from step 1 (R)">⏮</button>
+	</div>
+
+<script>
+// ── THEME ─────────────────────────────────
+if (window.AW && AW.theme) {
+	AW.theme.onChange(() => { if (typeof renderStep === 'function' && current >= 0) renderStep(current); });
+}
+
+const VISION_ICON = '../../lib/icons/Azure_Public_Service_Icons/ai + machine learning/00792-icon-service-Computer-Vision.svg';
+
+// ── i18n ──────────────────────────────────
+// English is the source language. Other locales translate the chrome and the
+// per-step narrative (title/caption/desc/callout/stats) plus prominent scene
+// labels; remaining in-scene micro-copy falls back to English via t().
+let currentLang = 'en';
+const I18N = {
+	en: {
+		skipToMain: 'Skip to diagram',
+		pageTitle: 'Get Started with Computer Vision',
+		stageHeading: 'Get Started with Computer Vision — Microsoft Foundry',
+		stageInstructions: 'Explore Computer Vision in Microsoft Foundry — analyzing images with multimodal models, and generating images and video with GPT-Image and Sora. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.',
+		prev: '◀ Prev', next: 'Next ▶', replay: '↻ Replay', restart: '↻ Restart',
+		slower: 'Slower', faster: 'Faster',
+		calloutOn: '💬 Callout: On', calloutOff: '💬 Callout: Off',
+		outlineOn: '📝 Outline: On', outlineOff: '📝 Outline: Off',
+		stepDetails: 'Step Details', stepOf: 'Step',
+
+		// ── Step 1 · What is Computer Vision ──
+		whyTitle: 'What Is Computer Vision?',
+		whyCaption: 'Teaching machines to see',
+		whyDesc: 'Computer Vision lets software interpret images, video, and live camera feeds — detecting objects, reading text, and understanding scenes so it can automate visual tasks people once did by eye.',
+		whyCallout: 'Computer Vision gives apps <strong>eyes</strong>: they can <strong>see</strong> what is in an image, <strong>understand</strong> what it means, and <strong>automate</strong> the work that follows.',
+		whyValSee: 'See', whyValUnderstand: 'Understand', whyValAutomate: 'Automate',
+		whyUse1: 'Images', whyUse2: 'Video', whyUse3: 'Live camera feeds',
+		whyStat1: 'What', whyStat1v: 'Software that interprets visuals',
+		whyStat2: 'Why', whyStat2v: 'See, understand, automate',
+		whyStat3: 'Where', whyStat3v: 'Vision models in Microsoft Foundry',
+
+		// ── Step 2 · Apps in the real world ──
+		appsTitle: 'Computer Vision in the Real World',
+		appsCaption: 'Where seeing adds value',
+		appsDesc: 'From factory floors to hospitals, vision models inspect, monitor, and react to the physical world faster and more consistently than manual review.',
+		appsCallout: 'Anywhere a person inspects something <strong>by eye</strong>, Computer Vision can watch continuously — spotting defects, reading scans, and reacting in real time.',
+		appDefectHead: 'Defect detection', appDefectDesc: 'Cameras on the line catch flaws the moment a part is made.',
+		appDefectEx: 'A scratched panel is flagged and pulled before it ships.',
+		appDefectCap1: 'Manufacturing', appDefectCap2: 'Quality',
+		appMedHead: 'Medical imaging', appMedDesc: 'Models highlight regions of interest to assist clinicians.',
+		appMedEx: 'A scan is pre-screened so radiologists focus where it matters.',
+		appMedCap1: 'Healthcare', appMedCap2: 'Assistive',
+		appShelfHead: 'Shelf monitoring', appShelfDesc: 'Store cameras track stock levels and product placement.',
+		appShelfEx: 'An empty shelf triggers a restock alert automatically.',
+		appShelfCap1: 'Retail', appShelfCap2: 'Real-time',
+		appAutoHead: 'Autonomous vehicles', appAutoDesc: 'Onboard vision detects lanes, signs, pedestrians, and hazards.',
+		appAutoEx: 'A pedestrian stepping off the curb is detected instantly.',
+		appAutoCap1: 'Mobility', appAutoCap2: 'Safety',
+		appsStat1: 'Pattern', appsStat1v: 'Watch, inspect, react',
+		appsStat2: 'Value', appsStat2v: 'Faster and more consistent than the eye',
+		appsStat3: 'Industries', appsStat3v: 'Manufacturing, health, retail, mobility',
+
+		// ── Step 3 · What vision models can do ──
+		capsTitle: 'What Vision Models Can Do',
+		capsCaption: 'Detect, read, and understand',
+		capsDesc: 'A single image can be analyzed many ways at once: locating objects, recognizing patterns, reading printed or handwritten text (OCR), and describing the whole scene.',
+		capsCallout: 'Modern vision models <strong>analyze and generate</strong>: they find objects, read text with <strong>OCR</strong>, and describe a scene in natural language.',
+		capObject: 'Object detection', capPattern: 'Pattern recognition', capOcr: 'OCR — read text', capScene: 'Scene understanding',
+		capBoxPerson: 'Person', capBoxBox: 'Package', capBoxFork: 'Truck',
+		capOcrText: '🔤 I can read text in images',
+		capSceneChip1: 'A warehouse', capSceneChip2: 'Worker near boxes', capSceneChip3: 'Near an exit',
+		capsStat1: 'Detect', capsStat1v: 'Objects, patterns, text (OCR)',
+		capsStat2: 'Understand', capsStat2v: 'Describe the whole scene',
+		capsStat3: 'Output', capsStat3v: 'Labels, boxes, and descriptions',
+
+		// ── Step 4 · Multimodal & vision-enabled GPT ──
+		mmTitle: 'Multimodal & Vision-Enabled GPT',
+		mmCaption: 'One model for text + images',
+		mmDesc: 'Multimodal models take text and images together in a single request and reason over both — so you can ask a question about a picture and get a natural-language answer.',
+		mmCallout: 'A <strong>multimodal model</strong> fuses what it reads and what it sees — <strong>one model</strong> that reasons over text and images together.',
+		mmTextIn: 'Text prompt', mmTextSub: '"What is happening here?"',
+		mmImgIn: 'Image', mmImgSub: 'A photo or screenshot',
+		mmModel: 'Vision-enabled GPT', mmModelSub: 'Reasons over both',
+		mmAnswer: 'A worker is moving boxes near an exit.',
+		mmEx1: 'Review documents + screenshots', mmEx2: 'Diagnose from support photos', mmEx3: 'Explain charts & diagrams',
+		mmStat1: 'Input', mmStat1v: 'Text and images together',
+		mmStat2: 'Reasoning', mmStat2v: 'One model over both modalities',
+		mmStat3: 'Output', mmStat3v: 'A natural-language answer',
+
+		// ── Step 5 · Foundry model catalog ──
+		catTitle: 'Vision Models in the Foundry Catalog',
+		catCaption: 'Pick the right model',
+		catDesc: 'Microsoft Foundry offers a catalog of vision-capable models — from fast, low-cost options to flagship reasoning models and partner models — all callable through one API.',
+		catCallout: 'Choose by need: <strong>speed and cost</strong> (mini / nano), <strong>deep reasoning</strong> (flagship), or <strong>partner</strong> models — all in one catalog.',
+		catGalleryHead: 'Vision-capable models',
+		catTagFast: 'Fast', catTagFlagship: 'Flagship', catTagPartner: 'Partner',
+		catModel1m: 'Balanced · text + image', catModel2m: 'Faster · lower cost', catModel3m: 'Fastest · lightweight',
+		catModel4m: 'Flagship reasoning', catModel5m: 'Latest flagship', catModel6m: 'Anthropic · in Foundry',
+		catCap1: 'Text + image', catCap2: 'Structured output', catCap3: 'Tool use', catCap4: 'Large context',
+		catStat1: 'Range', catStat1v: 'Fast & cheap → flagship',
+		catStat2: 'Partners', catStat2v: 'Including Anthropic models',
+		catStat3: 'Access', catStat3v: 'One catalog, one API',
+
+		// ── Step 6 · Responses API ──
+		apiTitle: 'Call Vision with the Responses API',
+		apiCaption: 'Text + image in one call',
+		apiDesc: 'Send an instruction plus an image — as a URL or base64 — in a single Responses API request, and the model returns a natural-language answer about what it sees.',
+		apiCallout: 'One request carries <strong>text and an image</strong> together; the model replies in natural language. Pass images by <strong>URL</strong> or <strong>base64</strong>.',
+		apiReqFile: 'vision.py · request', apiResFile: 'response · answer',
+		apiNote1: '🔗 Image by URL', apiNote2: '🧬 Or base64-encoded',
+		apiStat1: 'Request', apiStat1v: 'Text instruction + an image',
+		apiStat2: 'How', apiStat2v: 'Image as URL or base64',
+		apiStat3: 'Response', apiStat3v: 'Natural-language answer',
+
+		// ── Step 7 · Generating images & video ──
+		genTitle: 'Generating Images & Video',
+		genCaption: 'Vision creates, not just analyzes',
+		genDesc: 'Foundry also hosts generative vision models: GPT-Image turns prompts into images (and edits them), while Sora generates video from text, images, or other clips.',
+		genCallout: 'Vision is <strong>generative</strong> too — <strong>GPT-Image</strong> makes and edits images, and <strong>Sora</strong> generates video from text, images, or clips.',
+		genImgTag: 'Image generation', genImgTitle: 'GPT-Image', genImgModels: 'GPT-Image-1.5 · 1 · Mini',
+		genImgMode1: 'Text → image', genImgMode2: 'Image → image', genImgMode3: 'Edit',
+		genImgPrompt: '"A cozy reading nook, warm light"',
+		genVidTag: 'Video generation', genVidTitle: 'Sora', genVidModels: 'Sora 1 · Sora 2 (preview)',
+		genVidMode1: 'Text → video', genVidMode2: 'Image → video', genVidMode3: 'Video & audio',
+		genVidPrompt: '"A drone shot over a coastline at sunrise"',
+		genStat1: 'Images', genStat1v: 'GPT-Image · make & edit',
+		genStat2: 'Video', genStat2v: 'Sora 1 & Sora 2 (preview)',
+		genStat3: 'Inputs', genStat3v: 'Text, image, video, audio',
+
+		// ── Step 8 · Build a vision-powered app ──
+		buildTitle: 'Build a Vision-Powered App',
+		buildCaption: 'From catalog to production',
+		buildDesc: 'Stand up a Foundry resource, try a vision model in the playground, then call the Responses API from your app — or wire it into an agent that can see and generate.',
+		buildCallout: 'Modern <strong>models can already see</strong> — pick a vision-capable model in Foundry, then build your app or agent on it to analyze images and generate media.',
+		buildHeroTitle: 'App + Agent → Vision models in Foundry',
+		buildAppNode: 'Your app', buildAppSub: 'Web, mobile, or service',
+		buildAgentNode: 'Agent', buildAgentSub: 'Sees & decides',
+		buildPathSdk: 'SDK / REST', buildPathMcp: 'Built-in vision',
+		buildLangNode: 'Vision models', buildLangSub: 'Analyze + generate',
+		buildStepsTitle: 'Get started',
+		buildStep1: 'Create a Foundry resource', buildStep1s: 'Project + model access',
+		buildStep2: 'Try it in the playground', buildStep2s: 'Upload an image, ask away',
+		buildStep3: 'Call the Responses API', buildStep3s: 'Text + image in one request',
+		buildStep4: 'Build an agent', buildStep4s: 'On a vision-capable model',
+		buildStep5: 'Add generation', buildStep5s: 'GPT-Image & Sora',
+		buildStep6: 'Ship to production', buildStep6s: 'Scale with monitoring',
+		buildIntegrateTitle: 'Analyze in a few lines', buildIntegrateSub: 'Python · Responses API',
+		buildVal1: 'See', buildVal2: 'Understand', buildVal3: 'Generate', buildVal4: 'Automate', buildVal5: 'In Foundry',
+		buildStat1: 'Start', buildStat1v: 'Resource → playground → API',
+		buildStat2: 'Connect', buildStat2v: 'Apps & agents on vision models',
+		buildStat3: 'Do', buildStat3v: 'Analyze images, generate media'
+	}
+};
+
+// ── Spanish ───────────────────────────────
+I18N.es = { ...I18N.en,
+	skipToMain: 'Saltar al diagrama',
+	pageTitle: 'Introducción a Computer Vision',
+	stageHeading: 'Introducción a Computer Vision — Microsoft Foundry',
+	stageInstructions: 'Explora Computer Vision en Microsoft Foundry: analizar imágenes con modelos multimodales y generar imágenes y vídeo con GPT-Image y Sora. Usa los botones Siguiente/Anterior o las flechas para navegar. Pulsa R para reiniciar.',
+	prev: '◀ Anterior', next: 'Siguiente ▶', replay: '↻ Repetir', restart: '↻ Reiniciar',
+	slower: 'Más lento', faster: 'Más rápido',
+	calloutOn: '💬 Nota: Activada', calloutOff: '💬 Nota: Desactivada',
+	outlineOn: '📝 Esquema: Activado', outlineOff: '📝 Esquema: Desactivado',
+	stepDetails: 'Detalles del paso', stepOf: 'Paso',
+
+	whyTitle: '¿Qué es Computer Vision?',
+	whyCaption: 'Enseñar a las máquinas a ver',
+	whyDesc: 'Computer Vision permite que el software interprete imágenes, vídeo y cámaras en vivo: detecta objetos, lee texto y comprende escenas para automatizar tareas visuales que antes hacían las personas.',
+	whyCallout: 'Computer Vision da <strong>ojos</strong> a las apps: pueden <strong>ver</strong> qué hay en una imagen, <strong>comprender</strong> qué significa y <strong>automatizar</strong> el trabajo siguiente.',
+	whyValSee: 'Ver', whyValUnderstand: 'Comprender', whyValAutomate: 'Automatizar',
+	whyUse1: 'Imágenes', whyUse2: 'Vídeo', whyUse3: 'Cámaras en vivo',
+	whyStat1: 'Qué', whyStat1v: 'Software que interpreta lo visual',
+	whyStat2: 'Por qué', whyStat2v: 'Ver, comprender, automatizar',
+	whyStat3: 'Dónde', whyStat3v: 'Modelos de visión en Microsoft Foundry',
+
+	appsTitle: 'Computer Vision en el mundo real',
+	appsCaption: 'Dónde aporta valor ver',
+	appsDesc: 'Desde fábricas hasta hospitales, los modelos de visión inspeccionan, supervisan y reaccionan al mundo físico de forma más rápida y constante que la revisión manual.',
+	appsCallout: 'Donde una persona inspecciona algo <strong>a simple vista</strong>, Computer Vision puede vigilar sin parar: detecta defectos, lee escáneres y reacciona en tiempo real.',
+	appDefectHead: 'Detección de defectos', appDefectDesc: 'Las cámaras en la línea detectan fallos en cuanto se fabrica una pieza.',
+	appDefectEx: 'Un panel rayado se marca y se retira antes de enviarlo.',
+	appDefectCap1: 'Fabricación', appDefectCap2: 'Calidad',
+	appMedHead: 'Imagen médica', appMedDesc: 'Los modelos resaltan zonas de interés para ayudar al personal clínico.',
+	appMedEx: 'Un escáner se preanaliza para que los radiólogos se centren donde importa.',
+	appMedCap1: 'Salud', appMedCap2: 'Asistencia',
+	appShelfHead: 'Control de estantes', appShelfDesc: 'Las cámaras de tienda controlan el stock y la colocación de productos.',
+	appShelfEx: 'Un estante vacío genera un aviso de reposición automáticamente.',
+	appShelfCap1: 'Retail', appShelfCap2: 'Tiempo real',
+	appAutoHead: 'Vehículos autónomos', appAutoDesc: 'La visión a bordo detecta carriles, señales, peatones y peligros.',
+	appAutoEx: 'Un peatón que baja del bordillo se detecta al instante.',
+	appAutoCap1: 'Movilidad', appAutoCap2: 'Seguridad',
+	appsStat1: 'Patrón', appsStat1v: 'Vigilar, inspeccionar, reaccionar',
+	appsStat2: 'Valor', appsStat2v: 'Más rápido y constante que la vista',
+	appsStat3: 'Sectores', appsStat3v: 'Fabricación, salud, retail, movilidad',
+
+	capsTitle: 'Qué pueden hacer los modelos de visión',
+	capsCaption: 'Detectar, leer y comprender',
+	capsDesc: 'Una sola imagen se puede analizar de muchas formas a la vez: localizar objetos, reconocer patrones, leer texto impreso o manuscrito (OCR) y describir toda la escena.',
+	capsCallout: 'Los modelos de visión modernos <strong>analizan y generan</strong>: encuentran objetos, leen texto con <strong>OCR</strong> y describen una escena en lenguaje natural.',
+	capObject: 'Detección de objetos', capPattern: 'Reconocimiento de patrones', capOcr: 'OCR — leer texto', capScene: 'Comprensión de la escena',
+	capBoxPerson: 'Persona', capBoxBox: 'Paquete', capBoxFork: 'Camión',
+	capOcrText: '🔤 Puedo leer texto en imágenes',
+	capSceneChip1: 'Un almacén', capSceneChip2: 'Operario junto a cajas', capSceneChip3: 'Cerca de una salida',
+	capsStat1: 'Detectar', capsStat1v: 'Objetos, patrones, texto (OCR)',
+	capsStat2: 'Comprender', capsStat2v: 'Describir toda la escena',
+	capsStat3: 'Salida', capsStat3v: 'Etiquetas, recuadros y descripciones',
+
+	mmTitle: 'GPT multimodal y con visión',
+	mmCaption: 'Un modelo para texto + imágenes',
+	mmDesc: 'Los modelos multimodales toman texto e imágenes juntos en una sola solicitud y razonan sobre ambos, así que puedes preguntar sobre una imagen y obtener una respuesta en lenguaje natural.',
+	mmCallout: 'Un <strong>modelo multimodal</strong> fusiona lo que lee y lo que ve: <strong>un solo modelo</strong> que razona sobre texto e imágenes a la vez.',
+	mmTextIn: 'Texto', mmTextSub: '"¿Qué ocurre aquí?"',
+	mmImgIn: 'Imagen', mmImgSub: 'Una foto o captura',
+	mmModel: 'GPT con visión', mmModelSub: 'Razona sobre ambos',
+	mmAnswer: 'Un operario mueve cajas cerca de una salida.',
+	mmEx1: 'Revisar documentos + capturas', mmEx2: 'Diagnosticar desde fotos de soporte', mmEx3: 'Explicar gráficos y diagramas',
+	mmStat1: 'Entrada', mmStat1v: 'Texto e imágenes juntos',
+	mmStat2: 'Razonamiento', mmStat2v: 'Un modelo sobre ambas modalidades',
+	mmStat3: 'Salida', mmStat3v: 'Una respuesta en lenguaje natural',
+
+	catTitle: 'Modelos de visión en el catálogo de Foundry',
+	catCaption: 'Elige el modelo adecuado',
+	catDesc: 'Microsoft Foundry ofrece un catálogo de modelos con visión: desde opciones rápidas y económicas hasta modelos de razonamiento de primer nivel y de socios, todos accesibles por una misma API.',
+	catCallout: 'Elige según la necesidad: <strong>velocidad y coste</strong> (mini / nano), <strong>razonamiento profundo</strong> (flagship) o modelos <strong>de socios</strong>, todo en un catálogo.',
+	catGalleryHead: 'Modelos con visión',
+	catTagFast: 'Rápido', catTagFlagship: 'Flagship', catTagPartner: 'Socio',
+	catModel1m: 'Equilibrado · texto + imagen', catModel2m: 'Más rápido · menor coste', catModel3m: 'El más rápido · ligero',
+	catModel4m: 'Razonamiento flagship', catModel5m: 'Último flagship', catModel6m: 'Anthropic · en Foundry',
+	catCap1: 'Texto + imagen', catCap2: 'Salida estructurada', catCap3: 'Uso de herramientas', catCap4: 'Contexto amplio',
+	catStat1: 'Rango', catStat1v: 'Rápido y barato → flagship',
+	catStat2: 'Socios', catStat2v: 'Incluye modelos de Anthropic',
+	catStat3: 'Acceso', catStat3v: 'Un catálogo, una API',
+
+	apiTitle: 'Llama a la visión con la Responses API',
+	apiCaption: 'Texto + imagen en una llamada',
+	apiDesc: 'Envía una instrucción más una imagen (como URL o base64) en una sola solicitud de la Responses API, y el modelo devuelve una respuesta en lenguaje natural sobre lo que ve.',
+	apiCallout: 'Una solicitud lleva <strong>texto e imagen</strong> juntos; el modelo responde en lenguaje natural. Pasa las imágenes por <strong>URL</strong> o <strong>base64</strong>.',
+	apiReqFile: 'vision.py · solicitud', apiResFile: 'respuesta · resultado',
+	apiNote1: '🔗 Imagen por URL', apiNote2: '🧬 O en base64',
+	apiStat1: 'Solicitud', apiStat1v: 'Instrucción de texto + una imagen',
+	apiStat2: 'Cómo', apiStat2v: 'Imagen como URL o base64',
+	apiStat3: 'Respuesta', apiStat3v: 'Respuesta en lenguaje natural',
+
+	genTitle: 'Generar imágenes y vídeo',
+	genCaption: 'La visión crea, no solo analiza',
+	genDesc: 'Foundry también aloja modelos de visión generativa: GPT-Image convierte indicaciones en imágenes (y las edita), mientras que Sora genera vídeo a partir de texto, imágenes u otros clips.',
+	genCallout: 'La visión también es <strong>generativa</strong>: <strong>GPT-Image</strong> crea y edita imágenes, y <strong>Sora</strong> genera vídeo a partir de texto, imágenes o clips.',
+	genImgTag: 'Generación de imágenes', genImgTitle: 'GPT-Image', genImgModels: 'GPT-Image-1.5 · 1 · Mini',
+	genImgMode1: 'Texto → imagen', genImgMode2: 'Imagen → imagen', genImgMode3: 'Editar',
+	genImgPrompt: '"Un rincón de lectura acogedor, luz cálida"',
+	genVidTag: 'Generación de vídeo', genVidTitle: 'Sora', genVidModels: 'Sora 1 · Sora 2 (preview)',
+	genVidMode1: 'Texto → vídeo', genVidMode2: 'Imagen → vídeo', genVidMode3: 'Vídeo y audio',
+	genVidPrompt: '"Toma de dron sobre la costa al amanecer"',
+	genStat1: 'Imágenes', genStat1v: 'GPT-Image · crear y editar',
+	genStat2: 'Vídeo', genStat2v: 'Sora 1 y Sora 2 (preview)',
+	genStat3: 'Entradas', genStat3v: 'Texto, imagen, vídeo, audio',
+
+	buildTitle: 'Crea una app con visión',
+	buildCaption: 'Del catálogo a producción',
+	buildDesc: 'Crea un recurso de Foundry, prueba un modelo de visión en el playground y luego llama a la Responses API desde tu app, o conéctalo a un agente que pueda ver y generar.',
+	buildCallout: 'Los <strong>modelos ya pueden ver</strong>: elige un modelo con capacidad de visión en Foundry y luego construye tu app o agente sobre él para analizar imágenes y generar contenido.',
+	buildHeroTitle: 'App + Agente → Modelos de visión en Foundry',
+	buildAppNode: 'Tu app', buildAppSub: 'Web, móvil o servicio',
+	buildAgentNode: 'Agente', buildAgentSub: 'Ve y decide',
+	buildPathSdk: 'SDK / REST', buildPathMcp: 'Visión integrada',
+	buildLangNode: 'Modelos de visión', buildLangSub: 'Analizar + generar',
+	buildStepsTitle: 'Primeros pasos',
+	buildStep1: 'Crea un recurso de Foundry', buildStep1s: 'Proyecto + acceso a modelos',
+	buildStep2: 'Pruébalo en el playground', buildStep2s: 'Sube una imagen y pregunta',
+	buildStep3: 'Llama a la Responses API', buildStep3s: 'Texto + imagen en una solicitud',
+	buildStep4: 'Construye un agente', buildStep4s: 'Sobre un modelo con visión',
+	buildStep5: 'Añade generación', buildStep5s: 'GPT-Image y Sora',
+	buildStep6: 'Lleva a producción', buildStep6s: 'Escala con supervisión',
+	buildIntegrateTitle: 'Analiza en pocas líneas', buildIntegrateSub: 'Python · Responses API',
+	buildVal1: 'Ver', buildVal2: 'Comprender', buildVal3: 'Generar', buildVal4: 'Automatizar', buildVal5: 'En Foundry',
+	buildStat1: 'Empieza', buildStat1v: 'Recurso → playground → API',
+	buildStat2: 'Conecta', buildStat2v: 'Apps y agentes sobre modelos de visión',
+	buildStat3: 'Haz', buildStat3v: 'Analiza imágenes, genera contenido'
+};
+
+// ── Japanese ──────────────────────────────
+I18N.ja = { ...I18N.en,
+	skipToMain: '図へスキップ',
+	pageTitle: 'Computer Vision を始める',
+	stageHeading: 'Computer Vision を始める — Microsoft Foundry',
+	stageInstructions: 'Microsoft Foundry の Computer Vision を学びます。マルチモーダルモデルで画像を分析し、GPT-Image と Sora で画像や動画を生成します。次へ/前へボタンまたは矢印キーで移動し、R で最初に戻ります。',
+	prev: '◀ 前へ', next: '次へ ▶', replay: '↻ 再生', restart: '↻ 最初へ',
+	slower: '遅く', faster: '速く',
+	calloutOn: '💬 注釈: オン', calloutOff: '💬 注釈: オフ',
+	outlineOn: '📝 アウトライン: オン', outlineOff: '📝 アウトライン: オフ',
+	stepDetails: 'ステップの詳細', stepOf: 'ステップ',
+
+	whyTitle: 'Computer Vision とは？',
+	whyCaption: '機械に「見る」力を',
+	whyDesc: 'Computer Vision は、ソフトウェアが画像・動画・ライブ映像を解釈できるようにします。物体を検出し、文字を読み、シーンを理解して、これまで人が目視で行っていた作業を自動化します。',
+	whyCallout: 'Computer Vision はアプリに<strong>「目」</strong>を与えます。画像に何があるかを<strong>見て</strong>、その意味を<strong>理解し</strong>、続く作業を<strong>自動化</strong>できます。',
+	whyValSee: '見る', whyValUnderstand: '理解する', whyValAutomate: '自動化する',
+	whyUse1: '画像', whyUse2: '動画', whyUse3: 'ライブ映像',
+	whyStat1: '何', whyStat1v: '視覚を解釈するソフトウェア',
+	whyStat2: 'なぜ', whyStat2v: '見て、理解し、自動化',
+	whyStat3: 'どこで', whyStat3v: 'Microsoft Foundry のビジョンモデル',
+
+	appsTitle: '現実世界の Computer Vision',
+	appsCaption: '「見る」が価値になる場面',
+	appsDesc: '工場から病院まで、ビジョンモデルは物理世界を検査・監視し、手作業の確認より速く一貫して反応します。',
+	appsCallout: '人が<strong>目視</strong>で確認する場面ならどこでも、Computer Vision は常時監視できます。欠陥を見つけ、スキャンを読み、リアルタイムで反応します。',
+	appDefectHead: '欠陥検出', appDefectDesc: 'ラインのカメラが、部品ができた瞬間に不良を捉えます。',
+	appDefectEx: '傷のあるパネルを検出し、出荷前に取り除きます。',
+	appDefectCap1: '製造', appDefectCap2: '品質',
+	appMedHead: '医用画像', appMedDesc: 'モデルが注目領域を強調し、臨床医を支援します。',
+	appMedEx: 'スキャンを事前選別し、放射線科医が重要な部分に集中できます。',
+	appMedCap1: 'ヘルスケア', appMedCap2: '支援',
+	appShelfHead: '棚のモニタリング', appShelfDesc: '店舗カメラが在庫量と商品配置を把握します。',
+	appShelfEx: '空の棚が自動で補充アラートを出します。',
+	appShelfCap1: '小売', appShelfCap2: 'リアルタイム',
+	appAutoHead: '自動運転車', appAutoDesc: '車載ビジョンが車線・標識・歩行者・危険を検出します。',
+	appAutoEx: '縁石から踏み出す歩行者を瞬時に検出します。',
+	appAutoCap1: 'モビリティ', appAutoCap2: '安全',
+	appsStat1: 'パターン', appsStat1v: '監視・検査・反応',
+	appsStat2: '価値', appsStat2v: '目視より速く一貫',
+	appsStat3: '業界', appsStat3v: '製造・医療・小売・モビリティ',
+
+	capsTitle: 'ビジョンモデルにできること',
+	capsCaption: '検出・読み取り・理解',
+	capsDesc: '1 枚の画像を同時に多面的に分析できます。物体の位置特定、パターン認識、印刷・手書き文字の読み取り（OCR）、そしてシーン全体の説明です。',
+	capsCallout: '最新のビジョンモデルは<strong>分析も生成も</strong>行います。物体を見つけ、<strong>OCR</strong> で文字を読み、シーンを自然言語で説明します。',
+	capObject: '物体検出', capPattern: 'パターン認識', capOcr: 'OCR — 文字読み取り', capScene: 'シーン理解',
+	capBoxPerson: '人', capBoxBox: '荷物', capBoxFork: 'トラック',
+	capOcrText: '🔤 画像内の文字を読めます',
+	capSceneChip1: '倉庫', capSceneChip2: '箱の近くの作業員', capSceneChip3: '出口の近く',
+	capsStat1: '検出', capsStat1v: '物体・パターン・文字（OCR）',
+	capsStat2: '理解', capsStat2v: 'シーン全体を説明',
+	capsStat3: '出力', capsStat3v: 'ラベル・枠・説明',
+
+	mmTitle: 'マルチモーダル / ビジョン対応 GPT',
+	mmCaption: 'テキスト＋画像を 1 つのモデルで',
+	mmDesc: 'マルチモーダルモデルはテキストと画像を 1 回のリクエストでまとめて受け取り、両方をもとに推論します。画像について質問すると、自然言語の答えが得られます。',
+	mmCallout: '<strong>マルチモーダルモデル</strong>は、読んだ内容と見た内容を統合します。テキストと画像を一緒に推論する<strong>1 つのモデル</strong>です。',
+	mmTextIn: 'テキスト', mmTextSub: '「ここで何が起きている？」',
+	mmImgIn: '画像', mmImgSub: '写真やスクリーンショット',
+	mmModel: 'ビジョン対応 GPT', mmModelSub: '両方を推論',
+	mmAnswer: '作業員が出口付近で箱を運んでいます。',
+	mmEx1: '文書＋スクショの確認', mmEx2: 'サポート写真から診断', mmEx3: 'グラフや図の説明',
+	mmStat1: '入力', mmStat1v: 'テキストと画像を一緒に',
+	mmStat2: '推論', mmStat2v: '両モダリティを 1 モデルで',
+	mmStat3: '出力', mmStat3v: '自然言語の答え',
+
+	catTitle: 'Foundry カタログのビジョンモデル',
+	catCaption: '適切なモデルを選ぶ',
+	catDesc: 'Microsoft Foundry はビジョン対応モデルのカタログを提供します。高速・低コストなものから、フラッグシップの推論モデル、パートナーモデルまで、すべて 1 つの API で呼び出せます。',
+	catCallout: '用途で選びましょう。<strong>速度とコスト</strong>（mini / nano）、<strong>高度な推論</strong>（フラッグシップ）、または<strong>パートナー</strong>モデル。すべて 1 つのカタログに。',
+	catGalleryHead: 'ビジョン対応モデル',
+	catTagFast: '高速', catTagFlagship: 'フラッグシップ', catTagPartner: 'パートナー',
+	catModel1m: 'バランス型 · テキスト＋画像', catModel2m: 'より高速 · 低コスト', catModel3m: '最速 · 軽量',
+	catModel4m: 'フラッグシップ推論', catModel5m: '最新フラッグシップ', catModel6m: 'Anthropic · Foundry 内',
+	catCap1: 'テキスト＋画像', catCap2: '構造化出力', catCap3: 'ツール利用', catCap4: '大きなコンテキスト',
+	catStat1: '幅', catStat1v: '高速・低コスト → フラッグシップ',
+	catStat2: 'パートナー', catStat2v: 'Anthropic モデルを含む',
+	catStat3: 'アクセス', catStat3v: '1 つのカタログ、1 つの API',
+
+	apiTitle: 'Responses API でビジョンを呼ぶ',
+	apiCaption: 'テキスト＋画像を 1 回で',
+	apiDesc: '指示と画像（URL または base64）を Responses API の 1 リクエストで送ると、モデルが見た内容について自然言語で答えを返します。',
+	apiCallout: '1 つのリクエストに<strong>テキストと画像</strong>を一緒に載せ、モデルは自然言語で返答します。画像は <strong>URL</strong> または <strong>base64</strong> で渡せます。',
+	apiReqFile: 'vision.py · リクエスト', apiResFile: 'レスポンス · 回答',
+	apiNote1: '🔗 URL で画像', apiNote2: '🧬 または base64',
+	apiStat1: 'リクエスト', apiStat1v: 'テキスト指示＋画像',
+	apiStat2: '方法', apiStat2v: '画像は URL または base64',
+	apiStat3: 'レスポンス', apiStat3v: '自然言語の回答',
+
+	genTitle: '画像と動画の生成',
+	genCaption: 'ビジョンは分析だけでなく創る',
+	genDesc: 'Foundry は生成系のビジョンモデルも提供します。GPT-Image はプロンプトから画像を作成（編集）し、Sora はテキスト・画像・他のクリップから動画を生成します。',
+	genCallout: 'ビジョンは<strong>生成</strong>もできます。<strong>GPT-Image</strong> が画像を作成・編集し、<strong>Sora</strong> がテキスト・画像・クリップから動画を生成します。',
+	genImgTag: '画像生成', genImgTitle: 'GPT-Image', genImgModels: 'GPT-Image-1.5 · 1 · Mini',
+	genImgMode1: 'テキスト → 画像', genImgMode2: '画像 → 画像', genImgMode3: '編集',
+	genImgPrompt: '「暖かな光の心地よい読書スペース」',
+	genVidTag: '動画生成', genVidTitle: 'Sora', genVidModels: 'Sora 1 · Sora 2（プレビュー）',
+	genVidMode1: 'テキスト → 動画', genVidMode2: '画像 → 動画', genVidMode3: '動画と音声',
+	genVidPrompt: '「夜明けの海岸を飛ぶドローン映像」',
+	genStat1: '画像', genStat1v: 'GPT-Image · 作成と編集',
+	genStat2: '動画', genStat2v: 'Sora 1 と Sora 2（プレビュー）',
+	genStat3: '入力', genStat3v: 'テキスト・画像・動画・音声',
+
+	buildTitle: 'ビジョン対応アプリを作る',
+	buildCaption: 'カタログから本番へ',
+	buildDesc: 'Foundry リソースを作成し、playground でビジョンモデルを試し、アプリから Responses API を呼び出します。あるいは、見て生成できるエージェントに組み込みます。',
+	buildCallout: '最新の<strong>モデルはすでに「見る」ことができます</strong>。Foundry でビジョン対応モデルを選び、その上にアプリやエージェントを構築して、画像を分析しメディアを生成します。',
+	buildHeroTitle: 'アプリ + エージェント → Foundry のビジョンモデル',
+	buildAppNode: 'あなたのアプリ', buildAppSub: 'Web・モバイル・サービス',
+	buildAgentNode: 'エージェント', buildAgentSub: '見て判断する',
+	buildPathSdk: 'SDK / REST', buildPathMcp: 'ビジョン内蔵',
+	buildLangNode: 'ビジョンモデル', buildLangSub: '分析＋生成',
+	buildStepsTitle: 'はじめる',
+	buildStep1: 'Foundry リソースを作成', buildStep1s: 'プロジェクト＋モデルアクセス',
+	buildStep2: 'playground で試す', buildStep2s: '画像をアップして質問',
+	buildStep3: 'Responses API を呼ぶ', buildStep3s: 'テキスト＋画像を 1 回で',
+	buildStep4: 'エージェントを構築', buildStep4s: 'ビジョン対応モデル上で',
+	buildStep5: '生成を追加', buildStep5s: 'GPT-Image と Sora',
+	buildStep6: '本番へ展開', buildStep6s: '監視付きでスケール',
+	buildIntegrateTitle: '数行で分析', buildIntegrateSub: 'Python · Responses API',
+	buildVal1: '見る', buildVal2: '理解する', buildVal3: '生成する', buildVal4: '自動化する', buildVal5: 'Foundry で',
+	buildStat1: '開始', buildStat1v: 'リソース → playground → API',
+	buildStat2: '接続', buildStat2v: 'アプリ・エージェントをビジョンモデル上で',
+	buildStat3: '実行', buildStat3v: '画像分析・メディア生成'
+};
+
+// ── Korean ────────────────────────────────
+I18N.ko = { ...I18N.en,
+	skipToMain: '다이어그램으로 건너뛰기',
+	pageTitle: 'Computer Vision 시작하기',
+	stageHeading: 'Computer Vision 시작하기 — Microsoft Foundry',
+	stageInstructions: 'Microsoft Foundry의 Computer Vision을 살펴봅니다. 멀티모달 모델로 이미지를 분석하고, GPT-Image와 Sora로 이미지와 영상을 생성합니다. 다음/이전 버튼이나 화살표 키로 이동하고, R을 누르면 처음으로 돌아갑니다.',
+	prev: '◀ 이전', next: '다음 ▶', replay: '↻ 다시 재생', restart: '↻ 처음으로',
+	slower: '느리게', faster: '빠르게',
+	calloutOn: '💬 설명: 켜짐', calloutOff: '💬 설명: 꺼짐',
+	outlineOn: '📝 개요: 켜짐', outlineOff: '📝 개요: 꺼짐',
+	stepDetails: '단계 세부정보', stepOf: '단계',
+
+	whyTitle: 'Computer Vision이란?',
+	whyCaption: '기계에게 보는 능력을',
+	whyDesc: 'Computer Vision은 소프트웨어가 이미지, 영상, 실시간 카메라 화면을 해석하게 합니다. 객체를 감지하고 텍스트를 읽고 장면을 이해해, 사람이 눈으로 하던 시각 작업을 자동화합니다.',
+	whyCallout: 'Computer Vision은 앱에 <strong>눈</strong>을 줍니다. 이미지에 무엇이 있는지 <strong>보고</strong>, 의미를 <strong>이해하며</strong>, 이어지는 작업을 <strong>자동화</strong>합니다.',
+	whyValSee: '보기', whyValUnderstand: '이해', whyValAutomate: '자동화',
+	whyUse1: '이미지', whyUse2: '영상', whyUse3: '실시간 카메라',
+	whyStat1: '무엇', whyStat1v: '시각을 해석하는 소프트웨어',
+	whyStat2: '왜', whyStat2v: '보기·이해·자동화',
+	whyStat3: '어디', whyStat3v: 'Microsoft Foundry의 비전 모델',
+
+	appsTitle: '현실 속 Computer Vision',
+	appsCaption: '보는 것이 가치가 되는 곳',
+	appsDesc: '공장부터 병원까지, 비전 모델은 물리 세계를 검사하고 모니터링하며 수동 검토보다 빠르고 일관되게 반응합니다.',
+	appsCallout: '사람이 <strong>눈으로</strong> 무언가를 검사하는 곳이라면, Computer Vision이 계속 지켜볼 수 있습니다. 결함을 찾고, 스캔을 읽고, 실시간으로 반응합니다.',
+	appDefectHead: '결함 감지', appDefectDesc: '라인의 카메라가 부품이 만들어지는 순간 결함을 잡아냅니다.',
+	appDefectEx: '긁힌 패널을 표시하고 출하 전에 빼냅니다.',
+	appDefectCap1: '제조', appDefectCap2: '품질',
+	appMedHead: '의료 영상', appMedDesc: '모델이 관심 영역을 강조해 임상의를 돕습니다.',
+	appMedEx: '스캔을 사전 선별해 영상의학과가 중요한 부분에 집중합니다.',
+	appMedCap1: '헬스케어', appMedCap2: '보조',
+	appShelfHead: '진열대 모니터링', appShelfDesc: '매장 카메라가 재고 수준과 상품 배치를 추적합니다.',
+	appShelfEx: '빈 진열대가 자동으로 보충 알림을 보냅니다.',
+	appShelfCap1: '리테일', appShelfCap2: '실시간',
+	appAutoHead: '자율주행차', appAutoDesc: '차량 비전이 차선·표지판·보행자·위험을 감지합니다.',
+	appAutoEx: '연석에서 내려서는 보행자를 즉시 감지합니다.',
+	appAutoCap1: '모빌리티', appAutoCap2: '안전',
+	appsStat1: '패턴', appsStat1v: '감시·검사·반응',
+	appsStat2: '가치', appsStat2v: '눈보다 빠르고 일관',
+	appsStat3: '산업', appsStat3v: '제조·의료·리테일·모빌리티',
+
+	capsTitle: '비전 모델이 할 수 있는 일',
+	capsCaption: '감지·읽기·이해',
+	capsDesc: '한 장의 이미지를 동시에 여러 방식으로 분석할 수 있습니다. 객체 위치 찾기, 패턴 인식, 인쇄·필기 텍스트 읽기(OCR), 그리고 장면 전체 설명입니다.',
+	capsCallout: '최신 비전 모델은 <strong>분석과 생성</strong>을 모두 합니다. 객체를 찾고, <strong>OCR</strong>로 텍스트를 읽고, 장면을 자연어로 설명합니다.',
+	capObject: '객체 감지', capPattern: '패턴 인식', capOcr: 'OCR — 텍스트 읽기', capScene: '장면 이해',
+	capBoxPerson: '사람', capBoxBox: '상자', capBoxFork: '트럭',
+	capOcrText: '🔤 이미지 속 텍스트를 읽을 수 있어요',
+	capSceneChip1: '창고', capSceneChip2: '상자 옆 작업자', capSceneChip3: '출구 근처',
+	capsStat1: '감지', capsStat1v: '객체·패턴·텍스트(OCR)',
+	capsStat2: '이해', capsStat2v: '장면 전체 설명',
+	capsStat3: '출력', capsStat3v: '레이블·박스·설명',
+
+	mmTitle: '멀티모달 · 비전 지원 GPT',
+	mmCaption: '텍스트 + 이미지를 한 모델로',
+	mmDesc: '멀티모달 모델은 텍스트와 이미지를 한 번의 요청으로 함께 받아 둘 다를 추론합니다. 사진에 대해 질문하면 자연어 답변을 얻습니다.',
+	mmCallout: '<strong>멀티모달 모델</strong>은 읽은 것과 본 것을 합칩니다. 텍스트와 이미지를 함께 추론하는 <strong>하나의 모델</strong>입니다.',
+	mmTextIn: '텍스트', mmTextSub: '"여기서 무슨 일이 일어나죠?"',
+	mmImgIn: '이미지', mmImgSub: '사진 또는 스크린샷',
+	mmModel: '비전 지원 GPT', mmModelSub: '둘 다 추론',
+	mmAnswer: '작업자가 출구 근처에서 상자를 옮기고 있습니다.',
+	mmEx1: '문서 + 스크린샷 검토', mmEx2: '지원 사진으로 진단', mmEx3: '차트·다이어그램 설명',
+	mmStat1: '입력', mmStat1v: '텍스트와 이미지를 함께',
+	mmStat2: '추론', mmStat2v: '두 모달리티를 한 모델로',
+	mmStat3: '출력', mmStat3v: '자연어 답변',
+
+	catTitle: 'Foundry 카탈로그의 비전 모델',
+	catCaption: '알맞은 모델 고르기',
+	catDesc: 'Microsoft Foundry는 비전 지원 모델 카탈로그를 제공합니다. 빠르고 저렴한 옵션부터 플래그십 추론 모델, 파트너 모델까지 모두 하나의 API로 호출합니다.',
+	catCallout: '필요에 따라 고르세요. <strong>속도와 비용</strong>(mini / nano), <strong>깊은 추론</strong>(플래그십), 또는 <strong>파트너</strong> 모델 — 모두 하나의 카탈로그에.',
+	catGalleryHead: '비전 지원 모델',
+	catTagFast: '빠름', catTagFlagship: '플래그십', catTagPartner: '파트너',
+	catModel1m: '균형 · 텍스트 + 이미지', catModel2m: '더 빠름 · 저비용', catModel3m: '가장 빠름 · 경량',
+	catModel4m: '플래그십 추론', catModel5m: '최신 플래그십', catModel6m: 'Anthropic · Foundry 내',
+	catCap1: '텍스트 + 이미지', catCap2: '구조화 출력', catCap3: '도구 사용', catCap4: '큰 컨텍스트',
+	catStat1: '범위', catStat1v: '빠르고 저렴 → 플래그십',
+	catStat2: '파트너', catStat2v: 'Anthropic 모델 포함',
+	catStat3: '접근', catStat3v: '하나의 카탈로그, 하나의 API',
+
+	apiTitle: 'Responses API로 비전 호출',
+	apiCaption: '텍스트 + 이미지를 한 번에',
+	apiDesc: '지시와 이미지(URL 또는 base64)를 Responses API 한 요청으로 보내면, 모델이 본 내용을 자연어로 답합니다.',
+	apiCallout: '한 요청에 <strong>텍스트와 이미지</strong>를 함께 담고, 모델은 자연어로 답합니다. 이미지는 <strong>URL</strong> 또는 <strong>base64</strong>로 전달합니다.',
+	apiReqFile: 'vision.py · 요청', apiResFile: '응답 · 답변',
+	apiNote1: '🔗 URL로 이미지', apiNote2: '🧬 또는 base64',
+	apiStat1: '요청', apiStat1v: '텍스트 지시 + 이미지',
+	apiStat2: '방법', apiStat2v: '이미지는 URL 또는 base64',
+	apiStat3: '응답', apiStat3v: '자연어 답변',
+
+	genTitle: '이미지와 영상 생성',
+	genCaption: '비전은 분석뿐 아니라 생성도',
+	genDesc: 'Foundry는 생성형 비전 모델도 호스팅합니다. GPT-Image는 프롬프트를 이미지로 만들고(편집도) Sora는 텍스트·이미지·다른 클립으로 영상을 생성합니다.',
+	genCallout: '비전은 <strong>생성</strong>도 합니다. <strong>GPT-Image</strong>가 이미지를 만들고 편집하며, <strong>Sora</strong>가 텍스트·이미지·클립으로 영상을 생성합니다.',
+	genImgTag: '이미지 생성', genImgTitle: 'GPT-Image', genImgModels: 'GPT-Image-1.5 · 1 · Mini',
+	genImgMode1: '텍스트 → 이미지', genImgMode2: '이미지 → 이미지', genImgMode3: '편집',
+	genImgPrompt: '"따뜻한 빛이 도는 아늑한 독서 공간"',
+	genVidTag: '영상 생성', genVidTitle: 'Sora', genVidModels: 'Sora 1 · Sora 2 (미리 보기)',
+	genVidMode1: '텍스트 → 영상', genVidMode2: '이미지 → 영상', genVidMode3: '영상과 오디오',
+	genVidPrompt: '"해돋이 해안선 위를 나는 드론 샷"',
+	genStat1: '이미지', genStat1v: 'GPT-Image · 생성과 편집',
+	genStat2: '영상', genStat2v: 'Sora 1과 Sora 2 (미리 보기)',
+	genStat3: '입력', genStat3v: '텍스트·이미지·영상·오디오',
+
+	buildTitle: '비전 기반 앱 만들기',
+	buildCaption: '카탈로그에서 프로덕션까지',
+	buildDesc: 'Foundry 리소스를 만들고 playground에서 비전 모델을 시험한 뒤, 앱에서 Responses API를 호출하세요. 또는 보고 생성할 수 있는 에이전트에 연결합니다.',
+	buildCallout: '최신 <strong>모델은 이미 볼 수 있습니다</strong>. Foundry에서 비전 기능이 있는 모델을 고르고, 그 위에 앱이나 에이전트를 만들어 이미지를 분석하고 미디어를 생성하세요.',
+	buildHeroTitle: '앱 + 에이전트 → Foundry의 비전 모델',
+	buildAppNode: '내 앱', buildAppSub: '웹·모바일·서비스',
+	buildAgentNode: '에이전트', buildAgentSub: '보고 결정',
+	buildPathSdk: 'SDK / REST', buildPathMcp: '내장 비전',
+	buildLangNode: '비전 모델', buildLangSub: '분석 + 생성',
+	buildStepsTitle: '시작하기',
+	buildStep1: 'Foundry 리소스 만들기', buildStep1s: '프로젝트 + 모델 액세스',
+	buildStep2: 'playground에서 시험', buildStep2s: '이미지 업로드 후 질문',
+	buildStep3: 'Responses API 호출', buildStep3s: '텍스트 + 이미지를 한 요청에',
+	buildStep4: '에이전트 만들기', buildStep4s: '비전 기능 모델 위에',
+	buildStep5: '생성 추가', buildStep5s: 'GPT-Image와 Sora',
+	buildStep6: '프로덕션 배포', buildStep6s: '모니터링과 함께 확장',
+	buildIntegrateTitle: '몇 줄로 분석', buildIntegrateSub: 'Python · Responses API',
+	buildVal1: '보기', buildVal2: '이해', buildVal3: '생성', buildVal4: '자동화', buildVal5: 'Foundry에서',
+	buildStat1: '시작', buildStat1v: '리소스 → playground → API',
+	buildStat2: '연결', buildStat2v: '앱·에이전트를 비전 모델 위에',
+	buildStat3: '실행', buildStat3v: '이미지 분석·미디어 생성'
+};
+
+// ── Portuguese ────────────────────────────
+I18N.pt = { ...I18N.en,
+	skipToMain: 'Ir para o diagrama',
+	pageTitle: 'Comece com Computer Vision',
+	stageHeading: 'Comece com Computer Vision — Microsoft Foundry',
+	stageInstructions: 'Explore o Computer Vision no Microsoft Foundry: analisar imagens com modelos multimodais e gerar imagens e vídeo com GPT-Image e Sora. Use os botões Próximo/Anterior ou as setas para navegar. Pressione R para reiniciar.',
+	prev: '◀ Anterior', next: 'Próximo ▶', replay: '↻ Repetir', restart: '↻ Reiniciar',
+	slower: 'Mais devagar', faster: 'Mais rápido',
+	calloutOn: '💬 Nota: Ativada', calloutOff: '💬 Nota: Desativada',
+	outlineOn: '📝 Resumo: Ativado', outlineOff: '📝 Resumo: Desativado',
+	stepDetails: 'Detalhes do passo', stepOf: 'Passo',
+
+	whyTitle: 'O que é Computer Vision?',
+	whyCaption: 'Ensinar máquinas a ver',
+	whyDesc: 'Computer Vision permite que o software interprete imagens, vídeo e câmeras ao vivo — detectando objetos, lendo texto e entendendo cenas para automatizar tarefas visuais que antes eram feitas a olho.',
+	whyCallout: 'Computer Vision dá <strong>olhos</strong> aos apps: eles podem <strong>ver</strong> o que há numa imagem, <strong>entender</strong> o que significa e <strong>automatizar</strong> o trabalho seguinte.',
+	whyValSee: 'Ver', whyValUnderstand: 'Entender', whyValAutomate: 'Automatizar',
+	whyUse1: 'Imagens', whyUse2: 'Vídeo', whyUse3: 'Câmeras ao vivo',
+	whyStat1: 'O quê', whyStat1v: 'Software que interpreta o visual',
+	whyStat2: 'Por quê', whyStat2v: 'Ver, entender, automatizar',
+	whyStat3: 'Onde', whyStat3v: 'Modelos de visão no Microsoft Foundry',
+
+	appsTitle: 'Computer Vision no mundo real',
+	appsCaption: 'Onde ver agrega valor',
+	appsDesc: 'De fábricas a hospitais, os modelos de visão inspecionam, monitoram e reagem ao mundo físico de forma mais rápida e consistente do que a revisão manual.',
+	appsCallout: 'Onde uma pessoa inspeciona algo <strong>a olho</strong>, o Computer Vision pode observar continuamente — detectando defeitos, lendo exames e reagindo em tempo real.',
+	appDefectHead: 'Detecção de defeitos', appDefectDesc: 'Câmeras na linha detectam falhas assim que a peça é feita.',
+	appDefectEx: 'Um painel arranhado é sinalizado e retirado antes do envio.',
+	appDefectCap1: 'Manufatura', appDefectCap2: 'Qualidade',
+	appMedHead: 'Imagem médica', appMedDesc: 'Os modelos destacam regiões de interesse para apoiar os clínicos.',
+	appMedEx: 'Um exame é pré-triado para os radiologistas focarem no que importa.',
+	appMedCap1: 'Saúde', appMedCap2: 'Apoio',
+	appShelfHead: 'Monitoramento de prateleiras', appShelfDesc: 'Câmeras da loja acompanham estoque e disposição dos produtos.',
+	appShelfEx: 'Uma prateleira vazia gera um alerta de reposição automaticamente.',
+	appShelfCap1: 'Varejo', appShelfCap2: 'Tempo real',
+	appAutoHead: 'Veículos autônomos', appAutoDesc: 'A visão de bordo detecta faixas, placas, pedestres e perigos.',
+	appAutoEx: 'Um pedestre descendo do meio-fio é detectado na hora.',
+	appAutoCap1: 'Mobilidade', appAutoCap2: 'Segurança',
+	appsStat1: 'Padrão', appsStat1v: 'Observar, inspecionar, reagir',
+	appsStat2: 'Valor', appsStat2v: 'Mais rápido e consistente que o olho',
+	appsStat3: 'Setores', appsStat3v: 'Manufatura, saúde, varejo, mobilidade',
+
+	capsTitle: 'O que os modelos de visão fazem',
+	capsCaption: 'Detectar, ler e entender',
+	capsDesc: 'Uma única imagem pode ser analisada de várias formas ao mesmo tempo: localizar objetos, reconhecer padrões, ler texto impresso ou manuscrito (OCR) e descrever toda a cena.',
+	capsCallout: 'Os modelos de visão modernos <strong>analisam e geram</strong>: encontram objetos, leem texto com <strong>OCR</strong> e descrevem uma cena em linguagem natural.',
+	capObject: 'Detecção de objetos', capPattern: 'Reconhecimento de padrões', capOcr: 'OCR — ler texto', capScene: 'Compreensão da cena',
+	capBoxPerson: 'Pessoa', capBoxBox: 'Pacote', capBoxFork: 'Caminhão',
+	capOcrText: '🔤 Consigo ler texto em imagens',
+	capSceneChip1: 'Um armazém', capSceneChip2: 'Operário perto de caixas', capSceneChip3: 'Perto de uma saída',
+	capsStat1: 'Detectar', capsStat1v: 'Objetos, padrões, texto (OCR)',
+	capsStat2: 'Entender', capsStat2v: 'Descrever toda a cena',
+	capsStat3: 'Saída', capsStat3v: 'Rótulos, caixas e descrições',
+
+	mmTitle: 'GPT multimodal e com visão',
+	mmCaption: 'Um modelo para texto + imagens',
+	mmDesc: 'Modelos multimodais recebem texto e imagens juntos numa única solicitação e raciocinam sobre ambos — então você pergunta sobre uma imagem e recebe uma resposta em linguagem natural.',
+	mmCallout: 'Um <strong>modelo multimodal</strong> funde o que lê e o que vê — <strong>um modelo</strong> que raciocina sobre texto e imagens juntos.',
+	mmTextIn: 'Texto', mmTextSub: '"O que está acontecendo aqui?"',
+	mmImgIn: 'Imagem', mmImgSub: 'Uma foto ou captura',
+	mmModel: 'GPT com visão', mmModelSub: 'Raciocina sobre ambos',
+	mmAnswer: 'Um operário move caixas perto de uma saída.',
+	mmEx1: 'Revisar documentos + capturas', mmEx2: 'Diagnosticar por fotos de suporte', mmEx3: 'Explicar gráficos e diagramas',
+	mmStat1: 'Entrada', mmStat1v: 'Texto e imagens juntos',
+	mmStat2: 'Raciocínio', mmStat2v: 'Um modelo sobre as duas modalidades',
+	mmStat3: 'Saída', mmStat3v: 'Uma resposta em linguagem natural',
+
+	catTitle: 'Modelos de visão no catálogo do Foundry',
+	catCaption: 'Escolha o modelo certo',
+	catDesc: 'O Microsoft Foundry oferece um catálogo de modelos com visão — de opções rápidas e baratas a modelos de raciocínio de ponta e modelos de parceiros — todos chamáveis por uma só API.',
+	catCallout: 'Escolha pela necessidade: <strong>velocidade e custo</strong> (mini / nano), <strong>raciocínio profundo</strong> (flagship) ou modelos de <strong>parceiros</strong> — tudo num catálogo.',
+	catGalleryHead: 'Modelos com visão',
+	catTagFast: 'Rápido', catTagFlagship: 'Flagship', catTagPartner: 'Parceiro',
+	catModel1m: 'Equilibrado · texto + imagem', catModel2m: 'Mais rápido · menor custo', catModel3m: 'Mais rápido · leve',
+	catModel4m: 'Raciocínio flagship', catModel5m: 'Último flagship', catModel6m: 'Anthropic · no Foundry',
+	catCap1: 'Texto + imagem', catCap2: 'Saída estruturada', catCap3: 'Uso de ferramentas', catCap4: 'Contexto amplo',
+	catStat1: 'Faixa', catStat1v: 'Rápido e barato → flagship',
+	catStat2: 'Parceiros', catStat2v: 'Inclui modelos da Anthropic',
+	catStat3: 'Acesso', catStat3v: 'Um catálogo, uma API',
+
+	apiTitle: 'Chame a visão com a Responses API',
+	apiCaption: 'Texto + imagem numa chamada',
+	apiDesc: 'Envie uma instrução mais uma imagem — como URL ou base64 — numa única solicitação da Responses API, e o modelo retorna uma resposta em linguagem natural sobre o que vê.',
+	apiCallout: 'Uma solicitação leva <strong>texto e imagem</strong> juntos; o modelo responde em linguagem natural. Passe imagens por <strong>URL</strong> ou <strong>base64</strong>.',
+	apiReqFile: 'vision.py · solicitação', apiResFile: 'resposta · resultado',
+	apiNote1: '🔗 Imagem por URL', apiNote2: '🧬 Ou em base64',
+	apiStat1: 'Solicitação', apiStat1v: 'Instrução de texto + uma imagem',
+	apiStat2: 'Como', apiStat2v: 'Imagem como URL ou base64',
+	apiStat3: 'Resposta', apiStat3v: 'Resposta em linguagem natural',
+
+	genTitle: 'Gerar imagens e vídeo',
+	genCaption: 'A visão cria, não só analisa',
+	genDesc: 'O Foundry também hospeda modelos de visão generativa: o GPT-Image transforma prompts em imagens (e as edita), enquanto o Sora gera vídeo a partir de texto, imagens ou outros clipes.',
+	genCallout: 'A visão também é <strong>generativa</strong> — o <strong>GPT-Image</strong> cria e edita imagens, e o <strong>Sora</strong> gera vídeo a partir de texto, imagens ou clipes.',
+	genImgTag: 'Geração de imagens', genImgTitle: 'GPT-Image', genImgModels: 'GPT-Image-1.5 · 1 · Mini',
+	genImgMode1: 'Texto → imagem', genImgMode2: 'Imagem → imagem', genImgMode3: 'Editar',
+	genImgPrompt: '"Um cantinho de leitura aconchegante, luz quente"',
+	genVidTag: 'Geração de vídeo', genVidTitle: 'Sora', genVidModels: 'Sora 1 · Sora 2 (preview)',
+	genVidMode1: 'Texto → vídeo', genVidMode2: 'Imagem → vídeo', genVidMode3: 'Vídeo e áudio',
+	genVidPrompt: '"Tomada de drone sobre o litoral ao amanhecer"',
+	genStat1: 'Imagens', genStat1v: 'GPT-Image · criar e editar',
+	genStat2: 'Vídeo', genStat2v: 'Sora 1 e Sora 2 (preview)',
+	genStat3: 'Entradas', genStat3v: 'Texto, imagem, vídeo, áudio',
+
+	buildTitle: 'Crie um app com visão',
+	buildCaption: 'Do catálogo à produção',
+	buildDesc: 'Crie um recurso do Foundry, teste um modelo de visão no playground e então chame a Responses API a partir do seu app — ou conecte-o a um agente que possa ver e gerar.',
+	buildCallout: 'Os <strong>modelos já conseguem ver</strong> — escolha um modelo com capacidade de visão no Foundry e construa seu app ou agente sobre ele para analisar imagens e gerar mídia.',
+	buildHeroTitle: 'App + Agente → Modelos de visão no Foundry',
+	buildAppNode: 'Seu app', buildAppSub: 'Web, mobile ou serviço',
+	buildAgentNode: 'Agente', buildAgentSub: 'Vê e decide',
+	buildPathSdk: 'SDK / REST', buildPathMcp: 'Visão integrada',
+	buildLangNode: 'Modelos de visão', buildLangSub: 'Analisar + gerar',
+	buildStepsTitle: 'Comece',
+	buildStep1: 'Crie um recurso do Foundry', buildStep1s: 'Projeto + acesso a modelos',
+	buildStep2: 'Teste no playground', buildStep2s: 'Envie uma imagem e pergunte',
+	buildStep3: 'Chame a Responses API', buildStep3s: 'Texto + imagem numa solicitação',
+	buildStep4: 'Construa um agente', buildStep4s: 'Sobre um modelo com visão',
+	buildStep5: 'Adicione geração', buildStep5s: 'GPT-Image e Sora',
+	buildStep6: 'Leve à produção', buildStep6s: 'Escale com monitoramento',
+	buildIntegrateTitle: 'Analise em poucas linhas', buildIntegrateSub: 'Python · Responses API',
+	buildVal1: 'Ver', buildVal2: 'Entender', buildVal3: 'Gerar', buildVal4: 'Automatizar', buildVal5: 'No Foundry',
+	buildStat1: 'Comece', buildStat1v: 'Recurso → playground → API',
+	buildStat2: 'Conecte', buildStat2v: 'Apps e agentes sobre modelos de visão',
+	buildStat3: 'Faça', buildStat3v: 'Analise imagens, gere mídia'
+};
+
+function t(key) { return (I18N[currentLang] && I18N[currentLang][key]) || I18N.en[key] || key; }
+
+function setLanguage(lang) {
+	currentLang = lang;
+	document.documentElement.lang = lang;
+	document.getElementById('page-title').textContent = '👁️ ' + t('pageTitle');
+	// icon-only nav buttons: localized text lives in the tooltip (title), glyphs stay in the markup
+	document.getElementById('prev-btn').title = t('prev');
+	document.getElementById('next-btn').title = t('next');
+	document.getElementById('replay-btn').title = t('replay');
+	document.getElementById('reset-btn').title = t('restart');
+	document.getElementById('speed-down').title = t('slower');
+	document.getElementById('speed-up').title = t('faster');
+	document.getElementById('outline-title').textContent = t('stepDetails');
+	document.querySelector('.skip-link').textContent = t('skipToMain');
+	document.getElementById('stage-heading').textContent = t('stageHeading');
+	document.getElementById('stage-instructions').textContent = t('stageInstructions');
+	syncCalloutBtn();
+	syncOutlineBtn();
+	if (current >= 0) renderStep(current);
+}
+
+// ── STEPS ─────────────────────────────────
+const STEPS = [
+	{ id:'why', short:'What', titleKey:'whyTitle', captionKey:'whyCaption', descKey:'whyDesc', calloutKey:'whyCallout',
+		stats:[['whyStat1','whyStat1v'],['whyStat2','whyStat2v'],['whyStat3','whyStat3v']] },
+	{ id:'apps', short:'Apps', titleKey:'appsTitle', captionKey:'appsCaption', descKey:'appsDesc', calloutKey:'appsCallout',
+		stats:[['appsStat1','appsStat1v'],['appsStat2','appsStat2v'],['appsStat3','appsStat3v']] },
+	{ id:'caps', short:'Capabilities', titleKey:'capsTitle', captionKey:'capsCaption', descKey:'capsDesc', calloutKey:'capsCallout',
+		stats:[['capsStat1','capsStat1v'],['capsStat2','capsStat2v'],['capsStat3','capsStat3v']] },
+	{ id:'multimodal', short:'Multimodal', titleKey:'mmTitle', captionKey:'mmCaption', descKey:'mmDesc', calloutKey:'mmCallout',
+		stats:[['mmStat1','mmStat1v'],['mmStat2','mmStat2v'],['mmStat3','mmStat3v']] },
+	{ id:'catalog', short:'Catalog', titleKey:'catTitle', captionKey:'catCaption', descKey:'catDesc', calloutKey:'catCallout',
+		stats:[['catStat1','catStat1v'],['catStat2','catStat2v'],['catStat3','catStat3v']] },
+	{ id:'api', short:'Responses API', titleKey:'apiTitle', captionKey:'apiCaption', descKey:'apiDesc', calloutKey:'apiCallout',
+		stats:[['apiStat1','apiStat1v'],['apiStat2','apiStat2v'],['apiStat3','apiStat3v']] },
+	{ id:'generate', short:'Generate', titleKey:'genTitle', captionKey:'genCaption', descKey:'genDesc', calloutKey:'genCallout',
+		stats:[['genStat1','genStat1v'],['genStat2','genStat2v'],['genStat3','genStat3v']] },
+	{ id:'build', short:'Build', titleKey:'buildTitle', captionKey:'buildCaption', descKey:'buildDesc', calloutKey:'buildCallout',
+		stats:[['buildStat1','buildStat1v'],['buildStat2','buildStat2v'],['buildStat3','buildStat3v']] }
+];
+
+// ── DOM REFS ──────────────────────────────
+const stage       = document.getElementById('stage');
+const svg         = document.getElementById('fx-svg');
+const counter     = document.getElementById('step-counter');
+const breadcrumb  = document.getElementById('breadcrumb');
+const progress    = document.getElementById('progress-fill');
+const announcer   = document.getElementById('step-announcer');
+const outlineBody = document.getElementById('outline-body');
+const outlinePanel= document.getElementById('step-outline');
+const outlineBtn  = document.getElementById('outline-toggle');
+const calloutBtn  = document.getElementById('callout-toggle');
+const langSelect  = document.getElementById('lang-select');
+
+langSelect.addEventListener('change', (e) => { setLanguage(e.target.value); });
+const urlLang = new URLSearchParams(location.search).get('lang');
+if (urlLang && I18N[urlLang]) { currentLang = urlLang; langSelect.value = urlLang; }
+
+// ── Font size controls ────────────────────
+const fontScales = [0.8, 0.9, 1, 1.1, 1.2, 1.35];
+let fontScaleIdx = 2;
+const fontDecBtn = document.getElementById('font-decrease');
+const fontIncBtn = document.getElementById('font-increase');
+const baseFontSize = parseFloat(getComputedStyle(document.documentElement).fontSize);
+function applyFontScale() {
+	document.documentElement.style.fontSize = (baseFontSize * fontScales[fontScaleIdx]) + 'px';
+	const controls = document.getElementById('controls');
+	if (controls) controls.style.fontSize = (baseFontSize) + 'px';
+}
+fontDecBtn.addEventListener('click', () => { if (fontScaleIdx > 0) { fontScaleIdx--; applyFontScale(); } });
+fontIncBtn.addEventListener('click', () => { if (fontScaleIdx < fontScales.length - 1) { fontScaleIdx++; applyFontScale(); } });
+
+let current = -1;
+let animating = false;
+let liveEls = [];
+let liveTimelines = [];
+let calloutEnabled = false;
+
+// ── Callout toggle ────────────────────────
+function syncCalloutBtn() {
+	calloutBtn.textContent = calloutEnabled ? t('calloutOn') : t('calloutOff');
+	calloutBtn.classList.toggle('toggle-active', calloutEnabled);
+}
+calloutBtn.addEventListener('click', () => { calloutEnabled = !calloutEnabled; syncCalloutBtn(); if (current >= 0) renderStep(current); });
+syncCalloutBtn();
+
+// ── Outline toggle ────────────────────────
+function syncOutlineBtn() {
+	const on = !outlinePanel.hasAttribute('hidden');
+	outlineBtn.textContent = on ? t('outlineOn') : t('outlineOff');
+	outlineBtn.classList.toggle('toggle-active', on);
+}
+outlineBtn.addEventListener('click', () => {
+	const showing = !outlinePanel.hasAttribute('hidden');
+	if (showing) { outlinePanel.setAttribute('hidden', ''); outlineBtn.setAttribute('aria-expanded', 'false'); }
+	else { outlinePanel.removeAttribute('hidden'); outlineBtn.setAttribute('aria-expanded', 'true'); }
+	syncOutlineBtn();
+});
+syncOutlineBtn();
+
+// ── Reduced motion ────────────────────────
+const motionMQ = window.matchMedia('(prefers-reduced-motion: reduce)');
+let motionPaused = motionMQ.matches;
+motionMQ.addEventListener('change', e => { motionPaused = e.matches; renderStep(current); });
+
+// ── Helpers ───────────────────────────────
+function clearStage() {
+	liveTimelines.forEach(t => t.kill());
+	liveTimelines = [];
+	liveEls.forEach(el => el.remove());
+	liveEls = [];
+	Array.from(svg.children).forEach(child => { if (child.tagName.toLowerCase() !== 'defs') child.remove(); });
+}
+function el(cls, html) { const d = document.createElement('div'); if (cls) d.className = cls; if (html != null) d.innerHTML = html; return d; }
+
+function stepTitle(step)   { return t(step.titleKey); }
+function stepDesc(step)    { return t(step.descKey); }
+function stepCaption(step) { return t(step.captionKey); }
+
+function renderOutline(step, idx) {
+	const statRows = (step.stats||[]).map(([k,v]) => {
+		const label = I18N[currentLang] && I18N[currentLang][k] ? t(k) : k;
+		const value = I18N[currentLang] && I18N[currentLang][v] ? t(v) : v;
+		return `<div class="stat-row"><span>${label}</span><span>${value}</span></div>`;
+	}).join('');
+	outlineBody.innerHTML = `
+		<div class="outline-section">
+			<strong>${t('stepOf')} ${idx+1} / ${STEPS.length}: ${stepTitle(step)}</strong>
+			<p style="margin-top:0.4rem;">${stepDesc(step)}</p>
+		</div>
+		${statRows ? `<div class="outline-section">${statRows}</div>` : ''}
+	`;
+}
+function announceStep(step, idx) {
+	announcer.textContent = `${t('stepOf')} ${idx+1} / ${STEPS.length}: ${stepTitle(step)}. ${stepDesc(step)}`;
+}
+
+function buildScene(step) {
+	const scene = el('scene');
+	scene.appendChild(el('scene-title', stepTitle(step)));
+	scene.appendChild(el('scene-lead', stepDesc(step)));
+	return scene;
+}
+function maybeCallout(step) {
+	if (!calloutEnabled) return null;
+	const c = el('callout', t(step.calloutKey));
+	c.style.left = '1.5rem'; c.style.top = '1.5rem'; c.style.right = 'auto'; c.style.bottom = 'auto';
+	stage.appendChild(c); liveEls.push(c);
+	return c;
+}
+function headerEls(scene) { return [scene.querySelector('.scene-title'), scene.querySelector('.scene-lead')]; }
+function stepById(id) { return STEPS.find(s => s.id === id); }
+
+// ── RENDER STEP ───────────────────────────
+function renderStep(stepIndex) {
+	if (stepIndex < 0 || stepIndex >= STEPS.length) return;
+	if (animating) { liveTimelines.forEach(t => t.kill()); liveTimelines = []; animating = false; }
+	animating = true;
+	const step = STEPS[stepIndex];
+	clearStage();
+
+	if (step.id === 'why') renderWhyStep();
+	else if (step.id === 'apps') renderAppsStep();
+	else if (step.id === 'caps') renderCapsStep();
+	else if (step.id === 'multimodal') renderMultimodalStep();
+	else if (step.id === 'catalog') renderCatalogStep();
+	else if (step.id === 'api') renderApiStep();
+	else if (step.id === 'generate') renderGenerateStep();
+	else if (step.id === 'build') renderBuildStep();
+
+	current = stepIndex;
+	counter.textContent = `${current+1} / ${STEPS.length}`;
+	breadcrumb.textContent = stepCaption(step);
+	progress.style.width = ((current+1)/STEPS.length * 100) + '%';
+	renderOutline(step, stepIndex);
+	announceStep(step, stepIndex);
+}
+
+// ── STEP 1 · WHAT IS COMPUTER VISION ──────
+function renderWhyStep() {
+	const step = stepById('why');
+	const scene = buildScene(step);
+
+	const hero = el('cv-hero');
+	hero.innerHTML = `
+		<div class="cv-grid-overlay"></div>
+		<div class="cv-scan"></div>
+		<span class="cvh-eye">👁️</span>
+		<div class="cvh-badge"><img src="${VISION_ICON}" alt="Computer Vision"></div>
+	`;
+
+	const uses = el('chip-row');
+	uses.innerHTML = `
+		<span class="pill" style="border-color:#0078d4;background:rgba(0,120,212,0.08);">🖼️ ${t('whyUse1')}</span>
+		<span class="pill" style="border-color:#7c4dff;background:rgba(124,77,255,0.08);">🎞️ ${t('whyUse2')}</span>
+		<span class="pill" style="border-color:#00b7c3;background:rgba(0,183,195,0.08);">📹 ${t('whyUse3')}</span>
+	`;
+
+	const values = el('voice-value-row');
+	values.innerHTML = `
+		<span class="vv-chip" data-v="see"><span class="vv-ico">👁️</span>${t('whyValSee')}</span>
+		<span class="vv-chip" data-v="understand"><span class="vv-ico">🧠</span>${t('whyValUnderstand')}</span>
+		<span class="vv-chip" data-v="automate"><span class="vv-ico">⚙️</span>${t('whyValAutomate')}</span>
+	`;
+
+	scene.appendChild(hero); scene.appendChild(uses); scene.appendChild(values);
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl = maybeCallout(step);
+
+	const scan = hero.querySelector('.cv-scan');
+	const useChips = uses.querySelectorAll('.pill');
+	const valChips = values.querySelectorAll('.vv-chip');
+	if (motionPaused) {
+		gsap.set([...headerEls(scene), hero, ...useChips, ...valChips], { opacity:1 });
+		gsap.set(scan, { top:'45%' });
+		if (cEl) gsap.set(cEl, { opacity:1 }); animating=false; return;
+	}
+	const tl = gsap.timeline({ onComplete:()=>animating=false }); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), { opacity:0, y:-14 }, { opacity:1, y:0, duration:0.55, stagger:0.12, ease:'power2.out' });
+	tl.fromTo(hero, { opacity:0, scale:0.8 }, { opacity:1, scale:1, duration:0.6, ease:'back.out(1.5)' }, '-=0.1');
+	tl.fromTo(useChips, { opacity:0, y:14 }, { opacity:1, y:0, duration:0.45, stagger:0.12, ease:'back.out(1.5)' }, '-=0.05');
+	tl.fromTo(valChips, { opacity:0, scale:0.6 }, { opacity:1, scale:1, duration:0.45, stagger:0.12, ease:'back.out(1.8)' }, '-=0.1');
+	if (cEl) tl.fromTo(cEl, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.6 }, '-=0.3');
+
+	// looping scan beam sweeping the frame
+	const scanLoop = gsap.timeline({ repeat:-1, yoyo:true, delay:0.8 }); liveTimelines.push(scanLoop);
+	scanLoop.fromTo(scan, { top:'6%' }, { top:'90%', duration:2.2, ease:'sine.inOut' });
+}
+
+// ── STEP 2 · APPS IN THE REAL WORLD ───────
+function renderAppsStep() {
+	const step = stepById('apps');
+	const scene = buildScene(step);
+	const grid = el('uc-grid');
+	grid.innerHTML = `
+		<div class="uc-card" data-uc="defect">
+			<div class="uc-head"><span class="uc-icon">🏭</span> ${t('appDefectHead')}</div>
+			<div class="uc-desc">${t('appDefectDesc')}</div>
+			<div class="uc-ex">${t('appDefectEx')}</div>
+			<div class="uc-caps"><span class="uc-cap">${t('appDefectCap1')}</span><span class="uc-cap">${t('appDefectCap2')}</span></div>
+		</div>
+		<div class="uc-card" data-uc="medical">
+			<div class="uc-head"><span class="uc-icon">🩻</span> ${t('appMedHead')}</div>
+			<div class="uc-desc">${t('appMedDesc')}</div>
+			<div class="uc-ex">${t('appMedEx')}</div>
+			<div class="uc-caps"><span class="uc-cap">${t('appMedCap1')}</span><span class="uc-cap">${t('appMedCap2')}</span></div>
+		</div>
+		<div class="uc-card" data-uc="shelf">
+			<div class="uc-head"><span class="uc-icon">🛒</span> ${t('appShelfHead')}</div>
+			<div class="uc-desc">${t('appShelfDesc')}</div>
+			<div class="uc-ex">${t('appShelfEx')}</div>
+			<div class="uc-caps"><span class="uc-cap">${t('appShelfCap1')}</span><span class="uc-cap">${t('appShelfCap2')}</span></div>
+		</div>
+		<div class="uc-card" data-uc="auto">
+			<div class="uc-head"><span class="uc-icon">🚗</span> ${t('appAutoHead')}</div>
+			<div class="uc-desc">${t('appAutoDesc')}</div>
+			<div class="uc-ex">${t('appAutoEx')}</div>
+			<div class="uc-caps"><span class="uc-cap">${t('appAutoCap1')}</span><span class="uc-cap">${t('appAutoCap2')}</span></div>
+		</div>
+	`;
+	scene.appendChild(grid);
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl = maybeCallout(step);
+
+	const cards = grid.querySelectorAll('.uc-card');
+	const exs = grid.querySelectorAll('.uc-ex');
+	const caps = grid.querySelectorAll('.uc-cap');
+	if (motionPaused) {
+		gsap.set([...headerEls(scene), ...cards, ...exs, ...caps], { opacity:1 });
+		if (cEl) gsap.set(cEl, { opacity:1 }); animating=false; return;
+	}
+	const tl = gsap.timeline({ onComplete:()=>animating=false }); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), { opacity:0, y:-14 }, { opacity:1, y:0, duration:0.55, stagger:0.12, ease:'power2.out' });
+	tl.fromTo(cards, { opacity:0, y:24 }, { opacity:1, y:0, duration:0.45, stagger:0.13, ease:'back.out(1.4)' }, '-=0.05');
+	tl.fromTo(caps, { opacity:0, scale:0.6 }, { opacity:1, scale:1, duration:0.3, stagger:0.04, ease:'back.out(1.8)' }, '-=0.2');
+	tl.fromTo(exs, { opacity:0, y:8 }, { opacity:1, y:0, duration:0.4, stagger:0.1, ease:'power2.out' }, '-=0.2');
+	if (cEl) tl.fromTo(cEl, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.6 }, '-=0.3');
+}
+
+// ── STEP 3 · WHAT VISION MODELS CAN DO ────
+function renderCapsStep() {
+	const step = stepById('caps');
+	const scene = buildScene(step);
+
+	const frame = el('cv-frame');
+	frame.innerHTML = `
+		<div class="cvf-subj" style="left:12%; top:32%;">
+			<span class="cvf-ico">🧍</span>
+			<span class="cv-box" data-c="t" data-label="${t('capBoxPerson')}"></span>
+		</div>
+		<div class="cvf-subj" style="left:44%; top:42%;">
+			<span class="cvf-ico">📦</span>
+			<span class="cv-box" data-c="b" data-label="${t('capBoxBox')}"></span>
+		</div>
+		<div class="cvf-subj" style="left:74%; top:34%;">
+			<span class="cvf-ico">&#128666;</span>
+			<span class="cv-box" data-c="o" data-label="${t('capBoxFork')}"></span>
+		</div>
+		<div class="cv-ocr" style="right:8%; top:12%;">${t('capOcrText')}</div>
+	`;
+
+	const sceneChips = el('cv-scene-chips');
+	sceneChips.innerHTML = `
+		<span class="cv-scene-chip">🏷️ ${t('capSceneChip1')}</span>
+		<span class="cv-scene-chip">🏷️ ${t('capSceneChip2')}</span>
+		<span class="cv-scene-chip">🏷️ ${t('capSceneChip3')}</span>
+	`;
+
+	const caps = el('cv-cap-row');
+	caps.innerHTML = `
+		<span class="cv-cap" data-k="object"><span class="cvc-ico">🎯</span>${t('capObject')}</span>
+		<span class="cv-cap" data-k="pattern"><span class="cvc-ico">🧩</span>${t('capPattern')}</span>
+		<span class="cv-cap" data-k="ocr"><span class="cvc-ico">🔤</span>${t('capOcr')}</span>
+		<span class="cv-cap" data-k="scene"><span class="cvc-ico">🖼️</span>${t('capScene')}</span>
+	`;
+
+	scene.appendChild(frame); scene.appendChild(sceneChips); scene.appendChild(caps);
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl = maybeCallout(step);
+
+	const boxes = frame.querySelectorAll('.cv-box');
+	const ocr = frame.querySelector('.cv-ocr');
+	const sChips = sceneChips.querySelectorAll('.cv-scene-chip');
+	const capEls = caps.querySelectorAll('.cv-cap');
+	if (motionPaused) {
+		gsap.set([...headerEls(scene), frame, ...boxes, ocr, ...sChips, ...capEls], { opacity:1 });
+		if (cEl) gsap.set(cEl, { opacity:1 }); animating=false; return;
+	}
+	const tl = gsap.timeline({ onComplete:()=>animating=false }); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), { opacity:0, y:-14 }, { opacity:1, y:0, duration:0.55, stagger:0.12, ease:'power2.out' });
+	tl.fromTo(frame, { opacity:0, scale:0.92 }, { opacity:1, scale:1, duration:0.5, ease:'power2.out' }, '-=0.05');
+	tl.fromTo(boxes, { opacity:0, scale:0.5 }, { opacity:1, scale:1, duration:0.4, stagger:0.18, ease:'back.out(1.9)' }, '-=0.1');
+	tl.fromTo(ocr, { opacity:0, scale:0.6 }, { opacity:1, scale:1, duration:0.4, ease:'back.out(1.8)' }, '-=0.05');
+	tl.fromTo(sChips, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.35, stagger:0.1, ease:'power2.out' }, '+=0.05');
+	tl.fromTo(capEls, { opacity:0, y:14, scale:0.85 }, { opacity:1, y:0, scale:1, duration:0.4, stagger:0.1, ease:'back.out(1.7)' }, '-=0.1');
+	if (cEl) tl.fromTo(cEl, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.6 }, '-=0.3');
+}
+
+// ── STEP 4 · MULTIMODAL & VISION-ENABLED GPT ──
+function renderMultimodalStep() {
+	const step = stepById('multimodal');
+	const scene = buildScene(step);
+
+	const fusion = el('cv-fusion');
+	const inputs = el('cv-inputs');
+	const textIn = el('cv-in is-text', `<span class="cvi-ico">💬</span><span><span class="cvi-label">${t('mmTextIn')}</span><span class="cvi-sub">${t('mmTextSub')}</span></span>`);
+	const imgIn = el('cv-in is-img', `<span class="cvi-ico">🖼️</span><span><span class="cvi-label">${t('mmImgIn')}</span><span class="cvi-sub">${t('mmImgSub')}</span></span>`);
+	inputs.appendChild(textIn); inputs.appendChild(imgIn);
+	const merge = el('cv-merge', '➜');
+	const model = el('cv-model');
+	model.innerHTML = `<span class="cvm-ico"><img src="${VISION_ICON}" alt="Vision model"></span><span class="cvm-title">${t('mmModel')}</span><span class="cvm-sub">${t('mmModelSub')}</span>`;
+	const merge2 = el('cv-merge', '➜');
+	const answer = el('cv-answer', `<span class="cva-ico">💡</span><span class="cva-text">${t('mmAnswer')}</span>`);
+	fusion.appendChild(inputs); fusion.appendChild(merge); fusion.appendChild(model); fusion.appendChild(merge2); fusion.appendChild(answer);
+
+	const examples = el('cv-examples');
+	examples.innerHTML = `
+		<span class="cv-example">📄 ${t('mmEx1')}</span>
+		<span class="cv-example">📷 ${t('mmEx2')}</span>
+		<span class="cv-example">📊 ${t('mmEx3')}</span>
+	`;
+
+	scene.appendChild(fusion); scene.appendChild(examples);
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl = maybeCallout(step);
+
+	const exEls = examples.querySelectorAll('.cv-example');
+	if (motionPaused) {
+		gsap.set([...headerEls(scene), textIn, imgIn, merge, model, merge2, answer, ...exEls], { opacity:1 });
+		if (cEl) gsap.set(cEl, { opacity:1 }); animating=false; return;
+	}
+	const tl = gsap.timeline({ onComplete:()=>animating=false }); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), { opacity:0, y:-14 }, { opacity:1, y:0, duration:0.55, stagger:0.12, ease:'power2.out' });
+	tl.fromTo([textIn, imgIn], { opacity:0, x:-26 }, { opacity:1, x:0, duration:0.45, stagger:0.14, ease:'back.out(1.4)' }, '-=0.05');
+	tl.fromTo(merge, { opacity:0, scale:0.4 }, { opacity:1, scale:1, duration:0.3, ease:'power2.out' }, '-=0.05');
+	tl.fromTo(model, { opacity:0, scale:0.8 }, { opacity:1, scale:1, duration:0.5, ease:'back.out(1.6)' }, '-=0.05');
+	tl.fromTo(merge2, { opacity:0, scale:0.4 }, { opacity:1, scale:1, duration:0.3, ease:'power2.out' }, '-=0.1');
+	tl.fromTo(answer, { opacity:0, x:26 }, { opacity:1, x:0, duration:0.5, ease:'back.out(1.4)' }, '-=0.05');
+	tl.fromTo(exEls, { opacity:0, y:14, scale:0.85 }, { opacity:1, y:0, scale:1, duration:0.4, stagger:0.1, ease:'back.out(1.7)' }, '+=0.05');
+	if (cEl) tl.fromTo(cEl, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.6 }, '-=0.3');
+}
+
+// ── STEP 5 · FOUNDRY MODEL CATALOG ────────
+function renderCatalogStep() {
+	const step = stepById('catalog');
+	const scene = buildScene(step);
+
+	const card = el('ta-card');
+	card.style.width = 'min(940px,98%)';
+	card.innerHTML = `<div class="ta-card-head">🗂️ ${t('catGalleryHead')}</div>`;
+	const gallery = el('voice-gallery');
+	gallery.innerHTML = `
+		<div class="voice-tile" data-kind="fast"><span class="vt-avatar">⚡</span><span><span class="vt-name">GPT-4.1 <span class="vt-tag">${t('catTagFast')}</span></span><span class="vt-meta">${t('catModel1m')}</span></span></div>
+		<div class="voice-tile" data-kind="fast"><span class="vt-avatar">⚡</span><span><span class="vt-name">GPT-4.1 mini <span class="vt-tag">${t('catTagFast')}</span></span><span class="vt-meta">${t('catModel2m')}</span></span></div>
+		<div class="voice-tile" data-kind="fast"><span class="vt-avatar">⚡</span><span><span class="vt-name">GPT-4.1 nano <span class="vt-tag">${t('catTagFast')}</span></span><span class="vt-meta">${t('catModel3m')}</span></span></div>
+		<div class="voice-tile" data-kind="flagship"><span class="vt-avatar">🧠</span><span><span class="vt-name">GPT-5.1 <span class="vt-tag">${t('catTagFlagship')}</span></span><span class="vt-meta">${t('catModel4m')}</span></span></div>
+		<div class="voice-tile" data-kind="flagship"><span class="vt-avatar">🧠</span><span><span class="vt-name">GPT-5.2 <span class="vt-tag">${t('catTagFlagship')}</span></span><span class="vt-meta">${t('catModel5m')}</span></span></div>
+		<div class="voice-tile" data-kind="partner"><span class="vt-avatar">🤝</span><span><span class="vt-name">Claude <span class="vt-tag">${t('catTagPartner')}</span></span><span class="vt-meta">${t('catModel6m')}</span></span></div>
+	`;
+	card.appendChild(gallery);
+
+	const capRow = el('chip-row');
+	capRow.innerHTML = `
+		<span class="pill" style="border-color:#0078d4;background:rgba(0,120,212,0.08);">🖼️ ${t('catCap1')}</span>
+		<span class="pill" style="border-color:#00b7c3;background:rgba(0,183,195,0.08);">🧱 ${t('catCap2')}</span>
+		<span class="pill" style="border-color:#7c4dff;background:rgba(124,77,255,0.08);">🛠️ ${t('catCap3')}</span>
+		<span class="pill" style="border-color:#10a37f;background:rgba(16,163,127,0.08);">📚 ${t('catCap4')}</span>
+	`;
+
+	scene.appendChild(card); scene.appendChild(capRow);
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl = maybeCallout(step);
+
+	const tiles = gallery.querySelectorAll('.voice-tile');
+	const capPills = capRow.querySelectorAll('.pill');
+	if (motionPaused) {
+		gsap.set([...headerEls(scene), card, ...tiles, ...capPills], { opacity:1 });
+		if (cEl) gsap.set(cEl, { opacity:1 }); animating=false; return;
+	}
+	const tl = gsap.timeline({ onComplete:()=>animating=false }); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), { opacity:0, y:-14 }, { opacity:1, y:0, duration:0.55, stagger:0.12, ease:'power2.out' });
+	tl.fromTo(card, { opacity:0, y:16 }, { opacity:1, y:0, duration:0.45, ease:'power2.out' }, '-=0.05');
+	tl.fromTo(tiles, { opacity:0, y:14, scale:0.85 }, { opacity:1, y:0, scale:1, duration:0.4, stagger:0.09, ease:'back.out(1.7)' }, '-=0.1');
+	tl.fromTo(capPills, { opacity:0, y:12 }, { opacity:1, y:0, duration:0.4, stagger:0.1, ease:'back.out(1.5)' }, '+=0.05');
+	if (cEl) tl.fromTo(cEl, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.6 }, '-=0.3');
+}
+
+// ── STEP 6 · RESPONSES API ────────────────
+function renderApiStep() {
+	const step = stepById('api');
+	const scene = buildScene(step);
+
+	const duo = el('code-duo');
+	const reqCard = el('code-card');
+	reqCard.innerHTML = `
+		<div class="code-head">
+			<span class="code-file">${t('apiReqFile')}</span>
+			<span class="code-winctrls"><span class="code-wbtn">&#8211;</span><span class="code-wbtn">&#9633;</span><span class="code-wbtn is-close">&#10005;</span></span>
+		</div>
+<pre class="code-body"><span class="tok-kw">from</span> <span class="tok-mod">openai</span> <span class="tok-kw">import</span> OpenAI
+client = <span class="tok-fn">OpenAI</span>()
+
+resp = client.responses.<span class="tok-fn">create</span>(
+    model=<span class="tok-str">"gpt-4.1"</span>,
+    input=[{<span class="tok-prop">"role"</span>: <span class="tok-str">"user"</span>, <span class="tok-prop">"content"</span>: [
+        {<span class="tok-prop">"type"</span>: <span class="tok-str">"input_text"</span>,
+         <span class="tok-prop">"text"</span>: <span class="tok-str">"What is in this image?"</span>},
+        {<span class="tok-prop">"type"</span>: <span class="tok-str">"input_image"</span>,
+         <span class="tok-prop">"image_url"</span>: <span class="tok-str">"https://.../photo.jpg"</span>}
+    ]}]
+)
+<span class="tok-fn">print</span>(resp.output_text)</pre>`;
+	const arrow = el('code-arrow is-big', '➜');
+	const resCard = el('code-card');
+	resCard.innerHTML = `
+		<div class="code-head">
+			<span class="code-file">${t('apiResFile')}</span>
+			<span class="code-winctrls"><span class="code-wbtn">&#8211;</span><span class="code-wbtn">&#9633;</span><span class="code-wbtn is-close">&#10005;</span></span>
+		</div>
+<pre class="code-body">{
+  <span class="tok-prop">"output_text"</span>: <span class="tok-str">"A red forklift is parked
+   beside a stack of boxes near
+   an exit door."</span>,
+  <span class="tok-prop">"model"</span>: <span class="tok-str">"gpt-4.1"</span>,
+  <span class="tok-prop">"usage"</span>: {
+    <span class="tok-prop">"input_tokens"</span>: <span class="tok-num">482</span>,
+    <span class="tok-prop">"output_tokens"</span>: <span class="tok-num">21</span>
+  }
+}
+<span class="tok-com"># → natural-language answer 👁️</span></pre>`;
+	duo.appendChild(reqCard); duo.appendChild(arrow); duo.appendChild(resCard);
+
+	const notes = el('chip-row');
+	notes.innerHTML = `
+		<span class="pill" style="border-color:#0078d4;background:rgba(0,120,212,0.08);">${t('apiNote1')}</span>
+		<span class="pill" style="border-color:#7c4dff;background:rgba(124,77,255,0.08);">${t('apiNote2')}</span>
+	`;
+
+	scene.appendChild(duo); scene.appendChild(notes);
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl = maybeCallout(step);
+
+	const notePills = notes.querySelectorAll('.pill');
+	if (motionPaused) {
+		gsap.set([...headerEls(scene), reqCard, arrow, resCard, ...notePills], { opacity:1 });
+		if (cEl) gsap.set(cEl, { opacity:1 }); animating=false; return;
+	}
+	const tl = gsap.timeline({ onComplete:()=>animating=false }); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), { opacity:0, y:-14 }, { opacity:1, y:0, duration:0.55, stagger:0.12, ease:'power2.out' });
+	tl.fromTo(reqCard, { opacity:0, x:-26 }, { opacity:1, x:0, duration:0.5, ease:'power2.out' }, '-=0.05');
+	tl.fromTo(arrow, { opacity:0, scale:0.5 }, { opacity:1, scale:1, duration:0.35, ease:'back.out(1.8)' }, '-=0.15');
+	tl.fromTo(resCard, { opacity:0, x:26 }, { opacity:1, x:0, duration:0.5, ease:'power2.out' }, '-=0.15');
+	tl.fromTo(notePills, { opacity:0, y:12 }, { opacity:1, y:0, duration:0.4, stagger:0.1, ease:'back.out(1.5)' }, '+=0.05');
+	if (cEl) tl.fromTo(cEl, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.6 }, '-=0.3');
+}
+
+// ── STEP 7 · GENERATING IMAGES & VIDEO ────
+function renderGenerateStep() {
+	const step = stepById('generate');
+	const scene = buildScene(step);
+
+	const split = el('cap-split');
+	const imgPanel = el('cap-panel');
+	imgPanel.innerHTML = `
+		<span class="cp-tag">🎨 ${t('genImgTag')}</span>
+		<span class="cp-title">${t('genImgTitle')}</span>
+		<span class="cp-models">${t('genImgModels')}</span>
+		<div class="cv-prompt">📝 ${t('genImgPrompt')}</div>
+		<div class="cv-genimg">🖼️</div>
+		<div class="cp-modes">
+			<span class="cp-mode">${t('genImgMode1')}</span>
+			<span class="cp-mode">${t('genImgMode2')}</span>
+			<span class="cp-mode">${t('genImgMode3')}</span>
+		</div>
+	`;
+	const vidPanel = el('cap-panel is-vid');
+	vidPanel.innerHTML = `
+		<span class="cp-tag">🎬 ${t('genVidTag')}</span>
+		<span class="cp-title">${t('genVidTitle')}</span>
+		<span class="cp-models">${t('genVidModels')}</span>
+		<div class="cv-prompt">📝 ${t('genVidPrompt')}</div>
+		<div class="cv-filmstrip">
+			<div class="cv-film">🌅</div><div class="cv-film">🌊</div><div class="cv-film">🏖️</div><div class="cv-film">🚁</div>
+		</div>
+		<div class="cp-modes">
+			<span class="cp-mode">${t('genVidMode1')}</span>
+			<span class="cp-mode">${t('genVidMode2')}</span>
+			<span class="cp-mode">${t('genVidMode3')}</span>
+		</div>
+	`;
+	split.appendChild(imgPanel); split.appendChild(vidPanel);
+	scene.appendChild(split);
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl = maybeCallout(step);
+
+	const imgPrompt = imgPanel.querySelector('.cv-prompt');
+	const genImg = imgPanel.querySelector('.cv-genimg');
+	const imgModes = imgPanel.querySelectorAll('.cp-mode');
+	const vidPrompt = vidPanel.querySelector('.cv-prompt');
+	const films = vidPanel.querySelectorAll('.cv-film');
+	const vidModes = vidPanel.querySelectorAll('.cp-mode');
+	if (motionPaused) {
+		gsap.set([...headerEls(scene), imgPanel, vidPanel, imgPrompt, genImg, ...imgModes, vidPrompt, ...films, ...vidModes], { opacity:1 });
+		if (cEl) gsap.set(cEl, { opacity:1 }); animating=false; return;
+	}
+	const tl = gsap.timeline({ onComplete:()=>animating=false }); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), { opacity:0, y:-14 }, { opacity:1, y:0, duration:0.55, stagger:0.12, ease:'power2.out' });
+	tl.fromTo(imgPanel, { opacity:0, x:-30 }, { opacity:1, x:0, duration:0.55, ease:'back.out(1.4)' }, '-=0.05');
+	tl.fromTo(vidPanel, { opacity:0, x:30 }, { opacity:1, x:0, duration:0.55, ease:'back.out(1.4)' }, '-=0.4');
+	tl.fromTo(imgPrompt, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.35 }, '-=0.2');
+	tl.fromTo(genImg, { opacity:0, scale:0.7 }, { opacity:1, scale:1, duration:0.5, ease:'back.out(1.7)' }, '-=0.15');
+	tl.fromTo(imgModes, { opacity:0, y:8 }, { opacity:1, y:0, duration:0.3, stagger:0.07 }, '-=0.1');
+	tl.fromTo(vidPrompt, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.35 }, '-=0.4');
+	tl.fromTo(films, { opacity:0, scale:0.5 }, { opacity:1, scale:1, duration:0.35, stagger:0.1, ease:'back.out(1.8)' }, '-=0.15');
+	tl.fromTo(vidModes, { opacity:0, y:8 }, { opacity:1, y:0, duration:0.3, stagger:0.07 }, '-=0.1');
+	if (cEl) tl.fromTo(cEl, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.6 }, '-=0.3');
+}
+
+// ── STEP 8 · BUILD A VISION-POWERED APP ───
+function renderBuildStep() {
+	const step = stepById('build');
+	const scene = buildScene(step);
+
+	const hero = el('build-hero');
+	hero.appendChild(el('build-hero-title', t('buildHeroTitle')));
+	const wire = el('build-wire');
+	const left = el('bw-left');
+	const appNode = el('bw-node is-app', `<span class="bw-ico">🗔</span><span class="bw-txt"><span class="bw-label">${t('buildAppNode')}</span><span class="bw-sub">${t('buildAppSub')}</span></span>`);
+	const agentNode = el('bw-node is-agent', `<span class="bw-ico">🤖</span><span class="bw-txt"><span class="bw-label">${t('buildAgentNode')}</span><span class="bw-sub">${t('buildAgentSub')}</span></span>`);
+	left.appendChild(appNode); left.appendChild(agentNode);
+	const conns = el('bw-conns');
+	const conn1 = el('bw-conn', `<span class="bw-path">${t('buildPathSdk')}</span><span class="bw-arrow">➜</span>`);
+	const conn2 = el('bw-conn', `<span class="bw-path">${t('buildPathMcp')}</span><span class="bw-arrow">➜</span>`);
+	conns.appendChild(conn1); conns.appendChild(conn2);
+	const langNode = el('bw-lang');
+	langNode.innerHTML = `<img src="${VISION_ICON}" alt="Vision models"><span class="bw-lang-label">${t('buildLangNode')}</span><span class="bw-lang-sub">${t('buildLangSub')}</span>`;
+	wire.appendChild(left); wire.appendChild(conns); wire.appendChild(langNode);
+	hero.appendChild(wire);
+
+	const cols = el('build-cols');
+	const stepsList = el('build-steps');
+	stepsList.appendChild(el('build-steps-title', t('buildStepsTitle')));
+	[['1','buildStep1','buildStep1s'],['2','buildStep2','buildStep2s'],['3','buildStep3','buildStep3s'],
+	 ['4','buildStep4','buildStep4s'],['5','buildStep5','buildStep5s'],['6','buildStep6','buildStep6s']]
+		.forEach(([n,k,s]) => stepsList.appendChild(el('build-step', `<span class="build-num">${n}</span><span><span class="build-step-label">${t(k)}</span><span class="build-step-sub">${t(s)}</span></span>`)));
+
+	const integrate = el('integrate-block');
+	integrate.appendChild(el('integrate-head',
+		`<span class="integrate-title">${t('buildIntegrateTitle')}</span><span class="integrate-sub">${t('buildIntegrateSub')}</span>`));
+	const codeCard = el('code-card');
+	codeCard.innerHTML = `
+		<div class="code-head">
+			<span class="code-file">vision.py · Responses API</span>
+			<span class="code-winctrls">
+				<span class="code-wbtn">&#8211;</span>
+				<span class="code-wbtn">&#9633;</span>
+				<span class="code-wbtn is-close">&#10005;</span>
+			</span>
+		</div>
+<pre class="code-body"><span class="tok-kw">from</span> <span class="tok-mod">openai</span> <span class="tok-kw">import</span> OpenAI
+client = <span class="tok-fn">OpenAI</span>()
+
+<span class="tok-com"># Text + image in one Responses call</span>
+resp = client.responses.<span class="tok-fn">create</span>(
+    model=<span class="tok-str">"gpt-4.1"</span>,
+    input=[{<span class="tok-prop">"role"</span>:<span class="tok-str">"user"</span>,<span class="tok-prop">"content"</span>:[
+        {<span class="tok-prop">"type"</span>:<span class="tok-str">"input_text"</span>,<span class="tok-prop">"text"</span>:<span class="tok-str">"Describe this"</span>},
+        {<span class="tok-prop">"type"</span>:<span class="tok-str">"input_image"</span>,<span class="tok-prop">"image_url"</span>:img_url}
+    ]}]
+)
+<span class="tok-fn">print</span>(resp.output_text)</pre>`;
+	integrate.appendChild(codeCard);
+
+	cols.appendChild(stepsList); cols.appendChild(integrate);
+
+	const values = el('value-grid');
+	[['buildVal1'],['buildVal2'],['buildVal3'],['buildVal4'],['buildVal5']].forEach(([k]) => values.appendChild(el('value-chip', t(k))));
+
+	scene.appendChild(hero); scene.appendChild(cols); scene.appendChild(values);
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl = maybeCallout(step);
+
+	const heroTitle = hero.querySelector('.build-hero-title');
+	const wireNodes = [appNode, agentNode];
+	const wireConns = [conn1, conn2];
+	const stepsTitle = stepsList.querySelector('.build-steps-title');
+	const stepEls = stepsList.querySelectorAll('.build-step');
+	const integrateHead = integrate.querySelector('.integrate-head');
+	const valEls = values.querySelectorAll('.value-chip');
+	if (motionPaused) {
+		gsap.set([...headerEls(scene), heroTitle, ...wireNodes, ...wireConns, langNode, stepsTitle, ...stepEls, integrateHead, codeCard, ...valEls], { opacity:1 });
+		if (cEl) gsap.set(cEl, { opacity:1 }); animating=false; return;
+	}
+	const tl = gsap.timeline({ onComplete:()=>animating=false }); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), { opacity:0, y:-14 }, { opacity:1, y:0, duration:0.55, stagger:0.12, ease:'power2.out' });
+	tl.fromTo(heroTitle, { opacity:0, y:-8 }, { opacity:1, y:0, duration:0.4, ease:'power2.out' }, '-=0.1');
+	tl.fromTo(wireNodes, { opacity:0, x:-24 }, { opacity:1, x:0, duration:0.45, stagger:0.14, ease:'back.out(1.5)' }, '+=0.05');
+	tl.fromTo(wireConns, { opacity:0, scaleX:0.3 }, { opacity:1, scaleX:1, duration:0.4, stagger:0.12, ease:'power2.out', transformOrigin:'left center' }, '-=0.2');
+	tl.fromTo(langNode, { opacity:0, x:24, scale:0.85 }, { opacity:1, x:0, scale:1, duration:0.5, ease:'back.out(1.6)' }, '-=0.15');
+	tl.fromTo(stepsTitle, { opacity:0, x:-14 }, { opacity:1, x:0, duration:0.4 }, '+=0.1');
+	tl.fromTo(stepEls, { opacity:0, x:-16 }, { opacity:1, x:0, duration:0.4, stagger:0.09, ease:'power2.out' }, '-=0.1');
+	tl.fromTo(integrateHead, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.4, ease:'power2.out' }, '-=0.4');
+	tl.fromTo(codeCard, { opacity:0, y:16, scale:0.98 }, { opacity:1, y:0, scale:1, duration:0.5, ease:'power2.out' }, '-=0.1');
+	tl.fromTo(valEls, { opacity:0, y:12, scale:0.85 }, { opacity:1, y:0, scale:1, duration:0.4, stagger:0.1, ease:'back.out(1.8)' }, '+=0.05');
+	if (cEl) tl.fromTo(cEl, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.6 }, '-=0.3');
+}
+
+// ── CONTROLS ───────────────────────────────
+function interruptAnimation() { liveTimelines.forEach(t => t.kill()); liveTimelines = []; animating = false; }
+function next()   { interruptAnimation(); if (current < STEPS.length-1) renderStep(current+1); }
+function prev()   { interruptAnimation(); if (current > 0) renderStep(current-1); }
+function reset()  { interruptAnimation(); renderStep(0); }
+function replay() { if (current < 0) return; interruptAnimation(); renderStep(current); }
+
+document.getElementById('next-btn').addEventListener('click', e => { e.stopPropagation(); next(); });
+document.getElementById('prev-btn').addEventListener('click', e => { e.stopPropagation(); prev(); });
+document.getElementById('reset-btn').addEventListener('click', e => { e.stopPropagation(); reset(); });
+document.getElementById('replay-btn').addEventListener('click', e => { e.stopPropagation(); replay(); });
+
+// ── Hide / show top bar ──────────────────
+const headerHideBtn   = document.getElementById('header-hide');
+const headerRevealBtn = document.getElementById('header-reveal');
+function setChromeHidden(hidden) {
+	document.body.classList.toggle('chrome-hidden', hidden);
+	headerHideBtn.setAttribute('aria-expanded', String(!hidden));
+	try { localStorage.setItem('cv-chrome-hidden', hidden ? '1' : '0'); } catch (_) {}
+	// give the stage its new size, then reflow the current step
+	requestAnimationFrame(() => renderStep(current));
+}
+headerHideBtn.addEventListener('click',   e => { e.stopPropagation(); setChromeHidden(true); });
+headerRevealBtn.addEventListener('click', e => { e.stopPropagation(); setChromeHidden(false); });
+try { if (localStorage.getItem('cv-chrome-hidden') === '1') document.body.classList.add('chrome-hidden'); } catch (_) {}
+document.addEventListener('keydown', e => {
+	if (e.code === 'KeyH' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+		const tag = (e.target.tagName || '').toLowerCase();
+		if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+		e.preventDefault();
+		setChromeHidden(!document.body.classList.contains('chrome-hidden'));
+	}
+});
+
+// ── Speed control ────────────────────────
+const SPEED_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+const BASE_TIMESCALE = 0.18;
+let speedIndex = SPEED_STEPS.indexOf(1);
+const speedLabel = document.getElementById('speed-label');
+const speedDownBtn = document.getElementById('speed-down');
+const speedUpBtn   = document.getElementById('speed-up');
+function syncSpeedUI() {
+	const spd = SPEED_STEPS[speedIndex];
+	speedLabel.textContent = spd + '\u00d7';
+	speedDownBtn.disabled = speedIndex === 0;
+	speedUpBtn.disabled   = speedIndex === SPEED_STEPS.length - 1;
+	gsap.globalTimeline.timeScale(spd * BASE_TIMESCALE);
+}
+syncSpeedUI();
+speedDownBtn.addEventListener('click', e => { e.stopPropagation(); if (speedIndex > 0) { speedIndex--; syncSpeedUI(); } });
+speedUpBtn.addEventListener('click', e => { e.stopPropagation(); if (speedIndex < SPEED_STEPS.length-1) { speedIndex++; syncSpeedUI(); } });
+
+// ── Keyboard ──────────────────────────────
+if (window.AW && AW.keyboard) {
+	AW.keyboard.bind({ next, prev, reset, replay });
+} else {
+	document.addEventListener('keydown', e => {
+		if (['Space','ArrowRight','Enter'].includes(e.code)) { e.preventDefault(); next(); }
+		else if (e.code === 'ArrowLeft') { e.preventDefault(); prev(); }
+		else if (e.code === 'KeyR') { e.preventDefault(); reset(); }
+		else if (e.code === 'KeyP') { e.preventDefault(); replay(); }
+	});
+}
+
+// ── Resize ────────────────────────────────
+let resizeTimer;
+window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => renderStep(current), 200); });
+
+// ── Init ──────────────────────────────────
+setLanguage(currentLang);
+counter.textContent = `1 / ${STEPS.length}`;
+renderStep(0);
+</script>
+</body>
+</html>

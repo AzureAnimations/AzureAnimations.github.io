@@ -926,6 +926,40 @@
 	#step-outline .stat-row span:first-child { color:var(--theme-text-subtle); flex:0 0 auto; max-width:45%; }
 	#step-outline .stat-row span:last-child { text-align:right; font-weight:600; color:var(--theme-tertiary, #5c2d91); flex:1 1 auto; }
 
+	/* ── HIDE / SHOW TOP BAR ───────────────── */
+	#header-hide {
+		display:inline-flex; align-items:center; justify-content:center;
+		width:2rem; height:2rem; padding:0;
+		border:1px solid var(--theme-border); border-radius:50%;
+		color:var(--theme-text-subtle);
+		transition:background 0.2s ease, color 0.2s ease, transform 0.18s ease;
+	}
+	#header-hide:hover { color:var(--theme-text); transform:translateY(-1px); }
+	#header-hide svg { width:16px; height:16px; }
+	/* collapse the header + progress bar when hidden */
+	body.chrome-hidden .app-header,
+	body.chrome-hidden .progress-track { display:none; }
+	/* floating tab to bring the bar back */
+	#header-reveal {
+		position:fixed; top:0; left:50%; transform:translateX(-50%) translateY(-100%);
+		z-index:45;
+		display:inline-flex; align-items:center; gap:0.35rem;
+		padding:5px 14px 6px;
+		font-size:12px; font-weight:600; line-height:1;
+		color:var(--theme-text-subtle);
+		background:var(--theme-body-background-translucent, rgba(255,255,255,0.88));
+		backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+		border:1px solid var(--theme-border); border-top:none;
+		border-radius:0 0 12px 12px;
+		box-shadow:0 4px 14px rgba(0,0,0,0.14);
+		cursor:pointer;
+		transition:transform 0.28s cubic-bezier(0.2,0.7,0.3,1), color 0.2s ease, background 0.2s ease;
+	}
+	body.theme-dark #header-reveal { background:var(--theme-body-background-translucent, rgba(32,32,36,0.88)); }
+	#header-reveal:hover { color:var(--theme-text); }
+	body.chrome-hidden #header-reveal { transform:translateX(-50%) translateY(0); }
+	#header-reveal svg { width:14px; height:14px; }
+
 	.progress-track { position:relative; height:5px; background:var(--theme-border, #e0e0e0); flex-shrink:0; }
 	.progress-fill {
 		position:absolute; left:0; top:0; bottom:0; width:0%;
@@ -1062,8 +1096,20 @@
 					</g>
 				</svg>
 			</button>
+			<button id="header-hide" type="button" aria-label="Hide top bar" title="Hide top bar">
+				<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+					<path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/>
+				</svg>
+			</button>
 		</div>
 	</header>
+
+	<button id="header-reveal" type="button" aria-label="Show top bar" title="Show top bar">
+		<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+			<path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/>
+		</svg>
+		<span>Toolbar</span>
+	</button>
 
 	<div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
 
@@ -3164,6 +3210,32 @@ function next()   { interruptAnimation(); if (current < STEPS.length-1) renderSt
 function prev()   { interruptAnimation(); if (current > 0) renderStep(current-1); }
 function reset()  { interruptAnimation(); renderStep(0); }
 function replay() { if (current < 0) return; interruptAnimation(); renderStep(current); }
+
+// ── Hide / show top bar ──────────────────
+(function () {
+	const headerHideBtn   = document.getElementById('header-hide');
+	const headerRevealBtn = document.getElementById('header-reveal');
+	if (!headerHideBtn || !headerRevealBtn) return;
+	function setChromeHidden(hidden) {
+		document.body.classList.toggle('chrome-hidden', hidden);
+		headerHideBtn.setAttribute('aria-expanded', String(!hidden));
+		try { localStorage.setItem('ta-chrome-hidden', hidden ? '1' : '0'); } catch (_) {}
+		if (typeof renderStep === 'function' && typeof current !== 'undefined' && current >= 0) {
+			requestAnimationFrame(() => renderStep(current));
+		}
+	}
+	headerHideBtn.addEventListener('click',   e => { e.stopPropagation(); setChromeHidden(true); });
+	headerRevealBtn.addEventListener('click', e => { e.stopPropagation(); setChromeHidden(false); });
+	try { if (localStorage.getItem('ta-chrome-hidden') === '1') document.body.classList.add('chrome-hidden'); } catch (_) {}
+	document.addEventListener('keydown', e => {
+		if (e.code === 'KeyH' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+			const tag = (e.target.tagName || '').toLowerCase();
+			if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+			e.preventDefault();
+			setChromeHidden(!document.body.classList.contains('chrome-hidden'));
+		}
+	});
+})();
 
 document.getElementById('next-btn').addEventListener('click', e => { e.stopPropagation(); next(); });
 document.getElementById('prev-btn').addEventListener('click', e => { e.stopPropagation(); prev(); });

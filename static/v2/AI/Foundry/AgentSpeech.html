@@ -1,0 +1,2729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<script src="/js/tracking.js"></script>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>Get Started with Azure AI Speech — Microsoft Foundry</title>
+
+<link rel="stylesheet" href="https://unpkg.com/@microsoft/atlas-css/dist/index.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+<!-- AnimationWorks shared lib -->
+<script src="../../lib/js/aw-easings.js"></script>
+<script src="../../lib/js/aw-motion.js"></script>
+<script src="../../lib/js/aw-theme.js"></script>
+<script src="../../lib/js/aw-keyboard.js"></script>
+
+<style>
+	html, body { height:100%; margin:0; }
+	html { font-size:100%; }
+	body {
+		display:flex; flex-direction:column;
+		min-height:100vh;
+		overflow-x:hidden; overflow-y:auto;
+		padding-bottom:6rem;
+		background:
+			radial-gradient(circle at 15% 20%, rgba(92,45,145,0.18) 0%, transparent 55%),
+			radial-gradient(circle at 85% 80%, rgba(0,120,212,0.18) 0%, transparent 55%),
+			var(--theme-body-background);
+		color: var(--theme-text);
+		font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif;
+	}
+
+	.app-header { display:flex; align-items:center; gap:1rem; flex-shrink:0; flex-wrap:wrap; font-size:16px; }
+
+	#stage {
+		position:relative; flex:1 1 auto; width:100%;
+		min-height:760px;
+		overflow:auto;
+	}
+	#stage:focus-visible, button:focus-visible, a:focus-visible, select:focus-visible {
+		outline:2px solid var(--theme-primary, #0078d4);
+		outline-offset:3px; border-radius:4px;
+	}
+
+	#fx-svg {
+		position:absolute; inset:0; width:100%; height:100%;
+		pointer-events:none; z-index:6; overflow:visible;
+	}
+
+	/* ── GENERIC SCENE WRAPPER ──────────────── */
+	.scene {
+		position:absolute;
+		top:3%; left:50%; transform:translateX(-50%);
+		width:min(1150px, 96%);
+		z-index:10;
+		display:flex; flex-direction:column; align-items:center;
+		gap:1.4rem;
+	}
+	.scene-title {
+		font-size:2.5rem; font-weight:700;
+		color:var(--theme-tertiary, #5c2d91);
+		margin:0; text-align:center;
+		opacity:0;
+	}
+	.scene-lead {
+		margin:0; text-align:center;
+		font-size:1.35rem; color:var(--theme-text);
+		max-width:880px; line-height:1.5;
+		opacity:0;
+	}
+	body.theme-dark .scene-title { color:#c9a5e8; }
+
+	/* ── CALLOUT ────────────────────────────── */
+	.callout {
+		position:absolute;
+		max-width:340px;
+		padding:1rem 1.2rem;
+		background:var(--theme-body-background);
+		border:1px solid var(--theme-border);
+		border-left:4px solid var(--theme-tertiary, #5c2d91);
+		border-radius:6px;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2));
+		font-size:1.05rem; line-height:1.45;
+		z-index:14; opacity:0;
+	}
+
+	/* ── SHARED PANELS ──────────────────────── */
+	.ta-card {
+		width:min(1080px, 98%);
+		border:1.5px solid var(--theme-border);
+		border-radius:14px;
+		background:var(--theme-card-background, #fff);
+		box-shadow:0 8px 30px rgba(0,0,0,0.16);
+		padding:1.1rem 1.3rem;
+		opacity:0;
+	}
+	body.theme-dark .ta-card { background:rgba(255,255,255,0.05); }
+	.ta-card-head {
+		display:flex; align-items:center; gap:0.5rem;
+		font-size:1rem; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;
+		color:var(--theme-text-subtle); margin-bottom:0.6rem;
+	}
+	.ta-card-text { font-size:1.22rem; line-height:1.55; color:var(--theme-text); }
+
+	.chip-row { display:flex; flex-wrap:wrap; gap:0.7rem; justify-content:center; }
+	.pill {
+		display:inline-flex; align-items:center; gap:0.5rem;
+		padding:0.55rem 1.1rem;
+		border-radius:999px;
+		font-size:1.05rem; font-weight:600;
+		border:2px solid var(--theme-tertiary, #5c2d91);
+		background:rgba(92,45,145,0.08);
+		color:var(--theme-text);
+		opacity:0;
+	}
+
+	/* ── AGENT / SERVICE NODE (shared) ──────── */
+	.agent-node {
+		display:flex; flex-direction:column; align-items:center; justify-content:center;
+		gap:0.2rem;
+		width:160px; height:160px; border-radius:24px;
+		background: linear-gradient(135deg, rgba(92,45,145,0.12), rgba(0,120,212,0.12));
+		border:2.5px solid var(--theme-tertiary, #5c2d91);
+		box-shadow:0 8px 28px rgba(92,45,145,0.2);
+		flex-shrink:0; text-align:center;
+	}
+	.agent-node .an-icon { font-size:3rem; line-height:1; }
+	.agent-node .an-icon img { width:64px; height:64px; display:block; }
+	.agent-node .an-label { font-size:1.05rem; font-weight:700; color:var(--theme-text); }
+	.agent-node .an-sub { font-size:0.85rem; color:var(--theme-text-subtle); }
+
+	/* ── FLOW ROW (input → engine → output) ── */
+	.ta-flow {
+		display:flex; align-items:center; justify-content:center; gap:1.2rem;
+		flex-wrap:wrap; width:100%;
+	}
+	.ta-flow .agent-node { width:140px; height:140px; }
+	.ta-flow .agent-node .an-icon { font-size:2.6rem; }
+	.ta-flow .agent-node .an-icon img { width:54px; height:54px; }
+	.ta-arrow { font-size:1.9rem; color:var(--theme-tertiary,#5c2d91); opacity:0; }
+	.ta-arrow.is-big { font-size:3.2rem; }
+	.ta-arrow.is-down { font-size:2.9rem; line-height:1; }
+	.ta-arrow.is-up { font-size:2.9rem; line-height:1; }
+
+	/* ── CODE CARD (shared, VS Code style) ──── */
+	.code-card {
+		width:min(560px,96%);
+		border:1px solid #30363d; border-radius:8px;
+		background:#1e1e1e; overflow:hidden; opacity:0;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.25));
+	}
+	.code-head {
+		display:flex; align-items:center; justify-content:space-between; gap:0.5rem;
+		padding:0 0 0 0.85rem; background:#323233; border-bottom:1px solid #1e1e1e;
+	}
+	.code-file { font-size:0.9rem; color:#cccccc; font-weight:500; padding:0.6rem 0; }
+	.code-winctrls { display:flex; align-items:stretch; height:100%; }
+	.code-wbtn {
+		display:flex; align-items:center; justify-content:center;
+		width:2.6rem; padding:0.55rem 0;
+		color:#cccccc; font-family:'Segoe UI Symbol','Segoe MDL2 Assets',sans-serif; font-size:0.7rem;
+	}
+	.code-wbtn.is-close:hover { background:#e81123; color:#fff; }
+	.code-wbtn:hover { background:rgba(255,255,255,0.1); }
+	.code-body {
+		margin:0; padding:0.8rem 1rem;
+		font-family:'Cascadia Code', 'Consolas', 'SFMono-Regular', monospace;
+		font-size:0.86rem; line-height:1.5; color:#d4d4d4;
+		white-space:pre-wrap; overflow-wrap:break-word; word-break:break-word; tab-size:4;
+	}
+	.code-body .tok-com { color:#6a9955; }
+	.code-body .tok-kw  { color:#569cd6; }
+	.code-body .tok-str { color:#ce9178; }
+	.code-body .tok-fn  { color:#dcdcaa; }
+	.code-body .tok-mod { color:#4ec9b0; }
+	.code-body .tok-prop{ color:#9cdcfe; }
+	.code-body .tok-num { color:#b5cea8; }
+	.code-body .tok-punct { color:#d4d4d4; }
+	.code-body .code-hl { border-radius:4px; padding:0 0.15em; box-shadow:0 0 0 1px rgba(96,165,250,0.55); background:rgba(96,165,250,0.22); }
+	/* request / response code pair */
+	.code-duo {
+		display:flex; gap:1.1rem; flex-wrap:wrap;
+		align-items:flex-start; justify-content:center; width:100%;
+	}
+	.code-duo .code-card { flex:1 1 380px; max-width:480px; }
+	.code-duo .code-body { font-size:0.8rem; line-height:1.45; }
+	.code-arrow {
+		align-self:center; font-size:1.8rem; line-height:1;
+		color:var(--theme-tertiary,#5c2d91); opacity:0; flex:none;
+	}
+	.code-arrow.is-big { font-size:2.9rem; }
+	@media (max-width:760px) { .code-arrow { transform:rotate(90deg); } }
+
+	/* ════════════════════════════════════════ */
+	/* ── SPEECH-SPECIFIC BLOCKS ────────────── */
+	/* ════════════════════════════════════════ */
+
+	/* ── STEP 1 · WHY VOICE (mic + sound bursts) ── */
+	.voice-hero {
+		position:relative; width:min(560px,94%); height:300px;
+		display:flex; align-items:center; justify-content:center;
+		margin-top:0.6rem; opacity:0;
+	}
+	.voice-mic {
+		position:relative; z-index:2;
+		width:150px; height:150px; border-radius:50%;
+		display:flex; align-items:center; justify-content:center;
+		background:radial-gradient(circle at 50% 35%, rgba(0,120,212,0.2), rgba(92,45,145,0.16));
+		border:3px solid var(--theme-primary,#0078d4);
+		box-shadow:0 8px 30px rgba(0,120,212,0.25);
+	}
+	.voice-mic .vm-emoji { font-size:4.4rem; line-height:1; animation: micPulse 3.2s ease-in-out infinite; }
+	@keyframes micPulse { 0%,100% { transform:scale(1); } 50% { transform:scale(1.08); } }
+	.voice-ring {
+		position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+		border-radius:50%; border:2.5px solid rgba(0,120,212,0.5);
+		opacity:0; pointer-events:none;
+	}
+	.voice-value-row { display:flex; flex-wrap:wrap; gap:0.8rem; justify-content:center; }
+	.vv-chip {
+		display:inline-flex; align-items:center; gap:0.5rem;
+		padding:0.6rem 1.2rem; border-radius:999px;
+		font-size:1.08rem; font-weight:700;
+		border:2px solid var(--theme-primary,#0078d4); background:rgba(0,120,212,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	.vv-chip .vv-ico { font-size:1.4rem; line-height:1; }
+	.vv-chip[data-v="accessible"] { border-color:#10a37f; background:rgba(16,163,127,0.08); }
+	.vv-chip[data-v="inclusive"] { border-color:#d24aa8; background:rgba(210,74,168,0.08); }
+	body.theme-dark .vv-chip { background:rgba(0,120,212,0.16); }
+	body.theme-dark .vv-chip[data-v="accessible"] { background:rgba(16,163,127,0.16); }
+	body.theme-dark .vv-chip[data-v="inclusive"] { background:rgba(210,74,168,0.16); }
+
+	/* ── WAVEFORM (reused in several steps) ── */
+	.wave {
+		display:inline-flex; align-items:center; gap:3px; height:48px;
+	}
+	.wave .wave-bar {
+		width:5px; border-radius:3px; background:var(--theme-primary,#0078d4);
+		height:30%; transform-origin:center;
+	}
+	.wave.is-tts .wave-bar { background:#10a37f; }
+	@keyframes waveBounce {
+		0%,100% { transform:scaleY(0.35); }
+		50% { transform:scaleY(1); }
+	}
+
+	/* ── STEP 2 · TWO CAPABILITIES (STT / TTS) ── */
+	.cap-split { display:flex; gap:1.4rem; flex-wrap:wrap; justify-content:center; width:100%; align-items:stretch; }
+	.cap-panel {
+		flex:1 1 380px; max-width:480px;
+		display:flex; flex-direction:column; gap:0.9rem; align-items:center;
+		padding:1.3rem 1.2rem;
+		border:2px solid #0078d4; border-radius:18px;
+		background:var(--theme-card-background, #fff);
+		box-shadow:0 8px 30px rgba(0,120,212,0.14);
+		opacity:0;
+	}
+	body.theme-dark .cap-panel { background:rgba(255,255,255,0.05); }
+	.cap-panel.is-tts { border-color:#10a37f; box-shadow:0 8px 30px rgba(16,163,127,0.16); }
+	.cap-panel .cp-tag {
+		display:inline-flex; align-items:center; gap:0.4rem;
+		font-size:0.82rem; font-weight:800; text-transform:uppercase; letter-spacing:0.06em;
+		color:#0078d4;
+	}
+	.cap-panel.is-tts .cp-tag { color:#0a7a5e; }
+	body.theme-dark .cap-panel.is-tts .cp-tag { color:#6ee7b7; }
+	.cap-panel .cp-title { font-size:1.55rem; font-weight:800; color:var(--theme-text); text-align:center; }
+	.cap-panel .cp-flow { display:flex; align-items:center; gap:0.7rem; flex-wrap:wrap; justify-content:center; }
+	.cap-panel .cp-io {
+		display:flex; flex-direction:column; align-items:center; gap:0.25rem;
+		min-width:96px;
+	}
+	.cap-panel .cp-io .cp-io-ico { font-size:2.6rem; line-height:1; }
+	.cap-panel .cp-io .cp-io-label { font-size:0.92rem; font-weight:700; color:var(--theme-text-subtle); }
+	.cap-panel .cp-conv { font-size:1.9rem; line-height:1; color:#0078d4; }
+	.cap-panel.is-tts .cp-conv { color:#10a37f; }
+	.cap-panel .cp-desc { font-size:1.02rem; line-height:1.5; color:var(--theme-text-subtle); text-align:center; }
+
+	/* ── PIPELINE STAGES (STT / TTS deep dives) ── */
+	.pipe {
+		display:flex; align-items:stretch; justify-content:center; gap:0.55rem;
+		flex-wrap:wrap; width:100%;
+	}
+	.pipe-stage {
+		flex:0 1 168px; min-width:140px;
+		display:flex; flex-direction:column; align-items:center; gap:0.45rem; text-align:center;
+		padding:0.9rem 0.7rem;
+		border:1.5px solid var(--theme-border);
+		border-top:4px solid var(--theme-primary,#0078d4);
+		border-radius:14px;
+		background:var(--theme-card-background, #fff);
+		box-shadow:0 6px 22px rgba(0,0,0,0.1); opacity:0;
+	}
+	body.theme-dark .pipe-stage { background:rgba(255,255,255,0.05); }
+	.pipe.is-tts .pipe-stage { border-top-color:#10a37f; }
+	.pipe-stage .ps-ico { font-size:2.2rem; line-height:1; }
+	.pipe-stage .ps-label { font-size:1.02rem; font-weight:700; color:var(--theme-text); }
+	.pipe-stage .ps-sub { font-size:0.84rem; line-height:1.4; color:var(--theme-text-subtle); }
+	.pipe-arrow { align-self:center; font-size:1.7rem; line-height:1; color:var(--theme-tertiary,#5c2d91); opacity:0; flex:none; }
+	@media (max-width:860px) { .pipe-arrow { transform:rotate(90deg); } .pipe-stage { flex:1 1 200px; } }
+
+	/* model boxes used inside STT pipeline */
+	.model-badge {
+		display:inline-flex; align-items:center; gap:0.35rem;
+		margin-top:0.2rem; padding:0.2rem 0.6rem; border-radius:999px;
+		font-size:0.72rem; font-weight:800; letter-spacing:0.03em;
+		background:rgba(92,45,145,0.12); color:#8a5cc0; border:1px solid rgba(92,45,145,0.4);
+	}
+	body.theme-dark .model-badge { background:rgba(92,45,145,0.22); color:#c9a5e8; }
+
+	/* phoneme & word chips */
+	.token-strip { display:flex; flex-wrap:wrap; gap:0.5rem; justify-content:center; }
+	.ph-chip {
+		display:inline-flex; align-items:center;
+		padding:0.4rem 0.85rem; border-radius:999px;
+		font-family:'Cascadia Code','Consolas',monospace;
+		font-size:1.05rem; font-weight:700;
+		border:2px solid #5c2d91; background:rgba(92,45,145,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .ph-chip { background:rgba(92,45,145,0.2); }
+	.word-chip {
+		display:inline-flex; align-items:center;
+		padding:0.4rem 0.95rem; border-radius:999px;
+		font-size:1.08rem; font-weight:700;
+		border:2px solid #0078d4; background:rgba(0,120,212,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .word-chip { background:rgba(0,120,212,0.2); }
+
+	/* transcript / synthesized text result card */
+	.result-card {
+		display:flex; align-items:flex-start; gap:0.7rem;
+		width:min(640px,96%);
+		padding:0.95rem 1.15rem; border-radius:12px;
+		border:2px solid #10a37f; background:rgba(16,163,127,0.07);
+		box-shadow:0 6px 22px rgba(16,163,127,0.14); opacity:0;
+	}
+	body.theme-dark .result-card { background:rgba(16,163,127,0.14); }
+	.result-card.is-stt { border-color:#0078d4; background:rgba(0,120,212,0.07); box-shadow:0 6px 22px rgba(0,120,212,0.14); }
+	body.theme-dark .result-card.is-stt { background:rgba(0,120,212,0.14); }
+	.result-card .rc-ico { font-size:1.6rem; line-height:1.2; color:#10a37f; flex:none; }
+	.result-card.is-stt .rc-ico { color:#0078d4; }
+	.result-card .rc-text { font-size:1.18rem; line-height:1.5; color:var(--theme-text); }
+
+	/* ── VOICE CONTROLS (TTS knobs) ─────────── */
+	.voice-controls {
+		display:flex; flex-wrap:wrap; gap:0.8rem; justify-content:center; width:100%;
+	}
+	.vc-card {
+		flex:1 1 180px; max-width:230px;
+		display:flex; flex-direction:column; gap:0.45rem;
+		padding:0.85rem 1rem;
+		border:1.5px solid var(--theme-border); border-radius:12px;
+		background:var(--theme-card-background, #fff);
+		box-shadow:0 4px 16px rgba(0,0,0,0.1); opacity:0;
+	}
+	body.theme-dark .vc-card { background:rgba(255,255,255,0.05); }
+	.vc-head { display:flex; align-items:center; gap:0.45rem; font-size:1.05rem; font-weight:700; color:var(--theme-text); }
+	.vc-head .vc-ico { font-size:1.4rem; line-height:1; }
+	.vc-sub { font-size:0.88rem; line-height:1.4; color:var(--theme-text-subtle); }
+	.vc-bar { position:relative; height:8px; border-radius:999px; background:var(--theme-border); margin-top:0.2rem; }
+	.vc-fill { position:absolute; left:0; top:0; bottom:0; width:0%; border-radius:999px; background:#10a37f; }
+	.vc-card[data-k="voice"] .vc-fill { background:#5c2d91; }
+	.vc-card[data-k="rate"] .vc-fill { background:#0078d4; }
+	.vc-card[data-k="pitch"] .vc-fill { background:#e97526; }
+	.vc-card[data-k="volume"] .vc-fill { background:#10a37f; }
+
+	/* neural voice gallery */
+	.voice-gallery { display:flex; flex-wrap:wrap; gap:0.7rem; justify-content:center; }
+	.voice-tile {
+		display:flex; align-items:center; gap:0.55rem;
+		padding:0.6rem 1rem; border-radius:14px;
+		border:2px solid var(--theme-border);
+		background:var(--theme-card-background, #fff);
+		box-shadow:0 4px 16px rgba(0,0,0,0.1); opacity:0;
+	}
+	body.theme-dark .voice-tile { background:rgba(255,255,255,0.05); }
+	.voice-tile[data-kind="neural"] { border-color:#10a37f; }
+	.voice-tile[data-kind="custom"] { border-color:#5c2d91; border-style:dashed; }
+	.voice-tile .vt-avatar { font-size:1.8rem; line-height:1; }
+	.voice-tile .vt-name { font-size:1.05rem; font-weight:700; color:var(--theme-text); display:block; }
+	.voice-tile .vt-meta { font-size:0.82rem; color:var(--theme-text-subtle); display:block; }
+	.voice-tile .vt-tag {
+		margin-left:0.2rem; padding:0.15rem 0.55rem; border-radius:999px;
+		font-size:0.7rem; font-weight:800; letter-spacing:0.03em;
+		background:rgba(16,163,127,0.16); color:#0a7a5e; border:1px solid rgba(16,163,127,0.45);
+	}
+	.voice-tile[data-kind="custom"] .vt-tag { background:rgba(92,45,145,0.16); color:#8a5cc0; border-color:rgba(92,45,145,0.45); }
+	body.theme-dark .voice-tile .vt-tag { color:#6ee7b7; }
+	body.theme-dark .voice-tile[data-kind="custom"] .vt-tag { color:#c9a5e8; }
+
+	/* ── SPEECH-TO-SPEECH PIPELINE ──────────── */
+	.s2s-flow { display:flex; align-items:center; justify-content:center; gap:1rem; flex-wrap:wrap; width:100%; }
+	.s2s-node {
+		display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.3rem;
+		width:150px; height:150px; border-radius:22px; text-align:center; flex-shrink:0;
+		border:2.5px solid var(--theme-border);
+		background:var(--theme-card-background,#fff);
+		box-shadow:0 8px 28px rgba(0,0,0,0.12); opacity:0;
+	}
+	body.theme-dark .s2s-node { background:rgba(255,255,255,0.05); }
+	.s2s-node[data-n="stt"] { border-color:#0078d4; }
+	.s2s-node[data-n="brain"] { border-color:#5c2d91; }
+	.s2s-node[data-n="tts"] { border-color:#10a37f; }
+	.s2s-node .s2s-ico { font-size:2.8rem; line-height:1; }
+	.s2s-node .s2s-ico img { width:56px; height:56px; display:block; }
+	.s2s-node .s2s-label { font-size:1.02rem; font-weight:800; color:var(--theme-text); }
+	.s2s-node .s2s-sub { font-size:0.8rem; line-height:1.3; color:var(--theme-text-subtle); }
+	.s2s-arrow { align-self:center; font-size:2.4rem; line-height:1; color:var(--theme-tertiary,#5c2d91); opacity:0; flex:none; }
+	@media (max-width:760px) { .s2s-arrow { transform:rotate(90deg); } }
+	.s2s-endcap {
+		display:flex; flex-direction:column; align-items:center; gap:0.3rem;
+		min-width:96px; opacity:0;
+	}
+	.s2s-endcap .se-ico { font-size:2.6rem; line-height:1; }
+	.s2s-endcap .se-label { font-size:0.92rem; font-weight:700; color:var(--theme-text-subtle); text-align:center; }
+
+	/* ── USE-CASE GRID (shared pattern) ─────── */
+	.uc-grid {
+		display:grid; grid-template-columns:repeat(2, minmax(0,1fr));
+		gap:1.1rem; width:min(980px,96%);
+	}
+	@media (max-width:720px) { .uc-grid { grid-template-columns:1fr; } }
+	.uc-card {
+		display:flex; flex-direction:column; gap:0.5rem;
+		padding:1rem 1.15rem;
+		border:1.5px solid var(--theme-border);
+		border-top:4px solid var(--theme-primary,#0078d4);
+		border-radius:14px;
+		background:var(--theme-card-background, #fff);
+		box-shadow:0 6px 22px rgba(0,0,0,0.12);
+		opacity:0;
+		transition:transform 0.2s ease, box-shadow 0.2s ease;
+	}
+	.uc-card:hover { transform:translateY(-4px); box-shadow:0 12px 30px rgba(0,0,0,0.18); }
+	body.theme-dark .uc-card { background:rgba(255,255,255,0.05); }
+	.uc-card[data-uc="clinical"] { border-top-color:#10a37f; }
+	.uc-card[data-uc="support"]  { border-top-color:#0078d4; }
+	.uc-card[data-uc="media"]    { border-top-color:#e97526; }
+	.uc-card[data-uc="learning"] { border-top-color:#d24aa8; }
+	.uc-card[data-uc="retail"]   { border-top-color:#5c2d91; }
+	.uc-card[data-uc="assistant"]{ border-top-color:#00b7c3; }
+	.uc-head { display:flex; align-items:center; gap:0.55rem; font-size:1.25rem; font-weight:700; color:var(--theme-text); }
+	.uc-head .uc-icon { font-size:1.7rem; display:inline-block; }
+	.uc-desc { font-size:0.98rem; line-height:1.55; color:var(--theme-text-subtle); }
+	.uc-ex {
+		font-size:0.9rem; line-height:1.45; font-style:italic;
+		color:var(--theme-text); opacity:0;
+		padding:0.5rem 0.7rem; border-radius:8px;
+		border-left:3px solid var(--theme-border);
+		background:rgba(0,0,0,0.03);
+	}
+	body.theme-dark .uc-ex { background:rgba(255,255,255,0.05); }
+	.uc-card[data-uc="clinical"] .uc-ex { border-left-color:#10a37f; }
+	.uc-card[data-uc="support"]  .uc-ex { border-left-color:#0078d4; }
+	.uc-card[data-uc="media"]    .uc-ex { border-left-color:#e97526; }
+	.uc-card[data-uc="learning"] .uc-ex { border-left-color:#d24aa8; }
+	.uc-card[data-uc="retail"]   .uc-ex { border-left-color:#5c2d91; }
+	.uc-card[data-uc="assistant"].uc-ex,
+	.uc-card[data-uc="assistant"] .uc-ex { border-left-color:#00b7c3; }
+	.uc-caps { display:flex; flex-wrap:wrap; gap:0.4rem; margin-top:0.2rem; }
+	.uc-cap {
+		display:inline-flex; align-items:center; gap:0.3rem;
+		padding:0.25rem 0.7rem; border-radius:999px;
+		font-size:0.88rem; font-weight:700;
+		background:rgba(0,120,212,0.1); color:var(--theme-text);
+		border:1.5px solid rgba(0,120,212,0.4);
+		opacity:0;
+	}
+
+	/* ── VOICE LIVE (one service vs many pieces) ── */
+	.vl-compare { display:flex; gap:1.4rem; flex-wrap:wrap; justify-content:center; width:100%; align-items:stretch; }
+	.vl-col {
+		flex:1 1 380px; max-width:480px;
+		display:flex; flex-direction:column; gap:0.7rem;
+		padding:1.2rem 1.2rem;
+		border:1.5px solid var(--theme-border); border-radius:16px;
+		background:var(--theme-card-background, #fff);
+		box-shadow:0 8px 30px rgba(0,0,0,0.12); opacity:0;
+	}
+	body.theme-dark .vl-col { background:rgba(255,255,255,0.05); }
+	.vl-col.is-many { border-style:dashed; }
+	.vl-col.is-one { border-color:#10a37f; border-width:2px; }
+	.vl-col-head {
+		display:flex; align-items:center; gap:0.5rem;
+		font-size:1rem; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;
+		color:var(--theme-text-subtle);
+	}
+	.vl-col.is-one .vl-col-head { color:#0a7a5e; }
+	body.theme-dark .vl-col.is-one .vl-col-head { color:#6ee7b7; }
+	.vl-pieces { display:flex; flex-wrap:wrap; gap:0.5rem; }
+	.vl-piece {
+		display:inline-flex; align-items:center; gap:0.35rem;
+		padding:0.4rem 0.8rem; border-radius:10px;
+		font-size:0.95rem; font-weight:700;
+		border:1.5px solid var(--theme-border);
+		background:var(--theme-body-background); color:var(--theme-text);
+		opacity:0;
+	}
+	body.theme-dark .vl-piece { background:rgba(255,255,255,0.06); }
+	.vl-glue { font-size:0.85rem; font-style:italic; color:var(--theme-text-subtle); opacity:0; }
+	.vl-one-box {
+		display:flex; flex-direction:column; align-items:center; gap:0.4rem; text-align:center;
+		padding:1.1rem 1rem; border-radius:14px;
+		border:2px solid #10a37f;
+		background:linear-gradient(135deg, rgba(16,163,127,0.12), rgba(0,120,212,0.1));
+		box-shadow:0 6px 22px rgba(16,163,127,0.18); opacity:0;
+	}
+	.vl-one-box .vl-one-ico { font-size:2.6rem; line-height:1; }
+	.vl-one-box .vl-one-ico img { width:52px; height:52px; display:block; }
+	.vl-one-box .vl-one-title { font-size:1.2rem; font-weight:800; color:var(--theme-text); }
+	.vl-one-box .vl-one-sub { font-size:0.9rem; color:var(--theme-text-subtle); }
+	.vl-out-row { display:flex; flex-wrap:wrap; gap:0.5rem; justify-content:center; }
+	.vl-out {
+		display:inline-flex; align-items:center; gap:0.4rem;
+		padding:0.4rem 0.85rem; border-radius:999px;
+		font-size:0.92rem; font-weight:700;
+		border:1.5px solid #10a37f; background:rgba(16,163,127,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .vl-out { background:rgba(16,163,127,0.18); }
+
+	/* ── ARCHITECTURE (3-layer) ─────────────── */
+	.arch-stack { display:flex; flex-direction:row; gap:0.8rem; width:min(1040px,98%); align-items:stretch; justify-content:center; flex-wrap:wrap; }
+	.arch-layer {
+		display:flex; flex-direction:column; align-items:center; text-align:center; gap:0.5rem;
+		flex:1 1 0; min-width:210px; max-width:320px;
+		padding:1.2rem 1.1rem; border-radius:16px;
+		border:2px solid var(--theme-border);
+		background:var(--theme-card-background, #fff);
+		box-shadow:0 6px 22px rgba(0,0,0,0.12); opacity:0;
+	}
+	body.theme-dark .arch-layer { background:rgba(255,255,255,0.05); }
+	.arch-layer[data-l="speech"] { border-color:#0078d4; }
+	.arch-layer[data-l="agent"]  { border-color:#5c2d91; }
+	.arch-layer[data-l="tools"]  { border-color:#10a37f; }
+	.arch-layer .al-ico { font-size:2.4rem; line-height:1; flex:none; }
+	.arch-layer .al-ico img { width:50px; height:50px; display:block; }
+	.arch-layer .al-body { flex:1; min-width:0; width:100%; }
+	.arch-layer .al-title { display:block; font-size:1.22rem; font-weight:800; color:var(--theme-text); }
+	.arch-layer .al-sub { display:block; font-size:0.98rem; line-height:1.45; color:var(--theme-text-subtle); }
+	.arch-layer .al-chips { display:flex; flex-wrap:wrap; gap:0.4rem; margin-top:0.55rem; justify-content:center; }
+	.arch-chip {
+		display:inline-flex; align-items:center; gap:0.3rem;
+		padding:0.2rem 0.65rem; border-radius:999px;
+		font-size:0.82rem; font-weight:700;
+		background:rgba(0,0,0,0.04); color:var(--theme-text);
+		border:1px solid var(--theme-border); opacity:0;
+	}
+	body.theme-dark .arch-chip { background:rgba(255,255,255,0.06); }
+	.arch-join { align-self:center; font-size:1.8rem; line-height:1; color:var(--theme-tertiary,#5c2d91); opacity:0; }
+	@media (max-width:760px) {
+		.arch-stack { flex-direction:column; align-items:center; }
+		.arch-join { transform:rotate(90deg); }
+	}
+
+	/* ── BUILD STEP ─────────────────────────── */
+	.build-hero { display:flex; flex-direction:column; align-items:center; gap:0.8rem; width:100%; margin-bottom:0.4rem; }
+	.build-hero-title {
+		font-size:1.3rem; font-weight:800; text-align:center; opacity:0;
+		color:var(--theme-tertiary, #5c2d91);
+	}
+	body.theme-dark .build-hero-title { color:#c9a5e8; }
+	.build-wire { display:flex; align-items:center; justify-content:center; gap:1.1rem; flex-wrap:wrap; }
+	.bw-left { display:flex; flex-direction:column; gap:1rem; }
+	.bw-node {
+		display:flex; align-items:center; gap:0.7rem;
+		padding:0.7rem 1rem; min-width:230px;
+		border:2px solid var(--theme-border); border-radius:14px;
+		background:var(--theme-card-background, #fff);
+		box-shadow:0 4px 16px rgba(0,0,0,0.12); opacity:0;
+	}
+	body.theme-dark .bw-node { background:rgba(255,255,255,0.05); }
+	.bw-node.is-app { border-color:#0078d4; }
+	.bw-node.is-agent { border-color:#5c2d91; }
+	.bw-node .bw-ico { font-size:2rem; line-height:1; flex:none; }
+	.bw-node .bw-txt { display:flex; flex-direction:column; }
+	.bw-node .bw-label { font-size:1.1rem; font-weight:700; color:var(--theme-text); }
+	.bw-node .bw-sub { font-size:0.85rem; color:var(--theme-text-subtle); }
+	.bw-conns { display:flex; flex-direction:column; justify-content:center; gap:1.6rem; }
+	.bw-conn { display:flex; flex-direction:column; align-items:center; gap:0.1rem; opacity:0; }
+	.bw-conn .bw-path {
+		font-size:0.78rem; font-weight:800; letter-spacing:0.04em; text-transform:uppercase;
+		color:var(--theme-tertiary, #5c2d91);
+	}
+	.bw-conn .bw-arrow { font-size:2rem; line-height:0.8; color:var(--theme-tertiary, #5c2d91); }
+	.bw-lang {
+		display:flex; flex-direction:column; align-items:center; gap:0.3rem; text-align:center;
+		padding:1.1rem 1.4rem; border-radius:20px;
+		border:3px solid #0078d4;
+		background:linear-gradient(135deg, rgba(0,120,212,0.14), rgba(92,45,145,0.12));
+		box-shadow:0 10px 30px rgba(0,120,212,0.22); opacity:0;
+	}
+	.bw-lang img { width:58px; height:58px; display:block; }
+	.bw-lang .bw-lang-label { font-size:1.2rem; font-weight:800; color:var(--theme-text); }
+	.bw-lang .bw-lang-sub { font-size:0.85rem; color:var(--theme-text-subtle); }
+	@media (max-width:640px) { .bw-conn .bw-arrow { transform:rotate(90deg); } }
+	.build-cols { display:flex; gap:1.5rem; flex-wrap:wrap; align-items:flex-start; justify-content:center; width:100%; }
+	.build-steps { flex:1 1 300px; max-width:430px; display:flex; flex-direction:column; gap:0.5rem; }
+	.build-steps-title {
+		font-size:0.95rem; font-weight:800; letter-spacing:0.1em; text-transform:uppercase;
+		color:var(--theme-tertiary, #5c2d91); opacity:0;
+	}
+	.build-step {
+		display:flex; align-items:center; gap:0.7rem;
+		padding:0.55rem 0.8rem;
+		background:var(--theme-body-background);
+		border:1px solid var(--theme-border); border-radius:10px;
+		opacity:0;
+	}
+	.build-num {
+		flex-shrink:0; width:1.7rem; height:1.7rem; border-radius:50%;
+		display:flex; align-items:center; justify-content:center;
+		background:var(--theme-tertiary, #5c2d91); color:#fff; font-weight:700; font-size:0.9rem;
+	}
+	.build-step-label { font-size:1.1rem; font-weight:700; color:var(--theme-text); display:block; }
+	.build-step-sub { font-size:0.92rem; color:var(--theme-text-subtle); display:block; }
+	body.theme-dark .build-step { background:rgba(255,255,255,0.05); }
+	.integrate-block { flex:1 1 360px; max-width:520px; display:flex; flex-direction:column; gap:0.4rem; }
+	.integrate-head { text-align:left; opacity:0; }
+	.integrate-title { display:block; font-size:1.1rem; font-weight:800; color:var(--theme-tertiary, #5c2d91); }
+	.integrate-sub { display:block; font-size:0.9rem; color:var(--theme-text-subtle); margin-top:0.1rem; }
+	.value-grid { display:flex; flex-wrap:wrap; gap:0.6rem; justify-content:center; }
+	.value-chip {
+		display:inline-flex; align-items:center; gap:0.4rem;
+		padding:0.5rem 1rem; border-radius:999px;
+		font-size:1rem; font-weight:700;
+		border:2px solid #107c10; background:rgba(16,124,16,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .value-chip { background:rgba(16,124,16,0.16); }
+
+	/* ── HEADER BACK LINK ───────────────────── */
+	.header-back-link {
+		display:inline-flex; align-items:center; gap:0.25rem;
+		padding:0.2rem 0.6rem;
+		font-size:0.8rem; font-weight:600;
+		color:var(--theme-text-subtle);
+		border:1px solid var(--theme-border);
+		border-radius:999px;
+		text-decoration:none; white-space:nowrap;
+		transition:background 0.15s, color 0.15s, border-color 0.15s;
+	}
+	.header-back-link:hover {
+		color:var(--theme-primary);
+		border-color:var(--theme-primary);
+		background:var(--theme-primary-translucent, rgba(0,120,212,0.12));
+	}
+
+	/* ── CONTROLS · icon dock ─────────────────── */
+	#controls {
+		position:fixed; bottom:14px; left:50%; transform:translateX(-50%);
+		z-index:40;
+		display:flex; align-items:center; gap:5px;
+		padding:5px 7px;
+		background:var(--theme-body-background-translucent, rgba(255,255,255,0.82));
+		backdrop-filter:blur(12px) saturate(1.4); -webkit-backdrop-filter:blur(12px) saturate(1.4);
+		border:1px solid var(--theme-border); border-radius:999px;
+		box-shadow: 0 8px 26px rgba(0,0,0,0.18);
+		font-size:13px;
+	}
+	body.theme-dark #controls { background:var(--theme-body-background-translucent, rgba(32,32,36,0.82)); }
+	#controls .ctrl-icon {
+		width:2.15rem; height:2.15rem; min-width:0; padding:0;
+		display:inline-flex; align-items:center; justify-content:center;
+		border-radius:50%; font-size:0.95rem; line-height:1; font-weight:600;
+		transition:background 0.18s ease, color 0.18s ease, transform 0.12s ease, box-shadow 0.18s ease;
+	}
+	#controls .ctrl-icon:hover { transform:translateY(-1px); }
+	#controls .ctrl-icon:active { transform:scale(0.92); }
+	#controls .ctrl-icon-next {
+		width:2.55rem; height:2.55rem; font-size:1.1rem;
+		box-shadow:0 2px 8px var(--theme-primary-translucent, rgba(0,120,212,0.45));
+	}
+	.step-counter {
+		min-width:52px; text-align:center; font-variant-numeric:tabular-nums;
+		font-size:14px; font-weight:700; color:var(--theme-text);
+		padding:0 6px; white-space:nowrap; letter-spacing:0.02em;
+	}
+	.ctrl-sep { width:1px; align-self:stretch; margin:4px 2px; background:var(--theme-border); }
+	.speed-control {
+		display:inline-flex; align-items:center; gap:1px;
+		padding:2px 3px;
+		border:1px solid var(--theme-border);
+		border-radius:999px;
+	}
+	.speed-control .speed-btn {
+		width:1.7rem; height:1.7rem; min-width:0; padding:0;
+		display:inline-flex; align-items:center; justify-content:center;
+		font-size:0.95rem; font-weight:700; border-radius:50%;
+	}
+	.speed-control .speed-btn[disabled] { opacity:0.4; cursor:not-allowed; }
+	.speed-label {
+		min-width:2.4rem; text-align:center;
+		font-variant-numeric:tabular-nums; font-size:0.82rem; font-weight:700; color:var(--theme-text);
+	}
+
+	#callout-toggle, #outline-toggle {
+		border:1px solid var(--theme-border); border-radius:4px;
+		transition:background 0.2s ease, color 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+	}
+	#callout-toggle.toggle-active, #outline-toggle.toggle-active {
+		background:var(--theme-primary-translucent, rgba(0,120,212,0.12));
+		color:var(--theme-primary, #0078d4);
+		border-color:var(--theme-primary, #0078d4);
+		font-weight:600;
+	}
+	#callout-toggle:not(.toggle-active), #outline-toggle:not(.toggle-active) { opacity:0.6; }
+
+	/* ── HIDE / SHOW TOP BAR ─────────────────── */
+	#header-hide {
+		display:inline-flex; align-items:center; justify-content:center;
+		width:2rem; height:2rem; padding:0;
+		border:1px solid var(--theme-border); border-radius:50%;
+		color:var(--theme-text-subtle);
+		transition:background 0.2s ease, color 0.2s ease, transform 0.18s ease;
+	}
+	#header-hide:hover { color:var(--theme-text); transform:translateY(-1px); }
+	#header-hide svg { width:16px; height:16px; }
+	body.chrome-hidden .app-header,
+	body.chrome-hidden .progress-track { display:none; }
+	#header-reveal {
+		position:fixed; top:0; left:50%; transform:translateX(-50%) translateY(-100%);
+		z-index:45;
+		display:inline-flex; align-items:center; gap:0.35rem;
+		padding:5px 14px 6px;
+		font-size:12px; font-weight:600; line-height:1;
+		color:var(--theme-text-subtle);
+		background:var(--theme-body-background-translucent, rgba(255,255,255,0.88));
+		backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+		border:1px solid var(--theme-border); border-top:none;
+		border-radius:0 0 12px 12px;
+		box-shadow:0 4px 14px rgba(0,0,0,0.14);
+		cursor:pointer;
+		transition:transform 0.28s cubic-bezier(0.2,0.7,0.3,1), color 0.2s ease, background 0.2s ease;
+	}
+	body.theme-dark #header-reveal { background:var(--theme-body-background-translucent, rgba(32,32,36,0.88)); }
+	#header-reveal:hover { color:var(--theme-text); }
+	body.chrome-hidden #header-reveal { transform:translateX(-50%) translateY(0); }
+	#header-reveal svg { width:14px; height:14px; }
+
+	#step-outline {
+		position:fixed; top:4.5rem; right:1rem;
+		width:320px; max-height:calc(100vh - 8rem); overflow-y:auto;
+		padding:1.1rem;
+		background:var(--theme-body-background);
+		border:1px solid var(--theme-border);
+		border-radius:6px;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2));
+		z-index:35; font-size:1rem; line-height:1.55;
+	}
+	#step-outline[hidden] { display:none; }
+	#step-outline h2 {
+		font-size:0.85rem; font-weight:700; letter-spacing:0.18em; text-transform:uppercase;
+		color: var(--theme-tertiary, #5c2d91); margin-bottom:0.5rem;
+	}
+	#step-outline .outline-section { margin-top:0.6rem; padding-top:0.6rem; border-top:1px solid var(--theme-border); }
+	#step-outline .outline-section:first-child { margin-top:0; padding-top:0; border-top:0; }
+	#step-outline .stat-row { display:flex; justify-content:space-between; align-items:baseline; gap:0.75rem; padding:0.2rem 0; }
+	#step-outline .stat-row span:first-child { color:var(--theme-text-subtle); flex:0 0 auto; max-width:45%; }
+	#step-outline .stat-row span:last-child { text-align:right; font-weight:600; color:var(--theme-tertiary, #5c2d91); flex:1 1 auto; }
+
+	.progress-track { position:relative; height:5px; background:var(--theme-border, #e0e0e0); flex-shrink:0; }
+	.progress-fill {
+		position:absolute; left:0; top:0; bottom:0; width:0%;
+		background:#5c2d91; transition:width 0.5s cubic-bezier(0.2,0.8,0.2,1);
+	}
+
+	.theme-toggle {
+		display:inline-flex; align-items:center; justify-content:center;
+		width:2.25rem; height:2.25rem; padding:0; margin-inline-start:0.25rem;
+		background:transparent; border:1px solid var(--theme-border); border-radius:999px;
+		color:var(--theme-text); cursor:pointer;
+		transition:background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+	}
+	.theme-toggle:hover { background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary); border-color:var(--theme-primary); }
+	.theme-toggle .theme-icon { display:none; }
+	.theme-toggle[data-theme="dark"]  .icon-sun  { display:block; }
+	.theme-toggle[data-theme="light"] .icon-moon { display:block; }
+
+	.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+	.skip-link {
+		position:absolute; top:-100px; left:0.5rem; z-index:100;
+		padding:0.5rem 1rem; background:var(--theme-primary); color:var(--theme-primary-invert, #fff);
+		border-radius:4px; text-decoration:none; font-weight:600;
+	}
+	.skip-link:focus { top:0.5rem; }
+
+	.lang-select {
+		appearance: none; -webkit-appearance: none;
+		background: var(--theme-card-background, #fff);
+		color: var(--theme-body-text, #333);
+		border: 1px solid var(--theme-border, rgba(0,0,0,0.2));
+		border-radius: 4px; padding: 4px 24px 4px 8px;
+		font-size: 0.8rem; font-family: 'Segoe UI', sans-serif; cursor: pointer;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+		background-repeat: no-repeat; background-position: right 6px center; min-width: 80px;
+	}
+	.lang-select:hover { border-color: var(--theme-primary, #0078d4); }
+	.lang-select:focus { outline: 2px solid var(--theme-primary, #0078d4); outline-offset: 1px; }
+	body.theme-dark .lang-select {
+		background-color: var(--theme-body-background, #1a1a2e);
+		color: var(--theme-body-text, #e0e0e0);
+		border-color: rgba(255,255,255,0.15);
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23aaa' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+	}
+	body.theme-dark .lang-select option { background: var(--theme-body-background, #1a1a2e); color: var(--theme-body-text, #e0e0e0); }
+
+	.font-size-controls { display:flex; align-items:center; gap:2px; }
+	.font-size-btn {
+		background: var(--theme-card-background, #fff);
+		color: var(--theme-body-text, #333);
+		border: 1px solid var(--theme-border, rgba(0,0,0,0.2));
+		border-radius: 4px; padding: 3px 8px;
+		font-size: 0.8rem; font-weight: 700; font-family: 'Segoe UI', sans-serif;
+		cursor: pointer; line-height: 1.2; transition: background 0.15s, border-color 0.15s;
+	}
+	.font-size-btn:hover { border-color: var(--theme-primary, #0078d4); }
+	body.theme-dark .font-size-btn {
+		background: var(--theme-body-background, #1a1a2e);
+		color: var(--theme-body-text, #e0e0e0);
+		border-color: rgba(255,255,255,0.15);
+	}
+
+	@media (max-width:640px) {
+		.app-header { font-size:0.95rem; }
+		.scene-title { font-size:1.9rem; }
+	}
+	@media (prefers-reduced-motion: reduce) {
+		*, *::before, *::after { transition:none !important; animation:none !important; }
+		.progress-fill { transition:none !important; }
+		.voice-mic .vm-emoji { animation:none !important; }
+	}
+</style>
+</head>
+
+<body class="theme-dark" data-theme-preset="atlas">
+
+	<a href="#stage" class="skip-link">Skip to diagram</a>
+
+	<header class="app-header padding-block-xs padding-inline-md border-bottom" role="banner" style="justify-content:space-between;">
+		<div class="display-flex align-items-center gap-xs">
+			<a href="index.html" class="header-back-link" aria-label="Back to the Foundry journey" title="Back to the Foundry journey">← Foundry journey</a>
+			<span id="page-title" class="font-size-h6 font-weight-semibold">🎤 Get Started with Azure AI Speech</span>
+		</div>
+		<nav class="display-flex gap-xs align-items-center" aria-label="Primary">
+			<span id="breadcrumb" class="font-size-sm color-text-subtle">Step 1</span>
+			<button id="callout-toggle" type="button" class="button button-clear button-sm" aria-label="Toggle callouts">💬 Callout</button>
+			<button id="outline-toggle" type="button" class="button button-clear button-sm"
+					aria-controls="step-outline" aria-expanded="false" aria-label="Hide text outline">📝 Outline</button>
+		</nav>
+		<div class="display-flex gap-xs align-items-center">
+			<select id="lang-select" class="lang-select" aria-label="Language">
+				<option value="en">English</option>
+				<option value="es">Español</option>
+				<option value="ja">日本語</option>
+				<option value="ko">한국어</option>
+				<option value="pt">Português</option>
+			</select>
+			<div class="font-size-controls">
+				<button id="font-decrease" type="button" class="font-size-btn" aria-label="Decrease font size" title="Smaller text">A−</button>
+				<button id="font-increase" type="button" class="font-size-btn" aria-label="Increase font size" title="Larger text">A+</button>
+			</div>
+			<button id="theme-toggle" type="button" class="theme-toggle" aria-label="Switch to light theme" title="Switch to light theme">
+				<svg class="theme-icon icon-moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+					<path fill="currentColor" d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/>
+				</svg>
+				<svg class="theme-icon icon-sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+					<g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+						<circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/>
+						<line x1="12" y1="2"  x2="12" y2="5"/>
+						<line x1="12" y1="19" x2="12" y2="22"/>
+						<line x1="2"  y1="12" x2="5"  y2="12"/>
+						<line x1="19" y1="12" x2="22" y2="12"/>
+						<line x1="4.5"  y1="4.5"  x2="6.5"  y2="6.5"/>
+						<line x1="17.5" y1="17.5" x2="19.5" y2="19.5"/>
+						<line x1="4.5"  y1="19.5" x2="6.5"  y2="17.5"/>
+						<line x1="17.5" y1="6.5"  x2="19.5" y2="4.5"/>
+					</g>
+				</svg>
+			</button>
+			<button id="header-hide" type="button" aria-label="Hide top bar" title="Hide top bar">
+				<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+					<path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/>
+				</svg>
+			</button>
+		</div>
+	</header>
+
+	<button id="header-reveal" type="button" aria-label="Show top bar" title="Show top bar">
+		<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+			<path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/>
+		</svg>
+		<span>Toolbar</span>
+	</button>
+
+	<div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
+
+	<main id="stage" tabindex="0" role="region" aria-labelledby="stage-heading" aria-describedby="stage-instructions">
+		<h1 id="stage-heading" class="sr-only">Get Started with Azure AI Speech — Microsoft Foundry</h1>
+		<p id="stage-instructions" class="sr-only">
+			Animated explainer for Azure AI Speech in Microsoft Foundry — speech to text, text to speech,
+			speech-to-speech agents, and Voice Live. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.
+		</p>
+		<div id="step-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+
+		<svg id="fx-svg" aria-hidden="true" focusable="false">
+			<defs>
+				<marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
+					<path d="M0,0 L0,10 L10,5 Z" fill="currentColor"/>
+				</marker>
+			</defs>
+		</svg>
+	</main>
+
+	<aside id="step-outline" hidden aria-label="Text outline of the current step">
+		<h2 id="outline-title">Step Details</h2>
+		<div id="outline-body"></div>
+	</aside>
+
+	<div id="controls" role="group" aria-label="Diagram navigation">
+		<button id="prev-btn" type="button" class="button ctrl-icon" aria-label="Previous step (left arrow)">◀</button>
+		<div class="step-counter" id="step-counter">0 / 0</div>
+		<button id="next-btn" type="button" class="button button-primary button-filled ctrl-icon ctrl-icon-next" aria-label="Next step (right arrow or space)">▶</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="replay-btn" type="button" class="button ctrl-icon" aria-label="Replay this step's animation (P)">↻</button>
+		<div class="speed-control" role="group" aria-label="Animation speed">
+			<button id="speed-down" type="button" class="button button-clear speed-btn" aria-label="Slower (-)" title="Slower">−</button>
+			<span id="speed-label" class="speed-label" aria-live="polite" aria-label="Current speed">1×</span>
+			<button id="speed-up" type="button" class="button button-clear speed-btn" aria-label="Faster (+)" title="Faster">+</button>
+		</div>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="reset-btn" type="button" class="button button-clear ctrl-icon" aria-label="Restart from step 1 (R)">⏮</button>
+	</div>
+
+<script>
+// ── THEME ─────────────────────────────────
+if (window.AW && AW.theme) {
+	AW.theme.onChange(() => { if (typeof renderStep === 'function' && current >= 0) renderStep(current); });
+}
+
+const SPEECH_ICON = '../../lib/icons/Azure_Public_Service_Icons/ai + machine learning/00797-icon-service-Speech-Services.svg';
+
+// ── i18n ──────────────────────────────────
+// English is the source language. Other locales translate the chrome and the
+// per-step narrative (title/caption/desc/callout/stats); in-scene example
+// micro-copy falls back to English automatically via t().
+let currentLang = 'en';
+const I18N = {
+	en: {
+		skipToMain: 'Skip to diagram',
+		pageTitle: 'Get Started with Azure AI Speech',
+		stageHeading: 'Get Started with Azure AI Speech — Microsoft Foundry',
+		stageInstructions: 'Explore Azure AI Speech in Microsoft Foundry — speech to text, text to speech, speech-to-speech agents, and Voice Live. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.',
+		prev: '◀ Prev', next: 'Next ▶', replay: '↻ Replay', restart: '↻ Restart',
+		slower: 'Slower', faster: 'Faster',
+		calloutOn: '💬 Callout: On', calloutOff: '💬 Callout: Off',
+		outlineOn: '📝 Outline: On', outlineOff: '📝 Outline: Off',
+		stepDetails: 'Step Details', stepOf: 'Step',
+
+		// ── Step 1 · Why voice ──
+		whyTitle: 'Why Give Software a Voice?',
+		whyCaption: 'The case for speech',
+		whyDesc: 'People naturally speak and listen. Azure AI Speech lets apps take voice instructions, answer spoken questions, and read text aloud — making software feel natural, accessible, and inclusive.',
+		whyCallout: 'Speech turns a keyboard-and-screen app into one you can <strong>talk to and listen to</strong> — hands-free, eyes-free, and open to everyone.',
+		whyValNatural: 'Natural', whyValAccessible: 'Accessible', whyValInclusive: 'Inclusive',
+		whyUse1: 'Voice instructions', whyUse2: 'Spoken questions & answers', whyUse3: 'Live captions',
+		whyStat1: 'What', whyStat1v: 'Speech in, speech out — for any app',
+		whyStat2: 'Why', whyStat2v: 'Natural, accessible, inclusive',
+		whyStat3: 'Where', whyStat3v: 'Azure AI Speech in Microsoft Foundry',
+
+		// ── Step 2 · Two capabilities ──
+		twoTitle: 'Two Core Capabilities',
+		twoCaption: 'Speech to text · text to speech',
+		twoDesc: 'Azure AI Speech works in both directions: it recognizes spoken audio and turns it into text, and it synthesizes written text into natural-sounding speech.',
+		twoCallout: 'One service, two directions — <strong>recognition</strong> (speech → text) and <strong>synthesis</strong> (text → speech). Combine them and an app can both listen and talk.',
+		twoSttTag: 'Speech recognition', twoSttTitle: 'Speech to Text',
+		twoSttIn: 'Spoken audio', twoSttOut: 'Text',
+		twoSttDesc: 'Converts microphone or recorded audio into accurate, readable text.',
+		twoTtsTag: 'Speech synthesis', twoTtsTitle: 'Text to Speech',
+		twoTtsIn: 'Text', twoTtsOut: 'Spoken audio',
+		twoTtsDesc: 'Reads written text aloud in a natural, human-like voice.',
+		twoStat1: 'Recognition', twoStat1v: 'Audio → text (STT)',
+		twoStat2: 'Synthesis', twoStat2v: 'Text → audio (TTS)',
+		twoStat3: 'Together', twoStat3v: 'Apps that listen and speak',
+
+		// ── Step 3 · Speech to text deep dive ──
+		sttTitle: 'How Speech to Text Works',
+		sttCaption: 'From sound waves to words',
+		sttDesc: 'An acoustic model turns the audio signal into phonemes — the basic units of sound — and a language model assembles those phonemes into the words and text you read.',
+		sttCallout: 'Two models do the work: an <strong>acoustic model</strong> maps audio to phonemes, and a <strong>language model</strong> turns phonemes into the most likely words.',
+		sttS1: 'Audio in', sttS1s: 'Microphone or file',
+		sttS2: 'Acoustic model', sttS2s: 'Signal → sound units',
+		sttS2b: 'Acoustic',
+		sttS3: 'Phonemes', sttS3s: 'Basic units of sound',
+		sttS4: 'Language model', sttS4s: 'Sounds → likely words',
+		sttS4b: 'Language',
+		sttS5: 'Words & text', sttS5s: 'Readable transcript',
+		sttResult: '"Where is my order?"',
+		sttUse: 'Captions · transcripts · dictation',
+		sttStat1: 'Acoustic model', sttStat1v: 'Audio signal → phonemes',
+		sttStat2: 'Language model', sttStat2v: 'Phonemes → words & text',
+		sttStat3: 'Powers', sttStat3v: 'Captions, transcripts, dictation',
+
+		// ── Step 4 · STT use cases ──
+		sttUcTitle: 'Speech to Text in the Real World',
+		sttUcCaption: 'Where recognition adds value',
+		sttUcDesc: 'Turning speech into text unlocks hands-free workflows and searchable records across many industries.',
+		sttUcCallout: 'Wherever people already talk, speech to text captures it as <strong>searchable, shareable text</strong> — no typing required.',
+		ucClinicalHead: 'Clinical dictation', ucClinicalDesc: 'Clinicians dictate notes hands-free while caring for patients.',
+		ucClinicalEx: '"Patient reports mild headache; advised rest and fluids." → typed straight into the record.',
+		ucClinicalCap1: 'Healthcare', ucClinicalCap2: 'Hands-free',
+		ucSupportHead: 'Call transcription', ucSupportDesc: 'Support and sales calls become searchable text for quality and compliance.',
+		ucSupportEx: 'Every customer call transcribed automatically for review and coaching.',
+		ucSupportCap1: 'Contact center', ucSupportCap2: 'Searchable',
+		ucMediaHead: 'Automated captioning', ucMediaDesc: 'Videos and live streams get accurate captions and subtitles in real time.',
+		ucMediaEx: 'Live captions appear on screen as a presenter speaks.',
+		ucMediaCap1: 'Media', ucMediaCap2: 'Accessibility',
+		ucLearningHead: 'Pronunciation feedback', ucLearningDesc: 'Language-learning apps score how closely a learner matches a target phrase.',
+		ucLearningEx: 'A learner reads aloud and gets instant pronunciation scoring.',
+		ucLearningCap1: 'Education', ucLearningCap2: 'Assessment',
+		sttUcStat1: 'Pattern', sttUcStat1v: 'Spoken audio → text',
+		sttUcStat2: 'Value', sttUcStat2v: 'Hands-free, searchable, accessible',
+		sttUcStat3: 'Industries', sttUcStat3v: 'Health, support, media, education',
+
+		// ── Step 5 · Text to speech deep dive ──
+		ttsTitle: 'How Text to Speech Works',
+		ttsCaption: 'From words to natural voice',
+		ttsDesc: 'Azure AI Speech tokenizes the text, converts it to phonetic and prosodic units, then generates audio — and you choose the voice, rate, pitch, and volume.',
+		ttsCallout: 'Synthesis breaks text into <strong>phonetic and prosodic units</strong>, then renders audio. Voice, rate, pitch, and volume let you shape how it sounds.',
+		ttsS1: 'Text + voice', ttsS1s: 'What to say & who says it',
+		ttsS2: 'Tokenize', ttsS2s: 'Split into words',
+		ttsS3: 'Phonetic units', ttsS3s: 'How words sound',
+		ttsS4: 'Prosodic units', ttsS4s: 'Rhythm & intonation',
+		ttsS5: 'Audio out', ttsS5s: 'Natural speech',
+		ttsControlsHead: 'Shape the voice',
+		ttsVoice: 'Voice', ttsVoiceSub: 'Which speaker',
+		ttsRate: 'Rate', ttsRateSub: 'Speaking speed',
+		ttsPitch: 'Pitch', ttsPitchSub: 'Higher or lower',
+		ttsVolume: 'Volume', ttsVolumeSub: 'Louder or softer',
+		ttsResult: '"Your order is on its way."',
+		ttsStat1: 'Input', ttsStat1v: 'Text + a chosen voice',
+		ttsStat2: 'Pipeline', ttsStat2v: 'Tokenize → phonetic → prosodic → audio',
+		ttsStat3: 'Controls', ttsStat3v: 'Voice, rate, pitch, volume',
+
+		// ── Step 6 · Azure Speech TTS API ──
+		apiTitle: 'The Azure Speech TTS API',
+		apiCaption: 'Call it from code in Foundry',
+		apiDesc: 'In the Foundry portal you pick a voice and call the text-to-speech API. Choose predefined voices in many languages and regional accents, lifelike neural voices, or a custom voice that is uniquely yours.',
+		apiCallout: 'Send text and a voice name to the API and get back audio. <strong>Neural voices</strong> use neural networks for natural intonation; <strong>custom voices</strong> give your brand its own sound.',
+		apiReqFile: 'synthesize.py · request',
+		apiResFile: 'response · audio',
+		apiVoicesHead: 'Voice options',
+		apiVoiceNeural1: 'Jenny', apiVoiceNeural1m: 'en-US · Neural',
+		apiVoiceNeural2: 'Guy', apiVoiceNeural2m: 'en-US · Neural',
+		apiVoiceNeural3: 'Nanami', apiVoiceNeural3m: 'ja-JP · Neural',
+		apiVoiceCustom: 'Contoso Brand', apiVoiceCustomm: 'Your custom voice',
+		apiTagNeural: 'Neural', apiTagCustom: 'Custom',
+		apiStat1: 'Predefined voices', apiStat1v: 'Many languages & regional accents',
+		apiStat2: 'Neural voices', apiStat2v: 'Neural networks · natural intonation',
+		apiStat3: 'Custom voices', apiStat3v: 'A unique voice for your brand',
+
+		// ── Step 7 · Speech-to-speech pipeline ──
+		s2sTitle: 'Speech-Capable Agents',
+		s2sCaption: 'Speech in, speech out',
+		s2sDesc: 'Chain the two capabilities and an agent becomes a voice partner: speech to text captures what the user says, the agent reasons over it, and text to speech replies aloud.',
+		s2sCallout: 'Speech-to-speech is a <strong>pipeline</strong>: STT transcribes the question, the agent processes and reasons, and TTS speaks the answer back.',
+		s2sUserIn: 'User speaks', s2sUserInSub: 'Spoken question',
+		s2sStt: 'Speech to Text', s2sSttSub: 'Audio → text',
+		s2sBrain: 'Agent', s2sBrainSub: 'Process & reason',
+		s2sTts: 'Text to Speech', s2sTtsSub: 'Text → audio',
+		s2sUserOut: 'Agent replies', s2sUserOutSub: 'Spoken answer',
+		s2sStat1: 'Step 1', s2sStat1v: 'STT — transcribe the spoken input',
+		s2sStat2: 'Step 2', s2sStat2v: 'Agent — process and reason',
+		s2sStat3: 'Step 3', s2sStat3v: 'TTS — speak the response',
+
+		// ── Step 8 · Speech-to-speech scenarios ──
+		scenTitle: 'Speech-to-Speech Scenarios',
+		scenCaption: 'Where voice agents shine',
+		scenDesc: 'Once an agent can listen and talk, whole new experiences open up — from hands-free help to real-time translation.',
+		scenCallout: 'Speech-to-speech powers experiences where typing is impractical or unnatural — <strong>voice assistants, translation, hands-free, and accessibility</strong>.',
+		ucAssistHead: 'Voice assistants & agents', ucAssistDesc: 'Conversational agents answer questions and take action by voice.',
+		ucAssistEx: '"Reschedule my 3 pm meeting to tomorrow." → done, confirmed aloud.',
+		ucAssistCap1: 'Conversational', ucAssistCap2: 'Action-taking',
+		ucTransHead: 'Speech translation', ucTransDesc: 'Speak in one language and hear the response in another.',
+		ucTransEx: 'A traveler asks in English; the agent replies in Japanese.',
+		ucTransCap1: 'Multilingual', ucTransCap2: 'Real-time',
+		ucHandsHead: 'Hands-free experiences', ucHandsDesc: 'Drivers, technicians, and clinicians interact without touching a screen.',
+		ucHandsEx: '"What\'s the next step?" asked while both hands are busy.',
+		ucHandsCap1: 'Eyes-free', ucHandsCap2: 'On the go',
+		ucA11yHead: 'Accessibility & support', ucA11yDesc: 'Voice-first support bots help users who can\'t easily type or read.',
+		ucA11yEx: 'A support bot listens, understands, and answers by voice.',
+		ucA11yCap1: 'Inclusive', ucA11yCap2: 'Support bots',
+		scenStat1: 'Voice assistants', scenStat1v: 'Conversational, action-taking agents',
+		scenStat2: 'Translation', scenStat2v: 'Speak one language, hear another',
+		scenStat3: 'Access', scenStat3v: 'Hands-free & accessibility',
+
+		// ── Step 9 · Voice Live ──
+		vlTitle: 'Azure AI Speech Voice Live',
+		vlCaption: 'One managed real-time service',
+		vlDesc: 'Building a voice agent by hand means stitching together STT, reasoning, and TTS. Voice Live combines them into a single Azure-managed service for real-time voice conversations.',
+		vlCallout: 'Instead of wiring up many pieces, the <strong>Voice Live API</strong> handles speech in, reasoning, and speech out — and can return avatars and trigger actions too.',
+		vlManyHead: 'Build it yourself',
+		vlManyPiece1: 'Speech to Text', vlManyPiece2: 'Reasoning / agent', vlManyPiece3: 'Text to Speech',
+		vlManyGlue: 'You wire up, sync, and manage each piece and the timing between them.',
+		vlOneHead: 'With Voice Live',
+		vlOneTitle: 'Voice Live API', vlOneSub: 'STT + reasoning + TTS, managed',
+		vlOut1: 'Spoken responses', vlOut2: 'Avatars & visuals', vlOut3: 'Triggers actions',
+		vlStat1: 'What', vlStat1v: 'One real-time, managed voice service',
+		vlStat2: 'Combines', vlStat2v: 'STT + reasoning + TTS in one API',
+		vlStat3: 'Returns', vlStat3v: 'Speech, avatars/visuals, actions',
+
+		// ── Step 10 · Architecture ──
+		archTitle: 'How It Fits Together',
+		archCaption: 'Speech · agent · tools',
+		archDesc: 'A voice solution layers three things: Azure AI Speech for the ears and mouth, your agent or app logic for the decisions, and Foundry tools or MCP servers that expose speech as callable capabilities.',
+		archCallout: 'Azure AI Speech provides <strong>STT and TTS</strong>, your <strong>agent or app logic</strong> decides what to do, and <strong>Foundry tools / MCP servers</strong> expose speech as callable tools.',
+		archSpeechTitle: 'Azure AI Speech', archSpeechSub: 'The ears and the mouth — recognizes and synthesizes audio.',
+		archSpeechC1: 'Speech to Text', archSpeechC2: 'Text to Speech', archSpeechC3: 'Voice Live',
+		archAgentTitle: 'Agents & application logic', archAgentSub: 'The brain — decides what to do with what it heard.',
+		archAgentC1: 'Reasoning', archAgentC2: 'Workflow', archAgentC3: 'Decisions',
+		archToolsTitle: 'Foundry tools / MCP servers', archToolsSub: 'The hands — expose speech as callable tools for agents.',
+		archToolsC1: 'Callable tools', archToolsC2: 'MCP servers', archToolsC3: 'Reusable',
+		archStat1: 'Speech', archStat1v: 'Azure AI Speech — STT & TTS',
+		archStat2: 'Logic', archStat2v: 'Agents & application decisions',
+		archStat3: 'Tools', archStat3v: 'Foundry tools / MCP servers',
+
+		// ── Step 11 · Get started / build ──
+		buildTitle: 'Get Started in Foundry',
+		buildCaption: 'From zero to talking apps',
+		buildDesc: 'Create an Azure AI Speech resource, try voices in the Foundry portal, then call speech to text and text to speech from your app — or connect them to an agent.',
+		buildCallout: 'Prebuilt and ready: <strong>create the resource, try a voice, call the API.</strong> The same endpoint powers your code and your agents.',
+		buildHeroTitle: 'Your app & agents → Azure AI Speech',
+		buildAppNode: 'Your app', buildAppSub: 'Web, mobile, desktop',
+		buildAgentNode: 'Your agent', buildAgentSub: 'Conversational AI',
+		buildPathSdk: 'Speech SDK', buildPathMcp: 'via MCP',
+		buildLangNode: 'Azure AI Speech', buildLangSub: 'STT · TTS · Voice Live',
+		buildStepsTitle: 'How to start',
+		buildStep1: 'Create a Speech resource', buildStep1s: 'In the Foundry portal',
+		buildStep2: 'Try voices in the portal', buildStep2s: 'Preview neural voices',
+		buildStep3: 'Grab endpoint & key', buildStep3s: 'Or use Entra ID',
+		buildStep4: 'Call STT / TTS', buildStep4s: 'Speech SDK or REST',
+		buildStep5: 'Tune the voice', buildStep5s: 'SSML: rate, pitch, volume',
+		buildStep6: 'Connect to an agent', buildStep6s: 'Or use Voice Live',
+		buildIntegrateTitle: 'Call it from code',
+		buildIntegrateSub: 'Use the Azure Speech SDK — one client, recognize and synthesize',
+		buildVal1: '🗣️ Natural', buildVal2: '♿ Accessible', buildVal3: '🌐 Multilingual', buildVal4: '⚡ Real-time', buildVal5: '🎙️ Custom voices',
+		buildStat1: 'Setup', buildStat1v: 'Create resource → portal → call API',
+		buildStat2: 'Value', buildStat2v: 'Natural, accessible, multilingual, real-time',
+		buildStat3: 'Where', buildStat3v: 'Foundry portal (ai.azure.com)'
+	}
+};
+
+// ── Spanish ───────────────────────────────
+I18N.es = { ...I18N.en,
+	skipToMain: 'Saltar al diagrama',
+	pageTitle: 'Comienza con Azure AI Speech',
+	stageHeading: 'Comienza con Azure AI Speech — Microsoft Foundry',
+	stageInstructions: 'Explora Azure AI Speech en Microsoft Foundry: voz a texto, texto a voz, agentes de voz a voz y Voice Live. Usa los botones Siguiente/Anterior o las flechas para navegar. Pulsa R para reiniciar.',
+	prev: '◀ Anterior', next: 'Siguiente ▶', replay: '↻ Repetir', restart: '↻ Reiniciar',
+	slower: 'Más lento', faster: 'Más rápido',
+	calloutOn: '💬 Nota: Activada', calloutOff: '💬 Nota: Desactivada',
+	outlineOn: '📝 Esquema: Activado', outlineOff: '📝 Esquema: Desactivado',
+	stepDetails: 'Detalles del paso', stepOf: 'Paso',
+
+	whyTitle: '¿Por qué dar voz al software?',
+	whyCaption: 'El valor del habla',
+	whyDesc: 'Las personas hablan y escuchan de forma natural. Azure AI Speech permite que las apps reciban instrucciones por voz, respondan preguntas habladas y lean texto en voz alta, haciendo el software natural, accesible e inclusivo.',
+	whyCallout: 'El habla convierte una app de teclado y pantalla en una con la que puedes <strong>hablar y escuchar</strong>: manos libres, sin mirar y abierta a todos.',
+	whyValNatural: 'Natural', whyValAccessible: 'Accesible', whyValInclusive: 'Inclusivo',
+	whyStat1: 'Qué', whyStat1v: 'Voz de entrada y de salida, para cualquier app',
+	whyStat2: 'Por qué', whyStat2v: 'Natural, accesible, inclusivo',
+	whyStat3: 'Dónde', whyStat3v: 'Azure AI Speech en Microsoft Foundry',
+
+	twoTitle: 'Dos capacidades principales',
+	twoCaption: 'Voz a texto · texto a voz',
+	twoDesc: 'Azure AI Speech funciona en ambas direcciones: reconoce el audio hablado y lo convierte en texto, y sintetiza texto escrito en un habla con sonido natural.',
+	twoCallout: 'Un servicio, dos direcciones: <strong>reconocimiento</strong> (voz → texto) y <strong>síntesis</strong> (texto → voz). Combínalos y una app podrá escuchar y hablar.',
+	twoSttTag: 'Reconocimiento de voz', twoSttTitle: 'Voz a texto',
+	twoSttDesc: 'Convierte el audio del micrófono o grabado en texto preciso y legible.',
+	twoTtsTag: 'Síntesis de voz', twoTtsTitle: 'Texto a voz',
+	twoTtsDesc: 'Lee texto escrito en voz alta con una voz natural y humana.',
+	twoStat1: 'Reconocimiento', twoStat1v: 'Audio → texto (STT)',
+	twoStat2: 'Síntesis', twoStat2v: 'Texto → audio (TTS)',
+	twoStat3: 'Juntos', twoStat3v: 'Apps que escuchan y hablan',
+
+	sttTitle: 'Cómo funciona la voz a texto',
+	sttCaption: 'De ondas de sonido a palabras',
+	sttDesc: 'Un modelo acústico convierte la señal de audio en fonemas (las unidades básicas del sonido) y un modelo de lenguaje ensambla esos fonemas en las palabras y el texto que lees.',
+	sttCallout: 'Dos modelos hacen el trabajo: un <strong>modelo acústico</strong> mapea audio a fonemas y un <strong>modelo de lenguaje</strong> convierte fonemas en las palabras más probables.',
+	sttUse: 'Subtítulos · transcripciones · dictado',
+	sttStat1: 'Modelo acústico', sttStat1v: 'Señal de audio → fonemas',
+	sttStat2: 'Modelo de lenguaje', sttStat2v: 'Fonemas → palabras y texto',
+	sttStat3: 'Impulsa', sttStat3v: 'Subtítulos, transcripciones, dictado',
+
+	sttUcTitle: 'Voz a texto en el mundo real',
+	sttUcCaption: 'Dónde aporta valor el reconocimiento',
+	sttUcDesc: 'Convertir el habla en texto habilita flujos manos libres y registros que se pueden buscar en muchos sectores.',
+	sttUcCallout: 'Donde la gente ya habla, la voz a texto lo captura como <strong>texto que se puede buscar y compartir</strong>, sin teclear.',
+	sttUcStat1: 'Patrón', sttUcStat1v: 'Audio hablado → texto',
+	sttUcStat2: 'Valor', sttUcStat2v: 'Manos libres, buscable, accesible',
+	sttUcStat3: 'Sectores', sttUcStat3v: 'Salud, soporte, medios, educación',
+
+	ttsTitle: 'Cómo funciona el texto a voz',
+	ttsCaption: 'De palabras a voz natural',
+	ttsDesc: 'Azure AI Speech tokeniza el texto, lo convierte en unidades fonéticas y prosódicas y luego genera audio; y tú eliges la voz, la velocidad, el tono y el volumen.',
+	ttsCallout: 'La síntesis divide el texto en <strong>unidades fonéticas y prosódicas</strong> y luego genera el audio. La voz, la velocidad, el tono y el volumen permiten dar forma al sonido.',
+	ttsControlsHead: 'Da forma a la voz',
+	ttsVoice: 'Voz', ttsVoiceSub: 'Qué hablante',
+	ttsRate: 'Velocidad', ttsRateSub: 'Ritmo del habla',
+	ttsPitch: 'Tono', ttsPitchSub: 'Más alto o bajo',
+	ttsVolume: 'Volumen', ttsVolumeSub: 'Más alto o suave',
+	ttsStat1: 'Entrada', ttsStat1v: 'Texto + una voz elegida',
+	ttsStat2: 'Proceso', ttsStat2v: 'Tokenizar → fonético → prosódico → audio',
+	ttsStat3: 'Controles', ttsStat3v: 'Voz, velocidad, tono, volumen',
+
+	apiTitle: 'La API de texto a voz de Azure Speech',
+	apiCaption: 'Llámala desde código en Foundry',
+	apiDesc: 'En el portal de Foundry eliges una voz y llamas a la API de texto a voz. Elige voces predefinidas en muchos idiomas y acentos regionales, voces neuronales realistas o una voz personalizada que sea solo tuya.',
+	apiCallout: 'Envía texto y un nombre de voz a la API y obtén audio. Las <strong>voces neuronales</strong> usan redes neuronales para una entonación natural; las <strong>voces personalizadas</strong> dan a tu marca su propio sonido.',
+	apiVoicesHead: 'Opciones de voz',
+	apiVoiceCustom: 'Marca Contoso', apiVoiceCustomm: 'Tu voz personalizada',
+	apiTagNeural: 'Neuronal', apiTagCustom: 'Personalizada',
+	apiStat1: 'Voces predefinidas', apiStat1v: 'Muchos idiomas y acentos regionales',
+	apiStat2: 'Voces neuronales', apiStat2v: 'Redes neuronales · entonación natural',
+	apiStat3: 'Voces personalizadas', apiStat3v: 'Una voz única para tu marca',
+
+	s2sTitle: 'Agentes con capacidad de voz',
+	s2sCaption: 'Voz de entrada, voz de salida',
+	s2sDesc: 'Encadena las dos capacidades y un agente se vuelve un compañero de voz: la voz a texto capta lo que dice el usuario, el agente razona sobre ello y el texto a voz responde en voz alta.',
+	s2sCallout: 'La voz a voz es un <strong>flujo</strong>: STT transcribe la pregunta, el agente procesa y razona, y TTS pronuncia la respuesta.',
+	s2sStat1: 'Paso 1', s2sStat1v: 'STT: transcribe la entrada hablada',
+	s2sStat2: 'Paso 2', s2sStat2v: 'Agente: procesa y razona',
+	s2sStat3: 'Paso 3', s2sStat3v: 'TTS: pronuncia la respuesta',
+
+	scenTitle: 'Escenarios de voz a voz',
+	scenCaption: 'Donde brillan los agentes de voz',
+	scenDesc: 'Cuando un agente puede escuchar y hablar, se abren experiencias totalmente nuevas, desde ayuda manos libres hasta traducción en tiempo real.',
+	scenCallout: 'La voz a voz impulsa experiencias donde teclear es poco práctico o poco natural: <strong>asistentes de voz, traducción, manos libres y accesibilidad</strong>.',
+	scenStat1: 'Asistentes de voz', scenStat1v: 'Agentes conversacionales que actúan',
+	scenStat2: 'Traducción', scenStat2v: 'Habla un idioma, escucha otro',
+	scenStat3: 'Acceso', scenStat3v: 'Manos libres y accesibilidad',
+
+	vlTitle: 'Azure AI Speech Voice Live',
+	vlCaption: 'Un servicio gestionado en tiempo real',
+	vlDesc: 'Crear un agente de voz a mano implica unir STT, razonamiento y TTS. Voice Live los combina en un único servicio gestionado por Azure para conversaciones de voz en tiempo real.',
+	vlCallout: 'En lugar de conectar muchas piezas, la <strong>API de Voice Live</strong> gestiona la voz de entrada, el razonamiento y la voz de salida, y también puede devolver avatares y desencadenar acciones.',
+	vlManyHead: 'Constrúyelo tú mismo',
+	vlManyGlue: 'Tú conectas, sincronizas y gestionas cada pieza y los tiempos entre ellas.',
+	vlOneHead: 'Con Voice Live',
+	vlOneTitle: 'API de Voice Live', vlOneSub: 'STT + razonamiento + TTS, gestionado',
+	vlOut1: 'Respuestas habladas', vlOut2: 'Avatares y visuales', vlOut3: 'Desencadena acciones',
+	vlStat1: 'Qué', vlStat1v: 'Un servicio de voz gestionado en tiempo real',
+	vlStat2: 'Combina', vlStat2v: 'STT + razonamiento + TTS en una API',
+	vlStat3: 'Devuelve', vlStat3v: 'Voz, avatares/visuales, acciones',
+
+	archTitle: 'Cómo encaja todo',
+	archCaption: 'Voz · agente · herramientas',
+	archDesc: 'Una solución de voz combina tres elementos: Azure AI Speech como oídos y boca, tu agente o lógica de aplicación para las decisiones, y herramientas de Foundry o servidores MCP que exponen el habla como capacidades invocables.',
+	archCallout: 'Azure AI Speech aporta <strong>STT y TTS</strong>, tu <strong>agente o lógica de app</strong> decide qué hacer, y las <strong>herramientas de Foundry / servidores MCP</strong> exponen el habla como herramientas invocables.',
+	archSpeechTitle: 'Azure AI Speech', archSpeechSub: 'Los oídos y la boca: reconoce y sintetiza audio.',
+	archAgentTitle: 'Agentes y lógica de aplicación', archAgentSub: 'El cerebro: decide qué hacer con lo que escuchó.',
+	archToolsTitle: 'Herramientas de Foundry / servidores MCP', archToolsSub: 'Las manos: exponen el habla como herramientas invocables.',
+	archStat1: 'Voz', archStat1v: 'Azure AI Speech — STT y TTS',
+	archStat2: 'Lógica', archStat2v: 'Agentes y decisiones de la aplicación',
+	archStat3: 'Herramientas', archStat3v: 'Herramientas de Foundry / servidores MCP',
+
+	buildTitle: 'Comienza en Foundry',
+	buildCaption: 'De cero a apps que hablan',
+	buildDesc: 'Crea un recurso de Azure AI Speech, prueba voces en el portal de Foundry y luego llama a voz a texto y texto a voz desde tu app, o conéctalos a un agente.',
+	buildCallout: 'Listo y preconstruido: <strong>crea el recurso, prueba una voz, llama a la API.</strong> El mismo endpoint impulsa tu código y tus agentes.',
+	buildHeroTitle: 'Tu app y agentes → Azure AI Speech',
+	buildAppNode: 'Tu app', buildAppSub: 'Web, móvil, escritorio',
+	buildAgentNode: 'Tu agente', buildAgentSub: 'IA conversacional',
+	buildPathSdk: 'SDK de Speech', buildPathMcp: 'vía MCP',
+	buildLangNode: 'Azure AI Speech', buildLangSub: 'STT · TTS · Voice Live',
+	buildStepsTitle: 'Cómo empezar',
+	buildStep1: 'Crea un recurso de Speech', buildStep1s: 'En el portal de Foundry',
+	buildStep2: 'Prueba voces en el portal', buildStep2s: 'Previsualiza voces neuronales',
+	buildStep3: 'Obtén endpoint y clave', buildStep3s: 'O usa Entra ID',
+	buildStep4: 'Llama a STT / TTS', buildStep4s: 'SDK de Speech o REST',
+	buildStep5: 'Ajusta la voz', buildStep5s: 'SSML: velocidad, tono, volumen',
+	buildStep6: 'Conecta a un agente', buildStep6s: 'O usa Voice Live',
+	buildIntegrateTitle: 'Llámalo desde código',
+	buildIntegrateSub: 'Usa el SDK de Azure Speech: un cliente, reconoce y sintetiza',
+	buildStat1: 'Configuración', buildStat1v: 'Crear recurso → portal → llamar API',
+	buildStat2: 'Valor', buildStat2v: 'Natural, accesible, multilingüe, en tiempo real',
+	buildStat3: 'Dónde', buildStat3v: 'Portal de Foundry (ai.azure.com)',
+	whyUse1: 'Instrucciones por voz', whyUse2: 'Preguntas y respuestas habladas', whyUse3: 'Subtítulos en vivo',
+	twoSttIn: 'Audio hablado', twoSttOut: 'Texto', twoTtsIn: 'Texto', twoTtsOut: 'Audio hablado',
+	sttS1: 'Audio de entrada', sttS1s: 'Micrófono o archivo',
+	sttS2: 'Modelo acústico', sttS2s: 'Señal → unidades de sonido', sttS2b: 'Acústico',
+	sttS3: 'Fonemas', sttS3s: 'Unidades básicas del sonido',
+	sttS4: 'Modelo de lenguaje', sttS4s: 'Sonidos → palabras probables', sttS4b: 'Lenguaje',
+	sttS5: 'Palabras y texto', sttS5s: 'Transcripción legible',
+	sttResult: '"¿Dónde está mi pedido?"',
+	ucClinicalHead: 'Dictado clínico', ucClinicalDesc: 'Los médicos dictan notas con las manos libres mientras atienden a los pacientes.', ucClinicalEx: '"El paciente refiere cefalea leve; se aconseja reposo e hidratación." → escrito directamente en el registro.', ucClinicalCap1: 'Salud', ucClinicalCap2: 'Manos libres',
+	ucSupportHead: 'Transcripción de llamadas', ucSupportDesc: 'Las llamadas de soporte y ventas se convierten en texto buscable para calidad y cumplimiento.', ucSupportEx: 'Cada llamada de cliente se transcribe automáticamente para revisión y formación.', ucSupportCap1: 'Centro de contacto', ucSupportCap2: 'Buscable',
+	ucMediaHead: 'Subtitulado automático', ucMediaDesc: 'Los vídeos y las transmisiones en vivo reciben subtítulos precisos en tiempo real.', ucMediaEx: 'Los subtítulos en vivo aparecen en pantalla mientras habla el presentador.', ucMediaCap1: 'Medios', ucMediaCap2: 'Accesibilidad',
+	ucLearningHead: 'Evaluación de pronunciación', ucLearningDesc: 'Las apps de aprendizaje de idiomas puntúan qué tan cerca está el alumno de una frase objetivo.', ucLearningEx: 'Un alumno lee en voz alta y recibe una puntuación de pronunciación al instante.', ucLearningCap1: 'Educación', ucLearningCap2: 'Evaluación',
+	ttsS1: 'Texto + voz', ttsS1s: 'Qué decir y quién lo dice',
+	ttsS2: 'Tokenizar', ttsS2s: 'Dividir en palabras',
+	ttsS3: 'Unidades fonéticas', ttsS3s: 'Cómo suenan las palabras',
+	ttsS4: 'Unidades prosódicas', ttsS4s: 'Ritmo y entonación',
+	ttsS5: 'Audio de salida', ttsS5s: 'Habla natural',
+	ttsResult: '"Tu pedido está en camino."',
+	apiReqFile: 'synthesize.py · solicitud', apiResFile: 'respuesta · audio',
+	apiVoiceNeural1m: 'en-US · Neuronal', apiVoiceNeural2m: 'en-US · Neuronal', apiVoiceNeural3m: 'ja-JP · Neuronal',
+	s2sUserIn: 'El usuario habla', s2sUserInSub: 'Pregunta hablada',
+	s2sStt: 'Voz a texto', s2sSttSub: 'Audio → texto',
+	s2sBrain: 'Agente', s2sBrainSub: 'Procesa y razona',
+	s2sTts: 'Texto a voz', s2sTtsSub: 'Texto → audio',
+	s2sUserOut: 'El agente responde', s2sUserOutSub: 'Respuesta hablada',
+	ucAssistHead: 'Asistentes y agentes de voz', ucAssistDesc: 'Los agentes conversacionales responden preguntas y actúan por voz.', ucAssistEx: '"Cambia mi reunión de las 3 pm a mañana." → hecho, confirmado en voz alta.', ucAssistCap1: 'Conversacional', ucAssistCap2: 'Toma acción',
+	ucTransHead: 'Traducción del habla', ucTransDesc: 'Habla en un idioma y escucha la respuesta en otro.', ucTransEx: 'Un viajero pregunta en inglés; el agente responde en japonés.', ucTransCap1: 'Multilingüe', ucTransCap2: 'En tiempo real',
+	ucHandsHead: 'Experiencias manos libres', ucHandsDesc: 'Conductores, técnicos y médicos interactúan sin tocar una pantalla.', ucHandsEx: '"¿Cuál es el siguiente paso?" preguntado con ambas manos ocupadas.', ucHandsCap1: 'Sin mirar', ucHandsCap2: 'En movimiento',
+	ucA11yHead: 'Accesibilidad y soporte', ucA11yDesc: 'Los bots de soporte por voz ayudan a usuarios que no pueden teclear o leer con facilidad.', ucA11yEx: 'Un bot de soporte escucha, entiende y responde por voz.', ucA11yCap1: 'Inclusivo', ucA11yCap2: 'Bots de soporte',
+	vlManyPiece1: 'Voz a texto', vlManyPiece2: 'Razonamiento / agente', vlManyPiece3: 'Texto a voz',
+	archSpeechC1: 'Voz a texto', archSpeechC2: 'Texto a voz',
+	archAgentC1: 'Razonamiento', archAgentC2: 'Flujo de trabajo', archAgentC3: 'Decisiones',
+	archToolsC1: 'Herramientas invocables', archToolsC3: 'Reutilizable',
+	buildVal1: '🗣️ Natural', buildVal2: '♿ Accesible', buildVal3: '🌐 Multilingüe', buildVal4: '⚡ Tiempo real', buildVal5: '🎙️ Voces personalizadas'
+};
+
+// ── Japanese ──────────────────────────────
+I18N.ja = { ...I18N.en,
+	skipToMain: '図へスキップ',
+	pageTitle: 'Azure AI Speech を始めよう',
+	stageHeading: 'Azure AI Speech を始めよう — Microsoft Foundry',
+	stageInstructions: 'Microsoft Foundry の Azure AI Speech を体験しましょう。音声認識、音声合成、音声対音声エージェント、Voice Live。次へ/前へボタンまたは矢印キーで移動し、R でリスタートします。',
+	prev: '◀ 前へ', next: '次へ ▶', replay: '↻ 再生', restart: '↻ リスタート',
+	slower: '遅く', faster: '速く',
+	calloutOn: '💬 注釈: オン', calloutOff: '💬 注釈: オフ',
+	outlineOn: '📝 アウトライン: オン', outlineOff: '📝 アウトライン: オフ',
+	stepDetails: 'ステップの詳細', stepOf: 'ステップ',
+
+	whyTitle: 'なぜソフトウェアに声を?',
+	whyCaption: '音声の価値',
+	whyDesc: '人は自然に話し、聞きます。Azure AI Speech を使うと、アプリは音声の指示を受け取り、話し言葉の質問に答え、テキストを読み上げられます。ソフトウェアが自然で、アクセシブルで、包括的になります。',
+	whyCallout: '音声は、キーボードと画面のアプリを<strong>話して聞ける</strong>アプリに変えます。ハンズフリー、視線フリーで、誰もが使えます。',
+	whyValNatural: '自然', whyValAccessible: 'アクセシブル', whyValInclusive: '包括的',
+	whyStat1: '内容', whyStat1v: '音声の入力と出力、あらゆるアプリに',
+	whyStat2: '理由', whyStat2v: '自然・アクセシブル・包括的',
+	whyStat3: '場所', whyStat3v: 'Microsoft Foundry の Azure AI Speech',
+
+	twoTitle: '2 つの主要機能',
+	twoCaption: '音声認識 · 音声合成',
+	twoDesc: 'Azure AI Speech は双方向に機能します。話し言葉の音声を認識してテキストに変換し、書かれたテキストを自然な音声に合成します。',
+	twoCallout: '1 つのサービスで 2 方向。<strong>認識</strong>(音声 → テキスト)と<strong>合成</strong>(テキスト → 音声)。組み合わせれば、アプリは聞いて話せます。',
+	twoSttTag: '音声認識', twoSttTitle: '音声からテキスト',
+	twoSttDesc: 'マイクや録音の音声を、正確で読みやすいテキストに変換します。',
+	twoTtsTag: '音声合成', twoTtsTitle: 'テキストから音声',
+	twoTtsDesc: '書かれたテキストを、人間のように自然な声で読み上げます。',
+	twoStat1: '認識', twoStat1v: '音声 → テキスト (STT)',
+	twoStat2: '合成', twoStat2v: 'テキスト → 音声 (TTS)',
+	twoStat3: '組み合わせ', twoStat3v: '聞いて話すアプリ',
+
+	sttTitle: '音声認識のしくみ',
+	sttCaption: '音波から言葉へ',
+	sttDesc: '音響モデルが音声信号を音素(音の基本単位)に変換し、言語モデルがそれらの音素を、あなたが読む単語とテキストに組み立てます。',
+	sttCallout: '2 つのモデルが働きます。<strong>音響モデル</strong>が音声を音素に対応づけ、<strong>言語モデル</strong>が音素を最も可能性の高い単語に変換します。',
+	sttUse: '字幕 · 文字起こし · ディクテーション',
+	sttStat1: '音響モデル', sttStat1v: '音声信号 → 音素',
+	sttStat2: '言語モデル', sttStat2v: '音素 → 単語とテキスト',
+	sttStat3: '用途', sttStat3v: '字幕、文字起こし、ディクテーション',
+
+	sttUcTitle: '実世界の音声認識',
+	sttUcCaption: '認識が価値を生む場面',
+	sttUcDesc: '音声をテキストに変換することで、多くの業界でハンズフリーの業務や検索可能な記録が実現します。',
+	sttUcCallout: '人が既に話している場面で、音声認識はそれを<strong>検索・共有できるテキスト</strong>として取り込みます。入力は不要です。',
+	sttUcStat1: 'パターン', sttUcStat1v: '話し言葉の音声 → テキスト',
+	sttUcStat2: '価値', sttUcStat2v: 'ハンズフリー、検索可能、アクセシブル',
+	sttUcStat3: '業界', sttUcStat3v: '医療、サポート、メディア、教育',
+
+	ttsTitle: '音声合成のしくみ',
+	ttsCaption: '言葉から自然な声へ',
+	ttsDesc: 'Azure AI Speech はテキストをトークン化し、音声(発音)・韻律の単位に変換してから音声を生成します。声、速度、ピッチ、音量はあなたが選べます。',
+	ttsCallout: '合成はテキストを<strong>発音と韻律の単位</strong>に分解してから音声を生成します。声、速度、ピッチ、音量で響きを調整できます。',
+	ttsControlsHead: '声を調整する',
+	ttsVoice: '声', ttsVoiceSub: 'どの話者か',
+	ttsRate: '速度', ttsRateSub: '話す速さ',
+	ttsPitch: 'ピッチ', ttsPitchSub: '高さ',
+	ttsVolume: '音量', ttsVolumeSub: '大きさ',
+	ttsStat1: '入力', ttsStat1v: 'テキスト + 選んだ声',
+	ttsStat2: '処理', ttsStat2v: 'トークン化 → 発音 → 韻律 → 音声',
+	ttsStat3: '調整', ttsStat3v: '声、速度、ピッチ、音量',
+
+	apiTitle: 'Azure Speech の音声合成 API',
+	apiCaption: 'Foundry でコードから呼び出す',
+	apiDesc: 'Foundry ポータルで声を選び、音声合成 API を呼び出します。多くの言語と地域アクセントの定義済みの声、リアルなニューラル音声、またはあなただけのカスタム音声を選べます。',
+	apiCallout: 'テキストと声の名前を API に送ると音声が返ります。<strong>ニューラル音声</strong>はニューラル ネットワークで自然なイントネーションを実現し、<strong>カスタム音声</strong>はブランド独自の声を作ります。',
+	apiVoicesHead: '声の選択肢',
+	apiVoiceCustom: 'Contoso ブランド', apiVoiceCustomm: 'あなたのカスタム音声',
+	apiTagNeural: 'ニューラル', apiTagCustom: 'カスタム',
+	apiStat1: '定義済みの声', apiStat1v: '多くの言語と地域アクセント',
+	apiStat2: 'ニューラル音声', apiStat2v: 'ニューラル ネットワーク · 自然な抑揚',
+	apiStat3: 'カスタム音声', apiStat3v: 'ブランド独自の声',
+
+	s2sTitle: '音声対応エージェント',
+	s2sCaption: '音声の入力、音声の出力',
+	s2sDesc: '2 つの機能をつなぐと、エージェントは音声の相棒になります。音声認識がユーザーの発話を取り込み、エージェントが推論し、音声合成が声で返答します。',
+	s2sCallout: '音声対音声は<strong>パイプライン</strong>です。STT が質問を文字起こしし、エージェントが処理・推論し、TTS が答えを話します。',
+	s2sStat1: 'ステップ 1', s2sStat1v: 'STT — 話された入力を文字起こし',
+	s2sStat2: 'ステップ 2', s2sStat2v: 'エージェント — 処理して推論',
+	s2sStat3: 'ステップ 3', s2sStat3v: 'TTS — 応答を話す',
+
+	scenTitle: '音声対音声のシナリオ',
+	scenCaption: '音声エージェントが活きる場面',
+	scenDesc: 'エージェントが聞いて話せるようになると、ハンズフリーの支援からリアルタイム翻訳まで、まったく新しい体験が広がります。',
+	scenCallout: '音声対音声は、入力が不便または不自然な体験を支えます。<strong>音声アシスタント、翻訳、ハンズフリー、アクセシビリティ</strong>。',
+	scenStat1: '音声アシスタント', scenStat1v: '会話して行動するエージェント',
+	scenStat2: '翻訳', scenStat2v: 'ある言語で話し、別の言語で聞く',
+	scenStat3: 'アクセス', scenStat3v: 'ハンズフリーとアクセシビリティ',
+
+	vlTitle: 'Azure AI Speech Voice Live',
+	vlCaption: 'リアルタイムのマネージド サービス',
+	vlDesc: '音声エージェントを手作業で作るには、STT・推論・TTS をつなぐ必要があります。Voice Live はそれらを 1 つの Azure マネージド サービスにまとめ、リアルタイムの音声会話を実現します。',
+	vlCallout: '多くの部品を配線する代わりに、<strong>Voice Live API</strong> が音声入力・推論・音声出力を処理し、アバターを返したりアクションを起動したりもできます。',
+	vlManyHead: '自分で作る',
+	vlManyGlue: '各部品とその間のタイミングを自分で配線・同期・管理します。',
+	vlOneHead: 'Voice Live なら',
+	vlOneTitle: 'Voice Live API', vlOneSub: 'STT + 推論 + TTS をマネージド',
+	vlOut1: '音声の応答', vlOut2: 'アバターとビジュアル', vlOut3: 'アクションを起動',
+	vlStat1: '内容', vlStat1v: 'リアルタイムのマネージド音声サービス',
+	vlStat2: '統合', vlStat2v: 'STT + 推論 + TTS を 1 つの API に',
+	vlStat3: '返すもの', vlStat3v: '音声、アバター/ビジュアル、アクション',
+
+	archTitle: '全体のしくみ',
+	archCaption: '音声 · エージェント · ツール',
+	archDesc: '音声ソリューションは 3 つを重ねます。耳と口としての Azure AI Speech、判断を行うエージェントやアプリのロジック、そして音声を呼び出せる機能として公開する Foundry ツールや MCP サーバーです。',
+	archCallout: 'Azure AI Speech が<strong>STT と TTS</strong>を提供し、<strong>エージェントやアプリのロジック</strong>が何をするか決め、<strong>Foundry ツール / MCP サーバー</strong>が音声を呼び出せるツールとして公開します。',
+	archSpeechTitle: 'Azure AI Speech', archSpeechSub: '耳と口 — 音声を認識し合成します。',
+	archAgentTitle: 'エージェントとアプリのロジック', archAgentSub: '頭脳 — 聞いた内容で何をするか決めます。',
+	archToolsTitle: 'Foundry ツール / MCP サーバー', archToolsSub: '手 — 音声を呼び出せるツールとして公開します。',
+	archStat1: '音声', archStat1v: 'Azure AI Speech — STT と TTS',
+	archStat2: 'ロジック', archStat2v: 'エージェントとアプリの判断',
+	archStat3: 'ツール', archStat3v: 'Foundry ツール / MCP サーバー',
+
+	buildTitle: 'Foundry で始めよう',
+	buildCaption: 'ゼロから話すアプリへ',
+	buildDesc: 'Azure AI Speech リソースを作成し、Foundry ポータルで声を試してから、アプリから音声認識と音声合成を呼び出すか、エージェントに接続します。',
+	buildCallout: '構築済みですぐ使えます。<strong>リソースを作り、声を試し、API を呼ぶ。</strong>同じエンドポイントがコードとエージェントを支えます。',
+	buildHeroTitle: 'アプリとエージェント → Azure AI Speech',
+	buildAppNode: 'あなたのアプリ', buildAppSub: 'Web・モバイル・デスクトップ',
+	buildAgentNode: 'あなたのエージェント', buildAgentSub: '会話型 AI',
+	buildPathSdk: 'Speech SDK', buildPathMcp: 'MCP 経由',
+	buildLangNode: 'Azure AI Speech', buildLangSub: 'STT · TTS · Voice Live',
+	buildStepsTitle: '始め方',
+	buildStep1: 'Speech リソースを作成', buildStep1s: 'Foundry ポータルで',
+	buildStep2: 'ポータルで声を試す', buildStep2s: 'ニューラル音声をプレビュー',
+	buildStep3: 'エンドポイントとキーを取得', buildStep3s: 'または Entra ID',
+	buildStep4: 'STT / TTS を呼ぶ', buildStep4s: 'Speech SDK または REST',
+	buildStep5: '声を調整', buildStep5s: 'SSML: 速度、ピッチ、音量',
+	buildStep6: 'エージェントに接続', buildStep6s: 'または Voice Live',
+	buildIntegrateTitle: 'コードから呼び出す',
+	buildIntegrateSub: 'Azure Speech SDK を使う — 1 つのクライアントで認識と合成',
+	buildStat1: 'セットアップ', buildStat1v: 'リソース作成 → ポータル → API 呼び出し',
+	buildStat2: '価値', buildStat2v: '自然、アクセシブル、多言語、リアルタイム',
+	buildStat3: '場所', buildStat3v: 'Foundry ポータル (ai.azure.com)',
+	whyUse1: '音声の指示', whyUse2: '話し言葉の質問と回答', whyUse3: 'ライブ字幕',
+	twoSttIn: '話し言葉の音声', twoSttOut: 'テキスト', twoTtsIn: 'テキスト', twoTtsOut: '話し言葉の音声',
+	sttS1: '音声入力', sttS1s: 'マイクまたはファイル',
+	sttS2: '音響モデル', sttS2s: '信号 → 音の単位', sttS2b: '音響',
+	sttS3: '音素', sttS3s: '音の基本単位',
+	sttS4: '言語モデル', sttS4s: '音 → 可能性の高い単語', sttS4b: '言語',
+	sttS5: '単語とテキスト', sttS5s: '読みやすい文字起こし',
+	sttResult: '「注文はどこですか?」',
+	ucClinicalHead: '臨床ディクテーション', ucClinicalDesc: '医師が患者をケアしながらハンズフリーでメモを口述します。', ucClinicalEx: '「患者は軽い頭痛を訴える。安静と水分補給を指示」→ そのまま記録に入力。', ucClinicalCap1: '医療', ucClinicalCap2: 'ハンズフリー',
+	ucSupportHead: '通話の文字起こし', ucSupportDesc: 'サポートや営業の通話を、品質とコンプライアンスのために検索可能なテキストにします。', ucSupportEx: 'すべての顧客通話を自動で文字起こしし、レビューと指導に活用。', ucSupportCap1: 'コンタクトセンター', ucSupportCap2: '検索可能',
+	ucMediaHead: '自動字幕', ucMediaDesc: '動画やライブ配信に、リアルタイムで正確な字幕を付けます。', ucMediaEx: '発表者が話すと画面にライブ字幕が表示されます。', ucMediaCap1: 'メディア', ucMediaCap2: 'アクセシビリティ',
+	ucLearningHead: '発音フィードバック', ucLearningDesc: '語学学習アプリが、学習者が目標フレーズにどれだけ近いかを採点します。', ucLearningEx: '学習者が音読すると、その場で発音が採点されます。', ucLearningCap1: '教育', ucLearningCap2: '評価',
+	ttsS1: 'テキスト + 声', ttsS1s: '何を言うか・誰が言うか',
+	ttsS2: 'トークン化', ttsS2s: '単語に分割',
+	ttsS3: '発音単位', ttsS3s: '単語の響き',
+	ttsS4: '韻律単位', ttsS4s: 'リズムと抑揚',
+	ttsS5: '音声出力', ttsS5s: '自然な音声',
+	ttsResult: '「ご注文は配送中です。」',
+	apiReqFile: 'synthesize.py · リクエスト', apiResFile: 'レスポンス · 音声',
+	apiVoiceNeural1m: 'en-US · ニューラル', apiVoiceNeural2m: 'en-US · ニューラル', apiVoiceNeural3m: 'ja-JP · ニューラル',
+	s2sUserIn: 'ユーザーが話す', s2sUserInSub: '話し言葉の質問',
+	s2sStt: '音声からテキスト', s2sSttSub: '音声 → テキスト',
+	s2sBrain: 'エージェント', s2sBrainSub: '処理して推論',
+	s2sTts: 'テキストから音声', s2sTtsSub: 'テキスト → 音声',
+	s2sUserOut: 'エージェントが応答', s2sUserOutSub: '話し言葉の回答',
+	ucAssistHead: '音声アシスタントとエージェント', ucAssistDesc: '会話型エージェントが音声で質問に答え、行動します。', ucAssistEx: '「午後 3 時の会議を明日に変更して」→ 完了し、声で確認。', ucAssistCap1: '会話型', ucAssistCap2: '行動する',
+	ucTransHead: '音声翻訳', ucTransDesc: 'ある言語で話し、別の言語で返答を聞きます。', ucTransEx: '旅行者が英語で尋ね、エージェントが日本語で答えます。', ucTransCap1: '多言語', ucTransCap2: 'リアルタイム',
+	ucHandsHead: 'ハンズフリー体験', ucHandsDesc: 'ドライバー、技術者、医師が画面に触れずに操作します。', ucHandsEx: '両手がふさがったまま「次のステップは?」と質問。', ucHandsCap1: '視線フリー', ucHandsCap2: '移動中',
+	ucA11yHead: 'アクセシビリティとサポート', ucA11yDesc: '音声優先のサポートボットが、入力や読み取りが難しいユーザーを支援します。', ucA11yEx: 'サポートボットが聞いて、理解し、音声で答えます。', ucA11yCap1: '包括的', ucA11yCap2: 'サポートボット',
+	vlManyPiece1: '音声からテキスト', vlManyPiece2: '推論 / エージェント', vlManyPiece3: 'テキストから音声',
+	archSpeechC1: '音声からテキスト', archSpeechC2: 'テキストから音声',
+	archAgentC1: '推論', archAgentC2: 'ワークフロー', archAgentC3: '判断',
+	archToolsC1: '呼び出せるツール', archToolsC3: '再利用可能',
+	buildVal1: '🗣️ 自然', buildVal2: '♿ アクセシブル', buildVal3: '🌐 多言語', buildVal4: '⚡ リアルタイム', buildVal5: '🎙️ カスタム音声'
+};
+
+// ── Korean ────────────────────────────────
+I18N.ko = { ...I18N.en,
+	skipToMain: '다이어그램으로 건너뛰기',
+	pageTitle: 'Azure AI Speech 시작하기',
+	stageHeading: 'Azure AI Speech 시작하기 — Microsoft Foundry',
+	stageInstructions: 'Microsoft Foundry의 Azure AI Speech를 살펴보세요. 음성 인식, 음성 합성, 음성 대 음성 에이전트, Voice Live. 다음/이전 버튼이나 화살표 키로 이동하고 R로 다시 시작합니다.',
+	prev: '◀ 이전', next: '다음 ▶', replay: '↻ 재생', restart: '↻ 다시 시작',
+	slower: '느리게', faster: '빠르게',
+	calloutOn: '💬 설명: 켜짐', calloutOff: '💬 설명: 꺼짐',
+	outlineOn: '📝 개요: 켜짐', outlineOff: '📝 개요: 꺼짐',
+	stepDetails: '단계 세부 정보', stepOf: '단계',
+
+	whyTitle: '소프트웨어에 목소리를 주는 이유',
+	whyCaption: '음성의 가치',
+	whyDesc: '사람은 자연스럽게 말하고 듣습니다. Azure AI Speech를 사용하면 앱이 음성 지시를 받고, 말로 된 질문에 답하고, 텍스트를 소리 내어 읽을 수 있어 소프트웨어가 자연스럽고 접근 가능하며 포용적이 됩니다.',
+	whyCallout: '음성은 키보드와 화면 앱을 <strong>말하고 들을 수 있는</strong> 앱으로 바꿉니다. 핸즈프리, 시선 자유, 그리고 누구에게나 열려 있습니다.',
+	whyValNatural: '자연스러움', whyValAccessible: '접근성', whyValInclusive: '포용성',
+	whyStat1: '무엇', whyStat1v: '음성 입력과 출력, 모든 앱에',
+	whyStat2: '이유', whyStat2v: '자연스럽고 접근 가능하며 포용적',
+	whyStat3: '어디서', whyStat3v: 'Microsoft Foundry의 Azure AI Speech',
+
+	twoTitle: '두 가지 핵심 기능',
+	twoCaption: '음성 인식 · 음성 합성',
+	twoDesc: 'Azure AI Speech는 양방향으로 작동합니다. 말로 된 음성을 인식해 텍스트로 변환하고, 작성된 텍스트를 자연스러운 음성으로 합성합니다.',
+	twoCallout: '하나의 서비스, 두 방향. <strong>인식</strong>(음성 → 텍스트)과 <strong>합성</strong>(텍스트 → 음성). 결합하면 앱이 듣고 말할 수 있습니다.',
+	twoSttTag: '음성 인식', twoSttTitle: '음성을 텍스트로',
+	twoSttDesc: '마이크 또는 녹음 음성을 정확하고 읽기 쉬운 텍스트로 변환합니다.',
+	twoTtsTag: '음성 합성', twoTtsTitle: '텍스트를 음성으로',
+	twoTtsDesc: '작성된 텍스트를 사람처럼 자연스러운 목소리로 읽어 줍니다.',
+	twoStat1: '인식', twoStat1v: '음성 → 텍스트 (STT)',
+	twoStat2: '합성', twoStat2v: '텍스트 → 음성 (TTS)',
+	twoStat3: '함께', twoStat3v: '듣고 말하는 앱',
+
+	sttTitle: '음성 인식의 작동 방식',
+	sttCaption: '음파에서 단어로',
+	sttDesc: '음향 모델이 오디오 신호를 음소(소리의 기본 단위)로 바꾸고, 언어 모델이 그 음소를 읽을 수 있는 단어와 텍스트로 조립합니다.',
+	sttCallout: '두 모델이 작동합니다. <strong>음향 모델</strong>은 오디오를 음소에 매핑하고, <strong>언어 모델</strong>은 음소를 가장 가능성 높은 단어로 바꿉니다.',
+	sttUse: '자막 · 전사 · 받아쓰기',
+	sttStat1: '음향 모델', sttStat1v: '오디오 신호 → 음소',
+	sttStat2: '언어 모델', sttStat2v: '음소 → 단어와 텍스트',
+	sttStat3: '활용', sttStat3v: '자막, 전사, 받아쓰기',
+
+	sttUcTitle: '현실 속 음성 인식',
+	sttUcCaption: '인식이 가치를 더하는 곳',
+	sttUcDesc: '음성을 텍스트로 바꾸면 여러 산업에서 핸즈프리 워크플로와 검색 가능한 기록이 가능해집니다.',
+	sttUcCallout: '사람들이 이미 말하는 곳에서 음성 인식은 그것을 <strong>검색하고 공유할 수 있는 텍스트</strong>로 담아냅니다. 입력이 필요 없습니다.',
+	sttUcStat1: '패턴', sttUcStat1v: '말로 된 음성 → 텍스트',
+	sttUcStat2: '가치', sttUcStat2v: '핸즈프리, 검색 가능, 접근 가능',
+	sttUcStat3: '산업', sttUcStat3v: '의료, 지원, 미디어, 교육',
+
+	ttsTitle: '음성 합성의 작동 방식',
+	ttsCaption: '단어에서 자연스러운 목소리로',
+	ttsDesc: 'Azure AI Speech는 텍스트를 토큰화하고 음성(발음) 및 운율 단위로 변환한 다음 오디오를 생성합니다. 목소리, 속도, 음높이, 음량은 직접 선택합니다.',
+	ttsCallout: '합성은 텍스트를 <strong>발음과 운율 단위</strong>로 나눈 뒤 오디오를 렌더링합니다. 목소리, 속도, 음높이, 음량으로 소리를 다듬을 수 있습니다.',
+	ttsControlsHead: '목소리 다듬기',
+	ttsVoice: '목소리', ttsVoiceSub: '어떤 화자',
+	ttsRate: '속도', ttsRateSub: '말하는 속도',
+	ttsPitch: '음높이', ttsPitchSub: '높낮이',
+	ttsVolume: '음량', ttsVolumeSub: '크기',
+	ttsStat1: '입력', ttsStat1v: '텍스트 + 선택한 목소리',
+	ttsStat2: '파이프라인', ttsStat2v: '토큰화 → 발음 → 운율 → 오디오',
+	ttsStat3: '제어', ttsStat3v: '목소리, 속도, 음높이, 음량',
+
+	apiTitle: 'Azure Speech 음성 합성 API',
+	apiCaption: 'Foundry에서 코드로 호출',
+	apiDesc: 'Foundry 포털에서 목소리를 고르고 음성 합성 API를 호출합니다. 여러 언어와 지역 억양의 사전 정의 목소리, 사실적인 신경망 목소리, 또는 고유한 사용자 지정 목소리를 선택하세요.',
+	apiCallout: '텍스트와 목소리 이름을 API에 보내면 오디오를 받습니다. <strong>신경망 목소리</strong>는 신경망으로 자연스러운 억양을 구현하고, <strong>사용자 지정 목소리</strong>는 브랜드만의 소리를 만듭니다.',
+	apiVoicesHead: '목소리 옵션',
+	apiVoiceCustom: 'Contoso 브랜드', apiVoiceCustomm: '사용자 지정 목소리',
+	apiTagNeural: '신경망', apiTagCustom: '사용자 지정',
+	apiStat1: '사전 정의 목소리', apiStat1v: '여러 언어와 지역 억양',
+	apiStat2: '신경망 목소리', apiStat2v: '신경망 · 자연스러운 억양',
+	apiStat3: '사용자 지정 목소리', apiStat3v: '브랜드만의 고유한 목소리',
+
+	s2sTitle: '음성 지원 에이전트',
+	s2sCaption: '음성 입력, 음성 출력',
+	s2sDesc: '두 기능을 연결하면 에이전트가 음성 파트너가 됩니다. 음성 인식이 사용자가 말한 것을 담고, 에이전트가 추론하며, 음성 합성이 소리로 답합니다.',
+	s2sCallout: '음성 대 음성은 <strong>파이프라인</strong>입니다. STT가 질문을 전사하고, 에이전트가 처리·추론하며, TTS가 답을 말합니다.',
+	s2sStat1: '1단계', s2sStat1v: 'STT — 말로 된 입력을 전사',
+	s2sStat2: '2단계', s2sStat2v: '에이전트 — 처리하고 추론',
+	s2sStat3: '3단계', s2sStat3v: 'TTS — 응답을 말함',
+
+	scenTitle: '음성 대 음성 시나리오',
+	scenCaption: '음성 에이전트가 빛나는 곳',
+	scenDesc: '에이전트가 듣고 말할 수 있게 되면, 핸즈프리 지원부터 실시간 번역까지 완전히 새로운 경험이 열립니다.',
+	scenCallout: '음성 대 음성은 입력이 비현실적이거나 부자연스러운 경험을 지원합니다. <strong>음성 비서, 번역, 핸즈프리, 접근성</strong>.',
+	scenStat1: '음성 비서', scenStat1v: '대화하고 행동하는 에이전트',
+	scenStat2: '번역', scenStat2v: '한 언어로 말하고 다른 언어로 듣기',
+	scenStat3: '접근', scenStat3v: '핸즈프리와 접근성',
+
+	vlTitle: 'Azure AI Speech Voice Live',
+	vlCaption: '실시간 관리형 서비스',
+	vlDesc: '음성 에이전트를 직접 만들려면 STT, 추론, TTS를 이어 붙여야 합니다. Voice Live는 이를 하나의 Azure 관리형 서비스로 결합해 실시간 음성 대화를 지원합니다.',
+	vlCallout: '여러 조각을 배선하는 대신 <strong>Voice Live API</strong>가 음성 입력, 추론, 음성 출력을 처리하고 아바타를 반환하거나 작업을 트리거할 수도 있습니다.',
+	vlManyHead: '직접 만들기',
+	vlManyGlue: '각 조각과 그 사이의 타이밍을 직접 배선·동기화·관리합니다.',
+	vlOneHead: 'Voice Live 사용 시',
+	vlOneTitle: 'Voice Live API', vlOneSub: 'STT + 추론 + TTS, 관리형',
+	vlOut1: '음성 응답', vlOut2: '아바타와 비주얼', vlOut3: '작업 트리거',
+	vlStat1: '무엇', vlStat1v: '실시간 관리형 음성 서비스',
+	vlStat2: '결합', vlStat2v: '하나의 API에 STT + 추론 + TTS',
+	vlStat3: '반환', vlStat3v: '음성, 아바타/비주얼, 작업',
+
+	archTitle: '전체 구성 방식',
+	archCaption: '음성 · 에이전트 · 도구',
+	archDesc: '음성 솔루션은 세 가지를 쌓습니다. 귀와 입인 Azure AI Speech, 결정을 내리는 에이전트나 앱 로직, 그리고 음성을 호출 가능한 기능으로 노출하는 Foundry 도구나 MCP 서버입니다.',
+	archCallout: 'Azure AI Speech가 <strong>STT와 TTS</strong>를 제공하고, <strong>에이전트나 앱 로직</strong>이 무엇을 할지 결정하며, <strong>Foundry 도구 / MCP 서버</strong>가 음성을 호출 가능한 도구로 노출합니다.',
+	archSpeechTitle: 'Azure AI Speech', archSpeechSub: '귀와 입 — 오디오를 인식하고 합성합니다.',
+	archAgentTitle: '에이전트와 앱 로직', archAgentSub: '두뇌 — 들은 내용으로 무엇을 할지 결정합니다.',
+	archToolsTitle: 'Foundry 도구 / MCP 서버', archToolsSub: '손 — 음성을 호출 가능한 도구로 노출합니다.',
+	archStat1: '음성', archStat1v: 'Azure AI Speech — STT와 TTS',
+	archStat2: '로직', archStat2v: '에이전트와 앱의 결정',
+	archStat3: '도구', archStat3v: 'Foundry 도구 / MCP 서버',
+
+	buildTitle: 'Foundry에서 시작하기',
+	buildCaption: '제로에서 말하는 앱으로',
+	buildDesc: 'Azure AI Speech 리소스를 만들고 Foundry 포털에서 목소리를 시험한 뒤, 앱에서 음성 인식과 음성 합성을 호출하거나 에이전트에 연결하세요.',
+	buildCallout: '구축되어 바로 사용 가능. <strong>리소스를 만들고, 목소리를 시험하고, API를 호출하세요.</strong> 같은 엔드포인트가 코드와 에이전트를 지원합니다.',
+	buildHeroTitle: '앱과 에이전트 → Azure AI Speech',
+	buildAppNode: '내 앱', buildAppSub: '웹, 모바일, 데스크톱',
+	buildAgentNode: '내 에이전트', buildAgentSub: '대화형 AI',
+	buildPathSdk: 'Speech SDK', buildPathMcp: 'MCP 경유',
+	buildLangNode: 'Azure AI Speech', buildLangSub: 'STT · TTS · Voice Live',
+	buildStepsTitle: '시작 방법',
+	buildStep1: 'Speech 리소스 만들기', buildStep1s: 'Foundry 포털에서',
+	buildStep2: '포털에서 목소리 시험', buildStep2s: '신경망 목소리 미리듣기',
+	buildStep3: '엔드포인트와 키 받기', buildStep3s: '또는 Entra ID 사용',
+	buildStep4: 'STT / TTS 호출', buildStep4s: 'Speech SDK 또는 REST',
+	buildStep5: '목소리 조정', buildStep5s: 'SSML: 속도, 음높이, 음량',
+	buildStep6: '에이전트에 연결', buildStep6s: '또는 Voice Live 사용',
+	buildIntegrateTitle: '코드에서 호출',
+	buildIntegrateSub: 'Azure Speech SDK 사용 — 하나의 클라이언트로 인식과 합성',
+	buildStat1: '설정', buildStat1v: '리소스 생성 → 포털 → API 호출',
+	buildStat2: '가치', buildStat2v: '자연스럽고 접근 가능하며 다국어, 실시간',
+	buildStat3: '어디서', buildStat3v: 'Foundry 포털 (ai.azure.com)',
+	whyUse1: '음성 지시', whyUse2: '말로 된 질문과 답변', whyUse3: '실시간 자막',
+	twoSttIn: '말로 된 음성', twoSttOut: '텍스트', twoTtsIn: '텍스트', twoTtsOut: '말로 된 음성',
+	sttS1: '음성 입력', sttS1s: '마이크 또는 파일',
+	sttS2: '음향 모델', sttS2s: '신호 → 소리 단위', sttS2b: '음향',
+	sttS3: '음소', sttS3s: '소리의 기본 단위',
+	sttS4: '언어 모델', sttS4s: '소리 → 가능성 높은 단어', sttS4b: '언어',
+	sttS5: '단어와 텍스트', sttS5s: '읽기 쉬운 전사',
+	sttResult: '"제 주문은 어디 있나요?"',
+	ucClinicalHead: '임상 받아쓰기', ucClinicalDesc: '의료진이 환자를 돌보면서 핸즈프리로 기록을 받아쓰게 합니다.', ucClinicalEx: '"환자가 가벼운 두통을 호소함; 휴식과 수분 섭취 권고." → 기록에 바로 입력.', ucClinicalCap1: '의료', ucClinicalCap2: '핸즈프리',
+	ucSupportHead: '통화 전사', ucSupportDesc: '지원·영업 통화가 품질과 규정 준수를 위해 검색 가능한 텍스트가 됩니다.', ucSupportEx: '모든 고객 통화가 검토와 코칭을 위해 자동 전사됩니다.', ucSupportCap1: '컨택 센터', ucSupportCap2: '검색 가능',
+	ucMediaHead: '자동 자막', ucMediaDesc: '동영상과 라이브 스트림에 실시간으로 정확한 자막이 제공됩니다.', ucMediaEx: '발표자가 말하면 화면에 실시간 자막이 나타납니다.', ucMediaCap1: '미디어', ucMediaCap2: '접근성',
+	ucLearningHead: '발음 피드백', ucLearningDesc: '언어 학습 앱이 학습자가 목표 문구에 얼마나 가까운지 채점합니다.', ucLearningEx: '학습자가 소리 내어 읽으면 즉시 발음 점수를 받습니다.', ucLearningCap1: '교육', ucLearningCap2: '평가',
+	ttsS1: '텍스트 + 목소리', ttsS1s: '무엇을, 누가 말할지',
+	ttsS2: '토큰화', ttsS2s: '단어로 분할',
+	ttsS3: '발음 단위', ttsS3s: '단어의 소리',
+	ttsS4: '운율 단위', ttsS4s: '리듬과 억양',
+	ttsS5: '오디오 출력', ttsS5s: '자연스러운 음성',
+	ttsResult: '"주문이 배송 중입니다."',
+	apiReqFile: 'synthesize.py · 요청', apiResFile: '응답 · 오디오',
+	apiVoiceNeural1m: 'en-US · 신경망', apiVoiceNeural2m: 'en-US · 신경망', apiVoiceNeural3m: 'ja-JP · 신경망',
+	s2sUserIn: '사용자가 말함', s2sUserInSub: '말로 된 질문',
+	s2sStt: '음성을 텍스트로', s2sSttSub: '음성 → 텍스트',
+	s2sBrain: '에이전트', s2sBrainSub: '처리하고 추론',
+	s2sTts: '텍스트를 음성으로', s2sTtsSub: '텍스트 → 음성',
+	s2sUserOut: '에이전트가 응답', s2sUserOutSub: '말로 된 답변',
+	ucAssistHead: '음성 비서와 에이전트', ucAssistDesc: '대화형 에이전트가 음성으로 질문에 답하고 작업을 수행합니다.', ucAssistEx: '"오후 3시 회의를 내일로 변경해줘." → 완료, 음성으로 확인.', ucAssistCap1: '대화형', ucAssistCap2: '작업 수행',
+	ucTransHead: '음성 번역', ucTransDesc: '한 언어로 말하고 다른 언어로 응답을 듣습니다.', ucTransEx: '여행자가 영어로 묻고, 에이전트가 일본어로 답합니다.', ucTransCap1: '다국어', ucTransCap2: '실시간',
+	ucHandsHead: '핸즈프리 경험', ucHandsDesc: '운전자, 기술자, 의료진이 화면을 만지지 않고 상호작용합니다.', ucHandsEx: '두 손이 바쁜 동안 "다음 단계가 뭐죠?"라고 질문.', ucHandsCap1: '시선 자유', ucHandsCap2: '이동 중',
+	ucA11yHead: '접근성과 지원', ucA11yDesc: '음성 우선 지원 봇이 입력이나 읽기가 어려운 사용자를 돕습니다.', ucA11yEx: '지원 봇이 듣고, 이해하고, 음성으로 답합니다.', ucA11yCap1: '포용적', ucA11yCap2: '지원 봇',
+	vlManyPiece1: '음성을 텍스트로', vlManyPiece2: '추론 / 에이전트', vlManyPiece3: '텍스트를 음성으로',
+	archSpeechC1: '음성을 텍스트로', archSpeechC2: '텍스트를 음성으로',
+	archAgentC1: '추론', archAgentC2: '워크플로', archAgentC3: '결정',
+	archToolsC1: '호출 가능한 도구', archToolsC3: '재사용 가능',
+	buildVal1: '🗣️ 자연스러움', buildVal2: '♿ 접근성', buildVal3: '🌐 다국어', buildVal4: '⚡ 실시간', buildVal5: '🎙️ 사용자 지정 목소리'
+};
+
+// ── Portuguese ────────────────────────────
+I18N.pt = { ...I18N.en,
+	skipToMain: 'Ir para o diagrama',
+	pageTitle: 'Comece com o Azure AI Speech',
+	stageHeading: 'Comece com o Azure AI Speech — Microsoft Foundry',
+	stageInstructions: 'Explore o Azure AI Speech no Microsoft Foundry: fala para texto, texto para fala, agentes de fala para fala e Voice Live. Use os botões Avançar/Voltar ou as setas para navegar. Pressione R para reiniciar.',
+	prev: '◀ Voltar', next: 'Avançar ▶', replay: '↻ Repetir', restart: '↻ Reiniciar',
+	slower: 'Mais lento', faster: 'Mais rápido',
+	calloutOn: '💬 Nota: Ativada', calloutOff: '💬 Nota: Desativada',
+	outlineOn: '📝 Resumo: Ativado', outlineOff: '📝 Resumo: Desativado',
+	stepDetails: 'Detalhes da etapa', stepOf: 'Etapa',
+
+	whyTitle: 'Por que dar voz ao software?',
+	whyCaption: 'O valor da fala',
+	whyDesc: 'As pessoas falam e ouvem naturalmente. O Azure AI Speech permite que os apps recebam instruções por voz, respondam a perguntas faladas e leiam texto em voz alta — tornando o software natural, acessível e inclusivo.',
+	whyCallout: 'A fala transforma um app de teclado e tela em um com o qual você pode <strong>falar e ouvir</strong> — mãos livres, sem olhar e aberto a todos.',
+	whyValNatural: 'Natural', whyValAccessible: 'Acessível', whyValInclusive: 'Inclusivo',
+	whyStat1: 'O quê', whyStat1v: 'Fala de entrada e de saída, para qualquer app',
+	whyStat2: 'Por quê', whyStat2v: 'Natural, acessível, inclusivo',
+	whyStat3: 'Onde', whyStat3v: 'Azure AI Speech no Microsoft Foundry',
+
+	twoTitle: 'Duas capacidades principais',
+	twoCaption: 'Fala para texto · texto para fala',
+	twoDesc: 'O Azure AI Speech funciona nas duas direções: reconhece áudio falado e o transforma em texto, e sintetiza texto escrito em fala com som natural.',
+	twoCallout: 'Um serviço, duas direções — <strong>reconhecimento</strong> (fala → texto) e <strong>síntese</strong> (texto → fala). Combine-os e um app poderá ouvir e falar.',
+	twoSttTag: 'Reconhecimento de fala', twoSttTitle: 'Fala para texto',
+	twoSttDesc: 'Converte áudio do microfone ou gravado em texto preciso e legível.',
+	twoTtsTag: 'Síntese de fala', twoTtsTitle: 'Texto para fala',
+	twoTtsDesc: 'Lê texto escrito em voz alta com uma voz natural e humana.',
+	twoStat1: 'Reconhecimento', twoStat1v: 'Áudio → texto (STT)',
+	twoStat2: 'Síntese', twoStat2v: 'Texto → áudio (TTS)',
+	twoStat3: 'Juntos', twoStat3v: 'Apps que ouvem e falam',
+
+	sttTitle: 'Como funciona a fala para texto',
+	sttCaption: 'De ondas sonoras a palavras',
+	sttDesc: 'Um modelo acústico transforma o sinal de áudio em fonemas (as unidades básicas do som) e um modelo de linguagem monta esses fonemas nas palavras e no texto que você lê.',
+	sttCallout: 'Dois modelos fazem o trabalho: um <strong>modelo acústico</strong> mapeia áudio para fonemas e um <strong>modelo de linguagem</strong> transforma fonemas nas palavras mais prováveis.',
+	sttUse: 'Legendas · transcrições · ditado',
+	sttStat1: 'Modelo acústico', sttStat1v: 'Sinal de áudio → fonemas',
+	sttStat2: 'Modelo de linguagem', sttStat2v: 'Fonemas → palavras e texto',
+	sttStat3: 'Impulsiona', sttStat3v: 'Legendas, transcrições, ditado',
+
+	sttUcTitle: 'Fala para texto no mundo real',
+	sttUcCaption: 'Onde o reconhecimento agrega valor',
+	sttUcDesc: 'Transformar fala em texto habilita fluxos mãos livres e registros pesquisáveis em muitos setores.',
+	sttUcCallout: 'Onde as pessoas já falam, a fala para texto captura tudo como <strong>texto pesquisável e compartilhável</strong> — sem digitar.',
+	sttUcStat1: 'Padrão', sttUcStat1v: 'Áudio falado → texto',
+	sttUcStat2: 'Valor', sttUcStat2v: 'Mãos livres, pesquisável, acessível',
+	sttUcStat3: 'Setores', sttUcStat3v: 'Saúde, suporte, mídia, educação',
+
+	ttsTitle: 'Como funciona o texto para fala',
+	ttsCaption: 'De palavras a voz natural',
+	ttsDesc: 'O Azure AI Speech tokeniza o texto, converte em unidades fonéticas e prosódicas e então gera o áudio — e você escolhe a voz, a velocidade, o tom e o volume.',
+	ttsCallout: 'A síntese divide o texto em <strong>unidades fonéticas e prosódicas</strong> e então gera o áudio. Voz, velocidade, tom e volume permitem moldar o som.',
+	ttsControlsHead: 'Molde a voz',
+	ttsVoice: 'Voz', ttsVoiceSub: 'Qual locutor',
+	ttsRate: 'Velocidade', ttsRateSub: 'Ritmo da fala',
+	ttsPitch: 'Tom', ttsPitchSub: 'Mais alto ou baixo',
+	ttsVolume: 'Volume', ttsVolumeSub: 'Mais alto ou suave',
+	ttsStat1: 'Entrada', ttsStat1v: 'Texto + uma voz escolhida',
+	ttsStat2: 'Pipeline', ttsStat2v: 'Tokenizar → fonético → prosódico → áudio',
+	ttsStat3: 'Controles', ttsStat3v: 'Voz, velocidade, tom, volume',
+
+	apiTitle: 'A API de texto para fala do Azure Speech',
+	apiCaption: 'Chame pelo código no Foundry',
+	apiDesc: 'No portal do Foundry você escolhe uma voz e chama a API de texto para fala. Escolha vozes predefinidas em muitos idiomas e sotaques regionais, vozes neurais realistas ou uma voz personalizada só sua.',
+	apiCallout: 'Envie texto e o nome de uma voz para a API e receba áudio. As <strong>vozes neurais</strong> usam redes neurais para entonação natural; as <strong>vozes personalizadas</strong> dão à sua marca um som próprio.',
+	apiVoicesHead: 'Opções de voz',
+	apiVoiceCustom: 'Marca Contoso', apiVoiceCustomm: 'Sua voz personalizada',
+	apiTagNeural: 'Neural', apiTagCustom: 'Personalizada',
+	apiStat1: 'Vozes predefinidas', apiStat1v: 'Muitos idiomas e sotaques regionais',
+	apiStat2: 'Vozes neurais', apiStat2v: 'Redes neurais · entonação natural',
+	apiStat3: 'Vozes personalizadas', apiStat3v: 'Uma voz única para sua marca',
+
+	s2sTitle: 'Agentes com fala',
+	s2sCaption: 'Fala de entrada, fala de saída',
+	s2sDesc: 'Encadeie as duas capacidades e um agente vira um parceiro de voz: a fala para texto capta o que o usuário diz, o agente raciocina e o texto para fala responde em voz alta.',
+	s2sCallout: 'Fala para fala é um <strong>pipeline</strong>: o STT transcreve a pergunta, o agente processa e raciocina e o TTS fala a resposta.',
+	s2sStat1: 'Etapa 1', s2sStat1v: 'STT — transcreve a entrada falada',
+	s2sStat2: 'Etapa 2', s2sStat2v: 'Agente — processa e raciocina',
+	s2sStat3: 'Etapa 3', s2sStat3v: 'TTS — fala a resposta',
+
+	scenTitle: 'Cenários de fala para fala',
+	scenCaption: 'Onde os agentes de voz brilham',
+	scenDesc: 'Quando um agente pode ouvir e falar, surgem experiências totalmente novas — de ajuda mãos livres a tradução em tempo real.',
+	scenCallout: 'A fala para fala impulsiona experiências em que digitar é impraticável ou pouco natural — <strong>assistentes de voz, tradução, mãos livres e acessibilidade</strong>.',
+	scenStat1: 'Assistentes de voz', scenStat1v: 'Agentes conversacionais que agem',
+	scenStat2: 'Tradução', scenStat2v: 'Fale um idioma, ouça outro',
+	scenStat3: 'Acesso', scenStat3v: 'Mãos livres e acessibilidade',
+
+	vlTitle: 'Azure AI Speech Voice Live',
+	vlCaption: 'Um serviço gerenciado em tempo real',
+	vlDesc: 'Criar um agente de voz manualmente exige unir STT, raciocínio e TTS. O Voice Live os combina em um único serviço gerenciado pelo Azure para conversas de voz em tempo real.',
+	vlCallout: 'Em vez de conectar várias peças, a <strong>API do Voice Live</strong> cuida da fala de entrada, do raciocínio e da fala de saída — e também pode retornar avatares e disparar ações.',
+	vlManyHead: 'Faça você mesmo',
+	vlManyGlue: 'Você conecta, sincroniza e gerencia cada peça e os tempos entre elas.',
+	vlOneHead: 'Com o Voice Live',
+	vlOneTitle: 'API do Voice Live', vlOneSub: 'STT + raciocínio + TTS, gerenciado',
+	vlOut1: 'Respostas faladas', vlOut2: 'Avatares e visuais', vlOut3: 'Dispara ações',
+	vlStat1: 'O quê', vlStat1v: 'Um serviço de voz gerenciado em tempo real',
+	vlStat2: 'Combina', vlStat2v: 'STT + raciocínio + TTS em uma API',
+	vlStat3: 'Retorna', vlStat3v: 'Fala, avatares/visuais, ações',
+
+	archTitle: 'Como tudo se encaixa',
+	archCaption: 'Fala · agente · ferramentas',
+	archDesc: 'Uma solução de voz combina três camadas: o Azure AI Speech como ouvidos e boca, o seu agente ou a lógica do app para as decisões e as ferramentas do Foundry ou servidores MCP que expõem a fala como capacidades chamáveis.',
+	archCallout: 'O Azure AI Speech fornece <strong>STT e TTS</strong>, o seu <strong>agente ou lógica do app</strong> decide o que fazer e as <strong>ferramentas do Foundry / servidores MCP</strong> expõem a fala como ferramentas chamáveis.',
+	archSpeechTitle: 'Azure AI Speech', archSpeechSub: 'Os ouvidos e a boca — reconhece e sintetiza áudio.',
+	archAgentTitle: 'Agentes e lógica do app', archAgentSub: 'O cérebro — decide o que fazer com o que ouviu.',
+	archToolsTitle: 'Ferramentas do Foundry / servidores MCP', archToolsSub: 'As mãos — expõem a fala como ferramentas chamáveis.',
+	archStat1: 'Fala', archStat1v: 'Azure AI Speech — STT e TTS',
+	archStat2: 'Lógica', archStat2v: 'Agentes e decisões do app',
+	archStat3: 'Ferramentas', archStat3v: 'Ferramentas do Foundry / servidores MCP',
+
+	buildTitle: 'Comece no Foundry',
+	buildCaption: 'Do zero a apps que falam',
+	buildDesc: 'Crie um recurso do Azure AI Speech, experimente vozes no portal do Foundry e então chame a fala para texto e o texto para fala do seu app — ou conecte-os a um agente.',
+	buildCallout: 'Pré-construído e pronto: <strong>crie o recurso, experimente uma voz, chame a API.</strong> O mesmo endpoint alimenta seu código e seus agentes.',
+	buildHeroTitle: 'Seu app e agentes → Azure AI Speech',
+	buildAppNode: 'Seu app', buildAppSub: 'Web, móvel, desktop',
+	buildAgentNode: 'Seu agente', buildAgentSub: 'IA conversacional',
+	buildPathSdk: 'SDK do Speech', buildPathMcp: 'via MCP',
+	buildLangNode: 'Azure AI Speech', buildLangSub: 'STT · TTS · Voice Live',
+	buildStepsTitle: 'Como começar',
+	buildStep1: 'Crie um recurso do Speech', buildStep1s: 'No portal do Foundry',
+	buildStep2: 'Experimente vozes no portal', buildStep2s: 'Pré-ouça vozes neurais',
+	buildStep3: 'Pegue o endpoint e a chave', buildStep3s: 'Ou use o Entra ID',
+	buildStep4: 'Chame STT / TTS', buildStep4s: 'SDK do Speech ou REST',
+	buildStep5: 'Ajuste a voz', buildStep5s: 'SSML: velocidade, tom, volume',
+	buildStep6: 'Conecte a um agente', buildStep6s: 'Ou use o Voice Live',
+	buildIntegrateTitle: 'Chame pelo código',
+	buildIntegrateSub: 'Use o SDK do Azure Speech — um cliente, reconhece e sintetiza',
+	buildStat1: 'Configuração', buildStat1v: 'Criar recurso → portal → chamar API',
+	buildStat2: 'Valor', buildStat2v: 'Natural, acessível, multilíngue, em tempo real',
+	buildStat3: 'Onde', buildStat3v: 'Portal do Foundry (ai.azure.com)',
+	whyUse1: 'Instruções por voz', whyUse2: 'Perguntas e respostas faladas', whyUse3: 'Legendas ao vivo',
+	twoSttIn: 'Áudio falado', twoSttOut: 'Texto', twoTtsIn: 'Texto', twoTtsOut: 'Áudio falado',
+	sttS1: 'Áudio de entrada', sttS1s: 'Microfone ou arquivo',
+	sttS2: 'Modelo acústico', sttS2s: 'Sinal → unidades de som', sttS2b: 'Acústico',
+	sttS3: 'Fonemas', sttS3s: 'Unidades básicas do som',
+	sttS4: 'Modelo de linguagem', sttS4s: 'Sons → palavras prováveis', sttS4b: 'Linguagem',
+	sttS5: 'Palavras e texto', sttS5s: 'Transcrição legível',
+	sttResult: '"Onde está meu pedido?"',
+	ucClinicalHead: 'Ditado clínico', ucClinicalDesc: 'Os médicos ditam notas com as mãos livres enquanto cuidam dos pacientes.', ucClinicalEx: '"Paciente relata dor de cabeça leve; aconselhado repouso e hidratação." → digitado direto no prontuário.', ucClinicalCap1: 'Saúde', ucClinicalCap2: 'Mãos livres',
+	ucSupportHead: 'Transcrição de chamadas', ucSupportDesc: 'Chamadas de suporte e vendas viram texto pesquisável para qualidade e conformidade.', ucSupportEx: 'Cada chamada de cliente transcrita automaticamente para revisão e treinamento.', ucSupportCap1: 'Central de contato', ucSupportCap2: 'Pesquisável',
+	ucMediaHead: 'Legendagem automática', ucMediaDesc: 'Vídeos e transmissões ao vivo recebem legendas precisas em tempo real.', ucMediaEx: 'Legendas ao vivo aparecem na tela enquanto um apresentador fala.', ucMediaCap1: 'Mídia', ucMediaCap2: 'Acessibilidade',
+	ucLearningHead: 'Feedback de pronúncia', ucLearningDesc: 'Apps de aprendizado de idiomas pontuam o quão perto o aluno está de uma frase-alvo.', ucLearningEx: 'Um aluno lê em voz alta e recebe pontuação de pronúncia na hora.', ucLearningCap1: 'Educação', ucLearningCap2: 'Avaliação',
+	ttsS1: 'Texto + voz', ttsS1s: 'O que dizer e quem diz',
+	ttsS2: 'Tokenizar', ttsS2s: 'Dividir em palavras',
+	ttsS3: 'Unidades fonéticas', ttsS3s: 'Como as palavras soam',
+	ttsS4: 'Unidades prosódicas', ttsS4s: 'Ritmo e entonação',
+	ttsS5: 'Áudio de saída', ttsS5s: 'Fala natural',
+	ttsResult: '"Seu pedido está a caminho."',
+	apiReqFile: 'synthesize.py · requisição', apiResFile: 'resposta · áudio',
+	apiVoiceNeural1m: 'en-US · Neural', apiVoiceNeural2m: 'en-US · Neural', apiVoiceNeural3m: 'ja-JP · Neural',
+	s2sUserIn: 'O usuário fala', s2sUserInSub: 'Pergunta falada',
+	s2sStt: 'Fala para texto', s2sSttSub: 'Áudio → texto',
+	s2sBrain: 'Agente', s2sBrainSub: 'Processa e raciocina',
+	s2sTts: 'Texto para fala', s2sTtsSub: 'Texto → áudio',
+	s2sUserOut: 'O agente responde', s2sUserOutSub: 'Resposta falada',
+	ucAssistHead: 'Assistentes e agentes de voz', ucAssistDesc: 'Agentes conversacionais respondem perguntas e agem por voz.', ucAssistEx: '"Reagende minha reunião das 15h para amanhã." → feito, confirmado em voz alta.', ucAssistCap1: 'Conversacional', ucAssistCap2: 'Toma ação',
+	ucTransHead: 'Tradução de fala', ucTransDesc: 'Fale em um idioma e ouça a resposta em outro.', ucTransEx: 'Um viajante pergunta em inglês; o agente responde em japonês.', ucTransCap1: 'Multilíngue', ucTransCap2: 'Em tempo real',
+	ucHandsHead: 'Experiências mãos livres', ucHandsDesc: 'Motoristas, técnicos e médicos interagem sem tocar na tela.', ucHandsEx: '"Qual é o próximo passo?" perguntado com as duas mãos ocupadas.', ucHandsCap1: 'Sem olhar', ucHandsCap2: 'Em movimento',
+	ucA11yHead: 'Acessibilidade e suporte', ucA11yDesc: 'Bots de suporte por voz ajudam usuários que não conseguem digitar ou ler com facilidade.', ucA11yEx: 'Um bot de suporte ouve, entende e responde por voz.', ucA11yCap1: 'Inclusivo', ucA11yCap2: 'Bots de suporte',
+	vlManyPiece1: 'Fala para texto', vlManyPiece2: 'Raciocínio / agente', vlManyPiece3: 'Texto para fala',
+	archSpeechC1: 'Fala para texto', archSpeechC2: 'Texto para fala',
+	archAgentC1: 'Raciocínio', archAgentC2: 'Fluxo de trabalho', archAgentC3: 'Decisões',
+	archToolsC1: 'Ferramentas chamáveis', archToolsC3: 'Reutilizável',
+	buildVal1: '🗣️ Natural', buildVal2: '♿ Acessível', buildVal3: '🌐 Multilíngue', buildVal4: '⚡ Tempo real', buildVal5: '🎙️ Vozes personalizadas'
+};
+
+function t(key) { return (I18N[currentLang] && I18N[currentLang][key]) || I18N.en[key] || key; }
+
+function setLanguage(lang) {
+	currentLang = lang;
+	document.documentElement.lang = lang;
+	document.getElementById('page-title').textContent = '🎤 ' + t('pageTitle');
+	// icon-only nav buttons: localized text lives in the tooltip (title), glyphs stay in the markup
+	document.getElementById('prev-btn').title = t('prev');
+	document.getElementById('next-btn').title = t('next');
+	document.getElementById('replay-btn').title = t('replay');
+	document.getElementById('reset-btn').title = t('restart');
+	document.getElementById('speed-down').title = t('slower');
+	document.getElementById('speed-up').title = t('faster');
+	document.getElementById('outline-title').textContent = t('stepDetails');
+	document.querySelector('.skip-link').textContent = t('skipToMain');
+	document.getElementById('stage-heading').textContent = t('stageHeading');
+	document.getElementById('stage-instructions').textContent = t('stageInstructions');
+	syncCalloutBtn();
+	syncOutlineBtn();
+	if (current >= 0) renderStep(current);
+}
+
+// ── STEPS ─────────────────────────────────
+const STEPS = [
+	{ id:'why', short:'Why voice', titleKey:'whyTitle', captionKey:'whyCaption', descKey:'whyDesc', calloutKey:'whyCallout',
+		stats:[['whyStat1','whyStat1v'],['whyStat2','whyStat2v'],['whyStat3','whyStat3v']] },
+	{ id:'two', short:'Two', titleKey:'twoTitle', captionKey:'twoCaption', descKey:'twoDesc', calloutKey:'twoCallout',
+		stats:[['twoStat1','twoStat1v'],['twoStat2','twoStat2v'],['twoStat3','twoStat3v']] },
+	{ id:'stt', short:'Speech→Text', titleKey:'sttTitle', captionKey:'sttCaption', descKey:'sttDesc', calloutKey:'sttCallout',
+		stats:[['sttStat1','sttStat1v'],['sttStat2','sttStat2v'],['sttStat3','sttStat3v']] },
+	{ id:'sttuc', short:'STT uses', titleKey:'sttUcTitle', captionKey:'sttUcCaption', descKey:'sttUcDesc', calloutKey:'sttUcCallout',
+		stats:[['sttUcStat1','sttUcStat1v'],['sttUcStat2','sttUcStat2v'],['sttUcStat3','sttUcStat3v']] },
+	{ id:'tts', short:'Text→Speech', titleKey:'ttsTitle', captionKey:'ttsCaption', descKey:'ttsDesc', calloutKey:'ttsCallout',
+		stats:[['ttsStat1','ttsStat1v'],['ttsStat2','ttsStat2v'],['ttsStat3','ttsStat3v']] },
+	{ id:'api', short:'TTS API', titleKey:'apiTitle', captionKey:'apiCaption', descKey:'apiDesc', calloutKey:'apiCallout',
+		stats:[['apiStat1','apiStat1v'],['apiStat2','apiStat2v'],['apiStat3','apiStat3v']] },
+	{ id:'s2s', short:'Speech↔Speech', titleKey:'s2sTitle', captionKey:'s2sCaption', descKey:'s2sDesc', calloutKey:'s2sCallout',
+		stats:[['s2sStat1','s2sStat1v'],['s2sStat2','s2sStat2v'],['s2sStat3','s2sStat3v']] },
+	{ id:'scenarios', short:'Scenarios', titleKey:'scenTitle', captionKey:'scenCaption', descKey:'scenDesc', calloutKey:'scenCallout',
+		stats:[['scenStat1','scenStat1v'],['scenStat2','scenStat2v'],['scenStat3','scenStat3v']] },
+	{ id:'voicelive', short:'Voice Live', titleKey:'vlTitle', captionKey:'vlCaption', descKey:'vlDesc', calloutKey:'vlCallout',
+		stats:[['vlStat1','vlStat1v'],['vlStat2','vlStat2v'],['vlStat3','vlStat3v']] },
+	{ id:'arch', short:'Architecture', titleKey:'archTitle', captionKey:'archCaption', descKey:'archDesc', calloutKey:'archCallout',
+		stats:[['archStat1','archStat1v'],['archStat2','archStat2v'],['archStat3','archStat3v']] },
+	{ id:'build', short:'Build', titleKey:'buildTitle', captionKey:'buildCaption', descKey:'buildDesc', calloutKey:'buildCallout',
+		stats:[['buildStat1','buildStat1v'],['buildStat2','buildStat2v'],['buildStat3','buildStat3v']] }
+];
+
+// ── DOM REFS ──────────────────────────────
+const stage       = document.getElementById('stage');
+const svg         = document.getElementById('fx-svg');
+const counter     = document.getElementById('step-counter');
+const breadcrumb  = document.getElementById('breadcrumb');
+const progress    = document.getElementById('progress-fill');
+const announcer   = document.getElementById('step-announcer');
+const outlineBody = document.getElementById('outline-body');
+const outlinePanel= document.getElementById('step-outline');
+const outlineBtn  = document.getElementById('outline-toggle');
+const calloutBtn  = document.getElementById('callout-toggle');
+const langSelect  = document.getElementById('lang-select');
+
+langSelect.addEventListener('change', (e) => { setLanguage(e.target.value); });
+const urlLang = new URLSearchParams(location.search).get('lang');
+if (urlLang && I18N[urlLang]) { currentLang = urlLang; langSelect.value = urlLang; }
+
+// ── Font size controls ────────────────────
+const fontScales = [0.8, 0.9, 1, 1.1, 1.2, 1.35];
+let fontScaleIdx = 2;
+const fontDecBtn = document.getElementById('font-decrease');
+const fontIncBtn = document.getElementById('font-increase');
+const baseFontSize = parseFloat(getComputedStyle(document.documentElement).fontSize);
+function applyFontScale() {
+	document.documentElement.style.fontSize = (baseFontSize * fontScales[fontScaleIdx]) + 'px';
+	const controls = document.getElementById('controls');
+	if (controls) controls.style.fontSize = (baseFontSize) + 'px';
+}
+fontDecBtn.addEventListener('click', () => { if (fontScaleIdx > 0) { fontScaleIdx--; applyFontScale(); } });
+fontIncBtn.addEventListener('click', () => { if (fontScaleIdx < fontScales.length - 1) { fontScaleIdx++; applyFontScale(); } });
+
+let current = -1;
+let animating = false;
+let liveEls = [];
+let liveTimelines = [];
+let calloutEnabled = false;
+
+// ── Callout toggle ────────────────────────
+function syncCalloutBtn() {
+	calloutBtn.textContent = calloutEnabled ? t('calloutOn') : t('calloutOff');
+	calloutBtn.classList.toggle('toggle-active', calloutEnabled);
+}
+calloutBtn.addEventListener('click', () => { calloutEnabled = !calloutEnabled; syncCalloutBtn(); if (current >= 0) renderStep(current); });
+syncCalloutBtn();
+
+// ── Outline toggle ────────────────────────
+function syncOutlineBtn() {
+	const on = !outlinePanel.hasAttribute('hidden');
+	outlineBtn.textContent = on ? t('outlineOn') : t('outlineOff');
+	outlineBtn.classList.toggle('toggle-active', on);
+}
+outlineBtn.addEventListener('click', () => {
+	const showing = !outlinePanel.hasAttribute('hidden');
+	if (showing) { outlinePanel.setAttribute('hidden', ''); outlineBtn.setAttribute('aria-expanded', 'false'); }
+	else { outlinePanel.removeAttribute('hidden'); outlineBtn.setAttribute('aria-expanded', 'true'); }
+	syncOutlineBtn();
+});
+syncOutlineBtn();
+
+// ── Reduced motion ────────────────────────
+const motionMQ = window.matchMedia('(prefers-reduced-motion: reduce)');
+let motionPaused = motionMQ.matches;
+motionMQ.addEventListener('change', e => { motionPaused = e.matches; renderStep(current); });
+
+// ── Helpers ───────────────────────────────
+function clearStage() {
+	liveTimelines.forEach(t => t.kill());
+	liveTimelines = [];
+	liveEls.forEach(el => el.remove());
+	liveEls = [];
+	Array.from(svg.children).forEach(child => { if (child.tagName.toLowerCase() !== 'defs') child.remove(); });
+}
+function el(cls, html) { const d = document.createElement('div'); if (cls) d.className = cls; if (html != null) d.innerHTML = html; return d; }
+
+function stepTitle(step)   { return t(step.titleKey); }
+function stepDesc(step)    { return t(step.descKey); }
+function stepCaption(step) { return t(step.captionKey); }
+
+function renderOutline(step, idx) {
+	const statRows = (step.stats||[]).map(([k,v]) => {
+		const label = I18N[currentLang] && I18N[currentLang][k] ? t(k) : k;
+		const value = I18N[currentLang] && I18N[currentLang][v] ? t(v) : v;
+		return `<div class="stat-row"><span>${label}</span><span>${value}</span></div>`;
+	}).join('');
+	outlineBody.innerHTML = `
+		<div class="outline-section">
+			<strong>${t('stepOf')} ${idx+1} / ${STEPS.length}: ${stepTitle(step)}</strong>
+			<p style="margin-top:0.4rem;">${stepDesc(step)}</p>
+		</div>
+		${statRows ? `<div class="outline-section">${statRows}</div>` : ''}
+	`;
+}
+function announceStep(step, idx) {
+	announcer.textContent = `${t('stepOf')} ${idx+1} / ${STEPS.length}: ${stepTitle(step)}. ${stepDesc(step)}`;
+}
+
+function buildScene(step) {
+	const scene = el('scene');
+	scene.appendChild(el('scene-title', stepTitle(step)));
+	scene.appendChild(el('scene-lead', stepDesc(step)));
+	return scene;
+}
+function maybeCallout(step) {
+	if (!calloutEnabled) return null;
+	const c = el('callout', t(step.calloutKey));
+	c.style.left = '1.5rem'; c.style.top = '1.5rem'; c.style.right = 'auto'; c.style.bottom = 'auto';
+	stage.appendChild(c); liveEls.push(c);
+	return c;
+}
+function headerEls(scene) { return [scene.querySelector('.scene-title'), scene.querySelector('.scene-lead')]; }
+function stepById(id) { return STEPS.find(s => s.id === id); }
+
+// build a waveform of N bars; returns the wrapper div
+function buildWave(bars, isTts) {
+	const w = el('wave' + (isTts ? ' is-tts' : ''));
+	for (let i = 0; i < bars; i++) w.appendChild(el('wave-bar'));
+	return w;
+}
+function animateWave(waveEl, delayBase) {
+	if (motionPaused) { waveEl.querySelectorAll('.wave-bar').forEach(b => b.style.transform = 'scaleY(0.7)'); return; }
+	waveEl.querySelectorAll('.wave-bar').forEach((b, i) => {
+		b.style.animation = `waveBounce ${0.7 + (i % 3) * 0.15}s ease-in-out ${(delayBase||0) + i * 0.08}s infinite`;
+	});
+}
+
+// ── RENDER STEP ───────────────────────────
+function renderStep(stepIndex) {
+	if (stepIndex < 0 || stepIndex >= STEPS.length) return;
+	if (animating) { liveTimelines.forEach(t => t.kill()); liveTimelines = []; animating = false; }
+	animating = true;
+	const step = STEPS[stepIndex];
+	clearStage();
+
+	if (step.id === 'why') renderWhyStep();
+	else if (step.id === 'two') renderTwoStep();
+	else if (step.id === 'stt') renderSttStep();
+	else if (step.id === 'sttuc') renderSttUseCasesStep();
+	else if (step.id === 'tts') renderTtsStep();
+	else if (step.id === 'api') renderApiStep();
+	else if (step.id === 's2s') renderS2sStep();
+	else if (step.id === 'scenarios') renderScenariosStep();
+	else if (step.id === 'voicelive') renderVoiceLiveStep();
+	else if (step.id === 'arch') renderArchStep();
+	else if (step.id === 'build') renderBuildStep();
+
+	current = stepIndex;
+	counter.textContent = `${current+1} / ${STEPS.length}`;
+	breadcrumb.textContent = stepCaption(step);
+	progress.style.width = ((current+1)/STEPS.length * 100) + '%';
+	renderOutline(step, stepIndex);
+	announceStep(step, stepIndex);
+}
+
+// ── STEP 1 · WHY VOICE ────────────────────
+function renderWhyStep() {
+	const step = stepById('why');
+	const scene = buildScene(step);
+
+	const hero = el('voice-hero');
+	const mic = el('voice-mic', '<span class="vm-emoji">🎙️</span>');
+	hero.appendChild(mic);
+	[140, 200, 260].forEach((d) => {
+		const ring = el('voice-ring');
+		ring.style.width = d + 'px'; ring.style.height = d + 'px';
+		hero.appendChild(ring);
+	});
+
+	const uses = el('chip-row');
+	uses.innerHTML = `
+		<span class="pill" style="border-color:#0078d4;background:rgba(0,120,212,0.08);">🗣️ ${t('whyUse1')}</span>
+		<span class="pill" style="border-color:#5c2d91;">💬 ${t('whyUse2')}</span>
+		<span class="pill" style="border-color:#e97526;background:rgba(233,117,38,0.08);">📺 ${t('whyUse3')}</span>
+	`;
+
+	const values = el('voice-value-row');
+	values.innerHTML = `
+		<span class="vv-chip" data-v="natural"><span class="vv-ico">🗣️</span>${t('whyValNatural')}</span>
+		<span class="vv-chip" data-v="accessible"><span class="vv-ico">♿</span>${t('whyValAccessible')}</span>
+		<span class="vv-chip" data-v="inclusive"><span class="vv-ico">🤝</span>${t('whyValInclusive')}</span>
+	`;
+
+	scene.appendChild(hero); scene.appendChild(uses); scene.appendChild(values);
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl = maybeCallout(step);
+
+	const rings = hero.querySelectorAll('.voice-ring');
+	const useChips = uses.querySelectorAll('.pill');
+	const valChips = values.querySelectorAll('.vv-chip');
+	if (motionPaused) {
+		gsap.set([...headerEls(scene), hero, ...useChips, ...valChips], { opacity:1 });
+		gsap.set(rings, { opacity:0.4 });
+		if (cEl) gsap.set(cEl, { opacity:1 }); animating=false; return;
+	}
+	const tl = gsap.timeline({ onComplete:()=>animating=false }); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), { opacity:0, y:-14 }, { opacity:1, y:0, duration:0.55, stagger:0.12, ease:'power2.out' });
+	tl.fromTo(hero, { opacity:0, scale:0.7 }, { opacity:1, scale:1, duration:0.6, ease:'back.out(1.6)' }, '-=0.1');
+	tl.fromTo(useChips, { opacity:0, y:14 }, { opacity:1, y:0, duration:0.45, stagger:0.12, ease:'back.out(1.5)' }, '-=0.1');
+	tl.fromTo(valChips, { opacity:0, scale:0.6 }, { opacity:1, scale:1, duration:0.45, stagger:0.12, ease:'back.out(1.8)' }, '-=0.1');
+	if (cEl) tl.fromTo(cEl, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.6 }, '-=0.3');
+
+	// looping sound rings emanating from the mic
+	const ringLoop = gsap.timeline({ repeat:-1, repeatDelay:0.3, delay:1 }); liveTimelines.push(ringLoop);
+	rings.forEach((r, i) => {
+		ringLoop.fromTo(r, { opacity:0.55, scale:0.4 }, { opacity:0, scale:1, duration:1.8, ease:'power1.out' }, i * 0.55);
+	});
+}
+
+// ── STEP 2 · TWO CAPABILITIES ─────────────
+function renderTwoStep() {
+	const step = stepById('two');
+	const scene = buildScene(step);
+
+	const split = el('cap-split');
+	const stt = el('cap-panel');
+	stt.innerHTML = `
+		<span class="cp-tag">🎙️ ${t('twoSttTag')}</span>
+		<span class="cp-title">${t('twoSttTitle')}</span>
+		<div class="cp-flow">
+			<span class="cp-io"><span class="cp-io-ico">🗣️</span><span class="cp-io-label">${t('twoSttIn')}</span></span>
+			<span class="cp-conv">➜</span>
+			<span class="cp-io"><span class="cp-io-ico">📝</span><span class="cp-io-label">${t('twoSttOut')}</span></span>
+		</div>
+		<span class="cp-desc">${t('twoSttDesc')}</span>
+	`;
+	const tts = el('cap-panel is-tts');
+	tts.innerHTML = `
+		<span class="cp-tag">🔊 ${t('twoTtsTag')}</span>
+		<span class="cp-title">${t('twoTtsTitle')}</span>
+		<div class="cp-flow">
+			<span class="cp-io"><span class="cp-io-ico">📝</span><span class="cp-io-label">${t('twoTtsIn')}</span></span>
+			<span class="cp-conv">➜</span>
+			<span class="cp-io"><span class="cp-io-ico">🔊</span><span class="cp-io-label">${t('twoTtsOut')}</span></span>
+		</div>
+		<span class="cp-desc">${t('twoTtsDesc')}</span>
+	`;
+	split.appendChild(stt); split.appendChild(tts);
+	scene.appendChild(split);
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl = maybeCallout(step);
+
+	if (motionPaused) {
+		gsap.set([...headerEls(scene), stt, tts], { opacity:1 });
+		if (cEl) gsap.set(cEl, { opacity:1 }); animating=false; return;
+	}
+	const tl = gsap.timeline({ onComplete:()=>animating=false }); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), { opacity:0, y:-14 }, { opacity:1, y:0, duration:0.55, stagger:0.12, ease:'power2.out' });
+	tl.fromTo(stt, { opacity:0, x:-30 }, { opacity:1, x:0, duration:0.55, ease:'back.out(1.4)' }, '-=0.05');
+	tl.fromTo(tts, { opacity:0, x:30 }, { opacity:1, x:0, duration:0.55, ease:'back.out(1.4)' }, '-=0.35');
+	if (cEl) tl.fromTo(cEl, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.6 }, '-=0.3');
+}
+
+// ── STEP 3 · SPEECH TO TEXT DEEP DIVE ─────
+function renderSttStep() {
+	const step = stepById('stt');
+	const scene = buildScene(step);
+
+	const pipe = el('pipe');
+	pipe.innerHTML = `
+		<div class="pipe-stage"><span class="ps-ico">🎙️</span><span class="ps-label">${t('sttS1')}</span><span class="ps-sub">${t('sttS1s')}</span></div>
+		<span class="pipe-arrow">➜</span>
+		<div class="pipe-stage"><span class="ps-ico">🔊</span><span class="ps-label">${t('sttS2')}</span><span class="ps-sub">${t('sttS2s')}</span><span class="model-badge">🧠 ${t('sttS2b')}</span></div>
+		<span class="pipe-arrow">➜</span>
+		<div class="pipe-stage"><span class="ps-ico">🔤</span><span class="ps-label">${t('sttS3')}</span><span class="ps-sub">${t('sttS3s')}</span></div>
+		<span class="pipe-arrow">➜</span>
+		<div class="pipe-stage"><span class="ps-ico">🧩</span><span class="ps-label">${t('sttS4')}</span><span class="ps-sub">${t('sttS4s')}</span><span class="model-badge">🧠 ${t('sttS4b')}</span></div>
+		<span class="pipe-arrow">➜</span>
+		<div class="pipe-stage"><span class="ps-ico">📝</span><span class="ps-label">${t('sttS5')}</span><span class="ps-sub">${t('sttS5s')}</span></div>
+	`;
+
+	const phonemes = el('token-strip');
+	['/w/', '/ɛ/', '/r/', '/ɪ/', '/z/'].forEach(p => phonemes.appendChild(el('ph-chip', p)));
+
+	const result = el('result-card is-stt');
+	result.innerHTML = `<span class="rc-ico">📝</span><span class="rc-text">${t('sttResult')}</span>`;
+
+	const use = el('pill', `🎬 ${t('sttUse')}`);
+	use.style.borderColor = '#0078d4'; use.style.background = 'rgba(0,120,212,0.08)';
+
+	scene.appendChild(pipe); scene.appendChild(phonemes); scene.appendChild(result); scene.appendChild(use);
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl = maybeCallout(step);
+
+	const stages = pipe.querySelectorAll('.pipe-stage');
+	const arrows = pipe.querySelectorAll('.pipe-arrow');
+	const phChips = phonemes.querySelectorAll('.ph-chip');
+	if (motionPaused) {
+		gsap.set([...headerEls(scene), ...stages, ...arrows, ...phChips, result, use], { opacity:1 });
+		if (cEl) gsap.set(cEl, { opacity:1 }); animating=false; return;
+	}
+	const tl = gsap.timeline({ onComplete:()=>animating=false }); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), { opacity:0, y:-14 }, { opacity:1, y:0, duration:0.55, stagger:0.12, ease:'power2.out' });
+	stages.forEach((s, i) => {
+		tl.fromTo(s, { opacity:0, y:18 }, { opacity:1, y:0, duration:0.42, ease:'back.out(1.4)' }, i === 0 ? '-=0.05' : '-=0.1');
+		if (arrows[i]) tl.fromTo(arrows[i], { opacity:0, scale:0.4 }, { opacity:1, scale:1, duration:0.3, ease:'power2.out' }, '-=0.18');
+	});
+	tl.fromTo(phChips, { opacity:0, scale:0.6 }, { opacity:1, scale:1, duration:0.35, stagger:0.1, ease:'back.out(1.8)' }, '+=0.05');
+	tl.fromTo(result, { opacity:0, y:14 }, { opacity:1, y:0, duration:0.5, ease:'power2.out' }, '-=0.05');
+	tl.fromTo(use, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.4, ease:'back.out(1.6)' }, '-=0.2');
+	if (cEl) tl.fromTo(cEl, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.6 }, '-=0.3');
+}
+
+// ── STEP 4 · STT USE CASES ────────────────
+function renderSttUseCasesStep() {
+	const step = stepById('sttuc');
+	const scene = buildScene(step);
+	const grid = el('uc-grid');
+	grid.innerHTML = `
+		<div class="uc-card" data-uc="clinical">
+			<div class="uc-head"><span class="uc-icon">🩺</span> ${t('ucClinicalHead')}</div>
+			<div class="uc-desc">${t('ucClinicalDesc')}</div>
+			<div class="uc-ex">${t('ucClinicalEx')}</div>
+			<div class="uc-caps"><span class="uc-cap">${t('ucClinicalCap1')}</span><span class="uc-cap">${t('ucClinicalCap2')}</span></div>
+		</div>
+		<div class="uc-card" data-uc="support">
+			<div class="uc-head"><span class="uc-icon">📞</span> ${t('ucSupportHead')}</div>
+			<div class="uc-desc">${t('ucSupportDesc')}</div>
+			<div class="uc-ex">${t('ucSupportEx')}</div>
+			<div class="uc-caps"><span class="uc-cap">${t('ucSupportCap1')}</span><span class="uc-cap">${t('ucSupportCap2')}</span></div>
+		</div>
+		<div class="uc-card" data-uc="media">
+			<div class="uc-head"><span class="uc-icon">📺</span> ${t('ucMediaHead')}</div>
+			<div class="uc-desc">${t('ucMediaDesc')}</div>
+			<div class="uc-ex">${t('ucMediaEx')}</div>
+			<div class="uc-caps"><span class="uc-cap">${t('ucMediaCap1')}</span><span class="uc-cap">${t('ucMediaCap2')}</span></div>
+		</div>
+		<div class="uc-card" data-uc="learning">
+			<div class="uc-head"><span class="uc-icon">🎓</span> ${t('ucLearningHead')}</div>
+			<div class="uc-desc">${t('ucLearningDesc')}</div>
+			<div class="uc-ex">${t('ucLearningEx')}</div>
+			<div class="uc-caps"><span class="uc-cap">${t('ucLearningCap1')}</span><span class="uc-cap">${t('ucLearningCap2')}</span></div>
+		</div>
+	`;
+	scene.appendChild(grid);
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl = maybeCallout(step);
+
+	const cards = grid.querySelectorAll('.uc-card');
+	const exs = grid.querySelectorAll('.uc-ex');
+	const caps = grid.querySelectorAll('.uc-cap');
+	if (motionPaused) {
+		gsap.set([...headerEls(scene), ...cards, ...exs, ...caps], { opacity:1 });
+		if (cEl) gsap.set(cEl, { opacity:1 }); animating=false; return;
+	}
+	const tl = gsap.timeline({ onComplete:()=>animating=false }); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), { opacity:0, y:-14 }, { opacity:1, y:0, duration:0.55, stagger:0.12, ease:'power2.out' });
+	tl.fromTo(cards, { opacity:0, y:24 }, { opacity:1, y:0, duration:0.45, stagger:0.13, ease:'back.out(1.4)' }, '-=0.05');
+	tl.fromTo(caps, { opacity:0, scale:0.6 }, { opacity:1, scale:1, duration:0.3, stagger:0.04, ease:'back.out(1.8)' }, '-=0.2');
+	tl.fromTo(exs, { opacity:0, y:8 }, { opacity:1, y:0, duration:0.4, stagger:0.1, ease:'power2.out' }, '-=0.2');
+	if (cEl) tl.fromTo(cEl, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.6 }, '-=0.3');
+}
+
+// ── STEP 5 · TEXT TO SPEECH DEEP DIVE ─────
+function renderTtsStep() {
+	const step = stepById('tts');
+	const scene = buildScene(step);
+
+	const pipe = el('pipe is-tts');
+	pipe.innerHTML = `
+		<div class="pipe-stage"><span class="ps-ico">📝</span><span class="ps-label">${t('ttsS1')}</span><span class="ps-sub">${t('ttsS1s')}</span></div>
+		<span class="pipe-arrow">➜</span>
+		<div class="pipe-stage"><span class="ps-ico">✂️</span><span class="ps-label">${t('ttsS2')}</span><span class="ps-sub">${t('ttsS2s')}</span></div>
+		<span class="pipe-arrow">➜</span>
+		<div class="pipe-stage"><span class="ps-ico">🔤</span><span class="ps-label">${t('ttsS3')}</span><span class="ps-sub">${t('ttsS3s')}</span></div>
+		<span class="pipe-arrow">➜</span>
+		<div class="pipe-stage"><span class="ps-ico">🎵</span><span class="ps-label">${t('ttsS4')}</span><span class="ps-sub">${t('ttsS4s')}</span></div>
+		<span class="pipe-arrow">➜</span>
+		<div class="pipe-stage"><span class="ps-ico">🔊</span><span class="ps-label">${t('ttsS5')}</span><span class="ps-sub">${t('ttsS5s')}</span></div>
+	`;
+
+	const controlsCard = el('ta-card');
+	controlsCard.innerHTML = `<div class="ta-card-head">🎚️ ${t('ttsControlsHead')}</div>`;
+	const vc = el('voice-controls');
+	vc.innerHTML = `
+		<div class="vc-card" data-k="voice"><div class="vc-head"><span class="vc-ico">🗣️</span>${t('ttsVoice')}</div><div class="vc-sub">${t('ttsVoiceSub')}</div><div class="vc-bar"><div class="vc-fill" data-pct="62"></div></div></div>
+		<div class="vc-card" data-k="rate"><div class="vc-head"><span class="vc-ico">⏩</span>${t('ttsRate')}</div><div class="vc-sub">${t('ttsRateSub')}</div><div class="vc-bar"><div class="vc-fill" data-pct="48"></div></div></div>
+		<div class="vc-card" data-k="pitch"><div class="vc-head"><span class="vc-ico">🎼</span>${t('ttsPitch')}</div><div class="vc-sub">${t('ttsPitchSub')}</div><div class="vc-bar"><div class="vc-fill" data-pct="70"></div></div></div>
+		<div class="vc-card" data-k="volume"><div class="vc-head"><span class="vc-ico">🔉</span>${t('ttsVolume')}</div><div class="vc-sub">${t('ttsVolumeSub')}</div><div class="vc-bar"><div class="vc-fill" data-pct="80"></div></div></div>
+	`;
+	controlsCard.appendChild(vc);
+
+	const result = el('result-card');
+	const wave = buildWave(9, true);
+	result.innerHTML = `<span class="rc-ico">🔊</span><span class="rc-text">${t('ttsResult')}</span>`;
+	result.appendChild(wave);
+
+	scene.appendChild(pipe); scene.appendChild(controlsCard); scene.appendChild(result);
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl = maybeCallout(step);
+
+	const stages = pipe.querySelectorAll('.pipe-stage');
+	const arrows = pipe.querySelectorAll('.pipe-arrow');
+	const vcCards = vc.querySelectorAll('.vc-card');
+	const fills = vc.querySelectorAll('.vc-fill');
+	if (motionPaused) {
+		gsap.set([...headerEls(scene), ...stages, ...arrows, controlsCard, ...vcCards, result], { opacity:1 });
+		fills.forEach(f => f.style.width = f.dataset.pct + '%');
+		animateWave(wave);
+		if (cEl) gsap.set(cEl, { opacity:1 }); animating=false; return;
+	}
+	const tl = gsap.timeline({ onComplete:()=>animating=false }); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), { opacity:0, y:-14 }, { opacity:1, y:0, duration:0.55, stagger:0.12, ease:'power2.out' });
+	stages.forEach((s, i) => {
+		tl.fromTo(s, { opacity:0, y:18 }, { opacity:1, y:0, duration:0.4, ease:'back.out(1.4)' }, i === 0 ? '-=0.05' : '-=0.1');
+		if (arrows[i]) tl.fromTo(arrows[i], { opacity:0, scale:0.4 }, { opacity:1, scale:1, duration:0.28, ease:'power2.out' }, '-=0.16');
+	});
+	tl.fromTo(controlsCard, { opacity:0, y:16 }, { opacity:1, y:0, duration:0.45, ease:'power2.out' }, '+=0.05');
+	tl.fromTo(vcCards, { opacity:0, y:12 }, { opacity:1, y:0, duration:0.35, stagger:0.1, ease:'back.out(1.5)' }, '-=0.15');
+	fills.forEach((f, i) => tl.to(f, { width: f.dataset.pct + '%', duration:0.6, ease:'power2.out' }, i === 0 ? '-=0.1' : '-=0.45'));
+	tl.fromTo(result, { opacity:0, y:14 }, { opacity:1, y:0, duration:0.5, ease:'power2.out', onComplete:()=>animateWave(wave) }, '+=0.05');
+	if (cEl) tl.fromTo(cEl, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.6 }, '-=0.3');
+}
+
+// ── STEP 6 · AZURE SPEECH TTS API ─────────
+function renderApiStep() {
+	const step = stepById('api');
+	const scene = buildScene(step);
+
+	const duo = el('code-duo');
+	const reqCard = el('code-card');
+	reqCard.innerHTML = `
+		<div class="code-head">
+			<span class="code-file">${t('apiReqFile')}</span>
+			<span class="code-winctrls"><span class="code-wbtn">&#8211;</span><span class="code-wbtn">&#9633;</span><span class="code-wbtn is-close">&#10005;</span></span>
+		</div>
+<pre class="code-body"><span class="tok-kw">import</span> <span class="tok-mod">azure.cognitiveservices.speech</span> <span class="tok-kw">as</span> speechsdk
+
+cfg = speechsdk.<span class="tok-fn">SpeechConfig</span>(endpoint, key)
+<span class="tok-com"># pick a neural voice</span>
+cfg.speech_synthesis_voice_name = <span class="tok-str">"en-US-JennyNeural"</span>
+
+synth = speechsdk.<span class="tok-fn">SpeechSynthesizer</span>(cfg)
+synth.<span class="tok-fn">speak_text_async</span>(<span class="tok-str">"Your order is on its way."</span>)</pre>`;
+	const arrow = el('code-arrow is-big', '➜');
+	const resCard = el('code-card');
+	resCard.innerHTML = `
+		<div class="code-head">
+			<span class="code-file">${t('apiResFile')}</span>
+			<span class="code-winctrls"><span class="code-wbtn">&#8211;</span><span class="code-wbtn">&#9633;</span><span class="code-wbtn is-close">&#10005;</span></span>
+		</div>
+<pre class="code-body"><span class="tok-com"># SynthesisCompleted</span>
+{
+  <span class="tok-prop">"reason"</span>: <span class="tok-str">"SynthesizingAudioCompleted"</span>,
+  <span class="tok-prop">"audio_format"</span>: <span class="tok-str">"audio-16khz-32kbitrate-mono-mp3"</span>,
+  <span class="tok-prop">"audio_duration_ms"</span>: <span class="tok-num">1680</span>,
+  <span class="tok-prop">"voice"</span>: <span class="tok-str">"en-US-JennyNeural"</span>
+}
+<span class="tok-com"># → spoken audio stream 🔊</span></pre>`;
+	duo.appendChild(reqCard); duo.appendChild(arrow); duo.appendChild(resCard);
+
+	const card = el('ta-card');
+	card.style.width = 'min(900px,98%)';
+	card.innerHTML = `<div class="ta-card-head">🎙️ ${t('apiVoicesHead')}</div>`;
+	const gallery = el('voice-gallery');
+	gallery.innerHTML = `
+		<div class="voice-tile" data-kind="neural"><span class="vt-avatar">👩</span><span><span class="vt-name">${t('apiVoiceNeural1')} <span class="vt-tag">${t('apiTagNeural')}</span></span><span class="vt-meta">${t('apiVoiceNeural1m')}</span></span></div>
+		<div class="voice-tile" data-kind="neural"><span class="vt-avatar">👨</span><span><span class="vt-name">${t('apiVoiceNeural2')} <span class="vt-tag">${t('apiTagNeural')}</span></span><span class="vt-meta">${t('apiVoiceNeural2m')}</span></span></div>
+		<div class="voice-tile" data-kind="neural"><span class="vt-avatar">🧑</span><span><span class="vt-name">${t('apiVoiceNeural3')} <span class="vt-tag">${t('apiTagNeural')}</span></span><span class="vt-meta">${t('apiVoiceNeural3m')}</span></span></div>
+		<div class="voice-tile" data-kind="custom"><span class="vt-avatar">🎨</span><span><span class="vt-name">${t('apiVoiceCustom')} <span class="vt-tag">${t('apiTagCustom')}</span></span><span class="vt-meta">${t('apiVoiceCustomm')}</span></span></div>
+	`;
+	card.appendChild(gallery);
+
+	scene.appendChild(duo); scene.appendChild(card);
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl = maybeCallout(step);
+
+	const tiles = gallery.querySelectorAll('.voice-tile');
+	if (motionPaused) {
+		gsap.set([...headerEls(scene), reqCard, arrow, resCard, card, ...tiles], { opacity:1 });
+		if (cEl) gsap.set(cEl, { opacity:1 }); animating=false; return;
+	}
+	const tl = gsap.timeline({ onComplete:()=>animating=false }); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), { opacity:0, y:-14 }, { opacity:1, y:0, duration:0.55, stagger:0.12, ease:'power2.out' });
+	tl.fromTo(reqCard, { opacity:0, x:-26 }, { opacity:1, x:0, duration:0.5, ease:'power2.out' }, '-=0.05');
+	tl.fromTo(arrow, { opacity:0, scale:0.5 }, { opacity:1, scale:1, duration:0.35, ease:'back.out(1.8)' }, '-=0.15');
+	tl.fromTo(resCard, { opacity:0, x:26 }, { opacity:1, x:0, duration:0.5, ease:'power2.out' }, '-=0.15');
+	tl.fromTo(card, { opacity:0, y:16 }, { opacity:1, y:0, duration:0.45, ease:'power2.out' }, '+=0.05');
+	tl.fromTo(tiles, { opacity:0, y:14, scale:0.85 }, { opacity:1, y:0, scale:1, duration:0.4, stagger:0.1, ease:'back.out(1.7)' }, '-=0.1');
+	if (cEl) tl.fromTo(cEl, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.6 }, '-=0.3');
+}
+
+// ── STEP 7 · SPEECH-TO-SPEECH PIPELINE ────
+function renderS2sStep() {
+	const step = stepById('s2s');
+	const scene = buildScene(step);
+
+	const flow = el('s2s-flow');
+	const userIn = el('s2s-endcap', `<span class="se-ico">🧑</span><span class="se-label">${t('s2sUserIn')}<br>${t('s2sUserInSub')}</span>`);
+	const a1 = el('s2s-arrow', '➜');
+	const stt = el('s2s-node'); stt.setAttribute('data-n','stt');
+	stt.innerHTML = `<span class="s2s-ico"><img src="${SPEECH_ICON}" alt="Azure AI Speech"></span><span class="s2s-label">${t('s2sStt')}</span><span class="s2s-sub">${t('s2sSttSub')}</span>`;
+	const a2 = el('s2s-arrow', '➜');
+	const brain = el('s2s-node'); brain.setAttribute('data-n','brain');
+	brain.innerHTML = `<span class="s2s-ico">🤖</span><span class="s2s-label">${t('s2sBrain')}</span><span class="s2s-sub">${t('s2sBrainSub')}</span>`;
+	const a3 = el('s2s-arrow', '➜');
+	const tts = el('s2s-node'); tts.setAttribute('data-n','tts');
+	tts.innerHTML = `<span class="s2s-ico"><img src="${SPEECH_ICON}" alt="Azure AI Speech"></span><span class="s2s-label">${t('s2sTts')}</span><span class="s2s-sub">${t('s2sTtsSub')}</span>`;
+	const a4 = el('s2s-arrow', '➜');
+	const userOut = el('s2s-endcap', `<span class="se-ico">🗣️</span><span class="se-label">${t('s2sUserOut')}<br>${t('s2sUserOutSub')}</span>`);
+	[userIn, a1, stt, a2, brain, a3, tts, a4, userOut].forEach(n => flow.appendChild(n));
+
+	scene.appendChild(flow);
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl = maybeCallout(step);
+
+	const nodes = [userIn, stt, brain, tts, userOut];
+	const arrows = [a1, a2, a3, a4];
+	if (motionPaused) {
+		gsap.set([...headerEls(scene), ...nodes, ...arrows], { opacity:1 });
+		if (cEl) gsap.set(cEl, { opacity:1 }); animating=false; return;
+	}
+	const tl = gsap.timeline({ onComplete:()=>animating=false }); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), { opacity:0, y:-14 }, { opacity:1, y:0, duration:0.55, stagger:0.12, ease:'power2.out' });
+	const seq = [userIn, a1, stt, a2, brain, a3, tts, a4, userOut];
+	seq.forEach((n) => {
+		if (n.classList.contains('s2s-arrow')) {
+			tl.fromTo(n, { opacity:0, scale:0.4 }, { opacity:1, scale:1, duration:0.3, ease:'power2.out' }, '-=0.12');
+		} else {
+			tl.fromTo(n, { opacity:0, y:18, scale:0.9 }, { opacity:1, y:0, scale:1, duration:0.42, ease:'back.out(1.5)' }, '-=0.1');
+		}
+	});
+	if (cEl) tl.fromTo(cEl, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.6 }, '-=0.3');
+}
+
+// ── STEP 8 · SPEECH-TO-SPEECH SCENARIOS ───
+function renderScenariosStep() {
+	const step = stepById('scenarios');
+	const scene = buildScene(step);
+	const grid = el('uc-grid');
+	grid.innerHTML = `
+		<div class="uc-card" data-uc="assistant">
+			<div class="uc-head"><span class="uc-icon">🤖</span> ${t('ucAssistHead')}</div>
+			<div class="uc-desc">${t('ucAssistDesc')}</div>
+			<div class="uc-ex">${t('ucAssistEx')}</div>
+			<div class="uc-caps"><span class="uc-cap">${t('ucAssistCap1')}</span><span class="uc-cap">${t('ucAssistCap2')}</span></div>
+		</div>
+		<div class="uc-card" data-uc="learning">
+			<div class="uc-head"><span class="uc-icon">🌐</span> ${t('ucTransHead')}</div>
+			<div class="uc-desc">${t('ucTransDesc')}</div>
+			<div class="uc-ex">${t('ucTransEx')}</div>
+			<div class="uc-caps"><span class="uc-cap">${t('ucTransCap1')}</span><span class="uc-cap">${t('ucTransCap2')}</span></div>
+		</div>
+		<div class="uc-card" data-uc="media">
+			<div class="uc-head"><span class="uc-icon">🙌</span> ${t('ucHandsHead')}</div>
+			<div class="uc-desc">${t('ucHandsDesc')}</div>
+			<div class="uc-ex">${t('ucHandsEx')}</div>
+			<div class="uc-caps"><span class="uc-cap">${t('ucHandsCap1')}</span><span class="uc-cap">${t('ucHandsCap2')}</span></div>
+		</div>
+		<div class="uc-card" data-uc="support">
+			<div class="uc-head"><span class="uc-icon">♿</span> ${t('ucA11yHead')}</div>
+			<div class="uc-desc">${t('ucA11yDesc')}</div>
+			<div class="uc-ex">${t('ucA11yEx')}</div>
+			<div class="uc-caps"><span class="uc-cap">${t('ucA11yCap1')}</span><span class="uc-cap">${t('ucA11yCap2')}</span></div>
+		</div>
+	`;
+	scene.appendChild(grid);
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl = maybeCallout(step);
+
+	const cards = grid.querySelectorAll('.uc-card');
+	const exs = grid.querySelectorAll('.uc-ex');
+	const caps = grid.querySelectorAll('.uc-cap');
+	if (motionPaused) {
+		gsap.set([...headerEls(scene), ...cards, ...exs, ...caps], { opacity:1 });
+		if (cEl) gsap.set(cEl, { opacity:1 }); animating=false; return;
+	}
+	const tl = gsap.timeline({ onComplete:()=>animating=false }); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), { opacity:0, y:-14 }, { opacity:1, y:0, duration:0.55, stagger:0.12, ease:'power2.out' });
+	tl.fromTo(cards, { opacity:0, y:24 }, { opacity:1, y:0, duration:0.45, stagger:0.13, ease:'back.out(1.4)' }, '-=0.05');
+	tl.fromTo(caps, { opacity:0, scale:0.6 }, { opacity:1, scale:1, duration:0.3, stagger:0.04, ease:'back.out(1.8)' }, '-=0.2');
+	tl.fromTo(exs, { opacity:0, y:8 }, { opacity:1, y:0, duration:0.4, stagger:0.1, ease:'power2.out' }, '-=0.2');
+	if (cEl) tl.fromTo(cEl, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.6 }, '-=0.3');
+}
+
+// ── STEP 9 · VOICE LIVE ───────────────────
+function renderVoiceLiveStep() {
+	const step = stepById('voicelive');
+	const scene = buildScene(step);
+
+	const compare = el('vl-compare');
+	const many = el('vl-col is-many');
+	many.innerHTML = `<div class="vl-col-head">🧩 ${t('vlManyHead')}</div>`;
+	const pieces = el('vl-pieces');
+	pieces.innerHTML = `
+		<span class="vl-piece">🎙️ ${t('vlManyPiece1')}</span>
+		<span class="vl-piece">🤖 ${t('vlManyPiece2')}</span>
+		<span class="vl-piece">🔊 ${t('vlManyPiece3')}</span>
+	`;
+	many.appendChild(pieces);
+	many.appendChild(el('vl-glue', t('vlManyGlue')));
+
+	const one = el('vl-col is-one');
+	one.innerHTML = `<div class="vl-col-head">✨ ${t('vlOneHead')}</div>`;
+	const oneBox = el('vl-one-box');
+	oneBox.innerHTML = `<span class="vl-one-ico"><img src="${SPEECH_ICON}" alt="Azure AI Speech"></span><span class="vl-one-title">${t('vlOneTitle')}</span><span class="vl-one-sub">${t('vlOneSub')}</span>`;
+	one.appendChild(oneBox);
+	const outRow = el('vl-out-row');
+	outRow.innerHTML = `
+		<span class="vl-out">🔊 ${t('vlOut1')}</span>
+		<span class="vl-out">🧑‍🎤 ${t('vlOut2')}</span>
+		<span class="vl-out">⚡ ${t('vlOut3')}</span>
+	`;
+	one.appendChild(outRow);
+
+	compare.appendChild(many); compare.appendChild(one);
+	scene.appendChild(compare);
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl = maybeCallout(step);
+
+	const pieceEls = pieces.querySelectorAll('.vl-piece');
+	const glue = many.querySelector('.vl-glue');
+	const outEls = outRow.querySelectorAll('.vl-out');
+	if (motionPaused) {
+		gsap.set([...headerEls(scene), many, ...pieceEls, glue, one, oneBox, ...outEls], { opacity:1 });
+		if (cEl) gsap.set(cEl, { opacity:1 }); animating=false; return;
+	}
+	const tl = gsap.timeline({ onComplete:()=>animating=false }); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), { opacity:0, y:-14 }, { opacity:1, y:0, duration:0.55, stagger:0.12, ease:'power2.out' });
+	tl.fromTo(many, { opacity:0, x:-24 }, { opacity:1, x:0, duration:0.5, ease:'power2.out' }, '-=0.05');
+	tl.fromTo(pieceEls, { opacity:0, y:12 }, { opacity:1, y:0, duration:0.35, stagger:0.12, ease:'back.out(1.5)' }, '-=0.15');
+	tl.fromTo(glue, { opacity:0 }, { opacity:1, duration:0.4 }, '-=0.1');
+	tl.fromTo(one, { opacity:0, x:24 }, { opacity:1, x:0, duration:0.5, ease:'power2.out' }, '-=0.25');
+	tl.fromTo(oneBox, { opacity:0, scale:0.8 }, { opacity:1, scale:1, duration:0.45, ease:'back.out(1.7)' }, '-=0.2');
+	tl.fromTo(outEls, { opacity:0, y:12, scale:0.85 }, { opacity:1, y:0, scale:1, duration:0.38, stagger:0.1, ease:'back.out(1.8)' }, '-=0.1');
+	if (cEl) tl.fromTo(cEl, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.6 }, '-=0.3');
+}
+
+// ── STEP 10 · ARCHITECTURE ────────────────
+function renderArchStep() {
+	const step = stepById('arch');
+	const scene = buildScene(step);
+
+	const stack = el('arch-stack');
+	const agent = el('arch-layer'); agent.setAttribute('data-l','agent');
+	agent.innerHTML = `
+		<span class="al-ico">🤖</span>
+		<span class="al-body"><span class="al-title">${t('archAgentTitle')}</span><span class="al-sub">${t('archAgentSub')}</span>
+			<span class="al-chips"><span class="arch-chip">${t('archAgentC1')}</span><span class="arch-chip">${t('archAgentC2')}</span><span class="arch-chip">${t('archAgentC3')}</span></span></span>
+	`;
+	const j1 = el('arch-join', '⇄');
+	const tools = el('arch-layer'); tools.setAttribute('data-l','tools');
+	tools.innerHTML = `
+		<span class="al-ico">🛠️</span>
+		<span class="al-body"><span class="al-title">${t('archToolsTitle')}</span><span class="al-sub">${t('archToolsSub')}</span>
+			<span class="al-chips"><span class="arch-chip">${t('archToolsC1')}</span><span class="arch-chip">${t('archToolsC2')}</span><span class="arch-chip">${t('archToolsC3')}</span></span></span>
+	`;
+	const j2 = el('arch-join', '⇄');
+	const speech = el('arch-layer'); speech.setAttribute('data-l','speech');
+	speech.innerHTML = `
+		<span class="al-ico"><img src="${SPEECH_ICON}" alt="Azure AI Speech"></span>
+		<span class="al-body"><span class="al-title">${t('archSpeechTitle')}</span><span class="al-sub">${t('archSpeechSub')}</span>
+			<span class="al-chips"><span class="arch-chip">${t('archSpeechC1')}</span><span class="arch-chip">${t('archSpeechC2')}</span><span class="arch-chip">${t('archSpeechC3')}</span></span></span>
+	`;
+	[agent, j1, tools, j2, speech].forEach(n => stack.appendChild(n));
+
+	scene.appendChild(stack);
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl = maybeCallout(step);
+
+	const layers = [agent, tools, speech];
+	const joins = [j1, j2];
+	const chips = stack.querySelectorAll('.arch-chip');
+	if (motionPaused) {
+		gsap.set([...headerEls(scene), ...layers, ...joins, ...chips], { opacity:1 });
+		if (cEl) gsap.set(cEl, { opacity:1 }); animating=false; return;
+	}
+	const tl = gsap.timeline({ onComplete:()=>animating=false }); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), { opacity:0, y:-14 }, { opacity:1, y:0, duration:0.55, stagger:0.12, ease:'power2.out' });
+	tl.fromTo(agent, { opacity:0, x:-24 }, { opacity:1, x:0, duration:0.5, ease:'back.out(1.4)' }, '-=0.05');
+	tl.fromTo(j1, { opacity:0, scale:0.4 }, { opacity:1, scale:1, duration:0.3 }, '-=0.1');
+	tl.fromTo(tools, { opacity:0, y:24 }, { opacity:1, y:0, duration:0.5, ease:'back.out(1.4)' }, '-=0.1');
+	tl.fromTo(j2, { opacity:0, scale:0.4 }, { opacity:1, scale:1, duration:0.3 }, '-=0.1');
+	tl.fromTo(speech, { opacity:0, x:24 }, { opacity:1, x:0, duration:0.5, ease:'back.out(1.4)' }, '-=0.1');
+	tl.fromTo(chips, { opacity:0, scale:0.6 }, { opacity:1, scale:1, duration:0.3, stagger:0.04, ease:'back.out(1.8)' }, '-=0.15');
+	if (cEl) tl.fromTo(cEl, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.6 }, '-=0.3');
+}
+
+// ── STEP 11 · GET STARTED / BUILD ─────────
+function renderBuildStep() {
+	const step = stepById('build');
+	const scene = buildScene(step);
+
+	// ── hero: App + Agent → Azure AI Speech ──
+	const hero = el('build-hero');
+	hero.appendChild(el('build-hero-title', t('buildHeroTitle')));
+	const wire = el('build-wire');
+	const left = el('bw-left');
+	const appNode = el('bw-node is-app', `<span class="bw-ico">🗔</span><span class="bw-txt"><span class="bw-label">${t('buildAppNode')}</span><span class="bw-sub">${t('buildAppSub')}</span></span>`);
+	const agentNode = el('bw-node is-agent', `<span class="bw-ico">🤖</span><span class="bw-txt"><span class="bw-label">${t('buildAgentNode')}</span><span class="bw-sub">${t('buildAgentSub')}</span></span>`);
+	left.appendChild(appNode); left.appendChild(agentNode);
+	const conns = el('bw-conns');
+	const conn1 = el('bw-conn', `<span class="bw-path">${t('buildPathSdk')}</span><span class="bw-arrow">➜</span>`);
+	const conn2 = el('bw-conn', `<span class="bw-path">${t('buildPathMcp')}</span><span class="bw-arrow">➜</span>`);
+	conns.appendChild(conn1); conns.appendChild(conn2);
+	const langNode = el('bw-lang');
+	langNode.innerHTML = `<img src="${SPEECH_ICON}" alt="Azure AI Speech"><span class="bw-lang-label">${t('buildLangNode')}</span><span class="bw-lang-sub">${t('buildLangSub')}</span>`;
+	wire.appendChild(left); wire.appendChild(conns); wire.appendChild(langNode);
+	hero.appendChild(wire);
+
+	const cols = el('build-cols');
+	const stepsList = el('build-steps');
+	stepsList.appendChild(el('build-steps-title', t('buildStepsTitle')));
+	[['1','buildStep1','buildStep1s'],['2','buildStep2','buildStep2s'],['3','buildStep3','buildStep3s'],
+	 ['4','buildStep4','buildStep4s'],['5','buildStep5','buildStep5s'],['6','buildStep6','buildStep6s']]
+		.forEach(([n,k,s]) => stepsList.appendChild(el('build-step', `<span class="build-num">${n}</span><span><span class="build-step-label">${t(k)}</span><span class="build-step-sub">${t(s)}</span></span>`)));
+
+	const integrate = el('integrate-block');
+	integrate.appendChild(el('integrate-head',
+		`<span class="integrate-title">${t('buildIntegrateTitle')}</span><span class="integrate-sub">${t('buildIntegrateSub')}</span>`));
+	const codeCard = el('code-card');
+	codeCard.innerHTML = `
+		<div class="code-head">
+			<span class="code-file">speech.py · Azure AI Speech</span>
+			<span class="code-winctrls">
+				<span class="code-wbtn">&#8211;</span>
+				<span class="code-wbtn">&#9633;</span>
+				<span class="code-wbtn is-close">&#10005;</span>
+			</span>
+		</div>
+<pre class="code-body"><span class="tok-kw">import</span> <span class="tok-mod">azure.cognitiveservices.speech</span> <span class="tok-kw">as</span> speechsdk
+
+cfg = speechsdk.<span class="tok-fn">SpeechConfig</span>(endpoint, key)
+
+<span class="tok-com"># Recognize: speech → text</span>
+stt = speechsdk.<span class="tok-fn">SpeechRecognizer</span>(cfg)
+result = stt.<span class="tok-fn">recognize_once_async</span>().<span class="tok-fn">get</span>()
+
+<span class="tok-com"># Synthesize: text → speech</span>
+cfg.speech_synthesis_voice_name = <span class="tok-str">"en-US-JennyNeural"</span>
+tts = speechsdk.<span class="tok-fn">SpeechSynthesizer</span>(cfg)
+tts.<span class="tok-fn">speak_text_async</span>(<span class="tok-str">"Hello!"</span>)</pre>`;
+	integrate.appendChild(codeCard);
+
+	cols.appendChild(stepsList); cols.appendChild(integrate);
+
+	const values = el('value-grid');
+	[['buildVal1'],['buildVal2'],['buildVal3'],['buildVal4'],['buildVal5']].forEach(([k]) => values.appendChild(el('value-chip', t(k))));
+
+	scene.appendChild(hero); scene.appendChild(cols); scene.appendChild(values);
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl = maybeCallout(step);
+
+	const heroTitle = hero.querySelector('.build-hero-title');
+	const wireNodes = [appNode, agentNode];
+	const wireConns = [conn1, conn2];
+	const stepsTitle = stepsList.querySelector('.build-steps-title');
+	const stepEls = stepsList.querySelectorAll('.build-step');
+	const integrateHead = integrate.querySelector('.integrate-head');
+	const valEls = values.querySelectorAll('.value-chip');
+	if (motionPaused) {
+		gsap.set([...headerEls(scene), heroTitle, ...wireNodes, ...wireConns, langNode, stepsTitle, ...stepEls, integrateHead, codeCard, ...valEls], { opacity:1 });
+		if (cEl) gsap.set(cEl, { opacity:1 }); animating=false; return;
+	}
+	const tl = gsap.timeline({ onComplete:()=>animating=false }); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), { opacity:0, y:-14 }, { opacity:1, y:0, duration:0.55, stagger:0.12, ease:'power2.out' });
+	tl.fromTo(heroTitle, { opacity:0, y:-8 }, { opacity:1, y:0, duration:0.4, ease:'power2.out' }, '-=0.1');
+	tl.fromTo(wireNodes, { opacity:0, x:-24 }, { opacity:1, x:0, duration:0.45, stagger:0.14, ease:'back.out(1.5)' }, '+=0.05');
+	tl.fromTo(wireConns, { opacity:0, scaleX:0.3 }, { opacity:1, scaleX:1, duration:0.4, stagger:0.12, ease:'power2.out', transformOrigin:'left center' }, '-=0.2');
+	tl.fromTo(langNode, { opacity:0, x:24, scale:0.85 }, { opacity:1, x:0, scale:1, duration:0.5, ease:'back.out(1.6)' }, '-=0.15');
+	tl.fromTo(stepsTitle, { opacity:0, x:-14 }, { opacity:1, x:0, duration:0.4 }, '+=0.1');
+	tl.fromTo(stepEls, { opacity:0, x:-16 }, { opacity:1, x:0, duration:0.4, stagger:0.09, ease:'power2.out' }, '-=0.1');
+	tl.fromTo(integrateHead, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.4, ease:'power2.out' }, '-=0.4');
+	tl.fromTo(codeCard, { opacity:0, y:16, scale:0.98 }, { opacity:1, y:0, scale:1, duration:0.5, ease:'power2.out' }, '-=0.1');
+	tl.fromTo(valEls, { opacity:0, y:12, scale:0.85 }, { opacity:1, y:0, scale:1, duration:0.4, stagger:0.1, ease:'back.out(1.8)' }, '+=0.05');
+	if (cEl) tl.fromTo(cEl, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.6 }, '-=0.3');
+}
+
+// ── CONTROLS ───────────────────────────────
+function interruptAnimation() { liveTimelines.forEach(t => t.kill()); liveTimelines = []; animating = false; }
+function next()   { interruptAnimation(); if (current < STEPS.length-1) renderStep(current+1); }
+function prev()   { interruptAnimation(); if (current > 0) renderStep(current-1); }
+function reset()  { interruptAnimation(); renderStep(0); }
+function replay() { if (current < 0) return; interruptAnimation(); renderStep(current); }
+
+document.getElementById('next-btn').addEventListener('click', e => { e.stopPropagation(); next(); });
+document.getElementById('prev-btn').addEventListener('click', e => { e.stopPropagation(); prev(); });
+document.getElementById('reset-btn').addEventListener('click', e => { e.stopPropagation(); reset(); });
+document.getElementById('replay-btn').addEventListener('click', e => { e.stopPropagation(); replay(); });
+
+// ── Hide / show top bar ──────────────────
+const headerHideBtn   = document.getElementById('header-hide');
+const headerRevealBtn = document.getElementById('header-reveal');
+function setChromeHidden(hidden) {
+	document.body.classList.toggle('chrome-hidden', hidden);
+	headerHideBtn.setAttribute('aria-expanded', String(!hidden));
+	try { localStorage.setItem('sp-chrome-hidden', hidden ? '1' : '0'); } catch (_) {}
+	// give the stage its new size, then reflow the current step
+	requestAnimationFrame(() => renderStep(current));
+}
+headerHideBtn.addEventListener('click',   e => { e.stopPropagation(); setChromeHidden(true); });
+headerRevealBtn.addEventListener('click', e => { e.stopPropagation(); setChromeHidden(false); });
+try { if (localStorage.getItem('sp-chrome-hidden') === '1') document.body.classList.add('chrome-hidden'); } catch (_) {}
+document.addEventListener('keydown', e => {
+	if (e.code === 'KeyH' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+		const tag = (e.target.tagName || '').toLowerCase();
+		if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+		e.preventDefault();
+		setChromeHidden(!document.body.classList.contains('chrome-hidden'));
+	}
+});
+
+// ── Speed control ────────────────────────
+const SPEED_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+const BASE_TIMESCALE = 0.18;
+let speedIndex = SPEED_STEPS.indexOf(1);
+const speedLabel = document.getElementById('speed-label');
+const speedDownBtn = document.getElementById('speed-down');
+const speedUpBtn   = document.getElementById('speed-up');
+function syncSpeedUI() {
+	const spd = SPEED_STEPS[speedIndex];
+	speedLabel.textContent = spd + '\u00d7';
+	speedDownBtn.disabled = speedIndex === 0;
+	speedUpBtn.disabled   = speedIndex === SPEED_STEPS.length - 1;
+	gsap.globalTimeline.timeScale(spd * BASE_TIMESCALE);
+}
+syncSpeedUI();
+speedDownBtn.addEventListener('click', e => { e.stopPropagation(); if (speedIndex > 0) { speedIndex--; syncSpeedUI(); } });
+speedUpBtn.addEventListener('click', e => { e.stopPropagation(); if (speedIndex < SPEED_STEPS.length-1) { speedIndex++; syncSpeedUI(); } });
+
+// ── Keyboard ──────────────────────────────
+if (window.AW && AW.keyboard) {
+	AW.keyboard.bind({ next, prev, reset, replay });
+} else {
+	document.addEventListener('keydown', e => {
+		if (['Space','ArrowRight','Enter'].includes(e.code)) { e.preventDefault(); next(); }
+		else if (e.code === 'ArrowLeft') { e.preventDefault(); prev(); }
+		else if (e.code === 'KeyR') { e.preventDefault(); reset(); }
+		else if (e.code === 'KeyP') { e.preventDefault(); replay(); }
+	});
+}
+
+// ── Resize ────────────────────────────────
+let resizeTimer;
+window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => renderStep(current), 200); });
+
+// ── Init ──────────────────────────────────
+setLanguage(currentLang);
+counter.textContent = `1 / ${STEPS.length}`;
+renderStep(0);
+</script>
+</body>
+</html>
