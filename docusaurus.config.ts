@@ -153,6 +153,14 @@ const config: Config = {
           label: 'Created with ❤️ by Microsoft Technical Trainers & MCTs',
         },
         {
+          href: '/v2/AI/Foundry/index.html',
+          label: '🚀 Try our new AI Journey animations ✨',
+          position: 'right',
+          className: 'navbar-ai-journey',
+          target: '_blank',
+          rel: 'noopener noreferrer',
+        },
+        {
           href: 'https://github.com/AzureAnimations/AzureAnimations.github.io',
           label: 'GitHub',
           position: 'right',
