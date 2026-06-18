@@ -53,7 +53,18 @@
 		if (ev.key === KEY && ev.newValue != null) applyRemote(parseInt(ev.newValue, 10));
 	});
 
-	// ── Scale a scene to fit the audience viewport (keeps it fully visible) ──
+	// ── Scene fit (per .scene) + presenter zoom / pan (whole #stage) ────────
+	var uZoom = 1, uPanX = 0, uPanY = 0;
+	function applyZoom() {
+		var stage = document.getElementById('stage');
+		if (!stage) return;
+		stage.style.transformOrigin = 'center center';
+		stage.style.transform = (uZoom === 1 && !uPanX && !uPanY)
+			? ''
+			: 'translate(' + uPanX.toFixed(1) + 'px,' + uPanY.toFixed(1) + 'px) scale(' + uZoom.toFixed(4) + ')';
+	}
+	function resetZoom() { uZoom = 1; uPanX = 0; uPanY = 0; applyZoom(); }
+	// Scale a .scene (when present) so the slide fits the audience viewport
 	function fitScene() {
 		if (!isPresent) return;
 		var scene = document.querySelector('.scene');
@@ -75,10 +86,11 @@
 		if (typeof window.renderStep !== 'function' || window.renderStep.__awPresent) return;
 		var orig = window.renderStep;
 		function wrapped(n) {
+			var changed = (typeof n === 'number' && n !== lastStep);
 			var r = orig.apply(this, arguments);
 			if (typeof n === 'number') lastStep = n;
 			broadcast(lastStep);
-			if (isPresent) fitScene();
+			if (isPresent) { if (changed) resetZoom(); fitScene(); }
 			return r;
 		}
 		wrapped.__awPresent = true;
@@ -94,7 +106,7 @@
 			+ '#present-btn:hover{color:#fff;background:#0a84ff;transform:translateY(-1px);box-shadow:0 3px 12px rgba(10,132,255,.35);animation:none;}'
 			+ '@keyframes awPresentPulse{0%,100%{box-shadow:0 0 0 0 rgba(10,132,255,0);}50%{box-shadow:0 0 0 4px rgba(10,132,255,.16);}}'
 			+ 'body.present-mode .app-header,body.present-mode .progress-track,body.present-mode #controls,body.present-mode #header-reveal,body.present-mode #step-outline{display:none !important;}'
-			+ 'body.present-mode{padding-bottom:0 !important;}'
+			+ 'body.present-mode{padding-bottom:0 !important;overflow:hidden !important;}'
 			+ 'body.present-mode #stage{flex:1 1 auto;min-height:0;height:auto;display:flex;align-items:center;justify-content:center;overflow:hidden;}'
 			+ 'body.present-mode .scene{position:relative;top:auto;left:auto;transform:none;margin:0 auto;width:min(1200px,94vw);}'
 			+ 'body.present-mode.cursor-idle,body.present-mode.cursor-idle *{cursor:none !important;}'
@@ -148,6 +160,60 @@
 		window.addEventListener('mousemove', show);
 		show();
 
+		// Presenter zoom & pan: pinch (ctrl+wheel) or scroll to zoom toward the
+		// cursor, drag (or two-finger scroll while zoomed) to pan, double-click
+		// or press 0 to reset. Lets you magnify any part of a slide live.
+		var stageEl = document.getElementById('stage');
+		if (stageEl) {
+			stageEl.style.touchAction = 'none';
+			function zoomAt(cx, cy, factor) {
+				var newZoom = Math.min(8, Math.max(1, uZoom * factor));
+				factor = newZoom / uZoom;
+				if (factor === 1) return;
+				var rect = stageEl.getBoundingClientRect();
+				var scx = rect.left + rect.width / 2, scy = rect.top + rect.height / 2;
+				uPanX += -(factor - 1) * (cx - scx);
+				uPanY += -(factor - 1) * (cy - scy);
+				uZoom = newZoom;
+				if (uZoom === 1) { uPanX = 0; uPanY = 0; }
+				applyZoom();
+			}
+			stageEl.addEventListener('wheel', function (e) {
+				if (e.ctrlKey) {                 // pinch-zoom gesture (or Ctrl+wheel)
+					e.preventDefault();
+					zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * 0.01));
+				} else if (uZoom > 1) {          // two-finger scroll pans while zoomed
+					e.preventDefault();
+					uPanX -= e.deltaX; uPanY -= e.deltaY;
+					applyZoom();
+				}
+			}, { passive: false });
+			var dragging = false, lx = 0, ly = 0;
+			stageEl.addEventListener('pointerdown', function (e) {
+				if (uZoom <= 1) return;
+				dragging = true; lx = e.clientX; ly = e.clientY;
+				try { stageEl.setPointerCapture(e.pointerId); } catch (_) {}
+				document.body.style.cursor = 'grabbing';
+			});
+			stageEl.addEventListener('pointermove', function (e) {
+				if (!dragging) return;
+				uPanX += e.clientX - lx; uPanY += e.clientY - ly;
+				lx = e.clientX; ly = e.clientY;
+				applyZoom();
+			});
+			function endDrag() { dragging = false; document.body.style.cursor = ''; }
+			stageEl.addEventListener('pointerup', endDrag);
+			stageEl.addEventListener('pointercancel', endDrag);
+			stageEl.addEventListener('dblclick', function (e) { e.preventDefault(); resetZoom(); });
+		}
+		document.addEventListener('keydown', function (e) {
+			if (e.key === '0' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+				var tag = (e.target.tagName || '').toLowerCase();
+				if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+				resetZoom();
+			}
+		});
+
 		// True fullscreen is the only reliable way to hide the browser address
 		// bar / chrome — and it requires a user gesture (a click or key press).
 		function enterFs() {
@@ -181,9 +247,9 @@
 		function refreshHint() {
 			clearTimeout(hideTimer);
 			if (document.fullscreenElement) {
-				hint.textContent = 'Drag to your 2nd monitor · press F or Esc to exit fullscreen';
+				hint.textContent = 'Pinch / scroll to zoom · drag to pan · double-click or 0 to reset · F or Esc to exit';
 				hint.style.opacity = '1';
-				hideTimer = setTimeout(function () { hint.style.opacity = '0'; }, 3500);
+				hideTimer = setTimeout(function () { hint.style.opacity = '0'; }, 4500);
 			} else {
 				hint.textContent = 'Click anywhere (or press F) for fullscreen — hides the address bar';
 				hint.style.opacity = '1';
