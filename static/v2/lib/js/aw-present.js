@@ -38,6 +38,18 @@
 	var startOverlay = null;   // audience: the "waiting" overlay element
 	var enterFsRef = null;     // audience: reference to its enterFs()
 
+	// Path-INDEPENDENT channel so a single audience window can be reused across
+	// different journey pages (each journey is its own HTML file / path). The
+	// per-path `bus`/`KEY`/`CTRL` above stay journey-scoped; these are global.
+	var GKEY = 'aw-present-global-ctrl';
+	var ALIVE = 'aw-present-audience-alive';   // audience heartbeat (localStorage)
+	var gbus = ('BroadcastChannel' in window) ? new BroadcastChannel('aw-present-global') : null;
+	var gHandlers = [];
+	function gOn(fn) { gHandlers.push(fn); return function () { var i = gHandlers.indexOf(fn); if (i >= 0) gHandlers.splice(i, 1); }; }
+	function gDispatch(msg) { if (!msg) return; for (var i = 0; i < gHandlers.length; i++) { try { gHandlers[i](msg); } catch (_) {} } }
+	function gSend(msg) { msg.n = Date.now(); try { localStorage.setItem(GKEY, JSON.stringify(msg)); } catch (_) {} if (gbus) { try { gbus.postMessage(msg); } catch (_) {} } }
+	function audienceAlive() { try { var v = parseInt(localStorage.getItem(ALIVE) || '0', 10); return !isNaN(v) && (Date.now() - v) < 5000; } catch (_) { return false; } }
+	if (gbus) gbus.onmessage = function (ev) { gDispatch(ev.data); };
 	// ── Sync ────────────────────────────────────────────────────────────────
 	function totalSteps() {
 		try { if (typeof STEPS !== 'undefined' && STEPS && STEPS.length) return STEPS.length; } catch (_) {}
@@ -70,6 +82,7 @@
 	window.addEventListener('storage', function (ev) {
 		if (ev.key === KEY && ev.newValue != null) applyRemote(parseInt(ev.newValue, 10));
 		else if (ev.key === CTRL && ev.newValue != null) { try { handleControl(JSON.parse(ev.newValue)); } catch (_) {} }
+		else if (ev.key === GKEY && ev.newValue != null) { try { gDispatch(JSON.parse(ev.newValue)); } catch (_) {} }
 	});
 
 	// ── Play / pause (presenter-driven, mirrored to both windows) ───────────
@@ -290,7 +303,19 @@
 		var w = Math.min(1280, screen.availWidth || 1280);
 		var h = Math.min(720, screen.availHeight || 720);
 		var feat = 'popup=yes,toolbar=no,location=no,menubar=no,status=no,scrollbars=no,width=' + w + ',height=' + h;
-		window.open(url, 'aw-present-audience', feat);
+		function spawn() { window.open(url, 'aw-present-audience', feat); }
+		if (audienceAlive()) {
+			// An audience window is already open — possibly on a previous journey.
+			// Ask it to navigate here (reusing the same window) instead of opening
+			// a second one. Only spawn a fresh window if nothing acknowledges.
+			var nonce = String(Date.now()) + '-' + Math.random().toString(36).slice(2);
+			var acked = false;
+			var off = gOn(function (msg) { if (msg && msg.type === 'aud-ack' && msg.nonce === nonce) acked = true; });
+			gSend({ type: 'navigate', url: url, nonce: nonce });
+			setTimeout(function () { off(); if (!acked) spawn(); }, 800);
+		} else {
+			spawn();
+		}
 		broadcast(lastStep);
 		// Reveal + reset the Start/Pause toggle for this fresh audience window.
 		presStarted = false;
@@ -305,6 +330,24 @@
 		document.body.classList.add('present-mode');
 		var btn = document.getElementById('present-btn');
 		if (btn) btn.style.display = 'none';
+
+		// Heartbeat: advertise that an audience window is alive so the presenter
+		// (on any journey page) reuses this window instead of opening another.
+		function beat() { try { localStorage.setItem(ALIVE, String(Date.now())); } catch (_) {} }
+		function clearBeat() { try { localStorage.removeItem(ALIVE); } catch (_) {} }
+		beat();
+		var beatTimer = setInterval(beat, 2000);
+		window.addEventListener('pagehide', function () { clearInterval(beatTimer); clearBeat(); });
+		window.addEventListener('beforeunload', clearBeat);
+
+		// Reuse: when the presenter switches to another journey, navigate THIS
+		// same window there (acknowledging first so no second window is spawned).
+		gOn(function (msg) {
+			if (!msg || msg.type !== 'navigate' || !msg.url) return;
+			gSend({ type: 'aud-ack', nonce: msg.nonce });
+			var here = location.pathname + '?present';
+			if (msg.url.split('#')[0] !== here.split('#')[0]) location.href = msg.url;
+		});
 
 		// Idle-cursor: hide the pointer after 3s of no movement
 		var t;
