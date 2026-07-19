@@ -1,0 +1,1062 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<script src="/js/tracking.js"></script>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+	<title>App Service Plan · The Engine Room — Azure Animations</title>
+
+	<link rel="stylesheet" href="https://unpkg.com/@microsoft/atlas-css/dist/index.css" />
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+	<!-- AnimationWorks shared lib -->
+	<script src="../lib/js/aw-easings.js"></script>
+	<script src="../lib/js/aw-motion.js"></script>
+	<script src="../lib/js/aw-theme.js"></script>
+	<script src="../lib/js/aw-keyboard.js"></script>
+
+<style>
+	/* ── SHELL ─────────────────────────────── */
+	:root {
+		--aw-purple:#5c2d91;
+		--aw-blue:#0078d4;
+		--aw-green:#10a37f;
+		--aw-orange:#e97526;
+		--aw-pink:#d24aa8;
+	}
+	html, body { height:100%; margin:0; }
+	html { font-size:100%; }
+	body {
+		display:flex; flex-direction:column; height:100vh;
+		overflow:hidden;
+		font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif;
+		color: var(--theme-text);
+		background:
+			radial-gradient(circle at 15% 20%, rgba(92,45,145,0.18) 0%, transparent 55%),
+			radial-gradient(circle at 85% 80%, rgba(0,120,212,0.18) 0%, transparent 55%),
+			var(--theme-body-background);
+	}
+	.app-header { display:flex; align-items:center; gap:1rem; flex-shrink:0; flex-wrap:wrap; font-size:16px; }
+	#stage {
+		position:relative; flex:1 1 auto; width:100%; min-height:0;
+		display:flex; align-items:center; justify-content:center;
+		overflow:hidden; container-type:size;
+		padding:1.75rem 2.75rem 5rem;
+	}
+	#stage:focus-visible, button:focus-visible, a:focus-visible, select:focus-visible {
+		outline:2px solid var(--theme-primary, #0078d4); outline-offset:3px; border-radius:4px;
+	}
+	#stage-frame {
+		position:relative; overflow:hidden;
+		width: min(100cqw, calc(100cqh * 16 / 9));
+		aspect-ratio: 16 / 9; max-width:100%; max-height:100%;
+		border-radius:16px;
+		background: rgba(0,0,0,0.015);
+		box-shadow: 0 12px 44px rgba(0,0,0,0.22);
+	}
+	body.theme-dark #stage-frame { background: rgba(255,255,255,0.025); }
+	#stage-frame::before {
+		content:""; position:absolute; inset:0; border-radius:inherit; padding:2.5px;
+		background: linear-gradient(135deg, var(--aw-purple) 0%, var(--aw-blue) 55%, var(--aw-pink) 100%);
+		-webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+		mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+		-webkit-mask-composite: xor; mask-composite: exclude;
+		pointer-events:none; z-index:20;
+	}
+	#fx-svg { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:6; overflow:visible; }
+
+	/* ── SCENE ─────────────────────────────── */
+	.scene {
+		position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+		transform-origin:center center;
+		width:min(1150px, 96%); z-index:10;
+		display:flex; flex-direction:column; align-items:center; gap:1.1rem;
+	}
+	@keyframes awSceneIn { from { opacity:0; } to { opacity:1; } }
+	@keyframes awSceneOut { from { opacity:1; } to { opacity:0; } }
+	.scene.scene-in { animation: awSceneIn 0.2s ease both; }
+	.scene.scene-out { animation: awSceneOut 0.2s ease both; }
+	.scene-title { font-size:2.5rem; font-weight:700; color:var(--theme-tertiary, #5c2d91); margin:0; text-align:center; opacity:0; }
+	body.theme-dark .scene-title { color:#c9a5e8; }
+	.scene-lead { margin:0; text-align:center; font-size:1.3rem; color:var(--theme-text); max-width:880px; line-height:1.5; opacity:0; }
+
+	.callout {
+		position:absolute; max-width:340px; padding:1rem 1.2rem;
+		background:var(--theme-body-background); border:1px solid var(--theme-border);
+		border-left:4px solid var(--theme-tertiary, #5c2d91); border-radius:6px;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2));
+		font-size:1.05rem; line-height:1.45; z-index:14; opacity:0;
+	}
+
+	/* ── SHARED BUILDING BLOCKS ────────────── */
+	.card {
+		width:min(680px, 96%); padding:1.6rem 1.8rem; border-radius:16px;
+		background:var(--theme-card-background, #fff); border:2px solid var(--theme-border);
+		box-shadow:0 8px 28px rgba(0,0,0,0.14); opacity:0;
+		display:flex; flex-direction:column; gap:0.6rem; align-items:center; text-align:center;
+	}
+	body.theme-dark .card { background:rgba(255,255,255,0.05); }
+	.card .card-icon { font-size:3rem; line-height:1; }
+	.card .card-icon img { width:56px; height:56px; }
+	.card .card-h { font-size:1.4rem; font-weight:700; }
+	.card .card-p { font-size:1.05rem; color:var(--theme-text-subtle); line-height:1.5; }
+	.chip-row { display:flex; flex-wrap:wrap; gap:0.7rem; justify-content:center; }
+	.pill {
+		display:inline-flex; align-items:center; gap:0.5rem; padding:0.55rem 1.1rem;
+		border-radius:999px; font-size:1.05rem; font-weight:600;
+		border:2px solid var(--theme-tertiary, #5c2d91); background:rgba(92,45,145,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .pill { background:rgba(92,45,145,0.2); }
+	.value-chip {
+		display:inline-flex; align-items:center; gap:0.4rem; padding:0.5rem 1rem;
+		border-radius:999px; font-size:1rem; font-weight:700;
+		border:2px solid #107c10; background:rgba(16,124,16,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .value-chip { background:rgba(16,124,16,0.16); }
+	.recap-foot { font-size:1.05rem; color:var(--theme-text); text-align:center; max-width:760px; opacity:0; }
+
+	/* ── COMPUTE-SPECIFIC VISUALS ──────────── */
+	.plan-box {
+		width:min(760px,96%); border-radius:18px; padding:1.1rem 1.3rem 1.3rem;
+		background:linear-gradient(160deg, rgba(92,45,145,0.1), rgba(0,120,212,0.08));
+		border:2.5px dashed var(--theme-tertiary,#5c2d91); opacity:0;
+		display:flex; flex-direction:column; align-items:center; gap:0.9rem;
+	}
+	.plan-head { display:flex; align-items:center; gap:0.6rem; font-size:1.15rem; font-weight:800; color:var(--theme-tertiary,#5c2d91); }
+	body.theme-dark .plan-head { color:#c9a5e8; }
+	.plan-head img { width:34px; height:34px; }
+	.plan-sub { font-size:0.95rem; color:var(--theme-text-subtle); text-align:center; }
+	.instance-row { display:flex; flex-wrap:wrap; gap:0.7rem; justify-content:center; }
+	.instance-tile {
+		width:78px; height:86px; border-radius:12px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.25rem;
+		background:var(--theme-card-background,#fff); border:2px solid var(--theme-primary,#0078d4);
+		box-shadow:0 4px 14px rgba(0,120,212,0.22); opacity:0; flex-shrink:0;
+	}
+	body.theme-dark .instance-tile { background:rgba(255,255,255,0.06); }
+	.instance-tile .ic { font-size:1.6rem; color:var(--theme-primary,#0078d4); }
+	.instance-tile .it-label { font-size:0.72rem; font-weight:700; color:var(--theme-text-subtle); }
+	.app-row { display:flex; flex-wrap:wrap; gap:0.9rem; justify-content:center; }
+	.app-tile {
+		width:132px; padding:0.7rem 0.6rem; border-radius:14px; display:flex; flex-direction:column; align-items:center; gap:0.35rem; text-align:center;
+		background:var(--theme-card-background,#fff); border:2px solid var(--aw-green,#10a37f);
+		box-shadow:0 6px 18px rgba(16,163,127,0.2); opacity:0;
+	}
+	body.theme-dark .app-tile { background:rgba(255,255,255,0.06); }
+	.app-tile img { width:32px; height:32px; }
+	.app-tile .at-name { font-size:0.85rem; font-weight:700; }
+	.tier-grid { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:0.85rem; width:min(1080px,98%); }
+	@media (max-width:900px) { .tier-grid { grid-template-columns:repeat(2, minmax(0,1fr)); } }
+	.tier-card {
+		padding:0.85rem 0.95rem; border-radius:14px; border:1.5px solid var(--theme-border); border-top:4px solid var(--theme-primary,#0078d4);
+		background:var(--theme-card-background,#fff); box-shadow:0 6px 18px rgba(0,0,0,0.12); opacity:0;
+		display:flex; flex-direction:column; gap:0.3rem;
+	}
+	body.theme-dark .tier-card { background:rgba(255,255,255,0.05); }
+	.tier-card[data-tier="free"] { border-top-color:#8a8886; }
+	.tier-card[data-tier="basic"] { border-top-color:#0078d4; }
+	.tier-card[data-tier="standard"] { border-top-color:#10a37f; }
+	.tier-card[data-tier="premium"] { border-top-color:#e97526; }
+	.tier-card[data-tier="isolated"] { border-top-color:#d24aa8; }
+	.tier-card[data-tier="shared"] { border-top-color:#5c2d91; }
+	.tc-name { font-size:1.02rem; font-weight:800; }
+	.tc-feature { font-size:0.86rem; color:var(--theme-text-subtle); line-height:1.4; }
+	.scale-wrap { display:flex; gap:1.6rem; justify-content:center; width:100%; flex-wrap:wrap; }
+	.scale-col {
+		width:min(430px,96%); padding:1rem 1.1rem; border-radius:16px; border:1.5px solid var(--theme-border);
+		background:var(--theme-card-background,#fff); box-shadow:0 8px 24px rgba(0,0,0,0.12); opacity:0;
+		display:flex; flex-direction:column; align-items:center; gap:0.7rem;
+	}
+	body.theme-dark .scale-col { background:rgba(255,255,255,0.05); }
+	.scale-col h3 { margin:0; font-size:1.1rem; font-weight:800; color:var(--theme-text); display:flex; align-items:center; gap:0.4rem; }
+	.scale-col p { margin:0; font-size:0.92rem; color:var(--theme-text-subtle); text-align:center; }
+	.scale-visual { display:flex; align-items:flex-end; gap:0.5rem; height:78px; }
+	.su-box { width:56px; border-radius:8px; background:var(--theme-primary,#0078d4); opacity:0; }
+	.so-tile { width:44px; height:52px; border-radius:8px; background:var(--aw-green,#10a37f); opacity:0; align-self:flex-end; }
+	.chart-wrap {
+		width:min(880px,98%); padding:1rem 1.2rem 1.4rem; border-radius:16px; border:1.5px solid var(--theme-border);
+		background:var(--theme-card-background,#fff); box-shadow:0 8px 26px rgba(0,0,0,0.14); opacity:0;
+		display:flex; flex-direction:column; gap:0.8rem; align-items:center;
+	}
+	body.theme-dark .chart-wrap { background:rgba(255,255,255,0.05); }
+	.chart-row { display:flex; align-items:flex-end; gap:0.55rem; height:110px; }
+	.chart-bar { width:34px; border-radius:6px 6px 0 0; background:linear-gradient(180deg, var(--aw-orange,#e97526), rgba(233,117,38,0.5)); transform-origin:bottom; opacity:0; }
+	.chart-instances { display:flex; gap:0.4rem; justify-content:center; }
+	.chart-instance { width:30px; height:34px; border-radius:6px; background:var(--theme-primary,#0078d4); opacity:0; }
+	.az-ic { width:1em; height:1em; display:inline-block; vertical-align:-0.15em; }
+
+	/* ── CONTROLS · icon dock ──────────────── */
+	#controls {
+		position:fixed; bottom:14px; left:50%; transform:translateX(-50%); z-index:40;
+		display:flex; align-items:center; gap:5px; padding:5px 7px;
+		background:var(--theme-body-background-translucent, rgba(255,255,255,0.82));
+		backdrop-filter:blur(12px) saturate(1.4); -webkit-backdrop-filter:blur(12px) saturate(1.4);
+		border:1px solid var(--theme-border); border-radius:999px;
+		box-shadow: 0 8px 26px rgba(0,0,0,0.18); font-size:13px;
+	}
+	body.theme-dark #controls { background:var(--theme-body-background-translucent, rgba(32,32,36,0.82)); }
+	#controls .ctrl-icon {
+		width:2.15rem; height:2.15rem; min-width:0; padding:0;
+		display:inline-flex; align-items:center; justify-content:center;
+		border-radius:50%; font-size:0.95rem; line-height:1; font-weight:600;
+		transition:background 0.18s ease, color 0.18s ease, transform 0.12s ease, box-shadow 0.18s ease;
+	}
+	#controls .ctrl-icon:hover { transform:translateY(-1px); }
+	#controls .ctrl-icon:active { transform:scale(0.92); }
+	#controls .ctrl-icon-next {
+		width:2.55rem; height:2.55rem; font-size:1.1rem;
+		box-shadow:0 2px 8px var(--theme-primary-translucent, rgba(0,120,212,0.45));
+	}
+	.step-counter {
+		min-width:52px; text-align:center; font-variant-numeric:tabular-nums;
+		font-size:14px; font-weight:700; color:var(--theme-text);
+		padding:0 6px; white-space:nowrap; letter-spacing:0.02em;
+	}
+	.ctrl-sep { width:1px; align-self:stretch; margin:4px 2px; background:var(--theme-border); }
+	.ctrl-grip {
+		display:inline-flex; align-items:center; justify-content:center;
+		width:1.5rem; height:2.15rem; padding:0; border:none; background:transparent;
+		color:var(--theme-text-subtle); border-radius:8px; cursor:grab; touch-action:none;
+		transition:background 0.18s ease, color 0.18s ease;
+	}
+	.ctrl-grip:hover { color:var(--theme-text); background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); }
+	.ctrl-grip:active { cursor:grabbing; }
+	.ctrl-grip svg { width:13px; height:16px; pointer-events:none; }
+	body.controls-floating .ctrl-grip { color:var(--theme-primary,#0078d4); }
+	#controls .ctrl-pin { display:none; color:var(--theme-primary,#0078d4); }
+	#controls .ctrl-pin svg { width:15px; height:15px; pointer-events:none; }
+	body.controls-floating #controls .ctrl-pin { display:inline-flex; }
+	body.controls-floating #controls { box-shadow:0 10px 30px rgba(0,0,0,0.30), 0 0 0 1.5px var(--theme-primary,#0078d4); }
+	.speed-control { display:inline-flex; align-items:center; gap:1px; padding:2px 3px; border:1px solid var(--theme-border); border-radius:999px; }
+	.speed-control .speed-btn {
+		width:1.7rem; height:1.7rem; min-width:0; padding:0;
+		display:inline-flex; align-items:center; justify-content:center;
+		font-size:0.95rem; font-weight:700; border-radius:50%;
+	}
+	.speed-control .speed-btn[disabled] { opacity:0.4; cursor:not-allowed; }
+	.speed-label { min-width:2.4rem; text-align:center; font-variant-numeric:tabular-nums; font-size:0.82rem; font-weight:700; color:var(--theme-text); }
+
+	#callout-toggle, #outline-toggle, #audio-toggle { border:1px solid var(--theme-border); border-radius:4px; transition:background .2s,color .2s,border-color .2s,opacity .2s; }
+	#callout-toggle.toggle-active, #outline-toggle.toggle-active, #audio-toggle.toggle-active {
+		background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary,#0078d4); border-color:var(--theme-primary,#0078d4); font-weight:600;
+	}
+	#callout-toggle:not(.toggle-active), #outline-toggle:not(.toggle-active), #audio-toggle:not(.toggle-active) { opacity:0.6; }
+
+	#header-hide { display:inline-flex; align-items:center; justify-content:center; width:2rem; height:2rem; padding:0; border:1px solid var(--theme-border); border-radius:50%; color:var(--theme-text-subtle); transition:background .2s,color .2s,transform .18s; }
+	#header-hide:hover { color:var(--theme-text); transform:translateY(-1px); }
+	#header-hide svg { width:16px; height:16px; }
+	body.chrome-hidden .app-header, body.chrome-hidden .progress-track { display:none; }
+	#header-reveal {
+		position:fixed; top:0; left:50%; transform:translateX(-50%) translateY(-100%); z-index:45;
+		display:inline-flex; align-items:center; gap:0.35rem; padding:5px 14px 6px; font-size:12px; font-weight:600; line-height:1;
+		color:var(--theme-text-subtle); background:var(--theme-body-background-translucent, rgba(255,255,255,0.88));
+		backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border:1px solid var(--theme-border); border-top:none; border-radius:0 0 12px 12px;
+		box-shadow:0 4px 14px rgba(0,0,0,0.14); cursor:pointer; transition:transform .28s cubic-bezier(0.2,0.7,0.3,1), color .2s, background .2s;
+	}
+	body.theme-dark #header-reveal { background:var(--theme-body-background-translucent, rgba(32,32,36,0.88)); }
+	#header-reveal:hover { color:var(--theme-text); }
+	body.chrome-hidden #header-reveal { transform:translateX(-50%) translateY(0); }
+	#header-reveal svg { width:14px; height:14px; }
+
+	#step-outline {
+		position:fixed; top:4.5rem; right:1rem; width:320px; max-height:calc(100vh - 8rem); overflow-y:auto;
+		padding:1.1rem; background:var(--theme-body-background); border:1px solid var(--theme-border);
+		border-radius:6px; box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2)); z-index:35; font-size:1rem; line-height:1.55;
+	}
+	#step-outline[hidden] { display:none; }
+	#step-outline h2 { font-size:0.85rem; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--theme-tertiary,#5c2d91); margin-bottom:0.5rem; }
+	#step-outline .outline-section { margin-top:0.6rem; padding-top:0.6rem; border-top:1px solid var(--theme-border); }
+	#step-outline .outline-section:first-child { margin-top:0; padding-top:0; border-top:0; }
+	#step-outline .stat-row { display:flex; justify-content:space-between; align-items:baseline; gap:0.75rem; padding:0.2rem 0; }
+	#step-outline .stat-row span:first-child { color:var(--theme-text-subtle); flex:0 0 auto; max-width:45%; }
+	#step-outline .stat-row span:last-child { text-align:right; font-weight:600; color:var(--theme-tertiary,#5c2d91); flex:1 1 auto; }
+
+	.progress-track { position:relative; height:6px; background:var(--theme-border, #e0e0e0); flex-shrink:0; cursor:pointer; }
+	.progress-fill { position:absolute; left:0; top:0; bottom:0; width:0%; background:var(--aw-purple, #5c2d91); transition:width .5s cubic-bezier(0.2,0.8,0.2,1); pointer-events:none; }
+	.progress-tick { position:absolute; top:0; bottom:0; width:2px; margin-left:-1px; background:var(--theme-body-background); opacity:0.6; pointer-events:none; }
+
+	.theme-toggle { display:inline-flex; align-items:center; justify-content:center; width:2.25rem; height:2.25rem; padding:0; margin-inline-start:0.25rem; background:transparent; border:1px solid var(--theme-border); border-radius:999px; color:var(--theme-text); cursor:pointer; transition:background .15s,color .15s,border-color .15s; }
+	.theme-toggle:hover { background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary); border-color:var(--theme-primary); }
+	.theme-toggle .theme-icon { display:none; }
+	.theme-toggle[data-theme="dark"] .icon-sun { display:block; }
+	.theme-toggle[data-theme="light"] .icon-moon { display:block; }
+	.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+	.skip-link { position:absolute; top:-100px; left:0.5rem; z-index:100; padding:0.5rem 1rem; background:var(--theme-primary); color:var(--theme-primary-invert,#fff); border-radius:4px; text-decoration:none; font-weight:600; }
+	.skip-link:focus { top:0.5rem; }
+	.header-back-link { display:inline-flex; align-items:center; gap:0.25rem; padding:0.2rem 0.6rem; font-size:0.8rem; font-weight:600; color:var(--theme-text-subtle); border:1px solid var(--theme-border); border-radius:999px; text-decoration:none; white-space:nowrap; transition:background .15s,color .15s,border-color .15s; }
+	.header-back-link:hover { color:var(--theme-primary); border-color:var(--theme-primary); background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); }
+	.lang-select {
+		appearance:none; -webkit-appearance:none; background:var(--theme-card-background,#fff); color:var(--theme-body-text,#333);
+		border:1px solid var(--theme-border, rgba(0,0,0,0.2)); border-radius:4px; padding:4px 24px 4px 8px;
+		font-size:0.8rem; font-family:'Segoe UI', sans-serif; cursor:pointer;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+		background-repeat:no-repeat; background-position:right 6px center; min-width:80px;
+	}
+	.lang-select:hover { border-color:var(--theme-primary, #0078d4); }
+	.lang-select:focus { outline:2px solid var(--theme-primary, #0078d4); outline-offset:1px; }
+	body.theme-dark .lang-select {
+		background-color:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); border-color:rgba(255,255,255,0.15);
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23aaa' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+	}
+	body.theme-dark .lang-select option { background:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); }
+	.font-size-controls { display:flex; align-items:center; gap:2px; }
+	.font-size-btn { background:var(--theme-card-background,#fff); color:var(--theme-body-text,#333); border:1px solid var(--theme-border, rgba(0,0,0,0.2)); border-radius:4px; padding:3px 8px; font-size:0.8rem; font-weight:700; font-family:'Segoe UI', sans-serif; cursor:pointer; line-height:1.2; transition:background .15s,border-color .15s; }
+	.font-size-btn:hover { border-color:var(--theme-primary, #0078d4); }
+	body.theme-dark .font-size-btn { background:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); border-color:rgba(255,255,255,0.15); }
+
+	.ic { display:inline-flex; align-items:center; justify-content:center; vertical-align:-0.125em; }
+	.ic svg { width:1em; height:1em; fill:currentColor; display:block; }
+	.help-toggle svg { width:15px; height:15px; vertical-align:-2px; }
+
+	#shortcut-overlay { position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center; }
+	#shortcut-overlay[hidden] { display:none; }
+	.sc-backdrop { position:absolute; inset:0; background:rgba(0,0,0,0.5); -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px); }
+	.sc-panel { position:relative; z-index:1; width:min(430px,92vw); max-height:82vh; overflow:auto; padding:1.5rem 1.6rem; background:var(--theme-body-background); border:1px solid var(--theme-border); border-radius:16px; box-shadow:0 24px 70px rgba(0,0,0,0.4); }
+	.sc-panel h2 { margin:0 0 1rem; font-size:1.25rem; color:var(--theme-tertiary,#5c2d91); }
+	body.theme-dark .sc-panel h2 { color:#c9a5e8; }
+	.sc-close { position:absolute; top:0.7rem; right:0.7rem; width:2rem; height:2rem; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--theme-border); border-radius:50%; background:transparent; color:var(--theme-text-subtle); cursor:pointer; }
+	.sc-close:hover { color:var(--theme-text); border-color:var(--theme-primary,#0078d4); }
+	.sc-close svg { width:15px; height:15px; }
+	.sc-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:0.55rem; }
+	.sc-list li { display:flex; align-items:center; justify-content:space-between; gap:1rem; font-size:1rem; color:var(--theme-text); }
+	.sc-keys { display:inline-flex; gap:0.3rem; flex:none; }
+	.sc-panel kbd, .sc-hint kbd { font-family:'Cascadia Code','Consolas',monospace; font-size:0.82rem; line-height:1; padding:0.28rem 0.5rem; border-radius:6px; border:1px solid var(--theme-border); border-bottom-width:2px; background:var(--theme-card-background,#fff); color:var(--theme-text); }
+	body.theme-dark .sc-panel kbd, body.theme-dark .sc-hint kbd { background:rgba(255,255,255,0.08); }
+	.sc-hint { margin:1.1rem 0 0; font-size:0.85rem; color:var(--theme-text-subtle); text-align:center; }
+
+	@media (max-width:640px) { .app-header { font-size:0.95rem; } .scene-title { font-size:1.9rem; } #stage { padding:0.9rem 1rem 4.5rem; } }
+	@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition:none !important; animation:none !important; } .progress-fill { transition:none !important; } }
+</style>
+</head>
+
+<body class="theme-dark" data-theme-preset="atlas">
+
+	<a href="#stage" class="skip-link">Skip to diagram</a>
+
+	<header class="app-header padding-block-xs padding-inline-md border-bottom" role="banner" style="justify-content:space-between;">
+		<div class="display-flex align-items-center gap-xs">
+			<a href="/docs/compute/app-service" class="header-back-link" aria-label="Back">&larr; Back</a>
+			<span id="page-title" class="font-size-h6 font-weight-semibold">&#10024; Title Here</span>
+		</div>
+		<nav class="display-flex gap-xs align-items-center" aria-label="Primary">
+			<span id="breadcrumb" class="font-size-sm color-text-subtle">Step 1</span>
+			<button id="callout-toggle" type="button" class="button button-clear button-sm" aria-label="Toggle callouts">&#128172; Callout</button>
+			<button id="outline-toggle" type="button" class="button button-clear button-sm" aria-controls="step-outline" aria-expanded="false" aria-label="Toggle text outline">&#128221; Outline</button>
+			<button id="audio-toggle" type="button" class="button button-clear button-sm" aria-label="Toggle audio narration">&#128263; Audio</button>
+			<button id="help-toggle" type="button" class="button button-clear button-sm help-toggle" aria-haspopup="dialog" aria-controls="shortcut-overlay" aria-label="Keyboard shortcuts (press ?)" title="Keyboard shortcuts (?)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M11 18h2v-2h-2v2zm1.1-14C9.8 4 8 5.8 8 8h2a2 2 0 1 1 3.2 1.6c-.9.7-2.2 1.5-2.2 3.4h2c0-1 .8-1.5 1.7-2.2A4 4 0 0 0 12.1 4z"/></svg> Keys</button>
+		</nav>
+		<div class="display-flex gap-xs align-items-center">
+			<select id="lang-select" class="lang-select" aria-label="Language">
+				<option value="en">EN</option>
+				<option value="es">ES</option>
+				<option value="ja">JA</option>
+				<option value="ko">KO</option>
+				<option value="pt">PT</option>
+			</select>
+			<div class="font-size-controls">
+				<button id="font-decrease" type="button" class="font-size-btn" aria-label="Decrease font size" title="Smaller text">A&minus;</button>
+				<button id="font-increase" type="button" class="font-size-btn" aria-label="Increase font size" title="Larger text">A+</button>
+			</div>
+			<button id="theme-toggle" type="button" class="theme-toggle" aria-label="Switch theme" title="Switch theme">
+				<svg class="theme-icon icon-moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg>
+				<svg class="theme-icon icon-sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.5" y1="4.5" x2="6.5" y2="6.5"/><line x1="17.5" y1="17.5" x2="19.5" y2="19.5"/><line x1="4.5" y1="19.5" x2="6.5" y2="17.5"/><line x1="17.5" y1="6.5" x2="19.5" y2="4.5"/></g></svg>
+			</button>
+			<button id="header-hide" type="button" aria-label="Hide top bar" title="Hide top bar (H)">
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/></svg>
+			</button>
+		</div>
+	</header>
+
+	<button id="header-reveal" type="button" aria-label="Show top bar" title="Show top bar">
+		<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/></svg>
+		<span>Toolbar</span>
+	</button>
+
+	<div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
+
+	<main id="stage" tabindex="0" role="region" aria-labelledby="stage-heading" aria-describedby="stage-instructions">
+		<h1 id="stage-heading" class="sr-only" tabindex="-1">Title Here</h1>
+		<p id="stage-instructions" class="sr-only">Animated explainer. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.</p>
+		<div id="step-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+		<div id="stage-frame">
+			<svg id="fx-svg" aria-hidden="true" focusable="false">
+				<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L0,10 L10,5 Z" fill="currentColor"/></marker></defs>
+			</svg>
+		</div>
+	</main>
+
+	<aside id="step-outline" hidden aria-label="Text outline of the current step">
+		<h2 id="outline-title">Step Details</h2>
+		<div id="outline-body"></div>
+	</aside>
+
+	<div id="controls" role="group" aria-label="Diagram navigation">
+		<button id="ctrl-grip" type="button" class="ctrl-grip" aria-label="Drag to move the controls" title="Drag to move">
+			<svg viewBox="0 0 16 16" aria-hidden="true"><g fill="currentColor"><circle cx="5" cy="3" r="1.4"/><circle cx="11" cy="3" r="1.4"/><circle cx="5" cy="8" r="1.4"/><circle cx="11" cy="8" r="1.4"/><circle cx="5" cy="13" r="1.4"/><circle cx="11" cy="13" r="1.4"/></g></svg>
+		</button>
+		<button id="ctrl-pin" type="button" class="button button-clear ctrl-icon ctrl-pin" aria-label="Pin the controls back to the center" title="Pin to center">
+			<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9 2h6a1 1 0 0 1 .8 1.6L14 6v4l3 3v2h-4v5l-1 2-1-2v-5H7v-2l3-3V6L8.2 3.6A1 1 0 0 1 9 2z"/></svg>
+		</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="prev-btn" type="button" class="button ctrl-icon" aria-label="Previous step (left arrow)">&#9664;</button>
+		<div class="step-counter" id="step-counter">0 / 0</div>
+		<button id="next-btn" type="button" class="button button-primary button-filled ctrl-icon ctrl-icon-next" aria-label="Next step (right arrow or space)">&#9654;</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="replay-btn" type="button" class="button ctrl-icon" aria-label="Replay this step's animation (P)">&#8635;</button>
+		<div class="speed-control" role="group" aria-label="Animation speed">
+			<button id="speed-down" type="button" class="button button-clear speed-btn" aria-label="Slower (-)" title="Slower">&minus;</button>
+			<span id="speed-label" class="speed-label" aria-live="polite" aria-label="Current speed">1&times;</span>
+			<button id="speed-up" type="button" class="button button-clear speed-btn" aria-label="Faster (+)" title="Faster">+</button>
+		</div>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="reset-btn" type="button" class="button button-clear ctrl-icon" aria-label="Restart from step 1 (R)">&#9198;</button>
+	</div>
+
+	<div id="shortcut-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="sc-title">
+		<div class="sc-backdrop"></div>
+		<div class="sc-panel">
+			<button id="sc-close" class="sc-close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
+			<h2 id="sc-title">Keyboard shortcuts</h2>
+			<ul id="sc-list" class="sc-list"></ul>
+			<p class="sc-hint">Press <kbd>?</kbd> anytime to toggle this panel.</p>
+		</div>
+	</div>
+
+<script>
+// ── THEME ─────────────────────────────────
+const themeToggleBtn = document.getElementById('theme-toggle');
+function syncThemeBtn(){
+	if (!themeToggleBtn) return;
+	const isDark = document.body.classList.contains('theme-dark');
+	themeToggleBtn.dataset.theme = isDark ? 'dark' : 'light';
+	const label = isDark ? 'Switch to light theme' : 'Switch to dark theme';
+	themeToggleBtn.setAttribute('aria-label', label);
+	themeToggleBtn.setAttribute('title', label);
+}
+if (window.AW && AW.theme) {
+	AW.theme.onChange(() => { syncThemeBtn(); if (typeof renderStep === 'function' && current >= 0) renderStep(current); });
+	syncThemeBtn();
+} else {
+	syncThemeBtn();
+	if (themeToggleBtn) themeToggleBtn.addEventListener('click', () => {
+		const goingDark = !document.body.classList.contains('theme-dark');
+		document.body.classList.remove('theme-dark', 'theme-light');
+		document.body.classList.add(goingDark ? 'theme-dark' : 'theme-light');
+		try { localStorage.setItem('aw-theme', goingDark ? 'theme-dark' : 'theme-light'); } catch(_){}
+		syncThemeBtn();
+		if (current >= 0) renderStep(current);
+	});
+	try { const saved = localStorage.getItem('aw-theme'); if (saved === 'theme-light' || saved === 'theme-dark') { document.body.classList.remove('theme-dark','theme-light'); document.body.classList.add(saved); syncThemeBtn(); } } catch(_){}
+}
+
+// ── i18n ──────────────────────────────────
+let currentLang = 'en';
+const ICON_BASE = '../lib/icons/Azure_Public_Service_Icons/';
+const PLAN_ICON = ICON_BASE + 'app services/00046-icon-service-App-Service-Plans.svg';
+const APP_ICON = ICON_BASE + 'app services/10035-icon-service-App-Services.svg';
+
+const I18N = {
+	en: {
+		skipToMain: 'Skip to diagram',
+		pageTitle: 'App Service Plan',
+		stageHeading: 'App Service Plan: The Engine Room',
+		stageInstructions: 'Animated explainer. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.',
+		prev: '\u25C0 Prev', next: 'Next \u25B6', replay: '\u21BB Replay', restart: '\u21BB Restart',
+		slower: 'Slower', faster: 'Faster',
+		calloutOn: '\uD83D\uDCAC Callout: On', calloutOff: '\uD83D\uDCAC Callout: Off',
+		outlineOn: '\uD83D\uDCDD Outline: On', outlineOff: '\uD83D\uDCDD Outline: Off',
+		audioOn: '\uD83D\uDD0A Audio: On', audioOff: '\uD83D\uDD07 Audio: Off',
+		stepDetails: 'Step Details', stepOf: 'Step',
+		scTitle: 'Keyboard shortcuts',
+		scNext: 'Next step', scPrev: 'Previous step', scRestart: 'Restart', scReplay: 'Replay this step', scHide: 'Hide / show top bar', scHelp: 'Toggle this help',
+
+		// ── Step 1 · intro ──
+		introTitle: 'What Is an App Service Plan?',
+		introCaption: 'The engine room',
+		introDesc: 'Before Contoso Retail\u2019s website can run, Azure needs somewhere to run it. An App Service Plan is that compute \u2014 the region, size, and instance count your apps share.',
+		introCallout: 'Think of it like renting a building: the Plan is the building. The App Services you deploy are the tenants living inside it.',
+		introCardH: 'The Plan is the compute',
+		introCardP: 'A named bundle of virtual machines that powers one or more web apps.',
+		introStat1: 'Region', introStat1v: 'Where the VMs live',
+		introStat2: 'Pricing tier', introStat2v: 'CPU, RAM & features',
+		introStat3: 'Instances', introStat3v: 'How many copies run',
+
+		// ── Step 2 · tier ──
+		tierTitle: 'Region & Pricing Tier (SKU)',
+		tierCaption: 'Choosing the right size',
+		tierDesc: 'Pick a region close to your users, then a pricing tier that matches your needs \u2014 from free dev/test to fully isolated networks.',
+		tierCallout: 'You can change tiers later with almost no downtime \u2014 start small, scale as you grow.',
+		tierFreeName: 'Free (F1)', tierFreeFeature: 'Shared infrastructure \u00b7 dev/test only \u00b7 no custom domain TLS',
+		tierSharedName: 'Shared (D1)', tierSharedFeature: 'Shared infrastructure \u00b7 custom domains \u00b7 still limited scale',
+		tierBasicName: 'Basic (B1\u2013B3)', tierBasicFeature: 'Dedicated VMs \u00b7 custom domain + TLS \u00b7 manual scale',
+		tierStandardName: 'Standard (S1\u2013S3)', tierStandardFeature: 'Autoscale \u00b7 5 deployment slots \u00b7 daily backups',
+		tierPremiumName: 'Premium v3', tierPremiumFeature: 'Faster hardware \u00b7 20 slots \u00b7 private networking',
+		tierIsolatedName: 'Isolated v2', tierIsolatedFeature: 'Dedicated network (App Service Environment) \u00b7 max isolation',
+		tierStat1: 'Region', tierStat1v: 'Pick nearest to users',
+		tierStat2: 'Tier', tierStat2v: 'Sets CPU / RAM / features',
+		tierStat3: 'Change later', tierStat3v: 'Move up tiers anytime',
+
+		// ── Step 3 · instances ──
+		instTitle: 'Instances = How Many Copies Run',
+		instCaption: 'The VMs behind the plan',
+		instDesc: 'Each instance is a virtual machine running an identical copy of your app\u2019s code. More instances mean more capacity \u2014 and more resilience.',
+		instCallout: 'If one instance has a problem, the others keep serving traffic \u2014 that\u2019s built-in redundancy.',
+		instLabel: 'Instance',
+		instStat1: 'Instance', instStat1v: 'One VM running your app',
+		instStat2: 'More instances', instStat2v: 'More capacity',
+		instStat3: 'Redundancy', instStat3v: 'One fails, others keep serving',
+
+		// ── Step 4 · sharing ──
+		shareTitle: 'One Plan Can Host Many Apps',
+		shareCaption: 'Cost efficiency vs isolation',
+		shareDesc: 'Contoso Retail\u2019s storefront, admin portal, and API can all share the same Plan \u2014 and the same pool of instances \u2014 to save cost.',
+		shareCallout: 'A noisy app can slow down its plan-mates. Give demanding apps their own Plan to isolate them.',
+		shareApp1: 'Storefront', shareApp2: 'Admin Portal', shareApp3: 'API',
+		shareStat1: 'Sharing', shareStat1v: 'Apps split one Plan\u2019s cost',
+		shareStat2: 'Trade-off', shareStat2v: 'Apps also share resources',
+		shareStat3: 'Isolate', shareStat3v: 'Use a separate Plan if needed',
+
+		// ── Step 5 · scale ──
+		scaleTitle: 'Scale Up vs Scale Out',
+		scaleCaption: 'Two different levers',
+		scaleDesc: 'Scale up changes the tier \u2014 bigger VMs, same count. Scale out changes the instance count \u2014 same VM size, more copies.',
+		scaleCallout: 'Scale out first for traffic spikes; scale up when a single instance needs more CPU or memory.',
+		scaleUpHead: 'Scale Up', scaleUpDesc: 'Move to a bigger tier: more CPU and RAM per instance.',
+		scaleOutHead: 'Scale Out', scaleOutDesc: 'Add more instances of the same size to spread the load.',
+		scaleStat1: 'Scale up', scaleStat1v: 'Bigger VM, same count',
+		scaleStat2: 'Scale out', scaleStat2v: 'Same VM, more copies',
+		scaleStat3: 'Combine', scaleStat3v: 'Use both together',
+
+		// ── Step 6 · autoscale ──
+		autoTitle: 'Autoscale: Let Azure Do It',
+		autoCaption: 'Rules-based scale out',
+		autoDesc: 'Define rules \u2014 CPU percent, schedule, or a custom metric \u2014 and Azure adds or removes instances automatically, between a minimum and a maximum.',
+		autoCallout: 'Autoscale reacts to real traffic, so you pay for capacity only when you need it.',
+		autoStat1: 'Rule', autoStat1v: 'e.g. CPU > 70%',
+		autoStat2: 'Bounds', autoStat2v: 'Min / max instances',
+		autoStat3: 'Result', autoStat3v: 'Capacity follows demand',
+
+		// ── Step 7 · recap ──
+		recapTitle: 'The Foundation Is Set',
+		recapCaption: 'What you learned',
+		recapDesc: 'Region, tier, and instance count define the compute \u2014 the App Service Plan \u2014 that your web apps run on.',
+		recapCallout: 'Next, see how an App Service (the actual web app) runs on top of this Plan.',
+		recapCardH: 'App Service Plan',
+		recapCardP: 'The engine room that powers one or more App Services.',
+		recapVal1: 'Region', recapVal2: 'Tier', recapVal3: 'Instances',
+		recapFoot: 'Continue the journey \u2192 <a href="AppService.html" style="color:inherit;font-weight:700;">App Service: Your Web App, Fully Managed</a>',
+		recapStat1: 'Recap', recapStat1v: 'Region + tier + instances',
+		recapStat2: 'Next', recapStat2v: 'Meet the App Service',
+		recapStat3: 'Where', recapStat3v: 'AppService.html'
+	}
+};
+I18N.es = { ...I18N.en,
+	pageTitle: 'Plan de App Service', stageHeading: 'Plan de App Service: la sala de m\u00e1quinas',
+	introTitle: '\u00bfQu\u00e9 es un Plan de App Service?', introCaption: 'La sala de m\u00e1quinas',
+	introDesc: 'Antes de que el sitio de Contoso Retail pueda ejecutarse, Azure necesita un lugar donde hacerlo. Un Plan de App Service es ese c\u00f3mputo: la regi\u00f3n, el tama\u00f1o y el n\u00famero de instancias que comparten tus apps.',
+	introCallout: 'Pi\u00e9nsalo como alquilar un edificio: el Plan es el edificio. Las App Services que despliegas son los inquilinos.',
+	tierTitle: 'Regi\u00f3n y nivel de precio (SKU)', tierCaption: 'Eligiendo el tama\u00f1o correcto',
+	tierDesc: 'Elige una regi\u00f3n cercana a tus usuarios y luego un nivel que se ajuste a tus necesidades \u2014 desde gratuito para pruebas hasta redes totalmente aisladas.',
+	instTitle: 'Instancias = cu\u00e1ntas copias se ejecutan', instCaption: 'Las VMs detr\u00e1s del plan',
+	instDesc: 'Cada instancia es una m\u00e1quina virtual que ejecuta una copia id\u00e9ntica del c\u00f3digo de tu app. M\u00e1s instancias significan m\u00e1s capacidad \u2014 y m\u00e1s resiliencia.',
+	shareTitle: 'Un plan puede alojar muchas apps', shareCaption: 'Eficiencia de costo vs aislamiento',
+	shareDesc: 'La tienda, el portal de administraci\u00f3n y la API de Contoso Retail pueden compartir el mismo Plan \u2014 y el mismo grupo de instancias \u2014 para ahorrar costos.',
+	scaleTitle: 'Escalar verticalmente vs horizontalmente', scaleCaption: 'Dos palancas distintas',
+	scaleDesc: 'Escalar verticalmente cambia el nivel: VMs m\u00e1s grandes, mismo n\u00famero. Escalar horizontalmente cambia el n\u00famero de instancias: mismo tama\u00f1o, m\u00e1s copias.',
+	scaleUpHead: 'Escalar verticalmente', scaleOutHead: 'Escalar horizontalmente',
+	autoTitle: 'Autoescalado: deja que Azure lo haga', autoCaption: 'Escalado horizontal por reglas',
+	autoDesc: 'Define reglas \u2014 porcentaje de CPU, horario o una m\u00e9trica personalizada \u2014 y Azure agrega o quita instancias autom\u00e1ticamente, entre un m\u00ednimo y un m\u00e1ximo.',
+	recapTitle: 'La base est\u00e1 lista', recapCaption: 'Lo que aprendiste',
+	recapDesc: 'Regi\u00f3n, nivel y n\u00famero de instancias definen el c\u00f3mputo \u2014 el Plan de App Service \u2014 sobre el que corren tus apps web.',
+	recapFoot: 'Contin\u00faa el recorrido \u2192 <a href="AppService.html" style="color:inherit;font-weight:700;">App Service: tu app web, totalmente administrada</a>'
+};
+I18N.ja = { ...I18N.en,
+	pageTitle: 'App Service \u30d7\u30e9\u30f3', stageHeading: 'App Service \u30d7\u30e9\u30f3\uff1a\u30a8\u30f3\u30b8\u30f3\u30eb\u30fc\u30e0',
+	introTitle: 'App Service \u30d7\u30e9\u30f3\u3068\u306f\uff1f', introCaption: '\u30a8\u30f3\u30b8\u30f3\u30eb\u30fc\u30e0',
+	introDesc: 'Contoso Retail \u306e\u30a6\u30a7\u30d6\u30b5\u30a4\u30c8\u3092\u5b9f\u884c\u3059\u308b\u524d\u306b\u3001Azure \u306f\u5b9f\u884c\u5834\u6240\u3092\u5fc5\u8981\u3068\u3057\u307e\u3059\u3002App Service \u30d7\u30e9\u30f3\u306f\u305d\u306e\u30b3\u30f3\u30d4\u30e5\u30fc\u30c8\uff08\u30ea\u30fc\u30b8\u30e7\u30f3\u3001\u30b5\u30a4\u30ba\u3001\u30a4\u30f3\u30b9\u30bf\u30f3\u30b9\u6570\uff09\u3067\u3059\u3002',
+	tierTitle: '\u30ea\u30fc\u30b8\u30e7\u30f3\u3068\u4fa1\u683c\u5c64\uff08SKU\uff09',
+	instTitle: '\u30a4\u30f3\u30b9\u30bf\u30f3\u30b9\u6570 = \u5b9f\u884c\u3055\u308c\u308b\u30b3\u30d4\u30fc\u306e\u6570',
+	shareTitle: '1\u3064\u306e\u30d7\u30e9\u30f3\u3067\u8907\u6570\u306e\u30a2\u30d7\u30ea\u3092\u30db\u30b9\u30c8',
+	scaleTitle: '\u30b9\u30b1\u30fc\u30eb\u30a2\u30c3\u30d7 \u3068 \u30b9\u30b1\u30fc\u30eb\u30a2\u30a6\u30c8',
+	autoTitle: '\u30aa\u30fc\u30c8\u30b9\u30b1\u30fc\u30eb\uff1aAzure \u306b\u4efb\u305b\u308b',
+	recapTitle: '\u57fa\u76e4\u304c\u6574\u3044\u307e\u3057\u305f', recapFoot: '\u65c5\u3092\u7d9a\u3051\u308b \u2192 <a href="AppService.html" style="color:inherit;font-weight:700;">App Service: \u5b8c\u5168\u30de\u30cd\u30fc\u30b8\u30c9\u306a\u30a6\u30a7\u30d6\u30a2\u30d7\u30ea</a>'
+};
+I18N.ko = { ...I18N.en,
+	pageTitle: 'App Service \uD50C\uB79C', stageHeading: 'App Service \uD50C\uB79C: \uC5D4\uC9C4\uB8F8',
+	introTitle: 'App Service \uD50C\uB79C\uC774\uB780?', introCaption: '\uC5D4\uC9C4\uB8F8',
+	introDesc: 'Contoso Retail \uC6F9\uC0AC\uC774\uD2B8\uAC00 \uC2E4\uD589\uB418\uAE30 \uC804\uC5D0 Azure\uB294 \uC2E4\uD589\uD560 \uACF5\uAC04\uC774 \uD544\uC694\uD569\uB2C8\uB2E4. App Service \uD50C\uB79C\uC740 \uC571\uC774 \uACF5\uC720\uD558\uB294 \uC774 \uCEF4\uD4E8\uD305\uC785\uB2C8\uB2E4 \u2014 \uB9AC\uC804, \uD06C\uAE30, \uC778\uC2A4\uD134\uC2A4 \uC218.',
+	tierTitle: '\uB9AC\uC804 \uBC0F \uAC00\uACA9 \uACC4\uCE35(SKU)',
+	instTitle: '\uC778\uC2A4\uD134\uC2A4 = \uC2E4\uD589\uB418\uB294 \uBCF5\uC0AC\uBCF8 \uC218',
+	shareTitle: '\uD558\uB098\uC758 \uD50C\uB79C\uC774 \uC5EC\uB7EC \uC571\uC744 \uD638\uC2A4\uD305',
+	scaleTitle: '\uC2A4\uCF00\uC77C \uC5C5 vs \uC2A4\uCF00\uC77C \uC544\uC6C3',
+	autoTitle: '\uC790\uB3D9 \uD655\uC7A5: Azure\uC5D0\uAC8C \uB9E1\uAE30\uAE30',
+	recapTitle: '\uAE30\uBC18\uC774 \uC900\uBE44\uB418\uC5C8\uC2B5\uB2C8\uB2E4', recapFoot: '\uC5EC\uC815 \uACC4\uC18D\uD558\uAE30 \u2192 <a href="AppService.html" style="color:inherit;font-weight:700;">App Service: \uC644\uC804 \uAD00\uB9AC\uD615 \uC6F9 \uC571</a>'
+};
+I18N.pt = { ...I18N.en,
+	pageTitle: 'Plano do App Service', stageHeading: 'Plano do App Service: a sala de m\u00e1quinas',
+	introTitle: 'O que \u00e9 um Plano do App Service?', introCaption: 'A sala de m\u00e1quinas',
+	introDesc: 'Antes que o site da Contoso Retail possa rodar, o Azure precisa de um lugar para execut\u00e1-lo. Um Plano do App Service \u00e9 essa computa\u00e7\u00e3o \u2014 a regi\u00e3o, o tamanho e o n\u00famero de inst\u00e2ncias que seus apps compartilham.',
+	introCallout: 'Pense nisso como alugar um pr\u00e9dio: o Plano \u00e9 o pr\u00e9dio. Os App Services que voc\u00ea implanta s\u00e3o os inquilinos.',
+	tierTitle: 'Regi\u00e3o e n\u00edvel de pre\u00e7o (SKU)',
+	instTitle: 'Inst\u00e2ncias = quantas c\u00f3pias rodam',
+	shareTitle: 'Um plano pode hospedar v\u00e1rios apps',
+	scaleTitle: 'Escalar verticalmente vs horizontalmente',
+	autoTitle: 'Escalonamento autom\u00e1tico: deixe o Azure fazer isso',
+	recapTitle: 'A base est\u00e1 pronta', recapFoot: 'Continue a jornada \u2192 <a href="AppService.html" style="color:inherit;font-weight:700;">App Service: seu app web, totalmente gerenciado</a>'
+};
+
+function t(key) { return (I18N[currentLang] && I18N[currentLang][key]) || I18N.en[key] || key; }
+
+function setLanguage(lang) {
+	currentLang = lang;
+	document.documentElement.lang = lang;
+	document.getElementById('page-title').textContent = '\u2728 ' + t('pageTitle');
+	document.getElementById('prev-btn').title = t('prev');
+	document.getElementById('next-btn').title = t('next');
+	document.getElementById('replay-btn').title = t('replay');
+	document.getElementById('reset-btn').title = t('restart');
+	document.getElementById('speed-down').title = t('slower');
+	document.getElementById('speed-up').title = t('faster');
+	document.getElementById('outline-title').textContent = t('stepDetails');
+	document.querySelector('.skip-link').textContent = t('skipToMain');
+	document.getElementById('stage-heading').textContent = t('stageHeading');
+	document.getElementById('stage-instructions').textContent = t('stageInstructions');
+	syncCalloutBtn(); syncOutlineBtn();
+	if (typeof syncAudioBtn === 'function') syncAudioBtn();
+	if (typeof buildShortcuts === 'function') buildShortcuts();
+	try { localStorage.setItem('aw-compute-lang', lang); } catch(_){}
+	if (current >= 0) renderStep(current);
+}
+
+// ── STEPS (journey order) ─────────────────
+const STEPS = [
+	{ id:'intro', short:'Intro', titleKey:'introTitle', captionKey:'introCaption', descKey:'introDesc', calloutKey:'introCallout',
+		stats:[['introStat1','introStat1v'],['introStat2','introStat2v'],['introStat3','introStat3v']] },
+	{ id:'tier', short:'Region & tier', titleKey:'tierTitle', captionKey:'tierCaption', descKey:'tierDesc', calloutKey:'tierCallout',
+		stats:[['tierStat1','tierStat1v'],['tierStat2','tierStat2v'],['tierStat3','tierStat3v']] },
+	{ id:'instances', short:'Instances', titleKey:'instTitle', captionKey:'instCaption', descKey:'instDesc', calloutKey:'instCallout',
+		stats:[['instStat1','instStat1v'],['instStat2','instStat2v'],['instStat3','instStat3v']] },
+	{ id:'sharing', short:'Sharing', titleKey:'shareTitle', captionKey:'shareCaption', descKey:'shareDesc', calloutKey:'shareCallout',
+		stats:[['shareStat1','shareStat1v'],['shareStat2','shareStat2v'],['shareStat3','shareStat3v']] },
+	{ id:'scale', short:'Scale up/out', titleKey:'scaleTitle', captionKey:'scaleCaption', descKey:'scaleDesc', calloutKey:'scaleCallout',
+		stats:[['scaleStat1','scaleStat1v'],['scaleStat2','scaleStat2v'],['scaleStat3','scaleStat3v']] },
+	{ id:'autoscale', short:'Autoscale', titleKey:'autoTitle', captionKey:'autoCaption', descKey:'autoDesc', calloutKey:'autoCallout',
+		stats:[['autoStat1','autoStat1v'],['autoStat2','autoStat2v'],['autoStat3','autoStat3v']] },
+	{ id:'recap', short:'Recap', titleKey:'recapTitle', captionKey:'recapCaption', descKey:'recapDesc', calloutKey:'recapCallout',
+		stats:[['recapStat1','recapStat1v'],['recapStat2','recapStat2v'],['recapStat3','recapStat3v']] }
+];
+
+// ── DOM REFS ──────────────────────────────
+const stage=document.getElementById('stage-frame'), svg=document.getElementById('fx-svg'),
+	counter=document.getElementById('step-counter'), breadcrumb=document.getElementById('breadcrumb'),
+	progress=document.getElementById('progress-fill'), announcer=document.getElementById('step-announcer'),
+	outlineBody=document.getElementById('outline-body'), outlinePanel=document.getElementById('step-outline'),
+	outlineBtn=document.getElementById('outline-toggle'), calloutBtn=document.getElementById('callout-toggle'),
+	langSelect=document.getElementById('lang-select');
+
+langSelect.addEventListener('change', e => setLanguage(e.target.value));
+const urlLang = new URLSearchParams(location.search).get('lang');
+let savedLang=null; try{ savedLang=localStorage.getItem('aw-compute-lang'); }catch(_){}
+if (urlLang && I18N[urlLang]) { currentLang = urlLang; langSelect.value = urlLang; }
+else if (savedLang && I18N[savedLang]) { currentLang = savedLang; langSelect.value = savedLang; }
+
+// ── Font size ─────────────────────────────
+const fontScales=[0.8,0.9,1,1.1,1.2,1.35]; let fontScaleIdx=2;
+const baseFontSize=parseFloat(getComputedStyle(document.documentElement).fontSize);
+function applyFontScale(){ document.documentElement.style.fontSize=(baseFontSize*fontScales[fontScaleIdx])+'px'; const c=document.getElementById('controls'); if(c) c.style.fontSize=baseFontSize+'px'; if(typeof current!=='undefined'&&current>=0){ const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s); } }
+function saveFont(){ try{ localStorage.setItem('aw-compute-font', String(fontScaleIdx)); }catch(_){} }
+try{ const f=parseInt(localStorage.getItem('aw-compute-font'),10); if(!isNaN(f)&&f>=0&&f<fontScales.length){ fontScaleIdx=f; applyFontScale(); } }catch(_){}
+document.getElementById('font-decrease').addEventListener('click',()=>{ if(fontScaleIdx>0){fontScaleIdx--;applyFontScale();saveFont();} });
+document.getElementById('font-increase').addEventListener('click',()=>{ if(fontScaleIdx<fontScales.length-1){fontScaleIdx++;applyFontScale();saveFont();} });
+
+let current=-1, animating=false, liveEls=[], liveTimelines=[], calloutEnabled=false;
+
+function syncCalloutBtn(){ calloutBtn.textContent=calloutEnabled?t('calloutOn'):t('calloutOff'); calloutBtn.classList.toggle('toggle-active',calloutEnabled); }
+calloutBtn.addEventListener('click',()=>{ calloutEnabled=!calloutEnabled; syncCalloutBtn(); if(current>=0) renderStep(current); }); syncCalloutBtn();
+function syncOutlineBtn(){ const on=!outlinePanel.hasAttribute('hidden'); outlineBtn.textContent=on?t('outlineOn'):t('outlineOff'); outlineBtn.classList.toggle('toggle-active',on); }
+outlineBtn.addEventListener('click',()=>{ const showing=!outlinePanel.hasAttribute('hidden'); if(showing){outlinePanel.setAttribute('hidden','');outlineBtn.setAttribute('aria-expanded','false');} else {outlinePanel.removeAttribute('hidden');outlineBtn.setAttribute('aria-expanded','true');} syncOutlineBtn(); }); syncOutlineBtn();
+
+// ── Audio narration ──────────────────
+const AUDIO_FILES = [];
+let audioEnabled=false, currentAudio=null, audioTimeout=null;
+const audioBtn=document.getElementById('audio-toggle');
+function syncAudioBtn(){ if(!audioBtn) return; audioBtn.textContent=audioEnabled?t('audioOn'):t('audioOff'); audioBtn.classList.toggle('toggle-active',audioEnabled); }
+function stopAudio(){
+	if(currentAudio){ currentAudio.pause(); currentAudio.currentTime=0; currentAudio=null; }
+	if(audioTimeout){ clearTimeout(audioTimeout); audioTimeout=null; }
+	try{ if(window.speechSynthesis) speechSynthesis.cancel(); }catch(_){}
+}
+function playStepAudio(i){
+	stopAudio();
+	if(!audioEnabled || i<0 || i>=STEPS.length) return;
+	audioTimeout=setTimeout(()=>{
+		audioTimeout=null;
+		const file=AUDIO_FILES[i];
+		if(file){ currentAudio=new Audio(file); currentAudio.play().catch(()=>{}); return; }
+		if(window.speechSynthesis){
+			const step=STEPS[i];
+			const u=new SpeechSynthesisUtterance(`${t(step.titleKey)}. ${t(step.descKey)}`);
+			u.lang=currentLang||'en';
+			try{ speechSynthesis.cancel(); speechSynthesis.speak(u); }catch(_){}
+		}
+	}, 700);
+}
+if(audioBtn){ audioBtn.addEventListener('click',()=>{ audioEnabled=!audioEnabled; try{localStorage.setItem('aw-compute-audio',audioEnabled?'1':'0');}catch(_){} syncAudioBtn(); if(audioEnabled&&current>=0) playStepAudio(current); else stopAudio(); }); }
+try{ if(localStorage.getItem('aw-compute-audio')==='1') audioEnabled=true; }catch(_){}
+syncAudioBtn();
+
+// ── Reduced motion ────────────────────────
+const motionMQ=window.matchMedia('(prefers-reduced-motion: reduce)'); let motionPaused=motionMQ.matches;
+motionMQ.addEventListener('change',e=>{ motionPaused=e.matches; renderStep(current); });
+
+// ── Helpers ───────────────────────────────
+function clearStage(){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; liveEls.forEach(el=>el.remove()); liveEls=[]; Array.from(svg.children).forEach(c=>{ if(c.tagName.toLowerCase()!=='defs') c.remove(); }); }
+function el(cls,html){ const d=document.createElement('div'); if(cls) d.className=cls; if(html!=null) d.innerHTML=html; return d; }
+const ICONS = {
+	gear:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M19.14 12.94a7.9 7.9 0 0 0 0-1.88l2-1.56-2-3.46-2.36.96a7.7 7.7 0 0 0-1.62-.94L14.8 2.5h-4l-.36 2.56c-.58.24-1.12.56-1.62.94L6.46 6.04l-2 3.46 2 1.56a7.9 7.9 0 0 0 0 1.88l-2 1.56 2 3.46 2.36-.96c.5.38 1.04.7 1.62.94l.36 2.56h4l.36-2.56c.58-.24 1.12-.56 1.62-.94l2.36.96 2-3.46-2-1.56zM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg>',
+	sparkle:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg>',
+	bulb:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-4 12.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26A7 7 0 0 0 12 2zM9 20h6v1a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1z"/></svg>',
+	check:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.55 17.6 4.4 12.45l1.86-1.86 3.29 3.29 8.19-8.19 1.86 1.86z"/></svg>',
+	globe:'<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></g></svg>',
+	party:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5zm6 11l.9 2.6L21.5 16.5l-2.6.9L18 20l-.9-2.6L14.5 16.5l2.6-.9zM6 14l.7 2 2 .7-2 .7L6 19.4l-.7-2-2-.7 2-.7z"/></svg>',
+	server:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zm2 3h2V6H6zm-2 7h16a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1zm2 3h2v-1H6z"/></svg>',
+	scaleup:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16v-2H4zM12 3 6 10h3v6h6v-6h3z"/></svg>',
+	scaleout:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10h5v9H3zm7-4h4v13h-4zm7 7h4v6h-4z"/></svg>',
+	chart:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16v2H4zM6 18h3v-6H6zm6 0h3V8h-3zm6 0h3v-9h-3z"/></svg>',
+	autoscale:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 0 1 13.66-5.66L20 4v6h-6l2.24-2.24A6 6 0 1 0 18 12h2a8 8 0 1 1-16 0z"/></svg>'
+};
+function icon(name){ return `<span class="ic">${ICONS[name]||''}</span>`; }
+function stepById(id){ return STEPS.find(s=>s.id===id); }
+function fitScene(scene){
+	if(!scene) return;
+	scene.style.transform='translate(-50%,-50%) scale(1)';
+	const box=stage.getBoundingClientRect();
+	const availW=box.width-32, availH=box.height-28;
+	const sw=scene.offsetWidth, sh=scene.offsetHeight;
+	if(!sw||!sh) return;
+	const k=Math.min(1, availW/sw, availH/sh);
+	scene.style.transform='translate(-50%,-50%) scale('+k+')';
+}
+function headerEls(scene){ return [scene.querySelector('.scene-title'), scene.querySelector('.scene-lead')]; }
+function buildScene(step){ const s=el('scene'); s.appendChild(el('scene-title', t(step.titleKey))); s.appendChild(el('scene-lead', t(step.descKey))); return s; }
+function maybeCallout(step){ if(!calloutEnabled) return null; const c=el('callout', t(step.calloutKey)); c.style.left='1.5rem'; c.style.top='1.5rem'; stage.appendChild(c); liveEls.push(c); return c; }
+function renderOutline(step,idx){
+	const rows=(step.stats||[]).map(([k,v])=>`<div class="stat-row"><span>${t(k)}</span><span>${t(v)}</span></div>`).join('');
+	outlineBody.innerHTML=`<div class="outline-section"><strong>${t('stepOf')} ${idx+1} / ${STEPS.length}: ${t(step.titleKey)}</strong><p style="margin-top:0.4rem;">${t(step.descKey)}</p></div>${rows?`<div class="outline-section">${rows}</div>`:''}`;
+}
+function announceStep(step,idx){ announcer.textContent=`${t('stepOf')} ${idx+1} / ${STEPS.length}: ${t(step.titleKey)}. ${t(step.descKey)}`; }
+
+// ── RENDER DISPATCH ───────────────────────
+function renderStep(i){
+	if(i<0||i>=STEPS.length) return;
+	if(animating){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; animating=false; }
+	animating=true;
+	const step=STEPS[i];
+	const outgoing=stage.querySelector('.scene:not(.scene-out)');
+	if(outgoing) liveEls=liveEls.filter(x=>x!==outgoing);
+	clearStage();
+	if(outgoing){ outgoing.style.zIndex='5';
+		if(motionPaused){ outgoing.remove(); }
+		else { outgoing.classList.remove('scene-in'); outgoing.classList.add('scene-out'); setTimeout(()=>outgoing.remove(), 240); } }
+	if(step.id==='intro') renderIntroStep();
+	else if(step.id==='tier') renderTierStep();
+	else if(step.id==='instances') renderInstancesStep();
+	else if(step.id==='sharing') renderSharingStep();
+	else if(step.id==='scale') renderScaleStep();
+	else if(step.id==='autoscale') renderAutoscaleStep();
+	else if(step.id==='recap') renderRecapStep();
+	const incoming=stage.querySelector('.scene:not(.scene-out)');
+	if(incoming && !motionPaused) incoming.classList.add('scene-in');
+	fitScene(incoming);
+	current=i;
+	try{ const u=new URL(location.href); u.searchParams.set('step', String(i+1)); history.replaceState(null,'',u); }catch(_){}
+	counter.textContent=`${t('stepOf')} ${current+1} / ${STEPS.length}`;
+	breadcrumb.textContent=t(step.captionKey);
+	progress.style.width=((current+1)/STEPS.length*100)+'%';
+	renderOutline(step,i); announceStep(step,i);
+	if(typeof playStepAudio==='function') playStepAudio(i);
+}
+
+// ── STEP 1 · INTRO ────────────────────────
+function renderIntroStep(){
+	const step=stepById('intro'); const scene=buildScene(step);
+	const plan=el('plan-box', `<div class="plan-head"><img src="${PLAN_ICON}" alt="">App Service Plan</div><div class="plan-sub">${t('introCardP')}</div>`);
+	const pills=el('chip-row', `<span class="pill">${icon('globe')}<span>${t('introStat1')}</span></span><span class="pill">${icon('gear')}<span>${t('introStat2')}</span></span><span class="pill">${icon('server')}<span>${t('introStat3')}</span></span>`);
+	scene.appendChild(plan); scene.appendChild(pills); stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	const pillEls=pills.querySelectorAll('.pill');
+	if(motionPaused){ gsap.set([...headerEls(scene), plan, ...pillEls], {opacity:1}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
+	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	tl.fromTo(plan, {opacity:0,y:20,scale:0.95}, {opacity:1,y:0,scale:1,duration:0.6,ease:'back.out(1.5)'}, '-=0.1');
+	tl.fromTo(pillEls, {opacity:0,y:12,scale:0.85}, {opacity:1,y:0,scale:1,duration:0.4,stagger:0.1,ease:'back.out(1.8)'}, '-=0.15');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.3');
+}
+
+// ── STEP 2 · TIER ─────────────────────────
+function renderTierStep(){
+	const step=stepById('tier'); const scene=buildScene(step);
+	const grid=el('tier-grid');
+	[['free','tierFreeName','tierFreeFeature'],['shared','tierSharedName','tierSharedFeature'],
+	 ['basic','tierBasicName','tierBasicFeature'],['standard','tierStandardName','tierStandardFeature'],
+	 ['premium','tierPremiumName','tierPremiumFeature'],['isolated','tierIsolatedName','tierIsolatedFeature']].forEach(([k,nk,fk])=>{
+		const c=el('tier-card', `<span class="tc-name">${t(nk)}</span><span class="tc-feature">${t(fk)}</span>`);
+		c.setAttribute('data-tier',k); grid.appendChild(c);
+	});
+	scene.appendChild(grid); stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	const cards=grid.querySelectorAll('.tier-card');
+	if(motionPaused){ gsap.set([...headerEls(scene), ...cards], {opacity:1}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
+	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	tl.fromTo(cards, {opacity:0,y:20,scale:0.92}, {opacity:1,y:0,scale:1,duration:0.45,stagger:0.08,ease:'back.out(1.5)'}, '-=0.05');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.3');
+}
+
+// ── STEP 3 · INSTANCES ────────────────────
+function renderInstancesStep(){
+	const step=stepById('instances'); const scene=buildScene(step);
+	const row=el('instance-row');
+	for(let n=1;n<=5;n++) row.appendChild(el('instance-tile', `<span class="ic">${ICONS.server}</span><span class="it-label">${t('instLabel')} ${n}</span>`));
+	const plan=el('plan-box', `<div class="plan-head"><img src="${PLAN_ICON}" alt="">App Service Plan</div>`);
+	plan.appendChild(row);
+	scene.appendChild(plan); stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	const tiles=row.querySelectorAll('.instance-tile');
+	if(motionPaused){ gsap.set([...headerEls(scene), plan, ...tiles], {opacity:1}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
+	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	tl.fromTo(plan, {opacity:0,y:16}, {opacity:1,y:0,duration:0.4,ease:'power2.out'}, '-=0.1');
+	tl.fromTo(tiles, {opacity:0,y:18,scale:0.7}, {opacity:1,y:0,scale:1,duration:0.4,stagger:0.12,ease:'back.out(1.9)'}, '-=0.15');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.3');
+}
+
+// ── STEP 4 · SHARING ──────────────────────
+function renderSharingStep(){
+	const step=stepById('sharing'); const scene=buildScene(step);
+	const appRow=el('app-row');
+	[['shareApp1'],['shareApp2'],['shareApp3']].forEach(([k])=>appRow.appendChild(el('app-tile', `<img src="${APP_ICON}" alt=""><span class="at-name">${t(k)}</span>`)));
+	const instRow=el('instance-row');
+	for(let n=1;n<=3;n++) instRow.appendChild(el('instance-tile', `<span class="ic">${ICONS.server}</span><span class="it-label">${t('instLabel')} ${n}</span>`));
+	const plan=el('plan-box', `<div class="plan-head"><img src="${PLAN_ICON}" alt="">App Service Plan</div>`);
+	plan.appendChild(instRow);
+	scene.appendChild(appRow); scene.appendChild(plan); stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	const apps=appRow.querySelectorAll('.app-tile'), tiles=instRow.querySelectorAll('.instance-tile');
+	if(motionPaused){ gsap.set([...headerEls(scene), ...apps, plan, ...tiles], {opacity:1}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
+	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	tl.fromTo(apps, {opacity:0,y:-16,scale:0.85}, {opacity:1,y:0,scale:1,duration:0.45,stagger:0.12,ease:'back.out(1.6)'}, '-=0.05');
+	tl.fromTo(plan, {opacity:0,y:16}, {opacity:1,y:0,duration:0.4,ease:'power2.out'}, '-=0.15');
+	tl.fromTo(tiles, {opacity:0,scale:0.7}, {opacity:1,scale:1,duration:0.35,stagger:0.1,ease:'back.out(1.8)'}, '-=0.15');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.3');
+}
+
+// ── STEP 5 · SCALE UP vs OUT ──────────────
+function renderScaleStep(){
+	const step=stepById('scale'); const scene=buildScene(step);
+	const wrap=el('scale-wrap');
+	const upVisual=el('scale-visual'); [34,50,68].forEach(h=>{ const b=el('su-box'); b.style.height=h+'px'; upVisual.appendChild(b); });
+	const upCol=el('scale-col', `<h3>${icon('scaleup')}${t('scaleUpHead')}</h3><p>${t('scaleUpDesc')}</p>`); upCol.appendChild(upVisual);
+	const outVisual=el('scale-visual'); for(let i=0;i<4;i++) outVisual.appendChild(el('so-tile'));
+	const outCol=el('scale-col', `<h3>${icon('scaleout')}${t('scaleOutHead')}</h3><p>${t('scaleOutDesc')}</p>`); outCol.appendChild(outVisual);
+	wrap.appendChild(upCol); wrap.appendChild(outCol);
+	scene.appendChild(wrap); stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	const boxes=upVisual.querySelectorAll('.su-box'), tiles=outVisual.querySelectorAll('.so-tile');
+	if(motionPaused){ gsap.set([...headerEls(scene), upCol, outCol, ...boxes, ...tiles], {opacity:1}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
+	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	tl.fromTo([upCol,outCol], {opacity:0,y:20,scale:0.95}, {opacity:1,y:0,scale:1,duration:0.5,stagger:0.15,ease:'back.out(1.4)'}, '-=0.05');
+	tl.fromTo(boxes, {opacity:0,scaleY:0.3}, {opacity:1,scaleY:1,duration:0.4,stagger:0.15,ease:'power2.out',transformOrigin:'bottom'}, '-=0.2');
+	tl.fromTo(tiles, {opacity:0,y:14,scale:0.6}, {opacity:1,y:0,scale:1,duration:0.35,stagger:0.14,ease:'back.out(1.9)'}, '-=0.3');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.3');
+}
+
+// ── STEP 6 · AUTOSCALE ────────────────────
+function renderAutoscaleStep(){
+	const step=stepById('autoscale'); const scene=buildScene(step);
+	const chart=el('chart-wrap', `<div class="chip-row"><span class="pill">${icon('chart')}<span>${t('autoStat1')}</span></span><span class="pill">${icon('autoscale')}<span>${t('autoStat2')}</span></span></div>`);
+	const row=el('chart-row'); [30,55,90,65,40,75,50].forEach(h=>{ const b=el('chart-bar'); b.style.height=h+'px'; row.appendChild(b); });
+	const instRow=el('chart-instances'); for(let i=0;i<6;i++) instRow.appendChild(el('chart-instance'));
+	chart.appendChild(row); chart.appendChild(instRow);
+	scene.appendChild(chart); stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	const bars=row.querySelectorAll('.chart-bar'), insts=instRow.querySelectorAll('.chart-instance'), pills=chart.querySelectorAll('.pill');
+	if(motionPaused){ gsap.set([...headerEls(scene), chart, ...bars, ...insts, ...pills], {opacity:1}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
+	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	tl.fromTo(chart, {opacity:0,y:20,scale:0.97}, {opacity:1,y:0,scale:1,duration:0.5,ease:'power2.out'}, '-=0.1');
+	tl.fromTo(pills, {opacity:0,y:10,scale:0.85}, {opacity:1,y:0,scale:1,duration:0.35,stagger:0.1,ease:'back.out(1.8)'}, '-=0.25');
+	tl.fromTo(bars, {opacity:0,scaleY:0.2}, {opacity:1,scaleY:1,duration:0.5,stagger:0.08,ease:'power2.out',transformOrigin:'bottom'}, '-=0.15');
+	tl.fromTo(insts, {opacity:0,scale:0.5}, {opacity:1,scale:1,duration:0.35,stagger:0.09,ease:'back.out(1.9)'}, '-=0.4');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.3');
+}
+
+// ── STEP 7 · RECAP ────────────────────────
+function renderRecapStep(){
+	const step=stepById('recap'); const scene=buildScene(step);
+	const card=el('card', `<span class="card-icon">${icon('party')}</span><span class="card-h">${t('recapCardH')}</span><span class="card-p">${t('recapCardP')}</span>`);
+	const values=el('chip-row'); [['recapVal1','globe'],['recapVal2','gear'],['recapVal3','server']].forEach(([k,ic])=>values.appendChild(el('value-chip', `${icon(ic)}<span>${t(k)}</span>`)));
+	const foot=el('recap-foot', t('recapFoot'));
+	scene.appendChild(card); scene.appendChild(values); scene.appendChild(foot); stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	const valEls=values.querySelectorAll('.value-chip');
+	if(motionPaused){ gsap.set([...headerEls(scene), card, ...valEls, foot], {opacity:1}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
+	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	tl.fromTo(card, {opacity:0,y:20,scale:0.97}, {opacity:1,y:0,scale:1,duration:0.6,ease:'back.out(1.5)'}, '-=0.1');
+	tl.fromTo(valEls, {opacity:0,y:12,scale:0.85}, {opacity:1,y:0,scale:1,duration:0.4,stagger:0.1,ease:'back.out(1.8)'}, '-=0.1');
+	tl.fromTo(foot, {opacity:0,y:10}, {opacity:1,y:0,duration:0.5,ease:'power2.out'}, '-=0.1');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.3');
+}
+
+// ── CONTROLS ──────────────────────────────
+function focusHeading(){ const h=document.getElementById('stage-heading'); if(h){ try{ h.focus({preventScroll:true}); }catch(_){ h.focus(); } } }
+function interruptAnimation(){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; animating=false; }
+function next(){ interruptAnimation(); if(current<STEPS.length-1){ renderStep(current+1); focusHeading(); } }
+function prev(){ interruptAnimation(); if(current>0){ renderStep(current-1); focusHeading(); } }
+function reset(){ interruptAnimation(); renderStep(0); focusHeading(); }
+function replay(){ if(current<0) return; interruptAnimation(); renderStep(current); focusHeading(); }
+
+// ── Hide / show top bar ──────────────────
+(function(){
+	const hideBtn=document.getElementById('header-hide'), revealBtn=document.getElementById('header-reveal');
+	if(!hideBtn||!revealBtn) return;
+	function setHidden(h){ document.body.classList.toggle('chrome-hidden',h); hideBtn.setAttribute('aria-expanded',String(!h)); try{localStorage.setItem('aw-chrome-hidden',h?'1':'0');}catch(_){}
+		if(current>=0) requestAnimationFrame(()=>renderStep(current)); }
+	hideBtn.addEventListener('click',e=>{e.stopPropagation();setHidden(true);});
+	revealBtn.addEventListener('click',e=>{e.stopPropagation();setHidden(false);});
+	try{ if(localStorage.getItem('aw-chrome-hidden')==='1') document.body.classList.add('chrome-hidden'); }catch(_){}
+	document.addEventListener('keydown',e=>{ if(e.code==='KeyH'&&!e.metaKey&&!e.ctrlKey&&!e.altKey){ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return; e.preventDefault(); setHidden(!document.body.classList.contains('chrome-hidden')); } });
+})();
+
+document.getElementById('next-btn').addEventListener('click',e=>{e.stopPropagation();next();});
+document.getElementById('prev-btn').addEventListener('click',e=>{e.stopPropagation();prev();});
+document.getElementById('reset-btn').addEventListener('click',e=>{e.stopPropagation();reset();});
+document.getElementById('replay-btn').addEventListener('click',e=>{e.stopPropagation();replay();});
+
+// ── Clickable progress bar + step ticks ──
+(function(){
+	const track=document.querySelector('.progress-track'); if(!track) return;
+	for(let s=1; s<STEPS.length; s++){ const tk=document.createElement('div'); tk.className='progress-tick'; tk.style.left=(s/STEPS.length*100)+'%'; track.appendChild(tk); }
+	track.setAttribute('title','Jump to a step');
+	track.addEventListener('click', e=>{
+		const r=track.getBoundingClientRect(); const frac=(e.clientX-r.left)/r.width;
+		const target=Math.max(0, Math.min(STEPS.length-1, Math.floor(frac*STEPS.length)));
+		if(target!==current){ interruptAnimation(); renderStep(target); focusHeading(); }
+	});
+})();
+
+// ── Movable / pinnable control dock ───────
+(function(){
+	const dock=document.getElementById('controls'), grip=document.getElementById('ctrl-grip'), pin=document.getElementById('ctrl-pin');
+	if(!dock||!grip) return;
+	const KEY='aw-compute-controls-pos';
+	let dragging=false, sx=0, sy=0, bl=0, bt=0, moved=false;
+	function place(left,top){
+		const w=dock.offsetWidth, h=dock.offsetHeight;
+		left=Math.max(6, Math.min(left, window.innerWidth - w - 6));
+		top =Math.max(6, Math.min(top,  window.innerHeight - h - 6));
+		dock.style.left=left+'px'; dock.style.top=top+'px'; dock.style.right='auto'; dock.style.bottom='auto'; dock.style.transform='none';
+		document.body.classList.add('controls-floating');
+	}
+	function recenter(){
+		dock.style.left=dock.style.top=dock.style.right=dock.style.bottom=dock.style.transform='';
+		document.body.classList.remove('controls-floating');
+		try{ localStorage.removeItem(KEY); }catch(_){}
+	}
+	grip.addEventListener('pointerdown', e=>{
+		e.preventDefault(); dragging=true; moved=false;
+		const r=dock.getBoundingClientRect(); bl=r.left; bt=r.top; sx=e.clientX; sy=e.clientY;
+		try{ grip.setPointerCapture(e.pointerId); }catch(_){}
+	});
+	grip.addEventListener('pointermove', e=>{
+		if(!dragging) return;
+		const dx=e.clientX-sx, dy=e.clientY-sy;
+		if(Math.abs(dx)>2||Math.abs(dy)>2) moved=true;
+		place(bl+dx, bt+dy);
+	});
+	function end(e){ if(!dragging) return; dragging=false; try{ grip.releasePointerCapture(e.pointerId); }catch(_){}
+		if(moved){ try{ const r=dock.getBoundingClientRect(); localStorage.setItem(KEY, JSON.stringify({left:r.left, top:r.top})); }catch(_){} } }
+	grip.addEventListener('pointerup', end); grip.addEventListener('pointercancel', end);
+	grip.addEventListener('keydown', e=>{
+		const d=e.shiftKey?40:12; const r=dock.getBoundingClientRect(); let ok=true;
+		if(e.key==='ArrowLeft') place(r.left-d, r.top);
+		else if(e.key==='ArrowRight') place(r.left+d, r.top);
+		else if(e.key==='ArrowUp') place(r.left, r.top-d);
+		else if(e.key==='ArrowDown') place(r.left, r.top+d);
+		else ok=false;
+		if(ok){ e.preventDefault(); e.stopPropagation(); }
+	});
+	if(pin) pin.addEventListener('click', e=>{ e.stopPropagation(); recenter(); });
+	window.addEventListener('resize', ()=>{ if(document.body.classList.contains('controls-floating')){ const r=dock.getBoundingClientRect(); place(r.left, r.top); } });
+	try{ const s=JSON.parse(localStorage.getItem(KEY)||'null'); if(s && typeof s.left==='number') place(s.left, s.top); }catch(_){}
+})();
+
+// ── Speed ─────────────────────────────────
+const SPEED_STEPS=[0.5,0.75,1,1.25,1.5,2]; const BASE_TIMESCALE=0.25;
+let speedIndex=SPEED_STEPS.indexOf(1);
+try{ const sp=parseInt(localStorage.getItem('aw-compute-speed'),10); if(!isNaN(sp)&&sp>=0&&sp<SPEED_STEPS.length) speedIndex=sp; }catch(_){}
+const speedLabel=document.getElementById('speed-label'), speedDownBtn=document.getElementById('speed-down'), speedUpBtn=document.getElementById('speed-up');
+function saveSpeed(){ try{ localStorage.setItem('aw-compute-speed', String(speedIndex)); }catch(_){} }
+function syncSpeedUI(){ const spd=SPEED_STEPS[speedIndex]; speedLabel.textContent=spd+'\u00d7'; speedDownBtn.disabled=speedIndex===0; speedUpBtn.disabled=speedIndex===SPEED_STEPS.length-1; gsap.globalTimeline.timeScale(spd*BASE_TIMESCALE); }
+syncSpeedUI();
+speedDownBtn.addEventListener('click',e=>{e.stopPropagation(); if(speedIndex>0){speedIndex--;syncSpeedUI();saveSpeed();}});
+speedUpBtn.addEventListener('click',e=>{e.stopPropagation(); if(speedIndex<SPEED_STEPS.length-1){speedIndex++;syncSpeedUI();saveSpeed();}});
+
+// ── Keyboard ──────────────────────────────
+if (window.AW && AW.keyboard) { AW.keyboard.bind({ next, prev, reset, replay }); }
+else { document.addEventListener('keydown', e => {
+	if (['Space','ArrowRight','Enter'].includes(e.code)) { e.preventDefault(); next(); }
+	else if (e.code==='ArrowLeft') { e.preventDefault(); prev(); }
+	else if (e.code==='KeyR') { e.preventDefault(); reset(); }
+	else if (e.code==='KeyP') { e.preventDefault(); replay(); }
+}); }
+
+// ── Touch swipe (tablets) ─────────────────
+(function(){
+	const surf=document.getElementById('stage'); if(!surf) return;
+	let x0=null,y0=null,t0=0;
+	surf.addEventListener('touchstart',e=>{ if(e.touches.length!==1){x0=null;return;} x0=e.touches[0].clientX; y0=e.touches[0].clientY; t0=Date.now(); },{passive:true});
+	surf.addEventListener('touchend',e=>{
+		if(x0===null) return; const tch=e.changedTouches[0]; const dx=tch.clientX-x0, dy=tch.clientY-y0; x0=null;
+		if(Date.now()-t0>800) return;
+		if(Math.abs(dx)>50 && Math.abs(dx)>Math.abs(dy)*1.6){ if(dx<0) next(); else prev(); }
+	},{passive:true});
+})();
+
+// ── Keyboard shortcut help overlay ────────
+(function(){
+	const overlay=document.getElementById('shortcut-overlay'), btn=document.getElementById('help-toggle'), closeBtn=document.getElementById('sc-close'), list=document.getElementById('sc-list');
+	if(!overlay||!list) return;
+	const ROWS=[[['\u2192','Space'],'scNext'],[['\u2190'],'scPrev'],[['R'],'scRestart'],[['P'],'scReplay'],[['H'],'scHide'],[['?'],'scHelp']];
+	window.buildShortcuts=function(){ const title=document.getElementById('sc-title'); if(title) title.textContent=t('scTitle');
+		list.innerHTML=ROWS.map(([keys,k])=>`<li><span>${t(k)}</span><span class="sc-keys">${keys.map(x=>`<kbd>${x}</kbd>`).join('')}</span></li>`).join(''); };
+	buildShortcuts();
+	function open(){ overlay.removeAttribute('hidden'); if(closeBtn) closeBtn.focus(); }
+	function close(){ overlay.setAttribute('hidden',''); if(btn) btn.focus(); }
+	function toggle(){ overlay.hasAttribute('hidden')?open():close(); }
+	if(btn) btn.addEventListener('click',e=>{e.stopPropagation();toggle();});
+	if(closeBtn) closeBtn.addEventListener('click',e=>{e.stopPropagation();close();});
+	const bd=overlay.querySelector('.sc-backdrop'); if(bd) bd.addEventListener('click',close);
+	document.addEventListener('keydown',e=>{ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return;
+		if(e.key==='?'){ e.preventDefault(); toggle(); }
+		else if(e.key==='Escape' && !overlay.hasAttribute('hidden')){ e.preventDefault(); close(); } });
+})();
+
+// ── Resize ────────────────────────────────
+let resizeTimer;
+window.addEventListener('resize',()=>{ clearTimeout(resizeTimer); resizeTimer=setTimeout(()=>renderStep(current),200); });
+
+// ── Init ──────────────────────────────────
+setLanguage(currentLang);
+counter.textContent = `1 / ${STEPS.length}`;
+const urlStep = parseInt(new URLSearchParams(location.search).get('step'), 10);
+renderStep((!isNaN(urlStep) && urlStep>=1 && urlStep<=STEPS.length) ? urlStep-1 : 0);
+</script>
+<script src="../lib/js/aw-present.js"></script>
+
+</body>
+</html>

@@ -4,7 +4,7 @@
 	<script src="/js/tracking.js"></script>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-<title>Branches and the GitHub Flow — GitHub / Azure DevOps</title>
+<title>Why We Use Version Control — GitHub / Azure DevOps</title>
 
 <link rel="stylesheet" href="https://unpkg.com/@microsoft/atlas-css/dist/index.css" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
@@ -26,14 +26,16 @@
 		--gh-merge:#2da44e;     /* merge token — green */
 		--gh-conflict:#cf222e;  /* conflict token — red */
 		--gh-resolve:#e97526;   /* resolve token — orange */
+		--gh-featb:#d24aa8;     /* Developer B's feature — magenta */
 	}
 	html, body { height:100%; margin:0; }
 	html { font-size:100%; }
 	body {
 		display:flex; flex-direction:column;
+		box-sizing:border-box;
 		min-height:100vh;
-		overflow-x:hidden; overflow-y:auto;
-		padding-bottom:6rem;
+		overflow:hidden;
+		padding-bottom:4.25rem;
 		background:
 			radial-gradient(circle at 15% 18%, rgba(33,136,255,0.16) 0%, transparent 55%),
 			radial-gradient(circle at 85% 82%, rgba(45,164,78,0.16) 0%, transparent 55%),
@@ -41,87 +43,229 @@
 		color: var(--theme-text);
 	}
 
-	.app-header { display:flex; align-items:center; gap:1rem; flex-shrink:0; flex-wrap:wrap; font-size:16px; }
+	.app-header {
+		display:grid; grid-template-columns:minmax(250px, 0.85fr) minmax(0, 1.15fr) auto;
+		align-items:center; gap:0.75rem; flex-shrink:0; font-size:16px;
+	}
+	.app-header > * { min-width:0; }
+	.app-header nav { min-width:0; white-space:nowrap; justify-content:center; }
+	.app-header nav .button { padding:0.2rem 0.35rem; font-size:0.76rem; }
+	#breadcrumb { max-width:220px; overflow:hidden; text-overflow:ellipsis; }
+	.app-header > :last-child { justify-content:flex-end; }
+	.app-header .lang-select { min-width:96px; width:96px; }
 
 	#stage {
-		position:relative; flex:1 1 auto; width:100%;
-		min-height:760px;
-		overflow:auto;
+		position:relative; flex:0 1 auto;
+		width:min(calc(100vw - 2rem), calc((100vh - 9.5rem) * 16 / 9), 1500px);
+		aspect-ratio:16 / 9;
+		min-height:0;
+		overflow:hidden;
+		margin:auto;
+		padding:0;
+		border:1px solid color-mix(in srgb, var(--gh-main) 48%, var(--theme-border));
+		border-radius:10px;
+		background:
+			linear-gradient(135deg, color-mix(in srgb, var(--gh-feature) 7%, transparent), transparent 45%),
+			linear-gradient(315deg, color-mix(in srgb, var(--gh-bugfix) 7%, transparent), transparent 45%),
+			var(--theme-body-background);
+		box-shadow:0 18px 48px rgba(0,0,0,0.22);
 	}
 	#stage:focus-visible, button:focus-visible, a:focus-visible {
 		outline:2px solid var(--theme-primary, #0078d4);
 		outline-offset:3px; border-radius:4px;
 	}
 
-	#fx-svg {
-		position:absolute; inset:0; width:100%; height:100%;
-		pointer-events:none; z-index:6; overflow:visible;
+	/* ── INSTRUCTOR SCENE (one teaching beat at a time) ── */
+	#poster { position:absolute; inset:0; }
+	.focus-scene {
+		position:absolute; inset:0;
+		display:grid;
+		grid-template-rows:auto auto minmax(0, 1fr);
+		gap:0.65rem;
+		padding:1rem 1.1rem 1.1rem;
 	}
-
-	/* ── GENERIC SCENE WRAPPER ──────────────── */
-	.scene {
-		position:absolute;
-		top:3%; left:50%; transform:translateX(-50%);
-		width:min(1180px, 96%);
-		z-index:10;
-		display:flex; flex-direction:column; align-items:center;
-		gap:1.2rem;
+	.act-rail {
+		display:grid; grid-template-columns:1fr 1fr; gap:0;
+		width:min(840px, 78%); margin:0 auto;
+		border:1px solid var(--theme-border); border-radius:6px; overflow:hidden;
 	}
-	.scene-title {
-		font-size:2.4rem; font-weight:700;
-		color:var(--theme-tertiary, #5c2d91);
-		margin:0; text-align:center;
-		opacity:0;
+	.act-chip {
+		display:flex; align-items:center; justify-content:center; gap:0.55rem;
+		padding:0.4rem 0.8rem; color:var(--theme-text-subtle);
+		font-size:0.78rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase;
+		background:color-mix(in srgb, var(--theme-card-background, #fff) 72%, transparent);
 	}
-	.scene-lead {
-		margin:0; text-align:center;
-		font-size:1.3rem; color:var(--theme-text);
-		max-width:920px; line-height:1.5;
-		opacity:0;
+	.act-chip + .act-chip { border-left:1px solid var(--theme-border); }
+	.act-chip::before { content:""; width:0.55rem; height:0.55rem; border-radius:50%; background:currentColor; }
+	.act-chip.active.problem { color:#e5484d; background:color-mix(in srgb, #e5484d 14%, transparent); }
+	.act-chip.active.solution { color:#2da44e; background:color-mix(in srgb, #2da44e 14%, transparent); }
+	.lesson-head { text-align:center; max-width:1050px; margin:0 auto; }
+	.lesson-kicker { color:var(--gh-main); font-size:0.78rem; font-weight:800; letter-spacing:0.12em; text-transform:uppercase; }
+	.lesson-title { margin:0.12rem 0 0; font-size:clamp(1.35rem, 2vw, 2rem); line-height:1.08; letter-spacing:0; color:var(--theme-text); }
+	.lesson-caption { margin:0.25rem 0 0; font-size:0.92rem; color:var(--theme-text-subtle); }
+	.lesson-layout {
+		min-height:0;
+		display:grid; grid-template-rows:minmax(0, 1fr) auto; gap:0.6rem;
 	}
-	body.theme-dark .scene-title { color:#b794f6; }
-
-	/* ── CALLOUT ────────────────────────────── */
-	.callout {
-		position:absolute;
-		max-width:340px;
-		padding:1rem 1.2rem;
-		background:var(--theme-body-background);
+	.visual-stage, .takeaway-panel {
+		min-width:0; min-height:0;
 		border:1px solid var(--theme-border);
-		border-left:4px solid var(--gh-feature);
 		border-radius:6px;
-		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2));
-		font-size:1.05rem; line-height:1.45;
-		z-index:14; opacity:0;
+		background:color-mix(in srgb, var(--theme-card-background, #fff) 82%, transparent);
 	}
+	body.theme-dark .visual-stage, body.theme-dark .takeaway-panel { background:rgba(255,255,255,0.035); }
+	.visual-stage { display:flex; align-items:stretch; justify-content:center; padding:0; overflow:hidden; }
+	.visual-stage .panel-body { width:100%; height:100%; }
+	.takeaway-panel { display:grid; grid-template-columns:minmax(0, 1.45fr) minmax(0, 1fr); align-items:center; gap:0.9rem; padding:0.65rem 0.85rem; overflow:hidden; border-left:4px solid var(--gh-main); }
+	.takeaway-copy { margin:0; font-size:0.84rem; line-height:1.35; color:var(--theme-text); }
+	.takeaway-stats { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:0.35rem; }
+	.takeaway-stat { padding-left:0.45rem; border-left:1px solid var(--theme-border); }
+	.takeaway-stat strong { display:block; margin-bottom:0.05rem; color:var(--theme-text-subtle); font-size:0.61rem; letter-spacing:0.04em; text-transform:uppercase; }
+	.takeaway-stat span { display:block; font-size:0.7rem; line-height:1.18; color:var(--theme-text); }
+	.takeaway-panel .panel-note { margin-top:0.85rem; }
+	.takeaway-panel .credit { margin-top:0.45rem; font-size:0.68rem; line-height:1.2; }
 
-	/* ── SHARED STAGE CANVAS ────────────────── */
-	.gh-stage {
-		position:relative;
-		width:min(1120px, 96vw);
-		min-height:430px;
-		margin-top:0.8rem;
+	/* Responsive modernization of the original hand-drawn three-lane story. */
+	.story-board { position:relative; width:100%; height:100%; display:grid; grid-template-rows:auto minmax(0, 1fr); overflow:hidden; }
+	.story-board::before { content:""; position:absolute; inset:0; pointer-events:none; opacity:0.32; background-image:linear-gradient(var(--theme-border) 1px, transparent 1px),linear-gradient(90deg,var(--theme-border) 1px,transparent 1px); background-size:28px 28px; mask-image:linear-gradient(to bottom,transparent,black 20%,black 80%,transparent); }
+	.story-banner { position:relative; z-index:1; display:flex; align-items:center; justify-content:center; gap:0.55rem; min-height:2.25rem; padding:0.35rem 0.75rem; font-size:0.75rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; border-bottom:1px solid var(--theme-border); }
+	.story-banner.problem { color:#b3261e; background:color-mix(in srgb,var(--gh-bug) 10%,transparent); }
+	.story-banner.solution { color:#1a7f37; background:color-mix(in srgb,var(--gh-bugfix) 10%,transparent); }
+	body.theme-dark .story-banner.problem { color:#ff9b93; }
+	body.theme-dark .story-banner.solution { color:#7ee2a0; }
+	.story-lanes { position:relative; z-index:1; display:grid; grid-template-columns:1fr 1.18fr 1fr; min-height:0; }
+	.story-lane { position:relative; min-width:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.6rem; padding:0.7rem; text-align:center; }
+	.story-lane + .story-lane { border-left:2px dashed color-mix(in srgb,var(--theme-border) 72%,transparent); }
+	.story-lane.shared { background:color-mix(in srgb,var(--gh-main) 5%,transparent); }
+	.story-lane-title { position:absolute; top:0.45rem; left:0.55rem; right:0.55rem; font-size:0.68rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:var(--theme-text-subtle); }
+	.story-flow { display:flex; align-items:center; justify-content:center; gap:0.55rem; flex-wrap:wrap; }
+	.story-stack { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.5rem; }
+	.story-note { max-width:15rem; font-size:0.76rem; line-height:1.3; font-weight:700; color:var(--theme-text); }
+	.story-arrow { display:inline-flex; align-items:center; justify-content:center; color:var(--gh-main); font-size:1.5rem; font-weight:900; }
+	.story-arrow.danger { color:var(--gh-bug); }
+	.story-arrow.safe { color:var(--gh-bugfix); }
+	.story-result { padding:0.35rem 0.65rem; border-radius:4px; font-size:0.73rem; font-weight:800; border:1px solid var(--theme-border); background:var(--theme-card-background); }
+	.story-result.lost { color:#b3261e; border-color:color-mix(in srgb,var(--gh-bug) 48%,var(--theme-border)); }
+	.story-result.safe { color:#1a7f37; border-color:color-mix(in srgb,var(--gh-bugfix) 48%,var(--theme-border)); }
+	.story-board .cb.sm { width:min(184px, 90%); }
+	.story-board .branch-pill { font-size:0.82rem; padding:0.3rem 0.7rem; }
+	.story-board .token { font-size:0.72rem; padding:0.32rem 0.65rem; }
+	.solution-board .story-lane { gap:0.35rem; padding-block:1.55rem 0.35rem; }
+	.solution-board .story-stack { gap:0.32rem; }
+	.solution-board .dev.mini .dev-fig { width:38px; height:38px; font-size:1.15rem; }
+	.solution-board .dev-name { font-size:0.66rem; }
+	.solution-board .cb.sm { width:min(166px, 88%); }
+	.solution-board .cb.sm .cb-code { padding-block:0.3rem 0.4rem; gap:0.2rem; }
+	.solution-board .story-result { padding-block:0.25rem; font-size:0.67rem; line-height:1.15; }
+	.solution-board .story-flow { gap:0.35rem; }
+	.conflict-process { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:0.2rem; width:100%; }
+	.conflict-process .token { min-width:0; padding:0.28rem 0.15rem; font-size:0.58rem; letter-spacing:0.01em; }
+	.col-head {
+		text-align:center; font-weight:800; letter-spacing:0.01em;
+		padding:0.55rem 0.9rem; border-radius:12px; font-size:1.05rem; line-height:1.25;
+		border:1.5px solid transparent;
+	}
+	.col-head[hidden] { display:none; }
+	.col-head.left  { color:#b3261e; background:color-mix(in srgb, var(--gh-bug) 12%, transparent);    border-color:color-mix(in srgb, var(--gh-bug) 34%, transparent); }
+	.col-head.right { color:#1a7f37; background:color-mix(in srgb, var(--gh-bugfix) 12%, transparent); border-color:color-mix(in srgb, var(--gh-bugfix) 34%, transparent); }
+	body.theme-dark .col-head.left  { color:#ff9b93; }
+	body.theme-dark .col-head.right { color:#7ee2a0; }
+
+	.panel {
+		border:1px solid var(--theme-border, rgba(128,128,128,0.28));
+		border-radius:14px; padding:0.85rem 0.95rem 1rem;
+		background:var(--theme-card-background, rgba(255,255,255,0.55));
+	}
+	body.theme-dark .panel { background:rgba(255,255,255,0.035); }
+	.panel[hidden] { display:none; }
+	.panel-head { display:flex; align-items:center; gap:0.55rem; margin-bottom:0.15rem; }
+	.panel-num {
+		flex:none; width:1.75rem; height:1.75rem; border-radius:50%;
 		display:flex; align-items:center; justify-content:center;
+		font-weight:800; font-size:0.86rem; color:#fff; background:var(--gh-main);
 	}
+	.panel.act1 .panel-num { background:var(--gh-bug); }
+	.panel.act2 .panel-num { background:var(--gh-bugfix); }
+	.panel-title { font-size:1.06rem; font-weight:800; color:var(--theme-text); line-height:1.2; }
+	.panel-cap { font-size:0.85rem; color:var(--theme-text-subtle); margin:0.1rem 0 0.65rem 2.3rem; }
+	.panel-body { display:flex; align-items:center; gap:0.8rem; flex-wrap:wrap; }
+	.panel-note {
+		margin-top:0.7rem; font-size:0.92rem; line-height:1.42;
+		padding:0.6rem 0.8rem; border-left:3px solid var(--gh-feature);
+		background:color-mix(in srgb, var(--gh-feature) 8%, transparent); border-radius:6px;
+	}
+	.mini-row { display:flex; align-items:center; gap:0.55rem; flex-wrap:wrap; }
+	.mini-col { display:flex; flex-direction:column; align-items:center; gap:0.4rem; }
+	.arrow-i { font-size:1.4rem; line-height:1; color:var(--gh-resolve); }
 
-	/* ── CODEBASE CARD ──────────────────────── */
+	/* ── CODEBASE CARD (VS Code on Windows) ──── */
 	.cb {
 		position:relative;
-		width:188px; padding:0.7rem 0.8rem 0.9rem;
-		background:var(--theme-card-background, #fff);
-		border:2.5px solid var(--theme-text, #2b2b34);
+		width:212px; padding:0; overflow:hidden;
+		background:var(--cb-bg, #ffffff);
+		border:1px solid var(--theme-border, rgba(0,0,0,0.16));
 		border-radius:8px;
-		box-shadow:0 6px 18px rgba(0,0,0,0.18);
+		box-shadow:0 10px 24px rgba(0,0,0,0.22);
+		font-family:'Cascadia Code','Consolas','SF Mono',ui-monospace,monospace;
 	}
-	body.theme-dark .cb { background:#252531; border-color:rgba(255,255,255,0.5); }
-	.cb-title { font-size:0.92rem; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; color:var(--theme-text); margin-bottom:0.3rem; }
-	.cb-scribble { width:100%; height:54px; color:var(--theme-text-subtle, #888); opacity:0.75; }
-	.cb-scribble svg { width:100%; height:100%; }
-	.cb-dots { position:absolute; right:0.6rem; bottom:0.5rem; display:flex; gap:0.35rem; }
+	body.theme-dark .cb { --cb-bg:#1e1e1e; border-color:rgba(255,255,255,0.12); }
+	.cb.sm { width:184px; }
+	/* Windows title bar */
+	.cb-bar {
+		display:flex; align-items:center; justify-content:space-between;
+		height:24px; padding:0 0 0 0.5rem;
+		background:var(--cb-title, #dcdcdc); color:var(--cb-titlefg, #555);
+	}
+	body.theme-dark .cb-bar { --cb-title:#323233; --cb-titlefg:#cccccc; }
+	.cb-brand { display:inline-flex; align-items:center; gap:0.35rem; font-size:0.62rem; font-weight:600; white-space:nowrap; overflow:hidden; }
+	.cb-brand .vs { background:#0a84ff; color:#fff; font-size:0.5rem; font-weight:800; padding:0 2px; border-radius:2px; letter-spacing:-0.02em; }
+	.cb-winbtns { display:flex; height:100%; flex:none; }
+	.cb-winbtns i { width:26px; height:24px; display:flex; align-items:center; justify-content:center; font-size:0.6rem; font-style:normal; line-height:1; color:inherit; }
+	.cb-winbtns i.min:hover, .cb-winbtns i.max:hover { background:rgba(128,128,128,0.3); }
+	.cb-winbtns i.close:hover { background:#e81123; color:#fff; }
+	/* editor tab strip */
+	.cb-tabstrip { background:var(--cb-strip, #ececec); display:flex; }
+	body.theme-dark .cb-tabstrip { --cb-strip:#252526; }
+	.cb-tab {
+		display:flex; align-items:center; gap:0.35rem;
+		padding:0.26rem 0.5rem; font-size:0.66rem; font-weight:600;
+		background:var(--cb-bg, #ffffff); color:var(--theme-text, #333);
+		border-top:2px solid #0a84ff;
+		width:max-content; max-width:100%;
+	}
+	.js-ico { background:#f0db4f; color:#20232a; font-size:0.55rem; font-weight:800; padding:0 3px; border-radius:2px; line-height:1.35; }
+	.cb-tab .tab-x { margin-left:0.15rem; opacity:0.5; font-size:0.6rem; }
+	/* code body */
+	.cb-code { padding:0.55rem 0.6rem 0.7rem; display:flex; flex-direction:column; gap:0.34rem; }
+	.cb.sm .cb-code { gap:0.28rem; padding:0.45rem 0.5rem 0.6rem; }
+	.code-row { display:flex; align-items:center; gap:0.4rem; }
+	.code-row .ln { width:0.85rem; text-align:right; font-size:0.6rem; color:var(--theme-text-subtle,#999); opacity:0.6; flex:none; }
+	.code-row .toks { display:flex; align-items:center; gap:4px; flex:1; }
+	.code-row.indent .toks { padding-left:0.7rem; }
+	.code-row.indent2 .toks { padding-left:1.4rem; }
+	.tok { height:7px; border-radius:3px; display:inline-block; opacity:0.95; }
+	.cb.sm .tok { height:6px; }
+	.tok.kw  { background:#c586c0; }   /* keyword */
+	.tok.fn  { background:#4aa3ff; }   /* function */
+	.tok.var { background:#54c7ec; }   /* variable */
+	.tok.str { background:#4ec9a0; }   /* string */
+	.tok.num { background:#d3a04f; }   /* number */
+	.tok.com { background:var(--theme-text-subtle,#8a8a8a); opacity:0.4; }  /* comment */
+	.tok.pun { background:var(--theme-text-subtle,#8a8a8a); opacity:0.55; }
+	/* VS Code blue status bar */
+	.cb-status {
+		display:flex; align-items:center; justify-content:space-between;
+		height:17px; padding:0 0.45rem;
+		background:#007acc; color:#fff;
+		font-size:0.55rem; font-weight:600; letter-spacing:0.01em;
+	}
+	.cb-status .st-l, .cb-status .st-r { display:inline-flex; align-items:center; gap:0.3rem; white-space:nowrap; }
+	/* change blobs overlay */
+	.cb-dots { position:absolute; right:0.5rem; bottom:1.6rem; display:flex; gap:0.35rem; z-index:2; }
 
 	/* ── DOTS (code / bug / fix blobs) ──────── */
 	.dot {
-		width:34px; height:34px; border-radius:50%;
+		width:30px; height:30px; border-radius:50%;
 		background:
 			radial-gradient(circle at 35% 30%, rgba(255,255,255,0.55), transparent 42%),
 			var(--dot-c, #2188ff);
@@ -138,29 +282,34 @@
 	.dot.code { --dot-c:var(--gh-feature); }
 	.dot.bug  { --dot-c:var(--gh-bug); }
 	.dot.fix  { --dot-c:var(--gh-bugfix); }
-	.dot-tag {
-		position:absolute; left:50%; bottom:-1.05rem; transform:translateX(-50%);
-		font-size:0.62rem; font-weight:800; letter-spacing:0.06em; text-transform:uppercase;
-		white-space:nowrap; color:var(--theme-text-subtle);
+	.dot.featb { --dot-c:var(--gh-featb); }
+
+	.tag-chip {
+		display:inline-flex; align-items:center; gap:0.3rem;
+		font-size:0.82rem; font-weight:700;
+		padding:0.2rem 0.6rem; border-radius:999px;
+		background:var(--theme-card-background, rgba(0,0,0,0.05));
+		border:1px solid var(--theme-border, rgba(128,128,128,0.35));
+		color:var(--theme-text); white-space:nowrap;
 	}
+	body.theme-dark .tag-chip { background:rgba(255,255,255,0.06); }
 
 	/* ── DEVELOPER AVATAR ───────────────────── */
-	.dev {
-		display:flex; flex-direction:column; align-items:center; gap:0.25rem;
-	}
+	.dev { display:flex; flex-direction:column; align-items:center; gap:0.25rem; }
 	.dev-fig {
-		width:64px; height:64px; border-radius:50%;
+		width:56px; height:56px; border-radius:50%;
 		display:flex; align-items:center; justify-content:center;
-		font-size:2rem;
+		font-size:1.7rem;
 		background:var(--theme-card-background, #fff);
 		border:3px solid var(--dev-c, var(--gh-feature));
 		box-shadow:0 4px 14px rgba(0,0,0,0.2);
 	}
 	body.theme-dark .dev-fig { background:#252531; }
+	.dev.mini .dev-fig { width:44px; height:44px; font-size:1.35rem; }
 	.dev.a { --dev-c:var(--gh-feature); }
 	.dev.b { --dev-c:var(--gh-bugfix); }
 	.dev-name {
-		font-size:0.78rem; font-weight:700; color:var(--theme-text);
+		font-size:0.74rem; font-weight:700; color:var(--theme-text);
 		border-bottom:2px solid var(--dev-c, var(--gh-feature));
 		padding-bottom:1px;
 	}
@@ -168,12 +317,12 @@
 	/* ── BRANCH PILL ────────────────────────── */
 	.branch-pill {
 		display:inline-flex; align-items:center; gap:0.4rem;
-		padding:0.4rem 1rem; border-radius:999px;
-		font-size:1.05rem; font-weight:800; letter-spacing:0.02em;
+		padding:0.35rem 0.9rem; border-radius:999px;
+		font-size:0.98rem; font-weight:800; letter-spacing:0.02em;
 		color:#fff; white-space:nowrap;
 		box-shadow:0 4px 14px rgba(0,0,0,0.22);
 	}
-	.branch-pill::before { content:"⎇"; font-size:1.1rem; opacity:0.92; }
+	.branch-pill::before { content:"⎇"; font-size:1.05rem; opacity:0.92; }
 	.branch-pill.feature { background:var(--gh-feature); }
 	.branch-pill.bugfix  { background:var(--gh-bugfix); }
 	.branch-pill.main    { background:var(--gh-main); }
@@ -182,8 +331,8 @@
 	/* ── ACTION TOKEN ───────────────────────── */
 	.token {
 		display:inline-flex; align-items:center; justify-content:center;
-		padding:0.42rem 0.95rem; border-radius:6px;
-		font-size:0.92rem; font-weight:800; letter-spacing:0.05em; text-transform:uppercase;
+		padding:0.38rem 0.85rem; border-radius:6px;
+		font-size:0.86rem; font-weight:800; letter-spacing:0.04em; text-transform:uppercase;
 		color:#fff; white-space:nowrap;
 		box-shadow:0 4px 12px rgba(0,0,0,0.25);
 	}
@@ -194,57 +343,46 @@
 	.token.resolve  { background:var(--gh-resolve); }
 	.token.pr {
 		background:linear-gradient(90deg, var(--gh-feature), var(--gh-main));
-		font-size:1.05rem; padding:0.5rem 1.2rem;
+		font-size:0.95rem; padding:0.42rem 1rem;
+	}
+	.col-flow-label {
+		font-size:0.72rem; font-weight:800; letter-spacing:0.1em; text-transform:uppercase;
+		color:#fff; padding:0.24rem 0.7rem; border-radius:999px; background:var(--gh-feature);
 	}
 
 	/* ── SPEECH BUBBLE ──────────────────────── */
 	.bubble {
 		position:relative;
-		max-width:280px; padding:0.75rem 1rem;
+		max-width:240px; padding:0.6rem 0.85rem;
 		background:#fff8df; color:#3a2d00;
 		border:2px solid #e3c75a; border-radius:14px;
-		font-size:1rem; line-height:1.4; font-weight:600;
+		font-size:0.92rem; line-height:1.35; font-weight:600;
 		box-shadow:0 6px 18px rgba(0,0,0,0.18);
 	}
 	body.theme-dark .bubble { background:#3a3320; color:#f4e8b8; border-color:#7a6a2a; }
 	.bubble.think { background:var(--theme-card-background,#fff); color:var(--theme-text); border-style:dashed; }
 	body.theme-dark .bubble.think { background:#2a2a36; }
 
-	/* ── BRANCH COLUMN (cure scenes) ────────── */
-	.branch-col {
+	/* ── REMOTE REPO CARD (version control) ─── */
+	.repo {
 		position:relative;
-		display:flex; flex-direction:column; align-items:center; gap:0.7rem;
-		padding:1rem 0.9rem 1.1rem;
+		display:flex; flex-direction:column; align-items:center; gap:0.55rem;
+		padding:0.75rem 1rem 0.85rem;
 		border-radius:14px;
-		min-width:210px;
+		background:color-mix(in srgb, var(--gh-main) 12%, var(--theme-card-background, #fff));
+		border:2px solid var(--gh-main);
+		box-shadow:0 8px 20px rgba(0,0,0,0.2);
 	}
-	.branch-col.feature { background:color-mix(in srgb, var(--gh-feature) 12%, transparent); border:1.5px solid color-mix(in srgb, var(--gh-feature) 45%, transparent); }
-	.branch-col.bugfix  { background:color-mix(in srgb, var(--gh-bugfix) 12%, transparent);  border:1.5px solid color-mix(in srgb, var(--gh-bugfix) 45%, transparent); }
-	.branch-col.main    { background:color-mix(in srgb, var(--gh-main) 10%, transparent);    border:1.5px solid color-mix(in srgb, var(--gh-main) 40%, transparent); }
-	.col-flow-label {
-		margin-top:0.2rem;
-		font-size:0.78rem; font-weight:800; letter-spacing:0.12em; text-transform:uppercase;
-		color:#fff; padding:0.25rem 0.8rem; border-radius:999px;
-		background:var(--gh-feature);
-	}
+	body.theme-dark .repo { background:color-mix(in srgb, var(--gh-main) 24%, #252531); }
+	.repo-title { display:inline-flex; align-items:center; gap:0.4rem; font-size:0.98rem; font-weight:800; color:var(--theme-text); }
+	.repo-history { display:flex; align-items:center; gap:0.3rem; }
+	.commit-node { width:18px; height:18px; border-radius:50%; background:var(--gh-main); box-shadow:0 2px 6px rgba(0,0,0,0.3); }
+	.commit-line { width:20px; height:3px; border-radius:3px; background:color-mix(in srgb, var(--gh-main) 55%, transparent); }
+	.repo-sub { font-size:0.78rem; color:var(--theme-text-subtle); font-weight:600; }
 
-	.down-arrow { color:var(--gh-resolve); font-size:1.6rem; line-height:1; }
-
-	/* ── CHAOS ICONS ────────────────────────── */
-	.chaos-row { display:flex; align-items:center; justify-content:center; gap:1.4rem; flex-wrap:wrap; margin-top:0.5rem; }
-	.chaos-ico {
-		font-size:2.8rem; line-height:1;
-		filter:drop-shadow(0 4px 10px rgba(0,0,0,0.3));
-	}
-
-	/* ── PEACE / ENDING ─────────────────────── */
-	.peace {
-		display:flex; flex-direction:column; align-items:center; gap:0.4rem;
-		font-size:3.4rem; line-height:1;
-	}
-	.peace .peace-cap { font-size:1.1rem; font-weight:700; color:var(--theme-text); }
-
-	/* ── STAT CHIPS (reused by outline only) ── */
+	/* ── CREDIT LINE (from the sketch footer) ── */
+	.credit { text-align:center; font-size:0.92rem; font-weight:600; letter-spacing:0.01em; color:var(--theme-text-subtle); }
+	.credit .heart { color:#e5484d; }
 
 	/* ── HEADER / CHROME (cloned from AI series) ── */
 	.header-back-link {
@@ -302,26 +440,35 @@
 	}
 
 	#controls {
-		position:fixed; bottom:0; left:0; right:0; z-index:40;
-		display:flex; align-items:center; justify-content:center; gap:0.6rem; flex-wrap:wrap;
-		padding:0.7rem 1rem;
-		background:var(--theme-body-background);
-		border-top:1px solid var(--theme-border, rgba(128,128,128,0.3));
-		box-shadow:0 -4px 18px rgba(0,0,0,0.12);
+		position:fixed; bottom:0.75rem; left:50%; transform:translateX(-50%); z-index:40;
+		display:flex; align-items:center; justify-content:center; gap:0.35rem; flex-wrap:nowrap;
+		padding:0.45rem 0.6rem;
+		background:var(--theme-body-background-translucent, rgba(28,28,32,0.88));
+		border:1px solid var(--theme-border, rgba(128,128,128,0.3));
+		border-radius:8px;
+		backdrop-filter:blur(14px);
+		box-shadow:0 8px 28px rgba(0,0,0,0.28);
 	}
+	#controls .button { min-width:2.35rem; padding:0.38rem 0.55rem; white-space:nowrap; }
+	.ctrl-grip, .ctrl-pin {
+		display:inline-flex; align-items:center; justify-content:center;
+		width:2rem; height:2rem; padding:0; border:0; border-radius:4px;
+		background:transparent; color:var(--theme-text-subtle); cursor:grab;
+	}
+	.ctrl-grip:active { cursor:grabbing; }
+	.ctrl-grip svg, .ctrl-pin svg { width:1rem; height:1rem; }
+	.ctrl-pin { cursor:pointer; }
+	.ctrl-sep { width:1px; height:1.35rem; background:var(--theme-border); margin:0 0.12rem; }
+	body.controls-floating #controls { transition:none; }
 	body.chrome-hidden #controls { box-shadow:none; }
 	.step-counter {
 		font-size:0.95rem; font-weight:700; min-width:84px; text-align:center;
 		color:var(--theme-text);
 	}
 	.speed-control { display:flex; align-items:center; gap:2px; }
-	.speed-control .speed-btn {
-		min-width:28px; font-weight:800;
-	}
+	.speed-control .speed-btn { min-width:28px; font-weight:800; }
 	.speed-control .speed-btn[disabled] { opacity:0.4; cursor:not-allowed; }
-	.speed-label {
-		font-size:0.9rem; font-weight:700; min-width:34px; text-align:center; color:var(--theme-text);
-	}
+	.speed-label { font-size:0.9rem; font-weight:700; min-width:34px; text-align:center; color:var(--theme-text); }
 
 	#step-outline {
 		position:fixed; top:0; right:0; bottom:0; width:min(340px, 86vw); z-index:60;
@@ -342,6 +489,25 @@
 		background:linear-gradient(90deg, var(--gh-feature), var(--gh-main), var(--gh-bugfix));
 		transition:width 0.4s ease;
 	}
+	.progress-track { cursor:pointer; }
+	.progress-tick { position:absolute; top:0; width:1px; height:100%; background:rgba(255,255,255,0.7); z-index:2; pointer-events:none; }
+
+	#audio-toggle { border:1px solid var(--theme-border); border-radius:4px; }
+	#audio-toggle.toggle-active { color:var(--theme-primary,#0078d4); border-color:var(--theme-primary,#0078d4); font-weight:700; }
+	.help-toggle { display:inline-flex; align-items:center; gap:0.25rem; }
+	.help-toggle svg { width:1.1rem; height:1.1rem; }
+	#shortcut-overlay { position:fixed; inset:0; z-index:80; display:flex; align-items:center; justify-content:center; }
+	#shortcut-overlay[hidden] { display:none; }
+	.sc-backdrop { position:absolute; inset:0; background:rgba(0,0,0,0.62); backdrop-filter:blur(3px); }
+	.sc-panel { position:relative; width:min(430px, calc(100vw - 2rem)); padding:1.4rem; border:1px solid var(--theme-border); border-radius:8px; background:var(--theme-body-background); box-shadow:0 20px 60px rgba(0,0,0,0.4); }
+	.sc-panel h2 { margin:0 0 1rem; }
+	.sc-close { position:absolute; top:0.65rem; right:0.65rem; width:2rem; height:2rem; border:0; background:transparent; color:var(--theme-text); cursor:pointer; }
+	.sc-close svg { width:100%; height:100%; }
+	.sc-list { list-style:none; margin:0; padding:0; }
+	.sc-list li { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:0.55rem 0; border-top:1px solid var(--theme-border); }
+	.sc-keys { display:flex; gap:0.3rem; }
+	kbd { min-width:1.8rem; padding:0.15rem 0.35rem; border:1px solid var(--theme-border); border-radius:4px; background:var(--theme-card-background); text-align:center; font:inherit; font-weight:700; }
+	.sc-hint { margin:1rem 0 0; color:var(--theme-text-subtle); font-size:0.85rem; }
 	body.chrome-hidden .app-header { display:none; }
 	body.chrome-hidden .progress-track { display:none; }
 
@@ -386,9 +552,29 @@
 		overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
 	}
 
+	@media (max-width:900px), (max-height:720px) {
+		.app-header { grid-template-columns:1fr auto; }
+		.app-header nav { grid-column:1 / -1; grid-row:2; justify-content:center; }
+		#stage { width:min(calc(100vw - 1rem), calc((100vh - 8rem) * 16 / 9)); }
+		.focus-scene { gap:0.65rem; padding:0.85rem; }
+		.lesson-layout { gap:0.45rem; }
+		.takeaway-panel { padding:0.8rem; }
+		.takeaway-copy { font-size:0.9rem; line-height:1.38; }
+		.takeaway-stats { display:none; }
+	}
+	@media (max-width:1500px) {
+		.app-header { grid-template-columns:1fr auto; }
+		.app-header nav { grid-column:1 / -1; grid-row:2; justify-content:center; }
+	}
 	@media (max-width:640px) {
 		.app-header { font-size:0.95rem; }
-		.scene-title { font-size:1.8rem; }
+		.act-rail { width:100%; }
+		.act-chip { font-size:0.62rem; padding-inline:0.35rem; }
+		.story-lanes { grid-template-columns:1fr; overflow:auto; }
+		.story-lane { min-height:8rem; padding-top:2rem; }
+		.story-lane + .story-lane { border-left:0; border-top:2px dashed color-mix(in srgb,var(--theme-border) 72%,transparent); }
+		.takeaway-panel { display:block; }
+		.takeaway-stats { display:none; }
 	}
 	@media (prefers-reduced-motion: reduce) {
 		*, *::before, *::after { transition:none !important; animation:none !important; }
@@ -404,13 +590,18 @@
 	<header class="app-header padding-block-xs padding-inline-md border-bottom" role="banner" style="justify-content:space-between;">
 		<div class="display-flex align-items-center gap-xs">
 			<a href="index.html" class="header-back-link" aria-label="Back to the DevOps journey" title="Back to the journey">← Journey</a>
-			<span id="page-title" class="font-size-h6 font-weight-semibold">🌿 Branches &amp; the GitHub Flow</span>
+			<span id="page-title" class="font-size-h6 font-weight-semibold">🔀 Why Version Control</span>
 		</div>
 		<nav class="display-flex gap-xs align-items-center" aria-label="Primary">
 			<span id="breadcrumb" class="font-size-sm color-text-subtle">Step 1</span>
 			<button id="callout-toggle" type="button" class="button button-clear button-sm" aria-label="Toggle callouts">💬 Callout</button>
 			<button id="outline-toggle" type="button" class="button button-clear button-sm"
 					aria-controls="step-outline" aria-expanded="false" aria-label="Hide text outline">📝 Outline</button>
+			<button id="audio-toggle" type="button" class="button button-clear button-sm" aria-label="Toggle audio narration">🔇 Audio</button>
+			<button id="help-toggle" type="button" class="button button-clear button-sm help-toggle"
+					aria-haspopup="dialog" aria-controls="shortcut-overlay" aria-label="Keyboard shortcuts (press ?)" title="Keyboard shortcuts (?)">
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M11 18h2v-2h-2v2zm1.1-14C9.8 4 8 5.8 8 8h2a2 2 0 1 1 3.2 1.6c-.9.7-2.2 1.5-2.2 3.4h2c0-1 .8-1.5 1.7-2.2A4 4 0 0 0 12.1 4z"/></svg> Keys
+			</button>
 		</nav>
 		<div class="display-flex gap-xs align-items-center">
 			<select id="lang-select" class="lang-select" aria-label="Language">
@@ -460,21 +651,16 @@
 	<div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
 
 	<main id="stage" tabindex="0" role="region" aria-labelledby="stage-heading" aria-describedby="stage-instructions">
-		<h1 id="stage-heading" class="sr-only">Branches and the GitHub Flow — GitHub / Azure DevOps</h1>
+		<h1 id="stage-heading" class="sr-only">Why we use version control — GitHub / Azure DevOps</h1>
 		<p id="stage-instructions" class="sr-only">
-			Animated explainer for source-code version control: why shared editing overwrites work,
-			and how branches, commits, pull requests, reviews, conflicts, and merges fix it.
-			Use Next/Previous buttons or arrow keys to navigate. Press R to restart.
+			Animated explainer for DevOps foundations, presented one teaching beat at a time.
+			The first act shows two developers sharing one codebase with no version control and overwriting
+			each other's work; the second act shows the team adopting version control (GitHub / Azure DevOps)
+			with branches, commits, pull requests, reviews, conflict resolution, and merges.
+			Use Next/Previous buttons or arrow keys to reveal each step. Press R to restart.
 		</p>
 		<div id="step-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
-
-		<svg id="fx-svg" aria-hidden="true" focusable="false">
-			<defs>
-				<marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
-					<path d="M0,0 L0,10 L10,5 Z" fill="currentColor"/>
-				</marker>
-			</defs>
-		</svg>
+		<div id="poster"></div>
 	</main>
 
 	<aside id="step-outline" hidden aria-label="Text outline of the current step">
@@ -483,16 +669,35 @@
 	</aside>
 
 	<div id="controls" role="group" aria-label="Diagram navigation">
-		<button id="prev-btn" type="button" class="button" aria-label="Previous step (left arrow)">◀ Prev</button>
+		<button id="ctrl-grip" type="button" class="ctrl-grip" aria-label="Drag to move the controls" title="Drag to move">
+			<svg viewBox="0 0 16 16" aria-hidden="true"><g fill="currentColor"><circle cx="5" cy="3" r="1.4"/><circle cx="11" cy="3" r="1.4"/><circle cx="5" cy="8" r="1.4"/><circle cx="11" cy="8" r="1.4"/><circle cx="5" cy="13" r="1.4"/><circle cx="11" cy="13" r="1.4"/></g></svg>
+		</button>
+		<button id="ctrl-pin" type="button" class="ctrl-pin" aria-label="Pin the controls back to the center" title="Pin to center">
+			<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9 2h6a1 1 0 0 1 .8 1.6L14 6v4l3 3v2h-4v5l-1 2-1-2v-5H7v-2l3-3V6L8.2 3.6A1 1 0 0 1 9 2z"/></svg>
+		</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="prev-btn" type="button" class="button" aria-label="Previous step (left arrow)" title="Previous">◀</button>
 		<div class="step-counter" id="step-counter">0 / 0</div>
-		<button id="next-btn" type="button" class="button button-primary button-filled" aria-label="Next step (right arrow or space)">Next ▶</button>
-		<button id="replay-btn" type="button" class="button" aria-label="Replay this step's animation (P)">↻ Replay</button>
+		<button id="next-btn" type="button" class="button button-primary button-filled" aria-label="Next step (right arrow or space)" title="Next">▶</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="replay-btn" type="button" class="button" aria-label="Replay this step's animation (P)" title="Replay">↻</button>
 		<div class="speed-control" role="group" aria-label="Animation speed">
 			<button id="speed-down" type="button" class="button button-clear speed-btn" aria-label="Slower (-)" title="Slower">−</button>
 			<span id="speed-label" class="speed-label" aria-live="polite" aria-label="Current speed">1×</span>
 			<button id="speed-up" type="button" class="button button-clear speed-btn" aria-label="Faster (+)" title="Faster">+</button>
 		</div>
-		<button id="reset-btn" type="button" class="button button-clear" aria-label="Restart from step 1 (R)">↻ Restart</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="reset-btn" type="button" class="button button-clear" aria-label="Restart from step 1 (R)" title="Restart">⏮</button>
+	</div>
+
+	<div id="shortcut-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="sc-title">
+		<div class="sc-backdrop"></div>
+		<div class="sc-panel">
+			<button id="sc-close" class="sc-close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
+			<h2 id="sc-title">Keyboard shortcuts</h2>
+			<ul id="sc-list" class="sc-list"></ul>
+			<p class="sc-hint">Press <kbd>?</kbd> anytime to toggle this panel.</p>
+		</div>
 	</div>
 
 <script>
@@ -507,63 +712,93 @@ let currentLang = 'en';
 const I18N = {
 	en: {
 		skipToMain: 'Skip to diagram',
-		pageTitle: 'Branches & the GitHub Flow',
-		stageHeading: 'Branches and the GitHub Flow — GitHub / Azure DevOps',
-		stageInstructions: 'Animated explainer for source-code version control — why shared editing overwrites work, and how branches, commits, pull requests, reviews, conflicts, and merges fix it. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.',
+		pageTitle: 'Why Version Control',
+		stageHeading: 'Why we use version control — GitHub / Azure DevOps',
+		stageInstructions: 'Animated explainer for DevOps foundations, presented one teaching beat at a time. The first act shows two developers sharing one codebase without version control and overwriting each other. The second act shows the team adopting version control with branches, commits, pull requests, reviews, conflict resolution, and merges. Use Next and Previous or the arrow keys to move through the journey. Press R to restart.',
 		prev: '◀ Prev', next: 'Next ▶', replay: '↻ Replay', restart: '↻ Restart',
 		slower: 'Slower', faster: 'Faster',
 		calloutOn: '💬 Callout: On', calloutOff: '💬 Callout: Off',
 		outlineOn: '📝 Outline: On', outlineOff: '📝 Outline: Off',
 		stepDetails: 'Step Details', stepOf: 'Step',
 
+		// column headings
+		colLeft: 'Without Version Control',
+		colRight: 'With Version Control — GitHub / Azure DevOps',
+
 		// shared scene labels
 		labCodebase: 'Codebase', labMain: 'MAIN', labFeature: 'feature', labBugfix: 'bug-fix',
-		labCommit: 'Commit', labPullRequest: 'Pull Request', labReview: 'Review',
-		labMerge: 'Merge', labConflict: 'Conflict', labResolve: 'Resolve',
-		labBug: 'Bug', labBugFix: 'Bug Fix', labCode: 'My Code',
-		devA: 'Developer A', devB: 'Developer B',
-		flowGithub: 'GitHub Flow',
+		labCommit: 'Commit', labPullRequest: 'Pull Request', labReview: 'Review', labMerge: 'Merge',
+		labConflict: 'Conflict', labResolve: 'Resolve', labGithubFlow: 'GitHub Flow',
+		labBug: 'Bug', labFeatureTag: 'Feature', labFixTag: 'Bug fix', labHistory: 'History',
+		devA: 'Developer A', devB: 'Developer B', flowGithub: 'GitHub / Azure DevOps',
+		labFirst: '1st', labLater: 'Later',
+		restEasy: 'Everyone rests easy',
+		credit: 'Created with <span class="heart">❤</span> by Microsoft Technical Trainers and MCTs',
 
-		// ── Step 1 · Naive start ──
-		naiveTitle: 'Without Version Control',
-		naiveCaption: 'One shared codebase',
-		naiveDesc: 'Developer A opens the one and only codebase and starts coding right away — straight on the shared files. A bug is already living in there.',
-		naiveCallout: 'With no version control, everyone edits the <strong>same single copy</strong> of the code. There is no safety net and no history to fall back on.',
-		naiveQuote: '“I have coding tasks, and I’ll start coding right away from this codebase.”',
-		naiveStat1: 'Setup', naiveStat1v: 'A single shared codebase, edited in place',
-		naiveStat2: 'Risk', naiveStat2v: 'No history, no isolation, no backup',
-		naiveStat3: 'Already here', naiveStat3v: 'An existing bug nobody has fixed yet',
+		// ── Step 1 · One codebase, no version control ──
+		introTitle: 'One Codebase, No Version Control',
+		introCaption: 'Two developers, one shared copy',
+		introDesc: 'A single shared codebase already has a known bug in it. Two developers — A and B — are both about to start work on this very same copy.',
+		introCallout: 'With no version control there is just <strong>one copy</strong> of the code that everyone edits directly. No history, no isolation, no safety net.',
+		introStat1: 'The setup', introStat1v: 'One shared codebase, edited in place',
+		introStat2: 'Already here', introStat2v: 'A known bug nobody has fixed yet',
+		introStat3: 'The team', introStat3v: 'Developer A and Developer B, same copy',
 
-		// ── Step 2 · Overwrite ──
-		lostTitle: 'Source Code Gets Overwritten',
-		lostCaption: 'Two people, one file',
-		lostDesc: 'Developer A adds their code. Then Developer B saves a bug fix over the same codebase — and Developer A’s work is silently overwritten and gone.',
-		lostCallout: 'Editing the same copy means the <strong>last save wins</strong>. Whoever writes last quietly erases everyone else’s changes.',
-		lostQuote: '“At this point, my code is gone. Why did Developer B overwrite my code?”',
-		lostStat1: 'What happened', lostStat1v: 'Last write overwrote earlier work',
-		lostStat2: 'Cost', lostStat2v: 'Developer A’s code is lost completely',
-		lostStat3: 'Why', lostStat3v: 'No branches kept the work apart',
+		// ── Step 2 · Two developers, two plans ──
+		plansTitle: 'Two Developers, Two Plans',
+		plansCaption: 'A builds a feature · B is blocked by the bug',
+		plansDesc: 'Developer A will build a new feature and won’t touch the bug — it isn’t his to fix. Developer B wants to build a feature too, but the bug blocks him, so he must fix the bug first and then build.',
+		plansCallout: 'They’re working on <strong>different things in the same file</strong>. Nothing keeps their changes apart — that is the trap.',
+		plansStat1: 'Developer A', plansStat1v: 'New feature — will not touch the bug',
+		plansStat2: 'Developer B', plansStat2v: 'Blocked — must fix the bug, then build',
+		plansStat3: 'The risk', plansStat3v: 'Both editing the one shared copy',
 
-		// ── Step 3 · Chaos ──
-		chaosTitle: 'We Kept Messing Up Versions',
-		chaosCaption: 'Lost work, a stuck bug, finger-pointing',
-		chaosDesc: 'Lost code, an urgent bug that blocks everything else, stress, blame, and firefighting. This is the daily cost of working without version control.',
-		chaosCallout: 'The fix isn’t working harder — it’s a system that <strong>remembers every change</strong> and keeps work safely apart until it’s ready.',
-		chaosQuote: '“We kept messing up versions. We should’ve used GitHub / Azure DevOps from the start.”',
-		chaosStat1: 'Symptoms', chaosStat1v: 'Lost work, blocked bug, blame, burnout',
-		chaosStat2: 'Root cause', chaosStat2v: 'Everyone editing one shared copy',
-		chaosStat3: 'The realization', chaosStat3v: 'Use version control from day one',
+		// ── Step 3 · Developer A finishes first ──
+		saveTitle: 'Developer A Finishes First',
+		saveCaption: 'A saves the feature into the shared copy',
+		saveDesc: 'Developer A gets his feature done first and saves it straight into the one shared codebase. The bug is still there — he never touched it.',
+		saveCallout: 'A’s feature is now the <strong>current copy</strong>. There is no record that this version happened — just the one live file.',
+		saveStat1: 'Developer A', saveStat1v: 'Feature finished and saved first',
+		saveStat2: 'The codebase', saveStat2v: 'Now has A’s feature + the old bug',
+		saveStat3: 'Missing', saveStat3v: 'No history, no backup of this version',
 
-		// ── Step 4 · Branching ──
+		// ── Step 4 · Developer B saves and overwrites ──
+		lostTitle: 'Developer B Saves — and Overwrites',
+		lostCaption: 'The last save wins',
+		lostDesc: 'Developer B finishes later: he fixed the bug and added his own feature. He saves over the same codebase — and Developer A’s feature is silently replaced and gone.',
+		lostCallout: 'Editing one copy means <strong>the last save wins</strong>. Whoever saves last quietly erases everyone else’s work.',
+		lostStat1: 'What happened', lostStat1v: 'B’s save replaced the whole file',
+		lostStat2: 'The cost', lostStat2v: 'A’s feature is completely lost',
+		lostStat3: 'Why', lostStat3v: 'Nothing kept the two changes apart',
+
+		// ── Step 5 · Now nobody is happy ──
+		friTitle: 'Now Nobody Is Happy',
+		friCaption: 'Lost work, frustration, blame',
+		friDesc: 'Developer A’s feature is gone and has to be redone. Frustration, blame, and wasted time — the everyday cost of sharing one copy with no version control.',
+		friCallout: 'The fix isn’t “be more careful”. It’s a system that <strong>remembers every change</strong> and keeps parallel work safely apart.',
+		friStat1: 'Symptoms', friStat1v: 'Lost work, rework, blame, stress',
+		friStat2: 'Root cause', friStat2v: 'One shared copy, edited directly',
+		friStat3: 'The realization', friStat3v: 'We need version control',
+
+		// ── Step 6 · Let's use version control ──
+		agreeTitle: 'Let’s Use Version Control',
+		agreeCaption: 'GitHub / Azure DevOps',
+		agreeDesc: 'Both agree: put the code in a version control system like GitHub or Azure DevOps. One shared home for the code that remembers every change as history.',
+		agreeCallout: '<strong>Version control</strong> tracks every change over time, so many people can work together without silently overwriting each other.',
+		agreeStat1: 'What it is', agreeStat1v: 'A shared home for code + full history',
+		agreeStat2: 'Why', agreeStat2v: 'Many people, no silent overwrites',
+		agreeStat3: 'Examples', agreeStat3v: 'GitHub, Azure DevOps',
+
+		// ── Step 7 · Create two branches from main ──
 		branchTitle: 'Create Two Branches from Main',
 		branchCaption: 'feature branch + bug-fix branch',
-		branchDesc: 'From the shared main, each developer cuts their own branch — a feature branch for Developer A and a bug-fix branch for Developer B. Their work is now isolated.',
-		branchCallout: 'A <strong>branch</strong> is a private copy of the codebase. You can change anything on it without touching main or anyone else’s branch.',
+		branchDesc: 'From the shared main, each developer creates their own branch — a feature branch for A and a bug-fix branch for B. Now they can work at the same time, fully isolated.',
+		branchCallout: 'A <strong>branch</strong> is your own private copy. You can change anything on it without touching main or anyone else’s branch.',
 		branchStat1: 'main', branchStat1v: 'The shared, protected source of truth',
 		branchStat2: 'feature', branchStat2v: 'Developer A’s isolated workspace',
 		branchStat3: 'bug-fix', branchStat3v: 'Developer B’s isolated workspace',
 
-		// ── Step 5 · Commit ──
+		// ── Step 8 · Commit on your own branch ──
 		commitTitle: 'Commit on Your Own Branch',
 		commitCaption: 'Save snapshots safely',
 		commitDesc: 'Each developer works on their own branch and commits their changes. A commit is a saved snapshot with a message — nothing is overwritten, and every step is remembered.',
@@ -572,75 +807,101 @@ const I18N = {
 		commitStat2: 'Isolated', commitStat2v: 'A and B commit on separate branches',
 		commitStat3: 'Reversible', commitStat3v: 'Full history — you can always go back',
 
-		// ── Step 6 · Pull request → review → merge ──
+		// ── Step 9 · Pull Request → Review → Merge (feature) ──
 		prTitle: 'Pull Request → Review → Merge',
-		prCaption: 'The GitHub flow',
+		prCaption: 'The GitHub flow — feature branch',
 		prDesc: 'Developer A opens a pull request to bring the feature branch into main. A teammate reviews it, approves, and it merges cleanly — main now has the feature.',
-		prCallout: 'A <strong>pull request</strong> proposes merging a branch into main. Review happens before the merge, so bad changes are caught early.',
+		prCallout: 'A <strong>pull request</strong> proposes merging a branch into main. Review happens before the merge, so problems are caught early.',
 		prStat1: 'Pull request', prStat1v: 'Propose merging a branch into main',
 		prStat2: 'Review', prStat2v: 'A teammate checks the changes first',
 		prStat3: 'Merge', prStat3v: 'Approved work joins main — nothing lost',
 
-		// ── Step 7 · Conflict → resolve → merge ──
+		// ── Step 10 · Conflict → Resolve → Merge (bug-fix) + finale ──
 		conflictTitle: 'Conflict → Resolve → Merge',
-		conflictCaption: 'When two branches touch the same lines',
-		conflictDesc: 'Developer B’s bug-fix pull request overlaps with the feature already in main, so the review flags a conflict. B resolves it, merges, and main ends up with both changes — and everyone rests easy.',
+		conflictCaption: 'Two branches touched the same lines',
+		conflictDesc: 'Developer B’s bug-fix pull request overlaps with the feature already in main, so the review flags a conflict. B resolves it, merges, and main ends up with the bug fix AND the feature — and everyone rests easy.',
 		conflictCallout: 'A <strong>conflict</strong> just means two branches changed the same lines. Git asks a human to choose — then the merge completes safely.',
 		conflictStat1: 'Conflict', conflictStat1v: 'Two branches changed the same code',
 		conflictStat2: 'Resolve', conflictStat2v: 'A human picks the right result',
-		conflictStat3: 'Result', conflictStat3v: 'main has both changes — no lost work'
+		conflictStat3: 'Result', conflictStat3v: 'main has the fix and the feature — nothing lost'
 	}
 };
 
 // ── Spanish ───────────────────────────────
 I18N.es = { ...I18N.en,
 	skipToMain: 'Saltar al diagrama',
-	pageTitle: 'Ramas y el flujo de GitHub',
-	stageHeading: 'Ramas y el flujo de GitHub — GitHub / Azure DevOps',
-	stageInstructions: 'Explicación animada del control de versiones del código: por qué editar en común sobrescribe el trabajo y cómo las ramas, los commits, las solicitudes de incorporación, las revisiones, los conflictos y las fusiones lo solucionan. Usa los botones Siguiente/Anterior o las flechas para navegar. Pulsa R para reiniciar.',
+	pageTitle: 'Por qué usar control de versiones',
+	stageHeading: 'Por qué usamos control de versiones — GitHub / Azure DevOps',
+	stageInstructions: 'Explicación animada de los fundamentos de DevOps, construida paso a paso como un único póster. La columna izquierda muestra a dos desarrolladores compartiendo un solo código sin control de versiones y sobrescribiéndose; la columna derecha muestra al equipo adoptando el control de versiones (GitHub / Azure DevOps) con ramas, commits, pull requests, revisiones, resolución de conflictos y fusiones. Usa los botones Siguiente/Anterior o las flechas para revelar cada paso. Pulsa R para reiniciar.',
 	prev: '◀ Anterior', next: 'Siguiente ▶', replay: '↻ Repetir', restart: '↻ Reiniciar',
 	slower: 'Más lento', faster: 'Más rápido',
 	calloutOn: '💬 Nota: Activada', calloutOff: '💬 Nota: Desactivada',
 	outlineOn: '📝 Esquema: Activado', outlineOff: '📝 Esquema: Desactivado',
 	stepDetails: 'Detalles del paso', stepOf: 'Paso',
 
+	colLeft: 'Sin control de versiones',
+	colRight: 'Con control de versiones — GitHub / Azure DevOps',
+
 	labCodebase: 'Código', labCommit: 'Commit', labPullRequest: 'Pull Request', labReview: 'Revisión',
-	labMerge: 'Fusión', labConflict: 'Conflicto', labResolve: 'Resolver',
-	labBug: 'Error', labBugFix: 'Corrección', labCode: 'Mi código',
-	devA: 'Desarrollador A', devB: 'Desarrollador B',
-	flowGithub: 'Flujo de GitHub',
+	labMerge: 'Fusión', labConflict: 'Conflicto', labResolve: 'Resolver', labGithubFlow: 'Flujo de GitHub',
+	labBug: 'Error', labFeatureTag: 'Función', labFixTag: 'Corrección', labHistory: 'Historial',
+	devA: 'Desarrollador A', devB: 'Desarrollador B', flowGithub: 'GitHub / Azure DevOps',
+	labFirst: '1.º', labLater: 'Después',
+	restEasy: 'Todos descansan tranquilos',
+	credit: 'Creado con <span class="heart">❤</span> por Microsoft Technical Trainers y MCTs',
 
-	naiveTitle: 'Sin control de versiones',
-	naiveCaption: 'Un único código compartido',
-	naiveDesc: 'El Desarrollador A abre el único código que existe y empieza a programar de inmediato, directamente sobre los archivos compartidos. Ya hay un error viviendo ahí dentro.',
-	naiveCallout: 'Sin control de versiones, todos editan la <strong>misma copia única</strong> del código. No hay red de seguridad ni un historial al que volver.',
-	naiveQuote: '«Tengo tareas de programación y empezaré a programar de inmediato sobre este código.»',
-	naiveStat1: 'Punto de partida', naiveStat1v: 'Un único código compartido, editado en el sitio',
-	naiveStat2: 'Riesgo', naiveStat2v: 'Sin historial, sin aislamiento, sin copia',
-	naiveStat3: 'Ya presente', naiveStat3v: 'Un error que nadie ha corregido aún',
+	introTitle: 'Un solo código, sin control de versiones',
+	introCaption: 'Dos desarrolladores, una copia compartida',
+	introDesc: 'Un único código compartido ya tiene un error conocido dentro. Dos desarrolladores —A y B— están a punto de empezar a trabajar sobre esta misma copia.',
+	introCallout: 'Sin control de versiones solo hay <strong>una copia</strong> del código que todos editan directamente. Sin historial, sin aislamiento, sin red de seguridad.',
+	introStat1: 'Punto de partida', introStat1v: 'Un único código compartido, editado en el sitio',
+	introStat2: 'Ya presente', introStat2v: 'Un error conocido que nadie ha corregido',
+	introStat3: 'El equipo', introStat3v: 'Desarrollador A y Desarrollador B, misma copia',
 
-	lostTitle: 'El código se sobrescribe',
-	lostCaption: 'Dos personas, un archivo',
-	lostDesc: 'El Desarrollador A añade su código. Luego el Desarrollador B guarda una corrección sobre el mismo código, y el trabajo del Desarrollador A se sobrescribe en silencio y desaparece.',
-	lostCallout: 'Editar la misma copia hace que <strong>gane el último en guardar</strong>. Quien escribe al final borra sin querer los cambios de los demás.',
-	lostQuote: '«En este punto, mi código ya no está. ¿Por qué el Desarrollador B sobrescribió mi código?»',
-	lostStat1: 'Qué pasó', lostStat1v: 'La última escritura sobrescribió el trabajo previo',
-	lostStat2: 'Coste', lostStat2v: 'El código del Desarrollador A se pierde por completo',
-	lostStat3: 'Por qué', lostStat3v: 'Ninguna rama mantuvo el trabajo separado',
+	plansTitle: 'Dos desarrolladores, dos planes',
+	plansCaption: 'A crea una función · a B lo bloquea el error',
+	plansDesc: 'El Desarrollador A creará una nueva función y no tocará el error: no le toca a él arreglarlo. El Desarrollador B también quiere crear una función, pero el error lo bloquea, así que primero debe corregirlo y luego construir.',
+	plansCallout: 'Trabajan en <strong>cosas distintas dentro del mismo archivo</strong>. Nada mantiene sus cambios separados: esa es la trampa.',
+	plansStat1: 'Desarrollador A', plansStat1v: 'Nueva función — no tocará el error',
+	plansStat2: 'Desarrollador B', plansStat2v: 'Bloqueado — debe corregir el error y luego construir',
+	plansStat3: 'El riesgo', plansStat3v: 'Ambos editan la única copia compartida',
 
-	chaosTitle: 'Seguíamos arruinando las versiones',
-	chaosCaption: 'Trabajo perdido, un error atascado, culpas',
-	chaosDesc: 'Código perdido, un error urgente que bloquea todo lo demás, estrés, culpas y apagar incendios. Este es el coste diario de trabajar sin control de versiones.',
-	chaosCallout: 'La solución no es esforzarse más: es un sistema que <strong>recuerda cada cambio</strong> y mantiene el trabajo a salvo y separado hasta que esté listo.',
-	chaosQuote: '«Seguíamos arruinando las versiones. Deberíamos haber usado GitHub / Azure DevOps desde el principio.»',
-	chaosStat1: 'Síntomas', chaosStat1v: 'Trabajo perdido, error bloqueado, culpas, agotamiento',
-	chaosStat2: 'Causa raíz', chaosStat2v: 'Todos editando una sola copia compartida',
-	chaosStat3: 'La revelación', chaosStat3v: 'Usar control de versiones desde el primer día',
+	saveTitle: 'El Desarrollador A termina primero',
+	saveCaption: 'A guarda la función en la copia compartida',
+	saveDesc: 'El Desarrollador A termina su función primero y la guarda directamente en el único código compartido. El error sigue ahí: nunca lo tocó.',
+	saveCallout: 'La función de A es ahora la <strong>copia actual</strong>. No hay registro de que esta versión existiera: solo el único archivo en vivo.',
+	saveStat1: 'Desarrollador A', saveStat1v: 'Función terminada y guardada primero',
+	saveStat2: 'El código', saveStat2v: 'Ahora tiene la función de A + el error viejo',
+	saveStat3: 'Falta', saveStat3v: 'Sin historial, sin copia de esta versión',
+
+	lostTitle: 'El Desarrollador B guarda… y sobrescribe',
+	lostCaption: 'Gana el último en guardar',
+	lostDesc: 'El Desarrollador B termina después: corrigió el error y añadió su propia función. Guarda sobre el mismo código y la función del Desarrollador A se reemplaza en silencio y desaparece.',
+	lostCallout: 'Editar una sola copia hace que <strong>gane el último en guardar</strong>. Quien guarda al final borra sin querer el trabajo de los demás.',
+	lostStat1: 'Qué pasó', lostStat1v: 'El guardado de B reemplazó todo el archivo',
+	lostStat2: 'El coste', lostStat2v: 'La función de A se pierde por completo',
+	lostStat3: 'Por qué', lostStat3v: 'Nada mantuvo separados los dos cambios',
+
+	friTitle: 'Ahora nadie está contento',
+	friCaption: 'Trabajo perdido, frustración, culpas',
+	friDesc: 'La función del Desarrollador A desapareció y hay que rehacerla. Frustración, culpas y tiempo perdido: el coste diario de compartir una copia sin control de versiones.',
+	friCallout: 'La solución no es «ten más cuidado». Es un sistema que <strong>recuerda cada cambio</strong> y mantiene el trabajo paralelo a salvo y separado.',
+	friStat1: 'Síntomas', friStat1v: 'Trabajo perdido, retrabajo, culpas, estrés',
+	friStat2: 'Causa raíz', friStat2v: 'Una copia compartida, editada directamente',
+	friStat3: 'La revelación', friStat3v: 'Necesitamos control de versiones',
+
+	agreeTitle: 'Usemos control de versiones',
+	agreeCaption: 'GitHub / Azure DevOps',
+	agreeDesc: 'Ambos están de acuerdo: poner el código en un sistema de control de versiones como GitHub o Azure DevOps. Un hogar compartido para el código que recuerda cada cambio como historial.',
+	agreeCallout: 'El <strong>control de versiones</strong> registra cada cambio en el tiempo, para que muchas personas trabajen juntas sin sobrescribirse en silencio.',
+	agreeStat1: 'Qué es', agreeStat1v: 'Un hogar compartido para el código + historial completo',
+	agreeStat2: 'Por qué', agreeStat2v: 'Muchas personas, sin sobrescrituras silenciosas',
+	agreeStat3: 'Ejemplos', agreeStat3v: 'GitHub, Azure DevOps',
 
 	branchTitle: 'Crea dos ramas desde main',
 	branchCaption: 'rama feature + rama bug-fix',
-	branchDesc: 'Desde el main compartido, cada desarrollador crea su propia rama: una rama feature para el Desarrollador A y una rama bug-fix para el Desarrollador B. Su trabajo queda ahora aislado.',
-	branchCallout: 'Una <strong>rama</strong> es una copia privada del código. Puedes cambiar lo que quieras sin tocar main ni la rama de nadie más.',
+	branchDesc: 'Desde la main compartida, cada desarrollador crea su propia rama: una rama feature para A y una rama bug-fix para B. Ahora pueden trabajar al mismo tiempo, totalmente aislados.',
+	branchCallout: 'Una <strong>rama</strong> es tu copia privada. Puedes cambiar lo que quieras sin tocar main ni la rama de nadie más.',
 	branchStat1: 'main', branchStat1v: 'La fuente de verdad compartida y protegida',
 	branchStat2: 'feature', branchStat2v: 'El espacio aislado del Desarrollador A',
 	branchStat3: 'bug-fix', branchStat3v: 'El espacio aislado del Desarrollador B',
@@ -654,71 +915,97 @@ I18N.es = { ...I18N.en,
 	commitStat3: 'Reversible', commitStat3v: 'Historial completo: siempre puedes volver atrás',
 
 	prTitle: 'Pull Request → Revisión → Fusión',
-	prCaption: 'El flujo de GitHub',
-	prDesc: 'El Desarrollador A abre una pull request para llevar la rama feature a main. Un compañero la revisa, la aprueba y se fusiona limpiamente: main ya tiene la funcionalidad.',
+	prCaption: 'El flujo de GitHub — rama feature',
+	prDesc: 'El Desarrollador A abre una pull request para llevar la rama feature a main. Un compañero la revisa, la aprueba y se fusiona limpiamente: main ya tiene la función.',
 	prCallout: 'Una <strong>pull request</strong> propone fusionar una rama en main. La revisión ocurre antes de la fusión, así los cambios malos se detectan pronto.',
 	prStat1: 'Pull request', prStat1v: 'Proponer fusionar una rama en main',
 	prStat2: 'Revisión', prStat2v: 'Un compañero revisa los cambios primero',
 	prStat3: 'Fusión', prStat3v: 'El trabajo aprobado se une a main: nada se pierde',
 
 	conflictTitle: 'Conflicto → Resolver → Fusión',
-	conflictCaption: 'Cuando dos ramas tocan las mismas líneas',
-	conflictDesc: 'La pull request de corrección del Desarrollador B se solapa con la funcionalidad que ya está en main, así que la revisión marca un conflicto. B lo resuelve, fusiona y main termina con ambos cambios, y todos descansan tranquilos.',
+	conflictCaption: 'Dos ramas tocaron las mismas líneas',
+	conflictDesc: 'La pull request de corrección del Desarrollador B se solapa con la función que ya está en main, así que la revisión marca un conflicto. B lo resuelve, fusiona y main termina con la corrección Y la función, y todos descansan tranquilos.',
 	conflictCallout: 'Un <strong>conflicto</strong> solo significa que dos ramas cambiaron las mismas líneas. Git pide a una persona que elija, y luego la fusión se completa con seguridad.',
 	conflictStat1: 'Conflicto', conflictStat1v: 'Dos ramas cambiaron el mismo código',
 	conflictStat2: 'Resolver', conflictStat2v: 'Una persona elige el resultado correcto',
-	conflictStat3: 'Resultado', conflictStat3v: 'main tiene ambos cambios: nada se pierde'
+	conflictStat3: 'Resultado', conflictStat3v: 'main tiene la corrección y la función: nada se pierde'
 };
 
 // ── Japanese ──────────────────────────────
 I18N.ja = { ...I18N.en,
 	skipToMain: '図へスキップ',
-	pageTitle: 'ブランチと GitHub フロー',
-	stageHeading: 'ブランチと GitHub フロー — GitHub / Azure DevOps',
-	stageInstructions: 'ソースコードのバージョン管理を解説するアニメーション。共有編集がなぜ作業を上書きするのか、ブランチ・コミット・プルリクエスト・レビュー・コンフリクト・マージがどう解決するのかを示します。次へ/前へボタンまたは矢印キーで移動し、R でリスタートします。',
+	pageTitle: 'なぜバージョン管理を使うのか',
+	stageHeading: 'なぜバージョン管理を使うのか — GitHub / Azure DevOps',
+	stageInstructions: 'DevOps の基礎を 1 ステップずつ 1 枚のポスターに組み上げて解説するアニメーション。左の列は、2 人の開発者がバージョン管理なしで 1 つのコードベースを共有し、互いに上書きしてしまう様子を示します。右の列は、チームがバージョン管理（GitHub / Azure DevOps）をブランチ・コミット・プルリクエスト・レビュー・コンフリクト解決・マージとともに導入する様子を示します。次へ/前へボタンまたは矢印キーで各ステップを表示し、R でリスタートします。',
 	prev: '◀ 前へ', next: '次へ ▶', replay: '↻ 再生', restart: '↻ リスタート',
 	slower: '遅く', faster: '速く',
 	calloutOn: '💬 注釈: オン', calloutOff: '💬 注釈: オフ',
 	outlineOn: '📝 アウトライン: オン', outlineOff: '📝 アウトライン: オフ',
 	stepDetails: 'ステップの詳細', stepOf: 'ステップ',
 
+	colLeft: 'バージョン管理なし',
+	colRight: 'バージョン管理あり — GitHub / Azure DevOps',
+
 	labCodebase: 'コードベース', labCommit: 'コミット', labPullRequest: 'プルリクエスト', labReview: 'レビュー',
-	labMerge: 'マージ', labConflict: 'コンフリクト', labResolve: '解決',
-	labBug: 'バグ', labBugFix: 'バグ修正', labCode: '私のコード',
-	devA: '開発者 A', devB: '開発者 B',
-	flowGithub: 'GitHub フロー',
+	labMerge: 'マージ', labConflict: 'コンフリクト', labResolve: '解決', labGithubFlow: 'GitHub フロー',
+	labBug: 'バグ', labFeatureTag: '機能', labFixTag: 'バグ修正', labHistory: '履歴',
+	devA: '開発者 A', devB: '開発者 B', flowGithub: 'GitHub / Azure DevOps',
+	labFirst: '1 番目', labLater: 'あとで',
+	restEasy: 'みんな安心して休める',
+	credit: 'Microsoft Technical Trainers と MCT が <span class="heart">❤</span> を込めて作成',
 
-	naiveTitle: 'バージョン管理なし',
-	naiveCaption: '1 つの共有コードベース',
-	naiveDesc: '開発者 A はたった 1 つのコードベースを開き、共有ファイルに直接、すぐにコーディングを始めます。そこにはすでにバグが潜んでいます。',
-	naiveCallout: 'バージョン管理がないと、全員が<strong>同じ 1 つのコピー</strong>を編集します。安全網も、戻れる履歴もありません。',
-	naiveQuote: '「コーディングのタスクがあるので、このコードベースからすぐに始めます。」',
-	naiveStat1: '前提', naiveStat1v: '1 つの共有コードベースをその場で編集',
-	naiveStat2: 'リスク', naiveStat2v: '履歴なし・分離なし・バックアップなし',
-	naiveStat3: 'すでに存在', naiveStat3v: '誰もまだ直していない既存のバグ',
+	introTitle: '1 つのコードベース、バージョン管理なし',
+	introCaption: '2 人の開発者、1 つの共有コピー',
+	introDesc: '1 つの共有コードベースには、すでに既知のバグが入っています。開発者 A と B の 2 人が、まさにこの同じコピーで作業を始めようとしています。',
+	introCallout: 'バージョン管理がないと、全員が直接編集する<strong>コピーが 1 つ</strong>だけです。履歴も、分離も、安全網もありません。',
+	introStat1: '前提', introStat1v: '1 つの共有コードベースをその場で編集',
+	introStat2: 'すでに存在', introStat2v: '誰もまだ直していない既知のバグ',
+	introStat3: 'チーム', introStat3v: '開発者 A と開発者 B、同じコピー',
 
-	lostTitle: 'ソースコードが上書きされる',
-	lostCaption: '2 人、1 つのファイル',
-	lostDesc: '開発者 A が自分のコードを追加します。次に開発者 B が同じコードベースにバグ修正を保存し、開発者 A の作業は静かに上書きされて消えます。',
-	lostCallout: '同じコピーを編集すると<strong>最後に保存した人が勝ちます</strong>。最後に書いた人が、他の全員の変更をひそかに消してしまいます。',
-	lostQuote: '「この時点で私のコードは消えました。なぜ開発者 B は私のコードを上書きしたの?」',
-	lostStat1: '何が起きた', lostStat1v: '最後の書き込みが以前の作業を上書き',
-	lostStat2: '代償', lostStat2v: '開発者 A のコードが完全に失われる',
-	lostStat3: 'なぜ', lostStat3v: '作業を分けるブランチがなかった',
+	plansTitle: '2 人の開発者、2 つの計画',
+	plansCaption: 'A は機能を作る・B はバグに阻まれる',
+	plansDesc: '開発者 A は新しい機能を作り、バグには触れません。彼が直すべきものではないからです。開発者 B も機能を作りたいのですが、バグに阻まれているため、まずバグを直してから作らなければなりません。',
+	plansCallout: '2 人は<strong>同じファイルの中で別々のもの</strong>を作業しています。変更を分けておくものが何もない。それが罠です。',
+	plansStat1: '開発者 A', plansStat1v: '新機能 — バグには触れない',
+	plansStat2: '開発者 B', plansStat2v: '阻まれている — バグを直してから作る',
+	plansStat3: 'リスク', plansStat3v: '2 人とも 1 つの共有コピーを編集',
 
-	chaosTitle: 'バージョンを壊し続けた',
-	chaosCaption: '失われた作業・止まったバグ・責任のなすり合い',
-	chaosDesc: '失われたコード、すべてを止める緊急のバグ、ストレス、非難、火消し作業。これがバージョン管理なしで働く毎日の代償です。',
-	chaosCallout: '解決策は頑張ることではなく、<strong>すべての変更を記憶し</strong>、準備が整うまで作業を安全に分けておく仕組みです。',
-	chaosQuote: '「バージョンを壊し続けた。最初から GitHub / Azure DevOps を使うべきだった。」',
-	chaosStat1: '症状', chaosStat1v: '失われた作業・止まったバグ・非難・燃え尽き',
-	chaosStat2: '根本原因', chaosStat2v: '全員が 1 つの共有コピーを編集',
-	chaosStat3: '気づき', chaosStat3v: '初日からバージョン管理を使う',
+	saveTitle: '開発者 A が先に完成させる',
+	saveCaption: 'A が機能を共有コピーに保存',
+	saveDesc: '開発者 A が先に機能を完成させ、1 つの共有コードベースへ直接保存します。バグはまだそこにあります。彼は触れていません。',
+	saveCallout: 'A の機能が今や<strong>現在のコピー</strong>です。このバージョンがあったという記録はなく、ただ 1 つのライブファイルがあるだけです。',
+	saveStat1: '開発者 A', saveStat1v: '機能を完成させ、先に保存',
+	saveStat2: 'コードベース', saveStat2v: '今は A の機能 + 古いバグ',
+	saveStat3: '欠けているもの', saveStat3v: '履歴なし、このバージョンのバックアップなし',
+
+	lostTitle: '開発者 B が保存 — そして上書き',
+	lostCaption: '最後に保存した人が勝つ',
+	lostDesc: '開発者 B はあとで完成させます。バグを直し、自分の機能も追加しました。同じコードベースに上書き保存し、開発者 A の機能は静かに置き換えられて消えます。',
+	lostCallout: '1 つのコピーを編集すると<strong>最後に保存した人が勝ちます</strong>。最後に書いた人が、他の全員の作業をひそかに消します。',
+	lostStat1: '何が起きた', lostStat1v: 'B の保存がファイル全体を置き換えた',
+	lostStat2: '代償', lostStat2v: 'A の機能が完全に失われる',
+	lostStat3: 'なぜ', lostStat3v: '2 つの変更を分けるものが何もなかった',
+
+	friTitle: 'もう誰も幸せじゃない',
+	friCaption: '失われた作業、いら立ち、責任のなすり合い',
+	friDesc: '開発者 A の機能は消え、作り直さなければなりません。いら立ち、非難、無駄な時間 — バージョン管理なしで 1 つのコピーを共有する毎日の代償です。',
+	friCallout: '解決策は「もっと気をつける」ことではありません。<strong>すべての変更を記憶し</strong>、並行作業を安全に分けておく仕組みです。',
+	friStat1: '症状', friStat1v: '失われた作業、やり直し、非難、ストレス',
+	friStat2: '根本原因', friStat2v: '1 つの共有コピーを直接編集',
+	friStat3: '気づき', friStat3v: 'バージョン管理が必要だ',
+
+	agreeTitle: 'バージョン管理を使おう',
+	agreeCaption: 'GitHub / Azure DevOps',
+	agreeDesc: '2 人は合意します。GitHub や Azure DevOps のようなバージョン管理システムにコードを入れよう。すべての変更を履歴として記憶する、コードの共有の家です。',
+	agreeCallout: '<strong>バージョン管理</strong>は時間の流れの中ですべての変更を追跡し、多くの人がひそかに上書きし合うことなく一緒に働けるようにします。',
+	agreeStat1: 'それは何', agreeStat1v: 'コードの共有の家 + 完全な履歴',
+	agreeStat2: 'なぜ', agreeStat2v: '大勢でも、静かな上書きなし',
+	agreeStat3: '例', agreeStat3v: 'GitHub、Azure DevOps',
 
 	branchTitle: 'main から 2 つのブランチを作る',
 	branchCaption: 'feature ブランチ + bug-fix ブランチ',
-	branchDesc: '共有の main から、各開発者が自分のブランチを切ります。開発者 A には feature ブランチ、開発者 B には bug-fix ブランチ。これで作業が分離されました。',
-	branchCallout: '<strong>ブランチ</strong>はコードベースのプライベートなコピーです。main や他人のブランチに触れずに、何でも変更できます。',
+	branchDesc: '共有の main から、各開発者が自分のブランチを作ります。A には feature ブランチ、B には bug-fix ブランチ。これで完全に分離して同時に作業できます。',
+	branchCallout: '<strong>ブランチ</strong>はあなた専用のコピーです。main や他人のブランチに触れずに、何でも変更できます。',
 	branchStat1: 'main', branchStat1v: '共有され保護された信頼できる源',
 	branchStat2: 'feature', branchStat2v: '開発者 A の分離された作業場所',
 	branchStat3: 'bug-fix', branchStat3v: '開発者 B の分離された作業場所',
@@ -732,7 +1019,7 @@ I18N.ja = { ...I18N.en,
 	commitStat3: '元に戻せる', commitStat3v: '完全な履歴 — いつでも戻れる',
 
 	prTitle: 'プルリクエスト → レビュー → マージ',
-	prCaption: 'GitHub フロー',
+	prCaption: 'GitHub フロー — feature ブランチ',
 	prDesc: '開発者 A は feature ブランチを main に取り込むプルリクエストを開きます。チームメイトがレビューして承認し、きれいにマージ。main に機能が入りました。',
 	prCallout: '<strong>プルリクエスト</strong>はブランチを main にマージする提案です。マージの前にレビューが入るので、悪い変更を早く見つけられます。',
 	prStat1: 'プルリクエスト', prStat1v: 'ブランチを main にマージする提案',
@@ -740,63 +1027,89 @@ I18N.ja = { ...I18N.en,
 	prStat3: 'マージ', prStat3v: '承認された作業が main に合流 — 何も失わない',
 
 	conflictTitle: 'コンフリクト → 解決 → マージ',
-	conflictCaption: '2 つのブランチが同じ行に触れたとき',
-	conflictDesc: '開発者 B のバグ修正プルリクエストは、すでに main にある機能と重なるため、レビューがコンフリクトを示します。B が解決してマージし、main は両方の変更を得て、全員が安心して休めます。',
+	conflictCaption: '2 つのブランチが同じ行に触れた',
+	conflictDesc: '開発者 B のバグ修正プルリクエストは、すでに main にある機能と重なるため、レビューがコンフリクトを示します。B が解決してマージし、main はバグ修正と機能の両方を得て、全員が安心して休めます。',
 	conflictCallout: '<strong>コンフリクト</strong>は 2 つのブランチが同じ行を変えただけのこと。Git は人に選択を求め、その後マージが安全に完了します。',
 	conflictStat1: 'コンフリクト', conflictStat1v: '2 つのブランチが同じコードを変更',
 	conflictStat2: '解決', conflictStat2v: '人が正しい結果を選ぶ',
-	conflictStat3: '結果', conflictStat3v: 'main に両方の変更 — 失われる作業なし'
+	conflictStat3: '結果', conflictStat3v: 'main に修正と機能の両方 — 失われる作業なし'
 };
 
 // ── Korean ────────────────────────────────
 I18N.ko = { ...I18N.en,
 	skipToMain: '다이어그램으로 건너뛰기',
-	pageTitle: '브랜치와 GitHub 흐름',
-	stageHeading: '브랜치와 GitHub 흐름 — GitHub / Azure DevOps',
-	stageInstructions: '소스 코드 버전 관리를 설명하는 애니메이션입니다. 공유 편집이 왜 작업을 덮어쓰는지, 그리고 브랜치, 커밋, 풀 리퀘스트, 리뷰, 충돌, 병합이 이를 어떻게 해결하는지 보여 줍니다. 다음/이전 버튼이나 화살표 키로 이동하고 R로 다시 시작합니다.',
+	pageTitle: '왜 버전 관리를 쓰는가',
+	stageHeading: '왜 버전 관리를 쓰는가 — GitHub / Azure DevOps',
+	stageInstructions: 'DevOps 기초를 한 단계씩 하나의 포스터로 쌓아 올리며 설명하는 애니메이션입니다. 왼쪽 열은 두 개발자가 버전 관리 없이 하나의 코드베이스를 공유하며 서로 덮어쓰는 모습을, 오른쪽 열은 팀이 브랜치·커밋·풀 리퀘스트·리뷰·충돌 해결·병합과 함께 버전 관리(GitHub / Azure DevOps)를 도입하는 모습을 보여 줍니다. 다음/이전 버튼이나 화살표 키로 각 단계를 표시하고 R로 다시 시작합니다.',
 	prev: '◀ 이전', next: '다음 ▶', replay: '↻ 재생', restart: '↻ 다시 시작',
 	slower: '느리게', faster: '빠르게',
 	calloutOn: '💬 설명: 켜짐', calloutOff: '💬 설명: 꺼짐',
 	outlineOn: '📝 개요: 켜짐', outlineOff: '📝 개요: 꺼짐',
 	stepDetails: '단계 세부 정보', stepOf: '단계',
 
+	colLeft: '버전 관리 없이',
+	colRight: '버전 관리와 함께 — GitHub / Azure DevOps',
+
 	labCodebase: '코드베이스', labCommit: '커밋', labPullRequest: '풀 리퀘스트', labReview: '리뷰',
-	labMerge: '병합', labConflict: '충돌', labResolve: '해결',
-	labBug: '버그', labBugFix: '버그 수정', labCode: '내 코드',
-	devA: '개발자 A', devB: '개발자 B',
-	flowGithub: 'GitHub 흐름',
+	labMerge: '병합', labConflict: '충돌', labResolve: '해결', labGithubFlow: 'GitHub 흐름',
+	labBug: '버그', labFeatureTag: '기능', labFixTag: '버그 수정', labHistory: '기록',
+	devA: '개발자 A', devB: '개발자 B', flowGithub: 'GitHub / Azure DevOps',
+	labFirst: '1번째', labLater: '나중에',
+	restEasy: '모두 편히 쉰다',
+	credit: 'Microsoft Technical Trainers와 MCT가 <span class="heart">❤</span>로 제작',
 
-	naiveTitle: '버전 관리 없이',
-	naiveCaption: '하나의 공유 코드베이스',
-	naiveDesc: '개발자 A는 단 하나뿐인 코드베이스를 열고 공유 파일 위에서 곧바로 코딩을 시작합니다. 그 안에는 이미 버그가 살고 있습니다.',
-	naiveCallout: '버전 관리가 없으면 모두가 코드의 <strong>같은 단일 사본</strong>을 편집합니다. 안전망도, 되돌아갈 기록도 없습니다.',
-	naiveQuote: '“코딩할 작업이 있어서, 이 코드베이스에서 바로 시작할게요.”',
-	naiveStat1: '시작 상태', naiveStat1v: '제자리에서 편집하는 하나의 공유 코드베이스',
-	naiveStat2: '위험', naiveStat2v: '기록 없음, 격리 없음, 백업 없음',
-	naiveStat3: '이미 존재', naiveStat3v: '아무도 아직 고치지 않은 기존 버그',
+	introTitle: '코드베이스 하나, 버전 관리 없음',
+	introCaption: '두 개발자, 하나의 공유 사본',
+	introDesc: '하나의 공유 코드베이스에는 이미 알려진 버그가 들어 있습니다. 두 개발자 A와 B가 바로 이 같은 사본에서 작업을 시작하려 합니다.',
+	introCallout: '버전 관리가 없으면 모두가 직접 편집하는 <strong>사본 하나</strong>만 있습니다. 기록도, 격리도, 안전망도 없습니다.',
+	introStat1: '시작 상태', introStat1v: '하나의 공유 코드베이스를 제자리에서 편집',
+	introStat2: '이미 존재', introStat2v: '아무도 아직 고치지 않은 알려진 버그',
+	introStat3: '팀', introStat3v: '개발자 A와 개발자 B, 같은 사본',
 
-	lostTitle: '소스 코드가 덮어써진다',
-	lostCaption: '두 사람, 하나의 파일',
-	lostDesc: '개발자 A가 코드를 추가합니다. 그런 다음 개발자 B가 같은 코드베이스에 버그 수정을 저장하고, 개발자 A의 작업은 조용히 덮어써져 사라집니다.',
-	lostCallout: '같은 사본을 편집하면 <strong>마지막에 저장한 사람이 이깁니다</strong>. 마지막에 쓴 사람이 다른 모두의 변경을 조용히 지웁니다.',
-	lostQuote: '“이 시점에 제 코드가 사라졌어요. 왜 개발자 B가 제 코드를 덮어썼죠?”',
-	lostStat1: '무슨 일이', lostStat1v: '마지막 쓰기가 이전 작업을 덮어씀',
-	lostStat2: '대가', lostStat2v: '개발자 A의 코드가 완전히 사라짐',
-	lostStat3: '이유', lostStat3v: '작업을 분리해 둘 브랜치가 없었음',
+	plansTitle: '두 개발자, 두 계획',
+	plansCaption: 'A는 기능을 만들고 · B는 버그에 막힘',
+	plansDesc: '개발자 A는 새 기능을 만들고 버그는 건드리지 않습니다. 그가 고칠 것이 아니기 때문입니다. 개발자 B도 기능을 만들고 싶지만 버그에 막혀서, 먼저 버그를 고친 다음에 만들어야 합니다.',
+	plansCallout: '두 사람은 <strong>같은 파일 안에서 서로 다른 것</strong>을 작업합니다. 변경을 분리해 두는 것이 아무것도 없습니다. 그것이 함정입니다.',
+	plansStat1: '개발자 A', plansStat1v: '새 기능 — 버그는 건드리지 않음',
+	plansStat2: '개발자 B', plansStat2v: '막힘 — 버그를 고친 뒤 만들어야 함',
+	plansStat3: '위험', plansStat3v: '둘 다 하나의 공유 사본을 편집',
 
-	chaosTitle: '계속 버전을 망쳤다',
-	chaosCaption: '잃은 작업, 막힌 버그, 책임 떠넘기기',
-	chaosDesc: '잃어버린 코드, 다른 모든 것을 막는 긴급한 버그, 스트레스, 비난, 불 끄기. 이것이 버전 관리 없이 일하는 매일의 대가입니다.',
-	chaosCallout: '해결책은 더 열심히 일하는 것이 아니라, <strong>모든 변경을 기억하고</strong> 준비될 때까지 작업을 안전하게 분리해 두는 시스템입니다.',
-	chaosQuote: '“계속 버전을 망쳤어요. 처음부터 GitHub / Azure DevOps를 썼어야 했어요.”',
-	chaosStat1: '증상', chaosStat1v: '잃은 작업, 막힌 버그, 비난, 번아웃',
-	chaosStat2: '근본 원인', chaosStat2v: '모두가 하나의 공유 사본을 편집',
-	chaosStat3: '깨달음', chaosStat3v: '첫날부터 버전 관리를 사용',
+	saveTitle: '개발자 A가 먼저 끝낸다',
+	saveCaption: 'A가 기능을 공유 사본에 저장',
+	saveDesc: '개발자 A가 기능을 먼저 끝내고 하나뿐인 공유 코드베이스에 바로 저장합니다. 버그는 여전히 그대로입니다. 그는 건드리지 않았습니다.',
+	saveCallout: 'A의 기능이 이제 <strong>현재 사본</strong>입니다. 이 버전이 있었다는 기록은 없습니다. 살아 있는 파일 하나뿐입니다.',
+	saveStat1: '개발자 A', saveStat1v: '기능을 끝내고 먼저 저장',
+	saveStat2: '코드베이스', saveStat2v: '이제 A의 기능 + 오래된 버그',
+	saveStat3: '없는 것', saveStat3v: '기록 없음, 이 버전의 백업 없음',
+
+	lostTitle: '개발자 B가 저장 — 그리고 덮어쓴다',
+	lostCaption: '마지막에 저장한 사람이 이긴다',
+	lostDesc: '개발자 B는 나중에 끝냅니다. 버그를 고치고 자기 기능도 추가했습니다. 같은 코드베이스에 덮어 저장하고, 개발자 A의 기능은 조용히 대체되어 사라집니다.',
+	lostCallout: '사본 하나를 편집하면 <strong>마지막에 저장한 사람이 이깁니다</strong>. 마지막에 쓴 사람이 다른 모두의 작업을 조용히 지웁니다.',
+	lostStat1: '무슨 일이', lostStat1v: 'B의 저장이 파일 전체를 대체함',
+	lostStat2: '대가', lostStat2v: 'A의 기능이 완전히 사라짐',
+	lostStat3: '이유', lostStat3v: '두 변경을 분리해 둔 것이 없음',
+
+	friTitle: '이제 아무도 행복하지 않다',
+	friCaption: '잃은 작업, 좌절, 책임 떠넘기기',
+	friDesc: '개발자 A의 기능은 사라졌고 다시 만들어야 합니다. 좌절, 비난, 낭비된 시간 — 버전 관리 없이 사본 하나를 공유하는 매일의 대가입니다.',
+	friCallout: '해결책은 “더 조심하기”가 아닙니다. <strong>모든 변경을 기억하고</strong> 병렬 작업을 안전하게 분리해 두는 시스템입니다.',
+	friStat1: '증상', friStat1v: '잃은 작업, 재작업, 비난, 스트레스',
+	friStat2: '근본 원인', friStat2v: '하나의 공유 사본을 직접 편집',
+	friStat3: '깨달음', friStat3v: '우리는 버전 관리가 필요하다',
+
+	agreeTitle: '버전 관리를 쓰자',
+	agreeCaption: 'GitHub / Azure DevOps',
+	agreeDesc: '둘 다 동의합니다. GitHub나 Azure DevOps 같은 버전 관리 시스템에 코드를 넣자. 모든 변경을 기록으로 기억하는, 코드의 공유된 집입니다.',
+	agreeCallout: '<strong>버전 관리</strong>는 시간에 따른 모든 변경을 추적하여, 많은 사람이 서로 조용히 덮어쓰지 않고 함께 일할 수 있게 합니다.',
+	agreeStat1: '무엇인가', agreeStat1v: '코드의 공유된 집 + 완전한 기록',
+	agreeStat2: '왜', agreeStat2v: '많은 사람, 조용한 덮어쓰기 없음',
+	agreeStat3: '예시', agreeStat3v: 'GitHub, Azure DevOps',
 
 	branchTitle: 'main에서 두 브랜치 만들기',
 	branchCaption: 'feature 브랜치 + bug-fix 브랜치',
-	branchDesc: '공유 main에서 각 개발자가 자신의 브랜치를 만듭니다. 개발자 A는 feature 브랜치, 개발자 B는 bug-fix 브랜치. 이제 작업이 격리되었습니다.',
-	branchCallout: '<strong>브랜치</strong>는 코드베이스의 개인 사본입니다. main이나 다른 사람의 브랜치를 건드리지 않고 무엇이든 바꿀 수 있습니다.',
+	branchDesc: '공유 main에서 각 개발자가 자기 브랜치를 만듭니다. A는 feature 브랜치, B는 bug-fix 브랜치. 이제 완전히 격리된 채 동시에 작업할 수 있습니다.',
+	branchCallout: '<strong>브랜치</strong>는 당신만의 사본입니다. main이나 다른 사람의 브랜치를 건드리지 않고 무엇이든 바꿀 수 있습니다.',
 	branchStat1: 'main', branchStat1v: '공유되고 보호되는 진실의 원천',
 	branchStat2: 'feature', branchStat2v: '개발자 A의 격리된 작업 공간',
 	branchStat3: 'bug-fix', branchStat3v: '개발자 B의 격리된 작업 공간',
@@ -810,7 +1123,7 @@ I18N.ko = { ...I18N.en,
 	commitStat3: '되돌리기 가능', commitStat3v: '완전한 기록 — 언제든 되돌릴 수 있음',
 
 	prTitle: '풀 리퀘스트 → 리뷰 → 병합',
-	prCaption: 'GitHub 흐름',
+	prCaption: 'GitHub 흐름 — feature 브랜치',
 	prDesc: '개발자 A는 feature 브랜치를 main으로 가져오는 풀 리퀘스트를 엽니다. 동료가 검토하고 승인하면 깔끔하게 병합됩니다. 이제 main에 기능이 들어갔습니다.',
 	prCallout: '<strong>풀 리퀘스트</strong>는 브랜치를 main에 병합하자는 제안입니다. 병합 전에 리뷰가 이뤄지므로 나쁜 변경을 일찍 잡아냅니다.',
 	prStat1: '풀 리퀘스트', prStat1v: '브랜치를 main에 병합하자는 제안',
@@ -818,63 +1131,89 @@ I18N.ko = { ...I18N.en,
 	prStat3: '병합', prStat3v: '승인된 작업이 main에 합류 — 잃는 것 없음',
 
 	conflictTitle: '충돌 → 해결 → 병합',
-	conflictCaption: '두 브랜치가 같은 줄을 건드릴 때',
-	conflictDesc: '개발자 B의 버그 수정 풀 리퀘스트가 이미 main에 있는 기능과 겹쳐서 리뷰가 충돌을 표시합니다. B가 해결하고 병합하면 main은 두 변경을 모두 갖게 되고, 모두가 편히 쉽니다.',
+	conflictCaption: '두 브랜치가 같은 줄을 건드림',
+	conflictDesc: '개발자 B의 버그 수정 풀 리퀘스트가 이미 main에 있는 기능과 겹쳐서 리뷰가 충돌을 표시합니다. B가 해결하고 병합하면 main은 버그 수정과 기능을 모두 갖게 되고, 모두가 편히 쉽니다.',
 	conflictCallout: '<strong>충돌</strong>은 단지 두 브랜치가 같은 줄을 바꿨다는 뜻입니다. Git은 사람에게 선택을 요청하고, 그 후 병합이 안전하게 완료됩니다.',
 	conflictStat1: '충돌', conflictStat1v: '두 브랜치가 같은 코드를 변경',
 	conflictStat2: '해결', conflictStat2v: '사람이 올바른 결과를 선택',
-	conflictStat3: '결과', conflictStat3v: 'main에 두 변경 모두 — 잃은 작업 없음'
+	conflictStat3: '결과', conflictStat3v: 'main에 수정과 기능 모두 — 잃은 작업 없음'
 };
 
 // ── Portuguese ────────────────────────────
 I18N.pt = { ...I18N.en,
 	skipToMain: 'Ir para o diagrama',
-	pageTitle: 'Branches e o fluxo do GitHub',
-	stageHeading: 'Branches e o fluxo do GitHub — GitHub / Azure DevOps',
-	stageInstructions: 'Explicação animada do controle de versão de código: por que editar em conjunto sobrescreve o trabalho e como branches, commits, pull requests, revisões, conflitos e merges resolvem isso. Use os botões Avançar/Voltar ou as setas para navegar. Pressione R para reiniciar.',
+	pageTitle: 'Por que usar controle de versão',
+	stageHeading: 'Por que usamos controle de versão — GitHub / Azure DevOps',
+	stageInstructions: 'Explicação animada dos fundamentos de DevOps, construída passo a passo como um único pôster. A coluna da esquerda mostra dois desenvolvedores compartilhando um único código sem controle de versão e sobrescrevendo um ao outro; a coluna da direita mostra a equipe adotando o controle de versão (GitHub / Azure DevOps) com branches, commits, pull requests, revisões, resolução de conflitos e merges. Use os botões Avançar/Voltar ou as setas para revelar cada etapa. Pressione R para reiniciar.',
 	prev: '◀ Voltar', next: 'Avançar ▶', replay: '↻ Repetir', restart: '↻ Reiniciar',
 	slower: 'Mais lento', faster: 'Mais rápido',
 	calloutOn: '💬 Nota: Ativada', calloutOff: '💬 Nota: Desativada',
 	outlineOn: '📝 Resumo: Ativado', outlineOff: '📝 Resumo: Desativado',
 	stepDetails: 'Detalhes da etapa', stepOf: 'Etapa',
 
+	colLeft: 'Sem controle de versão',
+	colRight: 'Com controle de versão — GitHub / Azure DevOps',
+
 	labCodebase: 'Código', labCommit: 'Commit', labPullRequest: 'Pull Request', labReview: 'Revisão',
-	labMerge: 'Merge', labConflict: 'Conflito', labResolve: 'Resolver',
-	labBug: 'Erro', labBugFix: 'Correção', labCode: 'Meu código',
-	devA: 'Desenvolvedor A', devB: 'Desenvolvedor B',
-	flowGithub: 'Fluxo do GitHub',
+	labMerge: 'Merge', labConflict: 'Conflito', labResolve: 'Resolver', labGithubFlow: 'Fluxo do GitHub',
+	labBug: 'Erro', labFeatureTag: 'Recurso', labFixTag: 'Correção', labHistory: 'Histórico',
+	devA: 'Desenvolvedor A', devB: 'Desenvolvedor B', flowGithub: 'GitHub / Azure DevOps',
+	labFirst: '1.º', labLater: 'Depois',
+	restEasy: 'Todos descansam tranquilos',
+	credit: 'Criado com <span class="heart">❤</span> por Microsoft Technical Trainers e MCTs',
 
-	naiveTitle: 'Sem controle de versão',
-	naiveCaption: 'Um único código compartilhado',
-	naiveDesc: 'O Desenvolvedor A abre o único código existente e começa a programar imediatamente, direto nos arquivos compartilhados. Já existe um erro morando ali dentro.',
-	naiveCallout: 'Sem controle de versão, todos editam a <strong>mesma cópia única</strong> do código. Não há rede de segurança nem histórico para voltar.',
-	naiveQuote: '“Tenho tarefas de programação e vou começar a programar já neste código.”',
-	naiveStat1: 'Ponto de partida', naiveStat1v: 'Um único código compartilhado, editado no lugar',
-	naiveStat2: 'Risco', naiveStat2v: 'Sem histórico, sem isolamento, sem backup',
-	naiveStat3: 'Já presente', naiveStat3v: 'Um erro que ninguém corrigiu ainda',
+	introTitle: 'Um só código, sem controle de versão',
+	introCaption: 'Dois desenvolvedores, uma cópia compartilhada',
+	introDesc: 'Um único código compartilhado já tem um erro conhecido dentro. Dois desenvolvedores — A e B — estão prestes a começar a trabalhar nesta mesma cópia.',
+	introCallout: 'Sem controle de versão há apenas <strong>uma cópia</strong> do código que todos editam diretamente. Sem histórico, sem isolamento, sem rede de segurança.',
+	introStat1: 'Ponto de partida', introStat1v: 'Um único código compartilhado, editado no lugar',
+	introStat2: 'Já presente', introStat2v: 'Um erro conhecido que ninguém corrigiu',
+	introStat3: 'A equipe', introStat3v: 'Desenvolvedor A e Desenvolvedor B, mesma cópia',
 
-	lostTitle: 'O código-fonte é sobrescrito',
-	lostCaption: 'Duas pessoas, um arquivo',
-	lostDesc: 'O Desenvolvedor A adiciona o código dele. Depois o Desenvolvedor B salva uma correção sobre o mesmo código, e o trabalho do Desenvolvedor A é silenciosamente sobrescrito e some.',
-	lostCallout: 'Editar a mesma cópia faz com que <strong>o último a salvar vença</strong>. Quem escreve por último apaga sem querer as mudanças de todos os outros.',
-	lostQuote: '“Neste ponto, meu código sumiu. Por que o Desenvolvedor B sobrescreveu meu código?”',
-	lostStat1: 'O que aconteceu', lostStat1v: 'A última gravação sobrescreveu o trabalho anterior',
-	lostStat2: 'Custo', lostStat2v: 'O código do Desenvolvedor A se perde por completo',
-	lostStat3: 'Por quê', lostStat3v: 'Nenhuma branch manteve o trabalho separado',
+	plansTitle: 'Dois desenvolvedores, dois planos',
+	plansCaption: 'A cria um recurso · B está travado pelo erro',
+	plansDesc: 'O Desenvolvedor A vai criar um novo recurso e não vai tocar no erro — não é dele para corrigir. O Desenvolvedor B também quer criar um recurso, mas o erro o trava, então precisa corrigir o erro primeiro e depois construir.',
+	plansCallout: 'Eles trabalham em <strong>coisas diferentes no mesmo arquivo</strong>. Nada mantém as mudanças separadas — essa é a armadilha.',
+	plansStat1: 'Desenvolvedor A', plansStat1v: 'Novo recurso — não vai tocar no erro',
+	plansStat2: 'Desenvolvedor B', plansStat2v: 'Travado — precisa corrigir o erro e depois construir',
+	plansStat3: 'O risco', plansStat3v: 'Ambos editando a única cópia compartilhada',
 
-	chaosTitle: 'Vivíamos estragando as versões',
-	chaosCaption: 'Trabalho perdido, um erro travado, culpas',
-	chaosDesc: 'Código perdido, um erro urgente que bloqueia todo o resto, estresse, culpa e apagar incêndios. Esse é o custo diário de trabalhar sem controle de versão.',
-	chaosCallout: 'A solução não é trabalhar mais: é um sistema que <strong>lembra cada mudança</strong> e mantém o trabalho seguro e separado até estar pronto.',
-	chaosQuote: '“Vivíamos estragando as versões. Devíamos ter usado GitHub / Azure DevOps desde o início.”',
-	chaosStat1: 'Sintomas', chaosStat1v: 'Trabalho perdido, erro travado, culpa, esgotamento',
-	chaosStat2: 'Causa raiz', chaosStat2v: 'Todos editando uma única cópia compartilhada',
-	chaosStat3: 'A percepção', chaosStat3v: 'Usar controle de versão desde o primeiro dia',
+	saveTitle: 'O Desenvolvedor A termina primeiro',
+	saveCaption: 'A salva o recurso na cópia compartilhada',
+	saveDesc: 'O Desenvolvedor A termina seu recurso primeiro e o salva direto no único código compartilhado. O erro ainda está lá — ele nunca o tocou.',
+	saveCallout: 'O recurso de A agora é a <strong>cópia atual</strong>. Não há registro de que essa versão existiu — apenas o único arquivo ativo.',
+	saveStat1: 'Desenvolvedor A', saveStat1v: 'Recurso terminado e salvo primeiro',
+	saveStat2: 'O código', saveStat2v: 'Agora tem o recurso de A + o erro antigo',
+	saveStat3: 'Faltando', saveStat3v: 'Sem histórico, sem backup desta versão',
+
+	lostTitle: 'O Desenvolvedor B salva — e sobrescreve',
+	lostCaption: 'O último a salvar vence',
+	lostDesc: 'O Desenvolvedor B termina depois: corrigiu o erro e adicionou o próprio recurso. Ele salva sobre o mesmo código — e o recurso do Desenvolvedor A é silenciosamente substituído e some.',
+	lostCallout: 'Editar uma cópia faz com que <strong>o último a salvar vença</strong>. Quem salva por último apaga sem querer o trabalho de todos os outros.',
+	lostStat1: 'O que aconteceu', lostStat1v: 'O salvamento de B substituiu o arquivo inteiro',
+	lostStat2: 'O custo', lostStat2v: 'O recurso de A se perde por completo',
+	lostStat3: 'Por quê', lostStat3v: 'Nada manteve as duas mudanças separadas',
+
+	friTitle: 'Agora ninguém está feliz',
+	friCaption: 'Trabalho perdido, frustração, culpa',
+	friDesc: 'O recurso do Desenvolvedor A sumiu e precisa ser refeito. Frustração, culpa e tempo perdido — o custo diário de compartilhar uma cópia sem controle de versão.',
+	friCallout: 'A solução não é “ter mais cuidado”. É um sistema que <strong>lembra cada mudança</strong> e mantém o trabalho paralelo seguro e separado.',
+	friStat1: 'Sintomas', friStat1v: 'Trabalho perdido, retrabalho, culpa, estresse',
+	friStat2: 'Causa raiz', friStat2v: 'Uma cópia compartilhada, editada diretamente',
+	friStat3: 'A percepção', friStat3v: 'Precisamos de controle de versão',
+
+	agreeTitle: 'Vamos usar controle de versão',
+	agreeCaption: 'GitHub / Azure DevOps',
+	agreeDesc: 'Ambos concordam: colocar o código em um sistema de controle de versão como GitHub ou Azure DevOps. Um lar compartilhado para o código que lembra cada mudança como histórico.',
+	agreeCallout: 'O <strong>controle de versão</strong> rastreia cada mudança ao longo do tempo, para que muitas pessoas trabalhem juntas sem se sobrescrever em silêncio.',
+	agreeStat1: 'O que é', agreeStat1v: 'Um lar compartilhado para o código + histórico completo',
+	agreeStat2: 'Por quê', agreeStat2v: 'Muitas pessoas, sem sobrescritas silenciosas',
+	agreeStat3: 'Exemplos', agreeStat3v: 'GitHub, Azure DevOps',
 
 	branchTitle: 'Crie duas branches a partir da main',
 	branchCaption: 'branch feature + branch bug-fix',
-	branchDesc: 'A partir da main compartilhada, cada desenvolvedor cria a própria branch: uma branch feature para o Desenvolvedor A e uma branch bug-fix para o Desenvolvedor B. O trabalho deles agora está isolado.',
-	branchCallout: 'Uma <strong>branch</strong> é uma cópia privada do código. Você pode mudar o que quiser sem tocar na main nem na branch de ninguém.',
+	branchDesc: 'A partir da main compartilhada, cada desenvolvedor cria a própria branch — uma branch feature para A e uma branch bug-fix para B. Agora podem trabalhar ao mesmo tempo, totalmente isolados.',
+	branchCallout: 'Uma <strong>branch</strong> é a sua cópia privada. Você pode mudar o que quiser sem tocar na main nem na branch de ninguém.',
 	branchStat1: 'main', branchStat1v: 'A fonte da verdade compartilhada e protegida',
 	branchStat2: 'feature', branchStat2v: 'O espaço isolado do Desenvolvedor A',
 	branchStat3: 'bug-fix', branchStat3v: 'O espaço isolado do Desenvolvedor B',
@@ -888,45 +1227,51 @@ I18N.pt = { ...I18N.en,
 	commitStat3: 'Reversível', commitStat3v: 'Histórico completo — sempre dá para voltar',
 
 	prTitle: 'Pull Request → Revisão → Merge',
-	prCaption: 'O fluxo do GitHub',
-	prDesc: 'O Desenvolvedor A abre uma pull request para levar a branch feature para a main. Um colega revisa, aprova e ela faz merge sem problemas: a main já tem a funcionalidade.',
+	prCaption: 'O fluxo do GitHub — branch feature',
+	prDesc: 'O Desenvolvedor A abre uma pull request para levar a branch feature para a main. Um colega revisa, aprova e ela faz merge sem problemas: a main já tem o recurso.',
 	prCallout: 'Uma <strong>pull request</strong> propõe mesclar uma branch na main. A revisão acontece antes do merge, então mudanças ruins são pegas cedo.',
 	prStat1: 'Pull request', prStat1v: 'Propor mesclar uma branch na main',
 	prStat2: 'Revisão', prStat2v: 'Um colega confere as mudanças primeiro',
 	prStat3: 'Merge', prStat3v: 'O trabalho aprovado entra na main — nada se perde',
 
 	conflictTitle: 'Conflito → Resolver → Merge',
-	conflictCaption: 'Quando duas branches mexem nas mesmas linhas',
-	conflictDesc: 'A pull request de correção do Desenvolvedor B se sobrepõe à funcionalidade que já está na main, então a revisão sinaliza um conflito. B resolve, faz merge e a main termina com as duas mudanças — e todos descansam tranquilos.',
+	conflictCaption: 'Duas branches mexeram nas mesmas linhas',
+	conflictDesc: 'A pull request de correção do Desenvolvedor B se sobrepõe ao recurso que já está na main, então a revisão sinaliza um conflito. B resolve, faz merge e a main termina com a correção E o recurso — e todos descansam tranquilos.',
 	conflictCallout: 'Um <strong>conflito</strong> só significa que duas branches mudaram as mesmas linhas. O Git pede que uma pessoa escolha — e então o merge é concluído com segurança.',
 	conflictStat1: 'Conflito', conflictStat1v: 'Duas branches mudaram o mesmo código',
 	conflictStat2: 'Resolver', conflictStat2v: 'Uma pessoa escolhe o resultado certo',
-	conflictStat3: 'Resultado', conflictStat3v: 'a main tem as duas mudanças — nada perdido'
+	conflictStat3: 'Resultado', conflictStat3v: 'a main tem a correção e o recurso — nada perdido'
 };
 
 function t(key) { return (I18N[currentLang] && I18N[currentLang][key]) || I18N.en[key] || key; }
 
 // ── STEPS ─────────────────────────────────
 const STEPS = [
-	{ id:'naive', short:'Start', act:1, titleKey:'naiveTitle', captionKey:'naiveCaption', descKey:'naiveDesc', calloutKey:'naiveCallout',
-		stats:[['naiveStat1','naiveStat1v'],['naiveStat2','naiveStat2v'],['naiveStat3','naiveStat3v']] },
-	{ id:'lost', short:'Overwrite', act:1, titleKey:'lostTitle', captionKey:'lostCaption', descKey:'lostDesc', calloutKey:'lostCallout',
+	{ id:'intro', act:1, titleKey:'introTitle', captionKey:'introCaption', descKey:'introDesc', calloutKey:'introCallout',
+		stats:[['introStat1','introStat1v'],['introStat2','introStat2v'],['introStat3','introStat3v']] },
+	{ id:'plans', act:1, titleKey:'plansTitle', captionKey:'plansCaption', descKey:'plansDesc', calloutKey:'plansCallout',
+		stats:[['plansStat1','plansStat1v'],['plansStat2','plansStat2v'],['plansStat3','plansStat3v']] },
+	{ id:'saveA', act:1, titleKey:'saveTitle', captionKey:'saveCaption', descKey:'saveDesc', calloutKey:'saveCallout',
+		stats:[['saveStat1','saveStat1v'],['saveStat2','saveStat2v'],['saveStat3','saveStat3v']] },
+	{ id:'overwrite', act:1, titleKey:'lostTitle', captionKey:'lostCaption', descKey:'lostDesc', calloutKey:'lostCallout',
 		stats:[['lostStat1','lostStat1v'],['lostStat2','lostStat2v'],['lostStat3','lostStat3v']] },
-	{ id:'chaos', short:'Chaos', act:1, titleKey:'chaosTitle', captionKey:'chaosCaption', descKey:'chaosDesc', calloutKey:'chaosCallout',
-		stats:[['chaosStat1','chaosStat1v'],['chaosStat2','chaosStat2v'],['chaosStat3','chaosStat3v']] },
-	{ id:'branch', short:'Branch', act:2, titleKey:'branchTitle', captionKey:'branchCaption', descKey:'branchDesc', calloutKey:'branchCallout',
+	{ id:'friction', act:1, titleKey:'friTitle', captionKey:'friCaption', descKey:'friDesc', calloutKey:'friCallout',
+		stats:[['friStat1','friStat1v'],['friStat2','friStat2v'],['friStat3','friStat3v']] },
+	{ id:'agree', act:2, titleKey:'agreeTitle', captionKey:'agreeCaption', descKey:'agreeDesc', calloutKey:'agreeCallout',
+		stats:[['agreeStat1','agreeStat1v'],['agreeStat2','agreeStat2v'],['agreeStat3','agreeStat3v']] },
+	{ id:'branches', act:2, titleKey:'branchTitle', captionKey:'branchCaption', descKey:'branchDesc', calloutKey:'branchCallout',
 		stats:[['branchStat1','branchStat1v'],['branchStat2','branchStat2v'],['branchStat3','branchStat3v']] },
-	{ id:'commit', short:'Commit', act:2, titleKey:'commitTitle', captionKey:'commitCaption', descKey:'commitDesc', calloutKey:'commitCallout',
+	{ id:'commit', act:2, titleKey:'commitTitle', captionKey:'commitCaption', descKey:'commitDesc', calloutKey:'commitCallout',
 		stats:[['commitStat1','commitStat1v'],['commitStat2','commitStat2v'],['commitStat3','commitStat3v']] },
-	{ id:'pr', short:'Pull Request', act:2, titleKey:'prTitle', captionKey:'prCaption', descKey:'prDesc', calloutKey:'prCallout',
+	{ id:'pr', act:2, titleKey:'prTitle', captionKey:'prCaption', descKey:'prDesc', calloutKey:'prCallout',
 		stats:[['prStat1','prStat1v'],['prStat2','prStat2v'],['prStat3','prStat3v']] },
-	{ id:'conflict', short:'Resolve', act:2, titleKey:'conflictTitle', captionKey:'conflictCaption', descKey:'conflictDesc', calloutKey:'conflictCallout',
+	{ id:'conflict', act:2, titleKey:'conflictTitle', captionKey:'conflictCaption', descKey:'conflictDesc', calloutKey:'conflictCallout',
 		stats:[['conflictStat1','conflictStat1v'],['conflictStat2','conflictStat2v'],['conflictStat3','conflictStat3v']] }
 ];
 
 // ── DOM REFS ──────────────────────────────
 const stage       = document.getElementById('stage');
-const svg         = document.getElementById('fx-svg');
+const posterEl    = document.getElementById('poster');
 const counter     = document.getElementById('step-counter');
 const breadcrumb  = document.getElementById('breadcrumb');
 const progress    = document.getElementById('progress-fill');
@@ -937,9 +1282,13 @@ const outlineBtn  = document.getElementById('outline-toggle');
 const calloutBtn  = document.getElementById('callout-toggle');
 const langSelect  = document.getElementById('lang-select');
 
-langSelect.addEventListener('change', (e) => { setLanguage(e.target.value); });
+langSelect.addEventListener('change', (e) => { try { localStorage.setItem('gh-flow-language', e.target.value); } catch (_) {} setLanguage(e.target.value); });
 const urlLang = new URLSearchParams(location.search).get('lang');
-if (urlLang && I18N[urlLang]) { currentLang = urlLang; langSelect.value = urlLang; }
+let savedLang = null;
+try { savedLang = localStorage.getItem('gh-flow-language'); } catch (_) {}
+if (urlLang && I18N[urlLang]) currentLang = urlLang;
+else if (savedLang && I18N[savedLang]) currentLang = savedLang;
+langSelect.value = currentLang;
 
 // ── Font size controls ────────────────────
 const fontScales = [0.8, 0.9, 1, 1.1, 1.2, 1.35];
@@ -951,13 +1300,13 @@ function applyFontScale() {
 	document.documentElement.style.fontSize = (baseFontSize * fontScales[fontScaleIdx]) + 'px';
 	const controls = document.getElementById('controls');
 	if (controls) controls.style.fontSize = (baseFontSize) + 'px';
+	try { localStorage.setItem('gh-flow-font-scale', String(fontScaleIdx)); } catch (_) {}
 }
+try { const savedScale = Number.parseInt(localStorage.getItem('gh-flow-font-scale'), 10); if (Number.isInteger(savedScale) && savedScale >= 0 && savedScale < fontScales.length) { fontScaleIdx = savedScale; applyFontScale(); } } catch (_) {}
 fontDecBtn.addEventListener('click', () => { if (fontScaleIdx > 0) { fontScaleIdx--; applyFontScale(); } });
 fontIncBtn.addEventListener('click', () => { if (fontScaleIdx < fontScales.length - 1) { fontScaleIdx++; applyFontScale(); } });
 
 let current = -1;
-let animating = false;
-let liveEls = [];
 let liveTimelines = [];
 let calloutEnabled = false;
 
@@ -966,7 +1315,7 @@ function syncCalloutBtn() {
 	calloutBtn.textContent = calloutEnabled ? t('calloutOn') : t('calloutOff');
 	calloutBtn.classList.toggle('toggle-active', calloutEnabled);
 }
-calloutBtn.addEventListener('click', () => { calloutEnabled = !calloutEnabled; syncCalloutBtn(); if (current >= 0) renderStep(current); });
+calloutBtn.addEventListener('click', () => { calloutEnabled = !calloutEnabled; syncCalloutBtn(); rebuild(); });
 syncCalloutBtn();
 
 // ── Outline toggle ────────────────────────
@@ -986,37 +1335,74 @@ syncOutlineBtn();
 // ── Reduced motion ────────────────────────
 const motionMQ = window.matchMedia('(prefers-reduced-motion: reduce)');
 let motionPaused = motionMQ.matches;
-motionMQ.addEventListener('change', e => { motionPaused = e.matches; renderStep(current); });
+motionMQ.addEventListener('change', e => { motionPaused = e.matches; if (current >= 0) renderStep(current); });
 
 // ── Helpers ───────────────────────────────
-function clearStage() {
-	liveTimelines.forEach(t => t.kill());
-	liveTimelines = [];
-	liveEls.forEach(el => el.remove());
-	liveEls = [];
-	Array.from(svg.children).forEach(child => { if (child.tagName.toLowerCase() !== 'defs') child.remove(); });
-}
 function el(cls, html) { const d = document.createElement('div'); if (cls) d.className = cls; if (html != null) d.innerHTML = html; return d; }
-
 function stepTitle(step)   { return t(step.titleKey); }
 function stepDesc(step)    { return t(step.descKey); }
 function stepCaption(step) { return t(step.captionKey); }
+function newTL() { const tl = gsap.timeline(); liveTimelines.push(tl); return tl; }
+function killTimelines() { liveTimelines.forEach(t => t.kill()); liveTimelines = []; }
 
-// reusable visual fragments ----------------
-const SCRIBBLE = `<svg viewBox="0 0 150 54" preserveAspectRatio="none" aria-hidden="true">
-	<path d="M6 8 q 18 -6 34 2 t 40 -1 t 38 3" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
-	<path d="M6 20 q 14 6 30 -1 t 36 2 t 40 -2" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
-	<path d="M6 32 q 20 -5 36 2 t 34 -1 t 38 2" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
-	<path d="M6 44 q 16 5 30 -2 t 34 1" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
-</svg>`;
-function codebaseHtml(dots) {
+// A mini "code editor" (VS Code on Windows): title bar + tab + syntax lines + status bar.
+const CODE_ROWS = [
+	{ toks:[['kw',14],['fn',24],['pun',6]] },
+	{ indent:1, toks:[['kw',12],['var',16],['str',26]] },
+	{ indent:2, toks:[['var',18],['pun',5],['num',12]] },
+	{ indent:1, toks:[['fn',22],['var',14]] },
+	{ toks:[['com',44]] },
+	{ indent:1, toks:[['kw',10],['var',20],['pun',6]] }
+];
+function codeBodyHtml(compact) {
+	const rows = compact ? CODE_ROWS.slice(0, 4) : CODE_ROWS;
+	return rows.map((r, i) => {
+		const cls = 'code-row' + (r.indent === 1 ? ' indent' : r.indent === 2 ? ' indent2' : '');
+		const toks = r.toks.map(([tk, w]) => `<span class="tok ${tk}" style="width:${w}px"></span>`).join('');
+		return `<div class="${cls}"><span class="ln">${i + 1}</span><span class="toks">${toks}</span></div>`;
+	}).join('');
+}
+function codebaseHtml(dots, small) {
 	const d = (dots||[]).map(c => `<span class="dot ${c}"></span>`).join('');
-	return `<div class="cb-title">${t('labCodebase')}</div><div class="cb-scribble">${SCRIBBLE}</div><div class="cb-dots">${d}</div>`;
+	return `<div class="cb-bar">`
+		+ `<span class="cb-brand"><span class="vs">&lt;/&gt;</span> app.js</span>`
+		+ `<span class="cb-winbtns"><i class="min">&#x2500;</i><i class="max">&#x25A1;</i><i class="close">&#x2715;</i></span>`
+		+ `</div>`
+		+ `<div class="cb-tabstrip"><div class="cb-tab"><span class="js-ico">JS</span><span>app.js</span><span class="tab-x">&#x2715;</span></div></div>`
+		+ `<div class="cb-code">${codeBodyHtml(small)}</div>`
+		+ `<div class="cb-status"><span class="st-l">Ln 6, Col 12</span><span class="st-r">UTF-8 &middot; JavaScript</span></div>`
+		+ `<div class="cb-dots">${d}</div>`;
 }
 function devHtml(which) {
 	const emoji = which === 'a' ? '🧑‍💻' : '👩‍💻';
 	const name  = which === 'a' ? t('devA') : t('devB');
 	return `<div class="dev-fig">${emoji}</div><div class="dev-name">${name}</div>`;
+}
+function tagChip(html) { return el('tag-chip', html); }
+function badge(text, color) {
+	const b = el(null, text);
+	b.style.cssText = `display:inline-block;font-size:0.72rem;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;color:#fff;background:${color};padding:0.2rem 0.6rem;border-radius:999px;box-shadow:0 3px 8px rgba(0,0,0,0.25);`;
+	return b;
+}
+function emoji(ch, size) { const s = el(null, ch); s.style.fontSize = (size || 1.8) + 'rem'; s.style.lineHeight = '1'; return s; }
+function miniDev(which) { return el('dev ' + which + ' mini', devHtml(which)); }
+function miniCard(dots) { return el('cb sm', codebaseHtml(dots, true)); }
+function bugTagCard(dots) {
+	const wrap = el('mini-col');
+	wrap.append(miniCard(dots), (() => { const t2 = el(null, `🐞 ${t('labBug')}`); t2.style.cssText = 'font-size:0.68rem;font-weight:800;letter-spacing:0.05em;text-transform:uppercase;color:var(--theme-text-subtle);'; return t2; })());
+	return wrap;
+}
+
+function storyLane(title, content, shared) {
+	return `<section class="story-lane${shared ? ' shared' : ''}"><div class="story-lane-title">${title}</div>${content}</section>`;
+}
+function storyDev(which) { return `<div class="dev ${which} mini">${devHtml(which)}</div>`; }
+function storyCard(dots) { return `<div class="cb sm">${codebaseHtml(dots, true)}</div>`; }
+function storyBoard(step, lanes) {
+	const board = el('story-board ' + (step.act === 1 ? 'problem-board' : 'solution-board'));
+	const label = t(step.act === 1 ? 'colLeft' : 'colRight');
+	board.innerHTML = `<div class="story-banner ${step.act === 1 ? 'problem' : 'solution'}">${step.act === 1 ? '⚠' : '✓'} ${label}</div><div class="story-lanes">${lanes.join('')}</div>`;
+	return board;
 }
 
 function renderOutline(step, idx) {
@@ -1037,352 +1423,197 @@ function announceStep(step, idx) {
 	announcer.textContent = `${t('stepOf')} ${idx+1} / ${STEPS.length}: ${stepTitle(step)}. ${stepDesc(step)}`;
 }
 
-function buildScene(step) {
-	const scene = el('scene');
-	scene.appendChild(el('scene-title', stepTitle(step)));
-	scene.appendChild(el('scene-lead', stepDesc(step)));
+// ── INSTRUCTOR SCENE ENGINE ───────────────
+let panels = [];
+const FIRST_RIGHT = STEPS.findIndex(s => s.act === 2);
+
+function panelBody(step) {
+	const b = el('panel-body');
+	switch (step.id) {
+		case 'intro': {
+			b.append(storyBoard(step, [
+				storyLane(t('devA'), `<div class="story-stack">${storyDev('a')}<div class="story-note">${t('plansStat1v')}</div></div>`),
+				storyLane(t('labCodebase'), `<div class="story-stack">${storyCard(['bug'])}<span class="tag-chip">🐞 ${t('labBug')}</span></div>`, true),
+				storyLane(t('devB'), `<div class="story-stack">${storyDev('b')}<div class="story-note">${t('plansStat2v')}</div></div>`)
+			]));
+			break;
+		}
+		case 'plans': {
+			b.append(storyBoard(step, [
+				storyLane(t('devA'), `<div class="story-stack">${storyDev('a')}<span class="tag-chip">✨ ${t('labFeatureTag')}</span></div>`),
+				storyLane(t('labCodebase'), `<div class="story-stack">${storyCard(['bug'])}<div class="story-result lost">${t('plansStat3v')}</div></div>`, true),
+				storyLane(t('devB'), `<div class="story-stack">${storyDev('b')}<div class="story-flow"><span class="tag-chip">🐞 ${t('labBug')}</span><span class="story-arrow danger">→</span><span class="tag-chip">✓ ${t('labFixTag')}</span><span class="story-arrow">→</span><span class="tag-chip">✨ ${t('labFeatureTag')}</span></div></div>`)
+			]));
+			break;
+		}
+		case 'saveA': {
+			b.append(storyBoard(step, [
+				storyLane(t('devA'), `<div class="story-stack">${storyDev('a')}<span class="tag-chip">✨ ${t('labFeatureTag')}</span><span class="story-arrow">→</span></div>`),
+				storyLane(t('labCodebase'), `<div class="story-stack">${storyCard(['code','bug'])}<div class="story-result">${t('saveStat2v')}</div></div>`, true),
+				storyLane(t('devB'), `<div class="story-stack">${storyDev('b')}<span class="tag-chip">🐞 ${t('labBug')}</span><div class="story-note">${t('plansStat2v')}</div></div>`)
+			]));
+			break;
+		}
+		case 'overwrite': {
+			b.append(storyBoard(step, [
+				storyLane(t('devA'), `<div class="story-stack">${storyDev('a')}<div class="story-result lost">${t('lostStat2v')}</div></div>`),
+				storyLane(t('labCodebase'), `<div class="story-stack"><div class="story-flow">${storyCard(['code','bug'])}<span class="story-arrow danger">→</span>${storyCard(['fix','featb'])}</div><div class="story-result lost">${t('lostCaption')}</div></div>`, true),
+				storyLane(t('devB'), `<div class="story-stack">${storyDev('b')}<span class="tag-chip">✓ ${t('labFixTag')}</span><span class="story-arrow danger">←</span></div>`)
+			]));
+			break;
+		}
+		case 'friction': {
+			b.append(storyBoard(step, [
+				storyLane(t('devA'), `<div class="story-stack">${storyDev('a')}<span class="tag-chip">😠 ${t('friStat1v')}</span></div>`),
+				storyLane(t('friStat2'), `<div class="story-stack"><span style="font-size:3rem">⚠</span><div class="story-result lost">${t('friStat2v')}</div></div>`, true),
+				storyLane(t('devB'), `<div class="story-stack">${storyDev('b')}<span class="tag-chip">⏳ ${t('friStat3v')}</span></div>`)
+			]));
+			break;
+		}
+		case 'agree': {
+			const repo = `<div class="repo"><span class="repo-title">🐙 ${t('flowGithub')}</span><span class="repo-history"><span class="commit-node"></span><span class="commit-line"></span><span class="commit-node"></span><span class="commit-line"></span><span class="commit-node"></span></span><span class="repo-sub">${t('labHistory')}</span></div>`;
+			b.append(storyBoard(step, [
+				storyLane(t('devA'), `<div class="story-stack">${storyDev('a')}<span class="story-arrow safe">→</span></div>`),
+				storyLane(t('flowGithub'), `<div class="story-stack">${repo}<div class="story-result safe">${t('agreeStat1v')}</div></div>`, true),
+				storyLane(t('devB'), `<div class="story-stack">${storyDev('b')}<span class="story-arrow safe">←</span></div>`)
+			]));
+			break;
+		}
+		case 'branches': {
+			b.append(storyBoard(step, [
+				storyLane(t('labFeature'), `<div class="story-stack"><span class="branch-pill feature">${t('labFeature')}</span>${storyDev('a')}${storyCard(['code'])}</div>`),
+				storyLane(t('labMain'), `<div class="story-stack"><span class="branch-pill main">${t('labMain')}</span><span class="story-arrow safe">↙ &nbsp; ↘</span>${storyCard(['bug'])}<div class="story-result safe">${t('branchStat1v')}</div></div>`, true),
+				storyLane(t('labBugfix'), `<div class="story-stack"><span class="branch-pill bugfix">${t('labBugfix')}</span>${storyDev('b')}${storyCard(['fix'])}</div>`)
+			]));
+			break;
+		}
+		case 'commit': {
+			b.append(storyBoard(step, [
+				storyLane(t('labFeature'), `<div class="story-stack"><span class="branch-pill feature">${t('labFeature')}</span>${storyDev('a')}<span class="token commit">${t('labCommit')}</span>${storyCard(['code'])}</div>`),
+				storyLane(t('labMain'), `<div class="story-stack"><span class="branch-pill main">${t('labMain')}</span>${storyCard(['bug'])}<div class="story-result safe">${t('commitStat3v')}</div></div>`, true),
+				storyLane(t('labBugfix'), `<div class="story-stack"><span class="branch-pill bugfix">${t('labBugfix')}</span>${storyDev('b')}<span class="token commit">${t('labCommit')}</span>${storyCard(['fix'])}</div>`)
+			]));
+			break;
+		}
+		case 'pr': {
+			b.append(storyBoard(step, [
+				storyLane(t('labFeature'), `<div class="story-stack"><span class="branch-pill feature">${t('labFeature')}</span>${storyDev('a')}<span class="token pr">${t('labPullRequest')}</span><div class="story-flow"><span class="token review">✓ ${t('labReview')}</span><span class="story-arrow safe">→</span><span class="token merge">${t('labMerge')}</span></div></div>`),
+				storyLane(t('labMain'), `<div class="story-stack"><span class="branch-pill main">${t('labMain')}</span><span class="story-arrow safe">↓</span>${storyCard(['code','bug'])}<div class="story-result safe">${t('prStat3v')}</div></div>`, true),
+				storyLane(t('labBugfix'), `<div class="story-stack"><span class="branch-pill bugfix">${t('labBugfix')}</span>${storyDev('b')}${storyCard(['fix'])}<div class="story-note">${t('branchStat3v')}</div></div>`)
+			]));
+			break;
+		}
+		case 'conflict': {
+			b.append(storyBoard(step, [
+				storyLane(t('labFeature'), `<div class="story-stack"><span class="branch-pill feature">${t('labFeature')}</span>${storyDev('a')}<div class="story-result safe">${t('prStat3v')}</div></div>`),
+				storyLane(t('labMain'), `<div class="story-stack"><span class="branch-pill main">${t('labMain')}</span>${storyCard(['code','fix'])}<span class="tag-chip">🌙 ${t('restEasy')}</span></div>`, true),
+				storyLane(t('labBugfix'), `<div class="story-stack"><span class="branch-pill bugfix">${t('labBugfix')}</span>${storyDev('b')}<span class="token pr">${t('labPullRequest')}</span><div class="conflict-process"><span class="token review">${t('labReview')}</span><span class="token conflict">${t('labConflict')}</span><span class="token resolve">${t('labResolve')}</span><span class="token merge">${t('labMerge')}</span></div></div>`)
+			]));
+			break;
+		}
+	}
+	return b;
+}
+
+function buildPanel(step, i) {
+	const panel = el('panel act' + step.act);
+	const head = el('panel-head');
+	head.append(el('panel-num', String(i + 1)), el('panel-title', t(step.titleKey)));
+	panel.append(head, el('panel-cap', t(step.captionKey)), panelBody(step));
+	if (step.id === 'conflict') { const cr = el('credit'); cr.innerHTML = t('credit'); cr.style.marginTop = '0.9rem'; panel.append(cr); }
+	if (calloutEnabled) { const note = el('panel-note'); note.innerHTML = t(step.calloutKey); panel.append(note); }
+	return panel;
+}
+
+function buildFocusScene(step, i) {
+	const scene = el('focus-scene');
+	const rail = el('act-rail');
+	rail.append(
+		el('act-chip problem' + (step.act === 1 ? ' active' : ''), t('colLeft')),
+		el('act-chip solution' + (step.act === 2 ? ' active' : ''), t('colRight'))
+	);
+	const head = el('lesson-head',
+		`<div class="lesson-kicker">${t('stepOf')} ${i + 1} / ${STEPS.length}</div>` +
+		`<h2 class="lesson-title" tabindex="-1">${stepTitle(step)}</h2>` +
+		`<p class="lesson-caption">${stepCaption(step)}</p>`
+	);
+	const visual = el('visual-stage');
+	visual.appendChild(panelBody(step));
+	const details = el('takeaway-panel');
+	details.append(
+		el('takeaway-copy', stepDesc(step))
+	);
+	const stats = el('takeaway-stats');
+	(step.stats || []).forEach(([labelKey, valueKey]) => {
+		stats.appendChild(el('takeaway-stat', `<strong>${t(labelKey)}</strong><span>${t(valueKey)}</span>`));
+	});
+	details.appendChild(stats);
+	if (calloutEnabled) details.appendChild(el('panel-note', t(step.calloutKey)));
+	if (step.id === 'conflict') details.appendChild(el('credit', t('credit')));
+	const layout = el('lesson-layout');
+	layout.append(visual, details);
+	scene.append(rail, head, layout);
 	return scene;
 }
-function maybeCallout(step) {
-	if (!calloutEnabled) return null;
-	const c = el('callout', t(step.calloutKey));
-	c.style.left = '1.5rem'; c.style.top = '7rem'; c.style.right = 'auto'; c.style.bottom = 'auto';
-	stage.appendChild(c); liveEls.push(c);
-	return c;
-}
-function headerEls(scene) { return [scene.querySelector('.scene-title'), scene.querySelector('.scene-lead')]; }
-function newTL() { const tl = gsap.timeline({ onComplete:()=>animating=false }); liveTimelines.push(tl); return tl; }
 
-// ── RENDER STEP ───────────────────────────
-function renderStep(stepIndex) {
-	if (stepIndex < 0 || stepIndex >= STEPS.length) return;
-	if (animating) { liveTimelines.forEach(t => t.kill()); liveTimelines = []; animating = false; }
-	animating = true;
-	const step = STEPS[stepIndex];
-	clearStage();
-
-	if (step.id === 'naive') renderNaiveStep();
-	else if (step.id === 'lost') renderLostStep();
-	else if (step.id === 'chaos') renderChaosStep();
-	else if (step.id === 'branch') renderBranchStep();
-	else if (step.id === 'commit') renderCommitStep();
-	else if (step.id === 'pr') renderPrStep();
-	else if (step.id === 'conflict') renderConflictStep();
-
-	current = stepIndex;
-	counter.textContent = `${t('stepOf')} ${current+1} / ${STEPS.length}`;
-	breadcrumb.textContent = stepCaption(step);
-	progress.style.width = ((current+1)/STEPS.length * 100) + '%';
-	renderOutline(step, stepIndex);
-	announceStep(step, stepIndex);
+function buildPoster() {
+	killTimelines();
+	posterEl.innerHTML = '';
+	panels = [];
 }
 
-// ── STEP 1 · NAIVE START ──────────────────
-function renderNaiveStep() {
-	const step = STEPS[0];
-	const scene = buildScene(step);
-	const canvas = el('gh-stage');
-	canvas.style.gap = '3rem';
-	canvas.style.flexWrap = 'wrap';
-
-	const dev = el('dev a', devHtml('a'));
-	const bulb = el(null, '💡'); bulb.style.fontSize = '2rem';
-	const arrow = el(null, '➡️'); arrow.style.fontSize = '2rem';
-	const cb = el('cb', codebaseHtml(['bug']));
-	const bugTag = el(null, `<span class="dot-tag" style="position:static;">🐞 ${t('labBug')}</span>`);
-	bugTag.style.marginTop = '0.6rem'; bugTag.style.textAlign = 'center';
-
-	const left = el(null);
-	left.style.display = 'flex'; left.style.alignItems = 'center'; left.style.gap = '1.2rem';
-	left.append(dev, bulb, arrow);
-
-	const right = el(null);
-	right.style.display = 'flex'; right.style.flexDirection = 'column'; right.style.alignItems = 'center';
-	right.append(cb, bugTag);
-
-	const quote = el('bubble think', t('naiveQuote'));
-	quote.style.maxWidth = '420px';
-
-	canvas.append(left, right);
-	scene.appendChild(canvas);
-	scene.appendChild(quote);
-	stage.appendChild(scene); liveEls.push(scene);
-	const c = maybeCallout(step);
-
-	const parts = [dev, bulb, arrow, cb, bugTag, quote, c].filter(Boolean);
-	if (motionPaused) { gsap.set([...headerEls(scene), ...parts], { opacity:1, clearProps:'transform' }); animating=false; return; }
-	gsap.set(parts, { opacity:0 });
-	const tl = newTL();
-	tl.to(headerEls(scene), { opacity:1, y:0, duration:0.5, stagger:0.15 })
-	  .from(dev, { x:-30, opacity:0, duration:0.5 }, '>-0.1')
-	  .to(dev, { opacity:1, duration:0.01 }, '<')
-	  .to([bulb, arrow], { opacity:1, scale:1, duration:0.4, stagger:0.15, ease:'back.out(2)' }, '>-0.1')
-	  .from(cb, { x:30, duration:0.5 }, '>-0.1').to(cb, { opacity:1, duration:0.01 }, '<')
-	  .to(bugTag, { opacity:1, duration:0.4 }, '>-0.1')
-	  .to(quote, { opacity:1, y:0, duration:0.5 }, '>0.1');
-	if (c) tl.to(c, { opacity:1, duration:0.5 }, '<');
+function rebuild() {
+	buildPoster();
+	renderStep(current < 0 ? 0 : current);
 }
 
-// ── STEP 2 · OVERWRITE / LOST ─────────────
-function renderLostStep() {
-	const step = STEPS[1];
-	const scene = buildScene(step);
-	const canvas = el('gh-stage');
-	canvas.style.gap = '2.4rem';
-	canvas.style.flexWrap = 'wrap';
-
-	// three stacked codebases showing the overwrite over time
-	const stack = el(null);
-	stack.style.display = 'flex'; stack.style.flexDirection = 'column'; stack.style.alignItems = 'center'; stack.style.gap = '0.5rem';
-	const cb1 = el('cb', codebaseHtml(['bug']));
-	const cb2 = el('cb', codebaseHtml(['code','bug']));
-	const cb3 = el('cb', codebaseHtml(['fix']));   // A's blue code is gone after B overwrites
-	const ar1 = el('down-arrow', '⬇'); const ar2 = el('down-arrow', '⬇');
-	stack.append(cb1, ar1, cb2, ar2, cb3);
-
-	const devA = el('dev a', devHtml('a'));
-	const devB = el('dev b', devHtml('b'));
-	const devs = el(null); devs.style.display='flex'; devs.style.flexDirection='column'; devs.style.gap='2.2rem';
-	devs.append(devA, devB);
-
-	const lost = el('bubble', `😱 ${t('lostQuote')}`);
-	lost.style.maxWidth = '300px';
-
-	canvas.append(devs, stack, lost);
-	scene.appendChild(canvas);
-	stage.appendChild(scene); liveEls.push(scene);
-	const c = maybeCallout(step);
-
-	const parts = [devA, devB, cb1, ar1, cb2, ar2, cb3, lost, c].filter(Boolean);
-	if (motionPaused) { gsap.set([...headerEls(scene), ...parts], { opacity:1 }); animating=false; return; }
-	gsap.set(parts, { opacity:0 });
-	const codeDot = cb2.querySelector('.dot.code');
-	const tl = newTL();
-	tl.to(headerEls(scene), { opacity:1, duration:0.5, stagger:0.15 })
-	  .to([devA, devB], { opacity:1, x:0, duration:0.5, stagger:0.2 }, '>-0.1')
-	  .to(cb1, { opacity:1, y:0, duration:0.5 }, '>-0.05')
-	  .to(ar1, { opacity:1, duration:0.3 }, '>-0.05')
-	  .to(cb2, { opacity:1, y:0, duration:0.5 }, '>-0.05')          // A adds blue code
-	  .fromTo(codeDot, { scale:0 }, { scale:1, duration:0.4, ease:'back.out(2)' }, '<')
-	  .to(ar2, { opacity:1, duration:0.3 }, '>-0.05')
-	  .to(cb3, { opacity:1, y:0, duration:0.5 }, '>-0.05')          // B overwrites — blue gone
-	  .to(lost, { opacity:1, y:0, duration:0.5 }, '>0.15');
-	if (c) tl.to(c, { opacity:1, duration:0.5 }, '<');
-}
-
-// ── STEP 3 · CHAOS ────────────────────────
-function renderChaosStep() {
-	const step = STEPS[2];
-	const scene = buildScene(step);
-	const canvas = el('gh-stage');
-	canvas.style.flexDirection = 'column'; canvas.style.gap = '1.4rem';
-
-	const row = el('chaos-row');
-	['😵‍💫','🔥','⏰','🫵','🧯','🐞'].forEach(g => { const i = el('chaos-ico', g); row.appendChild(i); });
-
-	const devB = el('dev b', devHtml('b'));
-	const regret = el('bubble', t('chaosQuote'));
-	regret.style.maxWidth = '520px'; regret.style.fontSize = '1.08rem';
-
-	const regretWrap = el(null);
-	regretWrap.style.display='flex'; regretWrap.style.alignItems='center'; regretWrap.style.gap='1.2rem'; regretWrap.style.flexWrap='wrap'; regretWrap.style.justifyContent='center';
-	regretWrap.append(devB, regret);
-
-	canvas.append(row, regretWrap);
-	scene.appendChild(canvas);
-	stage.appendChild(scene); liveEls.push(scene);
-	const c = maybeCallout(step);
-
-	const icos = Array.from(row.children);
-	const parts = [...icos, devB, regret, c].filter(Boolean);
-	if (motionPaused) { gsap.set([...headerEls(scene), ...parts], { opacity:1 }); animating=false; return; }
-	gsap.set(parts, { opacity:0 });
-	const tl = newTL();
-	tl.to(headerEls(scene), { opacity:1, duration:0.5, stagger:0.15 })
-	  .to(icos, { opacity:1, scale:1, y:0, duration:0.45, stagger:0.12, ease:'back.out(1.8)' }, '>-0.1')
-	  .to(devB, { opacity:1, x:0, duration:0.5 }, '>0.05')
-	  .to(regret, { opacity:1, y:0, duration:0.6 }, '>-0.1');
-	icos.forEach((ic,i) => { tl.to(ic, { rotation:i%2?6:-6, duration:0.5, yoyo:true, repeat:1, ease:'sine.inOut' }, '<'); });
-	if (c) tl.to(c, { opacity:1, duration:0.5 }, '<');
-}
-
-// ── STEP 4 · BRANCHING ────────────────────
-function renderBranchStep() {
-	const step = STEPS[3];
-	const scene = buildScene(step);
-	const canvas = el('gh-stage');
-	canvas.style.flexDirection = 'column'; canvas.style.gap = '1.6rem';
-
-	// main pill on top
-	const mainPill = el('branch-pill main', t('labMain'));
-
-	// two branches splitting out
-	const fan = el(null);
-	fan.style.display='flex'; fan.style.gap='4rem'; fan.style.alignItems='flex-start'; fan.style.flexWrap='wrap'; fan.style.justifyContent='center';
-
-	const colA = el('branch-col feature');
-	colA.append(el('branch-pill feature', t('labFeature')), el('dev a', devHtml('a')), el('cb', codebaseHtml(['code'])));
-	const colB = el('branch-col bugfix');
-	colB.append(el('branch-pill bugfix', t('labBugfix')), el('dev b', devHtml('b')), el('cb', codebaseHtml(['fix'])));
-	fan.append(colA, colB);
-
-	canvas.append(mainPill, fan);
-	scene.appendChild(canvas);
-	stage.appendChild(scene); liveEls.push(scene);
-	const c = maybeCallout(step);
-
-	const parts = [mainPill, colA, colB, c].filter(Boolean);
-	if (motionPaused) { gsap.set([...headerEls(scene), ...parts], { opacity:1 }); animating=false; return; }
-	gsap.set([colA, colB], { opacity:0 });
-	gsap.set(mainPill, { opacity:0 });
-	const tl = newTL();
-	tl.to(headerEls(scene), { opacity:1, duration:0.5, stagger:0.15 })
-	  .to(mainPill, { opacity:1, y:0, scale:1, duration:0.5, ease:'back.out(1.8)' }, '>-0.05')
-	  .fromTo(colA, { y:-20, opacity:0 }, { y:0, opacity:1, duration:0.55 }, '>0.05')
-	  .fromTo(colB, { y:-20, opacity:0 }, { y:0, opacity:1, duration:0.55 }, '<0.12');
-	if (c) tl.to(c, { opacity:1, duration:0.5 }, '<');
-}
-
-// ── STEP 5 · COMMIT ───────────────────────
-function renderCommitStep() {
-	const step = STEPS[4];
-	const scene = buildScene(step);
-	const canvas = el('gh-stage');
-	canvas.style.gap = '4rem'; canvas.style.flexWrap = 'wrap';
-
-	function lane(which) {
-		const col = el('branch-col ' + (which==='a'?'feature':'bugfix'));
-		const pill = el('branch-pill ' + (which==='a'?'feature':'bugfix'), which==='a'?t('labFeature'):t('labBugfix'));
-		const dev = el('dev '+which, devHtml(which));
-		const commit = el('token commit', t('labCommit'));
-		const cb = el('cb', codebaseHtml(which==='a'?['code']:['fix']));
-		col.append(pill, dev, commit, cb);
-		return { col, commit, cb };
+// ── RENDER STEP (one focused scene at a time) ──
+function renderStep(i) {
+	if (i < 0 || i >= STEPS.length) return;
+	killTimelines();
+	current = i;
+	const step = STEPS[i];
+	const outgoing = posterEl.querySelector('.focus-scene');
+	const scene = buildFocusScene(step, i);
+	posterEl.appendChild(scene);
+	panels = [scene];
+	if (motionPaused) {
+		if (outgoing) outgoing.remove();
+		gsap.set(scene, { opacity:1 });
+	} else {
+		const tl = newTL();
+		if (outgoing) tl.to(outgoing, { opacity:0, duration:0.2, ease:'power1.out', onComplete:()=>outgoing.remove() }, 0);
+		tl.fromTo(scene, { opacity:0 }, { opacity:1, duration:0.2, ease:'power1.out' }, outgoing ? 0.12 : 0);
+		tl.fromTo(scene.querySelectorAll('.act-chip, .lesson-head'), { opacity:0, y:-8 }, { opacity:1, y:0, duration:0.35, stagger:0.06, ease:'power2.out' }, '>-0.05');
+		tl.fromTo(scene.querySelector('.visual-stage'), { opacity:0, x:-20 }, { opacity:1, x:0, duration:0.5, ease:'power2.out' }, '>-0.2');
+		tl.fromTo(scene.querySelector('.takeaway-panel'), { opacity:0, x:20 }, { opacity:1, x:0, duration:0.5, ease:'power2.out' }, '<');
+		const items = scene.querySelectorAll('.panel-body > *');
+		if (items.length) tl.fromTo(items, { opacity:0, y:12, scale:0.97 }, { opacity:1, y:0, scale:1, duration:0.4, stagger:0.08, ease:'back.out(1.4)' }, '>-0.22');
 	}
-	const A = lane('a'); const B = lane('b');
-	canvas.append(A.col, B.col);
-	scene.appendChild(canvas);
-	stage.appendChild(scene); liveEls.push(scene);
-	const c = maybeCallout(step);
 
-	const parts = [A.col, B.col, c].filter(Boolean);
-	if (motionPaused) { gsap.set([...headerEls(scene), ...parts], { opacity:1 }); animating=false; return; }
-	gsap.set([A.col, B.col], { opacity:0 });
-	gsap.set([A.commit, B.commit], { scale:0 });
-	const tl = newTL();
-	tl.to(headerEls(scene), { opacity:1, duration:0.5, stagger:0.15 })
-	  .to([A.col, B.col], { opacity:1, y:0, duration:0.55, stagger:0.2 }, '>-0.05')
-	  .to([A.commit, B.commit], { scale:1, duration:0.45, stagger:0.2, ease:'back.out(2.2)' }, '>0.05')
-	  .to([A.cb, B.cb], { boxShadow:'0 0 0 3px rgba(45,164,78,0.5)', duration:0.4, yoyo:true, repeat:1 }, '>-0.1');
-	if (c) tl.to(c, { opacity:1, duration:0.5 }, '<');
-}
-
-// ── STEP 6 · PULL REQUEST → REVIEW → MERGE ─
-function renderPrStep() {
-	const step = STEPS[5];
-	const scene = buildScene(step);
-	const canvas = el('gh-stage');
-	canvas.style.gap = '1.8rem';
-
-	// pipeline: feature branch → PR → review → merge → main
-	const pipe = el(null);
-	pipe.style.display='flex'; pipe.style.alignItems='center'; pipe.style.gap='1rem'; pipe.style.flexWrap='wrap'; pipe.style.justifyContent='center';
-
-	const featurePill = el('branch-pill feature', t('labFeature'));
-	const a1 = el('down-arrow', '➡'); a1.style.transform='none';
-	const pr = el('token pr', t('labPullRequest'));
-	const a2 = el('down-arrow', '➡');
-	const review = el('token review', '✔ ' + t('labReview'));
-	const a3 = el('down-arrow', '➡');
-	const merge = el('token merge', t('labMerge'));
-	const a4 = el('down-arrow', '➡');
-	const mainPill = el('branch-pill main', t('labMain'));
-	pipe.append(featurePill, a1, pr, a2, review, a3, merge, a4, mainPill);
-
-	const flowTag = el('col-flow-label', t('flowGithub'));
-
-	const result = el('cb', codebaseHtml(['code','fix']));
-	const resultWrap = el(null); resultWrap.style.display='flex'; resultWrap.style.flexDirection='column'; resultWrap.style.alignItems='center'; resultWrap.style.gap='0.5rem';
-	resultWrap.append(el('branch-pill main', t('labMain')), result);
-
-	canvas.append(pipe, flowTag);
-	scene.appendChild(canvas);
-	scene.appendChild(resultWrap);
-	stage.appendChild(scene); liveEls.push(scene);
-	const c = maybeCallout(step);
-
-	const seq = [featurePill, a1, pr, a2, review, a3, merge, a4, mainPill];
-	const parts = [...seq, flowTag, resultWrap, c].filter(Boolean);
-	if (motionPaused) { gsap.set([...headerEls(scene), ...parts], { opacity:1 }); animating=false; return; }
-	gsap.set(parts, { opacity:0 });
-	const tl = newTL();
-	tl.to(headerEls(scene), { opacity:1, duration:0.5, stagger:0.15 })
-	  .to(seq, { opacity:1, x:0, scale:1, duration:0.4, stagger:0.16, ease:'power2.out' }, '>-0.05')
-	  .to(review, { boxShadow:'0 0 0 4px rgba(212,167,44,0.55)', duration:0.4, yoyo:true, repeat:1 }, '>-0.1')
-	  .to(flowTag, { opacity:1, y:0, duration:0.45 }, '>0.05')
-	  .to(resultWrap, { opacity:1, y:0, duration:0.55 }, '>0.05');
-	if (c) tl.to(c, { opacity:1, duration:0.5 }, '<');
-}
-
-// ── STEP 7 · CONFLICT → RESOLVE → MERGE ───
-function renderConflictStep() {
-	const step = STEPS[6];
-	const scene = buildScene(step);
-	const canvas = el('gh-stage');
-	canvas.style.gap = '1.8rem';
-
-	const pipe = el(null);
-	pipe.style.display='flex'; pipe.style.alignItems='center'; pipe.style.gap='0.8rem'; pipe.style.flexWrap='wrap'; pipe.style.justifyContent='center';
-	const bugfixPill = el('branch-pill bugfix', t('labBugfix'));
-	const a1 = el('down-arrow', '➡');
-	const pr = el('token pr', t('labPullRequest'));
-	const a2 = el('down-arrow', '➡');
-	const review = el('token review', '✔ ' + t('labReview'));
-	const a3 = el('down-arrow', '➡');
-	const conflict = el('token conflict', '⚠ ' + t('labConflict'));
-	const a4 = el('down-arrow', '➡');
-	const resolve = el('token resolve', '🛠 ' + t('labResolve'));
-	const a5 = el('down-arrow', '➡');
-	const merge = el('token merge', t('labMerge'));
-	pipe.append(bugfixPill, a1, pr, a2, review, a3, conflict, a4, resolve, a5, merge);
-
-	// final main with both changes + peaceful ending
-	const result = el('cb', codebaseHtml(['code','fix']));
-	const resultWrap = el(null); resultWrap.style.display='flex'; resultWrap.style.alignItems='center'; resultWrap.style.gap='2.4rem'; resultWrap.style.flexWrap='wrap'; resultWrap.style.justifyContent='center';
-	const mainCol = el(null); mainCol.style.display='flex'; mainCol.style.flexDirection='column'; mainCol.style.alignItems='center'; mainCol.style.gap='0.5rem';
-	mainCol.append(el('branch-pill main', t('labMain')), result);
-	const peace = el('peace', `<span>😴</span><span class="peace-cap">🌙 zzz…</span>`);
-	resultWrap.append(mainCol, peace);
-
-	canvas.append(pipe);
-	scene.appendChild(canvas);
-	scene.appendChild(resultWrap);
-	stage.appendChild(scene); liveEls.push(scene);
-	const c = maybeCallout(step);
-
-	const seq = [bugfixPill, a1, pr, a2, review, a3, conflict, a4, resolve, a5, merge];
-	const parts = [...seq, resultWrap, c].filter(Boolean);
-	if (motionPaused) { gsap.set([...headerEls(scene), ...parts], { opacity:1 }); animating=false; return; }
-	gsap.set(parts, { opacity:0 });
-	const tl = newTL();
-	tl.to(headerEls(scene), { opacity:1, duration:0.5, stagger:0.15 })
-	  .to(seq, { opacity:1, x:0, scale:1, duration:0.38, stagger:0.14, ease:'power2.out' }, '>-0.05')
-	  .to(conflict, { x:-4, duration:0.08, yoyo:true, repeat:5, ease:'sine.inOut' }, '>-0.1')
-	  .to(resolve, { boxShadow:'0 0 0 4px rgba(233,117,38,0.55)', duration:0.4, yoyo:true, repeat:1 }, '>0.05')
-	  .to(resultWrap, { opacity:1, y:0, duration:0.6 }, '>0.1')
-	  .from(peace, { scale:0.7, duration:0.5, ease:'back.out(1.8)' }, '<0.1');
-	if (c) tl.to(c, { opacity:1, duration:0.5 }, '<');
+	counter.textContent = `${t('stepOf')} ${i+1} / ${STEPS.length}`;
+	breadcrumb.textContent = stepCaption(step);
+	progress.style.width = ((i+1)/STEPS.length * 100) + '%';
+	renderOutline(step, i);
+	announceStep(step, i);
+	if (typeof window.__githubFlowNarrate === 'function') window.__githubFlowNarrate();
+	const params = new URLSearchParams(location.search);
+	params.set('step', String(i + 1));
+	history.replaceState(null, '', `${location.pathname}?${params.toString()}`);
+	if (document.activeElement && document.activeElement !== document.body && i >= 0) {
+		requestAnimationFrame(() => scene.querySelector('.lesson-title')?.focus({ preventScroll:true }));
+	}
 }
 
 // ── LANGUAGE ──────────────────────────────
 function setLanguage(lang) {
 	currentLang = lang;
 	document.documentElement.lang = lang;
-	document.getElementById('page-title').textContent = '🌿 ' + t('pageTitle');
-	document.getElementById('prev-btn').textContent = t('prev');
-	document.getElementById('next-btn').textContent = t('next');
-	document.getElementById('replay-btn').textContent = t('replay');
-	document.getElementById('reset-btn').textContent = t('restart');
+	document.getElementById('page-title').textContent = '🔀 ' + t('pageTitle');
+	document.getElementById('prev-btn').title = t('prev');
+	document.getElementById('next-btn').title = t('next');
+	document.getElementById('replay-btn').title = t('replay');
+	document.getElementById('reset-btn').title = t('restart');
 	document.getElementById('speed-down').title = t('slower');
 	document.getElementById('speed-up').title = t('faster');
 	document.getElementById('outline-title').textContent = t('stepDetails');
@@ -1391,15 +1622,14 @@ function setLanguage(lang) {
 	document.getElementById('stage-instructions').textContent = t('stageInstructions');
 	syncCalloutBtn();
 	syncOutlineBtn();
-	if (current >= 0) renderStep(current);
+	if (panels.length) { buildPoster(); renderStep(current < 0 ? 0 : current); }
 }
 
 // ── CONTROLS ───────────────────────────────
-function interruptAnimation() { liveTimelines.forEach(t => t.kill()); liveTimelines = []; animating = false; }
-function next()   { interruptAnimation(); if (current < STEPS.length-1) renderStep(current+1); }
-function prev()   { interruptAnimation(); if (current > 0) renderStep(current-1); }
-function reset()  { interruptAnimation(); renderStep(0); }
-function replay() { if (current < 0) return; interruptAnimation(); renderStep(current); }
+function next()   { killTimelines(); if (current < STEPS.length-1) renderStep(current+1); }
+function prev()   { killTimelines(); if (current > 0) renderStep(current-1); }
+function reset()  { killTimelines(); renderStep(0); }
+function replay() { if (current < 0) return; killTimelines(); const c = current; current = c-1; renderStep(c); }
 
 // ── Hide / show top bar ──────────────────
 (function () {
@@ -1410,9 +1640,6 @@ function replay() { if (current < 0) return; interruptAnimation(); renderStep(cu
 		document.body.classList.toggle('chrome-hidden', hidden);
 		headerHideBtn.setAttribute('aria-expanded', String(!hidden));
 		try { localStorage.setItem('gh-chrome-hidden', hidden ? '1' : '0'); } catch (_) {}
-		if (typeof renderStep === 'function' && typeof current !== 'undefined' && current >= 0) {
-			requestAnimationFrame(() => renderStep(current));
-		}
 	}
 	headerHideBtn.addEventListener('click',   e => { e.stopPropagation(); setChromeHidden(true); });
 	headerRevealBtn.addEventListener('click', e => { e.stopPropagation(); setChromeHidden(false); });
@@ -1434,7 +1661,7 @@ document.getElementById('replay-btn').addEventListener('click', e => { e.stopPro
 
 // ── Speed control ────────────────────────
 const SPEED_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2];
-const BASE_TIMESCALE = 0.25;
+const BASE_TIMESCALE = 0.5;
 let speedIndex = SPEED_STEPS.indexOf(1);
 const speedLabel = document.getElementById('speed-label');
 const speedDownBtn = document.getElementById('speed-down');
@@ -1445,10 +1672,74 @@ function syncSpeedUI() {
 	speedDownBtn.disabled = speedIndex === 0;
 	speedUpBtn.disabled   = speedIndex === SPEED_STEPS.length - 1;
 	gsap.globalTimeline.timeScale(spd * BASE_TIMESCALE);
+	try { localStorage.setItem('gh-flow-speed', String(speedIndex)); } catch (_) {}
 }
+try { const savedSpeed = Number.parseInt(localStorage.getItem('gh-flow-speed'), 10); if (Number.isInteger(savedSpeed) && savedSpeed >= 0 && savedSpeed < SPEED_STEPS.length) speedIndex = savedSpeed; } catch (_) {}
 syncSpeedUI();
 speedDownBtn.addEventListener('click', e => { e.stopPropagation(); if (speedIndex > 0) { speedIndex--; syncSpeedUI(); } });
 speedUpBtn.addEventListener('click', e => { e.stopPropagation(); if (speedIndex < SPEED_STEPS.length-1) { speedIndex++; syncSpeedUI(); } });
+
+// ── Audio narration (speech synthesis) ────
+(function () {
+	const btn = document.getElementById('audio-toggle');
+	let enabled = false;
+	function stop() { try { speechSynthesis.cancel(); } catch (_) {} }
+	function sync() { btn.textContent = enabled ? '🔊 Audio: On' : '🔇 Audio: Off'; btn.classList.toggle('toggle-active', enabled); }
+	window.__githubFlowNarrate = function () {
+		stop();
+		if (!enabled || current < 0 || !window.speechSynthesis) return;
+		const step = STEPS[current];
+		const utterance = new SpeechSynthesisUtterance(`${stepTitle(step)}. ${stepDesc(step)}`);
+		utterance.lang = currentLang;
+		speechSynthesis.speak(utterance);
+	};
+	btn.addEventListener('click', () => { enabled = !enabled; try { localStorage.setItem('gh-flow-audio', enabled ? '1' : '0'); } catch (_) {} sync(); enabled ? window.__githubFlowNarrate() : stop(); });
+	try { enabled = localStorage.getItem('gh-flow-audio') === '1'; } catch (_) {}
+	sync();
+})();
+
+// ── Shortcut overlay ──────────────────────
+(function () {
+	const overlay = document.getElementById('shortcut-overlay');
+	const help = document.getElementById('help-toggle');
+	const closeBtn = document.getElementById('sc-close');
+	const list = document.getElementById('sc-list');
+	const rows = [[['→','Space'],'Next step'],[['←'],'Previous step'],[['R'],'Restart'],[['P'],'Replay this step'],[['H'],'Hide / show top bar'],[['?'],'Toggle this help']];
+	list.innerHTML = rows.map(([keys,label]) => `<li><span>${label}</span><span class="sc-keys">${keys.map(key => `<kbd>${key}</kbd>`).join('')}</span></li>`).join('');
+	function close() { overlay.setAttribute('hidden',''); help.focus(); }
+	function toggle() { overlay.hasAttribute('hidden') ? (overlay.removeAttribute('hidden'), closeBtn.focus()) : close(); }
+	help.addEventListener('click', toggle);
+	closeBtn.addEventListener('click', close);
+	overlay.querySelector('.sc-backdrop').addEventListener('click', close);
+	document.addEventListener('keydown', event => { if (event.key === '?') { event.preventDefault(); toggle(); } else if (event.key === 'Escape' && !overlay.hasAttribute('hidden')) { event.preventDefault(); close(); } });
+})();
+
+// ── Movable / pinnable control dock ───────
+(function () {
+	const dock = document.getElementById('controls');
+	const grip = document.getElementById('ctrl-grip');
+	const pin = document.getElementById('ctrl-pin');
+	const key = 'gh-flow-controls-pos';
+	let dragging = false, startX = 0, startY = 0, baseLeft = 0, baseTop = 0;
+	function place(left, top) { const width = dock.offsetWidth, height = dock.offsetHeight; left = Math.max(6, Math.min(left, innerWidth - width - 6)); top = Math.max(6, Math.min(top, innerHeight - height - 6)); dock.style.cssText += `;left:${left}px;top:${top}px;right:auto;bottom:auto;transform:none`; document.body.classList.add('controls-floating'); }
+	function center() { dock.style.left = '50%'; dock.style.top = ''; dock.style.right = ''; dock.style.bottom = '0.75rem'; dock.style.transform = 'translateX(-50%)'; document.body.classList.remove('controls-floating'); try { localStorage.removeItem(key); } catch (_) {} }
+	grip.addEventListener('pointerdown', event => { event.preventDefault(); dragging = true; const rect = dock.getBoundingClientRect(); baseLeft = rect.left; baseTop = rect.top; startX = event.clientX; startY = event.clientY; grip.setPointerCapture(event.pointerId); });
+	grip.addEventListener('pointermove', event => { if (dragging) place(baseLeft + event.clientX - startX, baseTop + event.clientY - startY); });
+	grip.addEventListener('pointerup', event => { dragging = false; grip.releasePointerCapture(event.pointerId); const rect = dock.getBoundingClientRect(); try { localStorage.setItem(key, JSON.stringify({ left:rect.left, top:rect.top })); } catch (_) {} });
+	pin.addEventListener('click', center);
+	try { const saved = JSON.parse(localStorage.getItem(key)); if (saved) place(saved.left, saved.top); } catch (_) {}
+})();
+
+// ── Clickable progress + touch swipe ──────
+(function () {
+	const track = document.querySelector('.progress-track');
+	for (let i = 1; i < STEPS.length; i++) { const tick = el('progress-tick'); tick.style.left = `${i / STEPS.length * 100}%`; track.appendChild(tick); }
+	track.title = 'Jump to a step';
+	track.addEventListener('click', event => { const rect = track.getBoundingClientRect(); renderStep(Math.min(STEPS.length - 1, Math.max(0, Math.floor((event.clientX - rect.left) / rect.width * STEPS.length)))); });
+	let touchX = null;
+	stage.addEventListener('touchstart', event => { touchX = event.changedTouches[0].clientX; }, { passive:true });
+	stage.addEventListener('touchend', event => { if (touchX == null) return; const delta = event.changedTouches[0].clientX - touchX; if (Math.abs(delta) > 55) delta < 0 ? next() : prev(); touchX = null; }, { passive:true });
+})();
 
 // ── Keyboard ──────────────────────────────
 if (window.AW && AW.keyboard) {
@@ -1462,15 +1753,15 @@ if (window.AW && AW.keyboard) {
 	});
 }
 
-// ── Resize ────────────────────────────────
-let resizeTimer;
-window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => renderStep(current), 200); });
-
 // ── Init ──────────────────────────────────
 setLanguage(currentLang);
-counter.textContent = `1 / ${STEPS.length}`;
-renderStep(0);
+buildPoster();
+const requestedStep = Number.parseInt(new URLSearchParams(location.search).get('step'), 10);
+renderStep(Number.isFinite(requestedStep) ? Math.min(STEPS.length - 1, Math.max(0, requestedStep - 1)) : 0);
 </script>
+
+<!-- Presenter mode (dual-window sync) — load last -->
+<script src="../../lib/js/aw-present.js"></script>
 
 </body>
 </html>

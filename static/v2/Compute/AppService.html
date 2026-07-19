@@ -1,0 +1,1063 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<script src="/js/tracking.js"></script>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+	<title>App Service · Your Web App, Fully Managed — Azure Animations</title>
+
+	<link rel="stylesheet" href="https://unpkg.com/@microsoft/atlas-css/dist/index.css" />
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+	<!-- AnimationWorks shared lib -->
+	<script src="../lib/js/aw-easings.js"></script>
+	<script src="../lib/js/aw-motion.js"></script>
+	<script src="../lib/js/aw-theme.js"></script>
+	<script src="../lib/js/aw-keyboard.js"></script>
+
+<style>
+	/* ── SHELL ─────────────────────────────── */
+	:root {
+		--aw-purple:#5c2d91;
+		--aw-blue:#0078d4;
+		--aw-green:#10a37f;
+		--aw-orange:#e97526;
+		--aw-pink:#d24aa8;
+	}
+	html, body { height:100%; margin:0; }
+	html { font-size:100%; }
+	body {
+		display:flex; flex-direction:column; height:100vh;
+		overflow:hidden;
+		font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif;
+		color: var(--theme-text);
+		background:
+			radial-gradient(circle at 15% 20%, rgba(92,45,145,0.18) 0%, transparent 55%),
+			radial-gradient(circle at 85% 80%, rgba(0,120,212,0.18) 0%, transparent 55%),
+			var(--theme-body-background);
+	}
+	.app-header { display:flex; align-items:center; gap:1rem; flex-shrink:0; flex-wrap:wrap; font-size:16px; }
+	#stage {
+		position:relative; flex:1 1 auto; width:100%; min-height:0;
+		display:flex; align-items:center; justify-content:center;
+		overflow:hidden; container-type:size;
+		padding:1.75rem 2.75rem 5rem;
+	}
+	#stage:focus-visible, button:focus-visible, a:focus-visible, select:focus-visible {
+		outline:2px solid var(--theme-primary, #0078d4); outline-offset:3px; border-radius:4px;
+	}
+	#stage-frame {
+		position:relative; overflow:hidden;
+		width: min(100cqw, calc(100cqh * 16 / 9));
+		aspect-ratio: 16 / 9; max-width:100%; max-height:100%;
+		border-radius:16px;
+		background: rgba(0,0,0,0.015);
+		box-shadow: 0 12px 44px rgba(0,0,0,0.22);
+	}
+	body.theme-dark #stage-frame { background: rgba(255,255,255,0.025); }
+	#stage-frame::before {
+		content:""; position:absolute; inset:0; border-radius:inherit; padding:2.5px;
+		background: linear-gradient(135deg, var(--aw-purple) 0%, var(--aw-blue) 55%, var(--aw-pink) 100%);
+		-webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+		mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+		-webkit-mask-composite: xor; mask-composite: exclude;
+		pointer-events:none; z-index:20;
+	}
+	#fx-svg { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:6; overflow:visible; }
+
+	/* ── SCENE ─────────────────────────────── */
+	.scene {
+		position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+		transform-origin:center center;
+		width:min(1150px, 96%); z-index:10;
+		display:flex; flex-direction:column; align-items:center; gap:1.1rem;
+	}
+	@keyframes awSceneIn { from { opacity:0; } to { opacity:1; } }
+	@keyframes awSceneOut { from { opacity:1; } to { opacity:0; } }
+	.scene.scene-in { animation: awSceneIn 0.2s ease both; }
+	.scene.scene-out { animation: awSceneOut 0.2s ease both; }
+	.scene-title { font-size:2.5rem; font-weight:700; color:var(--theme-tertiary, #5c2d91); margin:0; text-align:center; opacity:0; }
+	body.theme-dark .scene-title { color:#c9a5e8; }
+	.scene-lead { margin:0; text-align:center; font-size:1.3rem; color:var(--theme-text); max-width:880px; line-height:1.5; opacity:0; }
+
+	.callout {
+		position:absolute; max-width:340px; padding:1rem 1.2rem;
+		background:var(--theme-body-background); border:1px solid var(--theme-border);
+		border-left:4px solid var(--theme-tertiary, #5c2d91); border-radius:6px;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2));
+		font-size:1.05rem; line-height:1.45; z-index:14; opacity:0;
+	}
+
+	/* ── SHARED BUILDING BLOCKS ────────────── */
+	.card {
+		width:min(680px, 96%); padding:1.6rem 1.8rem; border-radius:16px;
+		background:var(--theme-card-background, #fff); border:2px solid var(--theme-border);
+		box-shadow:0 8px 28px rgba(0,0,0,0.14); opacity:0;
+		display:flex; flex-direction:column; gap:0.6rem; align-items:center; text-align:center;
+	}
+	body.theme-dark .card { background:rgba(255,255,255,0.05); }
+	.card .card-icon { font-size:3rem; line-height:1; }
+	.card .card-icon img { width:56px; height:56px; }
+	.card .card-h { font-size:1.4rem; font-weight:700; }
+	.card .card-p { font-size:1.05rem; color:var(--theme-text-subtle); line-height:1.5; }
+	.chip-row { display:flex; flex-wrap:wrap; gap:0.7rem; justify-content:center; }
+	.pill {
+		display:inline-flex; align-items:center; gap:0.5rem; padding:0.55rem 1.1rem;
+		border-radius:999px; font-size:1.05rem; font-weight:600;
+		border:2px solid var(--theme-tertiary, #5c2d91); background:rgba(92,45,145,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .pill { background:rgba(92,45,145,0.2); }
+	.value-chip {
+		display:inline-flex; align-items:center; gap:0.4rem; padding:0.5rem 1rem;
+		border-radius:999px; font-size:1rem; font-weight:700;
+		border:2px solid #107c10; background:rgba(16,124,16,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .value-chip { background:rgba(16,124,16,0.16); }
+	.recap-foot { font-size:1.05rem; color:var(--theme-text); text-align:center; max-width:760px; opacity:0; }
+
+	/* ── APP SERVICE VISUALS ────────────────── */
+	.stack-wrap { display:flex; flex-direction:column; align-items:center; gap:0.5rem; }
+	.app-tile-big {
+		width:190px; padding:0.9rem 1rem; border-radius:16px; display:flex; flex-direction:column; align-items:center; gap:0.4rem; text-align:center;
+		background:var(--theme-card-background,#fff); border:2.5px solid var(--aw-green,#10a37f);
+		box-shadow:0 8px 22px rgba(16,163,127,0.24); opacity:0;
+	}
+	body.theme-dark .app-tile-big { background:rgba(255,255,255,0.06); }
+	.app-tile-big img { width:44px; height:44px; }
+	.app-tile-big .at-name { font-size:1.05rem; font-weight:800; }
+	.app-tile-big .at-sub { font-size:0.82rem; color:var(--theme-text-subtle); }
+	.stack-arrow { font-size:1.6rem; color:var(--theme-tertiary,#5c2d91); opacity:0; }
+	.plan-strip {
+		width:min(420px,96%); padding:0.55rem 1rem; border-radius:999px; border:2px dashed var(--theme-tertiary,#5c2d91);
+		display:flex; align-items:center; justify-content:center; gap:0.5rem; font-size:0.95rem; font-weight:700;
+		color:var(--theme-tertiary,#5c2d91); background:rgba(92,45,145,0.08); opacity:0;
+	}
+	body.theme-dark .plan-strip { color:#c9a5e8; background:rgba(92,45,145,0.2); }
+	.plan-strip img { width:20px; height:20px; }
+	.source-row { display:flex; flex-wrap:wrap; gap:0.9rem; justify-content:center; }
+	.source-chip {
+		width:120px; padding:0.7rem 0.6rem; border-radius:14px; display:flex; flex-direction:column; align-items:center; gap:0.4rem; text-align:center;
+		background:var(--theme-card-background,#fff); border:1.5px solid var(--theme-border); border-top:4px solid var(--theme-primary,#0078d4);
+		box-shadow:0 6px 16px rgba(0,0,0,0.12); opacity:0;
+	}
+	body.theme-dark .source-chip { background:rgba(255,255,255,0.05); }
+	.source-chip .ic { font-size:1.6rem; color:var(--theme-primary,#0078d4); }
+	.source-chip img { width:26px; height:26px; }
+	.source-chip .sc-name { font-size:0.85rem; font-weight:700; }
+	.deploy-arrow { font-size:2rem; color:var(--theme-primary,#0078d4); opacity:0; }
+	.slot-wrap { display:flex; align-items:center; gap:1.4rem; justify-content:center; flex-wrap:wrap; }
+	.slot-box {
+		width:200px; padding:1rem; border-radius:16px; display:flex; flex-direction:column; align-items:center; gap:0.5rem; text-align:center;
+		border:2.5px solid var(--theme-border); background:var(--theme-card-background,#fff); box-shadow:0 8px 22px rgba(0,0,0,0.14); opacity:0;
+	}
+	body.theme-dark .slot-box { background:rgba(255,255,255,0.05); }
+	.slot-box[data-slot="staging"] { border-color:var(--aw-orange,#e97526); }
+	.slot-box[data-slot="production"] { border-color:var(--aw-green,#10a37f); }
+	.slot-box .sb-name { font-size:1.05rem; font-weight:800; }
+	.slot-box .sb-ver { font-size:0.85rem; color:var(--theme-text-subtle); }
+	.swap-icon { font-size:2.2rem; color:var(--theme-tertiary,#5c2d91); opacity:0; }
+	.idp-row { display:flex; flex-wrap:wrap; gap:0.7rem; justify-content:center; }
+	.idp-chip {
+		display:inline-flex; align-items:center; gap:0.5rem; padding:0.5rem 1rem; border-radius:999px;
+		border:2px solid var(--theme-border); background:var(--theme-card-background,#fff); font-size:0.95rem; font-weight:600; opacity:0;
+	}
+	body.theme-dark .idp-chip { background:rgba(255,255,255,0.06); }
+	.idp-chip .ic { color:var(--theme-primary,#0078d4); }
+	.gate-visual { display:flex; align-items:center; gap:1rem; justify-content:center; flex-wrap:wrap; }
+	.gate-box {
+		width:120px; height:120px; border-radius:20px; display:flex; align-items:center; justify-content:center;
+		background:linear-gradient(150deg, rgba(92,45,145,0.15), rgba(0,120,212,0.12)); border:2.5px solid var(--theme-tertiary,#5c2d91);
+		box-shadow:0 8px 24px rgba(92,45,145,0.2); opacity:0; font-size:2.6rem; color:var(--theme-tertiary,#5c2d91);
+	}
+	body.theme-dark .gate-box { color:#c9a5e8; }
+	.domain-bar {
+		width:min(560px,96%); padding:0.7rem 1.1rem; border-radius:10px; display:flex; align-items:center; gap:0.6rem;
+		background:var(--theme-card-background,#fff); border:1.5px solid var(--theme-border); box-shadow:0 6px 18px rgba(0,0,0,0.14); opacity:0;
+	}
+	body.theme-dark .domain-bar { background:rgba(255,255,255,0.06); }
+	.domain-bar .lock { color:#107c10; font-size:1.2rem; }
+	.domain-bar .url { font-family:'Cascadia Code','Consolas',monospace; font-size:1rem; color:var(--theme-text); }
+	.tm-wrap { display:flex; align-items:center; gap:1.6rem; justify-content:center; flex-wrap:wrap; }
+	.tm-hub {
+		width:96px; height:96px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+		background:var(--theme-card-background,#fff); border:2.5px solid var(--theme-tertiary,#5c2d91); box-shadow:0 8px 24px rgba(92,45,145,0.22); opacity:0;
+	}
+	.tm-hub img { width:44px; height:44px; }
+	.tm-node {
+		width:150px; padding:0.8rem; border-radius:14px; display:flex; flex-direction:column; align-items:center; gap:0.4rem; text-align:center;
+		background:var(--theme-card-background,#fff); border:2px solid var(--aw-green,#10a37f); box-shadow:0 6px 18px rgba(16,163,127,0.2); opacity:0;
+	}
+	body.theme-dark .tm-node, body.theme-dark .tm-hub { background:rgba(255,255,255,0.06); }
+	.tm-node .ic { font-size:1.6rem; color:var(--aw-green,#10a37f); }
+	.tm-node .tm-name { font-size:0.9rem; font-weight:700; }
+	.az-ic { width:1em; height:1em; display:inline-block; vertical-align:-0.15em; }
+
+	/* ── CONTROLS · icon dock ──────────────── */
+	#controls {
+		position:fixed; bottom:14px; left:50%; transform:translateX(-50%); z-index:40;
+		display:flex; align-items:center; gap:5px; padding:5px 7px;
+		background:var(--theme-body-background-translucent, rgba(255,255,255,0.82));
+		backdrop-filter:blur(12px) saturate(1.4); -webkit-backdrop-filter:blur(12px) saturate(1.4);
+		border:1px solid var(--theme-border); border-radius:999px;
+		box-shadow: 0 8px 26px rgba(0,0,0,0.18); font-size:13px;
+	}
+	body.theme-dark #controls { background:var(--theme-body-background-translucent, rgba(32,32,36,0.82)); }
+	#controls .ctrl-icon {
+		width:2.15rem; height:2.15rem; min-width:0; padding:0;
+		display:inline-flex; align-items:center; justify-content:center;
+		border-radius:50%; font-size:0.95rem; line-height:1; font-weight:600;
+		transition:background 0.18s ease, color 0.18s ease, transform 0.12s ease, box-shadow 0.18s ease;
+	}
+	#controls .ctrl-icon:hover { transform:translateY(-1px); }
+	#controls .ctrl-icon:active { transform:scale(0.92); }
+	#controls .ctrl-icon-next {
+		width:2.55rem; height:2.55rem; font-size:1.1rem;
+		box-shadow:0 2px 8px var(--theme-primary-translucent, rgba(0,120,212,0.45));
+	}
+	.step-counter {
+		min-width:52px; text-align:center; font-variant-numeric:tabular-nums;
+		font-size:14px; font-weight:700; color:var(--theme-text);
+		padding:0 6px; white-space:nowrap; letter-spacing:0.02em;
+	}
+	.ctrl-sep { width:1px; align-self:stretch; margin:4px 2px; background:var(--theme-border); }
+	.ctrl-grip {
+		display:inline-flex; align-items:center; justify-content:center;
+		width:1.5rem; height:2.15rem; padding:0; border:none; background:transparent;
+		color:var(--theme-text-subtle); border-radius:8px; cursor:grab; touch-action:none;
+		transition:background 0.18s ease, color 0.18s ease;
+	}
+	.ctrl-grip:hover { color:var(--theme-text); background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); }
+	.ctrl-grip:active { cursor:grabbing; }
+	.ctrl-grip svg { width:13px; height:16px; pointer-events:none; }
+	body.controls-floating .ctrl-grip { color:var(--theme-primary,#0078d4); }
+	#controls .ctrl-pin { display:none; color:var(--theme-primary,#0078d4); }
+	#controls .ctrl-pin svg { width:15px; height:15px; pointer-events:none; }
+	body.controls-floating #controls .ctrl-pin { display:inline-flex; }
+	body.controls-floating #controls { box-shadow:0 10px 30px rgba(0,0,0,0.30), 0 0 0 1.5px var(--theme-primary,#0078d4); }
+	.speed-control { display:inline-flex; align-items:center; gap:1px; padding:2px 3px; border:1px solid var(--theme-border); border-radius:999px; }
+	.speed-control .speed-btn {
+		width:1.7rem; height:1.7rem; min-width:0; padding:0;
+		display:inline-flex; align-items:center; justify-content:center;
+		font-size:0.95rem; font-weight:700; border-radius:50%;
+	}
+	.speed-control .speed-btn[disabled] { opacity:0.4; cursor:not-allowed; }
+	.speed-label { min-width:2.4rem; text-align:center; font-variant-numeric:tabular-nums; font-size:0.82rem; font-weight:700; color:var(--theme-text); }
+
+	#callout-toggle, #outline-toggle, #audio-toggle { border:1px solid var(--theme-border); border-radius:4px; transition:background .2s,color .2s,border-color .2s,opacity .2s; }
+	#callout-toggle.toggle-active, #outline-toggle.toggle-active, #audio-toggle.toggle-active {
+		background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary,#0078d4); border-color:var(--theme-primary,#0078d4); font-weight:600;
+	}
+	#callout-toggle:not(.toggle-active), #outline-toggle:not(.toggle-active), #audio-toggle:not(.toggle-active) { opacity:0.6; }
+
+	#header-hide { display:inline-flex; align-items:center; justify-content:center; width:2rem; height:2rem; padding:0; border:1px solid var(--theme-border); border-radius:50%; color:var(--theme-text-subtle); transition:background .2s,color .2s,transform .18s; }
+	#header-hide:hover { color:var(--theme-text); transform:translateY(-1px); }
+	#header-hide svg { width:16px; height:16px; }
+	body.chrome-hidden .app-header, body.chrome-hidden .progress-track { display:none; }
+	#header-reveal {
+		position:fixed; top:0; left:50%; transform:translateX(-50%) translateY(-100%); z-index:45;
+		display:inline-flex; align-items:center; gap:0.35rem; padding:5px 14px 6px; font-size:12px; font-weight:600; line-height:1;
+		color:var(--theme-text-subtle); background:var(--theme-body-background-translucent, rgba(255,255,255,0.88));
+		backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border:1px solid var(--theme-border); border-top:none; border-radius:0 0 12px 12px;
+		box-shadow:0 4px 14px rgba(0,0,0,0.14); cursor:pointer; transition:transform .28s cubic-bezier(0.2,0.7,0.3,1), color .2s, background .2s;
+	}
+	body.theme-dark #header-reveal { background:var(--theme-body-background-translucent, rgba(32,32,36,0.88)); }
+	#header-reveal:hover { color:var(--theme-text); }
+	body.chrome-hidden #header-reveal { transform:translateX(-50%) translateY(0); }
+	#header-reveal svg { width:14px; height:14px; }
+
+	#step-outline {
+		position:fixed; top:4.5rem; right:1rem; width:320px; max-height:calc(100vh - 8rem); overflow-y:auto;
+		padding:1.1rem; background:var(--theme-body-background); border:1px solid var(--theme-border);
+		border-radius:6px; box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2)); z-index:35; font-size:1rem; line-height:1.55;
+	}
+	#step-outline[hidden] { display:none; }
+	#step-outline h2 { font-size:0.85rem; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--theme-tertiary,#5c2d91); margin-bottom:0.5rem; }
+	#step-outline .outline-section { margin-top:0.6rem; padding-top:0.6rem; border-top:1px solid var(--theme-border); }
+	#step-outline .outline-section:first-child { margin-top:0; padding-top:0; border-top:0; }
+	#step-outline .stat-row { display:flex; justify-content:space-between; align-items:baseline; gap:0.75rem; padding:0.2rem 0; }
+	#step-outline .stat-row span:first-child { color:var(--theme-text-subtle); flex:0 0 auto; max-width:45%; }
+	#step-outline .stat-row span:last-child { text-align:right; font-weight:600; color:var(--theme-tertiary,#5c2d91); flex:1 1 auto; }
+
+	.progress-track { position:relative; height:6px; background:var(--theme-border, #e0e0e0); flex-shrink:0; cursor:pointer; }
+	.progress-fill { position:absolute; left:0; top:0; bottom:0; width:0%; background:var(--aw-purple, #5c2d91); transition:width .5s cubic-bezier(0.2,0.8,0.2,1); pointer-events:none; }
+	.progress-tick { position:absolute; top:0; bottom:0; width:2px; margin-left:-1px; background:var(--theme-body-background); opacity:0.6; pointer-events:none; }
+
+	.theme-toggle { display:inline-flex; align-items:center; justify-content:center; width:2.25rem; height:2.25rem; padding:0; margin-inline-start:0.25rem; background:transparent; border:1px solid var(--theme-border); border-radius:999px; color:var(--theme-text); cursor:pointer; transition:background .15s,color .15s,border-color .15s; }
+	.theme-toggle:hover { background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary); border-color:var(--theme-primary); }
+	.theme-toggle .theme-icon { display:none; }
+	.theme-toggle[data-theme="dark"] .icon-sun { display:block; }
+	.theme-toggle[data-theme="light"] .icon-moon { display:block; }
+	.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+	.skip-link { position:absolute; top:-100px; left:0.5rem; z-index:100; padding:0.5rem 1rem; background:var(--theme-primary); color:var(--theme-primary-invert,#fff); border-radius:4px; text-decoration:none; font-weight:600; }
+	.skip-link:focus { top:0.5rem; }
+	.header-back-link { display:inline-flex; align-items:center; gap:0.25rem; padding:0.2rem 0.6rem; font-size:0.8rem; font-weight:600; color:var(--theme-text-subtle); border:1px solid var(--theme-border); border-radius:999px; text-decoration:none; white-space:nowrap; transition:background .15s,color .15s,border-color .15s; }
+	.header-back-link:hover { color:var(--theme-primary); border-color:var(--theme-primary); background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); }
+	.lang-select {
+		appearance:none; -webkit-appearance:none; background:var(--theme-card-background,#fff); color:var(--theme-body-text,#333);
+		border:1px solid var(--theme-border, rgba(0,0,0,0.2)); border-radius:4px; padding:4px 24px 4px 8px;
+		font-size:0.8rem; font-family:'Segoe UI', sans-serif; cursor:pointer;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+		background-repeat:no-repeat; background-position:right 6px center; min-width:80px;
+	}
+	.lang-select:hover { border-color:var(--theme-primary, #0078d4); }
+	.lang-select:focus { outline:2px solid var(--theme-primary, #0078d4); outline-offset:1px; }
+	body.theme-dark .lang-select {
+		background-color:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); border-color:rgba(255,255,255,0.15);
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23aaa' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+	}
+	body.theme-dark .lang-select option { background:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); }
+	.font-size-controls { display:flex; align-items:center; gap:2px; }
+	.font-size-btn { background:var(--theme-card-background,#fff); color:var(--theme-body-text,#333); border:1px solid var(--theme-border, rgba(0,0,0,0.2)); border-radius:4px; padding:3px 8px; font-size:0.8rem; font-weight:700; font-family:'Segoe UI', sans-serif; cursor:pointer; line-height:1.2; transition:background .15s,border-color .15s; }
+	.font-size-btn:hover { border-color:var(--theme-primary, #0078d4); }
+	body.theme-dark .font-size-btn { background:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); border-color:rgba(255,255,255,0.15); }
+
+	.ic { display:inline-flex; align-items:center; justify-content:center; vertical-align:-0.125em; }
+	.ic svg { width:1em; height:1em; fill:currentColor; display:block; }
+	.help-toggle svg { width:15px; height:15px; vertical-align:-2px; }
+
+	#shortcut-overlay { position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center; }
+	#shortcut-overlay[hidden] { display:none; }
+	.sc-backdrop { position:absolute; inset:0; background:rgba(0,0,0,0.5); -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px); }
+	.sc-panel { position:relative; z-index:1; width:min(430px,92vw); max-height:82vh; overflow:auto; padding:1.5rem 1.6rem; background:var(--theme-body-background); border:1px solid var(--theme-border); border-radius:16px; box-shadow:0 24px 70px rgba(0,0,0,0.4); }
+	.sc-panel h2 { margin:0 0 1rem; font-size:1.25rem; color:var(--theme-tertiary,#5c2d91); }
+	body.theme-dark .sc-panel h2 { color:#c9a5e8; }
+	.sc-close { position:absolute; top:0.7rem; right:0.7rem; width:2rem; height:2rem; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--theme-border); border-radius:50%; background:transparent; color:var(--theme-text-subtle); cursor:pointer; }
+	.sc-close:hover { color:var(--theme-text); border-color:var(--theme-primary,#0078d4); }
+	.sc-close svg { width:15px; height:15px; }
+	.sc-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:0.55rem; }
+	.sc-list li { display:flex; align-items:center; justify-content:space-between; gap:1rem; font-size:1rem; color:var(--theme-text); }
+	.sc-keys { display:inline-flex; gap:0.3rem; flex:none; }
+	.sc-panel kbd, .sc-hint kbd { font-family:'Cascadia Code','Consolas',monospace; font-size:0.82rem; line-height:1; padding:0.28rem 0.5rem; border-radius:6px; border:1px solid var(--theme-border); border-bottom-width:2px; background:var(--theme-card-background,#fff); color:var(--theme-text); }
+	body.theme-dark .sc-panel kbd, body.theme-dark .sc-hint kbd { background:rgba(255,255,255,0.08); }
+	.sc-hint { margin:1.1rem 0 0; font-size:0.85rem; color:var(--theme-text-subtle); text-align:center; }
+
+	@media (max-width:640px) { .app-header { font-size:0.95rem; } .scene-title { font-size:1.9rem; } #stage { padding:0.9rem 1rem 4.5rem; } }
+	@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition:none !important; animation:none !important; } .progress-fill { transition:none !important; } }
+</style>
+</head>
+
+<body class="theme-dark" data-theme-preset="atlas">
+
+	<a href="#stage" class="skip-link">Skip to diagram</a>
+
+	<header class="app-header padding-block-xs padding-inline-md border-bottom" role="banner" style="justify-content:space-between;">
+		<div class="display-flex align-items-center gap-xs">
+			<a href="AppServicePlan.html" class="header-back-link" aria-label="Back">&larr; Back</a>
+			<span id="page-title" class="font-size-h6 font-weight-semibold">&#10024; Title Here</span>
+		</div>
+		<nav class="display-flex gap-xs align-items-center" aria-label="Primary">
+			<span id="breadcrumb" class="font-size-sm color-text-subtle">Step 1</span>
+			<button id="callout-toggle" type="button" class="button button-clear button-sm" aria-label="Toggle callouts">&#128172; Callout</button>
+			<button id="outline-toggle" type="button" class="button button-clear button-sm" aria-controls="step-outline" aria-expanded="false" aria-label="Toggle text outline">&#128221; Outline</button>
+			<button id="audio-toggle" type="button" class="button button-clear button-sm" aria-label="Toggle audio narration">&#128263; Audio</button>
+			<button id="help-toggle" type="button" class="button button-clear button-sm help-toggle" aria-haspopup="dialog" aria-controls="shortcut-overlay" aria-label="Keyboard shortcuts (press ?)" title="Keyboard shortcuts (?)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M11 18h2v-2h-2v2zm1.1-14C9.8 4 8 5.8 8 8h2a2 2 0 1 1 3.2 1.6c-.9.7-2.2 1.5-2.2 3.4h2c0-1 .8-1.5 1.7-2.2A4 4 0 0 0 12.1 4z"/></svg> Keys</button>
+		</nav>
+		<div class="display-flex gap-xs align-items-center">
+			<select id="lang-select" class="lang-select" aria-label="Language">
+				<option value="en">EN</option>
+				<option value="es">ES</option>
+				<option value="ja">JA</option>
+				<option value="ko">KO</option>
+				<option value="pt">PT</option>
+			</select>
+			<div class="font-size-controls">
+				<button id="font-decrease" type="button" class="font-size-btn" aria-label="Decrease font size" title="Smaller text">A&minus;</button>
+				<button id="font-increase" type="button" class="font-size-btn" aria-label="Increase font size" title="Larger text">A+</button>
+			</div>
+			<button id="theme-toggle" type="button" class="theme-toggle" aria-label="Switch theme" title="Switch theme">
+				<svg class="theme-icon icon-moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg>
+				<svg class="theme-icon icon-sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.5" y1="4.5" x2="6.5" y2="6.5"/><line x1="17.5" y1="17.5" x2="19.5" y2="19.5"/><line x1="4.5" y1="19.5" x2="6.5" y2="17.5"/><line x1="17.5" y1="6.5" x2="19.5" y2="4.5"/></g></svg>
+			</button>
+			<button id="header-hide" type="button" aria-label="Hide top bar" title="Hide top bar (H)">
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/></svg>
+			</button>
+		</div>
+	</header>
+
+	<button id="header-reveal" type="button" aria-label="Show top bar" title="Show top bar">
+		<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/></svg>
+		<span>Toolbar</span>
+	</button>
+
+	<div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
+
+	<main id="stage" tabindex="0" role="region" aria-labelledby="stage-heading" aria-describedby="stage-instructions">
+		<h1 id="stage-heading" class="sr-only" tabindex="-1">Title Here</h1>
+		<p id="stage-instructions" class="sr-only">Animated explainer. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.</p>
+		<div id="step-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+		<div id="stage-frame">
+			<svg id="fx-svg" aria-hidden="true" focusable="false">
+				<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L0,10 L10,5 Z" fill="currentColor"/></marker></defs>
+			</svg>
+		</div>
+	</main>
+
+	<aside id="step-outline" hidden aria-label="Text outline of the current step">
+		<h2 id="outline-title">Step Details</h2>
+		<div id="outline-body"></div>
+	</aside>
+
+	<div id="controls" role="group" aria-label="Diagram navigation">
+		<button id="ctrl-grip" type="button" class="ctrl-grip" aria-label="Drag to move the controls" title="Drag to move">
+			<svg viewBox="0 0 16 16" aria-hidden="true"><g fill="currentColor"><circle cx="5" cy="3" r="1.4"/><circle cx="11" cy="3" r="1.4"/><circle cx="5" cy="8" r="1.4"/><circle cx="11" cy="8" r="1.4"/><circle cx="5" cy="13" r="1.4"/><circle cx="11" cy="13" r="1.4"/></g></svg>
+		</button>
+		<button id="ctrl-pin" type="button" class="button button-clear ctrl-icon ctrl-pin" aria-label="Pin the controls back to the center" title="Pin to center">
+			<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9 2h6a1 1 0 0 1 .8 1.6L14 6v4l3 3v2h-4v5l-1 2-1-2v-5H7v-2l3-3V6L8.2 3.6A1 1 0 0 1 9 2z"/></svg>
+		</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="prev-btn" type="button" class="button ctrl-icon" aria-label="Previous step (left arrow)">&#9664;</button>
+		<div class="step-counter" id="step-counter">0 / 0</div>
+		<button id="next-btn" type="button" class="button button-primary button-filled ctrl-icon ctrl-icon-next" aria-label="Next step (right arrow or space)">&#9654;</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="replay-btn" type="button" class="button ctrl-icon" aria-label="Replay this step's animation (P)">&#8635;</button>
+		<div class="speed-control" role="group" aria-label="Animation speed">
+			<button id="speed-down" type="button" class="button button-clear speed-btn" aria-label="Slower (-)" title="Slower">&minus;</button>
+			<span id="speed-label" class="speed-label" aria-live="polite" aria-label="Current speed">1&times;</span>
+			<button id="speed-up" type="button" class="button button-clear speed-btn" aria-label="Faster (+)" title="Faster">+</button>
+		</div>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="reset-btn" type="button" class="button button-clear ctrl-icon" aria-label="Restart from step 1 (R)">&#9198;</button>
+	</div>
+
+	<div id="shortcut-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="sc-title">
+		<div class="sc-backdrop"></div>
+		<div class="sc-panel">
+			<button id="sc-close" class="sc-close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
+			<h2 id="sc-title">Keyboard shortcuts</h2>
+			<ul id="sc-list" class="sc-list"></ul>
+			<p class="sc-hint">Press <kbd>?</kbd> anytime to toggle this panel.</p>
+		</div>
+	</div>
+
+<script>
+// ── THEME ─────────────────────────────────
+const themeToggleBtn = document.getElementById('theme-toggle');
+function syncThemeBtn(){
+	if (!themeToggleBtn) return;
+	const isDark = document.body.classList.contains('theme-dark');
+	themeToggleBtn.dataset.theme = isDark ? 'dark' : 'light';
+	const label = isDark ? 'Switch to light theme' : 'Switch to dark theme';
+	themeToggleBtn.setAttribute('aria-label', label);
+	themeToggleBtn.setAttribute('title', label);
+}
+if (window.AW && AW.theme) {
+	AW.theme.onChange(() => { syncThemeBtn(); if (typeof renderStep === 'function' && current >= 0) renderStep(current); });
+	syncThemeBtn();
+} else {
+	syncThemeBtn();
+	if (themeToggleBtn) themeToggleBtn.addEventListener('click', () => {
+		const goingDark = !document.body.classList.contains('theme-dark');
+		document.body.classList.remove('theme-dark', 'theme-light');
+		document.body.classList.add(goingDark ? 'theme-dark' : 'theme-light');
+		try { localStorage.setItem('aw-theme', goingDark ? 'theme-dark' : 'theme-light'); } catch(_){}
+		syncThemeBtn();
+		if (current >= 0) renderStep(current);
+	});
+	try { const saved = localStorage.getItem('aw-theme'); if (saved === 'theme-light' || saved === 'theme-dark') { document.body.classList.remove('theme-dark','theme-light'); document.body.classList.add(saved); syncThemeBtn(); } } catch(_){}
+}
+
+// ── i18n ──────────────────────────────────
+let currentLang = 'en';
+const ICON_BASE = '../lib/icons/Azure_Public_Service_Icons/';
+const APP_ICON = ICON_BASE + 'app services/10035-icon-service-App-Services.svg';
+const PLAN_ICON = ICON_BASE + 'app services/00046-icon-service-App-Service-Plans.svg';
+const CERT_ICON = ICON_BASE + 'app services/00049-icon-service-App-Service-Certificates.svg';
+const DEVOPS_ICON = ICON_BASE + 'devops/10261-icon-service-Azure-DevOps.svg';
+const TM_ICON = ICON_BASE + 'networking/10065-icon-service-Traffic-Manager-Profiles.svg';
+
+const I18N = {
+	en: {
+		skipToMain: 'Skip to diagram',
+		pageTitle: 'App Service',
+		stageHeading: 'App Service: Your Web App, Fully Managed',
+		stageInstructions: 'Animated explainer. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.',
+		prev: '\u25C0 Prev', next: 'Next \u25B6', replay: '\u21BB Replay', restart: '\u21BB Restart',
+		slower: 'Slower', faster: 'Faster',
+		calloutOn: '\uD83D\uDCAC Callout: On', calloutOff: '\uD83D\uDCAC Callout: Off',
+		outlineOn: '\uD83D\uDCDD Outline: On', outlineOff: '\uD83D\uDCDD Outline: Off',
+		audioOn: '\uD83D\uDD0A Audio: On', audioOff: '\uD83D\uDD07 Audio: Off',
+		stepDetails: 'Step Details', stepOf: 'Step',
+		scTitle: 'Keyboard shortcuts',
+		scNext: 'Next step', scPrev: 'Previous step', scRestart: 'Restart', scReplay: 'Replay this step', scHide: 'Hide / show top bar', scHelp: 'Toggle this help',
+
+		// ── Step 1 · intro ──
+		introTitle: 'What Is an App Service?',
+		introCaption: 'The web app itself',
+		introDesc: 'An App Service is the actual application \u2014 Contoso Retail\u2019s storefront \u2014 running on top of the App Service Plan you just met.',
+		introCallout: 'Fully managed: Azure handles the OS, the runtime, and the patching for you.',
+		introCardH: 'Your web app',
+		introCardP: 'Code + configuration, hosted on an instance from your App Service Plan.',
+		introStat1: 'Runs on', introStat1v: 'An App Service Plan',
+		introStat2: 'Managed', introStat2v: 'OS + runtime patched for you',
+		introStat3: 'Languages', introStat3v: '.NET, Node, Python, Java, PHP\u2026',
+
+		// ── Step 2 · deploy ──
+		deployTitle: 'Continuous Deployment',
+		deployCaption: 'Push code, go live',
+		deployDesc: 'Connect a source \u2014 Git, GitHub, Azure DevOps, or Bitbucket \u2014 and every push automatically builds and deploys your app.',
+		deployCallout: 'No manual uploads: commit to your branch and the pipeline takes it from there.',
+		deploySrc1: 'Git', deploySrc2: 'GitHub', deploySrc3: 'Azure DevOps', deploySrc4: 'Bitbucket',
+		deployStat1: 'Trigger', deployStat1v: 'A push to your branch',
+		deployStat2: 'Pipeline', deployStat2v: 'Build \u2192 test \u2192 deploy',
+		deployStat3: 'Result', deployStat3v: 'App updated automatically',
+
+		// ── Step 3 · slots ──
+		slotTitle: 'Deployment Slots: Zero-Downtime Releases',
+		slotCaption: 'Staging, then swap',
+		slotDesc: 'Deploy a new version to a Staging slot, test it with production settings, then swap \u2014 instantly \u2014 into Production.',
+		slotCallout: 'If something looks wrong after the swap, swap back just as fast to roll back.',
+		slotStaging: 'Staging', slotProduction: 'Production', slotVerNew: 'v2 (new)', slotVerLive: 'v1 (live)',
+		slotStat1: 'Staging', slotStat1v: 'Test with real settings',
+		slotStat2: 'Swap', slotStat2v: 'Instant, zero downtime',
+		slotStat3: 'Roll back', slotStat3v: 'Swap again to undo',
+
+		// ── Step 4 · auth ──
+		authTitle: 'Built-in Authentication (Easy Auth)',
+		authCaption: 'Sign-in without writing auth code',
+		authDesc: 'Turn on a provider in the portal \u2014 Microsoft, Google, Facebook, Apple, or email/password \u2014 and App Service handles the sign-in flow for you.',
+		authCallout: 'No custom auth code needed: App Service sits in front of your app and checks the token before requests reach it.',
+		authProv1: 'Microsoft', authProv2: 'Google', authProv3: 'Facebook', authProv4: 'Apple', authProv5: 'Email',
+		authStat1: 'Providers', authStat1v: 'Pick one or several',
+		authStat2: 'Gate', authStat2v: 'Checked before your code runs',
+		authStat3: 'Effort', authStat3v: 'Configuration, not code',
+
+		// ── Step 5 · security ──
+		secTitle: 'Custom Domains + Free TLS/SSL',
+		secCaption: 'Your brand, securely',
+		secDesc: 'Bring your own domain \u2014 like www.contoso.com \u2014 and Azure issues and renews a free managed certificate automatically.',
+		secCallout: 'HTTPS is enforced by default, so visitors always get an encrypted connection.',
+		secUrl: 'https://www.contoso.com',
+		secStat1: 'Domain', secStat1v: 'Bring your own',
+		secStat2: 'Certificate', secStat2v: 'Free, auto-renewed',
+		secStat3: 'HTTPS', secStat3v: 'Enforced by default',
+
+		// ── Step 6 · traffic ──
+		trafTitle: 'Scale Across Regions with Traffic Manager',
+		trafCaption: 'Global reach, one endpoint',
+		trafDesc: 'Run App Service in more than one region, and let Traffic Manager route each visitor to the nearest healthy region.',
+		trafCallout: 'If a region goes unhealthy, Traffic Manager automatically routes around it.',
+		trafRegion1: 'West Europe', trafRegion2: 'East US',
+		trafStat1: 'Routing', trafStat1v: 'Nearest healthy region',
+		trafStat2: 'Failover', trafStat2v: 'Automatic, no code change',
+		trafStat3: 'Scope', trafStat3v: 'Global availability',
+
+		// ── Step 7 · recap ──
+		recapTitle: 'One Platform, Many Pieces',
+		recapCaption: 'The full picture',
+		recapDesc: 'Plan (compute) + App Service (code) + continuous deployment + slots + auth + TLS + Traffic Manager = a production-ready web app.',
+		recapCallout: 'Try it yourself: create an App Service Plan, then an App Service on top of it.',
+		recapCardH: 'App Service',
+		recapCardP: 'Your web app, fully managed \u2014 from code to global scale.',
+		recapVal1: 'Deploy', recapVal2: 'Slots', recapVal3: 'Auth + TLS',
+		recapFoot: 'Start from the beginning \u2192 <a href="AppServicePlan.html" style="color:inherit;font-weight:700;">App Service Plan: The Engine Room</a>',
+		recapStat1: 'Recap', recapStat1v: 'Deploy + slots + auth + TLS',
+		recapStat2: 'Foundation', recapStat2v: 'An App Service Plan',
+		recapStat3: 'Where', recapStat3v: 'AppServicePlan.html'
+	}
+};
+I18N.es = { ...I18N.en,
+	pageTitle: 'App Service', stageHeading: 'App Service: tu app web, totalmente administrada',
+	introTitle: '\u00bfQu\u00e9 es un App Service?', introCaption: 'La app web en s\u00ed',
+	introDesc: 'Un App Service es la aplicaci\u00f3n real \u2014 la tienda de Contoso Retail \u2014 que se ejecuta sobre el Plan de App Service que acabas de conocer.',
+	introCallout: 'Totalmente administrado: Azure se encarga del sistema operativo, el runtime y los parches por ti.',
+	deployTitle: 'Implementaci\u00f3n continua', deployCaption: 'Sube el c\u00f3digo y publica',
+	deployDesc: 'Conecta un origen \u2014 Git, GitHub, Azure DevOps o Bitbucket \u2014 y cada push compila e implementa tu app autom\u00e1ticamente.',
+	slotTitle: 'Ranuras de implementaci\u00f3n: lanzamientos sin tiempo de inactividad', slotCaption: 'Staging y luego intercambio',
+	slotDesc: 'Implementa una nueva versi\u00f3n en una ranura de Staging, pru\u00e9bala con la configuraci\u00f3n de producci\u00f3n y luego intercambia \u2014 al instante \u2014 hacia Producci\u00f3n.',
+	authTitle: 'Autenticaci\u00f3n integrada (Easy Auth)', authCaption: 'Inicio de sesi\u00f3n sin escribir c\u00f3digo de autenticaci\u00f3n',
+	authDesc: 'Activa un proveedor en el portal \u2014 Microsoft, Google, Facebook, Apple o correo/contrase\u00f1a \u2014 y App Service maneja el inicio de sesi\u00f3n por ti.',
+	secTitle: 'Dominios personalizados + TLS/SSL gratis', secCaption: 'Tu marca, de forma segura',
+	secDesc: 'Trae tu propio dominio \u2014 como www.contoso.com \u2014 y Azure emite y renueva un certificado administrado gratis autom\u00e1ticamente.',
+	trafTitle: 'Escala entre regiones con Traffic Manager', trafCaption: 'Alcance global, un solo endpoint',
+	trafDesc: 'Ejecuta App Service en m\u00e1s de una regi\u00f3n y deja que Traffic Manager dirija a cada visitante a la regi\u00f3n saludable m\u00e1s cercana.',
+	recapTitle: 'Una plataforma, muchas piezas', recapCaption: 'El panorama completo',
+	recapDesc: 'Plan (c\u00f3mputo) + App Service (c\u00f3digo) + implementaci\u00f3n continua + ranuras + autenticaci\u00f3n + TLS + Traffic Manager = una app web lista para producci\u00f3n.',
+	recapFoot: 'Empieza desde el principio \u2192 <a href="AppServicePlan.html" style="color:inherit;font-weight:700;">Plan de App Service: la sala de m\u00e1quinas</a>'
+};
+I18N.ja = { ...I18N.en,
+	pageTitle: 'App Service', stageHeading: 'App Service\uff1a\u5b8c\u5168\u30de\u30cd\u30fc\u30b8\u30c9\u306a\u30a6\u30a7\u30d6\u30a2\u30d7\u30ea',
+	introTitle: 'App Service \u3068\u306f\uff1f', introCaption: '\u30a6\u30a7\u30d6\u30a2\u30d7\u30ea\u305d\u306e\u3082\u306e',
+	introDesc: 'App Service \u306f\u5b9f\u969b\u306e\u30a2\u30d7\u30ea\u30b1\u30fc\u30b7\u30e7\u30f3\uff08Contoso Retail \u306e\u30b9\u30c8\u30a2\uff09\u3067\u3042\u308a\u3001\u5148\u307b\u3069\u306e App Service \u30d7\u30e9\u30f3\u306e\u4e0a\u3067\u5b9f\u884c\u3055\u308c\u307e\u3059\u3002',
+	deployTitle: '\u7d99\u7d9a\u7684\u30c7\u30d7\u30ed\u30a4', slotTitle: '\u30c7\u30d7\u30ed\u30a4 \u30b9\u30ed\u30c3\u30c8\uff1a\u30bc\u30ed\u30c0\u30a6\u30f3\u30bf\u30a4\u30e0\u30ea\u30ea\u30fc\u30b9',
+	authTitle: '\u7d44\u307f\u8fbc\u307f\u8a8d\u8a3c\uff08Easy Auth\uff09', secTitle: '\u30ab\u30b9\u30bf\u30e0\u30c9\u30e1\u30a4\u30f3 + \u7121\u6599 TLS/SSL',
+	trafTitle: 'Traffic Manager \u3067\u30ea\u30fc\u30b8\u30e7\u30f3\u9593\u306b\u30b9\u30b1\u30fc\u30eb',
+	recapTitle: '1\u3064\u306e\u30d7\u30e9\u30c3\u30c8\u30d5\u30a9\u30fc\u30e0\u3001\u591a\u304f\u306e\u8981\u7d20', recapFoot: '\u6700\u521d\u304b\u3089\u59cb\u3081\u308b \u2192 <a href="AppServicePlan.html" style="color:inherit;font-weight:700;">App Service \u30d7\u30e9\u30f3\uff1a\u30a8\u30f3\u30b8\u30f3\u30eb\u30fc\u30e0</a>'
+};
+I18N.ko = { ...I18N.en,
+	pageTitle: 'App Service', stageHeading: 'App Service: \uC644\uC804 \uAD00\uB9AC\uD615 \uC6F9 \uC571',
+	introTitle: 'App Service\uB780?', introCaption: '\uC6F9 \uC571 \uC790\uCCB4',
+	introDesc: 'App Service\uB294 \uBC29\uAE08 \uC0B4\uD3B4\uBCF8 App Service \uD50C\uB79C \uC704\uC5D0\uC11C \uC2E4\uD589\uB418\uB294 \uC2E4\uC81C \uC560\uD50C\uB9AC\uCF00\uC774\uC158(Contoso Retail \uC2A4\uD1A0\uC5B4)\uC785\uB2C8\uB2E4.',
+	deployTitle: '\uC9C0\uC18D\uC801 \uBC30\uD3EC', slotTitle: '\uBC30\uD3EC \uC2AC\uB864: \uBB34\uC911\uB2E8 \uCD9C\uC2DC',
+	authTitle: '\uB0B4\uC7A5 \uC778\uC99D(Easy Auth)', secTitle: '\uC0AC\uC6A9\uC790 \uC9C0\uC815 \uB3C4\uBA54\uC778 + \uBB34\uB8CC TLS/SSL',
+	trafTitle: 'Traffic Manager\uB85C \uB9AC\uC804 \uAC04 \uD655\uC7A5',
+	recapTitle: '\uD558\uB098\uC758 \uD50C\uB7AB\uD3FC, \uC5EC\uB7EC \uAD6C\uC131 \uC694\uC18C', recapFoot: '\uCC98\uC74C\uBD80\uD130 \uC2DC\uC791\uD558\uAE30 \u2192 <a href="AppServicePlan.html" style="color:inherit;font-weight:700;">App Service \uD50C\uB79C: \uC5D4\uC9C4\uB8F8</a>'
+};
+I18N.pt = { ...I18N.en,
+	pageTitle: 'App Service', stageHeading: 'App Service: seu app web, totalmente gerenciado',
+	introTitle: 'O que \u00e9 um App Service?', introCaption: 'O aplicativo web em si',
+	introDesc: 'Um App Service \u00e9 a aplica\u00e7\u00e3o real \u2014 a loja da Contoso Retail \u2014 executando sobre o Plano do App Service que voc\u00ea acabou de conhecer.',
+	deployTitle: 'Implanta\u00e7\u00e3o cont\u00ednua', slotTitle: 'Slots de implanta\u00e7\u00e3o: lan\u00e7amentos sem tempo de inatividade',
+	authTitle: 'Autentica\u00e7\u00e3o integrada (Easy Auth)', secTitle: 'Dom\u00ednios personalizados + TLS/SSL gratuito',
+	trafTitle: 'Escale entre regi\u00f5es com o Traffic Manager',
+	recapTitle: 'Uma plataforma, muitas pe\u00e7as', recapFoot: 'Comece do in\u00edcio \u2192 <a href="AppServicePlan.html" style="color:inherit;font-weight:700;">Plano do App Service: a sala de m\u00e1quinas</a>'
+};
+
+function t(key) { return (I18N[currentLang] && I18N[currentLang][key]) || I18N.en[key] || key; }
+
+function setLanguage(lang) {
+	currentLang = lang;
+	document.documentElement.lang = lang;
+	document.getElementById('page-title').textContent = '\u2728 ' + t('pageTitle');
+	document.getElementById('prev-btn').title = t('prev');
+	document.getElementById('next-btn').title = t('next');
+	document.getElementById('replay-btn').title = t('replay');
+	document.getElementById('reset-btn').title = t('restart');
+	document.getElementById('speed-down').title = t('slower');
+	document.getElementById('speed-up').title = t('faster');
+	document.getElementById('outline-title').textContent = t('stepDetails');
+	document.querySelector('.skip-link').textContent = t('skipToMain');
+	document.getElementById('stage-heading').textContent = t('stageHeading');
+	document.getElementById('stage-instructions').textContent = t('stageInstructions');
+	syncCalloutBtn(); syncOutlineBtn();
+	if (typeof syncAudioBtn === 'function') syncAudioBtn();
+	if (typeof buildShortcuts === 'function') buildShortcuts();
+	try { localStorage.setItem('aw-compute-lang', lang); } catch(_){}
+	if (current >= 0) renderStep(current);
+}
+
+// ── STEPS (journey order) ─────────────────
+const STEPS = [
+	{ id:'intro', short:'Intro', titleKey:'introTitle', captionKey:'introCaption', descKey:'introDesc', calloutKey:'introCallout',
+		stats:[['introStat1','introStat1v'],['introStat2','introStat2v'],['introStat3','introStat3v']] },
+	{ id:'deploy', short:'Deploy', titleKey:'deployTitle', captionKey:'deployCaption', descKey:'deployDesc', calloutKey:'deployCallout',
+		stats:[['deployStat1','deployStat1v'],['deployStat2','deployStat2v'],['deployStat3','deployStat3v']] },
+	{ id:'slots', short:'Slots', titleKey:'slotTitle', captionKey:'slotCaption', descKey:'slotDesc', calloutKey:'slotCallout',
+		stats:[['slotStat1','slotStat1v'],['slotStat2','slotStat2v'],['slotStat3','slotStat3v']] },
+	{ id:'auth', short:'Auth', titleKey:'authTitle', captionKey:'authCaption', descKey:'authDesc', calloutKey:'authCallout',
+		stats:[['authStat1','authStat1v'],['authStat2','authStat2v'],['authStat3','authStat3v']] },
+	{ id:'security', short:'Domains + TLS', titleKey:'secTitle', captionKey:'secCaption', descKey:'secDesc', calloutKey:'secCallout',
+		stats:[['secStat1','secStat1v'],['secStat2','secStat2v'],['secStat3','secStat3v']] },
+	{ id:'traffic', short:'Traffic Manager', titleKey:'trafTitle', captionKey:'trafCaption', descKey:'trafDesc', calloutKey:'trafCallout',
+		stats:[['trafStat1','trafStat1v'],['trafStat2','trafStat2v'],['trafStat3','trafStat3v']] },
+	{ id:'recap', short:'Recap', titleKey:'recapTitle', captionKey:'recapCaption', descKey:'recapDesc', calloutKey:'recapCallout',
+		stats:[['recapStat1','recapStat1v'],['recapStat2','recapStat2v'],['recapStat3','recapStat3v']] }
+];
+
+// ── DOM REFS ──────────────────────────────
+const stage=document.getElementById('stage-frame'), svg=document.getElementById('fx-svg'),
+	counter=document.getElementById('step-counter'), breadcrumb=document.getElementById('breadcrumb'),
+	progress=document.getElementById('progress-fill'), announcer=document.getElementById('step-announcer'),
+	outlineBody=document.getElementById('outline-body'), outlinePanel=document.getElementById('step-outline'),
+	outlineBtn=document.getElementById('outline-toggle'), calloutBtn=document.getElementById('callout-toggle'),
+	langSelect=document.getElementById('lang-select');
+
+langSelect.addEventListener('change', e => setLanguage(e.target.value));
+const urlLang = new URLSearchParams(location.search).get('lang');
+let savedLang=null; try{ savedLang=localStorage.getItem('aw-compute-lang'); }catch(_){}
+if (urlLang && I18N[urlLang]) { currentLang = urlLang; langSelect.value = urlLang; }
+else if (savedLang && I18N[savedLang]) { currentLang = savedLang; langSelect.value = savedLang; }
+
+// ── Font size ─────────────────────────────
+const fontScales=[0.8,0.9,1,1.1,1.2,1.35]; let fontScaleIdx=2;
+const baseFontSize=parseFloat(getComputedStyle(document.documentElement).fontSize);
+function applyFontScale(){ document.documentElement.style.fontSize=(baseFontSize*fontScales[fontScaleIdx])+'px'; const c=document.getElementById('controls'); if(c) c.style.fontSize=baseFontSize+'px'; if(typeof current!=='undefined'&&current>=0){ const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s); } }
+function saveFont(){ try{ localStorage.setItem('aw-compute-font', String(fontScaleIdx)); }catch(_){} }
+try{ const f=parseInt(localStorage.getItem('aw-compute-font'),10); if(!isNaN(f)&&f>=0&&f<fontScales.length){ fontScaleIdx=f; applyFontScale(); } }catch(_){}
+document.getElementById('font-decrease').addEventListener('click',()=>{ if(fontScaleIdx>0){fontScaleIdx--;applyFontScale();saveFont();} });
+document.getElementById('font-increase').addEventListener('click',()=>{ if(fontScaleIdx<fontScales.length-1){fontScaleIdx++;applyFontScale();saveFont();} });
+
+let current=-1, animating=false, liveEls=[], liveTimelines=[], calloutEnabled=false;
+
+function syncCalloutBtn(){ calloutBtn.textContent=calloutEnabled?t('calloutOn'):t('calloutOff'); calloutBtn.classList.toggle('toggle-active',calloutEnabled); }
+calloutBtn.addEventListener('click',()=>{ calloutEnabled=!calloutEnabled; syncCalloutBtn(); if(current>=0) renderStep(current); }); syncCalloutBtn();
+function syncOutlineBtn(){ const on=!outlinePanel.hasAttribute('hidden'); outlineBtn.textContent=on?t('outlineOn'):t('outlineOff'); outlineBtn.classList.toggle('toggle-active',on); }
+outlineBtn.addEventListener('click',()=>{ const showing=!outlinePanel.hasAttribute('hidden'); if(showing){outlinePanel.setAttribute('hidden','');outlineBtn.setAttribute('aria-expanded','false');} else {outlinePanel.removeAttribute('hidden');outlineBtn.setAttribute('aria-expanded','true');} syncOutlineBtn(); }); syncOutlineBtn();
+
+// ── Audio narration ──────────────────
+const AUDIO_FILES = [];
+let audioEnabled=false, currentAudio=null, audioTimeout=null;
+const audioBtn=document.getElementById('audio-toggle');
+function syncAudioBtn(){ if(!audioBtn) return; audioBtn.textContent=audioEnabled?t('audioOn'):t('audioOff'); audioBtn.classList.toggle('toggle-active',audioEnabled); }
+function stopAudio(){
+	if(currentAudio){ currentAudio.pause(); currentAudio.currentTime=0; currentAudio=null; }
+	if(audioTimeout){ clearTimeout(audioTimeout); audioTimeout=null; }
+	try{ if(window.speechSynthesis) speechSynthesis.cancel(); }catch(_){}
+}
+function playStepAudio(i){
+	stopAudio();
+	if(!audioEnabled || i<0 || i>=STEPS.length) return;
+	audioTimeout=setTimeout(()=>{
+		audioTimeout=null;
+		const file=AUDIO_FILES[i];
+		if(file){ currentAudio=new Audio(file); currentAudio.play().catch(()=>{}); return; }
+		if(window.speechSynthesis){
+			const step=STEPS[i];
+			const u=new SpeechSynthesisUtterance(`${t(step.titleKey)}. ${t(step.descKey)}`);
+			u.lang=currentLang||'en';
+			try{ speechSynthesis.cancel(); speechSynthesis.speak(u); }catch(_){}
+		}
+	}, 700);
+}
+if(audioBtn){ audioBtn.addEventListener('click',()=>{ audioEnabled=!audioEnabled; try{localStorage.setItem('aw-compute-audio',audioEnabled?'1':'0');}catch(_){} syncAudioBtn(); if(audioEnabled&&current>=0) playStepAudio(current); else stopAudio(); }); }
+try{ if(localStorage.getItem('aw-compute-audio')==='1') audioEnabled=true; }catch(_){}
+syncAudioBtn();
+
+// ── Reduced motion ────────────────────────
+const motionMQ=window.matchMedia('(prefers-reduced-motion: reduce)'); let motionPaused=motionMQ.matches;
+motionMQ.addEventListener('change',e=>{ motionPaused=e.matches; renderStep(current); });
+
+// ── Helpers ───────────────────────────────
+function clearStage(){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; liveEls.forEach(el=>el.remove()); liveEls=[]; Array.from(svg.children).forEach(c=>{ if(c.tagName.toLowerCase()!=='defs') c.remove(); }); }
+function el(cls,html){ const d=document.createElement('div'); if(cls) d.className=cls; if(html!=null) d.innerHTML=html; return d; }
+const ICONS = {
+	gear:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M19.14 12.94a7.9 7.9 0 0 0 0-1.88l2-1.56-2-3.46-2.36.96a7.7 7.7 0 0 0-1.62-.94L14.8 2.5h-4l-.36 2.56c-.58.24-1.12.56-1.62.94L6.46 6.04l-2 3.46 2 1.56a7.9 7.9 0 0 0 0 1.88l-2 1.56 2 3.46 2.36-.96c.5.38 1.04.7 1.62.94l.36 2.56h4l.36-2.56c.58-.24 1.12-.56 1.62-.94l2.36.96 2-3.46-2-1.56zM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg>',
+	sparkle:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg>',
+	bulb:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-4 12.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26A7 7 0 0 0 12 2zM9 20h6v1a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1z"/></svg>',
+	check:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.55 17.6 4.4 12.45l1.86-1.86 3.29 3.29 8.19-8.19 1.86 1.86z"/></svg>',
+	party:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5zm6 11l.9 2.6L21.5 16.5l-2.6.9L18 20l-.9-2.6L14.5 16.5l2.6-.9zM6 14l.7 2 2 .7-2 .7L6 19.4l-.7-2-2-.7 2-.7z"/></svg>',
+	rocket:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2c3 3 4 6 4 9l3 3-4 1-1 4-2-3-2 3-1-4-4-1 3-3c0-3 1-6 4-9zm0 5a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>',
+	branch:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3a3 3 0 1 0 0 6 3 3 0 0 0 1-.15V10a3 3 0 0 0 3 3h3.15A3 3 0 1 0 20 12a3 3 0 0 0-2.85 2H14a1 1 0 0 1-1-1v-1.15A3 3 0 0 0 12 6h-.15A3 3 0 0 0 7 3zm0 2a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm10 8a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/></svg>',
+	swap:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4 3 8l4 4V9h9V7H7zm10 4-4 4v3H4v2h9v3l4-4z"/></svg>',
+	key:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M14 2a6 6 0 0 0-5.66 8L2 16.34V22h5.66l.34-.34V20h2v-2h2l.34-.34A6 6 0 1 0 14 2zm2 3a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z"/></svg>',
+	lock:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 10a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1zm3-1V7a4 4 0 1 1 8 0v2h-2V7a2 2 0 1 0-4 0v2z"/></svg>',
+	globe:'<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></g></svg>',
+	person:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm0 2c-4.4 0-9 2.2-9 5v3h18v-3c0-2.8-4.6-5-9-5z"/></svg>'
+};
+function icon(name){ return `<span class="ic">${ICONS[name]||''}</span>`; }
+function stepById(id){ return STEPS.find(s=>s.id===id); }
+function fitScene(scene){
+	if(!scene) return;
+	scene.style.transform='translate(-50%,-50%) scale(1)';
+	const box=stage.getBoundingClientRect();
+	const availW=box.width-32, availH=box.height-28;
+	const sw=scene.offsetWidth, sh=scene.offsetHeight;
+	if(!sw||!sh) return;
+	const k=Math.min(1, availW/sw, availH/sh);
+	scene.style.transform='translate(-50%,-50%) scale('+k+')';
+}
+function headerEls(scene){ return [scene.querySelector('.scene-title'), scene.querySelector('.scene-lead')]; }
+function buildScene(step){ const s=el('scene'); s.appendChild(el('scene-title', t(step.titleKey))); s.appendChild(el('scene-lead', t(step.descKey))); return s; }
+function maybeCallout(step){ if(!calloutEnabled) return null; const c=el('callout', t(step.calloutKey)); c.style.left='1.5rem'; c.style.top='1.5rem'; stage.appendChild(c); liveEls.push(c); return c; }
+function renderOutline(step,idx){
+	const rows=(step.stats||[]).map(([k,v])=>`<div class="stat-row"><span>${t(k)}</span><span>${t(v)}</span></div>`).join('');
+	outlineBody.innerHTML=`<div class="outline-section"><strong>${t('stepOf')} ${idx+1} / ${STEPS.length}: ${t(step.titleKey)}</strong><p style="margin-top:0.4rem;">${t(step.descKey)}</p></div>${rows?`<div class="outline-section">${rows}</div>`:''}`;
+}
+function announceStep(step,idx){ announcer.textContent=`${t('stepOf')} ${idx+1} / ${STEPS.length}: ${t(step.titleKey)}. ${t(step.descKey)}`; }
+
+// ── RENDER DISPATCH ───────────────────────
+function renderStep(i){
+	if(i<0||i>=STEPS.length) return;
+	if(animating){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; animating=false; }
+	animating=true;
+	const step=STEPS[i];
+	const outgoing=stage.querySelector('.scene:not(.scene-out)');
+	if(outgoing) liveEls=liveEls.filter(x=>x!==outgoing);
+	clearStage();
+	if(outgoing){ outgoing.style.zIndex='5';
+		if(motionPaused){ outgoing.remove(); }
+		else { outgoing.classList.remove('scene-in'); outgoing.classList.add('scene-out'); setTimeout(()=>outgoing.remove(), 240); } }
+	if(step.id==='intro') renderIntroStep();
+	else if(step.id==='deploy') renderDeployStep();
+	else if(step.id==='slots') renderSlotsStep();
+	else if(step.id==='auth') renderAuthStep();
+	else if(step.id==='security') renderSecurityStep();
+	else if(step.id==='traffic') renderTrafficStep();
+	else if(step.id==='recap') renderRecapStep();
+	const incoming=stage.querySelector('.scene:not(.scene-out)');
+	if(incoming && !motionPaused) incoming.classList.add('scene-in');
+	fitScene(incoming);
+	current=i;
+	try{ const u=new URL(location.href); u.searchParams.set('step', String(i+1)); history.replaceState(null,'',u); }catch(_){}
+	counter.textContent=`${t('stepOf')} ${current+1} / ${STEPS.length}`;
+	breadcrumb.textContent=t(step.captionKey);
+	progress.style.width=((current+1)/STEPS.length*100)+'%';
+	renderOutline(step,i); announceStep(step,i);
+	if(typeof playStepAudio==='function') playStepAudio(i);
+}
+
+// ── STEP 1 · INTRO ────────────────────────
+function renderIntroStep(){
+	const step=stepById('intro'); const scene=buildScene(step);
+	const stack=el('stack-wrap');
+	const app=el('app-tile-big', `<img src="${APP_ICON}" alt=""><span class="at-name">Contoso Retail</span><span class="at-sub">${t('introCardP')}</span>`);
+	const arrow=el('stack-arrow','\u2193');
+	const strip=el('plan-strip', `<img src="${PLAN_ICON}" alt="">App Service Plan`);
+	stack.appendChild(app); stack.appendChild(arrow); stack.appendChild(strip);
+	const pills=el('chip-row', `<span class="pill">${icon('gear')}<span>${t('introStat2')}</span></span><span class="pill">${icon('rocket')}<span>${t('introStat1')}</span></span>`);
+	scene.appendChild(stack); scene.appendChild(pills); stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	const pillEls=pills.querySelectorAll('.pill');
+	if(motionPaused){ gsap.set([...headerEls(scene), app, arrow, strip, ...pillEls], {opacity:1}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
+	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	tl.fromTo(app, {opacity:0,y:-16,scale:0.9}, {opacity:1,y:0,scale:1,duration:0.55,ease:'back.out(1.5)'}, '-=0.1');
+	tl.fromTo(arrow, {opacity:0}, {opacity:1,duration:0.3}, '-=0.15');
+	tl.fromTo(strip, {opacity:0,y:12}, {opacity:1,y:0,duration:0.4,ease:'power2.out'}, '-=0.1');
+	tl.fromTo(pillEls, {opacity:0,y:12,scale:0.85}, {opacity:1,y:0,scale:1,duration:0.4,stagger:0.1,ease:'back.out(1.8)'}, '-=0.1');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.3');
+}
+
+// ── STEP 2 · DEPLOY ───────────────────────
+function renderDeployStep(){
+	const step=stepById('deploy'); const scene=buildScene(step);
+	const row=el('source-row');
+	row.appendChild(el('source-chip', `<span class="ic">${ICONS.branch}</span><span class="sc-name">${t('deploySrc1')}</span>`));
+	row.appendChild(el('source-chip', `<span class="ic">${ICONS.branch}</span><span class="sc-name">${t('deploySrc2')}</span>`));
+	row.appendChild(el('source-chip', `<img src="${DEVOPS_ICON}" alt=""><span class="sc-name">${t('deploySrc3')}</span>`));
+	row.appendChild(el('source-chip', `<span class="ic">${ICONS.branch}</span><span class="sc-name">${t('deploySrc4')}</span>`));
+	const arrow=el('deploy-arrow','\u279C');
+	const app=el('app-tile-big', `<img src="${APP_ICON}" alt=""><span class="at-name">Contoso Retail</span>`);
+	const wrap=el('scale-wrap'); wrap.style.alignItems='center'; wrap.appendChild(row); wrap.appendChild(arrow); wrap.appendChild(app);
+	scene.appendChild(wrap); stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	const chips=row.querySelectorAll('.source-chip');
+	if(motionPaused){ gsap.set([...headerEls(scene), ...chips, arrow, app], {opacity:1}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
+	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	tl.fromTo(chips, {opacity:0,y:18,scale:0.9}, {opacity:1,y:0,scale:1,duration:0.45,stagger:0.12,ease:'back.out(1.6)'}, '-=0.05');
+	tl.fromTo(arrow, {opacity:0,scaleX:0.4}, {opacity:1,scaleX:1,duration:0.35,ease:'power2.out',transformOrigin:'left center'}, '-=0.1');
+	tl.fromTo(app, {opacity:0,scale:0.85}, {opacity:1,scale:1,duration:0.45,ease:'back.out(1.6)'}, '-=0.15');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.3');
+}
+
+// ── STEP 3 · SLOTS ────────────────────────
+function renderSlotsStep(){
+	const step=stepById('slots'); const scene=buildScene(step);
+	const wrap=el('slot-wrap');
+	const staging=el('slot-box', `<span class="sb-name">${t('slotStaging')}</span><span class="sb-ver">${t('slotVerNew')}</span>`); staging.setAttribute('data-slot','staging');
+	const swap=el('swap-icon', ICONS.swap ? `<span class="ic">${ICONS.swap}</span>` : '\u21C4');
+	const production=el('slot-box', `<span class="sb-name">${t('slotProduction')}</span><span class="sb-ver">${t('slotVerLive')}</span>`); production.setAttribute('data-slot','production');
+	wrap.appendChild(staging); wrap.appendChild(swap); wrap.appendChild(production);
+	scene.appendChild(wrap); stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	if(motionPaused){ gsap.set([...headerEls(scene), staging, swap, production], {opacity:1}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
+	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	tl.fromTo(staging, {opacity:0,x:-24,scale:0.94}, {opacity:1,x:0,scale:1,duration:0.5,ease:'back.out(1.4)'}, '-=0.05');
+	tl.fromTo(production, {opacity:0,x:24,scale:0.94}, {opacity:1,x:0,scale:1,duration:0.5,ease:'back.out(1.4)'}, '<');
+	tl.fromTo(swap, {opacity:0,rotate:-90,scale:0.6}, {opacity:1,rotate:0,scale:1,duration:0.5,ease:'back.out(1.9)'}, '-=0.2');
+	tl.to(swap, {rotate:180, duration:0.6, ease:'power2.inOut'}, '+=0.3');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.3');
+}
+
+// ── STEP 4 · AUTH ─────────────────────────
+function renderAuthStep(){
+	const step=stepById('auth'); const scene=buildScene(step);
+	const idpRow=el('idp-row');
+	[['authProv1'],['authProv2'],['authProv3'],['authProv4'],['authProv5']].forEach(([k])=>idpRow.appendChild(el('idp-chip', `<span class="ic">${ICONS.person}</span><span>${t(k)}</span>`)));
+	const arrow=el('stack-arrow','\u2193');
+	const gate=el('gate-visual'); gate.appendChild(el('gate-box', `<span class="ic">${ICONS.lock}</span>`));
+	scene.appendChild(idpRow); scene.appendChild(arrow); scene.appendChild(gate); stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	const chips=idpRow.querySelectorAll('.idp-chip'), gateBox=gate.querySelector('.gate-box');
+	if(motionPaused){ gsap.set([...headerEls(scene), ...chips, arrow, gateBox], {opacity:1}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
+	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	tl.fromTo(chips, {opacity:0,y:-14,scale:0.85}, {opacity:1,y:0,scale:1,duration:0.4,stagger:0.09,ease:'back.out(1.7)'}, '-=0.05');
+	tl.fromTo(arrow, {opacity:0}, {opacity:1,duration:0.3}, '-=0.1');
+	tl.fromTo(gateBox, {opacity:0,scale:0.7}, {opacity:1,scale:1,duration:0.5,ease:'back.out(1.7)'}, '-=0.15');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.3');
+}
+
+// ── STEP 5 · SECURITY (custom domain + TLS) ──
+function renderSecurityStep(){
+	const step=stepById('security'); const scene=buildScene(step);
+	const bar=el('domain-bar', `<span class="lock ic">${ICONS.lock}</span><span class="url">${t('secUrl')}</span>`);
+	const pills=el('chip-row', `<span class="pill"><img src="${CERT_ICON}" alt="" class="az-ic">${t('secStat2')}</span></span><span class="pill">${icon('lock')}<span>${t('secStat3')}</span></span>`);
+	scene.appendChild(bar); scene.appendChild(pills); stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	const pillEls=pills.querySelectorAll('.pill');
+	if(motionPaused){ gsap.set([...headerEls(scene), bar, ...pillEls], {opacity:1}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
+	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	tl.fromTo(bar, {opacity:0,y:16,scale:0.96}, {opacity:1,y:0,scale:1,duration:0.5,ease:'power2.out'}, '-=0.1');
+	tl.fromTo(pillEls, {opacity:0,y:12,scale:0.85}, {opacity:1,y:0,scale:1,duration:0.4,stagger:0.1,ease:'back.out(1.8)'}, '-=0.15');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.3');
+}
+
+// ── STEP 6 · TRAFFIC MANAGER ──────────────
+function renderTrafficStep(){
+	const step=stepById('traffic'); const scene=buildScene(step);
+	const wrap=el('tm-wrap');
+	const nodeA=el('tm-node', `<span class="ic">${ICONS.globe}</span><span class="tm-name">${t('trafRegion1')}</span>`);
+	const hub=el('tm-hub', `<img src="${TM_ICON}" alt="">`);
+	const nodeB=el('tm-node', `<span class="ic">${ICONS.globe}</span><span class="tm-name">${t('trafRegion2')}</span>`);
+	wrap.appendChild(nodeA); wrap.appendChild(hub); wrap.appendChild(nodeB);
+	scene.appendChild(wrap); stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	if(motionPaused){ gsap.set([...headerEls(scene), nodeA, hub, nodeB], {opacity:1}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
+	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	tl.fromTo(hub, {opacity:0,scale:0.7}, {opacity:1,scale:1,duration:0.5,ease:'back.out(1.7)'}, '-=0.05');
+	tl.fromTo([nodeA,nodeB], {opacity:0,y:18,scale:0.9}, {opacity:1,y:0,scale:1,duration:0.45,stagger:0.14,ease:'back.out(1.5)'}, '-=0.25');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.3');
+}
+
+// ── STEP 7 · RECAP ────────────────────────
+function renderRecapStep(){
+	const step=stepById('recap'); const scene=buildScene(step);
+	const card=el('card', `<span class="card-icon"><img src="${APP_ICON}" alt=""></span><span class="card-h">${t('recapCardH')}</span><span class="card-p">${t('recapCardP')}</span>`);
+	const values=el('chip-row'); [['recapVal1','rocket'],['recapVal2','check'],['recapVal3','lock']].forEach(([k,ic])=>values.appendChild(el('value-chip', `${icon(ic)}<span>${t(k)}</span>`)));
+	const foot=el('recap-foot', t('recapFoot'));
+	scene.appendChild(card); scene.appendChild(values); scene.appendChild(foot); stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	const valEls=values.querySelectorAll('.value-chip');
+	if(motionPaused){ gsap.set([...headerEls(scene), card, ...valEls, foot], {opacity:1}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
+	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	tl.fromTo(card, {opacity:0,y:20,scale:0.97}, {opacity:1,y:0,scale:1,duration:0.6,ease:'back.out(1.5)'}, '-=0.1');
+	tl.fromTo(valEls, {opacity:0,y:12,scale:0.85}, {opacity:1,y:0,scale:1,duration:0.4,stagger:0.1,ease:'back.out(1.8)'}, '-=0.1');
+	tl.fromTo(foot, {opacity:0,y:10}, {opacity:1,y:0,duration:0.5,ease:'power2.out'}, '-=0.1');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.3');
+}
+
+// ── CONTROLS ──────────────────────────────
+function focusHeading(){ const h=document.getElementById('stage-heading'); if(h){ try{ h.focus({preventScroll:true}); }catch(_){ h.focus(); } } }
+function interruptAnimation(){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; animating=false; }
+function next(){ interruptAnimation(); if(current<STEPS.length-1){ renderStep(current+1); focusHeading(); } }
+function prev(){ interruptAnimation(); if(current>0){ renderStep(current-1); focusHeading(); } }
+function reset(){ interruptAnimation(); renderStep(0); focusHeading(); }
+function replay(){ if(current<0) return; interruptAnimation(); renderStep(current); focusHeading(); }
+
+// ── Hide / show top bar ──────────────────
+(function(){
+	const hideBtn=document.getElementById('header-hide'), revealBtn=document.getElementById('header-reveal');
+	if(!hideBtn||!revealBtn) return;
+	function setHidden(h){ document.body.classList.toggle('chrome-hidden',h); hideBtn.setAttribute('aria-expanded',String(!h)); try{localStorage.setItem('aw-chrome-hidden',h?'1':'0');}catch(_){}
+		if(current>=0) requestAnimationFrame(()=>renderStep(current)); }
+	hideBtn.addEventListener('click',e=>{e.stopPropagation();setHidden(true);});
+	revealBtn.addEventListener('click',e=>{e.stopPropagation();setHidden(false);});
+	try{ if(localStorage.getItem('aw-chrome-hidden')==='1') document.body.classList.add('chrome-hidden'); }catch(_){}
+	document.addEventListener('keydown',e=>{ if(e.code==='KeyH'&&!e.metaKey&&!e.ctrlKey&&!e.altKey){ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return; e.preventDefault(); setHidden(!document.body.classList.contains('chrome-hidden')); } });
+})();
+
+document.getElementById('next-btn').addEventListener('click',e=>{e.stopPropagation();next();});
+document.getElementById('prev-btn').addEventListener('click',e=>{e.stopPropagation();prev();});
+document.getElementById('reset-btn').addEventListener('click',e=>{e.stopPropagation();reset();});
+document.getElementById('replay-btn').addEventListener('click',e=>{e.stopPropagation();replay();});
+
+// ── Clickable progress bar + step ticks ──
+(function(){
+	const track=document.querySelector('.progress-track'); if(!track) return;
+	for(let s=1; s<STEPS.length; s++){ const tk=document.createElement('div'); tk.className='progress-tick'; tk.style.left=(s/STEPS.length*100)+'%'; track.appendChild(tk); }
+	track.setAttribute('title','Jump to a step');
+	track.addEventListener('click', e=>{
+		const r=track.getBoundingClientRect(); const frac=(e.clientX-r.left)/r.width;
+		const target=Math.max(0, Math.min(STEPS.length-1, Math.floor(frac*STEPS.length)));
+		if(target!==current){ interruptAnimation(); renderStep(target); focusHeading(); }
+	});
+})();
+
+// ── Movable / pinnable control dock ───────
+(function(){
+	const dock=document.getElementById('controls'), grip=document.getElementById('ctrl-grip'), pin=document.getElementById('ctrl-pin');
+	if(!dock||!grip) return;
+	const KEY='aw-compute-controls-pos';
+	let dragging=false, sx=0, sy=0, bl=0, bt=0, moved=false;
+	function place(left,top){
+		const w=dock.offsetWidth, h=dock.offsetHeight;
+		left=Math.max(6, Math.min(left, window.innerWidth - w - 6));
+		top =Math.max(6, Math.min(top,  window.innerHeight - h - 6));
+		dock.style.left=left+'px'; dock.style.top=top+'px'; dock.style.right='auto'; dock.style.bottom='auto'; dock.style.transform='none';
+		document.body.classList.add('controls-floating');
+	}
+	function recenter(){
+		dock.style.left=dock.style.top=dock.style.right=dock.style.bottom=dock.style.transform='';
+		document.body.classList.remove('controls-floating');
+		try{ localStorage.removeItem(KEY); }catch(_){}
+	}
+	grip.addEventListener('pointerdown', e=>{
+		e.preventDefault(); dragging=true; moved=false;
+		const r=dock.getBoundingClientRect(); bl=r.left; bt=r.top; sx=e.clientX; sy=e.clientY;
+		try{ grip.setPointerCapture(e.pointerId); }catch(_){}
+	});
+	grip.addEventListener('pointermove', e=>{
+		if(!dragging) return;
+		const dx=e.clientX-sx, dy=e.clientY-sy;
+		if(Math.abs(dx)>2||Math.abs(dy)>2) moved=true;
+		place(bl+dx, bt+dy);
+	});
+	function end(e){ if(!dragging) return; dragging=false; try{ grip.releasePointerCapture(e.pointerId); }catch(_){}
+		if(moved){ try{ const r=dock.getBoundingClientRect(); localStorage.setItem(KEY, JSON.stringify({left:r.left, top:r.top})); }catch(_){} } }
+	grip.addEventListener('pointerup', end); grip.addEventListener('pointercancel', end);
+	grip.addEventListener('keydown', e=>{
+		const d=e.shiftKey?40:12; const r=dock.getBoundingClientRect(); let ok=true;
+		if(e.key==='ArrowLeft') place(r.left-d, r.top);
+		else if(e.key==='ArrowRight') place(r.left+d, r.top);
+		else if(e.key==='ArrowUp') place(r.left, r.top-d);
+		else if(e.key==='ArrowDown') place(r.left, r.top+d);
+		else ok=false;
+		if(ok){ e.preventDefault(); e.stopPropagation(); }
+	});
+	if(pin) pin.addEventListener('click', e=>{ e.stopPropagation(); recenter(); });
+	window.addEventListener('resize', ()=>{ if(document.body.classList.contains('controls-floating')){ const r=dock.getBoundingClientRect(); place(r.left, r.top); } });
+	try{ const s=JSON.parse(localStorage.getItem(KEY)||'null'); if(s && typeof s.left==='number') place(s.left, s.top); }catch(_){}
+})();
+
+// ── Speed ─────────────────────────────────
+const SPEED_STEPS=[0.5,0.75,1,1.25,1.5,2]; const BASE_TIMESCALE=0.25;
+let speedIndex=SPEED_STEPS.indexOf(1);
+try{ const sp=parseInt(localStorage.getItem('aw-compute-speed'),10); if(!isNaN(sp)&&sp>=0&&sp<SPEED_STEPS.length) speedIndex=sp; }catch(_){}
+const speedLabel=document.getElementById('speed-label'), speedDownBtn=document.getElementById('speed-down'), speedUpBtn=document.getElementById('speed-up');
+function saveSpeed(){ try{ localStorage.setItem('aw-compute-speed', String(speedIndex)); }catch(_){} }
+function syncSpeedUI(){ const spd=SPEED_STEPS[speedIndex]; speedLabel.textContent=spd+'\u00d7'; speedDownBtn.disabled=speedIndex===0; speedUpBtn.disabled=speedIndex===SPEED_STEPS.length-1; gsap.globalTimeline.timeScale(spd*BASE_TIMESCALE); }
+syncSpeedUI();
+speedDownBtn.addEventListener('click',e=>{e.stopPropagation(); if(speedIndex>0){speedIndex--;syncSpeedUI();saveSpeed();}});
+speedUpBtn.addEventListener('click',e=>{e.stopPropagation(); if(speedIndex<SPEED_STEPS.length-1){speedIndex++;syncSpeedUI();saveSpeed();}});
+
+// ── Keyboard ──────────────────────────────
+if (window.AW && AW.keyboard) { AW.keyboard.bind({ next, prev, reset, replay }); }
+else { document.addEventListener('keydown', e => {
+	if (['Space','ArrowRight','Enter'].includes(e.code)) { e.preventDefault(); next(); }
+	else if (e.code==='ArrowLeft') { e.preventDefault(); prev(); }
+	else if (e.code==='KeyR') { e.preventDefault(); reset(); }
+	else if (e.code==='KeyP') { e.preventDefault(); replay(); }
+}); }
+
+// ── Touch swipe (tablets) ─────────────────
+(function(){
+	const surf=document.getElementById('stage'); if(!surf) return;
+	let x0=null,y0=null,t0=0;
+	surf.addEventListener('touchstart',e=>{ if(e.touches.length!==1){x0=null;return;} x0=e.touches[0].clientX; y0=e.touches[0].clientY; t0=Date.now(); },{passive:true});
+	surf.addEventListener('touchend',e=>{
+		if(x0===null) return; const tch=e.changedTouches[0]; const dx=tch.clientX-x0, dy=tch.clientY-y0; x0=null;
+		if(Date.now()-t0>800) return;
+		if(Math.abs(dx)>50 && Math.abs(dx)>Math.abs(dy)*1.6){ if(dx<0) next(); else prev(); }
+	},{passive:true});
+})();
+
+// ── Keyboard shortcut help overlay ────────
+(function(){
+	const overlay=document.getElementById('shortcut-overlay'), btn=document.getElementById('help-toggle'), closeBtn=document.getElementById('sc-close'), list=document.getElementById('sc-list');
+	if(!overlay||!list) return;
+	const ROWS=[[['\u2192','Space'],'scNext'],[['\u2190'],'scPrev'],[['R'],'scRestart'],[['P'],'scReplay'],[['H'],'scHide'],[['?'],'scHelp']];
+	window.buildShortcuts=function(){ const title=document.getElementById('sc-title'); if(title) title.textContent=t('scTitle');
+		list.innerHTML=ROWS.map(([keys,k])=>`<li><span>${t(k)}</span><span class="sc-keys">${keys.map(x=>`<kbd>${x}</kbd>`).join('')}</span></li>`).join(''); };
+	buildShortcuts();
+	function open(){ overlay.removeAttribute('hidden'); if(closeBtn) closeBtn.focus(); }
+	function close(){ overlay.setAttribute('hidden',''); if(btn) btn.focus(); }
+	function toggle(){ overlay.hasAttribute('hidden')?open():close(); }
+	if(btn) btn.addEventListener('click',e=>{e.stopPropagation();toggle();});
+	if(closeBtn) closeBtn.addEventListener('click',e=>{e.stopPropagation();close();});
+	const bd=overlay.querySelector('.sc-backdrop'); if(bd) bd.addEventListener('click',close);
+	document.addEventListener('keydown',e=>{ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return;
+		if(e.key==='?'){ e.preventDefault(); toggle(); }
+		else if(e.key==='Escape' && !overlay.hasAttribute('hidden')){ e.preventDefault(); close(); } });
+})();
+
+// ── Resize ────────────────────────────────
+let resizeTimer;
+window.addEventListener('resize',()=>{ clearTimeout(resizeTimer); resizeTimer=setTimeout(()=>renderStep(current),200); });
+
+// ── Init ──────────────────────────────────
+setLanguage(currentLang);
+counter.textContent = `1 / ${STEPS.length}`;
+const urlStep = parseInt(new URLSearchParams(location.search).get('step'), 10);
+renderStep((!isNaN(urlStep) && urlStep>=1 && urlStep<=STEPS.length) ? urlStep-1 : 0);
+</script>
+<script src="../lib/js/aw-present.js"></script>
+
+</body>
+</html>
