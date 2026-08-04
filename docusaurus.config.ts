@@ -153,8 +153,8 @@ const config: Config = {
           label: 'Created with ❤️ by Microsoft Technical Trainers & MCTs',
         },
         {
-          href: '/v2/AI/Foundry/index.html',
-          label: '🚀 Try our new AI Journey animations ✨',
+          href: '/v2/index.html',
+          label: '🚀 Try our new animated journeys ✨',
           position: 'right',
           className: 'navbar-ai-journey',
           target: '_blank',
