@@ -98,6 +98,29 @@
 	.theme-toggle .theme-icon { display:none; }
 	.theme-toggle[data-theme="dark"] .icon-sun { display:block; }
 	.theme-toggle[data-theme="light"] .icon-moon { display:block; }
+	#audio-toggle { font-size:1.05rem; line-height:1; }
+	#audio-toggle.on { border-color:var(--cs-teal); background:linear-gradient(90deg,var(--cs-teal),var(--cs-blue)); color:#fff; }
+	/* Audio-mode discovery hint: glow the speaker + point an animated finger until narration is on. */
+	.audio-cta-wrap { position:relative; display:inline-flex; align-items:center; }
+	#audio-toggle:not(.on) { animation:audioGlow 1.8s ease-in-out infinite; }
+	.audio-hint {
+		position:absolute; left:50%; top:100%; margin-top:6px;
+		font-size:2.5rem; line-height:1; pointer-events:none; z-index:5;
+		filter:drop-shadow(0 3px 8px rgba(0,0,0,0.35));
+		animation:audioFinger 1s ease-in-out infinite;
+	}
+	#audio-toggle.on ~ .audio-hint { display:none; }
+	@keyframes audioGlow {
+		0%,100% { box-shadow:0 0 0 0 rgba(0,120,212,0); }
+		50%     { box-shadow:0 0 16px 5px rgba(0,120,212,0.65); }
+	}
+	@keyframes audioFinger {
+		0%,100% { transform:translate(-50%,3px); }
+		50%     { transform:translate(-50%,-4px); }
+	}
+	@media (prefers-reduced-motion: reduce) {
+		#audio-toggle:not(.on), .audio-hint { animation:none; }
+	}
 	a:focus-visible, button:focus-visible { outline:2px solid var(--cs-blue); outline-offset:3px; border-radius:6px; }
 
 	/* ── HERO ─────────────────────────────── */
@@ -313,6 +336,10 @@
 				<option value="ko">한국어</option>
 				<option value="pt">Português</option>
 			</select>
+			<span class="audio-cta-wrap">
+				<button id="audio-toggle" class="theme-toggle" aria-label="Toggle narration audio" aria-pressed="false" title="Narration audio"><span class="aw-audio-ico" aria-hidden="true">🔇</span></button>
+				<span class="audio-hint" aria-hidden="true">👆</span>
+			</span>
 			<button id="theme-toggle" class="theme-toggle" data-theme="dark" aria-label="Toggle light/dark theme" title="Toggle theme">
 				<svg class="theme-icon icon-sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
 				<svg class="theme-icon icon-moon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
@@ -615,6 +642,20 @@
 		};
 
 		var LANG_STORAGE_KEY = 'aw-lang';
+		var AUDIO_STORAGE_KEY = 'aw-csan-audio';
+		var activeLang = 'en';
+		function audioOn() { try { return localStorage.getItem(AUDIO_STORAGE_KEY) === '1'; } catch (e) { return false; } }
+		function updateCardLinks() {
+			var on = audioOn();
+			document.querySelectorAll('a.journey-card').forEach(function (a) {
+				var base = a.getAttribute('data-href') || a.getAttribute('href');
+				if (!base) return;
+				if (!a.getAttribute('data-href')) a.setAttribute('data-href', base);
+				base = base.split('?')[0].split('#')[0];
+				var qs = '?lang=' + encodeURIComponent(activeLang) + (on ? '&audio=on' : '');
+				a.setAttribute('href', base + qs);
+			});
+		}
 
 		function applyLanguage(lang) {
 			if (!I18N[lang]) lang = 'en';
@@ -628,15 +669,10 @@
 				var k = el.dataset.i18nHtml;
 				if (dict[k] != null) el.innerHTML = dict[k];
 			});
-			// Propagate the chosen language to the journey cards via ?lang= so the
-			// linked animation pages open in the same language.
-			document.querySelectorAll('a.journey-card').forEach(function (a) {
-				var base = a.getAttribute('data-href') || a.getAttribute('href');
-				if (!base) return;
-				if (!a.getAttribute('data-href')) a.setAttribute('data-href', base);
-				base = base.split('?')[0].split('#')[0];
-				a.setAttribute('href', base + '?lang=' + encodeURIComponent(lang));
-			});
+			// Propagate the chosen language + narration preference to the journey
+			// cards via ?lang= (and &audio=on) so linked pages open the same way.
+			activeLang = lang;
+			updateCardLinks();
 			try { localStorage.setItem(LANG_STORAGE_KEY, lang); } catch (e) {}
 		}
 
@@ -660,6 +696,32 @@
 				langSelect.addEventListener('change', function (e) { applyLanguage(e.target.value); });
 			}
 			applyLanguage(saved);
+
+			var audioBtn = document.getElementById('audio-toggle');
+			var audioIco = audioBtn && audioBtn.querySelector('.aw-audio-ico');
+			var welcomeAudio = null;
+			function welcomeSrc() { return 'audio/index/' + (activeLang === 'en' ? '' : activeLang + '/') + 'step-01.mp3'; }
+			function stopWelcome() { if (welcomeAudio) { welcomeAudio.pause(); welcomeAudio.currentTime = 0; welcomeAudio = null; } }
+			function playWelcome() { stopWelcome(); welcomeAudio = new Audio(welcomeSrc()); welcomeAudio.play().catch(function () {}); }
+			function syncAudioBtn() {
+				if (!audioBtn) return;
+				var on = audioOn();
+				if (audioIco) audioIco.textContent = on ? '🔊' : '🔇';
+				audioBtn.classList.toggle('on', on);
+				audioBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+			}
+			if (audioBtn) {
+				audioBtn.addEventListener('click', function () {
+					var on = !audioOn();
+					try { localStorage.setItem(AUDIO_STORAGE_KEY, on ? '1' : '0'); } catch (e) {}
+					syncAudioBtn();
+					updateCardLinks();
+					if (on) playWelcome(); else stopWelcome();
+				});
+			}
+			// If audio is on and the language changes, replay the welcome in the new language.
+			if (langSelect) { langSelect.addEventListener('change', function () { if (audioOn()) playWelcome(); }); }
+			syncAudioBtn();
 		})();
 	</script>
 </body>

@@ -1,0 +1,1866 @@
+<!DOCTYPE html>
+<!-- Narration script: /static/narration/v2/Storage/StorageDataProtection.md -->
+<html lang="en">
+<head>
+	<script src="/js/tracking.js"></script>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+	<meta name="description" content="Protect Azure Blob data — soft delete, blob versioning, point-in-time restore, change feed, immutability (WORM), and encryption (SSE, customer-managed keys, encryption scopes)." />
+	<title>Azure Storage Data Protection &amp; Encryption · Azure Animations</title>
+
+	<link rel="stylesheet" href="https://unpkg.com/@microsoft/atlas-css/dist/index.css" />
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+	<!-- AnimationWorks shared lib (one level under static/v2/ → ../lib/) -->
+	<script src="../lib/js/aw-easings.js"></script>
+	<script src="../lib/js/aw-motion.js"></script>
+	<script src="../lib/js/aw-theme.js"></script>
+	<script src="../lib/js/aw-keyboard.js"></script>
+	<script src="../lib/js/aw-captions.js?v=3"></script>
+
+<style>
+	/* ── SHELL ─────────────────────────────── */
+	:root {
+		--aw-purple:#5c2d91; --aw-blue:#0078d4; --aw-green:#10a37f; --aw-orange:#e97526; --aw-pink:#d24aa8;
+		--aw-cyan:#00b7c3;
+	}
+	html, body { height:100%; margin:0; }
+	html { font-size:100%; }
+	body {
+		display:flex; flex-direction:column; height:100vh;
+		overflow:hidden;
+		font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif;
+		color: var(--theme-text);
+		background:
+			radial-gradient(circle at 15% 20%, rgba(92,45,145,0.18) 0%, transparent 55%),
+			radial-gradient(circle at 85% 80%, rgba(0,120,212,0.18) 0%, transparent 55%),
+			var(--theme-body-background);
+	}
+	.app-header { display:flex; align-items:center; gap:1rem; flex-shrink:0; flex-wrap:wrap; font-size:16px; }
+
+	#stage {
+		position:relative; flex:1 1 auto; width:100%; min-height:0;
+		display:flex; align-items:center; justify-content:center;
+		overflow:hidden; container-type:size;
+		padding:1.75rem 2.75rem 5rem;
+	}
+	#stage:focus-visible, button:focus-visible, a:focus-visible, select:focus-visible {
+		outline:2px solid var(--theme-primary, #0078d4); outline-offset:3px; border-radius:4px;
+	}
+	#stage-frame {
+		position:relative; overflow:hidden;
+		width: min(100cqw, calc(100cqh * 16 / 9));
+		aspect-ratio: 16 / 9; max-width:100%; max-height:100%;
+		border-radius:16px;
+		background: rgba(0,0,0,0.015);
+		box-shadow: 0 12px 44px rgba(0,0,0,0.22);
+	}
+	body.theme-dark #stage-frame { background: rgba(255,255,255,0.025); }
+	#stage-frame::before {
+		content:""; position:absolute; inset:0; border-radius:inherit; padding:2.5px;
+		background: linear-gradient(135deg, var(--aw-purple) 0%, var(--aw-blue) 55%, var(--aw-pink) 100%);
+		-webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+		mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+		-webkit-mask-composite: xor; mask-composite: exclude;
+		pointer-events:none; z-index:20;
+	}
+	#fx-svg { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:6; overflow:visible; }
+
+	/* ── SCENE ─────────────────────────────── */
+	.scene {
+		position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+		transform-origin:center center;
+		width:min(1150px, 96%); z-index:10;
+		display:flex; flex-direction:column; align-items:center; gap:1.4rem;
+	}
+	@keyframes awSceneIn { from { opacity:0; } to { opacity:1; } }
+	@keyframes awSceneOut { from { opacity:1; } to { opacity:0; } }
+	.scene.scene-in { animation: awSceneIn 0.2s ease both; }
+	.scene.scene-out { animation: awSceneOut 0.2s ease both; }
+	.scene-title { font-size:2.5rem; font-weight:700; color:var(--theme-tertiary, #5c2d91); margin:0; text-align:center; opacity:0; }
+	body.theme-dark .scene-title { color:#c9a5e8; }
+	.scene-lead { margin:0; text-align:center; font-size:1.35rem; color:var(--theme-text); max-width:1040px; line-height:1.5; opacity:0; min-height:6.2rem; display:flex; align-items:center; justify-content:center; }
+
+	/* ── CALLOUT ───────────────────────────── */
+	.callout {
+		position:absolute; max-width:340px; padding:1rem 1.2rem;
+		background:var(--theme-body-background);
+		background:color-mix(in srgb, var(--theme-body-background) 84%, transparent);
+		-webkit-backdrop-filter:blur(5px); backdrop-filter:blur(5px);
+		border:1px solid var(--theme-border);
+		border-left:4px solid var(--theme-tertiary, #5c2d91); border-radius:6px;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2));
+		font-size:1.05rem; line-height:1.45; z-index:14; opacity:0;
+		cursor:grab; touch-action:none;
+	}
+	.callout:active { cursor:grabbing; }
+
+	/* ── RESET "PIN" · appears on a draggable panel once moved/resized ── */
+	.aw-drag-reset {
+		position:absolute; width:24px; height:24px; padding:0; display:none;
+		align-items:center; justify-content:center; border-radius:50%;
+		background:var(--theme-tertiary,#5c2d91); color:#fff;
+		border:2px solid var(--theme-body-background,#fff);
+		box-shadow:0 2px 7px rgba(0,0,0,0.4); cursor:pointer; z-index:6;
+		opacity:0.92; transition:opacity .14s ease, transform .14s ease;
+	}
+	.aw-drag-reset:hover { opacity:1; transform:scale(1.08); }
+	.aw-drag-reset:focus-visible { outline:2px solid #5cc8ff; outline-offset:2px; }
+	.aw-drag-reset svg { width:13px; height:13px; display:block; }
+
+	/* ── PLAYER OVERLAY · bottom-right of the stage frame (YouTube-style) ── */
+	.stage-overlay {
+		position:absolute; right:12px; bottom:10px; z-index:25;
+		display:flex; align-items:center; gap:2px;
+		padding:3px 6px; border-radius:999px;
+		background:rgba(16,18,24,0.58);
+		backdrop-filter:blur(9px) saturate(1.3); -webkit-backdrop-filter:blur(9px) saturate(1.3);
+		box-shadow:0 4px 16px rgba(0,0,0,0.32);
+	}
+	.ovl-btn {
+		-webkit-appearance:none; appearance:none; margin:0; font:inherit;
+		display:inline-flex; align-items:center; justify-content:center; gap:4px;
+		min-width:30px; height:30px; padding:0 8px;
+		border:none !important; border-radius:999px !important;
+		background:transparent !important; color:#fff !important;
+		box-shadow:none !important; cursor:pointer; line-height:1;
+		font-size:0.82rem; font-weight:700; opacity:0.92; transition:background .15s ease, opacity .15s ease;
+	}
+	.ovl-btn:hover { background:rgba(255,255,255,0.16) !important; opacity:1; }
+	.ovl-btn:disabled { opacity:0.4; cursor:not-allowed; }
+	.ovl-btn svg { width:18px; height:18px; fill:currentColor; display:block; }
+	.ovl-btn.on { color:#5cc8ff !important; }
+	.stage-overlay #audio-toggle { opacity:1 !important; }
+	.stage-overlay .aw-audio-ico { font-size:1rem; line-height:1; }
+	.stage-overlay .aw-audio-time { font-size:0.78rem; font-variant-numeric:tabular-nums; letter-spacing:0.02em; opacity:0.95; min-width:2.4em; text-align:left; }
+	#cc-toggle svg { width:20px; height:20px; }
+	.ovl-btn .fs-exit { display:none; }
+	body.is-fs .ovl-btn .fs-enter { display:none; }
+	body.is-fs .ovl-btn .fs-exit { display:block; }
+
+	/* ── LEFT VIEW-OPTIONS PILL · Callout / Outline / Shortcuts (icon + hover tip) ── */
+	.stage-overlay-left { right:auto; left:12px; }
+	#stage-overlay-left .ovl-btn:not(.toggle-active) { opacity:0.86; }
+	#stage-overlay-left .ovl-btn.toggle-active { color:#5cc8ff !important; opacity:1; }
+	#stage-overlay-left .ovl-btn:hover { opacity:1; }
+	.ovl-btn[data-tip] { position:relative; }
+	.ovl-btn[data-tip]::after { content:attr(data-tip); position:absolute; left:0; bottom:calc(100% + 9px); transform:translateY(4px); padding:4px 8px; border-radius:6px; background:rgba(16,18,24,0.96); color:#fff; font-size:0.72rem; font-weight:600; white-space:nowrap; letter-spacing:0.01em; opacity:0; pointer-events:none; box-shadow:0 3px 12px rgba(0,0,0,0.45); transition:opacity .14s ease, transform .14s ease; z-index:40; }
+	.ovl-btn[data-tip]::before { content:''; position:absolute; left:13px; bottom:calc(100% + 4px); border:5px solid transparent; border-top-color:rgba(16,18,24,0.96); opacity:0; pointer-events:none; transition:opacity .14s ease; z-index:40; }
+	.ovl-btn[data-tip]:hover::after { opacity:1; transform:translateY(0); }
+	.ovl-btn[data-tip]:hover::before { opacity:1; }
+
+	/* ── CAPTION · overlaid in the frame, draggable + resizable, stays solid ── */
+	#aw-caption {
+		position:absolute; left:50%; transform:translateX(-50%); bottom:56px; z-index:24;
+		max-width:92%; min-width:140px; min-height:38px; max-height:44%;
+		display:none; align-items:center; justify-content:center; text-align:center;
+		padding:0.42rem 0.95rem; border-radius:9px;
+		background:rgba(8,9,13,0.8); color:#fff;
+		font-size:1.1rem; line-height:1.36; font-weight:600;
+		box-shadow:0 3px 14px rgba(0,0,0,0.42); pointer-events:auto; cursor:grab; touch-action:none;
+		overflow:auto; resize:both;
+	}
+	#aw-caption:active { cursor:grabbing; }
+	#aw-caption::-webkit-resizer { background:linear-gradient(135deg, transparent 45%, rgba(255,255,255,0.55) 45%, rgba(255,255,255,0.55) 55%, transparent 55%); }
+	body.cc-on #aw-caption.has-text { display:flex; }
+	@media (max-width:640px){ #aw-caption { font-size:0.94rem; bottom:48px; max-width:90%; } }
+	#cc-toggle.toggle-active { color:var(--theme-primary,#0078d4); background:var(--theme-primary-translucent, rgba(0,120,212,0.14)); }
+
+	/* ══ REUSABLE BUILDING BLOCKS ══ */
+	.card {
+		width:min(680px, 96%); padding:1.6rem 1.8rem; border-radius:16px;
+		background:var(--theme-card-background, #fff); border:2px solid var(--theme-border);
+		box-shadow:0 8px 28px rgba(0,0,0,0.14); opacity:0;
+		display:flex; flex-direction:column; gap:0.6rem; align-items:center; text-align:center;
+	}
+	body.theme-dark .card { background:rgba(255,255,255,0.05); }
+	.card .card-icon { font-size:3rem; line-height:1; color:var(--theme-tertiary,#5c2d91); }
+	.card .card-h { font-size:1.4rem; font-weight:700; }
+	.card .card-p { font-size:1.05rem; color:var(--theme-text-subtle); line-height:1.5; }
+
+	.ta-card {
+		width:min(1000px, 98%); border:1.5px solid var(--theme-border); border-radius:14px;
+		background:var(--theme-card-background, #fff); box-shadow:0 8px 30px rgba(0,0,0,0.16);
+		padding:1.1rem 1.3rem; opacity:0;
+	}
+	body.theme-dark .ta-card { background:rgba(255,255,255,0.05); }
+	.ta-card-head {
+		display:flex; align-items:center; justify-content:center; gap:0.5rem;
+		font-size:1rem; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;
+		color:var(--theme-text-subtle); margin-bottom:0.6rem;
+	}
+	.ta-card-head .ic { color:var(--theme-tertiary,#5c2d91); }
+	.ta-card-text { font-size:1.22rem; line-height:1.55; color:var(--theme-text); text-align:center; }
+
+	.chip-row { display:flex; flex-wrap:wrap; gap:0.7rem; justify-content:center; }
+	.pill {
+		display:inline-flex; align-items:center; gap:0.5rem; padding:0.55rem 1.1rem;
+		border-radius:999px; font-size:1.05rem; font-weight:600;
+		border:2px solid var(--theme-tertiary, #5c2d91); background:rgba(92,45,145,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .pill { background:rgba(92,45,145,0.2); }
+	.pill .ic { color:var(--theme-tertiary,#5c2d91); }
+	.value-chip {
+		display:inline-flex; align-items:center; gap:0.4rem; padding:0.5rem 1rem;
+		border-radius:999px; font-size:1rem; font-weight:700;
+		border:2px solid #107c10; background:rgba(16,124,16,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .value-chip { background:rgba(16,124,16,0.16); }
+	.value-chip .ic { color:#10a37f; }
+	.recap-foot { font-size:1.05rem; color:var(--theme-text); text-align:center; max-width:860px; opacity:0; }
+	.recap-foot a { color:var(--aw-blue, #0078d4); font-weight:700; text-decoration:underline; }
+	body.theme-dark .recap-foot a { color:#5aa9ff; }
+
+	.agent-node {
+		display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.2rem;
+		width:160px; height:160px; border-radius:24px;
+		background: linear-gradient(135deg, rgba(92,45,145,0.12), rgba(0,120,212,0.12));
+		border:2.5px solid var(--theme-tertiary, #5c2d91);
+		box-shadow:0 8px 28px rgba(92,45,145,0.2); flex-shrink:0; text-align:center; padding:0.4rem;
+	}
+	.agent-node .an-icon { font-size:2.8rem; line-height:1; color:var(--theme-tertiary,#5c2d91); }
+	.agent-node .an-label { font-size:1.15rem; font-weight:700; color:var(--theme-text); }
+	.agent-node .an-sub { font-size:1rem; color:var(--theme-text-subtle); line-height:1.34; }
+	.ta-flow { display:flex; align-items:center; justify-content:center; gap:1.2rem; flex-wrap:wrap; width:100%; }
+	.ta-flow .agent-node { width:185px; height:182px; }
+	.ta-arrow { font-size:1.9rem; color:var(--theme-tertiary,#5c2d91); opacity:0; }
+	.ta-arrow.is-big { font-size:3rem; }
+	@media (max-width:760px) { .ta-flow .ta-arrow { transform:rotate(90deg); } }
+
+	.uc-grid { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:1.1rem; width:min(980px,96%); }
+	@media (max-width:720px) { .uc-grid { grid-template-columns:1fr; } }
+	.uc-card {
+		display:flex; flex-direction:column; gap:0.5rem; padding:1rem 1.15rem;
+		border:1.5px solid var(--theme-border); border-top:4px solid var(--theme-primary,#0078d4);
+		border-radius:14px; background:var(--theme-card-background, #fff);
+		box-shadow:0 6px 22px rgba(0,0,0,0.12); opacity:0;
+		transition:transform 0.2s ease, box-shadow 0.2s ease;
+	}
+	.uc-card:hover { transform:translateY(-4px); box-shadow:0 12px 30px rgba(0,0,0,0.18); }
+	body.theme-dark .uc-card { background:rgba(255,255,255,0.05); }
+	.uc-card[data-uc="a"] { border-top-color:#0078d4; }
+	.uc-card[data-uc="b"] { border-top-color:#10a37f; }
+	.uc-card[data-uc="c"] { border-top-color:#e97526; }
+	.uc-card[data-uc="d"] { border-top-color:#d24aa8; }
+	.uc-head { display:flex; align-items:center; gap:0.55rem; font-size:1.25rem; font-weight:700; color:var(--theme-text); }
+	.uc-head .uc-icon { font-size:1.7rem; display:inline-flex; }
+	.uc-card[data-uc="a"] .uc-icon { color:#0078d4; }
+	.uc-card[data-uc="b"] .uc-icon { color:#10a37f; }
+	.uc-card[data-uc="c"] .uc-icon { color:#e97526; }
+	.uc-card[data-uc="d"] .uc-icon { color:#d24aa8; }
+	.uc-desc { font-size:0.98rem; line-height:1.55; color:var(--theme-text-subtle); }
+	.uc-caps { display:flex; flex-wrap:wrap; gap:0.4rem; margin-top:0.2rem; }
+	.uc-cap {
+		display:inline-flex; align-items:center; gap:0.3rem; padding:0.25rem 0.7rem;
+		border-radius:999px; font-size:0.88rem; font-weight:700;
+		background:rgba(0,120,212,0.1); color:var(--theme-text);
+		border:1.5px solid rgba(0,120,212,0.4); opacity:0;
+	}
+
+	/* ── PERFORMANCE DUO (Standard vs Premium) ── */
+	.duo { display:flex; gap:1.4rem; justify-content:center; flex-wrap:wrap; width:100%; }
+	.duo-card {
+		flex:1 1 320px; max-width:430px;
+		border:1.5px solid var(--theme-border); border-top:5px solid var(--dc,#0078d4);
+		border-radius:16px; background:var(--theme-card-background, #fff);
+		box-shadow:0 8px 28px rgba(0,0,0,0.14); padding:1.3rem 1.4rem; opacity:0;
+		display:flex; flex-direction:column; gap:0.7rem;
+	}
+	body.theme-dark .duo-card { background:rgba(255,255,255,0.05); }
+	.duo-card .dc-head { display:flex; align-items:center; gap:0.6rem; font-size:1.45rem; font-weight:800; color:var(--theme-text); }
+	.duo-card .dc-head .ic { color:var(--dc); font-size:1.8rem; }
+	.duo-card .dc-sub { font-size:1.02rem; color:var(--theme-text-subtle); line-height:1.55; }
+	.duo-card .dc-list { display:flex; flex-wrap:wrap; gap:0.45rem; }
+	.duo-card .pill { border-color:var(--dc); background:color-mix(in srgb, var(--dc) 10%, transparent); font-size:0.95rem; }
+	.duo-card .pill .ic { color:var(--dc); }
+
+	/* ── SAS explainer scene bits ── */
+	.trio { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:1.1rem; width:min(1040px,97%); }
+	@media (max-width:760px){ .trio { grid-template-columns:1fr; } }
+	.duo-card .dc-head .dc-emoji { font-size:1.9rem; line-height:1; }
+	.sas-url { font-family:'Cascadia Code','Consolas',monospace; font-size:0.98rem; line-height:1.8; text-align:center; word-break:break-all; background:var(--theme-card-background,#fff); border:1.5px solid var(--theme-border); border-radius:14px; padding:0.95rem 1.2rem; box-shadow:0 8px 30px rgba(0,0,0,0.14); width:min(880px,96%); opacity:0; }
+	body.theme-dark .sas-url { background:rgba(255,255,255,0.05); }
+	.sas-url .u-base { color:var(--theme-text-subtle); }
+	.sas-url .u-perm { color:#107c41; font-weight:800; }
+	.sas-url .u-time { color:#e97526; font-weight:800; }
+	.sas-url .u-key  { color:#0078d4; font-weight:800; }
+	.sas-url .u-sig  { color:#5c2d91; font-weight:800; }
+	.rec-badge { display:inline-block; margin-left:0.45rem; font-size:0.62rem; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; color:#fff; background:linear-gradient(90deg,#107c41,#0b6a37); border-radius:999px; padding:2px 9px; vertical-align:middle; }
+	.uc-action { display:block; font-weight:800; font-size:1.02rem; color:var(--tc,#0078d4); margin-top:0.1rem; }
+
+	/* ── DATA-PROTECTION TIME MACHINE — a version timeline, assembles step-by-step ── */
+	.sas-map { position:relative; width:1140px; height:480px; margin:0.1rem auto 0; flex:0 0 auto; }
+	.map-svg { position:absolute; inset:0; width:1140px; height:480px; overflow:visible; pointer-events:none; z-index:1; }
+	.map-svg path { fill:none; stroke:var(--theme-text-subtle,#8a8a9a); stroke-width:4; stroke-linecap:round; opacity:0; }
+	.map-svg marker path { fill:var(--theme-text,#3a3a44); stroke:none; opacity:1; }
+	/* framed data-protection zone */
+	.sa-boundary { position:absolute; left:24px; top:52px; width:1092px; height:380px; z-index:0;
+		border:2.5px dashed color-mix(in srgb,#0b6a37 55%,transparent); border-radius:22px;
+		background:color-mix(in srgb,#0b6a37 5%,transparent); opacity:0; }
+	body.theme-dark .sa-boundary { background:color-mix(in srgb,#3fbf6f 7%,transparent); border-color:color-mix(in srgb,#3fbf6f 45%,transparent); }
+	.sa-boundary-label { position:absolute; left:22px; top:-20px; display:inline-flex; align-items:center; gap:0.45rem;
+		padding:0.32rem 0.9rem; border-radius:999px; background:var(--theme-card-background,#fff);
+		border:1.8px solid color-mix(in srgb,#0b6a37 55%,transparent); font-size:1.15rem; font-weight:600; color:var(--theme-text); box-shadow:0 4px 14px rgba(0,0,0,0.1); }
+	body.theme-dark .sa-boundary-label { background:#241b33; }
+	.sa-boundary-label .az-ic { width:1.4em; height:1.4em; }
+	/* the time axis */
+	.tl-axis { position:absolute; left:66px; top:236px; width:764px; height:5px; border-radius:999px; z-index:1;
+		background:linear-gradient(90deg, color-mix(in srgb,#5c2d91 20%,transparent), #5c2d91); opacity:0; }
+	.tl-axis::after { content:''; position:absolute; right:-2px; top:50%; transform:translateY(-50%); border-width:8px 0 8px 13px; border-style:solid; border-color:transparent transparent transparent #5c2d91; }
+	.tl-lab { position:absolute; z-index:1; font-size:0.85rem; font-weight:700; color:var(--theme-text-subtle); opacity:0; }
+	/* protection cards */
+	.dp-node { position:absolute; box-sizing:border-box; z-index:3; border-radius:15px;
+		background:var(--theme-card-background,#fff); border:1.6px solid var(--theme-border); border-top:5px solid var(--nc,#0078d4);
+		box-shadow:0 10px 26px rgba(0,0,0,0.14); padding:0.55rem 0.75rem; display:flex; flex-direction:column; gap:0.28rem; opacity:0; }
+	body.theme-dark .dp-node { background:rgba(255,255,255,0.06); }
+	.dp-node .dn-head { display:flex; align-items:center; gap:0.45rem; font-weight:600; color:var(--theme-text); line-height:1.12; }
+	.dp-node .dn-emoji { font-size:1.6rem; line-height:1; display:flex; }
+	.dp-node .dn-emoji .az-ic { width:1em; height:1em; }
+	.dp-node .dn-title { font-size:1.06rem; }
+	.dp-node .dn-sub { font-size:0.84rem; color:var(--theme-text-subtle); line-height:1.3; }
+	.dp-rows { display:flex; flex-direction:column; gap:0.24rem; margin-top:0.1rem; }
+	.dp-row { display:flex; align-items:center; gap:0.4rem; padding:0.2rem 0.5rem; border-radius:8px;
+		background:color-mix(in srgb,var(--nc,#0078d4) 10%,transparent); border-left:4px solid var(--nc,#0078d4); }
+	.dp-row .dr-em { font-size:0.98rem; }
+	.dp-row .dr-k { font-weight:600; font-size:0.84rem; color:var(--theme-text); white-space:nowrap; }
+	.dp-row .dr-v { font-size:0.79rem; color:var(--theme-text-subtle); margin-left:auto; white-space:nowrap; }
+	/* versioning = a stack of cards */
+	.dp-stack { position:absolute; z-index:2; border-radius:14px; box-sizing:border-box;
+		background:var(--theme-card-background,#fff); border:1.6px solid var(--theme-border); border-top:5px solid #d24aa8;
+		box-shadow:0 10px 26px rgba(0,0,0,0.14); padding:1.6rem 1.35rem 0.9rem 1.75rem; display:flex; flex-direction:column; gap:0.26rem; opacity:0; }
+	body.theme-dark .dp-stack { background:#262630; }
+	.dp-stack::before, .dp-stack::after { content:''; position:absolute; inset:0; border-radius:14px; background:var(--theme-card-background,#fff); border:1.6px solid var(--theme-border); z-index:-1; }
+	body.theme-dark .dp-stack::before, body.theme-dark .dp-stack::after { background:#20202a; }
+	.dp-stack::before { transform:translate(7px,7px); }
+	.dp-stack::after { transform:translate(14px,14px); }
+	.dp-stack .dn-head { display:flex; align-items:center; gap:0.45rem; font-weight:600; color:var(--theme-text); line-height:1.1; }
+	.dp-stack .dn-emoji { font-size:1.5rem; }
+	.dp-stack .dn-title { font-size:1rem; }
+	.dp-stack .dn-sub { font-size:0.82rem; color:var(--theme-text-subtle); }
+	.dp-vchips { display:flex; gap:0.3rem; margin-top:0.15rem; }
+	.dp-vchip { font-size:0.78rem; font-weight:700; color:var(--theme-text); background:color-mix(in srgb,#d24aa8 14%,transparent); border:1.4px solid color-mix(in srgb,#d24aa8 45%,transparent); border-radius:7px; padding:0.12rem 0.42rem; }
+	/* speech bubble */
+	.user-bubble { position:absolute; width:216px; padding:0.55rem 0.78rem; border-radius:14px 14px 4px 14px;
+		background:linear-gradient(135deg,#5c2d91,#0078d4); color:#fff; font-size:0.95rem; font-weight:500; line-height:1.3;
+		box-shadow:0 10px 24px rgba(0,0,0,0.22); z-index:6; opacity:0; }
+	.user-bubble::after { content:''; position:absolute; right:26px; bottom:-9px; border-width:10px 10px 0; border-style:solid; border-color:#0078d4 transparent transparent; }
+	.tw-caret { display:inline-block; width:2px; height:1.05em; margin-left:1px; background:currentColor; vertical-align:-0.15em; animation:twBlink 0.7s step-end infinite; }
+	@keyframes twBlink { 0%,100%{opacity:1;} 50%{opacity:0;} }
+	/* summary notes + ribbon */
+	.dp-note { position:absolute; z-index:5; font-size:0.9rem; font-weight:400; color:#fff; border-radius:11px; padding:0.34rem 0.7rem; line-height:1.25; text-align:center; box-shadow:0 8px 20px rgba(0,0,0,0.25); opacity:0; }
+	.note-enc { background:linear-gradient(135deg,#0b6a37,#0078d4); }
+	.note-soft { background:linear-gradient(135deg,#5c2d91,#d24aa8); }
+	.map-ribbon { position:absolute; left:0; top:442px; width:1140px; display:flex; justify-content:center; gap:0.5rem; flex-wrap:wrap; z-index:5; opacity:0; }
+	.map-ribbon .bp { font-size:0.95rem; font-weight:500; color:var(--theme-text); background:var(--theme-card-background,#fff); border:1.5px solid var(--theme-border); border-radius:999px; padding:0.3rem 0.78rem; box-shadow:0 4px 14px rgba(0,0,0,0.1); }
+	body.theme-dark .map-ribbon .bp { background:rgba(255,255,255,0.06); }
+
+	/* ── STEP 9 · TECHNICAL SUMMARY (SAS types & per-service scope) ── */
+	.spec-wrap { display:flex; flex-direction:column; align-items:center; gap:0.85rem; width:min(1120px,99%); }
+	.spec-types { display:grid; grid-template-columns:repeat(3,1fr); gap:0.85rem; width:100%; }
+	.spec-card { border:1.6px solid var(--theme-border); border-top:5px solid var(--sc,#0078d4); border-radius:15px;
+		background:var(--theme-card-background,#fff); box-shadow:0 10px 26px rgba(0,0,0,0.12); padding:0.8rem 0.95rem;
+		display:flex; flex-direction:column; gap:0.42rem; opacity:0; }
+	body.theme-dark .spec-card { background:rgba(255,255,255,0.06); }
+	.spec-card .sc-head { display:flex; align-items:center; gap:0.55rem; }
+	.spec-card .sc-head .az-ic { width:2.1rem; height:2.1rem; flex:0 0 auto; }
+	.spec-card .sc-name { font-size:1.16rem; font-weight:600; color:var(--theme-text); line-height:1.15; }
+	.spec-card .sc-row { display:flex; flex-direction:column; gap:0.02rem; }
+	.spec-card .sc-k { font-size:0.72rem; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; color:var(--theme-text-subtle); }
+	.spec-card .sc-v { font-size:0.96rem; color:var(--theme-text); line-height:1.3; }
+	.spec-card .sc-pol { align-self:flex-start; display:inline-flex; align-items:center; gap:0.3rem; font-size:0.84rem; font-weight:600; padding:0.2rem 0.6rem; border-radius:999px; margin-top:0.05rem; }
+	.sc-pol.ok { background:color-mix(in srgb,#107c41 15%,transparent); color:#0b6a37; border:1.5px solid color-mix(in srgb,#107c41 45%,transparent); }
+	.sc-pol.no { background:color-mix(in srgb,#8a8a9a 14%,transparent); color:var(--theme-text-subtle); border:1.5px solid var(--theme-border); }
+	body.theme-dark .sc-pol.ok { color:#4ac26b; }
+	.spec-matrix { width:100%; border-collapse:collapse; font-size:0.95rem; opacity:0;
+		background:var(--theme-card-background,#fff); border-radius:14px; overflow:hidden; box-shadow:0 8px 22px rgba(0,0,0,0.1); }
+	body.theme-dark .spec-matrix { background:rgba(255,255,255,0.05); }
+	.spec-matrix th, .spec-matrix td { padding:0.48rem 0.8rem; text-align:left; border-bottom:1.5px solid var(--theme-border); }
+	.spec-matrix thead th { font-weight:600; color:var(--theme-text); background:color-mix(in srgb,#5c2d91 9%,transparent); font-size:0.9rem; }
+	body.theme-dark .spec-matrix thead th { background:rgba(255,255,255,0.07); }
+	.spec-matrix tbody tr:last-child td { border-bottom:none; }
+	.spec-matrix .mx-svc { display:flex; align-items:center; gap:0.5rem; font-weight:600; color:var(--theme-text); }
+	.spec-matrix .mx-svc .az-ic { width:1.5rem; height:1.5rem; flex:0 0 auto; }
+	.spec-matrix .mx-scope { color:var(--theme-text); }
+	.spec-matrix .mx-pol { color:#0b6a37; font-weight:600; white-space:nowrap; }
+	body.theme-dark .spec-matrix .mx-pol { color:#4ac26b; }
+	.spec-note { font-size:0.85rem; color:var(--theme-text-subtle); line-height:1.4; text-align:center; max-width:1000px; opacity:0; }
+	.spec-foot { font-size:0.9rem; color:var(--theme-text-subtle); text-align:center; opacity:0; }
+	.spec-foot a { color:var(--aw-blue,#0078d4); font-weight:600; text-decoration:underline; }
+
+	/* ── ACCESS TIER ROW (Hot → Archive) ── */
+	.tier-row { display:flex; gap:1rem; justify-content:center; flex-wrap:wrap; width:100%; }
+	.tier-card {
+		flex:1 1 0; min-width:155px; max-width:230px;
+		border:1.5px solid var(--theme-border); border-top:5px solid var(--tc,#e97526);
+		border-radius:14px; background:var(--theme-card-background, #fff);
+		box-shadow:0 6px 22px rgba(0,0,0,0.12); padding:1rem 1rem 1.1rem; opacity:0;
+		display:flex; flex-direction:column; gap:0.5rem; align-items:center; text-align:center;
+	}
+	body.theme-dark .tier-card { background:rgba(255,255,255,0.05); }
+	.tier-card .tc-icon { font-size:2.1rem; line-height:1; color:var(--tc); }
+	.tier-card .tc-name { font-size:1.3rem; font-weight:800; color:var(--tc); }
+	.tier-card .tc-sub { font-size:0.9rem; color:var(--theme-text-subtle); line-height:1.4; min-height:2.5em; }
+	.tier-card .tc-ret { display:inline-flex; align-items:center; gap:0.35rem; font-size:0.9rem; font-weight:700; padding:0.28rem 0.75rem; border-radius:999px; background:rgba(0,0,0,0.05); color:var(--theme-text); }
+	body.theme-dark .tier-card .tc-ret { background:rgba(255,255,255,0.1); }
+	.tier-card .tc-ret .ic { color:var(--tc); }
+	.tier-card .tc-cost { display:flex; gap:4px; margin-top:0.1rem; }
+	.tier-card .tc-dot { width:9px; height:9px; border-radius:50%; background:var(--theme-border); }
+	.tier-card .tc-dot.on { background:var(--tc); }
+	.tier-scalewrap { display:flex; flex-direction:column; align-items:center; gap:0.4rem; width:100%; }
+	.tier-scale {
+		width:min(920px,96%); height:12px; border-radius:999px;
+		background:linear-gradient(90deg,#e97526,#0078d4,#00b7c3,#5c2d91);
+		box-shadow:inset 0 0 0 1px rgba(0,0,0,0.08); opacity:0;
+	}
+	.tier-scale-labels { display:flex; justify-content:space-between; width:min(920px,96%); font-size:0.92rem; font-weight:600; color:var(--theme-text-subtle); opacity:0; }
+
+	/* ── SMART TIER banner (auto-manages Hot/Cool/Cold) ── */
+	.smart-tier { width:min(960px,98%); display:flex; align-items:center; gap:0.7rem 1.1rem; flex-wrap:wrap; padding:0.65rem 1.05rem; border-radius:14px;
+		background:linear-gradient(var(--theme-card-background,#fff),var(--theme-card-background,#fff)) padding-box, linear-gradient(90deg,#e97526,#0078d4,#00b7c3) border-box;
+		border:2px solid transparent; box-shadow:0 6px 22px rgba(0,0,0,0.1); opacity:0; }
+	body.theme-dark .smart-tier { background:linear-gradient(#241b33,#241b33) padding-box, linear-gradient(90deg,#e97526,#0078d4,#00b7c3) border-box; }
+	.st-head { display:inline-flex; align-items:center; gap:0.45rem; }
+	.st-head .az-ic { width:1.55em; height:1.55em; }
+	.st-name { font-size:1.12rem; font-weight:800; color:var(--theme-text); }
+	.st-badge { font-size:0.68rem; font-weight:800; text-transform:uppercase; letter-spacing:0.05em; padding:0.15rem 0.5rem; border-radius:999px; background:var(--aw-purple,#5c2d91); color:#fff; }
+	.st-body { display:flex; flex-direction:column; gap:0.35rem; flex:1 1 320px; }
+	.st-desc { font-size:0.9rem; color:var(--theme-text-subtle); line-height:1.35; }
+	.st-flow { display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap; }
+	.st-node { display:inline-flex; align-items:center; gap:0.3rem; padding:0.2rem 0.55rem; border-radius:999px; font-size:0.9rem; font-weight:800; color:var(--theme-text); border:1.5px solid var(--nc,#e97526); background:color-mix(in srgb, var(--nc) 12%, transparent); }
+	.st-node .az-ic { width:1.05em; height:1.05em; }
+	.st-edge { display:inline-flex; flex-direction:column; align-items:center; font-size:0.74rem; font-weight:700; color:var(--theme-text-subtle); line-height:1.1; }
+	.st-edge b { font-size:1rem; color:var(--theme-text); }
+	.st-access { display:inline-flex; align-items:center; gap:0.25rem; font-size:0.84rem; font-weight:800; color:#107c10; }
+	body.theme-dark .st-access { color:#4ac26b; }
+	.st-note { font-size:0.8rem; font-weight:600; color:var(--theme-text-subtle); max-width:170px; line-height:1.3; }
+
+	/* recap key-feature chips (per service accent) */
+	.sa-feats { display:flex; flex-wrap:wrap; gap:0.3rem; margin-top:0.1rem; }
+	.sa-feat { padding:0.15rem 0.55rem; border-radius:999px; font-size:0.82rem; font-weight:700; color:var(--theme-text); background:color-mix(in srgb, var(--sc) 12%, transparent); border:1.5px solid color-mix(in srgb, var(--sc) 42%, transparent); }
+
+	/* ── CONTROLS · icon dock ──────────────── */
+	#controls {
+		position:fixed; bottom:14px; left:50%; transform:translateX(-50%); z-index:40;
+		display:flex; align-items:center; gap:5px; padding:5px 7px;
+		background:var(--theme-body-background-translucent, rgba(255,255,255,0.82));
+		backdrop-filter:blur(12px) saturate(1.4); -webkit-backdrop-filter:blur(12px) saturate(1.4);
+		border:1px solid var(--theme-border); border-radius:999px;
+		box-shadow: 0 8px 26px rgba(0,0,0,0.18); font-size:13px;
+	}
+	body.theme-dark #controls { background:var(--theme-body-background-translucent, rgba(32,32,36,0.82)); }
+	#controls .ctrl-icon {
+		width:2.15rem; height:2.15rem; min-width:0; padding:0;
+		display:inline-flex; align-items:center; justify-content:center;
+		border-radius:50%; font-size:0.95rem; line-height:1; font-weight:600;
+		transition:background 0.18s ease, color 0.18s ease, transform 0.12s ease, box-shadow 0.18s ease;
+	}
+	#controls .ctrl-icon:hover { transform:translateY(-1px); }
+	#controls .ctrl-icon:active { transform:scale(0.92); }
+	#controls .ctrl-icon-next {
+		width:2.55rem; height:2.55rem; font-size:1.1rem;
+		box-shadow:0 2px 8px var(--theme-primary-translucent, rgba(0,120,212,0.45));
+	}
+	.step-counter {
+		min-width:52px; text-align:center; font-variant-numeric:tabular-nums;
+		font-size:14px; font-weight:700; color:var(--theme-text);
+		padding:0 6px; white-space:nowrap; letter-spacing:0.02em;
+	}
+	.ctrl-sep { width:1px; align-self:stretch; margin:4px 2px; background:var(--theme-border); }
+	.ctrl-grip {
+		display:inline-flex; align-items:center; justify-content:center;
+		width:1.5rem; height:2.15rem; padding:0; border:none; background:transparent;
+		color:var(--theme-text-subtle); border-radius:8px; cursor:grab; touch-action:none;
+		transition:background 0.18s ease, color 0.18s ease;
+	}
+	.ctrl-grip:hover { color:var(--theme-text); background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); }
+	.ctrl-grip:active { cursor:grabbing; }
+	.ctrl-grip svg { width:13px; height:16px; pointer-events:none; }
+	body.controls-floating .ctrl-grip { color:var(--theme-primary,#0078d4); }
+	#controls .ctrl-pin { display:none; color:var(--theme-primary,#0078d4); }
+	#controls .ctrl-pin svg { width:15px; height:15px; pointer-events:none; }
+	body.controls-floating #controls .ctrl-pin { display:inline-flex; }
+	body.controls-floating #controls { box-shadow:0 10px 30px rgba(0,0,0,0.30), 0 0 0 1.5px var(--theme-primary,#0078d4); }
+	.speed-control { display:inline-flex; align-items:center; gap:1px; padding:2px 3px; border:1px solid var(--theme-border); border-radius:999px; }
+	.speed-control .speed-btn {
+		width:1.7rem; height:1.7rem; min-width:0; padding:0;
+		display:inline-flex; align-items:center; justify-content:center;
+		font-size:0.95rem; font-weight:700; border-radius:50%;
+	}
+	.speed-control .speed-btn[disabled] { opacity:0.4; cursor:not-allowed; }
+	.speed-label { min-width:2.4rem; text-align:center; font-variant-numeric:tabular-nums; font-size:0.82rem; font-weight:700; color:var(--theme-text); }
+
+	#callout-toggle, #outline-toggle, #audio-toggle { border:1px solid var(--theme-border); border-radius:4px; transition:background .2s,color .2s,border-color .2s,opacity .2s; }
+	#callout-toggle.toggle-active, #outline-toggle.toggle-active, #audio-toggle.toggle-active {
+		background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary,#0078d4); border-color:var(--theme-primary,#0078d4); font-weight:600;
+	}
+	#callout-toggle:not(.toggle-active), #outline-toggle:not(.toggle-active), #audio-toggle:not(.toggle-active) { opacity:0.6; }
+
+	/* ── HIDE/SHOW TOP BAR ─────────────────── */
+	#header-hide-top { display:inline-flex; align-items:center; justify-content:center; width:2rem; height:2rem; padding:0; border:1px solid var(--theme-border); border-radius:50%; color:var(--theme-text-subtle); background:transparent; cursor:pointer; transition:background .2s,color .2s,transform .18s; }
+	#header-hide-top:hover { color:var(--theme-text); transform:translateY(-1px); }
+	#header-hide-top svg { width:16px; height:16px; }
+	body.chrome-hidden .app-header, body.chrome-hidden .progress-track { display:none; }
+	#header-reveal {
+		position:fixed; top:0; left:50%; transform:translateX(-50%) translateY(-100%); z-index:45;
+		display:inline-flex; align-items:center; gap:0.35rem; padding:5px 14px 6px; font-size:12px; font-weight:600; line-height:1;
+		color:var(--theme-text-subtle); background:var(--theme-body-background-translucent, rgba(255,255,255,0.88));
+		backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border:1px solid var(--theme-border); border-top:none; border-radius:0 0 12px 12px;
+		box-shadow:0 4px 14px rgba(0,0,0,0.14); cursor:pointer; transition:transform .28s cubic-bezier(0.2,0.7,0.3,1), color .2s, background .2s;
+	}
+	body.theme-dark #header-reveal { background:var(--theme-body-background-translucent, rgba(32,32,36,0.88)); }
+	#header-reveal:hover { color:var(--theme-text); }
+	body.chrome-hidden #header-reveal { transform:translateX(-50%) translateY(0); }
+	#header-reveal svg { width:14px; height:14px; }
+
+	/* ── OUTLINE PANEL ─────────────────────── */
+	#step-outline {
+		position:fixed; top:4.5rem; right:1rem; width:320px; max-height:calc(100vh - 8rem); overflow-y:auto;
+		padding:1.1rem; background:var(--theme-body-background);
+		background:color-mix(in srgb, var(--theme-body-background) 85%, transparent);
+		-webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
+		border:1px solid var(--theme-border);
+		border-radius:6px; box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2)); z-index:35; font-size:1rem; line-height:1.55;
+		cursor:grab; touch-action:none;
+	}
+	#step-outline:active { cursor:grabbing; }
+	#step-outline[hidden] { display:none; }
+	#step-outline h2 { font-size:0.85rem; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--theme-tertiary,#5c2d91); margin-bottom:0.5rem; }
+	#step-outline .outline-section { margin-top:0.6rem; padding-top:0.6rem; border-top:1px solid var(--theme-border); }
+	#step-outline .outline-section:first-child { margin-top:0; padding-top:0; border-top:0; }
+	#step-outline .stat-row { display:flex; justify-content:space-between; align-items:baseline; gap:0.75rem; padding:0.2rem 0; }
+	#step-outline .stat-row span:first-child { color:var(--theme-text-subtle); flex:0 0 auto; max-width:45%; }
+	#step-outline .stat-row span:last-child { text-align:right; font-weight:600; color:var(--theme-tertiary,#5c2d91); flex:1 1 auto; }
+
+	.progress-track { position:relative; height:6px; background:var(--theme-border, #e0e0e0); flex-shrink:0; cursor:pointer; }
+	.progress-fill { position:absolute; left:0; top:0; bottom:0; width:0%; background:var(--aw-purple, #5c2d91); transition:width .5s cubic-bezier(0.2,0.8,0.2,1); pointer-events:none; }
+	.progress-tick { position:absolute; top:0; bottom:0; width:2px; margin-left:-1px; background:var(--theme-body-background); opacity:0.6; pointer-events:none; }
+
+	/* ── THEME / LANG / FONT CONTROLS ──────── */
+	.theme-toggle { display:inline-flex; align-items:center; justify-content:center; width:2.25rem; height:2.25rem; padding:0; margin-inline-start:0.25rem; background:transparent; border:1px solid var(--theme-border); border-radius:999px; color:var(--theme-text); cursor:pointer; transition:background .15s,color .15s,border-color .15s; }
+	.theme-toggle:hover { background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary); border-color:var(--theme-primary); }
+	.theme-toggle .theme-icon { display:none; }
+	.theme-toggle[data-theme="dark"] .icon-sun { display:block; }
+	.theme-toggle[data-theme="light"] .icon-moon { display:block; }
+	.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+	.skip-link { position:absolute; top:-100px; left:0.5rem; z-index:100; padding:0.5rem 1rem; background:var(--theme-primary); color:var(--theme-primary-invert,#fff); border-radius:4px; text-decoration:none; font-weight:600; }
+	.skip-link:focus { top:0.5rem; }
+	.header-back-link { display:inline-flex; align-items:center; gap:0.25rem; padding:0.2rem 0.6rem; font-size:0.8rem; font-weight:600; color:var(--theme-text-subtle); border:1px solid var(--theme-border); border-radius:999px; text-decoration:none; white-space:nowrap; transition:background .15s,color .15s,border-color .15s; }
+	.header-back-link:hover { color:var(--theme-primary); border-color:var(--theme-primary); background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); }
+	.lang-select {
+		appearance:none; -webkit-appearance:none; background:var(--theme-card-background,#fff); color:var(--theme-body-text,#333);
+		border:1px solid var(--theme-border, rgba(0,0,0,0.2)); border-radius:4px; padding:4px 24px 4px 8px;
+		font-size:0.8rem; font-family:'Segoe UI', sans-serif; cursor:pointer;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+		background-repeat:no-repeat; background-position:right 6px center; min-width:80px;
+	}
+	.lang-select:hover { border-color:var(--theme-primary, #0078d4); }
+	.lang-select:focus { outline:2px solid var(--theme-primary, #0078d4); outline-offset:1px; }
+	body.theme-dark .lang-select {
+		background-color:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); border-color:rgba(255,255,255,0.15);
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23aaa' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+	}
+	body.theme-dark .lang-select option { background:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); }
+	.font-size-controls { display:flex; align-items:center; gap:2px; }
+	.font-size-btn { background:var(--theme-card-background,#fff); color:var(--theme-body-text,#333); border:1px solid var(--theme-border, rgba(0,0,0,0.2)); border-radius:4px; padding:3px 8px; font-size:0.8rem; font-weight:700; font-family:'Segoe UI', sans-serif; cursor:pointer; line-height:1.2; transition:background .15s,border-color .15s; }
+	.font-size-btn:hover { border-color:var(--theme-primary, #0078d4); }
+	body.theme-dark .font-size-btn { background:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); border-color:rgba(255,255,255,0.15); }
+
+	.ic { display:inline-flex; align-items:center; justify-content:center; vertical-align:-0.125em; }
+	.ic svg { width:1em; height:1em; fill:currentColor; display:block; }
+	.help-toggle svg { width:15px; height:15px; vertical-align:-2px; }
+
+	/* ── IMAGE ICONS (official Azure service icons + Fluent) ── */
+	.az-ic { width:1em; height:1em; object-fit:contain; display:inline-block; vertical-align:-0.15em; }
+	.agent-node .an-icon .az-ic { display:block; width:1em; height:1em; }
+	.uc-head .uc-icon .az-ic { display:block; width:1em; height:1em; }
+	.tier-card .tc-icon .az-ic { display:block; width:1em; height:1em; }
+	.pill .az-ic { width:1.15em; height:1.15em; }
+
+	/* ── RECAP · "ALL IN ONE" MAP (recaps every step in one view) ── */
+	.sa-summary { display:flex; flex-direction:column; align-items:center; gap:0.9rem; width:min(1120px, 99%); }
+	.sa-account {
+		width:100%; border:2.5px dashed var(--aw-purple, #5c2d91); border-radius:18px;
+		background:linear-gradient(135deg, rgba(92,45,145,0.06), rgba(0,120,212,0.05));
+		padding:0.85rem 1.15rem 0.95rem; display:flex; flex-direction:column; gap:0.6rem; opacity:0;
+	}
+	body.theme-dark .sa-account { background:linear-gradient(135deg, rgba(146,78,217,0.14), rgba(80,170,255,0.10)); border-color:#a67dd8; }
+	.sa-account-head { display:flex; align-items:center; gap:0.7rem; flex-wrap:wrap; }
+	.sa-account-head .sa-acct-ic .az-ic { width:1.9rem; height:1.9rem; }
+	.sa-acct-name { font-size:1.3rem; font-weight:800; color:var(--theme-text); }
+	body.theme-dark .sa-acct-name { color:#e6d8f5; }
+	.sa-perf { display:flex; gap:0.4rem; margin-left:auto; flex-wrap:wrap; }
+	.sa-perf-pill { display:inline-flex; align-items:center; gap:0.35rem; padding:0.3rem 0.8rem; border-radius:999px; font-size:0.92rem; font-weight:700; border:1.5px solid var(--pc,#0078d4); background:color-mix(in srgb, var(--pc) 12%, transparent); color:var(--theme-text); }
+	.sa-perf-pill .az-ic { width:1.15em; height:1.15em; }
+	.sa-strip { display:flex; flex-direction:column; gap:0.35rem; }
+	.sa-strip-label { font-size:0.82rem; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:var(--theme-text-subtle); }
+	.sa-svc-row { display:flex; gap:0.6rem; flex-wrap:wrap; }
+	.sa-svc { flex:1 1 0; min-width:150px; display:flex; flex-direction:column; gap:0.28rem; padding:0.55rem 0.72rem; border-radius:12px; border:1.5px solid var(--theme-border); border-top:4px solid var(--sc,#0078d4); background:var(--theme-card-background,#fff); box-shadow:0 4px 14px rgba(0,0,0,0.1); opacity:0; }
+	body.theme-dark .sa-svc { background:rgba(255,255,255,0.05); }
+	.sa-svc-head { display:flex; align-items:center; gap:0.45rem; font-size:1.05rem; font-weight:700; color:var(--theme-text); }
+	.sa-svc-head .az-ic { width:1.35em; height:1.35em; }
+	.sa-svc-sub { font-size:0.86rem; color:var(--theme-text-subtle); line-height:1.3; }
+	.sa-subchips { display:flex; flex-wrap:wrap; gap:0.3rem; margin-top:0.1rem; }
+	.sa-subchip { padding:0.15rem 0.55rem; border-radius:999px; font-size:0.82rem; font-weight:700; background:color-mix(in srgb, #e97526 14%, transparent); border:1.5px solid color-mix(in srgb, #e97526 45%, transparent); color:var(--theme-text); }
+	.sa-tier-row { display:flex; gap:0.55rem; flex-wrap:wrap; }
+	.sa-tier { flex:1 1 0; min-width:150px; display:flex; align-items:flex-start; gap:0.5rem; padding:0.5rem 0.65rem; border-radius:10px; border:1.5px solid var(--theme-border); border-left:4px solid var(--tc,#e97526); background:var(--theme-card-background,#fff); opacity:0; }
+	body.theme-dark .sa-tier { background:rgba(255,255,255,0.05); }
+	.sa-tier .az-ic { width:1.5em; height:1.5em; flex-shrink:0; margin-top:0.1rem; }
+	.sa-tier-tt { display:flex; flex-direction:column; line-height:1.2; gap:0.05rem; }
+	.sa-tier-name { font-size:0.98rem; font-weight:800; color:var(--tc); }
+	.sa-tier-ret { font-size:0.8rem; color:var(--theme-text-subtle); font-weight:700; }
+	.sa-tier-desc { font-size:0.82rem; color:var(--theme-text-subtle); line-height:1.28; margin-top:0.05rem; }
+	.sa-benefits { display:flex; gap:0.55rem; flex-wrap:wrap; justify-content:center; }
+	.sa-benefit { display:inline-flex; align-items:center; gap:0.4rem; padding:0.4rem 0.9rem; border-radius:999px; font-size:0.9rem; font-weight:700; border:2px solid #107c10; background:rgba(16,124,16,0.08); color:var(--theme-text); opacity:0; }
+	body.theme-dark .sa-benefit { background:rgba(16,124,16,0.16); }
+	.sa-benefit .sa-check { color:#10a37f; font-weight:900; }
+
+	#shortcut-overlay { position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center; }
+	#shortcut-overlay[hidden] { display:none; }
+	.sc-backdrop { position:absolute; inset:0; background:rgba(0,0,0,0.5); -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px); }
+	.sc-panel { position:relative; z-index:1; width:min(430px,92vw); max-height:82vh; overflow:auto; padding:1.5rem 1.6rem; background:var(--theme-body-background); border:1px solid var(--theme-border); border-radius:16px; box-shadow:0 24px 70px rgba(0,0,0,0.4); }
+	.sc-panel h2 { margin:0 0 1rem; font-size:1.25rem; color:var(--theme-tertiary,#5c2d91); }
+	body.theme-dark .sc-panel h2 { color:#c9a5e8; }
+	.sc-close { position:absolute; top:0.7rem; right:0.7rem; width:2rem; height:2rem; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--theme-border); border-radius:50%; background:transparent; color:var(--theme-text-subtle); cursor:pointer; }
+	.sc-close:hover { color:var(--theme-text); border-color:var(--theme-primary,#0078d4); }
+	.sc-close svg { width:15px; height:15px; }
+	.sc-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:0.55rem; }
+	.sc-list li { display:flex; align-items:center; justify-content:space-between; gap:1rem; font-size:1rem; color:var(--theme-text); }
+	.sc-keys { display:inline-flex; gap:0.3rem; flex:none; }
+	.sc-panel kbd, .sc-hint kbd { font-family:'Cascadia Code','Consolas',monospace; font-size:0.82rem; line-height:1; padding:0.28rem 0.5rem; border-radius:6px; border:1px solid var(--theme-border); border-bottom-width:2px; background:var(--theme-card-background,#fff); color:var(--theme-text); }
+	body.theme-dark .sc-panel kbd, body.theme-dark .sc-hint kbd { background:rgba(255,255,255,0.08); }
+	.sc-hint { margin:1.1rem 0 0; font-size:0.85rem; color:var(--theme-text-subtle); text-align:center; }
+
+	@media (max-width:640px) { .app-header { font-size:0.95rem; } .scene-title { font-size:1.9rem; } #stage { padding:0.9rem 1rem 4.5rem; } }
+	@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition:none !important; animation:none !important; } .progress-fill { transition:none !important; } }
+</style>
+</head>
+
+<body class="theme-dark" data-theme-preset="atlas">
+
+	<a href="#stage" class="skip-link">Skip to diagram</a>
+
+	<header class="app-header padding-block-xs padding-inline-md border-bottom" role="banner" style="justify-content:space-between;">
+		<div class="display-flex align-items-center gap-xs">
+			<a href="index.html" class="header-back-link" aria-label="Back to the Storage journey">&larr; Storage journey</a>
+			<span id="page-title" class="font-size-h6 font-weight-semibold">&#128273; SAS Tokens</span>
+		</div>
+		<nav class="display-flex gap-xs align-items-center" aria-label="Primary">
+			<span id="breadcrumb" class="font-size-sm color-text-subtle">Step 1</span>
+		</nav>
+		<div class="display-flex gap-xs align-items-center">
+			<select id="lang-select" class="lang-select" aria-label="Language">
+				<option value="en">English</option>
+				<option value="es">Español</option>
+				<option value="ja">日本語</option>
+				<option value="ko">한국어</option>
+				<option value="pt">Português</option>
+			</select>
+			<div class="font-size-controls">
+				<button id="font-decrease" type="button" class="font-size-btn" aria-label="Decrease font size" title="Smaller text">A&minus;</button>
+				<button id="font-increase" type="button" class="font-size-btn" aria-label="Increase font size" title="Larger text">A+</button>
+			</div>
+			<button id="theme-toggle" type="button" class="theme-toggle" aria-label="Switch theme" title="Switch theme">
+				<svg class="theme-icon icon-moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg>
+				<svg class="theme-icon icon-sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.5" y1="4.5" x2="6.5" y2="6.5"/><line x1="17.5" y1="17.5" x2="19.5" y2="19.5"/><line x1="4.5" y1="19.5" x2="6.5" y2="17.5"/><line x1="17.5" y1="6.5" x2="19.5" y2="4.5"/></g></svg>
+			</button>
+			<button id="header-hide-top" type="button" aria-label="Hide top bar" title="Hide top bar (H)">
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/></svg>
+			</button>
+		</div>
+	</header>
+
+	<button id="header-reveal" type="button" aria-label="Show top bar" title="Show top bar">
+		<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/></svg>
+		<span>Toolbar</span>
+	</button>
+
+	<div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
+
+	<main id="stage" tabindex="0" role="region" aria-labelledby="stage-heading" aria-describedby="stage-instructions">
+		<h1 id="stage-heading" class="sr-only" tabindex="-1">Azure Storage Account</h1>
+		<p id="stage-instructions" class="sr-only">Animated explainer of the Azure Storage Account. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.</p>
+		<div id="step-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+		<div id="stage-frame">
+			<svg id="fx-svg" aria-hidden="true" focusable="false">
+				<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L0,10 L10,5 Z" fill="currentColor"/></marker></defs>
+			</svg>
+			<div id="aw-caption" class="aw-caption" aria-hidden="true"></div>
+			<div id="stage-overlay-left" class="stage-overlay stage-overlay-left" role="group" aria-label="View options">
+				<button id="callout-toggle" type="button" class="ovl-btn" aria-label="Toggle callouts" aria-pressed="false" data-tip="Callouts: Off"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M4 5h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H10l-4 3v-3H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></svg></button>
+				<button id="outline-toggle" type="button" class="ovl-btn" aria-controls="step-outline" aria-expanded="false" aria-label="Toggle text outline" data-tip="Outline: Off"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" d="M4 6h16M4 12h16M4 18h10"/></svg></button>
+				<button id="help-toggle" class="ovl-btn help-toggle" type="button" aria-haspopup="dialog" aria-controls="shortcut-overlay" aria-label="Keyboard shortcuts (press ?)" data-tip="Shortcuts"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M11 18h2v-2h-2v2zm1.1-14C9.8 4 8 5.8 8 8h2a2 2 0 1 1 3.2 1.6c-.9.7-2.2 1.5-2.2 3.4h2c0-1 .8-1.5 1.7-2.2A4 4 0 0 0 12.1 4z"/></svg></button>
+			</div>
+			<div id="stage-overlay" class="stage-overlay" role="group" aria-label="Player controls">
+				<button id="audio-toggle" class="ovl-btn ovl-audio" type="button" aria-label="Toggle audio narration" aria-pressed="false" title="Narration audio"></button>
+				<button id="cc-toggle" class="ovl-btn" type="button" aria-label="Toggle captions" aria-pressed="false" title="Captions"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9.7 10.2a2.1 2.1 0 1 0 0 3.6M17 10.2a2.1 2.1 0 1 0 0 3.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+				<button id="header-hide" class="ovl-btn" type="button" aria-label="Hide top bar" title="Hide top bar (H)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/></svg></button>
+				<button id="fs-toggle" class="ovl-btn" type="button" aria-label="Toggle full screen" aria-pressed="false" title="Full screen (F)"><svg class="fs-enter" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg><svg class="fs-exit" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg></button>
+			</div>
+		</div>
+	</main>
+
+	<aside id="step-outline" hidden aria-label="Text outline of the current step">
+		<h2 id="outline-title">Step Details</h2>
+		<div id="outline-body"></div>
+	</aside>
+
+	<div id="controls" role="group" aria-label="Diagram navigation">
+		<button id="ctrl-grip" type="button" class="ctrl-grip" aria-label="Drag to move the controls" title="Drag to move">
+			<svg viewBox="0 0 16 16" aria-hidden="true"><g fill="currentColor"><circle cx="5" cy="3" r="1.4"/><circle cx="11" cy="3" r="1.4"/><circle cx="5" cy="8" r="1.4"/><circle cx="11" cy="8" r="1.4"/><circle cx="5" cy="13" r="1.4"/><circle cx="11" cy="13" r="1.4"/></g></svg>
+		</button>
+		<button id="ctrl-pin" type="button" class="button button-clear ctrl-icon ctrl-pin" aria-label="Pin the controls back to the center" title="Pin to center">
+			<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9 2h6a1 1 0 0 1 .8 1.6L14 6v4l3 3v2h-4v5l-1 2-1-2v-5H7v-2l3-3V6L8.2 3.6A1 1 0 0 1 9 2z"/></svg>
+		</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="prev-btn" type="button" class="button ctrl-icon" aria-label="Previous step (left arrow)">&#9664;</button>
+		<div class="step-counter" id="step-counter">0 / 0</div>
+		<button id="next-btn" type="button" class="button button-primary button-filled ctrl-icon ctrl-icon-next" aria-label="Next step (right arrow or space)">&#9654;</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="replay-btn" type="button" class="button ctrl-icon" aria-label="Replay this step's animation (P)">&#8635;</button>
+		<div class="speed-control" role="group" aria-label="Animation speed">
+			<button id="speed-down" type="button" class="button button-clear speed-btn" aria-label="Slower (-)" title="Slower">&minus;</button>
+			<span id="speed-label" class="speed-label" aria-live="polite" aria-label="Current speed">1&times;</span>
+			<button id="speed-up" type="button" class="button button-clear speed-btn" aria-label="Faster (+)" title="Faster">+</button>
+		</div>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="reset-btn" type="button" class="button button-clear ctrl-icon" aria-label="Restart from step 1 (R)">&#9198;</button>
+	</div>
+
+	<div id="shortcut-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="sc-title">
+		<div class="sc-backdrop"></div>
+		<div class="sc-panel">
+			<button id="sc-close" class="sc-close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
+			<h2 id="sc-title">Keyboard shortcuts</h2>
+			<ul id="sc-list" class="sc-list"></ul>
+			<p class="sc-hint">Press <kbd>?</kbd> anytime to toggle this panel.</p>
+		</div>
+	</div>
+
+<script>
+// ── THEME ─────────────────────────────────
+const themeToggleBtn = document.getElementById('theme-toggle');
+function syncThemeBtn(){
+	if (!themeToggleBtn) return;
+	const isDark = document.body.classList.contains('theme-dark');
+	themeToggleBtn.dataset.theme = isDark ? 'dark' : 'light';
+	const label = isDark ? 'Switch to light theme' : 'Switch to dark theme';
+	themeToggleBtn.setAttribute('aria-label', label);
+	themeToggleBtn.setAttribute('title', label);
+}
+if (window.AW && AW.theme) {
+	AW.theme.onChange(() => { syncThemeBtn(); if (typeof rerenderInstant === 'function' && current >= 0) rerenderInstant(); });
+	syncThemeBtn();
+} else {
+	syncThemeBtn();
+	if (themeToggleBtn) themeToggleBtn.addEventListener('click', () => {
+		const goingDark = !document.body.classList.contains('theme-dark');
+		document.body.classList.remove('theme-dark', 'theme-light');
+		document.body.classList.add(goingDark ? 'theme-dark' : 'theme-light');
+		try { localStorage.setItem('aw-theme', goingDark ? 'theme-dark' : 'theme-light'); } catch(_){}
+		syncThemeBtn();
+		if (current >= 0) renderStep(current);
+	});
+	try { const saved = localStorage.getItem('aw-theme'); if (saved === 'theme-light' || saved === 'theme-dark') { document.body.classList.remove('theme-dark','theme-light'); document.body.classList.add(saved); syncThemeBtn(); } } catch(_){}
+}
+
+// ── i18n ──────────────────────────────────
+// English is the source language (English-first). Add sibling objects
+// (es/ja/ko/pt) with the SAME keys + matching <option>s once translations are
+// reviewed. Brand/product/code/proper-noun sample data stays untranslated.
+let currentLang = 'en';
+const I18N = {
+	en: {
+		skipToMain: 'Skip to diagram',
+		pageTitle: 'Data Protection',
+		stageHeading: 'Blob Data Protection & Encryption',
+		stageInstructions: 'Animated explainer of Azure Blob data protection — soft delete, versioning, point-in-time restore, immutability (WORM), and encryption. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.',
+		prev: '\u25C0 Prev', next: 'Next \u25B6', replay: '\u21BB Replay', restart: '\u21BB Restart',
+		slower: 'Slower', faster: 'Faster',
+		calloutOn: '\uD83D\uDCAC Callout: On', calloutOff: '\uD83D\uDCAC Callout: Off',
+		outlineOn: '\uD83D\uDCDD Outline: On', outlineOff: '\uD83D\uDCDD Outline: Off',
+		audioOn: '\uD83D\uDD0A Audio: On', audioOff: '\uD83D\uDD07 Audio: Off',
+		stepDetails: 'Step Details', stepOf: 'Step',
+		resetPos: 'Reset to default position',
+		scTitle: 'Keyboard shortcuts',
+		scNext: 'Next step', scPrev: 'Previous step', scRestart: 'Restart', scReplay: 'Replay this step', scHide: 'Hide / show top bar', scHelp: 'Toggle this help',
+
+		// ── SHARED MAP LABELS (constant across every step) ──
+		nAcct: 'Data protection',
+		nBlob: 'Your blob data', nBlobSub: 'at rest',
+		nSoft: 'Soft delete', nSoftSub: 'recover 1–365 days',
+		nVer: 'Versioning + change feed', nVerSub: 'every write kept',
+		nImmut: 'Immutability (WORM)', nImmutSub: 'write once, read many',
+		nPitr: 'Point-in-time restore', nPitrSub: 'block blobs',
+		encK1: 'Encryption', encV1: 'SSE · AES-256 (on)',
+		encK2: 'Key', encV2: 'Microsoft or CMK',
+		encK3: 'Scope', encV3: 'encryption scopes',
+		imK1: 'Retention', imV1: 'time-based',
+		imK2: 'Legal hold', imV2: 'until cleared',
+		storageBubble: 'One click — blobs back to yesterday.',
+		edgeRecovers: 'recovers', edgeVersions: 'keeps versions', edgeLocks: 'locks (WORM)', edgeRestore: 'restore point',
+		badgeEnc: '\uD83D\uDD12 Encrypted at rest — always on (AES-256)',
+		badgeSoft: '\uD83D\uDDD1\uFE0F Deleted ≠ gone — recoverable',
+		bp1: '\uD83D\uDD52 Soft delete', bp2: '\uD83E\uDDEC Versioning', bp3: '\u23EA Point-in-time restore', bp4: '\uD83D\uDD12 Immutability (WORM)', bp5: '\uD83D\uDD11 CMK / scopes',
+
+		// ── Step 1 · GOAL (the players) ──
+		goTitle: 'Protect Data From Deletes, Overwrites & Attacks',
+		goCaption: 'The safety-net stack',
+		goDesc: 'Accidents and attacks happen — a bad delete, an overwrite, ransomware. Azure Storage wraps every blob in recovery features and encrypts it at rest by default. Let’s build the safety net.',
+		goCallout: 'These features are independent layers — turn on the ones your recovery goals need.',
+		goStat1: 'Threats', goStat1v: 'Delete · overwrite · ransomware',
+		goStat2: 'Goal', goStat2v: 'Recover to any point',
+		goStat3: 'Always on', goStat3v: 'Encryption at rest',
+
+		// ── Step 2 · ENCRYPTION ──
+		kyTitle: 'Encrypted at Rest — Automatically',
+		kyCaption: 'SSE + your keys',
+		kyDesc: 'Every blob is encrypted at rest with Storage Service Encryption (256-bit AES) — you can’t turn it off. Use Microsoft-managed keys, or bring your own (customer-managed keys in Key Vault), and isolate data with encryption scopes.',
+		kyCallout: 'Add infrastructure encryption for a second layer (double encryption) on the most sensitive data.',
+		kyStat1: 'Default', kyStat1v: 'SSE · AES-256',
+		kyStat2: 'Keys', kyStat2v: 'Microsoft or CMK',
+		kyStat3: 'Isolate', kyStat3v: 'Encryption scopes',
+
+		// ── Step 3 · SOFT DELETE ──
+		tkTitle: 'Soft Delete Catches Mistakes',
+		tkCaption: 'Recover 1–365 days',
+		tkDesc: 'With soft delete on, a deleted or overwritten blob isn’t gone — it’s recoverable for a retention period you choose (1 to 365 days). Enable container soft delete too, so a whole deleted container can be restored.',
+		tkCallout: 'Overwrites are caught as well — the prior state is kept for the retention window.',
+		tkStat1: 'Deleted blob', tkStat1v: 'Recoverable',
+		tkStat2: 'Retention', tkStat2v: '1–365 days',
+		tkStat3: 'Also', tkStat3v: 'Container soft delete',
+
+		// ── Step 4 · VERSIONING ──
+		inTitle: 'Versioning Keeps Every Copy',
+		inCaption: 'Auto history + audit',
+		inDesc: 'Turn on blob versioning and every write automatically preserves the previous version — restore any of them. The change feed records an ordered, immutable log of every change, perfect for audit and downstream processing.',
+		inCallout: 'Versions cost storage — pair with a lifecycle rule to expire old ones (see the next explainer).',
+		inStat1: 'Every write', inStat1v: 'Keeps a version',
+		inStat2: 'Restore', inStat2v: 'Any prior version',
+		inStat3: 'Change feed', inStat3v: 'Ordered audit log',
+
+		// ── Step 5 · IMMUTABILITY ──
+		acTitle: 'Immutability Locks It (WORM)',
+		acCaption: 'Compliance-grade',
+		acDesc: 'For compliance, put blobs in a WORM state — Write Once, Read Many. A time-based retention policy blocks changes and deletes for a set period; a legal hold blocks them until you clear it. Scope it to a container or a version.',
+		acCallout: 'WORM is incompatible with point-in-time restore — choose the protection your workload needs.',
+		acStat1: 'State', acStat1v: 'Write once, read many',
+		acStat2: 'Time-based', acStat2v: 'Retention period',
+		acStat3: 'Legal hold', acStat3v: 'Until cleared',
+
+		// ── Step 6 · POINT-IN-TIME RESTORE ──
+		poTitle: 'Point-in-Time Restore Rewinds It',
+		poCaption: 'Roll back the clock',
+		poDesc: 'Point-in-time restore rolls block blobs back to an earlier moment — great after a bad bulk operation. It builds on soft delete, versioning and the change feed, and the restore point must sit within the soft-delete window.',
+		poCallout: 'PITR restores block-blob operations only — a deleted whole container comes back via container soft delete, not PITR.',
+		poStat1: 'Rewinds', poStat1v: 'Block blobs to a time',
+		poStat2: 'Needs', poStat2v: 'Soft delete + versioning + feed',
+		poStat3: 'Window', poStat3v: '< soft-delete retention',
+
+		// ── Step 7 · REVOKING ──
+		rvTitle: 'Revoking Access',
+		rvCaption: 'Two ways to pull it back',
+		rvDesc: 'A SAS works until it expires \u2014 unless you revoke it. Regenerate the account key to void every ad-hoc token signed with it. Or, for policy-based tokens, just delete the policy \u2014 no key rotation needed.',
+		rvCallout: 'This is why stored access policies exist: revoke without breaking everything else.',
+		rvStat1: 'Ad-hoc SAS', rvStat1v: 'Regenerate the key',
+		rvStat2: 'Policy SAS', rvStat2v: 'Delete the policy',
+		rvStat3: 'Cleanest', rvStat3v: 'User delegation \u2192 revoke key',
+
+		// ── Step 7 · RECAP (whole picture) ──
+		rcTitle: 'The Whole Picture',
+		rcCaption: 'Layered protection',
+		rcDesc: 'Encrypted at rest by default, then wrapped in recovery layers: soft delete for mistakes, versioning for history, immutability for compliance, and point-in-time restore to rewind. Turn on what your recovery goals need.',
+		rcCallout: 'Prefer soft delete + versioning + PITR for recovery; add immutability (WORM) and CMK where compliance demands it.',
+		rcStat1: 'Always', rcStat1v: 'Encrypted at rest',
+		rcStat2: 'Recover', rcStat2v: 'Soft delete · versioning · PITR',
+		rcStat3: 'Comply', rcStat3v: 'Immutability · CMK',
+
+		// ── Step 8 · TECHNICAL SUMMARY (recovery features) ──
+		spTitle: 'Recovery Features by Service',
+		spCaption: 'The technical view',
+		spDesc: 'The recovery stack is richest for blobs. Point-in-time restore builds on soft delete, versioning and the change feed — and it’s incompatible with immutability (WORM). Encryption at rest applies to every service.',
+		spCallout: 'The PITR restore point must sit at least one day inside the blob soft-delete retention. WORM and PITR are mutually exclusive.',
+		spScKey: 'Recovers from', spScScope: 'Retention', spScBest: 'Best for',
+		spT1Name: 'Soft delete',
+		spT1Sign: 'Accidental delete / overwrite',
+		spT1Scope: '1–365 days',
+		spT1Best: 'Everyday mistakes',
+		spT1Pol: 'Blob + container',
+		spT2Name: 'Versioning + PITR',
+		spT2Sign: 'Bad writes / bulk ops',
+		spT2Scope: 'Restore window',
+		spT2Best: 'Roll back in time',
+		spT2Pol: 'Block blobs',
+		spT3Name: 'Immutability (WORM)',
+		spT3Sign: 'Tampering / deletion',
+		spT3Scope: 'Retention / legal hold',
+		spT3Best: 'Compliance',
+		spT3Pol: 'Container / version',
+		spMxHeadSvc: 'Service', spMxHeadScope: 'Recovery features', spMxHeadPol: 'Encrypted',
+		spRowBlob: 'Blob', spRowBlobScope: 'Soft delete · versioning · PITR · WORM', spRowBlobPol: '\u2713 SSE / CMK',
+		spRowFiles: 'Files', spRowFilesScope: 'Soft delete · share snapshots', spRowFilesPol: '\u2713 SSE / CMK',
+		spRowQueue: 'Queue', spRowQueueScope: 'RBAC · encryption', spRowQueuePol: '\u2713 SSE / CMK',
+		spRowTable: 'Table', spRowTableScope: 'RBAC · encryption', spRowTablePol: '\u2713 SSE / CMK',
+		spNote: 'Soft delete, versioning, change feed and PITR are Blob features (not for hierarchical-namespace accounts). Immutability (WORM) is incompatible with PITR. Every service is encrypted at rest (SSE); add customer-managed keys for control.',
+		spFoot: 'Verified against Microsoft Learn — <a href="https://learn.microsoft.com/azure/storage/blobs/data-protection-overview" target="_blank" rel="noopener">data protection</a> · <a href="https://learn.microsoft.com/azure/storage/blobs/soft-delete-blob-overview" target="_blank" rel="noopener">soft delete</a>.',
+		spStat1: 'Layers', spStat1v: 'Soft delete · versioning · WORM',
+		spStat2: 'Rewind', spStat2v: 'Point-in-time restore',
+		spStat3: 'Always', spStat3v: 'Encrypted at rest'
+	},
+
+	es: {
+		pageTitle: 'Protección de datos',
+		stageHeading: 'Protección y cifrado de datos de Blob',
+		stageInstructions: 'Explicación animada de la protección de datos de Azure Blob — soft delete, versioning, point-in-time restore, immutability (WORM) y cifrado. Use los botones Siguiente/Anterior o las teclas de flecha para navegar. Pulse R para reiniciar.',
+		scTitle: 'Atajos de teclado',
+
+		// ── Step 1 · GOAL ──
+		goTitle: 'Proteja los datos de borrados, sobrescrituras y ataques',
+		goCaption: 'La pila de la red de seguridad',
+		goDesc: 'Los accidentes y los ataques ocurren — un borrado accidental, una sobrescritura, ransomware. Azure Storage envuelve cada blob en funciones de recuperación y lo cifra en reposo de forma predeterminada. Construyamos la red de seguridad.',
+		goCallout: 'Estas funciones son capas independientes — active las que sus objetivos de recuperación necesiten.',
+
+		// ── Step 2 · ENCRYPTION ──
+		kyTitle: 'Cifrado en reposo — automáticamente',
+		kyCaption: 'SSE + sus claves',
+		kyDesc: 'Cada blob se cifra en reposo con Storage Service Encryption (AES de 256 bits) — no se puede desactivar. Use claves administradas por Microsoft, o traiga las suyas (customer-managed keys en Key Vault), y aísle los datos con encryption scopes.',
+		kyCallout: 'Agregue infrastructure encryption para una segunda capa (doble cifrado) en los datos más sensibles.',
+
+		// ── Step 3 · SOFT DELETE ──
+		tkTitle: 'Soft delete atrapa los errores',
+		tkCaption: 'Recuperar 1–365 días',
+		tkDesc: 'Con soft delete activado, un blob eliminado o sobrescrito no desaparece — se puede recuperar durante un período de retención que usted elige (1 a 365 días). Active también container soft delete, para poder restaurar un contenedor eliminado por completo.',
+		tkCallout: 'Las sobrescrituras también se atrapan — el estado anterior se conserva durante la ventana de retención.',
+
+		// ── Step 4 · VERSIONING ──
+		inTitle: 'Versioning conserva cada copia',
+		inCaption: 'Historial automático + auditoría',
+		inDesc: 'Active blob versioning y cada escritura conserva automáticamente la versión anterior — restaure cualquiera de ellas. El change feed registra un log ordenado e inmutable de cada cambio, perfecto para auditoría y procesamiento posterior.',
+		inCallout: 'Las versiones cuestan almacenamiento — combínelas con una lifecycle rule para expirar las antiguas (vea la siguiente explicación).',
+
+		// ── Step 5 · IMMUTABILITY ──
+		acTitle: 'Immutability lo bloquea (WORM)',
+		acCaption: 'De nivel de cumplimiento',
+		acDesc: 'Para el cumplimiento, ponga los blobs en un estado WORM — Write Once, Read Many. Una time-based retention policy bloquea cambios y borrados durante un período fijo; un legal hold los bloquea hasta que usted lo levante. Aplíquelo a un contenedor o a una versión.',
+		acCallout: 'WORM es incompatible con point-in-time restore — elija la protección que su carga de trabajo necesite.',
+
+		// ── Step 6 · POINT-IN-TIME RESTORE ──
+		poTitle: 'Point-in-time restore lo rebobina',
+		poCaption: 'Retroceda el reloj',
+		poDesc: 'Point-in-time restore devuelve los block blobs a un momento anterior — ideal tras una operación masiva errónea. Se apoya en soft delete, versioning y el change feed, y el punto de restauración debe quedar dentro de la ventana de soft delete.',
+		poCallout: 'PITR restaura solo operaciones de block blob — un contenedor eliminado por completo vuelve mediante container soft delete, no PITR.',
+
+		// ── Step 7 · REVOKING ──
+		rvTitle: 'Revocar el acceso',
+		rvCaption: 'Dos formas de retirarlo',
+		rvDesc: 'Un SAS funciona hasta que caduca \u2014 a menos que lo revoque. Regenere la account key para anular todos los tokens ad-hoc firmados con ella. O, para los tokens basados en directiva, solo elimine la directiva \u2014 sin rotación de claves.',
+		rvCallout: 'Por esto existen las stored access policies: revocar sin romper todo lo demás.',
+
+		// ── Step 7 · RECAP ──
+		rcTitle: 'El panorama completo',
+		rcCaption: 'Protección por capas',
+		rcDesc: 'Cifrado en reposo de forma predeterminada, y luego envuelto en capas de recuperación: soft delete para los errores, versioning para el historial, immutability para el cumplimiento, y point-in-time restore para rebobinar. Active lo que sus objetivos de recuperación necesiten.',
+		rcCallout: 'Prefiera soft delete + versioning + PITR para la recuperación; añada immutability (WORM) y CMK donde el cumplimiento lo exija.',
+
+		// ── Step 8 · TECHNICAL SUMMARY ──
+		spTitle: 'Funciones de recuperación por servicio',
+		spCaption: 'La vista técnica',
+		spDesc: 'La pila de recuperación es más rica para los blobs. Point-in-time restore se apoya en soft delete, versioning y el change feed — y es incompatible con immutability (WORM). El cifrado en reposo se aplica a todos los servicios.',
+		spCallout: 'El punto de restauración de PITR debe quedar al menos un día dentro de la retención de blob soft delete. WORM y PITR son mutuamente excluyentes.'
+	},
+
+	ja: {
+		pageTitle: 'データ保護',
+		stageHeading: 'Blob のデータ保護と暗号化',
+		stageInstructions: 'Azure Blob のデータ保護のアニメーション解説 — soft delete、versioning、point-in-time restore、immutability (WORM)、そして暗号化。次へ/前へ ボタンまたは矢印キーで移動します。R キーで最初からやり直します。',
+		scTitle: 'キーボードショートカット',
+
+		// ── Step 1 · GOAL ──
+		goTitle: '削除・上書き・攻撃からデータを守る',
+		goCaption: 'セーフティネットのスタック',
+		goDesc: '事故も攻撃も起こります — 誤った削除、上書き、ランサムウェア。Azure Storage はすべての blob を復旧機能で包み、既定で保存時に暗号化します。セーフティネットを組み立てましょう。',
+		goCallout: 'これらの機能は独立した層です — 復旧の目標に必要なものを有効にしましょう。',
+
+		// ── Step 2 · ENCRYPTION ──
+		kyTitle: '保存時に暗号化 — 自動的に',
+		kyCaption: 'SSE + あなたの鍵',
+		kyDesc: 'すべての blob は Storage Service Encryption (256 ビット AES) で保存時に暗号化されます — オフにはできません。Microsoft 管理キーを使うか、自分の鍵 (Key Vault の customer-managed keys) を持ち込み、encryption scopes でデータを分離します。',
+		kyCallout: '最も機密性の高いデータには、infrastructure encryption を追加して二層目 (二重暗号化) にしましょう。',
+
+		// ── Step 3 · SOFT DELETE ──
+		tkTitle: 'soft delete がミスを捕まえる',
+		tkCaption: '1–365 日で復元',
+		tkDesc: 'soft delete を有効にすると、削除または上書きされた blob は消えません — あなたが選ぶ保持期間 (1 日から 365 日) の間、復元できます。container soft delete も有効にすれば、削除されたコンテナー全体を復元できます。',
+		tkCallout: '上書きも捕まえます — 以前の状態が保持ウィンドウの間、保存されます。',
+
+		// ── Step 4 · VERSIONING ──
+		inTitle: 'versioning がすべてのコピーを保持する',
+		inCaption: '自動履歴 + 監査',
+		inDesc: 'blob versioning を有効にすると、書き込みのたびに以前のバージョンが自動的に保持されます — どれでも復元できます。change feed は、すべての変更を順序付きで不変のログに記録し、監査や後続処理に最適です。',
+		inCallout: 'バージョンはストレージのコストになります — lifecycle rule と組み合わせて古いものを期限切れにしましょう (次の解説を参照)。',
+
+		// ── Step 5 · IMMUTABILITY ──
+		acTitle: 'immutability がロックする (WORM)',
+		acCaption: 'コンプライアンス級',
+		acDesc: 'コンプライアンスのために、blob を WORM の状態 — Write Once, Read Many — にします。time-based retention policy は一定期間、変更と削除をブロックし、legal hold は解除するまでブロックします。コンテナーまたはバージョンに適用します。',
+		acCallout: 'WORM は point-in-time restore と両立しません — ワークロードに必要な保護を選びましょう。',
+
+		// ── Step 6 · POINT-IN-TIME RESTORE ──
+		poTitle: 'point-in-time restore が巻き戻す',
+		poCaption: '時計を巻き戻す',
+		poDesc: 'point-in-time restore は block blob を以前の時点へ戻します — 大量操作の失敗後に最適です。soft delete、versioning、change feed の上に成り立ち、復元ポイントは soft delete のウィンドウ内になければなりません。',
+		poCallout: 'PITR が復元するのは block blob の操作だけです — 削除されたコンテナー全体は、PITR ではなく container soft delete で戻ります。',
+
+		// ── Step 7 · REVOKING ──
+		rvTitle: 'アクセスの取り消し',
+		rvCaption: '取り戻す二つの方法',
+		rvDesc: 'SAS は期限切れになるまで有効です \u2014 取り消さない限り。account key を再生成すれば、それで署名されたすべてのアドホック トークンが無効になります。あるいはポリシーベースのトークンなら、ポリシーを削除するだけ \u2014 キーのローテーションは不要です。',
+		rvCallout: 'これが stored access policies が存在する理由です。ほかのすべてを壊さずに取り消せます。',
+
+		// ── Step 7 · RECAP ──
+		rcTitle: '全体像',
+		rcCaption: '層状の保護',
+		rcDesc: '既定で保存時に暗号化し、そのうえで復旧の層で包みます。ミスには soft delete、履歴には versioning、コンプライアンスには immutability、巻き戻しには point-in-time restore。復旧の目標に必要なものを有効にしましょう。',
+		rcCallout: '復旧には soft delete + versioning + PITR を推奨します。コンプライアンスが求める場合は immutability (WORM) と CMK を追加します。',
+
+		// ── Step 8 · TECHNICAL SUMMARY ──
+		spTitle: 'サービス別の復旧機能',
+		spCaption: '技術的な視点',
+		spDesc: '復旧のスタックは blob で最も豊かです。point-in-time restore は soft delete、versioning、change feed の上に成り立ち — immutability (WORM) とは両立しません。保存時の暗号化はすべてのサービスに適用されます。',
+		spCallout: 'PITR の復元ポイントは、blob soft delete の保持期間より少なくとも一日内側になければなりません。WORM と PITR は相互に排他的です。'
+	},
+
+	ko: {
+		pageTitle: '데이터 보호',
+		stageHeading: 'Blob 데이터 보호 및 암호화',
+		stageInstructions: 'Azure Blob 데이터 보호 애니메이션 설명 — soft delete, versioning, point-in-time restore, immutability (WORM), 그리고 암호화. 다음/이전 버튼이나 화살표 키로 이동하세요. R 키로 다시 시작합니다.',
+		scTitle: '키보드 단축키',
+
+		// ── Step 1 · GOAL ──
+		goTitle: '삭제, 덮어쓰기, 공격으로부터 데이터 보호',
+		goCaption: '안전망 스택',
+		goDesc: '사고도 공격도 일어납니다 — 잘못된 삭제, 덮어쓰기, 랜섬웨어. Azure Storage는 모든 blob을 복구 기능으로 감싸고, 기본으로 저장 시에 암호화합니다. 안전망을 만들어 봅시다.',
+		goCallout: '이 기능들은 독립된 계층입니다 — 복구 목표에 필요한 것을 켜세요.',
+
+		// ── Step 2 · ENCRYPTION ──
+		kyTitle: '저장 시 암호화 — 자동으로',
+		kyCaption: 'SSE + 여러분의 키',
+		kyDesc: '모든 blob은 Storage Service Encryption (256비트 AES)으로 저장 시에 암호화됩니다 — 끌 수 없습니다. Microsoft 관리 키를 사용하거나, 여러분의 키(Key Vault의 customer-managed keys)를 가져오고, encryption scopes로 데이터를 격리하세요.',
+		kyCallout: '가장 민감한 데이터에는 infrastructure encryption을 추가해 두 번째 계층(이중 암호화)을 두세요.',
+
+		// ── Step 3 · SOFT DELETE ──
+		tkTitle: 'soft delete가 실수를 잡아낸다',
+		tkCaption: '1–365일 복구',
+		tkDesc: 'soft delete를 켜면, 삭제되거나 덮어쓰인 blob은 사라지지 않습니다 — 여러분이 고르는 보존 기간(1일에서 365일) 동안 복구할 수 있습니다. container soft delete도 켜면, 삭제된 컨테이너 전체를 복원할 수 있습니다.',
+		tkCallout: '덮어쓰기도 잡아냅니다 — 이전 상태가 보존 기간 동안 유지됩니다.',
+
+		// ── Step 4 · VERSIONING ──
+		inTitle: 'versioning이 모든 복사본을 보관한다',
+		inCaption: '자동 기록 + 감사',
+		inDesc: 'blob versioning을 켜면, 쓰기마다 이전 버전이 자동으로 보존됩니다 — 어느 것이든 복원하세요. change feed는 모든 변경을 순서가 있는 불변 로그로 기록하여, 감사와 후속 처리에 안성맞춤입니다.',
+		inCallout: '버전은 스토리지 비용이 듭니다 — lifecycle rule과 결합해 오래된 것을 만료시키세요 (다음 설명 참조).',
+
+		// ── Step 5 · IMMUTABILITY ──
+		acTitle: 'immutability가 잠근다 (WORM)',
+		acCaption: '규정 준수 등급',
+		acDesc: '규정 준수를 위해, blob을 WORM 상태 — Write Once, Read Many — 로 둡니다. time-based retention policy는 정해진 기간 동안 변경과 삭제를 막고, legal hold는 여러분이 해제할 때까지 막습니다. 컨테이너나 버전에 적용하세요.',
+		acCallout: 'WORM은 point-in-time restore와 호환되지 않습니다 — 워크로드에 필요한 보호를 선택하세요.',
+
+		// ── Step 6 · POINT-IN-TIME RESTORE ──
+		poTitle: 'point-in-time restore가 되감는다',
+		poCaption: '시계를 되감다',
+		poDesc: 'point-in-time restore는 block blob을 이전 시점으로 되돌립니다 — 잘못된 대량 작업 후에 이상적입니다. soft delete, versioning, change feed 위에 세워지며, 복원 지점은 soft delete 기간 안에 있어야 합니다.',
+		poCallout: 'PITR는 block blob 작업만 복원합니다 — 삭제된 컨테이너 전체는 PITR가 아니라 container soft delete로 돌아옵니다.',
+
+		// ── Step 7 · REVOKING ──
+		rvTitle: '액세스 취소',
+		rvCaption: '되돌리는 두 가지 방법',
+		rvDesc: 'SAS는 만료될 때까지 작동합니다 \u2014 취소하지 않는 한. account key를 다시 생성하면 그것으로 서명된 모든 애드혹 토큰이 무효가 됩니다. 또는 정책 기반 토큰이라면, 정책만 삭제하면 됩니다 \u2014 키 교체가 필요 없습니다.',
+		rvCallout: '이것이 stored access policies가 존재하는 이유입니다: 다른 모든 것을 망가뜨리지 않고 취소합니다.',
+
+		// ── Step 7 · RECAP ──
+		rcTitle: '전체 그림',
+		rcCaption: '계층화된 보호',
+		rcDesc: '기본으로 저장 시 암호화하고, 그 위에 복구 계층으로 감쌉니다. 실수에는 soft delete, 기록에는 versioning, 규정 준수에는 immutability, 되감기에는 point-in-time restore. 복구 목표에 필요한 것을 켜세요.',
+		rcCallout: '복구에는 soft delete + versioning + PITR를 권장합니다; 규정 준수가 요구하는 곳에는 immutability (WORM)와 CMK를 추가하세요.',
+
+		// ── Step 8 · TECHNICAL SUMMARY ──
+		spTitle: '서비스별 복구 기능',
+		spCaption: '기술적 관점',
+		spDesc: '복구 스택은 blob에서 가장 풍부합니다. point-in-time restore는 soft delete, versioning, change feed 위에 세워지며 — immutability (WORM)와는 호환되지 않습니다. 저장 시 암호화는 모든 서비스에 적용됩니다.',
+		spCallout: 'PITR 복원 지점은 blob soft delete 보존 기간보다 최소 하루 안쪽에 있어야 합니다. WORM과 PITR는 상호 배타적입니다.'
+	},
+
+	// ── Português (pt) — teaching text; matches the pt narration; brand/code names stay English ──
+	pt: {
+		pageTitle: 'Proteção de dados',
+		stageHeading: 'Proteção e criptografia de dados do Blob',
+		stageInstructions: 'Explicação animada da proteção de dados do Azure Blob — soft delete, versioning, point-in-time restore, immutability (WORM) e criptografia. Use os botões Próximo/Anterior ou as setas do teclado para navegar. Pressione R para reiniciar.',
+		scTitle: 'Atalhos de teclado',
+
+		goTitle: 'Proteja os dados de exclusões, sobregravações e ataques',
+		goCaption: 'A pilha da rede de segurança',
+		goDesc: 'Acidentes e ataques acontecem — uma exclusão acidental, uma sobregravação, ransomware. O Azure Storage envolve cada blob em recursos de recuperação e o criptografa em repouso por padrão. Vamos montar a rede de segurança.',
+		goCallout: 'Esses recursos são camadas independentes — ative os que seus objetivos de recuperação exigirem.',
+
+		kyTitle: 'Criptografia em repouso — automaticamente',
+		kyCaption: 'SSE + suas chaves',
+		kyDesc: 'Cada blob é criptografado em repouso com Storage Service Encryption (AES de 256 bits) — não pode ser desativado. Use chaves gerenciadas pela Microsoft, ou traga as suas (customer-managed keys no Key Vault), e isole os dados com encryption scopes.',
+		kyCallout: 'Adicione infrastructure encryption para uma segunda camada (dupla criptografia) nos dados mais sensíveis.',
+
+		tkTitle: 'Soft delete pega os erros',
+		tkCaption: 'Recuperar 1–365 dias',
+		tkDesc: 'Com o soft delete ativado, um blob excluído ou sobregravado não some — pode ser recuperado durante um período de retenção que você escolhe (1 a 365 dias). Ative também o container soft delete, para poder restaurar um contêiner excluído por completo.',
+		tkCallout: 'As sobregravações também são capturadas — o estado anterior é mantido durante a janela de retenção.',
+
+		inTitle: 'Versioning guarda cada cópia',
+		inCaption: 'Histórico automático + auditoria',
+		inDesc: 'Ative o blob versioning e cada gravação mantém automaticamente a versão anterior — restaure qualquer uma delas. O change feed registra um log ordenado e imutável de cada mudança, perfeito para auditoria e processamento posterior.',
+		inCallout: 'As versões custam armazenamento — combine-as com uma lifecycle rule para expirar as antigas (veja a próxima explicação).',
+
+		acTitle: 'Immutability bloqueia (WORM)',
+		acCaption: 'Nível de conformidade',
+		acDesc: 'Para conformidade, coloque os blobs em um estado WORM — Write Once, Read Many. Uma time-based retention policy bloqueia mudanças e exclusões por um período fixo; um legal hold as bloqueia até você liberá-lo. Aplique a um contêiner ou a uma versão.',
+		acCallout: 'WORM é incompatível com point-in-time restore — escolha a proteção que sua carga de trabalho precisa.',
+
+		poTitle: 'Point-in-time restore rebobina',
+		poCaption: 'Volte o relógio',
+		poDesc: 'O point-in-time restore devolve os block blobs a um momento anterior — ideal após uma operação em massa equivocada. Apoia-se em soft delete, versioning e no change feed, e o ponto de restauração deve ficar dentro da janela de soft delete.',
+		poCallout: 'O PITR restaura apenas operações de block blob — um contêiner excluído por completo volta pelo container soft delete, não pelo PITR.',
+
+		rvTitle: 'Revogar o acesso',
+		rvCaption: 'Duas formas de retirá-lo',
+		rvDesc: 'Um SAS funciona até expirar — a menos que você o revogue. Regenere a account key para anular todos os tokens ad-hoc assinados com ela. Ou, para os tokens baseados em política, apenas exclua a política — sem rotação de chaves.',
+		rvCallout: 'É por isso que as stored access policies existem: revogar sem quebrar todo o resto.',
+
+		rcTitle: 'O panorama completo',
+		rcCaption: 'Proteção em camadas',
+		rcDesc: 'Criptografia em repouso por padrão e, então, envolto em camadas de recuperação: soft delete para os erros, versioning para o histórico, immutability para a conformidade e point-in-time restore para rebobinar. Ative o que seus objetivos de recuperação exigirem.',
+		rcCallout: 'Prefira soft delete + versioning + PITR para a recuperação; adicione immutability (WORM) e CMK onde a conformidade exigir.',
+
+		spTitle: 'Recursos de recuperação por serviço',
+		spCaption: 'A visão técnica',
+		spDesc: 'A pilha de recuperação é mais rica para os blobs. O point-in-time restore apoia-se em soft delete, versioning e no change feed — e é incompatível com immutability (WORM). A criptografia em repouso se aplica a todos os serviços.',
+		spCallout: 'O ponto de restauração do PITR deve ficar pelo menos um dia dentro da retenção do blob soft delete. WORM e PITR são mutuamente exclusivos.'
+	}
+};
+function t(key) { return (I18N[currentLang] && I18N[currentLang][key]) || I18N.en[key] || key; }
+
+function setLanguage(lang) {
+	currentLang = lang;
+	document.documentElement.lang = lang;
+	document.getElementById('page-title').textContent = '\uD83D\uDEE1\uFE0F ' + t('pageTitle');
+	document.getElementById('prev-btn').title = t('prev');
+	document.getElementById('next-btn').title = t('next');
+	document.getElementById('replay-btn').title = t('replay');
+	document.getElementById('reset-btn').title = t('restart');
+	document.getElementById('speed-down').title = t('slower');
+	document.getElementById('speed-up').title = t('faster');
+	document.getElementById('outline-title').textContent = t('stepDetails');
+	document.querySelector('.skip-link').textContent = t('skipToMain');
+	document.getElementById('stage-heading').textContent = t('stageHeading');
+	document.getElementById('stage-instructions').textContent = t('stageInstructions');
+	syncCalloutBtn(); syncOutlineBtn();
+	if (typeof syncAudioBtn === 'function') syncAudioBtn();
+	if (typeof syncCcBtn === 'function') syncCcBtn();
+	if (typeof buildShortcuts === 'function') buildShortcuts();
+	document.querySelectorAll('.aw-drag-reset').forEach(b=>{ b.title=t('resetPos'); b.setAttribute('aria-label', t('resetPos')); });
+	try { localStorage.setItem('aw-sa-lang', lang); } catch(_){}
+	if (current >= 0) renderStep(current);
+}
+
+// ── STEPS (journey order — every step assembles the same relationship map) ──
+const STEPS = [
+	{ id:'goal',      short:'Start',      level:1, titleKey:'goTitle', captionKey:'goCaption', descKey:'goDesc', calloutKey:'goCallout',
+		stats:[['goStat1','goStat1v'],['goStat2','goStat2v'],['goStat3','goStat3v']] },
+	{ id:'encrypt',   short:'Encrypt',    level:2, titleKey:'kyTitle', captionKey:'kyCaption', descKey:'kyDesc', calloutKey:'kyCallout',
+		stats:[['kyStat1','kyStat1v'],['kyStat2','kyStat2v'],['kyStat3','kyStat3v']] },
+	{ id:'softdelete',short:'Soft delete', level:3, titleKey:'tkTitle', captionKey:'tkCaption', descKey:'tkDesc', calloutKey:'tkCallout',
+		stats:[['tkStat1','tkStat1v'],['tkStat2','tkStat2v'],['tkStat3','tkStat3v']] },
+	{ id:'versioning',short:'Versioning', level:4, titleKey:'inTitle', captionKey:'inCaption', descKey:'inDesc', calloutKey:'inCallout',
+		stats:[['inStat1','inStat1v'],['inStat2','inStat2v'],['inStat3','inStat3v']] },
+	{ id:'immutable', short:'Immutable',  level:5, titleKey:'acTitle', captionKey:'acCaption', descKey:'acDesc', calloutKey:'acCallout',
+		stats:[['acStat1','acStat1v'],['acStat2','acStat2v'],['acStat3','acStat3v']] },
+	{ id:'restore',   short:'PITR',       level:6, titleKey:'poTitle', captionKey:'poCaption', descKey:'poDesc', calloutKey:'poCallout',
+		stats:[['poStat1','poStat1v'],['poStat2','poStat2v'],['poStat3','poStat3v']] },
+	{ id:'recap',     short:'Recap',      level:7, titleKey:'rcTitle', captionKey:'rcCaption', descKey:'rcDesc', calloutKey:'rcCallout',
+		stats:[['rcStat1','rcStat1v'],['rcStat2','rcStat2v'],['rcStat3','rcStat3v']] },
+	{ id:'spec',      short:'Compare',    level:8, titleKey:'spTitle', captionKey:'spCaption', descKey:'spDesc', calloutKey:'spCallout',
+		stats:[['spStat1','spStat1v'],['spStat2','spStat2v'],['spStat3','spStat3v']] }
+];
+
+// ── DOM REFS ──────────────────────────────
+const stage=document.getElementById('stage-frame'), svg=document.getElementById('fx-svg'),
+	counter=document.getElementById('step-counter'), breadcrumb=document.getElementById('breadcrumb'),
+	progress=document.getElementById('progress-fill'), announcer=document.getElementById('step-announcer'),
+	outlineBody=document.getElementById('outline-body'), outlinePanel=document.getElementById('step-outline'),
+	outlineBtn=document.getElementById('outline-toggle'), calloutBtn=document.getElementById('callout-toggle'),
+	langSelect=document.getElementById('lang-select');
+
+langSelect.addEventListener('change', e => setLanguage(e.target.value));
+const urlLang = new URLSearchParams(location.search).get('lang');
+let savedLang=null; try{ savedLang=localStorage.getItem('aw-sa-lang'); }catch(_){}
+if (urlLang && I18N[urlLang]) { currentLang = urlLang; langSelect.value = urlLang; }
+else if (savedLang && I18N[savedLang]) { currentLang = savedLang; langSelect.value = savedLang; }
+
+// ── Font size ─────────────────────────────
+const fontScales=[0.8,0.9,1,1.1,1.2,1.35]; let fontScaleIdx=2;
+const baseFontSize=parseFloat(getComputedStyle(document.documentElement).fontSize);
+function applyFontScale(){ document.documentElement.style.fontSize=(baseFontSize*fontScales[fontScaleIdx])+'px'; const c=document.getElementById('controls'); if(c) c.style.fontSize=baseFontSize+'px'; if(typeof current!=='undefined'&&current>=0){ const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s); } }
+function saveFont(){ try{ localStorage.setItem('aw-sa-font', String(fontScaleIdx)); }catch(_){} }
+try{ const f=parseInt(localStorage.getItem('aw-sa-font'),10); if(!isNaN(f)&&f>=0&&f<fontScales.length){ fontScaleIdx=f; applyFontScale(); } }catch(_){}
+document.getElementById('font-decrease').addEventListener('click',()=>{ if(fontScaleIdx>0){fontScaleIdx--;applyFontScale();saveFont();} });
+document.getElementById('font-increase').addEventListener('click',()=>{ if(fontScaleIdx<fontScales.length-1){fontScaleIdx++;applyFontScale();saveFont();} });
+
+let current=-1, animating=false, liveEls=[], liveTimelines=[], calloutEnabled=false;
+
+function syncCalloutBtn(){ calloutBtn.classList.toggle('toggle-active',calloutEnabled); calloutBtn.setAttribute('aria-pressed',calloutEnabled?'true':'false'); calloutBtn.setAttribute('data-tip', calloutEnabled?'Callouts: On':'Callouts: Off'); }
+calloutBtn.addEventListener('click',()=>{ calloutEnabled=!calloutEnabled; syncCalloutBtn(); if(current>=0) rerenderInstant(); }); syncCalloutBtn();
+function syncOutlineBtn(){ const on=!outlinePanel.hasAttribute('hidden'); outlineBtn.classList.toggle('toggle-active',on); outlineBtn.setAttribute('aria-expanded',on?'true':'false'); outlineBtn.setAttribute('data-tip', on?'Outline: On':'Outline: Off'); }
+outlineBtn.addEventListener('click',()=>{ const showing=!outlinePanel.hasAttribute('hidden'); if(showing){outlinePanel.setAttribute('hidden','');outlineBtn.setAttribute('aria-expanded','false');} else {outlinePanel.removeAttribute('hidden');outlineBtn.setAttribute('aria-expanded','true');} syncOutlineBtn(); }); syncOutlineBtn();
+
+// ── Audio narration ──────────────────
+const AUDIO_BASE = 'audio/StorageDataProtection/';
+const AUDIO_FILES = ['step-01.mp3','step-02.mp3','step-03.mp3','step-04.mp3','step-05.mp3','step-06.mp3','step-07.mp3','step-08.mp3'];
+let audioEnabled=false, currentAudio=null, audioTimeout=null, audioTick=null, ccPref=false;
+const audioBtn=document.getElementById('audio-toggle');
+if(audioBtn){ audioBtn.innerHTML='<span class="aw-audio-ico" aria-hidden="true">\uD83D\uDD07</span><span class="aw-audio-time" aria-hidden="true">--:--</span>'; }
+const audioIco=audioBtn&&audioBtn.querySelector('.aw-audio-ico'), audioTimeEl=audioBtn&&audioBtn.querySelector('.aw-audio-time');
+function playbackOn(){ return audioEnabled || ccPref; }   // captions can play with audio OFF (volume 0 timing)
+function audioDir(){ return AUDIO_BASE + (currentLang && currentLang!=='en' ? currentLang+'/' : ''); }
+function fmtRemain(s){ s=Math.max(0,Math.round(s)); return '\uD83D\uDD0A '+Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
+function clearTick(){ if(audioTick){ clearInterval(audioTick); audioTick=null; } }
+function syncAudioBtn(){ if(!audioBtn) return; if(audioIco) audioIco.textContent=audioEnabled?'\uD83D\uDD0A':'\uD83D\uDD07'; if(audioTimeEl){ if(audioEnabled && currentAudio && !currentAudio.paused && isFinite(currentAudio.duration)){ const s=Math.max(0,Math.round(currentAudio.duration-currentAudio.currentTime)); audioTimeEl.textContent=Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); } else { audioTimeEl.textContent='--:--'; } } audioBtn.classList.toggle('toggle-active',audioEnabled); audioBtn.setAttribute('aria-pressed',audioEnabled?'true':'false'); }
+function stopAudio(){
+	clearTick();
+	if(currentAudio){ currentAudio.pause(); currentAudio.currentTime=0; currentAudio=null; }
+	if(audioTimeout){ clearTimeout(audioTimeout); audioTimeout=null; }
+	try{ if(window.speechSynthesis) speechSynthesis.cancel(); }catch(_){}
+	if(window.AWCaptions) AWCaptions.clear();
+}
+function playStepAudio(i){
+	if(window.__awSkipAudioOnce) return;
+	stopAudio();
+	if(document.body.classList.contains('aw-prestart')) return;
+	if(!playbackOn() || i<0 || i>=STEPS.length){ syncAudioBtn(); return; }
+	audioTimeout=setTimeout(()=>{
+		audioTimeout=null;
+		const file=AUDIO_FILES[i];
+		if(file){
+			const a=new Audio(audioDir()+file); currentAudio=a; a.volume = audioEnabled ? 1 : 0; if(window.AWCaptions) AWCaptions.bind(a,i);
+			a.addEventListener('ended',()=>{ if(currentAudio===a){ currentAudio=null; clearTick(); syncAudioBtn(); } });
+			a.addEventListener('loadedmetadata',syncAudioBtn);
+			a.play().then(()=>{ clearTick(); audioTick=setInterval(syncAudioBtn,500); syncAudioBtn(); }).catch(()=>{});
+			return;
+		}
+		if(window.speechSynthesis){
+			const step=STEPS[i];
+			const u=new SpeechSynthesisUtterance(`${t(step.titleKey)}. ${t(step.descKey)}`);
+			u.lang=currentLang||'en';
+			try{ speechSynthesis.cancel(); speechSynthesis.speak(u); }catch(_){}
+		}
+	}, 700);
+}
+if(audioBtn){ audioBtn.addEventListener('click',()=>{
+	audioEnabled=!audioEnabled; try{localStorage.setItem('aw-sa-audio',audioEnabled?'1':'0');}catch(_){} syncAudioBtn();
+	if(current>=0){ if(!playbackOn()) stopAudio(); else if(currentAudio) currentAudio.volume=audioEnabled?1:0; else playStepAudio(current); }
+	applyCc();
+}); }
+// Initial audio + CC from the ?audio parameter:
+//   on -> audio ON + captions ON  ·  off -> both OFF  ·  (absent) -> audio ON, captions OFF (a prior stored choice still wins).
+(function(){
+	var p=null; try{ p=new URLSearchParams(location.search).get('audio'); }catch(_){}
+	if(p==='on'){ audioEnabled=true; ccPref=true; }
+	else if(p==='off'){ audioEnabled=false; ccPref=false; }
+	else {
+		audioEnabled=true; ccPref=false;
+		try{ var a=localStorage.getItem('aw-sa-audio'); if(a==='1') audioEnabled=true; else if(a==='0') audioEnabled=false; }catch(_){}
+		try{ var c=localStorage.getItem('aw-sa-cc'); if(c==='1') ccPref=true; else if(c==='0') ccPref=false; }catch(_){}
+	}
+	try{ localStorage.setItem('aw-sa-audio',audioEnabled?'1':'0'); localStorage.setItem('aw-sa-cc',ccPref?'1':'0'); }catch(_){}
+})();
+syncAudioBtn();
+
+// ── Captions (CC) — overlaid in the frame; play WITH or WITHOUT audio ──
+const ccBtn=document.getElementById('cc-toggle');
+function ccEffective(){ return ccPref; }
+function syncCcBtn(){ if(!ccBtn) return; ccBtn.classList.toggle('toggle-active',ccPref); ccBtn.setAttribute('aria-pressed',ccPref?'true':'false'); }
+function applyCc(){ if(window.AWCaptions) AWCaptions.setEnabled(ccEffective()); if(ccEffective()&&currentAudio&&window.AWCaptions) AWCaptions.bind(currentAudio,current); syncCcBtn(); }
+if(window.AWCaptions){ AWCaptions.configure({ page:'StorageDataProtection', base:'../../narration/v2/Storage/', lang:()=>currentLang, fallback:(i)=>(STEPS[i]?t(STEPS[i].descKey):''), reserve:false }); }
+if(ccBtn){ ccBtn.addEventListener('click',()=>{
+	ccPref=!ccPref; try{localStorage.setItem('aw-sa-cc',ccPref?'1':'0');}catch(_){} applyCc();
+	if(current>=0){ if(playbackOn() && !currentAudio) playStepAudio(current); else if(!playbackOn() && currentAudio) stopAudio(); }
+}); }
+applyCc();
+
+// ── Full screen ──
+(function(){
+	const fsBtn=document.getElementById('fs-toggle'); if(!fsBtn) return;
+	function inFs(){ return !!(document.fullscreenElement||document.webkitFullscreenElement); }
+	function syncFs(){ document.body.classList.toggle('is-fs',inFs()); fsBtn.setAttribute('aria-pressed',inFs()?'true':'false'); fsBtn.title=inFs()?'Exit full screen (F)':'Full screen (F)'; }
+	function toggle(){ try{ if(inFs()){ (document.exitFullscreen||document.webkitExitFullscreen).call(document); } else { const el=document.documentElement; (el.requestFullscreen||el.webkitRequestFullscreen).call(el); } }catch(_){} }
+	fsBtn.addEventListener('click',e=>{ e.stopPropagation(); toggle(); });
+	document.addEventListener('fullscreenchange',syncFs); document.addEventListener('webkitfullscreenchange',syncFs);
+	document.addEventListener('keydown',e=>{ if(e.code==='KeyF'&&!e.metaKey&&!e.ctrlKey&&!e.altKey){ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return; e.preventDefault(); toggle(); } });
+	syncFs();
+})();
+
+// ── Make callout / outline / caption draggable + the caption resizable, with a reset pin ──
+function dragify(el, key){
+	if(!el || el.__awDrag) return; el.__awDrag=true;
+	let dragging=false, sx=0, sy=0, bl=0, bt=0, moved=false;
+	const resizable = getComputedStyle(el).resize !== 'none';
+	const sizeKey = key ? key + '-size' : null;
+	const home={ position:el.style.position, left:el.style.left, top:el.style.top,
+		right:el.style.right, bottom:el.style.bottom, margin:el.style.margin, transform:el.style.transform,
+		width:el.style.width, height:el.style.height };
+	const pin=document.createElement('button');
+	pin.type='button'; pin.className='aw-drag-reset';
+	pin.title=t('resetPos'); pin.setAttribute('aria-label', t('resetPos'));
+	pin.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>';
+	const oy=getComputedStyle(el).overflowY; const clips=(oy==='auto'||oy==='scroll'||oy==='hidden');
+	pin.style.top=clips?'8px':'-10px'; pin.style.right=clips?'8px':'-10px';
+	el.appendChild(pin);
+	function showPin(on){ pin.style.display=on?'flex':'none'; }
+	pin.addEventListener('pointerdown', e=>{ e.stopPropagation(); });
+	pin.addEventListener('click', e=>{
+		e.preventDefault(); e.stopPropagation();
+		el.style.position=home.position; el.style.left=home.left; el.style.top=home.top;
+		el.style.right=home.right; el.style.bottom=home.bottom; el.style.margin=home.margin; el.style.transform=home.transform;
+		el.style.width=home.width; el.style.height=home.height;
+		if(key){ try{ localStorage.removeItem(key); }catch(_){} }
+		if(sizeKey){ try{ localStorage.removeItem(sizeKey); }catch(_){} }
+		showPin(false);
+	});
+	function fix(left,top){
+		const w=el.offsetWidth, h=el.offsetHeight;
+		left=Math.max(6, Math.min(left, window.innerWidth  - w - 6));
+		top =Math.max(6, Math.min(top,  window.innerHeight - h - 6));
+		el.style.position='fixed'; el.style.left=left+'px'; el.style.top=top+'px';
+		el.style.right='auto'; el.style.bottom='auto'; el.style.margin='0'; el.style.transform='none';
+	}
+	if(resizable && typeof ResizeObserver!=='undefined'){
+		let rt;
+		new ResizeObserver(()=>{
+			if(el.style.width || el.style.height){
+				showPin(true);
+				if(sizeKey){ clearTimeout(rt); rt=setTimeout(()=>{ try{ localStorage.setItem(sizeKey, JSON.stringify({w:el.style.width, h:el.style.height})); }catch(_){} }, 150); }
+			}
+		}).observe(el);
+	}
+	el.addEventListener('pointerdown', e=>{
+		if(e.button!==0 || (e.target.closest && e.target.closest('a,button,select,input,textarea'))) return;
+		if(resizable){ const r=el.getBoundingClientRect(); if(e.clientX>r.right-18 && e.clientY>r.bottom-18) return; }
+		dragging=true; moved=false;
+		const r=el.getBoundingClientRect(); bl=r.left; bt=r.top; sx=e.clientX; sy=e.clientY;
+		fix(bl, bt);
+		try{ el.setPointerCapture(e.pointerId); }catch(_){}
+		e.preventDefault();
+	});
+	el.addEventListener('pointermove', e=>{
+		if(!dragging) return;
+		const dx=e.clientX-sx, dy=e.clientY-sy;
+		if(Math.abs(dx)>2||Math.abs(dy)>2) moved=true;
+		fix(bl+dx, bt+dy);
+	});
+	function end(e){
+		if(!dragging) return; dragging=false;
+		try{ el.releasePointerCapture(e.pointerId); }catch(_){}
+		if(moved){ showPin(true); if(key){ try{ const r=el.getBoundingClientRect(); localStorage.setItem(key, JSON.stringify({left:r.left, top:r.top})); }catch(_){} } }
+	}
+	el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+	if(sizeKey){ try{ const z=JSON.parse(localStorage.getItem(sizeKey)||'null'); if(z && (z.w||z.h)){ if(z.w) el.style.width=z.w; if(z.h) el.style.height=z.h; showPin(true); } }catch(_){} }
+	if(key){ try{ const s=JSON.parse(localStorage.getItem(key)||'null'); if(s && isFinite(s.left) && isFinite(s.top)){ fix(s.left, s.top); showPin(true); } }catch(_){} }
+}
+dragify(document.getElementById('step-outline'), 'aw-sa-outline-pos');
+dragify(document.getElementById('aw-caption'), 'aw-sa-caption-pos');
+
+// ── Reduced motion ────────────────────────
+const motionMQ=window.matchMedia('(prefers-reduced-motion: reduce)'); let motionPaused=motionMQ.matches;
+motionMQ.addEventListener('change',e=>{ motionPaused=e.matches; renderStep(current); });
+
+// ── Helpers ───────────────────────────────
+function clearStage(){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; liveEls.forEach(el=>el.remove()); liveEls=[]; Array.from(svg.children).forEach(c=>{ if(c.tagName.toLowerCase()!=='defs') c.remove(); }); }
+function el(cls,html){ const d=document.createElement('div'); if(cls) d.className=cls; if(html!=null) d.innerHTML=html; return d; }
+const ICONS = {
+	inbox:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 3h2v5h3l-4 4-4-4h3zM5 14h14v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1z"/></svg>',
+	box:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 3 7v10l9 5 9-5V7zm0 2.3L17.7 7 12 10.2 6.3 7zM5 9.1l6 3.4v6.8l-6-3.3zm14 0v6.9l-6 3.3v-6.8z"/></svg>',
+	layers:'<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3 3 8l9 5 9-5z"/><path d="M3 12l9 5 9-5"/><path d="M3 16l9 5 9-5"/></g></svg>',
+	file:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h8l4 4v16H6z"/><path fill="var(--theme-card-background,#fff)" d="M13 3v4h4"/></svg>',
+	chat:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-4 4v-4H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/></svg>',
+	table:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M3 4h18v16H3V4zm2 2v3h6V6H5zm8 0v3h6V6h-6zM5 11v3h6v-3H5zm8 0v3h6v-3h-6zM5 16v2h6v-2H5zm8 0v2h6v-2h-6z"/></svg>',
+	disk:'<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor"/></g></svg>',
+	bolt:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>',
+	append:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v2H4zm0 4h16v2H4zm0 4h10v2H4zm13 0h2v3h3v2h-3v3h-2v-3h-3v-2h3z"/></svg>',
+	fire:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c1 3-1 4-1 6a2.5 2.5 0 0 0 5 0c0-1-.2-1.8-.6-2.6C17.6 7 19 9.7 19 13a7 7 0 1 1-14 0c0-3.6 2.6-6.4 4-8.6.6 1 1.3 1.7 2.4 2.3.5-1.4.3-3-.4-4.7z"/></svg>',
+	snow:'<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 2v20M4 6l16 12M20 6L4 18"/><path d="M12 6l-2.5-2M12 6l2.5-2M12 18l-2.5 2M12 18l2.5 2"/></g></svg>',
+	ice:'<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 2 4 6.5v9L12 20l8-4.5v-9z"/><path d="M4 6.5 12 11l8-4.5M12 11v9"/></g></svg>',
+	archive:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18v4H3zM4.5 9h15l-.9 10.1a1 1 0 0 1-1 .9H6.4a1 1 0 0 1-1-.9zM9 12v2h6v-2z"/></svg>',
+	clock:'<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2" stroke-linecap="round"/></g></svg>',
+	bulb:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-4 12.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26A7 7 0 0 0 12 2zM9 20h6v1a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1z"/></svg>',
+	party:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5zm6 11l.9 2.6L21.5 16.5l-2.6.9L18 20l-.9-2.6L14.5 16.5l2.6-.9zM6 14l.7 2 2 .7-2 .7L6 19.4l-.7-2-2-.7 2-.7z"/></svg>',
+	globe:'<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></g></svg>'
+};
+function icon(name){ return `<span class="ic">${ICONS[name]||''}</span>`; }
+// ICON POLICY (in priority order):
+//  1) Official Microsoft Azure service icons — local set, colored badges via <img>.  az('<category>/<file>.svg')
+//  2) Fluent icons — animated first, static fallback (wired via data-fallback in renderStep).  fluent('<Folder>','<file>')
+//  3) OS / GitHub icons approved by Microsoft/GitHub.   4) Open-source icons.   (inline ICONS map = small UI glyphs only)
+const AZ_BASE='../lib/icons/Azure_Public_Service_Icons/';
+function az(rel, alt){ return `<img class="az-ic" src="${AZ_BASE}${rel}" alt="${alt||''}" decoding="async">`; }
+// Microsoft Fluent Emoji (official) ships static Color/Flat/3D — there is no official animated Fluent CDN —
+// so we use the static color SVG. If an approved animated source is added later, point src at it and keep
+// this static URL as data-fallback (renderStep already wires img[data-fallback] onerror → fallback).
+const FLUENT_STAT='https://cdn.jsdelivr.net/gh/microsoft/fluentui-emoji@main/assets/';
+function fluent(folder, file, alt){
+	return `<img class="az-ic fluent-ic" src="${FLUENT_STAT}${encodeURI(folder)}/Color/${file}_color.svg" alt="${alt||''}" decoding="async">`;
+}
+function stepById(id){ return STEPS.find(s=>s.id===id); }
+function fitScene(scene){
+	if(!scene) return;
+	scene.style.transform='translate(-50%,-50%) scale(1)';
+	const box=stage.getBoundingClientRect();
+	const availW=box.width-32, availH=box.height-28;
+	const sw=scene.offsetWidth, sh=scene.offsetHeight;
+	if(!sw||!sh) return;
+	const k=Math.min(1, availW/sw, availH/sh);
+	scene.style.transform='translate(-50%,-50%) scale('+k+')';
+}
+function headerEls(scene){ return [scene.querySelector('.scene-title'), scene.querySelector('.scene-lead')]; }
+function buildScene(step){ const s=el('scene'); s.appendChild(el('scene-title', t(step.titleKey))); s.appendChild(el('scene-lead', t(step.descKey))); return s; }
+function maybeCallout(step){ if(!calloutEnabled) return null; const c=el('callout', t(step.calloutKey)); c.style.left='1.5rem'; c.style.top='1.5rem'; stage.appendChild(c); liveEls.push(c); dragify(c, 'aw-sa-callout-pos'); return c; }
+function renderOutline(step,idx){
+	const rows=(step.stats||[]).map(([k,v])=>`<div class="stat-row"><span>${t(k)}</span><span>${t(v)}</span></div>`).join('');
+	outlineBody.innerHTML=`<div class="outline-section"><strong>${t('stepOf')} ${idx+1} / ${STEPS.length}: ${t(step.titleKey)}</strong><p style="margin-top:0.4rem;">${t(step.descKey)}</p></div>${rows?`<div class="outline-section">${rows}</div>`:''}`;
+}
+function announceStep(step,idx){ announcer.textContent=`${t('stepOf')} ${idx+1} / ${STEPS.length}: ${t(step.titleKey)}. ${t(step.descKey)}`; }
+
+// ── RENDER DISPATCH ───────────────────────
+function renderStep(i){
+	if(i<0||i>=STEPS.length) return;
+	if(animating){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; animating=false; }
+	animating=true;
+	const step=STEPS[i];
+	const outgoing=stage.querySelector('.scene:not(.scene-out)');
+	if(outgoing) liveEls=liveEls.filter(x=>x!==outgoing);
+	clearStage();
+	if(outgoing){ outgoing.style.zIndex='5';
+		if(motionPaused){ outgoing.remove(); }
+		else { outgoing.classList.remove('scene-in'); outgoing.classList.add('scene-out'); setTimeout(()=>outgoing.remove(), 240); } }
+	if(step.id==='spec') renderSpecStep(); else renderMapStep(step.level);
+	const incoming=stage.querySelector('.scene:not(.scene-out)');
+	// Fluent icons load an animated APNG first; if it 404s, fall back to the static color SVG.
+	if(incoming){ incoming.querySelectorAll('img[data-fallback]').forEach(im=>{ im.addEventListener('error', function h(){ im.removeEventListener('error',h); const fb=im.getAttribute('data-fallback'); if(fb) im.src=fb; }); }); }
+	if(incoming && !motionPaused) incoming.classList.add('scene-in');
+	fitScene(incoming);
+	current=i;
+	try{ const u=new URL(location.href); u.searchParams.set('step', String(i+1)); history.replaceState(null,'',u); }catch(_){}
+	counter.textContent=`${t('stepOf')} ${current+1} / ${STEPS.length}`;
+	breadcrumb.textContent=t(step.captionKey);
+	progress.style.width=((current+1)/STEPS.length*100)+'%';
+	renderOutline(step,i); announceStep(step,i);
+	if(typeof playStepAudio==='function') playStepAudio(i);
+}
+
+// ── PERSISTENT RELATIONSHIP MAP (assembles across every step) ──
+function buildSasMap(){
+	const map=el('sas-map');
+	map.innerHTML =
+		`<svg class="map-svg" viewBox="0 0 1140 480" preserveAspectRatio="xMidYMid meet" aria-hidden="true">`+
+			`<defs><marker id="sasArrow" markerUnits="userSpaceOnUse" markerWidth="20" markerHeight="20" refX="16" refY="10" orient="auto"><path d="M2,2 L18,10 L2,18 Z"></path></marker></defs>`+
+		`</svg>`+
+		`<div class="sa-boundary" data-rev="1"><div class="sa-boundary-label">${az('storage/10086-icon-service-Storage-Accounts.svg', t('nAcct'))}<span>${t('nAcct')}</span></div></div>`+
+		`<div class="tl-axis" data-rev="1"></div>`+
+		`<div class="tl-lab" data-rev="1" style="left:78px;top:246px;">\u25C0 older writes \u00b7 now \u25B6</div>`+
+		`<div class="dp-node" data-rev="1" style="left:838px;top:146px;width:244px;height:184px;--nc:#e97526;"><div class="dn-head"><span class="dn-emoji">${az('general/10839-icon-service-Storage-Container.svg', t('nBlob'))}</span><span class="dn-title">${t('nBlob')}</span></div><div class="dn-sub">${t('nBlobSub')}</div>`+
+			`<div class="dp-rows">`+
+				`<div class="dp-row" data-rev="2"><span class="dr-em">\uD83D\uDD12</span><span class="dr-k">${t('encK1')}</span><span class="dr-v">${t('encV1')}</span></div>`+
+				`<div class="dp-row" data-rev="2"><span class="dr-em">\uD83D\uDD11</span><span class="dr-k">${t('encK2')}</span><span class="dr-v">${t('encV2')}</span></div>`+
+				`<div class="dp-row" data-rev="2"><span class="dr-em">\uD83E\uDDE9</span><span class="dr-k">${t('encK3')}</span><span class="dr-v">${t('encV3')}</span></div>`+
+			`</div></div>`+
+		`<div class="dp-stack" data-rev="4" style="left:402px;top:86px;width:262px;height:118px;"><div class="dn-head"><span class="dn-emoji">\uD83E\uDDEC</span><span class="dn-title">${t('nVer')}</span></div><div class="dn-sub">${t('nVerSub')}</div><div class="dp-vchips"><span class="dp-vchip">v1</span><span class="dp-vchip">v2</span><span class="dp-vchip">v3</span></div></div>`+
+		`<div class="dp-node" data-rev="3" style="left:58px;top:292px;width:254px;height:88px;--nc:#5c2d91;"><div class="dn-head"><span class="dn-emoji">\u267B\uFE0F</span><span class="dn-title">${t('nSoft')}</span></div><div class="dn-sub">${t('nSoftSub')}</div></div>`+
+		`<div class="dp-node" data-rev="5" style="left:58px;top:86px;width:286px;height:138px;--nc:#0b6a37;"><div class="dn-head"><span class="dn-emoji">\uD83D\uDD12</span><span class="dn-title">${t('nImmut')}</span></div><div class="dn-sub">${t('nImmutSub')}</div>`+
+			`<div class="dp-rows">`+
+				`<div class="dp-row" data-rev="5"><span class="dr-em">\u23F1\uFE0F</span><span class="dr-k">${t('imK1')}</span><span class="dr-v">${t('imV1')}</span></div>`+
+				`<div class="dp-row" data-rev="5"><span class="dr-em">\u2696\uFE0F</span><span class="dr-k">${t('imK2')}</span><span class="dr-v">${t('imV2')}</span></div>`+
+			`</div></div>`+
+		`<div class="dp-node" data-rev="6" style="left:366px;top:292px;width:262px;height:88px;--nc:#5c2d91;"><div class="dn-head"><span class="dn-emoji">\u23EA</span><span class="dn-title">${t('nPitr')}</span></div><div class="dn-sub">${t('nPitrSub')}</div></div>`+
+		`<div class="user-bubble" data-rev="6" style="left:838px;top:88px;">${t('storageBubble')}</div>`+
+		`<div class="dp-note note-enc" data-rev="7" style="left:656px;top:340px;width:340px;">${t('badgeEnc')}</div>`+
+		`<div class="dp-note note-soft" data-rev="7" style="left:656px;top:382px;width:340px;">${t('badgeSoft')}</div>`+
+		`<div class="map-ribbon" data-rev="7">`+['bp1','bp2','bp3','bp4','bp5'].map(k=>`<span class="bp">${t(k)}</span>`).join('')+`</div>`;
+	return map;
+}
+
+// ── RENDER ONE MAP STEP · reveal everything up to this step's level ──
+function renderMapStep(level){
+	const step=STEPS[level-1]; const scene=buildScene(step);
+	const map=buildSasMap(); scene.appendChild(map);
+	let foot=null;
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	const items=[...map.querySelectorAll('[data-rev]')];
+	const isPath=e=>e.tagName.toLowerCase()==='path';
+	const isFlow=e=>e.hasAttribute('data-flow');
+	const lvl=e=>parseInt(e.getAttribute('data-rev'),10);
+	const past=items.filter(e=>lvl(e)<level), now=items.filter(e=>lvl(e)===level), future=items.filter(e=>lvl(e)>level);
+	// a directional connector: once it exists, its dashes keep FLOWING toward the arrowhead (shows order/direction)
+	const startFlow=(p)=>{ p.style.strokeDasharray='9 7'; liveTimelines.push(gsap.fromTo(p,{strokeDashoffset:0},{strokeDashoffset:-16,duration:0.7,ease:'none',repeat:-1})); };
+	const bubble=map.querySelector('.user-bubble'), boundary=map.querySelector('.sa-boundary');
+	const hdr=headerEls(scene);
+	future.forEach(e=>{ e.style.opacity='0'; });
+	past.forEach(e=>{
+		if(isPath(e)){ e.style.opacity='0.85'; if(isFlow(e)){ if(motionPaused){ e.style.strokeDasharray='9 7'; } else { startFlow(e); } } }
+		else { gsap.set(e,{opacity:1,x:0,y:0,scale:1}); }
+	});
+	if(motionPaused){
+		now.forEach(e=>{ if(isPath(e)){ e.style.opacity='0.85'; if(isFlow(e)) e.style.strokeDasharray='9 7'; } else gsap.set(e,{opacity:1,x:0,y:0,scale:1}); });
+		gsap.set(hdr,{opacity:1}); if(foot) gsap.set(foot,{opacity:1}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return;
+	}
+	const typeBubble = bubble && lvl(bubble)===level;
+	const nowBoundary = boundary && lvl(boundary)===level;
+	const nowNodes=now.filter(e=>!isPath(e) && !(typeBubble && e===bubble) && !(nowBoundary && e===boundary));
+	const nowPaths=now.filter(isPath), flowNow=nowPaths.filter(isFlow);
+	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
+	if(nowBoundary) tl.fromTo(boundary, {opacity:0,scale:0.98}, {opacity:1,scale:1,duration:0.55,ease:'power2.out',transformOrigin:'center center'}, 0);
+	tl.fromTo(hdr, {opacity:0,y:-14}, {opacity:1,y:0,duration:0.5,stagger:0.1,ease:'power2.out'}, nowBoundary?'-=0.35':0);
+	if(nowNodes.length) tl.fromTo(nowNodes, {opacity:0,y:16,scale:0.9}, {opacity:1,y:0,scale:1,duration:0.5,stagger:0.1,ease:'back.out(1.5)'}, '-=0.15');
+	// connector lines DRAW in — then flow lines keep their dashes moving toward the arrowhead
+	if(nowPaths.length){
+		nowPaths.forEach(p=>{ const len=p.getTotalLength(); p.style.strokeDasharray=len; p.style.strokeDashoffset=len; });
+		tl.fromTo(nowPaths, {opacity:0}, {opacity:0.85,duration:0.3,stagger:0.14,ease:'power1.out'}, '-=0.1');
+		tl.to(nowPaths, {strokeDashoffset:0,duration:0.6,stagger:0.14,ease:'power1.inOut', onComplete:()=>{ flowNow.forEach(startFlow); }}, '<');
+	}
+	// the user's speech bubble pops, then TYPES its text with a blinking caret
+	if(typeBubble){
+		const full=bubble.textContent; bubble.textContent='';
+		gsap.set(bubble,{opacity:0,scale:0.9});
+		tl.to(bubble, {opacity:1,scale:1,duration:0.32,ease:'back.out(1.6)'}, '-=0.05');
+		const st={n:0};
+		tl.to(st, {n:full.length, duration:Math.min(1.5, Math.max(0.6, full.length*0.032)), ease:'none',
+			onUpdate:()=>{ bubble.innerHTML=full.slice(0,Math.ceil(st.n))+'<span class="tw-caret"></span>'; },
+			onComplete:()=>{ bubble.textContent=full; }}, '>-0.02');
+	}
+	if(foot) tl.fromTo(foot, {opacity:0,y:10}, {opacity:1,y:0,duration:0.5,ease:'power2.out'}, '-=0.2');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.5}, '-=0.2');
+}
+
+// ── STEP 9 · TECHNICAL SUMMARY (a spec sheet — SAS types + per-service scope, NOT the map) ──
+// Facts verified via Microsoft Learn: https://learn.microsoft.com/azure/storage/common/storage-sas-overview
+function renderSpecStep(){
+	const step=stepById('spec');
+	const scene=buildScene(step);
+	const wrap=el('spec-wrap');
+	// three SAS-type cards
+	const types=el('spec-types');
+	const typeCard=(sc,icon,name,sign,scope,best,polTxt,polOk)=>{
+		const c=el('spec-card'); c.style.setProperty('--sc',sc);
+		c.innerHTML=`<div class="sc-head">${icon}<span class="sc-name">${name}</span></div>`+
+			`<div class="sc-row"><span class="sc-k">${t('spScKey')}</span><span class="sc-v">${sign}</span></div>`+
+			`<div class="sc-row"><span class="sc-k">${t('spScScope')}</span><span class="sc-v">${scope}</span></div>`+
+			`<div class="sc-row"><span class="sc-k">${t('spScBest')}</span><span class="sc-v">${best}</span></div>`+
+			`<span class="sc-pol ${polOk?'ok':'no'}">${polOk?'\u2713':'\u2014'} ${polTxt}</span>`;
+		types.appendChild(c); return c;
+	};
+	const c1=typeCard('#0b6a37', az('storage/00017-icon-service-Recovery-Services-Vaults.svg', t('spT1Name')), t('spT1Name'), t('spT1Sign'), t('spT1Scope'), t('spT1Best'), t('spT1Pol'), true);
+	const c2=typeCard('#5c2d91', az('general/10839-icon-service-Storage-Container.svg', t('spT2Name')), t('spT2Name'), t('spT2Sign'), t('spT2Scope'), t('spT2Best'), t('spT2Pol'), true);
+	const c3=typeCard('#e97526', az('management + governance/10316-icon-service-Policy.svg', t('spT3Name')), t('spT3Name'), t('spT3Sign'), t('spT3Scope'), t('spT3Best'), t('spT3Pol'), true);
+	wrap.appendChild(types);
+	// per-service scope matrix (all four services — not just blob containers)
+	const mrow=(icon,name,scope,pol)=>`<tr>`+
+		`<td><span class="mx-svc">${icon}<span>${name}</span></span></td>`+
+		`<td class="mx-scope">${scope}</td>`+
+		`<td class="mx-pol">${pol}</td></tr>`;
+	const table=document.createElement('table'); table.className='spec-matrix';
+	table.innerHTML=`<thead><tr><th>${t('spMxHeadSvc')}</th><th>${t('spMxHeadScope')}</th><th>${t('spMxHeadPol')}</th></tr></thead><tbody>`+
+		mrow(az('general/10839-icon-service-Storage-Container.svg', t('spRowBlob')), t('spRowBlob'), t('spRowBlobScope'), t('spRowBlobPol'))+
+		mrow(az('storage/10400-icon-service-Azure-Fileshares.svg', t('spRowFiles')), t('spRowFiles'), t('spRowFilesScope'), t('spRowFilesPol'))+
+		mrow(az('general/10840-icon-service-Storage-Queue.svg', t('spRowQueue')), t('spRowQueue'), t('spRowQueueScope'), t('spRowQueuePol'))+
+		mrow(az('general/10841-icon-service-Table.svg', t('spRowTable')), t('spRowTable'), t('spRowTableScope'), t('spRowTablePol'))+
+		`</tbody>`;
+	wrap.appendChild(table);
+	const note=el('spec-note', t('spNote')); wrap.appendChild(note);
+	const foot=el('spec-foot', t('spFoot')); wrap.appendChild(foot);
+	scene.appendChild(wrap);
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	const cards=[c1,c2,c3], hdr=headerEls(scene);
+	if(motionPaused){
+		gsap.set([...hdr,...cards,table,note,foot],{opacity:1});
+		if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return;
+	}
+	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
+	tl.fromTo(hdr, {opacity:0,y:-14}, {opacity:1,y:0,duration:0.5,stagger:0.1,ease:'power2.out'});
+	tl.fromTo(cards, {opacity:0,y:18,scale:0.94}, {opacity:1,y:0,scale:1,duration:0.5,stagger:0.12,ease:'back.out(1.4)'}, '-=0.1');
+	tl.fromTo(table, {opacity:0,y:14}, {opacity:1,y:0,duration:0.5,ease:'power2.out'}, '-=0.15');
+	tl.fromTo([note,foot], {opacity:0}, {opacity:1,duration:0.45,stagger:0.1}, '-=0.2');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.5}, '-=0.2');
+}
+
+// ── CONTROLS ──────────────────────────────
+function focusHeading(){ const h=document.getElementById('stage-heading'); if(h){ try{ h.focus({preventScroll:true}); }catch(_){ h.focus(); } } }
+function interruptAnimation(){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; animating=false; }
+function next(){ interruptAnimation(); if(current<STEPS.length-1){ renderStep(current+1); focusHeading(); } }
+function prev(){ interruptAnimation(); if(current>0){ renderStep(current-1); focusHeading(); } }
+function reset(){ interruptAnimation(); renderStep(0); focusHeading(); }
+function replay(){ if(current<0) return; interruptAnimation(); renderStep(current); focusHeading(); }
+// Re-render the current step in its FINAL state (no animation, no audio restart) — for theme/callout toggles.
+function rerenderInstant(){ if(current<0) return; const _mp=motionPaused; motionPaused=true; window.__awSkipAudioOnce=true; renderStep(current); window.__awSkipAudioOnce=false; requestAnimationFrame(()=>requestAnimationFrame(()=>{ motionPaused=_mp; })); }
+
+// ── Hide / show top bar ──────────────────
+(function(){
+	const hideBtn=document.getElementById('header-hide'), revealBtn=document.getElementById('header-reveal');
+	if(!hideBtn||!revealBtn) return;
+	var hideBtnTop=document.getElementById('header-hide-top'); if(hideBtnTop) hideBtnTop.addEventListener('click',function(e){ e.stopPropagation(); hideBtn.click(); });
+	const hidePath=hideBtn.querySelector('svg path');
+	const UP='M6 15l6-6 6 6', DOWN='M6 9l6 6 6-6';   // ^ points up to hide the bar; flips to v to show it again
+	function setHidden(h){ document.body.classList.toggle('chrome-hidden',h); hideBtn.setAttribute('aria-expanded',String(!h)); hideBtn.setAttribute('aria-label',h?'Show top bar':'Hide top bar'); hideBtn.title=(h?'Show top bar':'Hide top bar')+' (H)'; if(hidePath) hidePath.setAttribute('d',h?DOWN:UP); try{localStorage.setItem('aw-sa-chrome-hidden',h?'1':'0');}catch(_){}
+		if(current>=0) requestAnimationFrame(()=>{ const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s); }); }
+	hideBtn.addEventListener('click',e=>{e.stopPropagation();setHidden(!document.body.classList.contains('chrome-hidden'));});
+	revealBtn.addEventListener('click',e=>{e.stopPropagation();setHidden(false);});
+	try{ if(localStorage.getItem('aw-sa-chrome-hidden')==='1') setHidden(true); }catch(_){}
+	document.addEventListener('keydown',e=>{ if(e.code==='KeyH'&&!e.metaKey&&!e.ctrlKey&&!e.altKey){ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return; e.preventDefault(); setHidden(!document.body.classList.contains('chrome-hidden')); } });
+})();
+
+document.getElementById('next-btn').addEventListener('click',e=>{e.stopPropagation();next();});
+document.getElementById('prev-btn').addEventListener('click',e=>{e.stopPropagation();prev();});
+document.getElementById('reset-btn').addEventListener('click',e=>{e.stopPropagation();reset();});
+document.getElementById('replay-btn').addEventListener('click',e=>{e.stopPropagation();replay();});
+
+// ── Clickable progress bar + step ticks ──
+(function(){
+	const track=document.querySelector('.progress-track'); if(!track) return;
+	for(let s=1; s<STEPS.length; s++){ const tk=document.createElement('div'); tk.className='progress-tick'; tk.style.left=(s/STEPS.length*100)+'%'; track.appendChild(tk); }
+	track.setAttribute('title','Jump to a step');
+	track.addEventListener('click', e=>{
+		const r=track.getBoundingClientRect(); const frac=(e.clientX-r.left)/r.width;
+		const target=Math.max(0, Math.min(STEPS.length-1, Math.floor(frac*STEPS.length)));
+		if(target!==current){ interruptAnimation(); renderStep(target); focusHeading(); }
+	});
+})();
+
+// ── Movable / pinnable control dock ───────
+(function(){
+	const dock=document.getElementById('controls'), grip=document.getElementById('ctrl-grip'), pin=document.getElementById('ctrl-pin');
+	if(!dock||!grip) return;
+	const KEY='aw-sa-controls-pos';
+	let dragging=false, sx=0, sy=0, bl=0, bt=0, moved=false;
+	function place(left,top){
+		const w=dock.offsetWidth, h=dock.offsetHeight;
+		left=Math.max(6, Math.min(left, window.innerWidth - w - 6));
+		top =Math.max(6, Math.min(top,  window.innerHeight - h - 6));
+		dock.style.left=left+'px'; dock.style.top=top+'px'; dock.style.right='auto'; dock.style.bottom='auto'; dock.style.transform='none';
+		document.body.classList.add('controls-floating');
+	}
+	function recenter(){
+		dock.style.left=dock.style.top=dock.style.right=dock.style.bottom=dock.style.transform='';
+		document.body.classList.remove('controls-floating');
+		try{ localStorage.removeItem(KEY); }catch(_){}
+	}
+	grip.addEventListener('pointerdown', e=>{
+		e.preventDefault(); dragging=true; moved=false;
+		const r=dock.getBoundingClientRect(); bl=r.left; bt=r.top; sx=e.clientX; sy=e.clientY;
+		try{ grip.setPointerCapture(e.pointerId); }catch(_){}
+	});
+	grip.addEventListener('pointermove', e=>{
+		if(!dragging) return;
+		const dx=e.clientX-sx, dy=e.clientY-sy;
+		if(Math.abs(dx)>2||Math.abs(dy)>2) moved=true;
+		place(bl+dx, bt+dy);
+	});
+	function end(e){ if(!dragging) return; dragging=false; try{ grip.releasePointerCapture(e.pointerId); }catch(_){}
+		if(moved){ try{ const r=dock.getBoundingClientRect(); localStorage.setItem(KEY, JSON.stringify({left:r.left, top:r.top})); }catch(_){} } }
+	grip.addEventListener('pointerup', end); grip.addEventListener('pointercancel', end);
+	grip.addEventListener('keydown', e=>{
+		const d=e.shiftKey?40:12; const r=dock.getBoundingClientRect(); let ok=true;
+		if(e.key==='ArrowLeft') place(r.left-d, r.top);
+		else if(e.key==='ArrowRight') place(r.left+d, r.top);
+		else if(e.key==='ArrowUp') place(r.left, r.top-d);
+		else if(e.key==='ArrowDown') place(r.left, r.top+d);
+		else ok=false;
+		if(ok){ e.preventDefault(); e.stopPropagation(); }
+	});
+	if(pin) pin.addEventListener('click', e=>{ e.stopPropagation(); recenter(); });
+	window.addEventListener('resize', ()=>{ if(document.body.classList.contains('controls-floating')){ const r=dock.getBoundingClientRect(); place(r.left, r.top); } });
+	try{ const s=JSON.parse(localStorage.getItem(KEY)||'null'); if(s && typeof s.left==='number') place(s.left, s.top); }catch(_){}
+})();
+
+// ── Speed ─────────────────────────────────
+const SPEED_STEPS=[0.5,0.75,1,1.25,1.5,2]; const BASE_TIMESCALE=0.25;
+let speedIndex=SPEED_STEPS.indexOf(1);
+try{ const sp=parseInt(localStorage.getItem('aw-sa-speed'),10); if(!isNaN(sp)&&sp>=0&&sp<SPEED_STEPS.length) speedIndex=sp; }catch(_){}
+const speedLabel=document.getElementById('speed-label'), speedDownBtn=document.getElementById('speed-down'), speedUpBtn=document.getElementById('speed-up');
+function saveSpeed(){ try{ localStorage.setItem('aw-sa-speed', String(speedIndex)); }catch(_){} }
+function syncSpeedUI(){ const spd=SPEED_STEPS[speedIndex]; speedLabel.textContent=spd+'\u00d7'; speedDownBtn.disabled=speedIndex===0; speedUpBtn.disabled=speedIndex===SPEED_STEPS.length-1; gsap.globalTimeline.timeScale(spd*BASE_TIMESCALE); }
+syncSpeedUI();
+speedDownBtn.addEventListener('click',e=>{e.stopPropagation(); if(speedIndex>0){speedIndex--;syncSpeedUI();saveSpeed();}});
+speedUpBtn.addEventListener('click',e=>{e.stopPropagation(); if(speedIndex<SPEED_STEPS.length-1){speedIndex++;syncSpeedUI();saveSpeed();}});
+
+// ── Keyboard ──────────────────────────────
+if (window.AW && AW.keyboard) { AW.keyboard.bind({ next, prev, reset, replay }); }
+else { document.addEventListener('keydown', e => {
+	if (['Space','ArrowRight','Enter'].includes(e.code)) { e.preventDefault(); next(); }
+	else if (e.code==='ArrowLeft') { e.preventDefault(); prev(); }
+	else if (e.code==='KeyR') { e.preventDefault(); reset(); }
+	else if (e.code==='KeyP') { e.preventDefault(); replay(); }
+}); }
+
+// ── Touch swipe (tablets) ─────────────────
+(function(){
+	const surf=document.getElementById('stage'); if(!surf) return;
+	let x0=null,y0=null,t0=0;
+	surf.addEventListener('touchstart',e=>{ if(e.touches.length!==1){x0=null;return;} x0=e.touches[0].clientX; y0=e.touches[0].clientY; t0=Date.now(); },{passive:true});
+	surf.addEventListener('touchend',e=>{
+		if(x0===null) return; const tch=e.changedTouches[0]; const dx=tch.clientX-x0, dy=tch.clientY-y0; x0=null;
+		if(Date.now()-t0>800) return;
+		if(Math.abs(dx)>50 && Math.abs(dx)>Math.abs(dy)*1.6){ if(dx<0) next(); else prev(); }
+	},{passive:true});
+})();
+
+// ── Keyboard shortcut help overlay ────────
+(function(){
+	const overlay=document.getElementById('shortcut-overlay'), btn=document.getElementById('help-toggle'), closeBtn=document.getElementById('sc-close'), list=document.getElementById('sc-list');
+	if(!overlay||!list) return;
+	const ROWS=[[['\u2192','Space'],'scNext'],[['\u2190'],'scPrev'],[['R'],'scRestart'],[['P'],'scReplay'],[['H'],'scHide'],[['?'],'scHelp']];
+	window.buildShortcuts=function(){ const title=document.getElementById('sc-title'); if(title) title.textContent=t('scTitle');
+		list.innerHTML=ROWS.map(([keys,k])=>`<li><span>${t(k)}</span><span class="sc-keys">${keys.map(x=>`<kbd>${x}</kbd>`).join('')}</span></li>`).join(''); };
+	buildShortcuts();
+	function open(){ overlay.removeAttribute('hidden'); if(closeBtn) closeBtn.focus(); }
+	function close(){ overlay.setAttribute('hidden',''); if(btn) btn.focus(); }
+	function toggle(){ overlay.hasAttribute('hidden')?open():close(); }
+	if(btn) btn.addEventListener('click',e=>{e.stopPropagation();toggle();});
+	if(closeBtn) closeBtn.addEventListener('click',e=>{e.stopPropagation();close();});
+	const bd=overlay.querySelector('.sc-backdrop'); if(bd) bd.addEventListener('click',close);
+	document.addEventListener('keydown',e=>{ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return;
+		if(e.key==='?'){ e.preventDefault(); toggle(); }
+		else if(e.key==='Escape' && !overlay.hasAttribute('hidden')){ e.preventDefault(); close(); } });
+})();
+
+// ── Resize (re-fit only — never rebuild or replay the animation) ──
+let resizeTimer, lastStageW=0, lastStageH=0;
+window.addEventListener('resize',()=>{ clearTimeout(resizeTimer); resizeTimer=setTimeout(()=>{
+	if(current<0) return;
+	const box=stage.getBoundingClientRect();
+	// Ignore no-op resizes (focus/click reflow, mobile URL-bar show/hide) so the animation never restarts.
+	if(Math.abs(box.width-lastStageW)<1 && Math.abs(box.height-lastStageH)<1) return;
+	lastStageW=box.width; lastStageH=box.height;
+	const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s);
+},200); });
+
+// ── Init ──────────────────────────────────
+setLanguage(currentLang);
+counter.textContent = `1 / ${STEPS.length}`;
+const urlStep = parseInt(new URLSearchParams(location.search).get('step'), 10);
+renderStep((!isNaN(urlStep) && urlStep>=1 && urlStep<=STEPS.length) ? urlStep-1 : 0);
+</script>
+<script>
+// ── Start gate · hold autoplay until the viewer clicks Play (empty stage + centered Play) ──
+(function () {
+	if (new URLSearchParams(location.search).has('present')) return;
+	var stage = document.getElementById('stage');
+	if (!stage) return;
+	function freeze() { try { if (window.gsap && gsap.globalTimeline) gsap.globalTimeline.pause(); } catch (_) {} }
+	freeze(); requestAnimationFrame(freeze);
+	document.body.classList.add('aw-prestart');
+	try { if (typeof stopAudio === 'function') stopAudio(); } catch (_) {}
+	stage.style.transition = 'opacity .55s ease';
+	stage.style.opacity = '0';
+
+	var T = {
+		title: { en:'Ready to begin?', es:'\u00BFTodo listo?', ja:'\u6E96\u5099\u306F\u3044\u3044\u3067\u3059\u304B\uFF1F', ko:'\uC2DC\uC791\uD560 \uC900\uBE44\uAC00 \uB418\uC168\uB098\uC694?', pt:'Tudo pronto?' },
+		sound: { en:'Sound', es:'Sonido', ja:'\u97F3\u58F0', ko:'\uC18C\uB9AC', pt:'Som' },
+		cc:    { en:'Subtitles (CC)', es:'Subt\u00EDtulos (CC)', ja:'\u5B57\u5E55\uFF08CC\uFF09', ko:'\uC790\uB9C9 (CC)', pt:'Legendas (CC)' },
+		start: { en:'Start presentation', es:'Iniciar presentaci\u00F3n', ja:'\u30D7\u30EC\u30BC\u30F3\u3092\u958B\u59CB', ko:'\uD504\uB808\uC820\uD14C\uC774\uC158 \uC2DC\uC791', pt:'Iniciar apresenta\u00E7\u00E3o' }
+	};
+	function L(){ return (typeof currentLang === 'string' && currentLang) || (typeof CURRENT_LANG === 'string' && CURRENT_LANG) || 'en'; }
+	function t(k){ var m = T[k], l = L(); return m[m[l] ? l : 'en']; }
+	function awAudioState(){ try{ if(typeof window.__awAudioOn==='function') return !!window.__awAudioOn(); }catch(_){} return (typeof audioEnabled!=='undefined') && !!audioEnabled; }
+	function awCcState(){ try{ if(typeof window.__awCcOn!=='undefined' && window.__awCcOn!==null) return !!window.__awCcOn; }catch(_){} return (typeof ccPref!=='undefined') && !!ccPref; }
+
+	var style = document.createElement('style');
+	style.textContent =
+		'body.aw-prestart #controls{opacity:.4;pointer-events:none;transition:opacity .4s ease}' +
+		'#aw-play-card{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:50;box-sizing:border-box;width:min(90vw,22rem);padding:1.35rem 1.5rem 1.5rem;border-radius:16px;background:var(--theme-card-background,#fff);color:var(--theme-text,#222);border:1px solid var(--theme-border,rgba(0,0,0,.1));box-shadow:0 24px 60px rgba(0,0,0,.28);transition:opacity .3s ease,transform .3s ease}' +
+		'#aw-play-card.aw-hide{opacity:0;transform:translate(-50%,-50%) scale(.96);pointer-events:none}' +
+		'body.theme-dark #aw-play-card{border-color:rgba(255,255,255,.12);box-shadow:0 24px 60px rgba(0,0,0,.55)}' +
+		'body.present-mode #aw-play-card{display:none!important}' +
+		'.aw-card-title{margin:0 0 1rem;text-align:center;font-size:1.02rem;font-weight:800;letter-spacing:.03em;text-transform:uppercase;opacity:.85}' +
+		'.aw-row{display:flex;align-items:center;gap:.65rem;padding:.6rem 0}' +
+		'.aw-row + .aw-row{border-top:1px solid var(--theme-border,rgba(0,0,0,.08))}' +
+		'.aw-row-ico{flex:none;width:1.5rem;text-align:center;font-size:1.15rem;line-height:1}' +
+		'.aw-row-lbl{flex:1 1 auto;font-size:.9rem;font-weight:600}' +
+		'.aw-row-state{flex:none;min-width:2.5rem;text-align:right;font-size:.68rem;font-weight:800;letter-spacing:.05em;opacity:.5}' +
+		'.aw-row-state.on{color:var(--theme-primary,#0078d4);opacity:1}' +
+		'.aw-switch{position:relative;flex:none;width:44px;height:24px;padding:0;border:none;border-radius:999px;cursor:pointer;background:var(--theme-border,#c7c7d1);transition:background .18s ease}' +
+		'.aw-switch.on{background:var(--theme-primary,#0078d4)}' +
+		'.aw-switch::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.4);transition:transform .18s ease}' +
+		'.aw-switch.on::after{transform:translateX(20px)}' +
+		'#aw-start{margin-top:1.2rem;width:100%;display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:.8rem 1rem;border:none;border-radius:11px;cursor:pointer;background:var(--theme-primary,#0078d4);color:#fff;font-size:.96rem;font-weight:700;letter-spacing:.01em;box-shadow:0 8px 22px var(--theme-primary-translucent,rgba(0,120,212,.45));transition:transform .15s ease}' +
+		'#aw-start:hover{transform:translateY(-2px)}#aw-start:active{transform:scale(.98)}' +
+		'#aw-start svg{width:18px;height:18px;flex:none}';
+	document.head.appendChild(style);
+
+	var card = document.createElement('div');
+	card.id = 'aw-play-card'; card.setAttribute('role', 'dialog'); card.setAttribute('aria-modal', 'true');
+	card.innerHTML =
+		'<div class="aw-card-title"></div>' +
+		'<div class="aw-row" data-k="audio"><span class="aw-row-ico" aria-hidden="true">\uD83D\uDD0A</span><span class="aw-row-lbl"></span><span class="aw-row-state"></span><button type="button" class="aw-switch" role="switch"></button></div>' +
+		'<div class="aw-row" data-k="cc"><span class="aw-row-ico" aria-hidden="true">\uD83D\uDCAC</span><span class="aw-row-lbl"></span><span class="aw-row-state"></span><button type="button" class="aw-switch" role="switch"></button></div>' +
+		'<button type="button" id="aw-start"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 5v14l11-7z"/></svg><span class="aw-start-lbl"></span></button>';
+	document.body.appendChild(card);
+
+	var titleEl = card.querySelector('.aw-card-title');
+	var startBtn = card.querySelector('#aw-start');
+	var ROWS = [ { k:'audio', lbl:'sound', el:card.querySelector('.aw-row[data-k="audio"]'), read:awAudioState, toggle:'audio-toggle' },
+	             { k:'cc',    lbl:'cc',    el:card.querySelector('.aw-row[data-k="cc"]'),    read:awCcState,    toggle:'cc-toggle' } ];
+
+	function render(){
+		titleEl.textContent = t('title'); card.setAttribute('aria-label', t('title'));
+		startBtn.querySelector('.aw-start-lbl').textContent = t('start');
+		ROWS.forEach(function(r){
+			var on = r.read();
+			r.el.querySelector('.aw-row-lbl').textContent = t(r.lbl);
+			var st = r.el.querySelector('.aw-row-state'); st.textContent = on ? 'ON' : 'OFF'; st.classList.toggle('on', on);
+			var sw = r.el.querySelector('.aw-switch'); sw.classList.toggle('on', on); sw.setAttribute('aria-checked', on ? 'true' : 'false');
+			sw.setAttribute('aria-label', t(r.lbl) + ' \u2014 ' + (on ? 'on' : 'off'));
+		});
+	}
+	ROWS.forEach(function(r){
+		r.el.querySelector('.aw-switch').addEventListener('click', function(e){ e.stopPropagation(); var b = document.getElementById(r.toggle); if(b) b.click(); render(); });
+	});
+	render();
+
+	var sel = document.getElementById('lang-select');
+	if (sel) sel.addEventListener('change', function () { render(); freeze(); });
+
+	function gateKeys(e) {
+		if (done) return;
+		var tag = (e.target && e.target.tagName || '').toLowerCase();
+		if (tag === 'select' || tag === 'input' || tag === 'textarea') return;
+		if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'].indexOf(e.key) >= 0) { e.preventDefault(); e.stopPropagation(); }
+	}
+	document.addEventListener('keydown', gateKeys, true);
+
+	var done = false;
+	function start() {
+		if (done) return; done = true;
+		document.removeEventListener('keydown', gateKeys, true);
+		document.body.classList.remove('aw-prestart');
+		card.classList.add('aw-hide');
+		setTimeout(function () { if (card.parentNode) card.parentNode.removeChild(card); if (style.parentNode) style.parentNode.removeChild(style); }, 420);
+		setTimeout(function () {
+			try { if (window.gsap && gsap.globalTimeline) gsap.globalTimeline.play(); } catch (_) {}
+			stage.style.opacity = '1';
+			try { if (typeof interruptAnimation === 'function') interruptAnimation(); } catch (_) {}
+			try { if (typeof renderStep === 'function') renderStep(typeof current === 'number' && current >= 0 ? current : 0); } catch (_) {}
+		}, 380);
+	}
+	startBtn.addEventListener('click', start);
+}());
+</script>
+<script src="../lib/js/aw-present.js"></script>
+
+</body>
+</html>

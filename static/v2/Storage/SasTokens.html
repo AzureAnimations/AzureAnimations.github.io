@@ -1,0 +1,1815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<script src="/js/tracking.js"></script>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+	<meta name="description" content="Azure Storage SAS tokens explained — what a Shared Access Signature is, the three types (user delegation, service, account), ad-hoc vs stored access policy, and how to revoke each." />
+	<title>Azure Storage SAS Tokens &amp; Stored Access Policy · Azure Animations</title>
+
+	<link rel="stylesheet" href="https://unpkg.com/@microsoft/atlas-css/dist/index.css" />
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+	<!-- AnimationWorks shared lib (one level under static/v2/ → ../lib/) -->
+	<script src="../lib/js/aw-easings.js"></script>
+	<script src="../lib/js/aw-motion.js"></script>
+	<script src="../lib/js/aw-theme.js"></script>
+	<script src="../lib/js/aw-keyboard.js"></script>
+	<script src="../lib/js/aw-captions.js?v=3"></script>
+
+<style>
+	/* ── SHELL ─────────────────────────────── */
+	:root {
+		--aw-purple:#5c2d91; --aw-blue:#0078d4; --aw-green:#10a37f; --aw-orange:#e97526; --aw-pink:#d24aa8;
+		--aw-cyan:#00b7c3;
+	}
+	html, body { height:100%; margin:0; }
+	html { font-size:100%; }
+	body {
+		display:flex; flex-direction:column; height:100vh;
+		overflow:hidden;
+		font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif;
+		color: var(--theme-text);
+		background:
+			radial-gradient(circle at 15% 20%, rgba(92,45,145,0.18) 0%, transparent 55%),
+			radial-gradient(circle at 85% 80%, rgba(0,120,212,0.18) 0%, transparent 55%),
+			var(--theme-body-background);
+	}
+	.app-header { display:flex; align-items:center; gap:1rem; flex-shrink:0; flex-wrap:wrap; font-size:16px; }
+
+	#stage {
+		position:relative; flex:1 1 auto; width:100%; min-height:0;
+		display:flex; align-items:center; justify-content:center;
+		overflow:hidden; container-type:size;
+		padding:1.75rem 2.75rem 5rem;
+	}
+	#stage:focus-visible, button:focus-visible, a:focus-visible, select:focus-visible {
+		outline:2px solid var(--theme-primary, #0078d4); outline-offset:3px; border-radius:4px;
+	}
+	#stage-frame {
+		position:relative; overflow:hidden;
+		width: min(100cqw, calc(100cqh * 16 / 9));
+		aspect-ratio: 16 / 9; max-width:100%; max-height:100%;
+		border-radius:16px;
+		background: rgba(0,0,0,0.015);
+		box-shadow: 0 12px 44px rgba(0,0,0,0.22);
+	}
+	body.theme-dark #stage-frame { background: rgba(255,255,255,0.025); }
+	#stage-frame::before {
+		content:""; position:absolute; inset:0; border-radius:inherit; padding:2.5px;
+		background: linear-gradient(135deg, var(--aw-purple) 0%, var(--aw-blue) 55%, var(--aw-pink) 100%);
+		-webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+		mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+		-webkit-mask-composite: xor; mask-composite: exclude;
+		pointer-events:none; z-index:20;
+	}
+	#fx-svg { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:6; overflow:visible; }
+
+	/* ── SCENE ─────────────────────────────── */
+	.scene {
+		position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+		transform-origin:center center;
+		width:min(1150px, 96%); z-index:10;
+		display:flex; flex-direction:column; align-items:center; gap:1.4rem;
+	}
+	@keyframes awSceneIn { from { opacity:0; } to { opacity:1; } }
+	@keyframes awSceneOut { from { opacity:1; } to { opacity:0; } }
+	.scene.scene-in { animation: awSceneIn 0.2s ease both; }
+	.scene.scene-out { animation: awSceneOut 0.2s ease both; }
+	.scene-title { font-size:2.5rem; font-weight:700; color:var(--theme-tertiary, #5c2d91); margin:0; text-align:center; opacity:0; }
+	body.theme-dark .scene-title { color:#c9a5e8; }
+	.scene-lead { margin:0; text-align:center; font-size:1.35rem; color:var(--theme-text); max-width:900px; line-height:1.5; opacity:0; }
+
+	/* ── CALLOUT ───────────────────────────── */
+	.callout {
+		position:absolute; max-width:340px; padding:1rem 1.2rem;
+		background:var(--theme-body-background);
+		background:color-mix(in srgb, var(--theme-body-background) 84%, transparent);
+		-webkit-backdrop-filter:blur(5px); backdrop-filter:blur(5px);
+		border:1px solid var(--theme-border);
+		border-left:4px solid var(--theme-tertiary, #5c2d91); border-radius:6px;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2));
+		font-size:1.05rem; line-height:1.45; z-index:14; opacity:0;
+		cursor:grab; touch-action:none;
+	}
+	.callout:active { cursor:grabbing; }
+
+	/* ── RESET "PIN" · appears on a draggable panel once moved/resized ── */
+	.aw-drag-reset {
+		position:absolute; width:24px; height:24px; padding:0; display:none;
+		align-items:center; justify-content:center; border-radius:50%;
+		background:var(--theme-tertiary,#5c2d91); color:#fff;
+		border:2px solid var(--theme-body-background,#fff);
+		box-shadow:0 2px 7px rgba(0,0,0,0.4); cursor:pointer; z-index:6;
+		opacity:0.92; transition:opacity .14s ease, transform .14s ease;
+	}
+	.aw-drag-reset:hover { opacity:1; transform:scale(1.08); }
+	.aw-drag-reset:focus-visible { outline:2px solid #5cc8ff; outline-offset:2px; }
+	.aw-drag-reset svg { width:13px; height:13px; display:block; }
+
+	/* ── PLAYER OVERLAY · bottom-right of the stage frame (YouTube-style) ── */
+	.stage-overlay {
+		position:absolute; right:12px; bottom:10px; z-index:25;
+		display:flex; align-items:center; gap:2px;
+		padding:3px 6px; border-radius:999px;
+		background:rgba(16,18,24,0.58);
+		backdrop-filter:blur(9px) saturate(1.3); -webkit-backdrop-filter:blur(9px) saturate(1.3);
+		box-shadow:0 4px 16px rgba(0,0,0,0.32);
+	}
+	.ovl-btn {
+		-webkit-appearance:none; appearance:none; margin:0; font:inherit;
+		display:inline-flex; align-items:center; justify-content:center; gap:4px;
+		min-width:30px; height:30px; padding:0 8px;
+		border:none !important; border-radius:999px !important;
+		background:transparent !important; color:#fff !important;
+		box-shadow:none !important; cursor:pointer; line-height:1;
+		font-size:0.82rem; font-weight:700; opacity:0.92; transition:background .15s ease, opacity .15s ease;
+	}
+	.ovl-btn:hover { background:rgba(255,255,255,0.16) !important; opacity:1; }
+	.ovl-btn:disabled { opacity:0.4; cursor:not-allowed; }
+	.ovl-btn svg { width:18px; height:18px; fill:currentColor; display:block; }
+	.ovl-btn.on { color:#5cc8ff !important; }
+	.stage-overlay #audio-toggle { opacity:1 !important; }
+	.stage-overlay .aw-audio-ico { font-size:1rem; line-height:1; }
+	.stage-overlay .aw-audio-time { font-size:0.78rem; font-variant-numeric:tabular-nums; letter-spacing:0.02em; opacity:0.95; min-width:2.4em; text-align:left; }
+	#cc-toggle svg { width:20px; height:20px; }
+	.ovl-btn .fs-exit { display:none; }
+	body.is-fs .ovl-btn .fs-enter { display:none; }
+	body.is-fs .ovl-btn .fs-exit { display:block; }
+
+	/* ── LEFT VIEW-OPTIONS PILL · Callout / Outline / Shortcuts (icon + hover tip) ── */
+	.stage-overlay-left { right:auto; left:12px; }
+	#stage-overlay-left .ovl-btn:not(.toggle-active) { opacity:0.86; }
+	#stage-overlay-left .ovl-btn.toggle-active { color:#5cc8ff !important; opacity:1; }
+	#stage-overlay-left .ovl-btn:hover { opacity:1; }
+	.ovl-btn[data-tip] { position:relative; }
+	.ovl-btn[data-tip]::after { content:attr(data-tip); position:absolute; left:0; bottom:calc(100% + 9px); transform:translateY(4px); padding:4px 8px; border-radius:6px; background:rgba(16,18,24,0.96); color:#fff; font-size:0.72rem; font-weight:600; white-space:nowrap; letter-spacing:0.01em; opacity:0; pointer-events:none; box-shadow:0 3px 12px rgba(0,0,0,0.45); transition:opacity .14s ease, transform .14s ease; z-index:40; }
+	.ovl-btn[data-tip]::before { content:''; position:absolute; left:13px; bottom:calc(100% + 4px); border:5px solid transparent; border-top-color:rgba(16,18,24,0.96); opacity:0; pointer-events:none; transition:opacity .14s ease; z-index:40; }
+	.ovl-btn[data-tip]:hover::after { opacity:1; transform:translateY(0); }
+	.ovl-btn[data-tip]:hover::before { opacity:1; }
+
+	/* ── CAPTION · overlaid in the frame, draggable + resizable, stays solid ── */
+	#aw-caption {
+		position:absolute; left:50%; transform:translateX(-50%); bottom:56px; z-index:24;
+		max-width:92%; min-width:140px; min-height:38px; max-height:44%;
+		display:none; align-items:center; justify-content:center; text-align:center;
+		padding:0.42rem 0.95rem; border-radius:9px;
+		background:rgba(8,9,13,0.8); color:#fff;
+		font-size:1.1rem; line-height:1.36; font-weight:600;
+		box-shadow:0 3px 14px rgba(0,0,0,0.42); pointer-events:auto; cursor:grab; touch-action:none;
+		overflow:auto; resize:both;
+	}
+	#aw-caption:active { cursor:grabbing; }
+	#aw-caption::-webkit-resizer { background:linear-gradient(135deg, transparent 45%, rgba(255,255,255,0.55) 45%, rgba(255,255,255,0.55) 55%, transparent 55%); }
+	body.cc-on #aw-caption.has-text { display:flex; }
+	@media (max-width:640px){ #aw-caption { font-size:0.94rem; bottom:48px; max-width:90%; } }
+	#cc-toggle.toggle-active { color:var(--theme-primary,#0078d4); background:var(--theme-primary-translucent, rgba(0,120,212,0.14)); }
+
+	/* ══ REUSABLE BUILDING BLOCKS ══ */
+	.card {
+		width:min(680px, 96%); padding:1.6rem 1.8rem; border-radius:16px;
+		background:var(--theme-card-background, #fff); border:2px solid var(--theme-border);
+		box-shadow:0 8px 28px rgba(0,0,0,0.14); opacity:0;
+		display:flex; flex-direction:column; gap:0.6rem; align-items:center; text-align:center;
+	}
+	body.theme-dark .card { background:rgba(255,255,255,0.05); }
+	.card .card-icon { font-size:3rem; line-height:1; color:var(--theme-tertiary,#5c2d91); }
+	.card .card-h { font-size:1.4rem; font-weight:700; }
+	.card .card-p { font-size:1.05rem; color:var(--theme-text-subtle); line-height:1.5; }
+
+	.ta-card {
+		width:min(1000px, 98%); border:1.5px solid var(--theme-border); border-radius:14px;
+		background:var(--theme-card-background, #fff); box-shadow:0 8px 30px rgba(0,0,0,0.16);
+		padding:1.1rem 1.3rem; opacity:0;
+	}
+	body.theme-dark .ta-card { background:rgba(255,255,255,0.05); }
+	.ta-card-head {
+		display:flex; align-items:center; justify-content:center; gap:0.5rem;
+		font-size:1rem; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;
+		color:var(--theme-text-subtle); margin-bottom:0.6rem;
+	}
+	.ta-card-head .ic { color:var(--theme-tertiary,#5c2d91); }
+	.ta-card-text { font-size:1.22rem; line-height:1.55; color:var(--theme-text); text-align:center; }
+
+	.chip-row { display:flex; flex-wrap:wrap; gap:0.7rem; justify-content:center; }
+	.pill {
+		display:inline-flex; align-items:center; gap:0.5rem; padding:0.55rem 1.1rem;
+		border-radius:999px; font-size:1.05rem; font-weight:600;
+		border:2px solid var(--theme-tertiary, #5c2d91); background:rgba(92,45,145,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .pill { background:rgba(92,45,145,0.2); }
+	.pill .ic { color:var(--theme-tertiary,#5c2d91); }
+	.value-chip {
+		display:inline-flex; align-items:center; gap:0.4rem; padding:0.5rem 1rem;
+		border-radius:999px; font-size:1rem; font-weight:700;
+		border:2px solid #107c10; background:rgba(16,124,16,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .value-chip { background:rgba(16,124,16,0.16); }
+	.value-chip .ic { color:#10a37f; }
+	.recap-foot { font-size:1.05rem; color:var(--theme-text); text-align:center; max-width:860px; opacity:0; }
+	.recap-foot a { color:var(--aw-blue, #0078d4); font-weight:700; text-decoration:underline; }
+	body.theme-dark .recap-foot a { color:#5aa9ff; }
+
+	.agent-node {
+		display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.2rem;
+		width:160px; height:160px; border-radius:24px;
+		background: linear-gradient(135deg, rgba(92,45,145,0.12), rgba(0,120,212,0.12));
+		border:2.5px solid var(--theme-tertiary, #5c2d91);
+		box-shadow:0 8px 28px rgba(92,45,145,0.2); flex-shrink:0; text-align:center; padding:0.4rem;
+	}
+	.agent-node .an-icon { font-size:2.8rem; line-height:1; color:var(--theme-tertiary,#5c2d91); }
+	.agent-node .an-label { font-size:1.15rem; font-weight:700; color:var(--theme-text); }
+	.agent-node .an-sub { font-size:1rem; color:var(--theme-text-subtle); line-height:1.34; }
+	.ta-flow { display:flex; align-items:center; justify-content:center; gap:1.2rem; flex-wrap:wrap; width:100%; }
+	.ta-flow .agent-node { width:185px; height:182px; }
+	.ta-arrow { font-size:1.9rem; color:var(--theme-tertiary,#5c2d91); opacity:0; }
+	.ta-arrow.is-big { font-size:3rem; }
+	@media (max-width:760px) { .ta-flow .ta-arrow { transform:rotate(90deg); } }
+
+	.uc-grid { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:1.1rem; width:min(980px,96%); }
+	@media (max-width:720px) { .uc-grid { grid-template-columns:1fr; } }
+	.uc-card {
+		display:flex; flex-direction:column; gap:0.5rem; padding:1rem 1.15rem;
+		border:1.5px solid var(--theme-border); border-top:4px solid var(--theme-primary,#0078d4);
+		border-radius:14px; background:var(--theme-card-background, #fff);
+		box-shadow:0 6px 22px rgba(0,0,0,0.12); opacity:0;
+		transition:transform 0.2s ease, box-shadow 0.2s ease;
+	}
+	.uc-card:hover { transform:translateY(-4px); box-shadow:0 12px 30px rgba(0,0,0,0.18); }
+	body.theme-dark .uc-card { background:rgba(255,255,255,0.05); }
+	.uc-card[data-uc="a"] { border-top-color:#0078d4; }
+	.uc-card[data-uc="b"] { border-top-color:#10a37f; }
+	.uc-card[data-uc="c"] { border-top-color:#e97526; }
+	.uc-card[data-uc="d"] { border-top-color:#d24aa8; }
+	.uc-head { display:flex; align-items:center; gap:0.55rem; font-size:1.25rem; font-weight:700; color:var(--theme-text); }
+	.uc-head .uc-icon { font-size:1.7rem; display:inline-flex; }
+	.uc-card[data-uc="a"] .uc-icon { color:#0078d4; }
+	.uc-card[data-uc="b"] .uc-icon { color:#10a37f; }
+	.uc-card[data-uc="c"] .uc-icon { color:#e97526; }
+	.uc-card[data-uc="d"] .uc-icon { color:#d24aa8; }
+	.uc-desc { font-size:0.98rem; line-height:1.55; color:var(--theme-text-subtle); }
+	.uc-caps { display:flex; flex-wrap:wrap; gap:0.4rem; margin-top:0.2rem; }
+	.uc-cap {
+		display:inline-flex; align-items:center; gap:0.3rem; padding:0.25rem 0.7rem;
+		border-radius:999px; font-size:0.88rem; font-weight:700;
+		background:rgba(0,120,212,0.1); color:var(--theme-text);
+		border:1.5px solid rgba(0,120,212,0.4); opacity:0;
+	}
+
+	/* ── PERFORMANCE DUO (Standard vs Premium) ── */
+	.duo { display:flex; gap:1.4rem; justify-content:center; flex-wrap:wrap; width:100%; }
+	.duo-card {
+		flex:1 1 320px; max-width:430px;
+		border:1.5px solid var(--theme-border); border-top:5px solid var(--dc,#0078d4);
+		border-radius:16px; background:var(--theme-card-background, #fff);
+		box-shadow:0 8px 28px rgba(0,0,0,0.14); padding:1.3rem 1.4rem; opacity:0;
+		display:flex; flex-direction:column; gap:0.7rem;
+	}
+	body.theme-dark .duo-card { background:rgba(255,255,255,0.05); }
+	.duo-card .dc-head { display:flex; align-items:center; gap:0.6rem; font-size:1.45rem; font-weight:800; color:var(--theme-text); }
+	.duo-card .dc-head .ic { color:var(--dc); font-size:1.8rem; }
+	.duo-card .dc-sub { font-size:1.02rem; color:var(--theme-text-subtle); line-height:1.55; }
+	.duo-card .dc-list { display:flex; flex-wrap:wrap; gap:0.45rem; }
+	.duo-card .pill { border-color:var(--dc); background:color-mix(in srgb, var(--dc) 10%, transparent); font-size:0.95rem; }
+	.duo-card .pill .ic { color:var(--dc); }
+
+	/* ── SAS explainer scene bits ── */
+	.trio { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:1.1rem; width:min(1040px,97%); }
+	@media (max-width:760px){ .trio { grid-template-columns:1fr; } }
+	.duo-card .dc-head .dc-emoji { font-size:1.9rem; line-height:1; }
+	.sas-url { font-family:'Cascadia Code','Consolas',monospace; font-size:0.98rem; line-height:1.8; text-align:center; word-break:break-all; background:var(--theme-card-background,#fff); border:1.5px solid var(--theme-border); border-radius:14px; padding:0.95rem 1.2rem; box-shadow:0 8px 30px rgba(0,0,0,0.14); width:min(880px,96%); opacity:0; }
+	body.theme-dark .sas-url { background:rgba(255,255,255,0.05); }
+	.sas-url .u-base { color:var(--theme-text-subtle); }
+	.sas-url .u-perm { color:#107c41; font-weight:800; }
+	.sas-url .u-time { color:#e97526; font-weight:800; }
+	.sas-url .u-key  { color:#0078d4; font-weight:800; }
+	.sas-url .u-sig  { color:#5c2d91; font-weight:800; }
+	.rec-badge { display:inline-block; margin-left:0.45rem; font-size:0.62rem; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; color:#fff; background:linear-gradient(90deg,#107c41,#0b6a37); border-radius:999px; padding:2px 9px; vertical-align:middle; }
+	.uc-action { display:block; font-weight:800; font-size:1.02rem; color:var(--tc,#0078d4); margin-top:0.1rem; }
+
+	/* ── SAS RELATIONSHIP MAP (persistent canvas — assembles step-by-step) ── */
+	.sas-map { position:relative; width:1080px; height:540px; margin:0.1rem auto 0; flex:0 0 auto; }
+	.sas-map .map-svg { position:absolute; inset:0; width:1080px; height:540px; overflow:visible; pointer-events:none; z-index:1; }
+	.map-svg path { fill:none; stroke:var(--theme-text-subtle,#8a8a9a); stroke-width:3; stroke-linecap:round; opacity:0; }
+	.map-svg marker path { fill:var(--theme-text,#3a3a44); stroke:none; opacity:1; }
+	.map-node { position:absolute; box-sizing:border-box; z-index:2; border-radius:15px;
+		background:var(--theme-card-background,#fff); border:1.6px solid var(--theme-border); border-top:5px solid var(--nc,#0078d4);
+		box-shadow:0 10px 26px rgba(0,0,0,0.14); padding:0.55rem 0.8rem; display:flex; flex-direction:column; gap:0.32rem; opacity:0; }
+	body.theme-dark .map-node { background:rgba(255,255,255,0.06); }
+	.map-node .mn-head { display:flex; align-items:center; gap:0.5rem; font-weight:600; color:var(--theme-text); line-height:1.1; }
+	.map-node .mn-emoji { font-size:1.92rem; line-height:1; flex:0 0 auto; display:flex; align-items:center; }
+	.map-node .mn-emoji .az-ic { display:block; width:1em; height:1em; }
+	.map-node .mn-title { font-size:1.3rem; white-space:nowrap; }
+	.map-node .mn-sub { font-size:0.95rem; color:var(--theme-text-subtle); line-height:1.3; }
+	/* Storage Account boundary (faded) groups the internal resources; the User sits OUTSIDE it */
+	.sa-boundary { position:absolute; left:24px; top:42px; width:760px; height:402px; z-index:0;
+		border:2.5px dashed color-mix(in srgb,#0078d4 55%,transparent); border-radius:24px;
+		background:color-mix(in srgb,#0078d4 5%,transparent); opacity:0; }
+	body.theme-dark .sa-boundary { background:color-mix(in srgb,#4aa9ff 8%,transparent); border-color:color-mix(in srgb,#4aa9ff 50%,transparent); }
+	.sa-boundary-label { position:absolute; left:22px; top:-20px; display:inline-flex; align-items:center; gap:0.45rem;
+		padding:0.32rem 0.85rem; border-radius:999px; background:var(--theme-card-background,#fff);
+		border:1.8px solid color-mix(in srgb,#0078d4 55%,transparent); font-size:1.2rem; font-weight:600; color:var(--theme-text); box-shadow:0 4px 14px rgba(0,0,0,0.1); }
+	body.theme-dark .sa-boundary-label { background:#241b33; }
+	.sa-boundary-label .az-ic { width:1.5em; height:1.5em; }
+	.n-cont   { left:432px; top:74px;  width:322px; height:92px;  --nc:#0078d4; }
+	.n-keys   { left:54px;  top:74px;  width:250px; height:140px; --nc:#e97526; }
+	.n-token  { left:432px; top:226px; width:322px; height:182px; --nc:#5c2d91; }
+	.n-policy { left:54px;  top:262px; width:304px; height:146px; --nc:#0b6a37; }
+	.n-user   { left:864px; top:228px; width:202px; height:152px; --nc:#0078d4; }
+	.mn-keyrow { display:flex; gap:0.4rem; }
+	.mn-key { flex:1 1 0; display:flex; align-items:center; justify-content:center; gap:0.3rem; font-size:1.0rem; font-weight:600; color:var(--theme-text);
+		padding:0.28rem 0.45rem; border-radius:9px; border:1.5px solid color-mix(in srgb,#e97526 45%,transparent); background:color-mix(in srgb,#e97526 12%,transparent); }
+	.mn-note { font-size:0.88rem; font-weight:500; color:#b5651d; }
+	body.theme-dark .mn-note { color:#e8a463; }
+	.tok-rows { display:flex; flex-direction:column; gap:0.32rem; margin-top:0.1rem; }
+	.tok-row { display:flex; align-items:center; gap:0.5rem; padding:0.28rem 0.55rem; border-radius:9px;
+		background:color-mix(in srgb,var(--rc,#5c2d91) 9%,transparent); border-left:5px solid var(--rc,#5c2d91); opacity:0; }
+	.n-token .tok-row { --rc:#5c2d91; }
+	.n-policy .tok-row { --rc:#0b6a37; }
+	.tok-row .tr-em { font-size:1.18rem; line-height:1; }
+	.tok-row .tr-k { font-weight:600; font-size:0.98rem; color:var(--theme-text); white-space:nowrap; }
+	.tok-row .tr-v { font-size:0.9rem; color:var(--theme-text-subtle); margin-left:auto; white-space:nowrap; }
+	.user-bubble { position:absolute; left:852px; top:132px; width:210px; padding:0.6rem 0.82rem; border-radius:15px 15px 15px 4px;
+		background:linear-gradient(135deg,#0078d4,#5c2d91); color:#fff; font-size:1.0rem; font-weight:500; line-height:1.3;
+		box-shadow:0 10px 24px rgba(0,0,0,0.22); z-index:3; opacity:0; }
+	.user-bubble::after { content:''; position:absolute; left:108px; bottom:-9px; border-width:10px 10px 0; border-style:solid; border-color:#5c2d91 transparent transparent; }
+	.tw-caret { display:inline-block; width:2px; height:1.05em; margin-left:1px; background:currentColor; vertical-align:-0.15em; animation:twBlink 0.7s step-end infinite; }
+	@keyframes twBlink { 0%,100%{opacity:1;} 50%{opacity:0;} }
+	.edge-label { position:absolute; z-index:2; font-size:0.88rem; font-weight:600; color:var(--theme-text);
+		background:var(--theme-body-background,#fff); border:1.2px solid var(--theme-border); border-radius:999px; padding:0.14rem 0.7rem; white-space:nowrap; opacity:0; box-shadow:0 3px 10px rgba(0,0,0,0.1); }
+	body.theme-dark .edge-label { background:#241b33; }
+	.el-signs   { left:315px; top:228px; }
+	.el-targets { left:505px; top:184px; }
+	.el-granted { left:782px; top:276px; }
+	.el-rules   { left:360px; top:374px; }
+	.map-badge { position:absolute; z-index:3; font-size:0.88rem; font-weight:400; color:#fff; border-radius:11px; padding:0.34rem 0.7rem; line-height:1.25; white-space:nowrap; text-align:center; box-shadow:0 8px 20px rgba(0,0,0,0.25); opacity:0; }
+	.badge-keys { left:272px; top:452px; width:262px; background:linear-gradient(135deg,#e97526,#c0392b); }
+	.badge-policy { left:546px; top:452px; width:262px; background:linear-gradient(135deg,#0b6a37,#0078d4); }
+	.map-ribbon { position:absolute; left:0; top:492px; width:1080px; display:flex; justify-content:center; gap:0.5rem; flex-wrap:wrap; z-index:3; opacity:0; }
+	.map-ribbon .bp { font-size:0.96rem; font-weight:500; color:var(--theme-text); background:var(--theme-card-background,#fff); border:1.5px solid var(--theme-border); border-radius:999px; padding:0.3rem 0.78rem; box-shadow:0 4px 14px rgba(0,0,0,0.1); }
+	body.theme-dark .map-ribbon .bp { background:rgba(255,255,255,0.06); }
+
+	/* ── STEP 9 · TECHNICAL SUMMARY (SAS types & per-service scope) ── */
+	.spec-wrap { display:flex; flex-direction:column; align-items:center; gap:0.85rem; width:min(1120px,99%); }
+	.spec-types { display:grid; grid-template-columns:repeat(3,1fr); gap:0.85rem; width:100%; }
+	.spec-card { border:1.6px solid var(--theme-border); border-top:5px solid var(--sc,#0078d4); border-radius:15px;
+		background:var(--theme-card-background,#fff); box-shadow:0 10px 26px rgba(0,0,0,0.12); padding:0.8rem 0.95rem;
+		display:flex; flex-direction:column; gap:0.42rem; opacity:0; }
+	body.theme-dark .spec-card { background:rgba(255,255,255,0.06); }
+	.spec-card .sc-head { display:flex; align-items:center; gap:0.55rem; }
+	.spec-card .sc-head .az-ic { width:2.1rem; height:2.1rem; flex:0 0 auto; }
+	.spec-card .sc-name { font-size:1.16rem; font-weight:600; color:var(--theme-text); line-height:1.15; }
+	.spec-card .sc-row { display:flex; flex-direction:column; gap:0.02rem; }
+	.spec-card .sc-k { font-size:0.72rem; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; color:var(--theme-text-subtle); }
+	.spec-card .sc-v { font-size:0.96rem; color:var(--theme-text); line-height:1.3; }
+	.spec-card .sc-pol { align-self:flex-start; display:inline-flex; align-items:center; gap:0.3rem; font-size:0.84rem; font-weight:600; padding:0.2rem 0.6rem; border-radius:999px; margin-top:0.05rem; }
+	.sc-pol.ok { background:color-mix(in srgb,#107c41 15%,transparent); color:#0b6a37; border:1.5px solid color-mix(in srgb,#107c41 45%,transparent); }
+	.sc-pol.no { background:color-mix(in srgb,#8a8a9a 14%,transparent); color:var(--theme-text-subtle); border:1.5px solid var(--theme-border); }
+	body.theme-dark .sc-pol.ok { color:#4ac26b; }
+	.spec-matrix { width:100%; border-collapse:collapse; font-size:0.95rem; opacity:0;
+		background:var(--theme-card-background,#fff); border-radius:14px; overflow:hidden; box-shadow:0 8px 22px rgba(0,0,0,0.1); }
+	body.theme-dark .spec-matrix { background:rgba(255,255,255,0.05); }
+	.spec-matrix th, .spec-matrix td { padding:0.48rem 0.8rem; text-align:left; border-bottom:1.5px solid var(--theme-border); }
+	.spec-matrix thead th { font-weight:600; color:var(--theme-text); background:color-mix(in srgb,#5c2d91 9%,transparent); font-size:0.9rem; }
+	body.theme-dark .spec-matrix thead th { background:rgba(255,255,255,0.07); }
+	.spec-matrix tbody tr:last-child td { border-bottom:none; }
+	.spec-matrix .mx-svc { display:flex; align-items:center; gap:0.5rem; font-weight:600; color:var(--theme-text); }
+	.spec-matrix .mx-svc .az-ic { width:1.5rem; height:1.5rem; flex:0 0 auto; }
+	.spec-matrix .mx-scope { color:var(--theme-text); }
+	.spec-matrix .mx-pol { color:#0b6a37; font-weight:600; white-space:nowrap; }
+	body.theme-dark .spec-matrix .mx-pol { color:#4ac26b; }
+	.spec-note { font-size:0.85rem; color:var(--theme-text-subtle); line-height:1.4; text-align:center; max-width:1000px; opacity:0; }
+	.spec-foot { font-size:0.9rem; color:var(--theme-text-subtle); text-align:center; opacity:0; }
+	.spec-foot a { color:var(--aw-blue,#0078d4); font-weight:600; text-decoration:underline; }
+
+	/* ── ACCESS TIER ROW (Hot → Archive) ── */
+	.tier-row { display:flex; gap:1rem; justify-content:center; flex-wrap:wrap; width:100%; }
+	.tier-card {
+		flex:1 1 0; min-width:155px; max-width:230px;
+		border:1.5px solid var(--theme-border); border-top:5px solid var(--tc,#e97526);
+		border-radius:14px; background:var(--theme-card-background, #fff);
+		box-shadow:0 6px 22px rgba(0,0,0,0.12); padding:1rem 1rem 1.1rem; opacity:0;
+		display:flex; flex-direction:column; gap:0.5rem; align-items:center; text-align:center;
+	}
+	body.theme-dark .tier-card { background:rgba(255,255,255,0.05); }
+	.tier-card .tc-icon { font-size:2.1rem; line-height:1; color:var(--tc); }
+	.tier-card .tc-name { font-size:1.3rem; font-weight:800; color:var(--tc); }
+	.tier-card .tc-sub { font-size:0.9rem; color:var(--theme-text-subtle); line-height:1.4; min-height:2.5em; }
+	.tier-card .tc-ret { display:inline-flex; align-items:center; gap:0.35rem; font-size:0.9rem; font-weight:700; padding:0.28rem 0.75rem; border-radius:999px; background:rgba(0,0,0,0.05); color:var(--theme-text); }
+	body.theme-dark .tier-card .tc-ret { background:rgba(255,255,255,0.1); }
+	.tier-card .tc-ret .ic { color:var(--tc); }
+	.tier-card .tc-cost { display:flex; gap:4px; margin-top:0.1rem; }
+	.tier-card .tc-dot { width:9px; height:9px; border-radius:50%; background:var(--theme-border); }
+	.tier-card .tc-dot.on { background:var(--tc); }
+	.tier-scalewrap { display:flex; flex-direction:column; align-items:center; gap:0.4rem; width:100%; }
+	.tier-scale {
+		width:min(920px,96%); height:12px; border-radius:999px;
+		background:linear-gradient(90deg,#e97526,#0078d4,#00b7c3,#5c2d91);
+		box-shadow:inset 0 0 0 1px rgba(0,0,0,0.08); opacity:0;
+	}
+	.tier-scale-labels { display:flex; justify-content:space-between; width:min(920px,96%); font-size:0.92rem; font-weight:600; color:var(--theme-text-subtle); opacity:0; }
+
+	/* ── SMART TIER banner (auto-manages Hot/Cool/Cold) ── */
+	.smart-tier { width:min(960px,98%); display:flex; align-items:center; gap:0.7rem 1.1rem; flex-wrap:wrap; padding:0.65rem 1.05rem; border-radius:14px;
+		background:linear-gradient(var(--theme-card-background,#fff),var(--theme-card-background,#fff)) padding-box, linear-gradient(90deg,#e97526,#0078d4,#00b7c3) border-box;
+		border:2px solid transparent; box-shadow:0 6px 22px rgba(0,0,0,0.1); opacity:0; }
+	body.theme-dark .smart-tier { background:linear-gradient(#241b33,#241b33) padding-box, linear-gradient(90deg,#e97526,#0078d4,#00b7c3) border-box; }
+	.st-head { display:inline-flex; align-items:center; gap:0.45rem; }
+	.st-head .az-ic { width:1.55em; height:1.55em; }
+	.st-name { font-size:1.12rem; font-weight:800; color:var(--theme-text); }
+	.st-badge { font-size:0.68rem; font-weight:800; text-transform:uppercase; letter-spacing:0.05em; padding:0.15rem 0.5rem; border-radius:999px; background:var(--aw-purple,#5c2d91); color:#fff; }
+	.st-body { display:flex; flex-direction:column; gap:0.35rem; flex:1 1 320px; }
+	.st-desc { font-size:0.9rem; color:var(--theme-text-subtle); line-height:1.35; }
+	.st-flow { display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap; }
+	.st-node { display:inline-flex; align-items:center; gap:0.3rem; padding:0.2rem 0.55rem; border-radius:999px; font-size:0.9rem; font-weight:800; color:var(--theme-text); border:1.5px solid var(--nc,#e97526); background:color-mix(in srgb, var(--nc) 12%, transparent); }
+	.st-node .az-ic { width:1.05em; height:1.05em; }
+	.st-edge { display:inline-flex; flex-direction:column; align-items:center; font-size:0.74rem; font-weight:700; color:var(--theme-text-subtle); line-height:1.1; }
+	.st-edge b { font-size:1rem; color:var(--theme-text); }
+	.st-access { display:inline-flex; align-items:center; gap:0.25rem; font-size:0.84rem; font-weight:800; color:#107c10; }
+	body.theme-dark .st-access { color:#4ac26b; }
+	.st-note { font-size:0.8rem; font-weight:600; color:var(--theme-text-subtle); max-width:170px; line-height:1.3; }
+
+	/* recap key-feature chips (per service accent) */
+	.sa-feats { display:flex; flex-wrap:wrap; gap:0.3rem; margin-top:0.1rem; }
+	.sa-feat { padding:0.15rem 0.55rem; border-radius:999px; font-size:0.82rem; font-weight:700; color:var(--theme-text); background:color-mix(in srgb, var(--sc) 12%, transparent); border:1.5px solid color-mix(in srgb, var(--sc) 42%, transparent); }
+
+	/* ── CONTROLS · icon dock ──────────────── */
+	#controls {
+		position:fixed; bottom:14px; left:50%; transform:translateX(-50%); z-index:40;
+		display:flex; align-items:center; gap:5px; padding:5px 7px;
+		background:var(--theme-body-background-translucent, rgba(255,255,255,0.82));
+		backdrop-filter:blur(12px) saturate(1.4); -webkit-backdrop-filter:blur(12px) saturate(1.4);
+		border:1px solid var(--theme-border); border-radius:999px;
+		box-shadow: 0 8px 26px rgba(0,0,0,0.18); font-size:13px;
+	}
+	body.theme-dark #controls { background:var(--theme-body-background-translucent, rgba(32,32,36,0.82)); }
+	#controls .ctrl-icon {
+		width:2.15rem; height:2.15rem; min-width:0; padding:0;
+		display:inline-flex; align-items:center; justify-content:center;
+		border-radius:50%; font-size:0.95rem; line-height:1; font-weight:600;
+		transition:background 0.18s ease, color 0.18s ease, transform 0.12s ease, box-shadow 0.18s ease;
+	}
+	#controls .ctrl-icon:hover { transform:translateY(-1px); }
+	#controls .ctrl-icon:active { transform:scale(0.92); }
+	#controls .ctrl-icon-next {
+		width:2.55rem; height:2.55rem; font-size:1.1rem;
+		box-shadow:0 2px 8px var(--theme-primary-translucent, rgba(0,120,212,0.45));
+	}
+	.step-counter {
+		min-width:52px; text-align:center; font-variant-numeric:tabular-nums;
+		font-size:14px; font-weight:700; color:var(--theme-text);
+		padding:0 6px; white-space:nowrap; letter-spacing:0.02em;
+	}
+	.ctrl-sep { width:1px; align-self:stretch; margin:4px 2px; background:var(--theme-border); }
+	.ctrl-grip {
+		display:inline-flex; align-items:center; justify-content:center;
+		width:1.5rem; height:2.15rem; padding:0; border:none; background:transparent;
+		color:var(--theme-text-subtle); border-radius:8px; cursor:grab; touch-action:none;
+		transition:background 0.18s ease, color 0.18s ease;
+	}
+	.ctrl-grip:hover { color:var(--theme-text); background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); }
+	.ctrl-grip:active { cursor:grabbing; }
+	.ctrl-grip svg { width:13px; height:16px; pointer-events:none; }
+	body.controls-floating .ctrl-grip { color:var(--theme-primary,#0078d4); }
+	#controls .ctrl-pin { display:none; color:var(--theme-primary,#0078d4); }
+	#controls .ctrl-pin svg { width:15px; height:15px; pointer-events:none; }
+	body.controls-floating #controls .ctrl-pin { display:inline-flex; }
+	body.controls-floating #controls { box-shadow:0 10px 30px rgba(0,0,0,0.30), 0 0 0 1.5px var(--theme-primary,#0078d4); }
+	.speed-control { display:inline-flex; align-items:center; gap:1px; padding:2px 3px; border:1px solid var(--theme-border); border-radius:999px; }
+	.speed-control .speed-btn {
+		width:1.7rem; height:1.7rem; min-width:0; padding:0;
+		display:inline-flex; align-items:center; justify-content:center;
+		font-size:0.95rem; font-weight:700; border-radius:50%;
+	}
+	.speed-control .speed-btn[disabled] { opacity:0.4; cursor:not-allowed; }
+	.speed-label { min-width:2.4rem; text-align:center; font-variant-numeric:tabular-nums; font-size:0.82rem; font-weight:700; color:var(--theme-text); }
+
+	#callout-toggle, #outline-toggle, #audio-toggle { border:1px solid var(--theme-border); border-radius:4px; transition:background .2s,color .2s,border-color .2s,opacity .2s; }
+	#callout-toggle.toggle-active, #outline-toggle.toggle-active, #audio-toggle.toggle-active {
+		background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary,#0078d4); border-color:var(--theme-primary,#0078d4); font-weight:600;
+	}
+	#callout-toggle:not(.toggle-active), #outline-toggle:not(.toggle-active), #audio-toggle:not(.toggle-active) { opacity:0.6; }
+	#audio-toggle { display:inline-flex; align-items:center; gap:0.3rem; }
+	#audio-toggle .aw-audio-ico { line-height:1; }
+	#audio-toggle .aw-audio-time { font-variant-numeric:tabular-nums; font-weight:600; min-width:3.1em; text-align:center; letter-spacing:0.02em; }
+
+	/* ── HIDE/SHOW TOP BAR ─────────────────── */
+	#header-hide-top { display:inline-flex; align-items:center; justify-content:center; width:2rem; height:2rem; padding:0; border:1px solid var(--theme-border); border-radius:50%; color:var(--theme-text-subtle); background:transparent; cursor:pointer; transition:background .2s,color .2s,transform .18s; }
+	#header-hide-top:hover { color:var(--theme-text); transform:translateY(-1px); }
+	#header-hide-top svg { width:16px; height:16px; }
+	body.chrome-hidden .app-header, body.chrome-hidden .progress-track { display:none; }
+	#header-reveal {
+		position:fixed; top:0; left:50%; transform:translateX(-50%) translateY(-100%); z-index:45;
+		display:inline-flex; align-items:center; gap:0.35rem; padding:5px 14px 6px; font-size:12px; font-weight:600; line-height:1;
+		color:var(--theme-text-subtle); background:var(--theme-body-background-translucent, rgba(255,255,255,0.88));
+		backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border:1px solid var(--theme-border); border-top:none; border-radius:0 0 12px 12px;
+		box-shadow:0 4px 14px rgba(0,0,0,0.14); cursor:pointer; transition:transform .28s cubic-bezier(0.2,0.7,0.3,1), color .2s, background .2s;
+	}
+	body.theme-dark #header-reveal { background:var(--theme-body-background-translucent, rgba(32,32,36,0.88)); }
+	#header-reveal:hover { color:var(--theme-text); }
+	body.chrome-hidden #header-reveal { transform:translateX(-50%) translateY(0); }
+	#header-reveal svg { width:14px; height:14px; }
+
+	/* ── OUTLINE PANEL ─────────────────────── */
+	#step-outline {
+		position:fixed; top:4.5rem; right:1rem; width:320px; max-height:calc(100vh - 8rem); overflow-y:auto;
+		padding:1.1rem; background:var(--theme-body-background);
+		background:color-mix(in srgb, var(--theme-body-background) 85%, transparent);
+		-webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
+		border:1px solid var(--theme-border);
+		border-radius:6px; box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2)); z-index:35; font-size:1rem; line-height:1.55;
+		cursor:grab; touch-action:none;
+	}
+	#step-outline:active { cursor:grabbing; }
+	#step-outline[hidden] { display:none; }
+	#step-outline h2 { font-size:0.85rem; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--theme-tertiary,#5c2d91); margin-bottom:0.5rem; }
+	#step-outline .outline-section { margin-top:0.6rem; padding-top:0.6rem; border-top:1px solid var(--theme-border); }
+	#step-outline .outline-section:first-child { margin-top:0; padding-top:0; border-top:0; }
+	#step-outline .stat-row { display:flex; justify-content:space-between; align-items:baseline; gap:0.75rem; padding:0.2rem 0; }
+	#step-outline .stat-row span:first-child { color:var(--theme-text-subtle); flex:0 0 auto; max-width:45%; }
+	#step-outline .stat-row span:last-child { text-align:right; font-weight:600; color:var(--theme-tertiary,#5c2d91); flex:1 1 auto; }
+
+	.progress-track { position:relative; height:6px; background:var(--theme-border, #e0e0e0); flex-shrink:0; cursor:pointer; }
+	.progress-fill { position:absolute; left:0; top:0; bottom:0; width:0%; background:var(--aw-purple, #5c2d91); transition:width .5s cubic-bezier(0.2,0.8,0.2,1); pointer-events:none; }
+	.progress-tick { position:absolute; top:0; bottom:0; width:2px; margin-left:-1px; background:var(--theme-body-background); opacity:0.6; pointer-events:none; }
+
+	/* ── THEME / LANG / FONT CONTROLS ──────── */
+	.theme-toggle { display:inline-flex; align-items:center; justify-content:center; width:2.25rem; height:2.25rem; padding:0; margin-inline-start:0.25rem; background:transparent; border:1px solid var(--theme-border); border-radius:999px; color:var(--theme-text); cursor:pointer; transition:background .15s,color .15s,border-color .15s; }
+	.theme-toggle:hover { background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary); border-color:var(--theme-primary); }
+	.theme-toggle .theme-icon { display:none; }
+	.theme-toggle[data-theme="dark"] .icon-sun { display:block; }
+	.theme-toggle[data-theme="light"] .icon-moon { display:block; }
+	.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+	.skip-link { position:absolute; top:-100px; left:0.5rem; z-index:100; padding:0.5rem 1rem; background:var(--theme-primary); color:var(--theme-primary-invert,#fff); border-radius:4px; text-decoration:none; font-weight:600; }
+	.skip-link:focus { top:0.5rem; }
+	.header-back-link { display:inline-flex; align-items:center; gap:0.25rem; padding:0.2rem 0.6rem; font-size:0.8rem; font-weight:600; color:var(--theme-text-subtle); border:1px solid var(--theme-border); border-radius:999px; text-decoration:none; white-space:nowrap; transition:background .15s,color .15s,border-color .15s; }
+	.header-back-link:hover { color:var(--theme-primary); border-color:var(--theme-primary); background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); }
+	.lang-select {
+		appearance:none; -webkit-appearance:none; background:var(--theme-card-background,#fff); color:var(--theme-body-text,#333);
+		border:1px solid var(--theme-border, rgba(0,0,0,0.2)); border-radius:4px; padding:4px 24px 4px 8px;
+		font-size:0.8rem; font-family:'Segoe UI', sans-serif; cursor:pointer;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+		background-repeat:no-repeat; background-position:right 6px center; min-width:80px;
+	}
+	.lang-select:hover { border-color:var(--theme-primary, #0078d4); }
+	.lang-select:focus { outline:2px solid var(--theme-primary, #0078d4); outline-offset:1px; }
+	body.theme-dark .lang-select {
+		background-color:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); border-color:rgba(255,255,255,0.15);
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23aaa' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+	}
+	body.theme-dark .lang-select option { background:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); }
+	.font-size-controls { display:flex; align-items:center; gap:2px; }
+	.font-size-btn { background:var(--theme-card-background,#fff); color:var(--theme-body-text,#333); border:1px solid var(--theme-border, rgba(0,0,0,0.2)); border-radius:4px; padding:3px 8px; font-size:0.8rem; font-weight:700; font-family:'Segoe UI', sans-serif; cursor:pointer; line-height:1.2; transition:background .15s,border-color .15s; }
+	.font-size-btn:hover { border-color:var(--theme-primary, #0078d4); }
+	body.theme-dark .font-size-btn { background:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); border-color:rgba(255,255,255,0.15); }
+
+	.ic { display:inline-flex; align-items:center; justify-content:center; vertical-align:-0.125em; }
+	.ic svg { width:1em; height:1em; fill:currentColor; display:block; }
+	.help-toggle svg { width:15px; height:15px; vertical-align:-2px; }
+
+	/* ── IMAGE ICONS (official Azure service icons + Fluent) ── */
+	.az-ic { width:1em; height:1em; object-fit:contain; display:inline-block; vertical-align:-0.15em; }
+	.agent-node .an-icon .az-ic { display:block; width:1em; height:1em; }
+	.uc-head .uc-icon .az-ic { display:block; width:1em; height:1em; }
+	.tier-card .tc-icon .az-ic { display:block; width:1em; height:1em; }
+	.pill .az-ic { width:1.15em; height:1.15em; }
+
+	/* ── RECAP · "ALL IN ONE" MAP (recaps every step in one view) ── */
+	.sa-summary { display:flex; flex-direction:column; align-items:center; gap:0.9rem; width:min(1120px, 99%); }
+	.sa-account {
+		width:100%; border:2.5px dashed var(--aw-purple, #5c2d91); border-radius:18px;
+		background:linear-gradient(135deg, rgba(92,45,145,0.06), rgba(0,120,212,0.05));
+		padding:0.85rem 1.15rem 0.95rem; display:flex; flex-direction:column; gap:0.6rem; opacity:0;
+	}
+	body.theme-dark .sa-account { background:linear-gradient(135deg, rgba(146,78,217,0.14), rgba(80,170,255,0.10)); border-color:#a67dd8; }
+	.sa-account-head { display:flex; align-items:center; gap:0.7rem; flex-wrap:wrap; }
+	.sa-account-head .sa-acct-ic .az-ic { width:1.9rem; height:1.9rem; }
+	.sa-acct-name { font-size:1.3rem; font-weight:800; color:var(--theme-text); }
+	body.theme-dark .sa-acct-name { color:#e6d8f5; }
+	.sa-perf { display:flex; gap:0.4rem; margin-left:auto; flex-wrap:wrap; }
+	.sa-perf-pill { display:inline-flex; align-items:center; gap:0.35rem; padding:0.3rem 0.8rem; border-radius:999px; font-size:0.92rem; font-weight:700; border:1.5px solid var(--pc,#0078d4); background:color-mix(in srgb, var(--pc) 12%, transparent); color:var(--theme-text); }
+	.sa-perf-pill .az-ic { width:1.15em; height:1.15em; }
+	.sa-strip { display:flex; flex-direction:column; gap:0.35rem; }
+	.sa-strip-label { font-size:0.82rem; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:var(--theme-text-subtle); }
+	.sa-svc-row { display:flex; gap:0.6rem; flex-wrap:wrap; }
+	.sa-svc { flex:1 1 0; min-width:150px; display:flex; flex-direction:column; gap:0.28rem; padding:0.55rem 0.72rem; border-radius:12px; border:1.5px solid var(--theme-border); border-top:4px solid var(--sc,#0078d4); background:var(--theme-card-background,#fff); box-shadow:0 4px 14px rgba(0,0,0,0.1); opacity:0; }
+	body.theme-dark .sa-svc { background:rgba(255,255,255,0.05); }
+	.sa-svc-head { display:flex; align-items:center; gap:0.45rem; font-size:1.05rem; font-weight:700; color:var(--theme-text); }
+	.sa-svc-head .az-ic { width:1.35em; height:1.35em; }
+	.sa-svc-sub { font-size:0.86rem; color:var(--theme-text-subtle); line-height:1.3; }
+	.sa-subchips { display:flex; flex-wrap:wrap; gap:0.3rem; margin-top:0.1rem; }
+	.sa-subchip { padding:0.15rem 0.55rem; border-radius:999px; font-size:0.82rem; font-weight:700; background:color-mix(in srgb, #e97526 14%, transparent); border:1.5px solid color-mix(in srgb, #e97526 45%, transparent); color:var(--theme-text); }
+	.sa-tier-row { display:flex; gap:0.55rem; flex-wrap:wrap; }
+	.sa-tier { flex:1 1 0; min-width:150px; display:flex; align-items:flex-start; gap:0.5rem; padding:0.5rem 0.65rem; border-radius:10px; border:1.5px solid var(--theme-border); border-left:4px solid var(--tc,#e97526); background:var(--theme-card-background,#fff); opacity:0; }
+	body.theme-dark .sa-tier { background:rgba(255,255,255,0.05); }
+	.sa-tier .az-ic { width:1.5em; height:1.5em; flex-shrink:0; margin-top:0.1rem; }
+	.sa-tier-tt { display:flex; flex-direction:column; line-height:1.2; gap:0.05rem; }
+	.sa-tier-name { font-size:0.98rem; font-weight:800; color:var(--tc); }
+	.sa-tier-ret { font-size:0.8rem; color:var(--theme-text-subtle); font-weight:700; }
+	.sa-tier-desc { font-size:0.82rem; color:var(--theme-text-subtle); line-height:1.28; margin-top:0.05rem; }
+	.sa-benefits { display:flex; gap:0.55rem; flex-wrap:wrap; justify-content:center; }
+	.sa-benefit { display:inline-flex; align-items:center; gap:0.4rem; padding:0.4rem 0.9rem; border-radius:999px; font-size:0.9rem; font-weight:700; border:2px solid #107c10; background:rgba(16,124,16,0.08); color:var(--theme-text); opacity:0; }
+	body.theme-dark .sa-benefit { background:rgba(16,124,16,0.16); }
+	.sa-benefit .sa-check { color:#10a37f; font-weight:900; }
+
+	#shortcut-overlay { position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center; }
+	#shortcut-overlay[hidden] { display:none; }
+	.sc-backdrop { position:absolute; inset:0; background:rgba(0,0,0,0.5); -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px); }
+	.sc-panel { position:relative; z-index:1; width:min(430px,92vw); max-height:82vh; overflow:auto; padding:1.5rem 1.6rem; background:var(--theme-body-background); border:1px solid var(--theme-border); border-radius:16px; box-shadow:0 24px 70px rgba(0,0,0,0.4); }
+	.sc-panel h2 { margin:0 0 1rem; font-size:1.25rem; color:var(--theme-tertiary,#5c2d91); }
+	body.theme-dark .sc-panel h2 { color:#c9a5e8; }
+	.sc-close { position:absolute; top:0.7rem; right:0.7rem; width:2rem; height:2rem; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--theme-border); border-radius:50%; background:transparent; color:var(--theme-text-subtle); cursor:pointer; }
+	.sc-close:hover { color:var(--theme-text); border-color:var(--theme-primary,#0078d4); }
+	.sc-close svg { width:15px; height:15px; }
+	.sc-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:0.55rem; }
+	.sc-list li { display:flex; align-items:center; justify-content:space-between; gap:1rem; font-size:1rem; color:var(--theme-text); }
+	.sc-keys { display:inline-flex; gap:0.3rem; flex:none; }
+	.sc-panel kbd, .sc-hint kbd { font-family:'Cascadia Code','Consolas',monospace; font-size:0.82rem; line-height:1; padding:0.28rem 0.5rem; border-radius:6px; border:1px solid var(--theme-border); border-bottom-width:2px; background:var(--theme-card-background,#fff); color:var(--theme-text); }
+	body.theme-dark .sc-panel kbd, body.theme-dark .sc-hint kbd { background:rgba(255,255,255,0.08); }
+	.sc-hint { margin:1.1rem 0 0; font-size:0.85rem; color:var(--theme-text-subtle); text-align:center; }
+
+	@media (max-width:640px) { .app-header { font-size:0.95rem; } .scene-title { font-size:1.9rem; } #stage { padding:0.9rem 1rem 4.5rem; } }
+	@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition:none !important; animation:none !important; } .progress-fill { transition:none !important; } }
+</style>
+</head>
+
+<body class="theme-dark" data-theme-preset="atlas">
+
+	<a href="#stage" class="skip-link">Skip to diagram</a>
+
+	<header class="app-header padding-block-xs padding-inline-md border-bottom" role="banner" style="justify-content:space-between;">
+		<div class="display-flex align-items-center gap-xs">
+			<a href="index.html" class="header-back-link" aria-label="Back to the Storage journey">&larr; Storage journey</a>
+			<span id="page-title" class="font-size-h6 font-weight-semibold">&#128273; SAS Tokens</span>
+		</div>
+		<nav class="display-flex gap-xs align-items-center" aria-label="Primary">
+			<span id="breadcrumb" class="font-size-sm color-text-subtle">Step 1</span>
+		</nav>
+		<div class="display-flex gap-xs align-items-center">
+			<select id="lang-select" class="lang-select" aria-label="Language">
+				<option value="en">English</option>
+				<option value="es">Español</option>
+				<option value="ja">日本語</option>
+				<option value="ko">한국어</option>
+				<option value="pt">Português</option>
+			</select>
+			<div class="font-size-controls">
+				<button id="font-decrease" type="button" class="font-size-btn" aria-label="Decrease font size" title="Smaller text">A&minus;</button>
+				<button id="font-increase" type="button" class="font-size-btn" aria-label="Increase font size" title="Larger text">A+</button>
+			</div>
+			<button id="theme-toggle" type="button" class="theme-toggle" aria-label="Switch theme" title="Switch theme">
+				<svg class="theme-icon icon-moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg>
+				<svg class="theme-icon icon-sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.5" y1="4.5" x2="6.5" y2="6.5"/><line x1="17.5" y1="17.5" x2="19.5" y2="19.5"/><line x1="4.5" y1="19.5" x2="6.5" y2="17.5"/><line x1="17.5" y1="6.5" x2="19.5" y2="4.5"/></g></svg>
+			</button>
+			<button id="header-hide-top" type="button" aria-label="Hide top bar" title="Hide top bar (H)">
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/></svg>
+			</button>
+		</div>
+	</header>
+
+	<button id="header-reveal" type="button" aria-label="Show top bar" title="Show top bar">
+		<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/></svg>
+		<span>Toolbar</span>
+	</button>
+
+	<div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
+
+	<main id="stage" tabindex="0" role="region" aria-labelledby="stage-heading" aria-describedby="stage-instructions">
+		<h1 id="stage-heading" class="sr-only" tabindex="-1">Azure Storage Account</h1>
+		<p id="stage-instructions" class="sr-only">Animated explainer of the Azure Storage Account. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.</p>
+		<div id="step-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+		<div id="stage-frame">
+			<svg id="fx-svg" aria-hidden="true" focusable="false">
+				<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L0,10 L10,5 Z" fill="currentColor"/></marker></defs>
+			</svg>
+			<div id="aw-caption" class="aw-caption" aria-hidden="true"></div>
+			<div id="stage-overlay-left" class="stage-overlay stage-overlay-left" role="group" aria-label="View options">
+				<button id="callout-toggle" type="button" class="ovl-btn" aria-label="Toggle callouts" aria-pressed="false" data-tip="Callouts: Off"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M4 5h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H10l-4 3v-3H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></svg></button>
+				<button id="outline-toggle" type="button" class="ovl-btn" aria-controls="step-outline" aria-expanded="false" aria-label="Toggle text outline" data-tip="Outline: Off"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" d="M4 6h16M4 12h16M4 18h10"/></svg></button>
+				<button id="help-toggle" class="ovl-btn help-toggle" type="button" aria-haspopup="dialog" aria-controls="shortcut-overlay" aria-label="Keyboard shortcuts (press ?)" data-tip="Shortcuts"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M11 18h2v-2h-2v2zm1.1-14C9.8 4 8 5.8 8 8h2a2 2 0 1 1 3.2 1.6c-.9.7-2.2 1.5-2.2 3.4h2c0-1 .8-1.5 1.7-2.2A4 4 0 0 0 12.1 4z"/></svg></button>
+			</div>
+			<div id="stage-overlay" class="stage-overlay" role="group" aria-label="Player controls">
+				<button id="audio-toggle" class="ovl-btn ovl-audio" type="button" aria-label="Toggle audio narration" aria-pressed="false" title="Narration audio"></button>
+				<button id="cc-toggle" class="ovl-btn" type="button" aria-label="Toggle captions" aria-pressed="false" title="Captions"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9.7 10.2a2.1 2.1 0 1 0 0 3.6M17 10.2a2.1 2.1 0 1 0 0 3.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+				<button id="header-hide" class="ovl-btn" type="button" aria-label="Hide top bar" title="Hide top bar (H)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/></svg></button>
+				<button id="fs-toggle" class="ovl-btn" type="button" aria-label="Toggle full screen" aria-pressed="false" title="Full screen (F)"><svg class="fs-enter" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg><svg class="fs-exit" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg></button>
+			</div>
+		</div>
+	</main>
+
+	<aside id="step-outline" hidden aria-label="Text outline of the current step">
+		<h2 id="outline-title">Step Details</h2>
+		<div id="outline-body"></div>
+	</aside>
+
+	<div id="controls" role="group" aria-label="Diagram navigation">
+		<button id="ctrl-grip" type="button" class="ctrl-grip" aria-label="Drag to move the controls" title="Drag to move">
+			<svg viewBox="0 0 16 16" aria-hidden="true"><g fill="currentColor"><circle cx="5" cy="3" r="1.4"/><circle cx="11" cy="3" r="1.4"/><circle cx="5" cy="8" r="1.4"/><circle cx="11" cy="8" r="1.4"/><circle cx="5" cy="13" r="1.4"/><circle cx="11" cy="13" r="1.4"/></g></svg>
+		</button>
+		<button id="ctrl-pin" type="button" class="button button-clear ctrl-icon ctrl-pin" aria-label="Pin the controls back to the center" title="Pin to center">
+			<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9 2h6a1 1 0 0 1 .8 1.6L14 6v4l3 3v2h-4v5l-1 2-1-2v-5H7v-2l3-3V6L8.2 3.6A1 1 0 0 1 9 2z"/></svg>
+		</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="prev-btn" type="button" class="button ctrl-icon" aria-label="Previous step (left arrow)">&#9664;</button>
+		<div class="step-counter" id="step-counter">0 / 0</div>
+		<button id="next-btn" type="button" class="button button-primary button-filled ctrl-icon ctrl-icon-next" aria-label="Next step (right arrow or space)">&#9654;</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="replay-btn" type="button" class="button ctrl-icon" aria-label="Replay this step's animation (P)">&#8635;</button>
+		<div class="speed-control" role="group" aria-label="Animation speed">
+			<button id="speed-down" type="button" class="button button-clear speed-btn" aria-label="Slower (-)" title="Slower">&minus;</button>
+			<span id="speed-label" class="speed-label" aria-live="polite" aria-label="Current speed">1&times;</span>
+			<button id="speed-up" type="button" class="button button-clear speed-btn" aria-label="Faster (+)" title="Faster">+</button>
+		</div>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="reset-btn" type="button" class="button button-clear ctrl-icon" aria-label="Restart from step 1 (R)">&#9198;</button>
+	</div>
+
+	<div id="shortcut-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="sc-title">
+		<div class="sc-backdrop"></div>
+		<div class="sc-panel">
+			<button id="sc-close" class="sc-close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
+			<h2 id="sc-title">Keyboard shortcuts</h2>
+			<ul id="sc-list" class="sc-list"></ul>
+			<p class="sc-hint">Press <kbd>?</kbd> anytime to toggle this panel.</p>
+		</div>
+	</div>
+
+<script>
+// ── THEME ─────────────────────────────────
+const themeToggleBtn = document.getElementById('theme-toggle');
+function syncThemeBtn(){
+	if (!themeToggleBtn) return;
+	const isDark = document.body.classList.contains('theme-dark');
+	themeToggleBtn.dataset.theme = isDark ? 'dark' : 'light';
+	const label = isDark ? 'Switch to light theme' : 'Switch to dark theme';
+	themeToggleBtn.setAttribute('aria-label', label);
+	themeToggleBtn.setAttribute('title', label);
+}
+if (window.AW && AW.theme) {
+	AW.theme.onChange(() => { syncThemeBtn(); if (typeof rerenderInstant === 'function' && current >= 0) rerenderInstant(); });
+	syncThemeBtn();
+} else {
+	syncThemeBtn();
+	if (themeToggleBtn) themeToggleBtn.addEventListener('click', () => {
+		const goingDark = !document.body.classList.contains('theme-dark');
+		document.body.classList.remove('theme-dark', 'theme-light');
+		document.body.classList.add(goingDark ? 'theme-dark' : 'theme-light');
+		try { localStorage.setItem('aw-theme', goingDark ? 'theme-dark' : 'theme-light'); } catch(_){}
+		syncThemeBtn();
+		if (current >= 0) renderStep(current);
+	});
+	try { const saved = localStorage.getItem('aw-theme'); if (saved === 'theme-light' || saved === 'theme-dark') { document.body.classList.remove('theme-dark','theme-light'); document.body.classList.add(saved); syncThemeBtn(); } } catch(_){}
+}
+
+// ── i18n ──────────────────────────────────
+// English is the source language (English-first). Add sibling objects
+// (es/ja/ko/pt) with the SAME keys + matching <option>s once translations are
+// reviewed. Brand/product/code/proper-noun sample data stays untranslated.
+let currentLang = 'en';
+const I18N = {
+	en: {
+		skipToMain: 'Skip to diagram',
+		pageTitle: 'SAS Tokens',
+		stageHeading: 'SAS Tokens & Stored Access Policy',
+		stageInstructions: 'Animated explainer of Shared Access Signatures (SAS) and Stored Access Policies in Azure Storage. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.',
+		prev: '\u25C0 Prev', next: 'Next \u25B6', replay: '\u21BB Replay', restart: '\u21BB Restart',
+		slower: 'Slower', faster: 'Faster',
+		calloutOn: '\uD83D\uDCAC Callout: On', calloutOff: '\uD83D\uDCAC Callout: Off',
+		outlineOn: '\uD83D\uDCDD Outline: On', outlineOff: '\uD83D\uDCDD Outline: Off',
+		audioOn: '\uD83D\uDD0A Audio: On', audioOff: '\uD83D\uDD07 Audio: Off',
+		stepDetails: 'Step Details', stepOf: 'Step',
+		resetPos: 'Reset to default position',
+		scTitle: 'Keyboard shortcuts',
+		scNext: 'Next step', scPrev: 'Previous step', scRestart: 'Restart', scReplay: 'Replay this step', scHide: 'Hide / show top bar', scHelp: 'Toggle this help',
+
+		// ── SHARED MAP LABELS (constant across every step) ──
+		nAcct: 'Storage Account', nAcctSub: 'Your data lives here',
+		nKeys: 'Account Keys', nKey1: 'Key 1', nKey2: 'Key 2', nKeysNote: 'can be regenerated',
+		nCont: 'Container / Blob', nContSub: 'What you want to share',
+		nToken: 'SAS Token', nTokenSub: 'a signed URL',
+		nPolicy: 'Stored Access Policy', nPolicySub: 'container-level only',
+		nUser: 'User', nUserSub: 'needs limited access',
+		rowPerm: 'Permissions', rowPermV: 'read \u00b7 write \u00b7 list',
+		rowTime: 'Start \u2192 Expiry', rowTimeV: 'time-limited',
+		rowIp: 'IP / Protocol', rowIpV: 'HTTPS only',
+		userBubble: 'I can now reach the shared container / blob',
+		edgeSigns: 'signs', edgeTargets: 'targets', edgeGranted: 'access \u2713', edgeRules: 'from policy',
+		badgeKeys: '\u21BB Regenerate key \u2192 SAS revoked',
+		badgePolicy: '\uD83D\uDDD1\uFE0F Delete policy \u2192 tokens revoked',
+		bp1: '\uD83D\uDD12 HTTPS only', bp2: '\u2B50 User delegation', bp3: '\u23F1\uFE0F Short expiry', bp4: '\uD83C\uDFAF Least privilege', bp5: '\u267B\uFE0F Revocation plan',
+
+		// ── Step 1 · GOAL (the players) ──
+		goTitle: 'Where We Start: the Players',
+		goCaption: 'The problem to solve',
+		goDesc: 'You have data in a Storage Account, and a user who needs just one container or blob \u2014 for a limited time. How do you grant that without handing over your keys? Let\u2019s build the picture.',
+		goCallout: 'Follow the arrows: every step connects the account (left) to the user (right).',
+		goStat1: 'You have', goStat1v: 'A storage account + a user',
+		goStat2: 'Goal', goStat2v: 'Scoped, temporary access',
+		goStat3: 'Never', goStat3v: 'Share the account key',
+
+		// ── Step 2 · KEYS ──
+		kyTitle: 'Everything Is Signed by the Account Keys',
+		kyCaption: 'Two keys, regenerable',
+		kyDesc: 'The storage account has two keys. They unlock everything, forever \u2014 so you never hand them out. Instead they sign the tokens you\u2019ll create, and regenerating one is how you revoke later.',
+		kyCallout: 'Two keys let you rotate one while the other keeps apps running.',
+		kyStat1: 'Keys', kyStat1v: 'Key 1 and Key 2',
+		kyStat2: 'Power', kyStat2v: 'Full access, no expiry',
+		kyStat3: 'Use them to', kyStat3v: 'Sign tokens \u2014 not to share',
+
+		// ── Step 3 · TOKEN ──
+		tkTitle: 'Generate a SAS Token',
+		tkCaption: 'A signed, scoped URL',
+		tkDesc: 'Instead of the key, create a Shared Access Signature \u2014 a token signed by the account that targets exactly one container or blob. It\u2019s just a URL you can hand out.',
+		tkCallout: 'The token points at a single resource \u2014 not the whole account.',
+		tkStat1: 'Create', tkStat1v: 'A SAS token',
+		tkStat2: 'Signed by', tkStat2v: 'The account key',
+		tkStat3: 'Targets', tkStat3v: 'One container / blob',
+
+		// ── Step 4 · INSIDE THE TOKEN ──
+		inTitle: 'What the Token Allows',
+		inCaption: 'Permissions \u00b7 time \u00b7 network',
+		inDesc: 'The token spells out exactly what\u2019s allowed: which permissions (read, write, list\u2026), the start and expiry time, and which IP addresses and protocol \u2014 HTTPS \u2014 may use it.',
+		inCallout: 'Change any of these and the signature breaks \u2014 the token can\u2019t be tampered with.',
+		inStat1: 'Permissions', inStat1v: 'read \u00b7 write \u00b7 list',
+		inStat2: 'Time', inStat2v: 'start \u2192 expiry',
+		inStat3: 'Network', inStat3v: 'allowed IP / HTTPS',
+
+		// ── Step 5 · ACCESS ──
+		acTitle: 'The User Gets In',
+		acCaption: 'Access, exactly as scoped',
+		acDesc: 'Hand the token to the user. They can now reach the shared container or blob \u2014 with only the rights you granted, and only until it expires. Your keys never left the account.',
+		acCallout: 'No account key was ever shared \u2014 and access ends on its own.',
+		acStat1: 'Hand over', acStat1v: 'The SAS URL',
+		acStat2: 'User gets', acStat2v: 'Just the scoped access',
+		acStat3: 'Ends', acStat3v: 'Automatically at expiry',
+
+		// ── Step 6 · STORED ACCESS POLICY ──
+		poTitle: 'Stored Access Policy \u2014 Rules on the Container',
+		poCaption: 'Manage many tokens centrally',
+		poDesc: 'Need many tokens with the same rules? Put the permissions and expiry in a Stored Access Policy on the container. Tokens reference the policy instead of carrying their own rules. (Container level only.)',
+		poCallout: 'Change the policy once and every token that references it updates.',
+		poStat1: 'Where', poStat1v: 'On the container',
+		poStat2: 'Holds', poStat2v: 'Permissions \u00b7 time',
+		poStat3: 'Tokens', poStat3v: 'Reference the policy',
+
+		// ── Step 7 · REVOKING ──
+		rvTitle: 'Revoking Access',
+		rvCaption: 'Two ways to pull it back',
+		rvDesc: 'A SAS works until it expires \u2014 unless you revoke it. Regenerate the account key to void every ad-hoc token signed with it. Or, for policy-based tokens, just delete the policy \u2014 no key rotation needed.',
+		rvCallout: 'This is why stored access policies exist: revoke without breaking everything else.',
+		rvStat1: 'Ad-hoc SAS', rvStat1v: 'Regenerate the key',
+		rvStat2: 'Policy SAS', rvStat2v: 'Delete the policy',
+		rvStat3: 'Cleanest', rvStat3v: 'User delegation \u2192 revoke key',
+
+		// ── Step 8 · RECAP (whole picture) ──
+		rcTitle: 'The Whole Picture',
+		rcCaption: 'SAS, end to end',
+		rcDesc: 'Account \u2192 keys \u2192 a signed, scoped, expiring token \u2014 and the user reaches just what you allowed. Add a stored access policy for central control, and know how to revoke.',
+		rcCallout: 'Prefer a user delegation SAS, over HTTPS, least privilege, short expiry \u2014 with a revocation plan.',
+		rcFoot: 'Go deeper on the free Microsoft Learn path <a href="https://learn.microsoft.com/training/paths/store-data-in-azure/" target="_blank" rel="noopener">Store data in Azure</a> \u2014 and see more at aka.ms/AzureAnimations.',
+		rcStat1: 'Prefer', rcStat1v: 'User delegation SAS \u00b7 HTTPS',
+		rcStat2: 'Scope', rcStat2v: 'Least privilege \u00b7 short expiry',
+		rcStat3: 'Plan', rcStat3v: 'Know how to revoke',
+
+		// ── Step 9 · TECHNICAL SUMMARY (SAS types & scope) ──
+		spTitle: 'SAS Types &amp; Scope',
+		spCaption: 'The technical view',
+		spDesc: 'Three SAS types \u2014 and they work across ALL four storage services, not just blob containers. Here is exactly what each one is signed with and how far it reaches.',
+		spCallout: 'Prefer a user delegation SAS (signed with Microsoft Entra ID). It now covers Blob, Queue, Table and Files.',
+		spScKey: 'Signed with', spScScope: 'Scope', spScBest: 'Best for',
+		spT1Name: 'User delegation SAS',
+		spT1Sign: 'Microsoft Entra ID (user delegation key)',
+		spT1Scope: 'Blob \u00b7 Queue \u00b7 Table \u00b7 Files',
+		spT1Best: 'Most secure \u2014 Microsoft recommends this',
+		spT1Pol: 'Ad hoc only',
+		spT2Name: 'Service SAS',
+		spT2Sign: 'Account key (Shared Key)',
+		spT2Scope: 'One resource in ONE service',
+		spT2Best: 'Fine-grained, revocable access',
+		spT2Pol: 'Stored access policy',
+		spT3Name: 'Account SAS',
+		spT3Sign: 'Account key (Shared Key)',
+		spT3Scope: 'One or MORE services + service ops',
+		spT3Best: 'Broad, account-wide access',
+		spT3Pol: 'Ad hoc only',
+		spMxHeadSvc: 'Service', spMxHeadScope: 'A SAS scopes to\u2026', spMxHeadPol: 'Stored access policy',
+		spRowBlob: 'Blob', spRowBlobScope: 'account \u00b7 container \u00b7 blob \u00b7 directory', spRowBlobPol: '\u2713 on the container',
+		spRowFiles: 'Files', spRowFilesScope: 'share \u00b7 file \u00b7 directory', spRowFilesPol: '\u2713 on the share',
+		spRowQueue: 'Queue', spRowQueueScope: 'the queue &amp; its messages', spRowQueuePol: '\u2713 on the queue',
+		spRowTable: 'Table', spRowTableScope: 'table \u00b7 entity range (PK/RK)', spRowTablePol: '\u2713 on the table',
+		spNote: 'Stored access policies apply to a service SAS only (not user delegation or account SAS) \u2014 max 5 per resource. Revoke by deleting the policy, rotating the account key, or revoking the user delegation key.',
+		spFoot: 'Verified against Microsoft Learn \u2014 <a href="https://learn.microsoft.com/azure/storage/common/storage-sas-overview" target="_blank" rel="noopener">SAS overview</a> \u00b7 <a href="https://learn.microsoft.com/rest/api/storageservices/define-stored-access-policy" target="_blank" rel="noopener">stored access policy</a>.',
+		spStat1: 'Types', spStat1v: 'User delegation \u00b7 Service \u00b7 Account',
+		spStat2: 'Services', spStat2v: 'Blob \u00b7 Queue \u00b7 Table \u00b7 Files',
+		spStat3: 'Policy', spStat3v: 'Service SAS only \u00b7 max 5'
+	},
+
+	// ── Español (es) — teaching text; brand/code/product names stay English ──
+	es: {
+		pageTitle: 'Tokens SAS',
+		stageHeading: 'Tokens SAS y directiva de acceso almacenado',
+		stageInstructions: 'Explicación animada de las firmas de acceso compartido (SAS) y las directivas de acceso almacenado en Azure Storage. Usa los botones Siguiente/Anterior o las teclas de flecha para navegar. Pulsa R para reiniciar.',
+		scTitle: 'Atajos de teclado',
+		goTitle: 'Por dónde empezamos: los protagonistas',
+		goCaption: 'El problema a resolver',
+		goDesc: 'Tienes datos en una cuenta de almacenamiento y un usuario que necesita solo un contenedor o blob —por tiempo limitado—. ¿Cómo se lo concedes sin entregar tus claves? Construyamos la imagen.',
+		goCallout: 'Sigue las flechas: cada paso conecta la cuenta (izquierda) con el usuario (derecha).',
+		kyTitle: 'Todo lo firman las claves de la cuenta',
+		kyCaption: 'Dos claves, regenerables',
+		kyDesc: 'La cuenta de almacenamiento tiene dos claves. Lo desbloquean todo, para siempre —así que nunca las entregas—. En su lugar firman los tokens que crearás, y regenerar una es como revocas más tarde.',
+		kyCallout: 'Dos claves te permiten rotar una mientras la otra mantiene las apps en marcha.',
+		tkTitle: 'Genera un token SAS',
+		tkCaption: 'Una URL firmada y acotada',
+		tkDesc: 'En lugar de la clave, crea una firma de acceso compartido (SAS): un token firmado por la cuenta que apunta exactamente a un contenedor o blob. Es solo una URL que puedes repartir.',
+		tkCallout: 'El token apunta a un único recurso, no a toda la cuenta.',
+		inTitle: 'Qué permite el token',
+		inCaption: 'Permisos · tiempo · red',
+		inDesc: 'El token detalla exactamente qué se permite: qué permisos (lectura, escritura, listado…), la hora de inicio y de expiración, y qué direcciones IP y protocolo —HTTPS— pueden usarlo.',
+		inCallout: 'Cambia cualquiera de estos y la firma se rompe: el token no se puede manipular.',
+		acTitle: 'El usuario entra',
+		acCaption: 'Acceso, exactamente como se acotó',
+		acDesc: 'Entrega el token al usuario. Ahora puede llegar al contenedor o blob compartido —solo con los permisos que concediste y solo hasta que expire—. Tus claves nunca salieron de la cuenta.',
+		acCallout: 'Nunca se compartió ninguna clave de cuenta, y el acceso termina por sí solo.',
+		poTitle: 'Directiva de acceso almacenado: reglas en el contenedor',
+		poCaption: 'Gestiona muchos tokens de forma centralizada',
+		poDesc: '¿Necesitas muchos tokens con las mismas reglas? Pon los permisos y la expiración en una directiva de acceso almacenado en el contenedor. Los tokens referencian la directiva en vez de llevar sus propias reglas. (Solo a nivel de contenedor.)',
+		poCallout: 'Cambia la directiva una vez y cada token que la referencia se actualiza.',
+		rvTitle: 'Revocar el acceso',
+		rvCaption: 'Dos formas de retirarlo',
+		rvDesc: 'Una SAS funciona hasta que expira, salvo que la revoques. Regenera la clave de la cuenta para anular cada token ad-hoc firmado con ella. O, para tokens basados en directiva, solo elimina la directiva: sin rotar claves.',
+		rvCallout: 'Para esto existen las directivas de acceso almacenado: revocar sin romper todo lo demás.',
+		rcTitle: 'La imagen completa',
+		rcCaption: 'SAS, de principio a fin',
+		rcDesc: 'Cuenta → claves → un token firmado, acotado y con expiración —y el usuario llega solo a lo que permitiste—. Añade una directiva de acceso almacenado para control central, y sabe cómo revocar.',
+		rcCallout: 'Prefiere una SAS de delegación de usuario, sobre HTTPS, mínimo privilegio, expiración corta —con un plan de revocación—.',
+		spTitle: 'Tipos y alcance de SAS',
+		spCaption: 'La vista técnica',
+		spDesc: 'Tres tipos de SAS —y funcionan en los CUATRO servicios de almacenamiento, no solo en contenedores de blobs—. Esto es exactamente con qué se firma cada uno y hasta dónde llega.',
+		spCallout: 'Prefiere una SAS de delegación de usuario (firmada con Microsoft Entra ID). Ahora cubre Blob, Queue, Table y Files.'
+	},
+
+	// ── 日本語 (ja) — teaching text; brand/code/product names stay English ──
+	ja: {
+		pageTitle: 'SAS トークン',
+		stageHeading: 'SAS トークンと格納アクセスポリシー',
+		stageInstructions: 'Azure Storage における Shared Access Signature（SAS）と格納アクセスポリシーのアニメーション解説。次へ／前へボタンまたは矢印キーで移動します。R キーで最初からやり直します。',
+		scTitle: 'キーボードショートカット',
+		goTitle: '出発点：登場人物',
+		goCaption: '解くべき問題',
+		goDesc: 'ストレージアカウントにデータがあり、ある利用者がコンテナーまたは blob を一つだけ —しかも期間限定で— 必要としています。キーを渡さずにどう許可しますか？ 全体像を組み立てましょう。',
+		goCallout: '矢印をたどりましょう：各ステップがアカウント（左）と利用者（右）をつなぎます。',
+		kyTitle: 'すべてはアカウントキーで署名される',
+		kyCaption: '二つのキー、再生成可能',
+		kyDesc: 'ストレージアカウントには二つのキーがあります。すべてを永久に解錠するので、決して配りません。代わりに、作成するトークンに署名し、片方を再生成することが後の失効の方法になります。',
+		kyCallout: '二つのキーがあれば、一方をローテーションしつつ、もう一方でアプリを動かし続けられます。',
+		tkTitle: 'SAS トークンを生成する',
+		tkCaption: '署名された、範囲を絞った URL',
+		tkDesc: 'キーの代わりに、Shared Access Signature を作成します —アカウントが署名し、ちょうど一つのコンテナーまたは blob を対象とするトークンです。配布できるただの URL です。',
+		tkCallout: 'トークンは単一のリソースを指します —アカウント全体ではありません。',
+		inTitle: 'トークンが許可すること',
+		inCaption: 'アクセス許可 · 時間 · ネットワーク',
+		inDesc: 'トークンは許可される内容を正確に定めます：どのアクセス許可（読み取り、書き込み、一覧…）、開始と有効期限、そしてどの IP アドレスとプロトコル —HTTPS— が使えるか。',
+		inCallout: 'いずれかを変えると署名が壊れます —トークンは改ざんできません。',
+		acTitle: '利用者が入る',
+		acCaption: '範囲どおりのアクセス',
+		acDesc: 'トークンを利用者に渡します。これで共有されたコンテナーまたは blob に到達できます —あなたが与えた権限だけで、有効期限まで—。キーはアカウントから出ていません。',
+		acCallout: 'アカウントキーは一度も共有されず、アクセスはひとりでに終わります。',
+		poTitle: '格納アクセスポリシー — コンテナー上のルール',
+		poCaption: '多くのトークンを一元管理',
+		poDesc: '同じルールのトークンがたくさん必要ですか？ アクセス許可と有効期限をコンテナー上の格納アクセスポリシーに入れます。トークンは自分でルールを持つ代わりにポリシーを参照します。（コンテナーレベルのみ。）',
+		poCallout: 'ポリシーを一度変えれば、それを参照するすべてのトークンが更新されます。',
+		rvTitle: 'アクセスの失効',
+		rvCaption: '取り消す二つの方法',
+		rvDesc: 'SAS は失効させない限り有効期限まで機能します。アカウントキーを再生成すると、それで署名されたすべてのアドホックトークンが無効になります。あるいはポリシーベースのトークンなら、ポリシーを削除するだけ —キーのローテーションは不要です。',
+		rvCallout: 'これが格納アクセスポリシーの存在理由です：他のすべてを壊さずに失効させる。',
+		rcTitle: '全体像',
+		rcCaption: 'SAS、端から端まで',
+		rcDesc: 'アカウント → キー → 署名され、範囲を絞られ、期限のあるトークン —そして利用者は許可したものだけに到達します—。一元管理のために格納アクセスポリシーを加え、失効の方法を知っておきましょう。',
+		rcCallout: 'ユーザー委任 SAS を、HTTPS 経由で、最小権限、短い有効期限で優先しましょう —失効計画とともに。',
+		spTitle: 'SAS の種類と範囲',
+		spCaption: '技術的な視点',
+		spDesc: '三種類の SAS —しかも blob コンテナーだけでなく四つのストレージサービスすべてで機能します—。それぞれが何で署名され、どこまで届くかを正確に示します。',
+		spCallout: 'ユーザー委任 SAS（Microsoft Entra ID で署名）を優先しましょう。今では Blob、Queue、Table、Files をカバーします。'
+	},
+
+	// ── 한국어 (ko) — teaching text; brand/code/product names stay English ──
+	ko: {
+		pageTitle: 'SAS 토큰',
+		stageHeading: 'SAS 토큰과 저장된 액세스 정책',
+		stageInstructions: 'Azure Storage의 공유 액세스 서명(SAS)과 저장된 액세스 정책에 대한 애니메이션 설명. 다음/이전 버튼이나 화살표 키로 이동하세요. R 키로 다시 시작합니다.',
+		scTitle: '키보드 단축키',
+		goTitle: '출발점: 등장인물',
+		goCaption: '풀어야 할 문제',
+		goDesc: '스토리지 계정에 데이터가 있고, 어떤 사용자가 컨테이너나 blob 하나만 —그것도 제한된 시간 동안— 필요로 합니다. 키를 넘기지 않고 어떻게 허용할까요? 그림을 그려 봅시다.',
+		goCallout: '화살표를 따라가세요: 각 단계가 계정(왼쪽)과 사용자(오른쪽)를 연결합니다.',
+		kyTitle: '모든 것은 계정 키로 서명된다',
+		kyCaption: '두 개의 키, 재생성 가능',
+		kyDesc: '스토리지 계정에는 두 개의 키가 있습니다. 모든 것을 영원히 잠금 해제하므로 절대 넘기지 않습니다. 대신 당신이 만들 토큰에 서명하며, 하나를 재생성하는 것이 나중에 취소하는 방법입니다.',
+		kyCallout: '두 개의 키가 있으면 하나를 회전하는 동안 다른 하나로 앱을 계속 실행할 수 있습니다.',
+		tkTitle: 'SAS 토큰 생성',
+		tkCaption: '서명되고 범위가 지정된 URL',
+		tkDesc: '키 대신 공유 액세스 서명(SAS)을 만듭니다 —계정이 서명하고 정확히 컨테이너나 blob 하나를 대상으로 하는 토큰입니다. 그냥 나눠 줄 수 있는 URL입니다.',
+		tkCallout: '토큰은 단일 리소스를 가리킵니다 —계정 전체가 아닙니다.',
+		inTitle: '토큰이 허용하는 것',
+		inCaption: '권한 · 시간 · 네트워크',
+		inDesc: '토큰은 허용되는 것을 정확히 명시합니다: 어떤 권한(읽기, 쓰기, 목록…), 시작과 만료 시간, 그리고 어떤 IP 주소와 프로토콜 —HTTPS— 이 사용할 수 있는지.',
+		inCallout: '이 중 하나라도 바꾸면 서명이 깨집니다 —토큰은 변조할 수 없습니다.',
+		acTitle: '사용자가 들어온다',
+		acCaption: '범위 그대로의 액세스',
+		acDesc: '토큰을 사용자에게 건네세요. 이제 공유된 컨테이너나 blob에 접근할 수 있습니다 —당신이 부여한 권한만으로, 만료될 때까지만—. 키는 계정을 떠나지 않았습니다.',
+		acCallout: '계정 키는 한 번도 공유되지 않았고, 액세스는 저절로 끝납니다.',
+		poTitle: '저장된 액세스 정책 — 컨테이너의 규칙',
+		poCaption: '많은 토큰을 중앙에서 관리',
+		poDesc: '같은 규칙의 토큰이 많이 필요한가요? 권한과 만료를 컨테이너의 저장된 액세스 정책에 넣으세요. 토큰은 자체 규칙을 갖는 대신 정책을 참조합니다. (컨테이너 수준만.)',
+		poCallout: '정책을 한 번 바꾸면 그것을 참조하는 모든 토큰이 업데이트됩니다.',
+		rvTitle: '액세스 취소',
+		rvCaption: '되돌리는 두 가지 방법',
+		rvDesc: 'SAS는 취소하지 않는 한 만료될 때까지 작동합니다. 계정 키를 재생성하면 그것으로 서명된 모든 임시 토큰이 무효화됩니다. 또는 정책 기반 토큰이라면 정책만 삭제하면 됩니다 —키 회전이 필요 없습니다.',
+		rvCallout: '이것이 저장된 액세스 정책이 존재하는 이유입니다: 나머지 전부를 깨뜨리지 않고 취소하기.',
+		rcTitle: '전체 그림',
+		rcCaption: 'SAS, 처음부터 끝까지',
+		rcDesc: '계정 → 키 → 서명되고 범위가 지정되며 만료되는 토큰 —그리고 사용자는 당신이 허용한 것에만 도달합니다—. 중앙 제어를 위해 저장된 액세스 정책을 추가하고, 취소하는 방법을 알아 두세요.',
+		rcCallout: '사용자 위임 SAS를, HTTPS를 통해, 최소 권한, 짧은 만료로 선호하세요 —취소 계획과 함께.',
+		spTitle: 'SAS 유형과 범위',
+		spCaption: '기술적 관점',
+		spDesc: '세 가지 SAS 유형 —그리고 blob 컨테이너뿐 아니라 네 가지 스토리지 서비스 모두에서 작동합니다—. 각각 무엇으로 서명되고 어디까지 미치는지 정확히 보여줍니다.',
+		spCallout: '사용자 위임 SAS(Microsoft Entra ID로 서명)를 선호하세요. 이제 Blob, Queue, Table, Files를 포함합니다.'
+	},
+
+	// ── Português (pt) — teaching text; brand/code/product names stay English ──
+	pt: {
+		pageTitle: 'Tokens SAS',
+		stageHeading: 'Tokens SAS e política de acesso armazenado',
+		stageInstructions: 'Explicação animada das assinaturas de acesso compartilhado (SAS) e das políticas de acesso armazenado no Azure Storage. Use os botões Próximo/Anterior ou as setas do teclado para navegar. Pressione R para reiniciar.',
+		scTitle: 'Atalhos de teclado',
+		goTitle: 'Por onde começamos: os personagens',
+		goCaption: 'O problema a resolver',
+		goDesc: 'Você tem dados em uma conta de armazenamento e um usuário que precisa de apenas um contêiner ou blob —por tempo limitado—. Como conceder isso sem entregar suas chaves? Vamos montar o quadro.',
+		goCallout: 'Siga as setas: cada passo conecta a conta (à esquerda) ao usuário (à direita).',
+		kyTitle: 'Tudo é assinado pelas chaves da conta',
+		kyCaption: 'Duas chaves, regeneráveis',
+		kyDesc: 'A conta de armazenamento tem duas chaves. Elas desbloqueiam tudo, para sempre —por isso você nunca as entrega—. Em vez disso, elas assinam os tokens que você criará, e regenerar uma é como você revoga depois.',
+		kyCallout: 'Duas chaves permitem girar uma enquanto a outra mantém os apps funcionando.',
+		tkTitle: 'Gere um token SAS',
+		tkCaption: 'Uma URL assinada e delimitada',
+		tkDesc: 'Em vez da chave, crie uma assinatura de acesso compartilhado (SAS): um token assinado pela conta que aponta exatamente para um contêiner ou blob. É só uma URL que você pode distribuir.',
+		tkCallout: 'O token aponta para um único recurso, não para a conta inteira.',
+		inTitle: 'O que o token permite',
+		inCaption: 'Permissões · tempo · rede',
+		inDesc: 'O token detalha exatamente o que é permitido: quais permissões (leitura, escrita, listagem…), a hora de início e de expiração, e quais endereços IP e protocolo —HTTPS— podem usá-lo.',
+		inCallout: 'Mude qualquer um deles e a assinatura quebra —o token não pode ser adulterado.',
+		acTitle: 'O usuário entra',
+		acCaption: 'Acesso, exatamente como delimitado',
+		acDesc: 'Entregue o token ao usuário. Ele agora pode alcançar o contêiner ou blob compartilhado —apenas com os direitos que você concedeu e só até expirar—. Suas chaves nunca saíram da conta.',
+		acCallout: 'Nenhuma chave de conta foi compartilhada, e o acesso termina sozinho.',
+		poTitle: 'Política de acesso armazenado — regras no contêiner',
+		poCaption: 'Gerencie muitos tokens de forma central',
+		poDesc: 'Precisa de muitos tokens com as mesmas regras? Coloque as permissões e a expiração em uma política de acesso armazenado no contêiner. Os tokens referenciam a política em vez de carregar suas próprias regras. (Apenas no nível de contêiner.)',
+		poCallout: 'Mude a política uma vez e cada token que a referencia é atualizado.',
+		rvTitle: 'Revogar o acesso',
+		rvCaption: 'Duas formas de recuperá-lo',
+		rvDesc: 'Uma SAS funciona até expirar —a menos que você a revogue—. Regenere a chave da conta para anular cada token ad-hoc assinado com ela. Ou, para tokens baseados em política, apenas exclua a política —sem rotação de chave.',
+		rvCallout: 'É para isso que existem as políticas de acesso armazenado: revogar sem quebrar todo o resto.',
+		rcTitle: 'O quadro completo',
+		rcCaption: 'SAS, de ponta a ponta',
+		rcDesc: 'Conta → chaves → um token assinado, delimitado e com expiração —e o usuário alcança apenas o que você permitiu—. Adicione uma política de acesso armazenado para controle central e saiba como revogar.',
+		rcCallout: 'Prefira uma SAS de delegação de usuário, sobre HTTPS, privilégio mínimo, expiração curta —com um plano de revogação—.',
+		spTitle: 'Tipos e escopo de SAS',
+		spCaption: 'A visão técnica',
+		spDesc: 'Três tipos de SAS —e eles funcionam em TODOS os quatro serviços de armazenamento, não apenas em contêineres de blob—. Aqui está exatamente com o que cada um é assinado e até onde alcança.',
+		spCallout: 'Prefira uma SAS de delegação de usuário (assinada com Microsoft Entra ID). Agora ela cobre Blob, Queue, Table e Files.'
+	}
+};
+function t(key) { return (I18N[currentLang] && I18N[currentLang][key]) || I18N.en[key] || key; }
+
+function setLanguage(lang) {
+	currentLang = lang;
+	document.documentElement.lang = lang;
+	document.getElementById('page-title').textContent = '\uD83D\uDD11 ' + t('pageTitle');
+	document.getElementById('prev-btn').title = t('prev');
+	document.getElementById('next-btn').title = t('next');
+	document.getElementById('replay-btn').title = t('replay');
+	document.getElementById('reset-btn').title = t('restart');
+	document.getElementById('speed-down').title = t('slower');
+	document.getElementById('speed-up').title = t('faster');
+	document.getElementById('outline-title').textContent = t('stepDetails');
+	document.querySelector('.skip-link').textContent = t('skipToMain');
+	document.getElementById('stage-heading').textContent = t('stageHeading');
+	document.getElementById('stage-instructions').textContent = t('stageInstructions');
+	syncCalloutBtn(); syncOutlineBtn();
+	if (typeof syncAudioBtn === 'function') syncAudioBtn();
+	if (typeof syncCcBtn === 'function') syncCcBtn();
+	if (typeof buildShortcuts === 'function') buildShortcuts();
+	document.querySelectorAll('.aw-drag-reset').forEach(b=>{ b.title=t('resetPos'); b.setAttribute('aria-label', t('resetPos')); });
+	try { localStorage.setItem('aw-sa-lang', lang); } catch(_){}
+	if (current >= 0) renderStep(current);
+}
+
+// ── STEPS (journey order — every step assembles the same relationship map) ──
+const STEPS = [
+	{ id:'goal',   short:'Start',  level:1, titleKey:'goTitle', captionKey:'goCaption', descKey:'goDesc', calloutKey:'goCallout',
+		stats:[['goStat1','goStat1v'],['goStat2','goStat2v'],['goStat3','goStat3v']] },
+	{ id:'keys',   short:'Keys',   level:2, titleKey:'kyTitle', captionKey:'kyCaption', descKey:'kyDesc', calloutKey:'kyCallout',
+		stats:[['kyStat1','kyStat1v'],['kyStat2','kyStat2v'],['kyStat3','kyStat3v']] },
+	{ id:'token',  short:'Token',  level:3, titleKey:'tkTitle', captionKey:'tkCaption', descKey:'tkDesc', calloutKey:'tkCallout',
+		stats:[['tkStat1','tkStat1v'],['tkStat2','tkStat2v'],['tkStat3','tkStat3v']] },
+	{ id:'inside', short:'Rules',  level:4, titleKey:'inTitle', captionKey:'inCaption', descKey:'inDesc', calloutKey:'inCallout',
+		stats:[['inStat1','inStat1v'],['inStat2','inStat2v'],['inStat3','inStat3v']] },
+	{ id:'access', short:'Access', level:5, titleKey:'acTitle', captionKey:'acCaption', descKey:'acDesc', calloutKey:'acCallout',
+		stats:[['acStat1','acStat1v'],['acStat2','acStat2v'],['acStat3','acStat3v']] },
+	{ id:'policy', short:'Policy', level:6, titleKey:'poTitle', captionKey:'poCaption', descKey:'poDesc', calloutKey:'poCallout',
+		stats:[['poStat1','poStat1v'],['poStat2','poStat2v'],['poStat3','poStat3v']] },
+	{ id:'recap',  short:'Recap',  level:7, titleKey:'rcTitle', captionKey:'rcCaption', descKey:'rcDesc', calloutKey:'rcCallout',
+		stats:[['rcStat1','rcStat1v'],['rcStat2','rcStat2v'],['rcStat3','rcStat3v']] },
+	{ id:'spec',   short:'Spec',   level:8, titleKey:'spTitle', captionKey:'spCaption', descKey:'spDesc', calloutKey:'spCallout',
+		stats:[['spStat1','spStat1v'],['spStat2','spStat2v'],['spStat3','spStat3v']] }
+];
+
+// ── DOM REFS ──────────────────────────────
+const stage=document.getElementById('stage-frame'), svg=document.getElementById('fx-svg'),
+	counter=document.getElementById('step-counter'), breadcrumb=document.getElementById('breadcrumb'),
+	progress=document.getElementById('progress-fill'), announcer=document.getElementById('step-announcer'),
+	outlineBody=document.getElementById('outline-body'), outlinePanel=document.getElementById('step-outline'),
+	outlineBtn=document.getElementById('outline-toggle'), calloutBtn=document.getElementById('callout-toggle'),
+	langSelect=document.getElementById('lang-select');
+
+langSelect.addEventListener('change', e => setLanguage(e.target.value));
+const urlLang = new URLSearchParams(location.search).get('lang');
+let savedLang=null; try{ savedLang=localStorage.getItem('aw-sa-lang'); }catch(_){}
+if (urlLang && I18N[urlLang]) { currentLang = urlLang; langSelect.value = urlLang; }
+else if (savedLang && I18N[savedLang]) { currentLang = savedLang; langSelect.value = savedLang; }
+
+// ── Font size ─────────────────────────────
+const fontScales=[0.8,0.9,1,1.1,1.2,1.35]; let fontScaleIdx=2;
+const baseFontSize=parseFloat(getComputedStyle(document.documentElement).fontSize);
+function applyFontScale(){ document.documentElement.style.fontSize=(baseFontSize*fontScales[fontScaleIdx])+'px'; const c=document.getElementById('controls'); if(c) c.style.fontSize=baseFontSize+'px'; if(typeof current!=='undefined'&&current>=0){ const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s); } }
+function saveFont(){ try{ localStorage.setItem('aw-sa-font', String(fontScaleIdx)); }catch(_){} }
+try{ const f=parseInt(localStorage.getItem('aw-sa-font'),10); if(!isNaN(f)&&f>=0&&f<fontScales.length){ fontScaleIdx=f; applyFontScale(); } }catch(_){}
+document.getElementById('font-decrease').addEventListener('click',()=>{ if(fontScaleIdx>0){fontScaleIdx--;applyFontScale();saveFont();} });
+document.getElementById('font-increase').addEventListener('click',()=>{ if(fontScaleIdx<fontScales.length-1){fontScaleIdx++;applyFontScale();saveFont();} });
+
+let current=-1, animating=false, liveEls=[], liveTimelines=[], calloutEnabled=false;
+
+function syncCalloutBtn(){ calloutBtn.classList.toggle('toggle-active',calloutEnabled); calloutBtn.setAttribute('aria-pressed',calloutEnabled?'true':'false'); calloutBtn.setAttribute('data-tip', calloutEnabled?'Callouts: On':'Callouts: Off'); }
+calloutBtn.addEventListener('click',()=>{ calloutEnabled=!calloutEnabled; syncCalloutBtn(); if(current>=0) rerenderInstant(); }); syncCalloutBtn();
+function syncOutlineBtn(){ const on=!outlinePanel.hasAttribute('hidden'); outlineBtn.classList.toggle('toggle-active',on); outlineBtn.setAttribute('aria-expanded',on?'true':'false'); outlineBtn.setAttribute('data-tip', on?'Outline: On':'Outline: Off'); }
+outlineBtn.addEventListener('click',()=>{ const showing=!outlinePanel.hasAttribute('hidden'); if(showing){outlinePanel.setAttribute('hidden','');outlineBtn.setAttribute('aria-expanded','false');} else {outlinePanel.removeAttribute('hidden');outlineBtn.setAttribute('aria-expanded','true');} syncOutlineBtn(); }); syncOutlineBtn();
+
+// ── Audio narration ──────────────────
+const AUDIO_BASE = 'audio/SasTokens/';
+const AUDIO_FILES = ['step-01.mp3','step-02.mp3','step-03.mp3','step-04.mp3','step-05.mp3','step-06.mp3','step-07.mp3','step-08.mp3'];
+let audioEnabled=false, currentAudio=null, audioTimeout=null, ccPref=false;
+const audioBtn=document.getElementById('audio-toggle');
+if(audioBtn){ audioBtn.innerHTML='<span class="aw-audio-ico" aria-hidden="true">\uD83D\uDD07</span><span class="aw-audio-time" aria-hidden="true">--:--</span>'; }
+const audioIco=audioBtn&&audioBtn.querySelector('.aw-audio-ico'), audioTimeEl=audioBtn&&audioBtn.querySelector('.aw-audio-time');
+// Captions can play WITHOUT sound: CC on + audio off plays the clip at volume 0 so captions still reveal in time.
+function playbackOn(){ return audioEnabled || ccPref; }
+function audioDir(){ return (currentLang && currentLang!=='en') ? currentLang+'/' : ''; }
+function fmtDur(s){ s=Math.max(0,Math.ceil(s)); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
+function updateAudioTime(){ if(audioTimeEl && currentAudio && isFinite(currentAudio.duration) && currentAudio.duration>0) audioTimeEl.textContent=fmtDur(currentAudio.duration-currentAudio.currentTime); }
+function syncAudioBtn(){ if(!audioBtn) return; if(audioIco) audioIco.textContent=audioEnabled?'\uD83D\uDD0A':'\uD83D\uDD07'; if(audioTimeEl && !playbackOn()) audioTimeEl.textContent='--:--'; audioBtn.classList.toggle('toggle-active',audioEnabled); audioBtn.setAttribute('aria-pressed',audioEnabled?'true':'false'); }
+function speakFallback(i){ if(!window.speechSynthesis) return; const step=STEPS[i]; const u=new SpeechSynthesisUtterance(`${t(step.titleKey)}. ${t(step.descKey)}`); u.lang=currentLang||'en'; try{ speechSynthesis.cancel(); speechSynthesis.speak(u); }catch(_){} }
+function stopAudio(){
+	if(currentAudio){ currentAudio.pause(); currentAudio.currentTime=0; currentAudio=null; }
+	if(audioTimeout){ clearTimeout(audioTimeout); audioTimeout=null; }
+	if(audioTimeEl) audioTimeEl.textContent='--:--';
+	try{ if(window.speechSynthesis) speechSynthesis.cancel(); }catch(_){}
+	if(window.AWCaptions) AWCaptions.clear();
+}
+function playStepAudio(i){
+	if(window.__awSkipAudioOnce) return;
+	stopAudio();
+	if(document.body.classList.contains('aw-prestart')) return;
+	if(!playbackOn() || i<0 || i>=STEPS.length) return;
+	audioTimeout=setTimeout(()=>{
+		audioTimeout=null;
+		const file=AUDIO_FILES[i];
+		if(!file){ if(audioEnabled) speakFallback(i); return; }   // no clip = no timing source for caption-only
+		currentAudio=new Audio(AUDIO_BASE+audioDir()+file);
+		currentAudio.volume = audioEnabled ? 1 : 0;              // caption-only = silent (volume 0) timing source
+		if(window.AWCaptions) AWCaptions.bind(currentAudio,i);
+		currentAudio.addEventListener('loadedmetadata',updateAudioTime);
+		currentAudio.addEventListener('timeupdate',updateAudioTime);
+		currentAudio.addEventListener('ended',()=>{ if(audioTimeEl) audioTimeEl.textContent='0:00'; });
+		currentAudio.addEventListener('error',()=>{ if(audioEnabled) speakFallback(i); });
+		currentAudio.play().catch(()=>{});
+	}, 400);
+}
+if(audioBtn){ audioBtn.addEventListener('click',()=>{
+	audioEnabled=!audioEnabled; try{localStorage.setItem('aw-sa-audio',audioEnabled?'1':'0');}catch(_){} syncAudioBtn();
+	if(current>=0){
+		if(!playbackOn()) stopAudio();
+		else if(currentAudio) currentAudio.volume = audioEnabled ? 1 : 0;   // flip sound without restarting the clip
+		else playStepAudio(current);
+	}
+	applyCc();
+}); }
+// Initial audio + CC from the ?audio parameter:
+//   on -> audio ON + captions ON  ·  off -> both OFF  ·  (absent) -> audio ON, captions OFF (a prior stored choice still wins).
+(function(){
+	var p=null; try{ p=new URLSearchParams(location.search).get('audio'); }catch(_){}
+	if(p==='on'){ audioEnabled=true; ccPref=true; }
+	else if(p==='off'){ audioEnabled=false; ccPref=false; }
+	else {
+		audioEnabled=true; ccPref=false;
+		try{ var a=localStorage.getItem('aw-sa-audio'); if(a==='1') audioEnabled=true; else if(a==='0') audioEnabled=false; }catch(_){}
+		try{ var c=localStorage.getItem('aw-sa-cc'); if(c==='1') ccPref=true; else if(c==='0') ccPref=false; }catch(_){}
+	}
+	try{ localStorage.setItem('aw-sa-audio',audioEnabled?'1':'0'); localStorage.setItem('aw-sa-cc',ccPref?'1':'0'); }catch(_){}
+})();
+syncAudioBtn();
+
+// ── Captions (CC) — overlaid in the frame; play WITH or WITHOUT audio ──
+const ccBtn=document.getElementById('cc-toggle');
+function ccEffective(){ return ccPref; }
+function syncCcBtn(){ if(!ccBtn) return; ccBtn.classList.toggle('toggle-active',ccPref); ccBtn.setAttribute('aria-pressed',ccPref?'true':'false'); }
+function applyCc(){ if(window.AWCaptions) AWCaptions.setEnabled(ccEffective()); if(ccEffective()&&currentAudio&&window.AWCaptions) AWCaptions.bind(currentAudio,current); syncCcBtn(); }
+if(window.AWCaptions){ AWCaptions.configure({ page:'SasTokens', base:'../../narration/v2/Storage/', lang:()=>currentLang, fallback:(i)=>(STEPS[i]?t(STEPS[i].descKey):''), reserve:false }); }
+if(ccBtn){ ccBtn.addEventListener('click',()=>{
+	ccPref=!ccPref; try{localStorage.setItem('aw-sa-cc',ccPref?'1':'0');}catch(_){} applyCc();
+	if(current>=0){
+		if(playbackOn() && !currentAudio) playStepAudio(current);   // caption-only: start the muted timing clip
+		else if(!playbackOn() && currentAudio) stopAudio();          // CC off + audio off: nothing left to play
+	}
+}); }
+applyCc();
+
+// ── Full screen ──
+(function(){
+	const fsBtn=document.getElementById('fs-toggle'); if(!fsBtn) return;
+	function inFs(){ return !!(document.fullscreenElement||document.webkitFullscreenElement); }
+	function syncFs(){ document.body.classList.toggle('is-fs',inFs()); fsBtn.setAttribute('aria-pressed',inFs()?'true':'false'); fsBtn.title=inFs()?'Exit full screen (F)':'Full screen (F)'; }
+	function toggle(){ try{ if(inFs()){ (document.exitFullscreen||document.webkitExitFullscreen).call(document); } else { const el=document.documentElement; (el.requestFullscreen||el.webkitRequestFullscreen).call(el); } }catch(_){} }
+	fsBtn.addEventListener('click',e=>{ e.stopPropagation(); toggle(); });
+	document.addEventListener('fullscreenchange',syncFs); document.addEventListener('webkitfullscreenchange',syncFs);
+	document.addEventListener('keydown',e=>{ if(e.code==='KeyF'&&!e.metaKey&&!e.ctrlKey&&!e.altKey){ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return; e.preventDefault(); toggle(); } });
+	syncFs();
+})();
+
+// ── Make callout / outline / caption draggable + the caption resizable, with a reset pin ──
+function dragify(el, key){
+	if(!el || el.__awDrag) return; el.__awDrag=true;
+	let dragging=false, sx=0, sy=0, bl=0, bt=0, moved=false;
+	const resizable = getComputedStyle(el).resize !== 'none';
+	const sizeKey = key ? key + '-size' : null;
+	const home={ position:el.style.position, left:el.style.left, top:el.style.top,
+		right:el.style.right, bottom:el.style.bottom, margin:el.style.margin, transform:el.style.transform,
+		width:el.style.width, height:el.style.height };
+	const pin=document.createElement('button');
+	pin.type='button'; pin.className='aw-drag-reset';
+	pin.title=t('resetPos'); pin.setAttribute('aria-label', t('resetPos'));
+	pin.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>';
+	const oy=getComputedStyle(el).overflowY; const clips=(oy==='auto'||oy==='scroll'||oy==='hidden');
+	pin.style.top=clips?'8px':'-10px'; pin.style.right=clips?'8px':'-10px';
+	el.appendChild(pin);
+	function showPin(on){ pin.style.display=on?'flex':'none'; }
+	pin.addEventListener('pointerdown', e=>{ e.stopPropagation(); });
+	pin.addEventListener('click', e=>{
+		e.preventDefault(); e.stopPropagation();
+		el.style.position=home.position; el.style.left=home.left; el.style.top=home.top;
+		el.style.right=home.right; el.style.bottom=home.bottom; el.style.margin=home.margin; el.style.transform=home.transform;
+		el.style.width=home.width; el.style.height=home.height;
+		if(key){ try{ localStorage.removeItem(key); }catch(_){} }
+		if(sizeKey){ try{ localStorage.removeItem(sizeKey); }catch(_){} }
+		showPin(false);
+	});
+	function fix(left,top){
+		const w=el.offsetWidth, h=el.offsetHeight;
+		left=Math.max(6, Math.min(left, window.innerWidth  - w - 6));
+		top =Math.max(6, Math.min(top,  window.innerHeight - h - 6));
+		el.style.position='fixed'; el.style.left=left+'px'; el.style.top=top+'px';
+		el.style.right='auto'; el.style.bottom='auto'; el.style.margin='0'; el.style.transform='none';
+	}
+	if(resizable && typeof ResizeObserver!=='undefined'){
+		let rt;
+		new ResizeObserver(()=>{
+			if(el.style.width || el.style.height){
+				showPin(true);
+				if(sizeKey){ clearTimeout(rt); rt=setTimeout(()=>{ try{ localStorage.setItem(sizeKey, JSON.stringify({w:el.style.width, h:el.style.height})); }catch(_){} }, 150); }
+			}
+		}).observe(el);
+	}
+	el.addEventListener('pointerdown', e=>{
+		if(e.button!==0 || (e.target.closest && e.target.closest('a,button,select,input,textarea'))) return;
+		if(resizable){ const r=el.getBoundingClientRect(); if(e.clientX>r.right-18 && e.clientY>r.bottom-18) return; }
+		dragging=true; moved=false;
+		const r=el.getBoundingClientRect(); bl=r.left; bt=r.top; sx=e.clientX; sy=e.clientY;
+		fix(bl, bt);
+		try{ el.setPointerCapture(e.pointerId); }catch(_){}
+		e.preventDefault();
+	});
+	el.addEventListener('pointermove', e=>{
+		if(!dragging) return;
+		const dx=e.clientX-sx, dy=e.clientY-sy;
+		if(Math.abs(dx)>2||Math.abs(dy)>2) moved=true;
+		fix(bl+dx, bt+dy);
+	});
+	function end(e){
+		if(!dragging) return; dragging=false;
+		try{ el.releasePointerCapture(e.pointerId); }catch(_){}
+		if(moved){ showPin(true); if(key){ try{ const r=el.getBoundingClientRect(); localStorage.setItem(key, JSON.stringify({left:r.left, top:r.top})); }catch(_){} } }
+	}
+	el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+	if(sizeKey){ try{ const z=JSON.parse(localStorage.getItem(sizeKey)||'null'); if(z && (z.w||z.h)){ if(z.w) el.style.width=z.w; if(z.h) el.style.height=z.h; showPin(true); } }catch(_){} }
+	if(key){ try{ const s=JSON.parse(localStorage.getItem(key)||'null'); if(s && isFinite(s.left) && isFinite(s.top)){ fix(s.left, s.top); showPin(true); } }catch(_){} }
+}
+dragify(document.getElementById('step-outline'), 'aw-sa-outline-pos');
+dragify(document.getElementById('aw-caption'), 'aw-sa-caption-pos');
+
+// ── Reduced motion ────────────────────────
+const motionMQ=window.matchMedia('(prefers-reduced-motion: reduce)'); let motionPaused=motionMQ.matches;
+motionMQ.addEventListener('change',e=>{ motionPaused=e.matches; renderStep(current); });
+
+// ── Helpers ───────────────────────────────
+function clearStage(){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; liveEls.forEach(el=>el.remove()); liveEls=[]; Array.from(svg.children).forEach(c=>{ if(c.tagName.toLowerCase()!=='defs') c.remove(); }); }
+function el(cls,html){ const d=document.createElement('div'); if(cls) d.className=cls; if(html!=null) d.innerHTML=html; return d; }
+const ICONS = {
+	inbox:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 3h2v5h3l-4 4-4-4h3zM5 14h14v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1z"/></svg>',
+	box:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 3 7v10l9 5 9-5V7zm0 2.3L17.7 7 12 10.2 6.3 7zM5 9.1l6 3.4v6.8l-6-3.3zm14 0v6.9l-6 3.3v-6.8z"/></svg>',
+	layers:'<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3 3 8l9 5 9-5z"/><path d="M3 12l9 5 9-5"/><path d="M3 16l9 5 9-5"/></g></svg>',
+	file:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h8l4 4v16H6z"/><path fill="var(--theme-card-background,#fff)" d="M13 3v4h4"/></svg>',
+	chat:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-4 4v-4H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/></svg>',
+	table:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M3 4h18v16H3V4zm2 2v3h6V6H5zm8 0v3h6V6h-6zM5 11v3h6v-3H5zm8 0v3h6v-3h-6zM5 16v2h6v-2H5zm8 0v2h6v-2h-6z"/></svg>',
+	disk:'<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor"/></g></svg>',
+	bolt:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>',
+	append:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v2H4zm0 4h16v2H4zm0 4h10v2H4zm13 0h2v3h3v2h-3v3h-2v-3h-3v-2h3z"/></svg>',
+	fire:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c1 3-1 4-1 6a2.5 2.5 0 0 0 5 0c0-1-.2-1.8-.6-2.6C17.6 7 19 9.7 19 13a7 7 0 1 1-14 0c0-3.6 2.6-6.4 4-8.6.6 1 1.3 1.7 2.4 2.3.5-1.4.3-3-.4-4.7z"/></svg>',
+	snow:'<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 2v20M4 6l16 12M20 6L4 18"/><path d="M12 6l-2.5-2M12 6l2.5-2M12 18l-2.5 2M12 18l2.5 2"/></g></svg>',
+	ice:'<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 2 4 6.5v9L12 20l8-4.5v-9z"/><path d="M4 6.5 12 11l8-4.5M12 11v9"/></g></svg>',
+	archive:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18v4H3zM4.5 9h15l-.9 10.1a1 1 0 0 1-1 .9H6.4a1 1 0 0 1-1-.9zM9 12v2h6v-2z"/></svg>',
+	clock:'<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2" stroke-linecap="round"/></g></svg>',
+	bulb:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-4 12.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26A7 7 0 0 0 12 2zM9 20h6v1a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1z"/></svg>',
+	party:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5zm6 11l.9 2.6L21.5 16.5l-2.6.9L18 20l-.9-2.6L14.5 16.5l2.6-.9zM6 14l.7 2 2 .7-2 .7L6 19.4l-.7-2-2-.7 2-.7z"/></svg>',
+	globe:'<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></g></svg>'
+};
+function icon(name){ return `<span class="ic">${ICONS[name]||''}</span>`; }
+// ICON POLICY (in priority order):
+//  1) Official Microsoft Azure service icons — local set, colored badges via <img>.  az('<category>/<file>.svg')
+//  2) Fluent icons — animated first, static fallback (wired via data-fallback in renderStep).  fluent('<Folder>','<file>')
+//  3) OS / GitHub icons approved by Microsoft/GitHub.   4) Open-source icons.   (inline ICONS map = small UI glyphs only)
+const AZ_BASE='../lib/icons/Azure_Public_Service_Icons/';
+function az(rel, alt){ return `<img class="az-ic" src="${AZ_BASE}${rel}" alt="${alt||''}" decoding="async">`; }
+// Microsoft Fluent Emoji (official) ships static Color/Flat/3D — there is no official animated Fluent CDN —
+// so we use the static color SVG. If an approved animated source is added later, point src at it and keep
+// this static URL as data-fallback (renderStep already wires img[data-fallback] onerror → fallback).
+const FLUENT_STAT='https://cdn.jsdelivr.net/gh/microsoft/fluentui-emoji@main/assets/';
+function fluent(folder, file, alt){
+	return `<img class="az-ic fluent-ic" src="${FLUENT_STAT}${encodeURI(folder)}/Color/${file}_color.svg" alt="${alt||''}" decoding="async">`;
+}
+function stepById(id){ return STEPS.find(s=>s.id===id); }
+function fitScene(scene){
+	if(!scene) return;
+	scene.style.transform='translate(-50%,-50%) scale(1)';
+	const box=stage.getBoundingClientRect();
+	const availW=box.width-32, availH=box.height-28;
+	const sw=scene.offsetWidth, sh=scene.offsetHeight;
+	if(!sw||!sh) return;
+	const k=Math.min(1, availW/sw, availH/sh);
+	scene.style.transform='translate(-50%,-50%) scale('+k+')';
+}
+function headerEls(scene){ return [scene.querySelector('.scene-title'), scene.querySelector('.scene-lead')]; }
+function buildScene(step){ const s=el('scene'); s.appendChild(el('scene-title', t(step.titleKey))); s.appendChild(el('scene-lead', t(step.descKey))); return s; }
+function maybeCallout(step){ if(!calloutEnabled) return null; const c=el('callout', t(step.calloutKey)); c.style.left='1.5rem'; c.style.top='1.5rem'; stage.appendChild(c); liveEls.push(c); dragify(c, 'aw-sa-callout-pos'); return c; }
+function renderOutline(step,idx){
+	const rows=(step.stats||[]).map(([k,v])=>`<div class="stat-row"><span>${t(k)}</span><span>${t(v)}</span></div>`).join('');
+	outlineBody.innerHTML=`<div class="outline-section"><strong>${t('stepOf')} ${idx+1} / ${STEPS.length}: ${t(step.titleKey)}</strong><p style="margin-top:0.4rem;">${t(step.descKey)}</p></div>${rows?`<div class="outline-section">${rows}</div>`:''}`;
+}
+function announceStep(step,idx){ announcer.textContent=`${t('stepOf')} ${idx+1} / ${STEPS.length}: ${t(step.titleKey)}. ${t(step.descKey)}`; }
+
+// ── RENDER DISPATCH ───────────────────────
+function renderStep(i){
+	if(i<0||i>=STEPS.length) return;
+	if(animating){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; animating=false; }
+	animating=true;
+	const step=STEPS[i];
+	const outgoing=stage.querySelector('.scene:not(.scene-out)');
+	if(outgoing) liveEls=liveEls.filter(x=>x!==outgoing);
+	clearStage();
+	if(outgoing){ outgoing.style.zIndex='5';
+		if(motionPaused){ outgoing.remove(); }
+		else { outgoing.classList.remove('scene-in'); outgoing.classList.add('scene-out'); setTimeout(()=>outgoing.remove(), 240); } }
+	if(step.id==='spec') renderSpecStep(); else renderMapStep(step.level);
+	const incoming=stage.querySelector('.scene:not(.scene-out)');
+	// Fluent icons load an animated APNG first; if it 404s, fall back to the static color SVG.
+	if(incoming){ incoming.querySelectorAll('img[data-fallback]').forEach(im=>{ im.addEventListener('error', function h(){ im.removeEventListener('error',h); const fb=im.getAttribute('data-fallback'); if(fb) im.src=fb; }); }); }
+	if(incoming && !motionPaused) incoming.classList.add('scene-in');
+	fitScene(incoming);
+	current=i;
+	try{ const u=new URL(location.href); u.searchParams.set('step', String(i+1)); history.replaceState(null,'',u); }catch(_){}
+	counter.textContent=`${t('stepOf')} ${current+1} / ${STEPS.length}`;
+	breadcrumb.textContent=t(step.captionKey);
+	progress.style.width=((current+1)/STEPS.length*100)+'%';
+	renderOutline(step,i); announceStep(step,i);
+	if(typeof playStepAudio==='function') playStepAudio(i);
+}
+
+// ── PERSISTENT RELATIONSHIP MAP (assembles across every step) ──
+function buildSasMap(){
+	const map=el('sas-map');
+	map.innerHTML =
+		`<svg class="map-svg" viewBox="0 0 1080 540" preserveAspectRatio="xMidYMid meet" aria-hidden="true">`+
+			`<defs><marker id="sasArrow" markerUnits="userSpaceOnUse" markerWidth="18" markerHeight="18" refX="14" refY="9" orient="auto"><path d="M2,2 L16,9 L2,16 Z"></path></marker></defs>`+
+			`<path data-rev="3" data-flow="1" d="M304,152 L428,252" marker-end="url(#sasArrow)"></path>`+
+			`<path data-rev="3" data-flow="1" d="M593,226 L593,170" marker-end="url(#sasArrow)"></path>`+
+			`<path data-rev="5" data-flow="1" d="M754,314 L860,306" marker-end="url(#sasArrow)"></path>`+
+			`<path data-rev="6" data-flow="1" d="M180,214 L204,258" marker-end="url(#sasArrow)"></path>`+
+			`<path data-rev="6" data-flow="1" d="M358,338 L428,354" marker-end="url(#sasArrow)"></path>`+
+		`</svg>`+
+		`<div class="sa-boundary" data-rev="1"><div class="sa-boundary-label">${az('storage/10086-icon-service-Storage-Accounts.svg', t('nAcct'))}<span>${t('nAcct')}</span></div></div>`+
+		`<div class="map-node n-keys" data-rev="2"><div class="mn-head"><span class="mn-emoji">${az('menu/00787-icon-service-Keys.svg', t('nKeys'))}</span><span class="mn-title">${t('nKeys')}</span></div><div class="mn-keyrow"><span class="mn-key">\uD83D\uDD11 ${t('nKey1')}</span><span class="mn-key">\uD83D\uDD11 ${t('nKey2')}</span></div><div class="mn-note">\u21BB ${t('nKeysNote')}</div></div>`+
+		`<div class="map-node n-cont" data-rev="1"><div class="mn-head"><span class="mn-emoji">${az('general/10839-icon-service-Storage-Container.svg', t('nCont'))}</span><span class="mn-title">${t('nCont')}</span></div><div class="mn-sub">${t('nContSub')}</div></div>`+
+		`<div class="map-node n-token" data-rev="3"><div class="mn-head"><span class="mn-emoji">${az('blockchain/10367-icon-service-Azure-Token-Service.svg', t('nToken'))}</span><span class="mn-title">${t('nToken')}</span></div>`+
+			`<div class="tok-rows">`+
+				`<div class="tok-row" data-rev="4"><span class="tr-em">\uD83D\uDD11</span><span class="tr-k">${t('rowPerm')}</span><span class="tr-v">${t('rowPermV')}</span></div>`+
+				`<div class="tok-row" data-rev="4"><span class="tr-em">\u23F1\uFE0F</span><span class="tr-k">${t('rowTime')}</span><span class="tr-v">${t('rowTimeV')}</span></div>`+
+				`<div class="tok-row" data-rev="4"><span class="tr-em">\uD83C\uDF10</span><span class="tr-k">${t('rowIp')}</span><span class="tr-v">${t('rowIpV')}</span></div>`+
+			`</div></div>`+
+		`<div class="map-node n-policy" data-rev="6"><div class="mn-head"><span class="mn-emoji">${az('management + governance/10316-icon-service-Policy.svg', t('nPolicy'))}</span><span class="mn-title">${t('nPolicy')}</span></div><div class="mn-sub">${t('nPolicySub')}</div>`+
+			`<div class="tok-rows">`+
+				`<div class="tok-row" data-rev="6"><span class="tr-em">\uD83D\uDD11</span><span class="tr-k">${t('rowPerm')}</span><span class="tr-v">${t('rowPermV')}</span></div>`+
+				`<div class="tok-row" data-rev="6"><span class="tr-em">\u23F1\uFE0F</span><span class="tr-k">${t('rowTime')}</span><span class="tr-v">${t('rowTimeV')}</span></div>`+
+			`</div></div>`+
+		`<div class="map-node n-user" data-rev="1"><div class="mn-head"><span class="mn-emoji">${az('identity/10230-icon-service-Users.svg', t('nUser'))}</span><span class="mn-title">${t('nUser')}</span></div><div class="mn-sub">${t('nUserSub')}</div></div>`+
+		`<div class="user-bubble" data-rev="5">${t('userBubble')}</div>`+
+		`<div class="edge-label el-signs" data-rev="3">${t('edgeSigns')}</div>`+
+		`<div class="edge-label el-targets" data-rev="3">${t('edgeTargets')}</div>`+
+		`<div class="edge-label el-granted" data-rev="5">${t('edgeGranted')}</div>`+
+		`<div class="edge-label el-rules" data-rev="6">${t('edgeRules')}</div>`+
+		`<div class="map-badge badge-keys" data-rev="7">${t('badgeKeys')}</div>`+
+		`<div class="map-badge badge-policy" data-rev="7">${t('badgePolicy')}</div>`+
+		`<div class="map-ribbon" data-rev="7">`+['bp1','bp2','bp3','bp4','bp5'].map(k=>`<span class="bp">${t(k)}</span>`).join('')+`</div>`;
+	return map;
+}
+
+// ── RENDER ONE MAP STEP · reveal everything up to this step's level ──
+function renderMapStep(level){
+	const step=STEPS[level-1]; const scene=buildScene(step);
+	const map=buildSasMap(); scene.appendChild(map);
+	let foot=null;
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	const items=[...map.querySelectorAll('[data-rev]')];
+	const isPath=e=>e.tagName.toLowerCase()==='path';
+	const isFlow=e=>e.hasAttribute('data-flow');
+	const lvl=e=>parseInt(e.getAttribute('data-rev'),10);
+	const past=items.filter(e=>lvl(e)<level), now=items.filter(e=>lvl(e)===level), future=items.filter(e=>lvl(e)>level);
+	// a directional connector: once it exists, its dashes keep FLOWING toward the arrowhead (shows order/direction)
+	const startFlow=(p)=>{ p.style.strokeDasharray='9 7'; liveTimelines.push(gsap.fromTo(p,{strokeDashoffset:0},{strokeDashoffset:-16,duration:0.7,ease:'none',repeat:-1})); };
+	const bubble=map.querySelector('.user-bubble'), boundary=map.querySelector('.sa-boundary');
+	const hdr=headerEls(scene);
+	future.forEach(e=>{ e.style.opacity='0'; });
+	past.forEach(e=>{
+		if(isPath(e)){ e.style.opacity='0.85'; if(isFlow(e)){ if(motionPaused){ e.style.strokeDasharray='9 7'; } else { startFlow(e); } } }
+		else { gsap.set(e,{opacity:1,x:0,y:0,scale:1}); }
+	});
+	if(motionPaused){
+		now.forEach(e=>{ if(isPath(e)){ e.style.opacity='0.85'; if(isFlow(e)) e.style.strokeDasharray='9 7'; } else gsap.set(e,{opacity:1,x:0,y:0,scale:1}); });
+		gsap.set(hdr,{opacity:1}); if(foot) gsap.set(foot,{opacity:1}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return;
+	}
+	const typeBubble = bubble && lvl(bubble)===level;
+	const nowBoundary = boundary && lvl(boundary)===level;
+	const nowNodes=now.filter(e=>!isPath(e) && !(typeBubble && e===bubble) && !(nowBoundary && e===boundary));
+	const nowPaths=now.filter(isPath), flowNow=nowPaths.filter(isFlow);
+	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
+	if(nowBoundary) tl.fromTo(boundary, {opacity:0,scale:0.98}, {opacity:1,scale:1,duration:0.55,ease:'power2.out',transformOrigin:'center center'}, 0);
+	tl.fromTo(hdr, {opacity:0,y:-14}, {opacity:1,y:0,duration:0.5,stagger:0.1,ease:'power2.out'}, nowBoundary?'-=0.35':0);
+	if(nowNodes.length) tl.fromTo(nowNodes, {opacity:0,y:16,scale:0.9}, {opacity:1,y:0,scale:1,duration:0.5,stagger:0.1,ease:'back.out(1.5)'}, '-=0.15');
+	// connector lines DRAW in — then flow lines keep their dashes moving toward the arrowhead
+	if(nowPaths.length){
+		nowPaths.forEach(p=>{ const len=p.getTotalLength(); p.style.strokeDasharray=len; p.style.strokeDashoffset=len; });
+		tl.fromTo(nowPaths, {opacity:0}, {opacity:0.85,duration:0.3,stagger:0.14,ease:'power1.out'}, '-=0.1');
+		tl.to(nowPaths, {strokeDashoffset:0,duration:0.6,stagger:0.14,ease:'power1.inOut', onComplete:()=>{ flowNow.forEach(startFlow); }}, '<');
+	}
+	// the user's speech bubble pops, then TYPES its text with a blinking caret
+	if(typeBubble){
+		const full=bubble.textContent; bubble.textContent='';
+		gsap.set(bubble,{opacity:0,scale:0.9});
+		tl.to(bubble, {opacity:1,scale:1,duration:0.32,ease:'back.out(1.6)'}, '-=0.05');
+		const st={n:0};
+		tl.to(st, {n:full.length, duration:Math.min(1.5, Math.max(0.6, full.length*0.032)), ease:'none',
+			onUpdate:()=>{ bubble.innerHTML=full.slice(0,Math.ceil(st.n))+'<span class="tw-caret"></span>'; },
+			onComplete:()=>{ bubble.textContent=full; }}, '>-0.02');
+	}
+	if(foot) tl.fromTo(foot, {opacity:0,y:10}, {opacity:1,y:0,duration:0.5,ease:'power2.out'}, '-=0.2');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.5}, '-=0.2');
+}
+
+// ── STEP 9 · TECHNICAL SUMMARY (a spec sheet — SAS types + per-service scope, NOT the map) ──
+// Facts verified via Microsoft Learn: https://learn.microsoft.com/azure/storage/common/storage-sas-overview
+function renderSpecStep(){
+	const step=stepById('spec');
+	const scene=buildScene(step);
+	const wrap=el('spec-wrap');
+	// three SAS-type cards
+	const types=el('spec-types');
+	const typeCard=(sc,icon,name,sign,scope,best,polTxt,polOk)=>{
+		const c=el('spec-card'); c.style.setProperty('--sc',sc);
+		c.innerHTML=`<div class="sc-head">${icon}<span class="sc-name">${name}</span></div>`+
+			`<div class="sc-row"><span class="sc-k">${t('spScKey')}</span><span class="sc-v">${sign}</span></div>`+
+			`<div class="sc-row"><span class="sc-k">${t('spScScope')}</span><span class="sc-v">${scope}</span></div>`+
+			`<div class="sc-row"><span class="sc-k">${t('spScBest')}</span><span class="sc-v">${best}</span></div>`+
+			`<span class="sc-pol ${polOk?'ok':'no'}">${polOk?'\u2713':'\u2014'} ${polTxt}</span>`;
+		types.appendChild(c); return c;
+	};
+	const c1=typeCard('#0b6a37', az('identity/10227-icon-service-Entra-Managed-Identities.svg', t('spT1Name')), t('spT1Name'), t('spT1Sign'), t('spT1Scope'), t('spT1Best'), t('spT1Pol'), false);
+	const c2=typeCard('#5c2d91', az('blockchain/10367-icon-service-Azure-Token-Service.svg', t('spT2Name')), t('spT2Name'), t('spT2Sign'), t('spT2Scope'), t('spT2Best'), t('spT2Pol'), true);
+	const c3=typeCard('#e97526', az('storage/10086-icon-service-Storage-Accounts.svg', t('spT3Name')), t('spT3Name'), t('spT3Sign'), t('spT3Scope'), t('spT3Best'), t('spT3Pol'), false);
+	wrap.appendChild(types);
+	// per-service scope matrix (all four services — not just blob containers)
+	const mrow=(icon,name,scope,pol)=>`<tr>`+
+		`<td><span class="mx-svc">${icon}<span>${name}</span></span></td>`+
+		`<td class="mx-scope">${scope}</td>`+
+		`<td class="mx-pol">${pol}</td></tr>`;
+	const table=document.createElement('table'); table.className='spec-matrix';
+	table.innerHTML=`<thead><tr><th>${t('spMxHeadSvc')}</th><th>${t('spMxHeadScope')}</th><th>${t('spMxHeadPol')}</th></tr></thead><tbody>`+
+		mrow(az('general/10839-icon-service-Storage-Container.svg', t('spRowBlob')), t('spRowBlob'), t('spRowBlobScope'), t('spRowBlobPol'))+
+		mrow(az('storage/10400-icon-service-Azure-Fileshares.svg', t('spRowFiles')), t('spRowFiles'), t('spRowFilesScope'), t('spRowFilesPol'))+
+		mrow(az('general/10840-icon-service-Storage-Queue.svg', t('spRowQueue')), t('spRowQueue'), t('spRowQueueScope'), t('spRowQueuePol'))+
+		mrow(az('general/10841-icon-service-Table.svg', t('spRowTable')), t('spRowTable'), t('spRowTableScope'), t('spRowTablePol'))+
+		`</tbody>`;
+	wrap.appendChild(table);
+	const note=el('spec-note', t('spNote')); wrap.appendChild(note);
+	const foot=el('spec-foot', t('spFoot')); wrap.appendChild(foot);
+	scene.appendChild(wrap);
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	const cards=[c1,c2,c3], hdr=headerEls(scene);
+	if(motionPaused){
+		gsap.set([...hdr,...cards,table,note,foot],{opacity:1});
+		if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return;
+	}
+	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
+	tl.fromTo(hdr, {opacity:0,y:-14}, {opacity:1,y:0,duration:0.5,stagger:0.1,ease:'power2.out'});
+	tl.fromTo(cards, {opacity:0,y:18,scale:0.94}, {opacity:1,y:0,scale:1,duration:0.5,stagger:0.12,ease:'back.out(1.4)'}, '-=0.1');
+	tl.fromTo(table, {opacity:0,y:14}, {opacity:1,y:0,duration:0.5,ease:'power2.out'}, '-=0.15');
+	tl.fromTo([note,foot], {opacity:0}, {opacity:1,duration:0.45,stagger:0.1}, '-=0.2');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.5}, '-=0.2');
+}
+
+// ── CONTROLS ──────────────────────────────
+function focusHeading(){ const h=document.getElementById('stage-heading'); if(h){ try{ h.focus({preventScroll:true}); }catch(_){ h.focus(); } } }
+function interruptAnimation(){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; animating=false; }
+function next(){ interruptAnimation(); if(current<STEPS.length-1){ renderStep(current+1); focusHeading(); } }
+function prev(){ interruptAnimation(); if(current>0){ renderStep(current-1); focusHeading(); } }
+function reset(){ interruptAnimation(); renderStep(0); focusHeading(); }
+function replay(){ if(current<0) return; interruptAnimation(); renderStep(current); focusHeading(); }
+// Re-render the current step in its FINAL state (no animation, no audio restart) — for theme/callout toggles.
+function rerenderInstant(){ if(current<0) return; const _mp=motionPaused; motionPaused=true; window.__awSkipAudioOnce=true; renderStep(current); window.__awSkipAudioOnce=false; requestAnimationFrame(()=>requestAnimationFrame(()=>{ motionPaused=_mp; })); }
+
+// ── Hide / show top bar ──────────────────
+(function(){
+	const hideBtn=document.getElementById('header-hide'), revealBtn=document.getElementById('header-reveal');
+	if(!hideBtn||!revealBtn) return;
+	var hideBtnTop=document.getElementById('header-hide-top'); if(hideBtnTop) hideBtnTop.addEventListener('click',function(e){ e.stopPropagation(); hideBtn.click(); });
+	const hidePath=hideBtn.querySelector('svg path');
+	const UP='M6 15l6-6 6 6', DOWN='M6 9l6 6 6-6';   // ^ points up to hide the bar; flips to v to show it again
+	function setHidden(h){ document.body.classList.toggle('chrome-hidden',h); hideBtn.setAttribute('aria-expanded',String(!h)); hideBtn.setAttribute('aria-label',h?'Show top bar':'Hide top bar'); hideBtn.title=(h?'Show top bar':'Hide top bar')+' (H)'; if(hidePath) hidePath.setAttribute('d',h?DOWN:UP); try{localStorage.setItem('aw-sa-chrome-hidden',h?'1':'0');}catch(_){}
+		if(current>=0) requestAnimationFrame(()=>{ const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s); }); }
+	hideBtn.addEventListener('click',e=>{e.stopPropagation();setHidden(!document.body.classList.contains('chrome-hidden'));});
+	revealBtn.addEventListener('click',e=>{e.stopPropagation();setHidden(false);});
+	try{ if(localStorage.getItem('aw-sa-chrome-hidden')==='1') setHidden(true); }catch(_){}
+	document.addEventListener('keydown',e=>{ if(e.code==='KeyH'&&!e.metaKey&&!e.ctrlKey&&!e.altKey){ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return; e.preventDefault(); setHidden(!document.body.classList.contains('chrome-hidden')); } });
+})();
+
+document.getElementById('next-btn').addEventListener('click',e=>{e.stopPropagation();next();});
+document.getElementById('prev-btn').addEventListener('click',e=>{e.stopPropagation();prev();});
+document.getElementById('reset-btn').addEventListener('click',e=>{e.stopPropagation();reset();});
+document.getElementById('replay-btn').addEventListener('click',e=>{e.stopPropagation();replay();});
+
+// ── Clickable progress bar + step ticks ──
+(function(){
+	const track=document.querySelector('.progress-track'); if(!track) return;
+	for(let s=1; s<STEPS.length; s++){ const tk=document.createElement('div'); tk.className='progress-tick'; tk.style.left=(s/STEPS.length*100)+'%'; track.appendChild(tk); }
+	track.setAttribute('title','Jump to a step');
+	track.addEventListener('click', e=>{
+		const r=track.getBoundingClientRect(); const frac=(e.clientX-r.left)/r.width;
+		const target=Math.max(0, Math.min(STEPS.length-1, Math.floor(frac*STEPS.length)));
+		if(target!==current){ interruptAnimation(); renderStep(target); focusHeading(); }
+	});
+})();
+
+// ── Movable / pinnable control dock ───────
+(function(){
+	const dock=document.getElementById('controls'), grip=document.getElementById('ctrl-grip'), pin=document.getElementById('ctrl-pin');
+	if(!dock||!grip) return;
+	const KEY='aw-sa-controls-pos';
+	let dragging=false, sx=0, sy=0, bl=0, bt=0, moved=false;
+	function place(left,top){
+		const w=dock.offsetWidth, h=dock.offsetHeight;
+		left=Math.max(6, Math.min(left, window.innerWidth - w - 6));
+		top =Math.max(6, Math.min(top,  window.innerHeight - h - 6));
+		dock.style.left=left+'px'; dock.style.top=top+'px'; dock.style.right='auto'; dock.style.bottom='auto'; dock.style.transform='none';
+		document.body.classList.add('controls-floating');
+	}
+	function recenter(){
+		dock.style.left=dock.style.top=dock.style.right=dock.style.bottom=dock.style.transform='';
+		document.body.classList.remove('controls-floating');
+		try{ localStorage.removeItem(KEY); }catch(_){}
+	}
+	grip.addEventListener('pointerdown', e=>{
+		e.preventDefault(); dragging=true; moved=false;
+		const r=dock.getBoundingClientRect(); bl=r.left; bt=r.top; sx=e.clientX; sy=e.clientY;
+		try{ grip.setPointerCapture(e.pointerId); }catch(_){}
+	});
+	grip.addEventListener('pointermove', e=>{
+		if(!dragging) return;
+		const dx=e.clientX-sx, dy=e.clientY-sy;
+		if(Math.abs(dx)>2||Math.abs(dy)>2) moved=true;
+		place(bl+dx, bt+dy);
+	});
+	function end(e){ if(!dragging) return; dragging=false; try{ grip.releasePointerCapture(e.pointerId); }catch(_){}
+		if(moved){ try{ const r=dock.getBoundingClientRect(); localStorage.setItem(KEY, JSON.stringify({left:r.left, top:r.top})); }catch(_){} } }
+	grip.addEventListener('pointerup', end); grip.addEventListener('pointercancel', end);
+	grip.addEventListener('keydown', e=>{
+		const d=e.shiftKey?40:12; const r=dock.getBoundingClientRect(); let ok=true;
+		if(e.key==='ArrowLeft') place(r.left-d, r.top);
+		else if(e.key==='ArrowRight') place(r.left+d, r.top);
+		else if(e.key==='ArrowUp') place(r.left, r.top-d);
+		else if(e.key==='ArrowDown') place(r.left, r.top+d);
+		else ok=false;
+		if(ok){ e.preventDefault(); e.stopPropagation(); }
+	});
+	if(pin) pin.addEventListener('click', e=>{ e.stopPropagation(); recenter(); });
+	window.addEventListener('resize', ()=>{ if(document.body.classList.contains('controls-floating')){ const r=dock.getBoundingClientRect(); place(r.left, r.top); } });
+	try{ const s=JSON.parse(localStorage.getItem(KEY)||'null'); if(s && typeof s.left==='number') place(s.left, s.top); }catch(_){}
+})();
+
+// ── Speed ─────────────────────────────────
+const SPEED_STEPS=[0.5,0.75,1,1.25,1.5,2]; const BASE_TIMESCALE=0.25;
+let speedIndex=SPEED_STEPS.indexOf(1);
+try{ const sp=parseInt(localStorage.getItem('aw-sa-speed'),10); if(!isNaN(sp)&&sp>=0&&sp<SPEED_STEPS.length) speedIndex=sp; }catch(_){}
+const speedLabel=document.getElementById('speed-label'), speedDownBtn=document.getElementById('speed-down'), speedUpBtn=document.getElementById('speed-up');
+function saveSpeed(){ try{ localStorage.setItem('aw-sa-speed', String(speedIndex)); }catch(_){} }
+function syncSpeedUI(){ const spd=SPEED_STEPS[speedIndex]; speedLabel.textContent=spd+'\u00d7'; speedDownBtn.disabled=speedIndex===0; speedUpBtn.disabled=speedIndex===SPEED_STEPS.length-1; gsap.globalTimeline.timeScale(spd*BASE_TIMESCALE); }
+syncSpeedUI();
+speedDownBtn.addEventListener('click',e=>{e.stopPropagation(); if(speedIndex>0){speedIndex--;syncSpeedUI();saveSpeed();}});
+speedUpBtn.addEventListener('click',e=>{e.stopPropagation(); if(speedIndex<SPEED_STEPS.length-1){speedIndex++;syncSpeedUI();saveSpeed();}});
+
+// ── Keyboard ──────────────────────────────
+if (window.AW && AW.keyboard) { AW.keyboard.bind({ next, prev, reset, replay }); }
+else { document.addEventListener('keydown', e => {
+	if (['Space','ArrowRight','Enter'].includes(e.code)) { e.preventDefault(); next(); }
+	else if (e.code==='ArrowLeft') { e.preventDefault(); prev(); }
+	else if (e.code==='KeyR') { e.preventDefault(); reset(); }
+	else if (e.code==='KeyP') { e.preventDefault(); replay(); }
+}); }
+
+// ── Touch swipe (tablets) ─────────────────
+(function(){
+	const surf=document.getElementById('stage'); if(!surf) return;
+	let x0=null,y0=null,t0=0;
+	surf.addEventListener('touchstart',e=>{ if(e.touches.length!==1){x0=null;return;} x0=e.touches[0].clientX; y0=e.touches[0].clientY; t0=Date.now(); },{passive:true});
+	surf.addEventListener('touchend',e=>{
+		if(x0===null) return; const tch=e.changedTouches[0]; const dx=tch.clientX-x0, dy=tch.clientY-y0; x0=null;
+		if(Date.now()-t0>800) return;
+		if(Math.abs(dx)>50 && Math.abs(dx)>Math.abs(dy)*1.6){ if(dx<0) next(); else prev(); }
+	},{passive:true});
+})();
+
+// ── Keyboard shortcut help overlay ────────
+(function(){
+	const overlay=document.getElementById('shortcut-overlay'), btn=document.getElementById('help-toggle'), closeBtn=document.getElementById('sc-close'), list=document.getElementById('sc-list');
+	if(!overlay||!list) return;
+	const ROWS=[[['\u2192','Space'],'scNext'],[['\u2190'],'scPrev'],[['R'],'scRestart'],[['P'],'scReplay'],[['H'],'scHide'],[['?'],'scHelp']];
+	window.buildShortcuts=function(){ const title=document.getElementById('sc-title'); if(title) title.textContent=t('scTitle');
+		list.innerHTML=ROWS.map(([keys,k])=>`<li><span>${t(k)}</span><span class="sc-keys">${keys.map(x=>`<kbd>${x}</kbd>`).join('')}</span></li>`).join(''); };
+	buildShortcuts();
+	function open(){ overlay.removeAttribute('hidden'); if(closeBtn) closeBtn.focus(); }
+	function close(){ overlay.setAttribute('hidden',''); if(btn) btn.focus(); }
+	function toggle(){ overlay.hasAttribute('hidden')?open():close(); }
+	if(btn) btn.addEventListener('click',e=>{e.stopPropagation();toggle();});
+	if(closeBtn) closeBtn.addEventListener('click',e=>{e.stopPropagation();close();});
+	const bd=overlay.querySelector('.sc-backdrop'); if(bd) bd.addEventListener('click',close);
+	document.addEventListener('keydown',e=>{ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return;
+		if(e.key==='?'){ e.preventDefault(); toggle(); }
+		else if(e.key==='Escape' && !overlay.hasAttribute('hidden')){ e.preventDefault(); close(); } });
+})();
+
+// ── Resize (re-fit only — never rebuild or replay the animation) ──
+let resizeTimer, lastStageW=0, lastStageH=0;
+window.addEventListener('resize',()=>{ clearTimeout(resizeTimer); resizeTimer=setTimeout(()=>{
+	if(current<0) return;
+	const box=stage.getBoundingClientRect();
+	// Ignore no-op resizes (focus/click reflow, mobile URL-bar show/hide) so the animation never restarts.
+	if(Math.abs(box.width-lastStageW)<1 && Math.abs(box.height-lastStageH)<1) return;
+	lastStageW=box.width; lastStageH=box.height;
+	const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s);
+},200); });
+
+// ── Init ──────────────────────────────────
+setLanguage(currentLang);
+counter.textContent = `1 / ${STEPS.length}`;
+const urlStep = parseInt(new URLSearchParams(location.search).get('step'), 10);
+renderStep((!isNaN(urlStep) && urlStep>=1 && urlStep<=STEPS.length) ? urlStep-1 : 0);
+</script>
+<script>
+// ── Start gate · hold autoplay until the viewer clicks Play (empty stage + centered Play) ──
+(function () {
+	if (new URLSearchParams(location.search).has('present')) return;
+	var stage = document.getElementById('stage');
+	if (!stage) return;
+	function freeze() { try { if (window.gsap && gsap.globalTimeline) gsap.globalTimeline.pause(); } catch (_) {} }
+	freeze(); requestAnimationFrame(freeze);
+	document.body.classList.add('aw-prestart');
+	try { if (typeof stopAudio === 'function') stopAudio(); } catch (_) {}
+	stage.style.transition = 'opacity .55s ease';
+	stage.style.opacity = '0';
+
+	var T = {
+		title: { en:'Ready to begin?', es:'\u00BFTodo listo?', ja:'\u6E96\u5099\u306F\u3044\u3044\u3067\u3059\u304B\uFF1F', ko:'\uC2DC\uC791\uD560 \uC900\uBE44\uAC00 \uB418\uC168\uB098\uC694?', pt:'Tudo pronto?' },
+		sound: { en:'Sound', es:'Sonido', ja:'\u97F3\u58F0', ko:'\uC18C\uB9AC', pt:'Som' },
+		cc:    { en:'Subtitles (CC)', es:'Subt\u00EDtulos (CC)', ja:'\u5B57\u5E55\uFF08CC\uFF09', ko:'\uC790\uB9C9 (CC)', pt:'Legendas (CC)' },
+		start: { en:'Start presentation', es:'Iniciar presentaci\u00F3n', ja:'\u30D7\u30EC\u30BC\u30F3\u3092\u958B\u59CB', ko:'\uD504\uB808\uC820\uD14C\uC774\uC158 \uC2DC\uC791', pt:'Iniciar apresenta\u00E7\u00E3o' }
+	};
+	function L(){ return (typeof currentLang === 'string' && currentLang) || (typeof CURRENT_LANG === 'string' && CURRENT_LANG) || 'en'; }
+	function t(k){ var m = T[k], l = L(); return m[m[l] ? l : 'en']; }
+	function awAudioState(){ try{ if(typeof window.__awAudioOn==='function') return !!window.__awAudioOn(); }catch(_){} return (typeof audioEnabled!=='undefined') && !!audioEnabled; }
+	function awCcState(){ try{ if(typeof window.__awCcOn!=='undefined' && window.__awCcOn!==null) return !!window.__awCcOn; }catch(_){} return (typeof ccPref!=='undefined') && !!ccPref; }
+
+	var style = document.createElement('style');
+	style.textContent =
+		'body.aw-prestart #controls{opacity:.4;pointer-events:none;transition:opacity .4s ease}' +
+		'#aw-play-card{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:50;box-sizing:border-box;width:min(90vw,22rem);padding:1.35rem 1.5rem 1.5rem;border-radius:16px;background:var(--theme-card-background,#fff);color:var(--theme-text,#222);border:1px solid var(--theme-border,rgba(0,0,0,.1));box-shadow:0 24px 60px rgba(0,0,0,.28);transition:opacity .3s ease,transform .3s ease}' +
+		'#aw-play-card.aw-hide{opacity:0;transform:translate(-50%,-50%) scale(.96);pointer-events:none}' +
+		'body.theme-dark #aw-play-card{border-color:rgba(255,255,255,.12);box-shadow:0 24px 60px rgba(0,0,0,.55)}' +
+		'body.present-mode #aw-play-card{display:none!important}' +
+		'.aw-card-title{margin:0 0 1rem;text-align:center;font-size:1.02rem;font-weight:800;letter-spacing:.03em;text-transform:uppercase;opacity:.85}' +
+		'.aw-row{display:flex;align-items:center;gap:.65rem;padding:.6rem 0}' +
+		'.aw-row + .aw-row{border-top:1px solid var(--theme-border,rgba(0,0,0,.08))}' +
+		'.aw-row-ico{flex:none;width:1.5rem;text-align:center;font-size:1.15rem;line-height:1}' +
+		'.aw-row-lbl{flex:1 1 auto;font-size:.9rem;font-weight:600}' +
+		'.aw-row-state{flex:none;min-width:2.5rem;text-align:right;font-size:.68rem;font-weight:800;letter-spacing:.05em;opacity:.5}' +
+		'.aw-row-state.on{color:var(--theme-primary,#0078d4);opacity:1}' +
+		'.aw-switch{position:relative;flex:none;width:44px;height:24px;padding:0;border:none;border-radius:999px;cursor:pointer;background:var(--theme-border,#c7c7d1);transition:background .18s ease}' +
+		'.aw-switch.on{background:var(--theme-primary,#0078d4)}' +
+		'.aw-switch::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.4);transition:transform .18s ease}' +
+		'.aw-switch.on::after{transform:translateX(20px)}' +
+		'#aw-start{margin-top:1.2rem;width:100%;display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:.8rem 1rem;border:none;border-radius:11px;cursor:pointer;background:var(--theme-primary,#0078d4);color:#fff;font-size:.96rem;font-weight:700;letter-spacing:.01em;box-shadow:0 8px 22px var(--theme-primary-translucent,rgba(0,120,212,.45));transition:transform .15s ease}' +
+		'#aw-start:hover{transform:translateY(-2px)}#aw-start:active{transform:scale(.98)}' +
+		'#aw-start svg{width:18px;height:18px;flex:none}';
+	document.head.appendChild(style);
+
+	var card = document.createElement('div');
+	card.id = 'aw-play-card'; card.setAttribute('role', 'dialog'); card.setAttribute('aria-modal', 'true');
+	card.innerHTML =
+		'<div class="aw-card-title"></div>' +
+		'<div class="aw-row" data-k="audio"><span class="aw-row-ico" aria-hidden="true">\uD83D\uDD0A</span><span class="aw-row-lbl"></span><span class="aw-row-state"></span><button type="button" class="aw-switch" role="switch"></button></div>' +
+		'<div class="aw-row" data-k="cc"><span class="aw-row-ico" aria-hidden="true">\uD83D\uDCAC</span><span class="aw-row-lbl"></span><span class="aw-row-state"></span><button type="button" class="aw-switch" role="switch"></button></div>' +
+		'<button type="button" id="aw-start"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 5v14l11-7z"/></svg><span class="aw-start-lbl"></span></button>';
+	document.body.appendChild(card);
+
+	var titleEl = card.querySelector('.aw-card-title');
+	var startBtn = card.querySelector('#aw-start');
+	var ROWS = [ { k:'audio', lbl:'sound', el:card.querySelector('.aw-row[data-k="audio"]'), read:awAudioState, toggle:'audio-toggle' },
+	             { k:'cc',    lbl:'cc',    el:card.querySelector('.aw-row[data-k="cc"]'),    read:awCcState,    toggle:'cc-toggle' } ];
+
+	function render(){
+		titleEl.textContent = t('title'); card.setAttribute('aria-label', t('title'));
+		startBtn.querySelector('.aw-start-lbl').textContent = t('start');
+		ROWS.forEach(function(r){
+			var on = r.read();
+			r.el.querySelector('.aw-row-lbl').textContent = t(r.lbl);
+			var st = r.el.querySelector('.aw-row-state'); st.textContent = on ? 'ON' : 'OFF'; st.classList.toggle('on', on);
+			var sw = r.el.querySelector('.aw-switch'); sw.classList.toggle('on', on); sw.setAttribute('aria-checked', on ? 'true' : 'false');
+			sw.setAttribute('aria-label', t(r.lbl) + ' \u2014 ' + (on ? 'on' : 'off'));
+		});
+	}
+	ROWS.forEach(function(r){
+		r.el.querySelector('.aw-switch').addEventListener('click', function(e){ e.stopPropagation(); var b = document.getElementById(r.toggle); if(b) b.click(); render(); });
+	});
+	render();
+
+	var sel = document.getElementById('lang-select');
+	if (sel) sel.addEventListener('change', function () { render(); freeze(); });
+
+	function gateKeys(e) {
+		if (done) return;
+		var tag = (e.target && e.target.tagName || '').toLowerCase();
+		if (tag === 'select' || tag === 'input' || tag === 'textarea') return;
+		if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'].indexOf(e.key) >= 0) { e.preventDefault(); e.stopPropagation(); }
+	}
+	document.addEventListener('keydown', gateKeys, true);
+
+	var done = false;
+	function start() {
+		if (done) return; done = true;
+		document.removeEventListener('keydown', gateKeys, true);
+		document.body.classList.remove('aw-prestart');
+		card.classList.add('aw-hide');
+		setTimeout(function () { if (card.parentNode) card.parentNode.removeChild(card); if (style.parentNode) style.parentNode.removeChild(style); }, 420);
+		setTimeout(function () {
+			try { if (window.gsap && gsap.globalTimeline) gsap.globalTimeline.play(); } catch (_) {}
+			stage.style.opacity = '1';
+			try { if (typeof interruptAnimation === 'function') interruptAnimation(); } catch (_) {}
+			try { if (typeof renderStep === 'function') renderStep(typeof current === 'number' && current >= 0 ? current : 0); } catch (_) {}
+		}, 380);
+	}
+	startBtn.addEventListener('click', start);
+}());
+</script>
+<script src="../lib/js/aw-present.js"></script>
+
+</body>
+</html>

@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- Narration script: /static/narration/v2/AI/Foundry/AgentSpeech.md -->
 <html lang="en">
 <head>
 	<script src="/js/tracking.js"></script>
@@ -14,6 +15,7 @@
 <script src="../../lib/js/aw-motion.js"></script>
 <script src="../../lib/js/aw-theme.js"></script>
 <script src="../../lib/js/aw-keyboard.js"></script>
+<script src="../../lib/js/aw-captions.js?v=3"></script>
 
 <style>
 	html, body { height:100%; margin:0; }
@@ -83,7 +85,20 @@
 		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2));
 		font-size:1.05rem; line-height:1.45;
 		z-index:14; opacity:0;
+		cursor:grab; touch-action:none;
 	}
+	.callout:active { cursor:grabbing; }
+	.aw-drag-reset {
+		position:absolute; width:24px; height:24px; padding:0; display:none;
+		align-items:center; justify-content:center; border-radius:50%;
+		background:var(--theme-tertiary,#5c2d91); color:#fff;
+		border:2px solid var(--theme-body-background,#fff);
+		box-shadow:0 2px 7px rgba(0,0,0,0.4); cursor:pointer; z-index:6;
+		opacity:0.92; transition:opacity .14s ease, transform .14s ease;
+	}
+	.aw-drag-reset:hover { opacity:1; transform:scale(1.08); }
+	.aw-drag-reset:focus-visible { outline:2px solid #5cc8ff; outline-offset:2px; }
+	.aw-drag-reset svg { width:13px; height:13px; display:block; }
 
 	/* ── SHARED PANELS ──────────────────────── */
 	.ta-card {
@@ -681,6 +696,20 @@
 		padding:0 6px; white-space:nowrap; letter-spacing:0.02em;
 	}
 	.ctrl-sep { width:1px; align-self:stretch; margin:4px 2px; background:var(--theme-border); }
+	.ctrl-grip {
+		display:inline-flex; align-items:center; justify-content:center;
+		width:1.5rem; height:2.15rem; padding:0; border:none; background:transparent;
+		color:var(--theme-text-subtle); border-radius:8px; cursor:grab; touch-action:none;
+		transition:background 0.18s ease, color 0.18s ease;
+	}
+	.ctrl-grip:hover { color:var(--theme-text); background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); }
+	.ctrl-grip:active { cursor:grabbing; }
+	.ctrl-grip svg { width:13px; height:16px; pointer-events:none; }
+	body.controls-floating .ctrl-grip { color:var(--theme-primary,#0078d4); }
+	#controls .ctrl-pin { display:none; color:var(--theme-primary,#0078d4); }
+	#controls .ctrl-pin svg { width:15px; height:15px; pointer-events:none; }
+	body.controls-floating #controls .ctrl-pin { display:inline-flex; }
+	body.controls-floating #controls { box-shadow:0 10px 30px rgba(0,0,0,0.30), 0 0 0 1.5px var(--theme-primary,#0078d4); }
 	.speed-control {
 		display:inline-flex; align-items:center; gap:1px;
 		padding:2px 3px;
@@ -710,16 +739,89 @@
 	}
 	#callout-toggle:not(.toggle-active), #outline-toggle:not(.toggle-active) { opacity:0.6; }
 
+	/* ── PLAYER OVERLAY · pinned to the bottom corners of the viewport ── */
+	.stage-overlay {
+		position:fixed; right:14px; bottom:14px; z-index:41;
+		display:flex; align-items:center; gap:2px;
+		padding:3px 6px; border-radius:999px;
+		background:rgba(16,18,24,0.58);
+		backdrop-filter:blur(9px) saturate(1.3); -webkit-backdrop-filter:blur(9px) saturate(1.3);
+		box-shadow:0 4px 16px rgba(0,0,0,0.32);
+	}
+	.ovl-btn {
+		-webkit-appearance:none; appearance:none; margin:0; font:inherit;
+		display:inline-flex; align-items:center; justify-content:center; gap:4px;
+		min-width:30px; height:30px; padding:0 8px;
+		border:none !important; border-radius:999px !important;
+		background:transparent !important; color:#fff !important;
+		box-shadow:none !important; cursor:pointer; line-height:1;
+		font-size:0.82rem; font-weight:700; opacity:0.92; transition:background .15s ease, opacity .15s ease;
+	}
+	.ovl-btn:hover { background:rgba(255,255,255,0.16) !important; opacity:1; }
+	.ovl-btn:disabled { opacity:0.4; cursor:not-allowed; }
+	.ovl-btn svg { width:18px; height:18px; fill:currentColor; display:block; }
+	.ovl-btn.on { color:#5cc8ff !important; }
+	.stage-overlay #audio-toggle, .stage-overlay #aw-audio-toggle { opacity:1 !important; }
+	.stage-overlay .aw-audio-ico { font-size:1rem; line-height:1; }
+	.stage-overlay .aw-audio-time { font-size:0.78rem; font-variant-numeric:tabular-nums; letter-spacing:0.02em; opacity:0.95; min-width:2.4em; text-align:left; }
+	.stage-overlay #cc-toggle svg { width:20px; height:20px; }
+	.ovl-btn .fs-exit { display:none; }
+	body.is-fs .ovl-btn .fs-enter { display:none; }
+	body.is-fs .ovl-btn .fs-exit { display:block; }
+	.stage-overlay-left { right:auto; left:14px; }
+	#stage-overlay-left .ovl-btn:not(.toggle-active) { opacity:0.86; }
+	#stage-overlay-left .ovl-btn.toggle-active { color:#5cc8ff !important; opacity:1; }
+	#stage-overlay-left .ovl-btn:hover { opacity:1; }
+	.ovl-btn[data-tip] { position:relative; }
+	.ovl-btn[data-tip]::after { content:attr(data-tip); position:absolute; left:0; bottom:calc(100% + 9px); transform:translateY(4px); padding:4px 8px; border-radius:6px; background:rgba(16,18,24,0.96); color:#fff; font-size:0.72rem; font-weight:600; white-space:nowrap; letter-spacing:0.01em; opacity:0; pointer-events:none; box-shadow:0 3px 12px rgba(0,0,0,0.45); transition:opacity .14s ease, transform .14s ease; z-index:40; }
+	.ovl-btn[data-tip]::before { content:''; position:absolute; left:13px; bottom:calc(100% + 4px); border:5px solid transparent; border-top-color:rgba(16,18,24,0.96); opacity:0; pointer-events:none; transition:opacity .14s ease; z-index:40; }
+	.ovl-btn[data-tip]:hover::after { opacity:1; transform:translateY(0); }
+	.ovl-btn[data-tip]:hover::before { opacity:1; }
+
+	/* ── KEYBOARD SHORTCUTS · help panel (matches the other journeys) ── */
+	.help-toggle svg { width:15px; height:15px; }
+	#shortcut-overlay { position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center; }
+	#shortcut-overlay[hidden] { display:none; }
+	.sc-backdrop { position:absolute; inset:0; background:rgba(0,0,0,0.5); -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px); }
+	.sc-panel { position:relative; z-index:1; width:min(430px,92vw); max-height:82vh; overflow:auto; padding:1.5rem 1.6rem; background:var(--theme-body-background); border:1px solid var(--theme-border); border-radius:16px; box-shadow:0 24px 70px rgba(0,0,0,0.4); }
+	.sc-panel h2 { margin:0 0 1rem; font-size:1.25rem; color:var(--theme-tertiary,#5c2d91); }
+	body.theme-dark .sc-panel h2 { color:#c9a5e8; }
+	.sc-close { position:absolute; top:0.7rem; right:0.7rem; width:2rem; height:2rem; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--theme-border); border-radius:50%; background:transparent; color:var(--theme-text-subtle); cursor:pointer; }
+	.sc-close:hover { color:var(--theme-text); border-color:var(--theme-primary,#0078d4); }
+	.sc-close svg { width:15px; height:15px; }
+	.sc-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:0.55rem; }
+	.sc-list li { display:flex; align-items:center; justify-content:space-between; gap:1rem; font-size:1rem; color:var(--theme-text); }
+	.sc-keys { display:inline-flex; gap:0.3rem; flex:none; }
+	.sc-panel kbd, .sc-hint kbd { font-family:'Cascadia Code','Consolas',monospace; font-size:0.82rem; line-height:1; padding:0.28rem 0.5rem; border-radius:6px; border:1px solid var(--theme-border); border-bottom-width:2px; background:var(--theme-card-background,#fff); color:var(--theme-text); }
+	body.theme-dark .sc-panel kbd, body.theme-dark .sc-hint kbd { background:rgba(255,255,255,0.08); }
+	.sc-hint { margin:1.1rem 0 0; font-size:0.85rem; color:var(--theme-text-subtle); text-align:center; }
+	/* keep both pills clear of the centred dock on narrow viewports */
+	@media (max-width:880px) { .stage-overlay { bottom:66px; } }
+	#aw-caption {
+		position:absolute; left:50%; transform:translateX(-50%); bottom:56px; z-index:24;
+		max-width:92%; min-width:140px; min-height:38px; max-height:44%;
+		display:none; align-items:center; justify-content:center; text-align:center;
+		padding:0.42rem 0.95rem; border-radius:9px;
+		background:rgba(8,9,13,0.8); color:#fff;
+		font-size:1.1rem; line-height:1.36; font-weight:600;
+		box-shadow:0 3px 14px rgba(0,0,0,0.42); pointer-events:auto; cursor:grab; touch-action:none; overflow:auto; resize:both;
+	}
+	#aw-caption:active { cursor:grabbing; }
+	#aw-caption::-webkit-resizer { background:linear-gradient(135deg, transparent 45%, rgba(255,255,255,0.55) 45%, rgba(255,255,255,0.55) 55%, transparent 55%); }
+	body.cc-on #aw-caption.has-text { display:flex; }
+	@media (max-width:640px){ #aw-caption { font-size:0.94rem; bottom:48px; max-width:90%; } }
+	#cc-toggle.toggle-active { color:#5cc8ff !important; }
+
 	/* ── HIDE / SHOW TOP BAR ─────────────────── */
-	#header-hide {
+	#header-hide-top {
 		display:inline-flex; align-items:center; justify-content:center;
 		width:2rem; height:2rem; padding:0;
 		border:1px solid var(--theme-border); border-radius:50%;
 		color:var(--theme-text-subtle);
 		transition:background 0.2s ease, color 0.2s ease, transform 0.18s ease;
 	}
-	#header-hide:hover { color:var(--theme-text); transform:translateY(-1px); }
-	#header-hide svg { width:16px; height:16px; }
+	#header-hide-top:hover { color:var(--theme-text); transform:translateY(-1px); }
+	#header-hide-top svg { width:16px; height:16px; }
 	body.chrome-hidden .app-header,
 	body.chrome-hidden .progress-track { display:none; }
 	#header-reveal {
@@ -751,7 +853,9 @@
 		border-radius:6px;
 		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2));
 		z-index:35; font-size:1rem; line-height:1.55;
+		cursor:grab; touch-action:none;
 	}
+	#step-outline:active { cursor:grabbing; }
 	#step-outline[hidden] { display:none; }
 	#step-outline h2 {
 		font-size:0.85rem; font-weight:700; letter-spacing:0.18em; text-transform:uppercase;
@@ -848,9 +952,6 @@
 		</div>
 		<nav class="display-flex gap-xs align-items-center" aria-label="Primary">
 			<span id="breadcrumb" class="font-size-sm color-text-subtle">Step 1</span>
-			<button id="callout-toggle" type="button" class="button button-clear button-sm" aria-label="Toggle callouts">💬 Callout</button>
-			<button id="outline-toggle" type="button" class="button button-clear button-sm"
-					aria-controls="step-outline" aria-expanded="false" aria-label="Hide text outline">📝 Outline</button>
 		</nav>
 		<div class="display-flex gap-xs align-items-center">
 			<select id="lang-select" class="lang-select" aria-label="Language">
@@ -882,7 +983,7 @@
 					</g>
 				</svg>
 			</button>
-			<button id="header-hide" type="button" aria-label="Hide top bar" title="Hide top bar">
+			<button id="header-hide-top" type="button" aria-label="Hide top bar" title="Hide top bar">
 				<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
 					<path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/>
 				</svg>
@@ -914,6 +1015,18 @@
 				</marker>
 			</defs>
 		</svg>
+
+		<div id="aw-caption" aria-hidden="true"></div>
+		<div id="stage-overlay-left" class="stage-overlay stage-overlay-left" role="group" aria-label="View options">
+			<button id="callout-toggle" type="button" class="ovl-btn" aria-label="Toggle callouts" aria-pressed="false" data-tip="Callouts: Off"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M4 5h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H10l-4 3v-3H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></svg></button>
+			<button id="outline-toggle" type="button" class="ovl-btn" aria-controls="step-outline" aria-expanded="false" aria-label="Toggle text outline" data-tip="Outline: Off"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" d="M4 6h16M4 12h16M4 18h10"/></svg></button>
+			<button id="help-toggle" class="ovl-btn help-toggle" type="button" aria-haspopup="dialog" aria-controls="shortcut-overlay" aria-label="Keyboard shortcuts (press ?)" data-tip="Shortcuts"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M11 18h2v-2h-2v2zm1.1-14C9.8 4 8 5.8 8 8h2a2 2 0 1 1 3.2 1.6c-.9.7-2.2 1.5-2.2 3.4h2c0-1 .8-1.5 1.7-2.2A4 4 0 0 0 12.1 4z"/></svg></button>
+		</div>
+		<div id="stage-overlay" class="stage-overlay" role="group" aria-label="Player controls">
+			<button id="cc-toggle" class="ovl-btn" type="button" aria-label="Toggle captions" aria-pressed="false" title="Captions"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9.7 10.2a2.1 2.1 0 1 0 0 3.6M17 10.2a2.1 2.1 0 1 0 0 3.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+			<button id="header-hide" class="ovl-btn" type="button" aria-label="Hide top bar" aria-pressed="false" title="Hide top bar"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/></svg></button>
+			<button id="fs-toggle" class="ovl-btn" type="button" aria-label="Toggle full screen" aria-pressed="false" title="Full screen (F)"><svg class="fs-enter" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg><svg class="fs-exit" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg></button>
+		</div>
 	</main>
 
 	<aside id="step-outline" hidden aria-label="Text outline of the current step">
@@ -922,6 +1035,13 @@
 	</aside>
 
 	<div id="controls" role="group" aria-label="Diagram navigation">
+		<button id="ctrl-grip" type="button" class="ctrl-grip" aria-label="Drag to move the controls" title="Drag to move">
+			<svg viewBox="0 0 16 16" aria-hidden="true"><g fill="currentColor"><circle cx="5" cy="3" r="1.4"/><circle cx="11" cy="3" r="1.4"/><circle cx="5" cy="8" r="1.4"/><circle cx="11" cy="8" r="1.4"/><circle cx="5" cy="13" r="1.4"/><circle cx="11" cy="13" r="1.4"/></g></svg>
+		</button>
+		<button id="ctrl-pin" type="button" class="button button-clear ctrl-icon ctrl-pin" aria-label="Pin the controls back to the center" title="Pin to center">
+			<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9 2h6a1 1 0 0 1 .8 1.6L14 6v4l3 3v2h-4v5l-1 2-1-2v-5H7v-2l3-3V6L8.2 3.6A1 1 0 0 1 9 2z"/></svg>
+		</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
 		<button id="prev-btn" type="button" class="button ctrl-icon" aria-label="Previous step (left arrow)">◀</button>
 		<div class="step-counter" id="step-counter">0 / 0</div>
 		<button id="next-btn" type="button" class="button button-primary button-filled ctrl-icon ctrl-icon-next" aria-label="Next step (right arrow or space)">▶</button>
@@ -936,10 +1056,20 @@
 		<button id="reset-btn" type="button" class="button button-clear ctrl-icon" aria-label="Restart from step 1 (R)">⏮</button>
 	</div>
 
+	<div id="shortcut-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="sc-title">
+		<div class="sc-backdrop"></div>
+		<div class="sc-panel">
+			<button id="sc-close" class="sc-close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
+			<h2 id="sc-title">Keyboard shortcuts</h2>
+			<ul id="sc-list" class="sc-list"></ul>
+			<p id="sc-hint" class="sc-hint">Press <kbd>?</kbd> anytime to toggle this panel.</p>
+		</div>
+	</div>
+
 <script>
 // ── THEME ─────────────────────────────────
 if (window.AW && AW.theme) {
-	AW.theme.onChange(() => { if (typeof renderStep === 'function' && current >= 0) renderStep(current); });
+	AW.theme.onChange(() => { if (typeof renderStep === 'function' && current >= 0) { const wasPaused = motionPaused; motionPaused = true; renderStep(current); motionPaused = wasPaused; } });
 }
 
 const SPEECH_ICON = '../../lib/icons/Azure_Public_Service_Icons/ai + machine learning/00797-icon-service-Speech-Services.svg';
@@ -1857,6 +1987,7 @@ function setLanguage(lang) {
 	document.getElementById('stage-instructions').textContent = t('stageInstructions');
 	syncCalloutBtn();
 	syncOutlineBtn();
+	if (typeof buildShortcuts === 'function') buildShortcuts();
 	if (current >= 0) renderStep(current);
 }
 
@@ -1925,16 +2056,16 @@ let calloutEnabled = false;
 
 // ── Callout toggle ────────────────────────
 function syncCalloutBtn() {
-	calloutBtn.textContent = calloutEnabled ? t('calloutOn') : t('calloutOff');
+	calloutBtn.setAttribute('data-tip', calloutEnabled ? t('calloutOn') : t('calloutOff'));
 	calloutBtn.classList.toggle('toggle-active', calloutEnabled);
 }
-calloutBtn.addEventListener('click', () => { calloutEnabled = !calloutEnabled; syncCalloutBtn(); if (current >= 0) renderStep(current); });
+calloutBtn.addEventListener('click', () => { calloutEnabled = !calloutEnabled; syncCalloutBtn(); if (current >= 0) { const wasPaused = motionPaused; motionPaused = true; renderStep(current); motionPaused = wasPaused; } });
 syncCalloutBtn();
 
 // ── Outline toggle ────────────────────────
 function syncOutlineBtn() {
 	const on = !outlinePanel.hasAttribute('hidden');
-	outlineBtn.textContent = on ? t('outlineOn') : t('outlineOff');
+	outlineBtn.setAttribute('data-tip', on ? t('outlineOn') : t('outlineOff'));
 	outlineBtn.classList.toggle('toggle-active', on);
 }
 outlineBtn.addEventListener('click', () => {
@@ -1993,6 +2124,7 @@ function maybeCallout(step) {
 	const c = el('callout', t(step.calloutKey));
 	c.style.left = '1.5rem'; c.style.top = '1.5rem'; c.style.right = 'auto'; c.style.bottom = 'auto';
 	stage.appendChild(c); liveEls.push(c);
+	dragify(c, 'aw-foundry-callout-pos');
 	return c;
 }
 function headerEls(scene) { return [scene.querySelector('.scene-title'), scene.querySelector('.scene-lead')]; }
@@ -2664,27 +2796,111 @@ document.getElementById('prev-btn').addEventListener('click', e => { e.stopPropa
 document.getElementById('reset-btn').addEventListener('click', e => { e.stopPropagation(); reset(); });
 document.getElementById('replay-btn').addEventListener('click', e => { e.stopPropagation(); replay(); });
 
-// ── Hide / show top bar ──────────────────
-const headerHideBtn   = document.getElementById('header-hide');
-const headerRevealBtn = document.getElementById('header-reveal');
-function setChromeHidden(hidden) {
-	document.body.classList.toggle('chrome-hidden', hidden);
-	headerHideBtn.setAttribute('aria-expanded', String(!hidden));
-	try { localStorage.setItem('sp-chrome-hidden', hidden ? '1' : '0'); } catch (_) {}
-	// give the stage its new size, then reflow the current step
-	requestAnimationFrame(() => renderStep(current));
-}
-headerHideBtn.addEventListener('click',   e => { e.stopPropagation(); setChromeHidden(true); });
-headerRevealBtn.addEventListener('click', e => { e.stopPropagation(); setChromeHidden(false); });
-try { if (localStorage.getItem('sp-chrome-hidden') === '1') document.body.classList.add('chrome-hidden'); } catch (_) {}
-document.addEventListener('keydown', e => {
-	if (e.code === 'KeyH' && !e.metaKey && !e.ctrlKey && !e.altKey) {
-		const tag = (e.target.tagName || '').toLowerCase();
-		if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
-		e.preventDefault();
-		setChromeHidden(!document.body.classList.contains('chrome-hidden'));
+// ── Draggable callout / caption / outline ──
+function dragify(el, key){
+	if(!el || el.__awDrag) return; el.__awDrag=true;
+	let dragging=false, sx=0, sy=0, bl=0, bt=0, moved=false;
+	const resizable = getComputedStyle(el).resize !== 'none';
+	const sizeKey = key ? key + '-size' : null;
+	const home={ position:el.style.position, left:el.style.left, top:el.style.top,
+		right:el.style.right, bottom:el.style.bottom, margin:el.style.margin, transform:el.style.transform,
+		width:el.style.width, height:el.style.height };
+	const pin=document.createElement('button');
+	pin.type='button'; pin.className='aw-drag-reset';
+	pin.title='Reset to default position'; pin.setAttribute('aria-label','Reset to default position');
+	pin.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>';
+	const oy=getComputedStyle(el).overflowY; const clips=(oy==='auto'||oy==='scroll'||oy==='hidden');
+	pin.style.top=clips?'8px':'-10px'; pin.style.right=clips?'8px':'-10px';
+	el.appendChild(pin);
+	function showPin(on){ pin.style.display=on?'flex':'none'; }
+	pin.addEventListener('pointerdown', e=>{ e.stopPropagation(); });
+	pin.addEventListener('click', e=>{
+		e.preventDefault(); e.stopPropagation();
+		el.style.position=home.position; el.style.left=home.left; el.style.top=home.top;
+		el.style.right=home.right; el.style.bottom=home.bottom; el.style.margin=home.margin; el.style.transform=home.transform;
+		el.style.width=home.width; el.style.height=home.height;
+		if(key){ try{ localStorage.removeItem(key); }catch(_){} }
+		if(sizeKey){ try{ localStorage.removeItem(sizeKey); }catch(_){} }
+		showPin(false);
+	});
+	function fix(left,top){
+		const w=el.offsetWidth, h=el.offsetHeight;
+		left=Math.max(6, Math.min(left, window.innerWidth  - w - 6));
+		top =Math.max(6, Math.min(top,  window.innerHeight - h - 6));
+		el.style.position='fixed'; el.style.left=left+'px'; el.style.top=top+'px';
+		el.style.right='auto'; el.style.bottom='auto'; el.style.margin='0'; el.style.transform='none';
 	}
-});
+	if(resizable && typeof ResizeObserver!=='undefined'){
+		let rt;
+		new ResizeObserver(()=>{
+			if(el.style.width || el.style.height){
+				showPin(true);
+				if(sizeKey){ clearTimeout(rt); rt=setTimeout(()=>{ try{ localStorage.setItem(sizeKey, JSON.stringify({w:el.style.width, h:el.style.height})); }catch(_){} }, 150); }
+			}
+		}).observe(el);
+	}
+	el.addEventListener('pointerdown', e=>{
+		if(e.button!==0 || (e.target.closest && e.target.closest('a,button,select,input,textarea'))) return;
+		if(resizable){ const r=el.getBoundingClientRect(); if(e.clientX>r.right-18 && e.clientY>r.bottom-18) return; }
+		dragging=true; moved=false;
+		const r=el.getBoundingClientRect(); bl=r.left; bt=r.top; sx=e.clientX; sy=e.clientY;
+		fix(bl, bt);
+		try{ el.setPointerCapture(e.pointerId); }catch(_){}
+		e.preventDefault();
+	});
+	el.addEventListener('pointermove', e=>{
+		if(!dragging) return;
+		const dx=e.clientX-sx, dy=e.clientY-sy;
+		if(Math.abs(dx)>2||Math.abs(dy)>2) moved=true;
+		fix(bl+dx, bt+dy);
+	});
+	function end(e){
+		if(!dragging) return; dragging=false;
+		try{ el.releasePointerCapture(e.pointerId); }catch(_){}
+		if(moved){ showPin(true); if(key){ try{ const r=el.getBoundingClientRect(); localStorage.setItem(key, JSON.stringify({left:r.left, top:r.top})); }catch(_){} } }
+	}
+	el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+	if(sizeKey){ try{ const z=JSON.parse(localStorage.getItem(sizeKey)||'null'); if(z && (z.w||z.h)){ if(z.w) el.style.width=z.w; if(z.h) el.style.height=z.h; showPin(true); } }catch(_){} }
+	if(key){ try{ const s=JSON.parse(localStorage.getItem(key)||'null'); if(s && isFinite(s.left) && isFinite(s.top)){ fix(s.left, s.top); showPin(true); } }catch(_){} }
+}
+dragify(document.getElementById('step-outline'), 'aw-foundry-outline-pos');
+dragify(document.getElementById('aw-caption'), 'aw-foundry-caption-pos');
+
+// ── Hide / show top bar ──────────────────
+(function () {
+	const hideTop   = document.getElementById('header-hide-top'); // header chevron (hide)
+	const revealBtn = document.getElementById('header-reveal');   // floating toolbar (show)
+	const pillBtn   = document.getElementById('header-hide');     // control-bar toggle (flips ^ / v)
+	const pillPath  = pillBtn ? pillBtn.querySelector('svg path') : null;
+	const UP = 'M6 15l6-6 6 6', DOWN = 'M6 9l6 6 6-6';   // ^ hides the bar; flips to v to show it again
+	function setChromeHidden(hidden) {
+		document.body.classList.toggle('chrome-hidden', hidden);
+		if (hideTop) hideTop.setAttribute('aria-expanded', String(!hidden));
+		if (pillBtn) {
+			pillBtn.setAttribute('aria-pressed', String(hidden));
+			pillBtn.setAttribute('aria-label', hidden ? 'Show top bar' : 'Hide top bar');
+			pillBtn.title = hidden ? 'Show top bar' : 'Hide top bar';
+			if (pillPath) pillPath.setAttribute('d', hidden ? DOWN : UP);
+		}
+		try { localStorage.setItem('sp-chrome-hidden', hidden ? '1' : '0'); } catch (_) {}
+		if (typeof renderStep === 'function' && typeof current !== 'undefined' && current >= 0) {
+			const wasPaused = motionPaused; motionPaused = true;
+			requestAnimationFrame(() => { renderStep(current); motionPaused = wasPaused; });
+		}
+	}
+	if (hideTop)   hideTop.addEventListener('click',   e => { e.stopPropagation(); setChromeHidden(true); });
+	if (revealBtn) revealBtn.addEventListener('click', e => { e.stopPropagation(); setChromeHidden(false); });
+	if (pillBtn)   pillBtn.addEventListener('click',   e => { e.stopPropagation(); setChromeHidden(!document.body.classList.contains('chrome-hidden')); });
+	try { if (localStorage.getItem('sp-chrome-hidden') === '1') setChromeHidden(true); } catch (_) {}
+	document.addEventListener('keydown', e => {
+		if (e.code === 'KeyH' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+			const tag = (e.target.tagName || '').toLowerCase();
+			if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+			e.preventDefault();
+			setChromeHidden(!document.body.classList.contains('chrome-hidden'));
+		}
+	});
+})();
 
 // ── Speed control ────────────────────────
 const SPEED_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2];
@@ -2738,6 +2954,287 @@ window.addEventListener('resize', () => {
 setLanguage(currentLang);
 counter.textContent = `1 / ${STEPS.length}`;
 renderStep(0);
+</script>
+<script>
+/* ── Per-step narration audio (Ava DragonHD, en-US) ────────────────────────────
+   Plays ONLY the current step's clip and pauses when the step changes. Opt-in via
+   the header speaker button. Self-contained: it wraps renderStep and injects its
+   own control, so the engine above is untouched.
+   Clips live in audio/<Page>/step-NN.mp3, one per step in on-screen order. */
+(function () {
+  const BASE = 'audio/AgentSpeech/';
+  const FILES = ['step-01.mp3','step-02.mp3','step-03.mp3','step-04.mp3','step-05.mp3','step-06.mp3','step-07.mp3','step-08.mp3','step-09.mp3','step-10.mp3','step-11.mp3'];
+  if (typeof window.renderStep !== 'function') return;
+  const LABELS = { en:['\uD83D\uDD0A Audio','\uD83D\uDD07 Audio'], es:['\uD83D\uDD0A Audio','\uD83D\uDD07 Audio'], ja:['\uD83D\uDD0A \u97F3\u58F0','\uD83D\uDD07 \u97F3\u58F0'], ko:['\uD83D\uDD0A \uC624\uB514\uC624','\uD83D\uDD07 \uC624\uB514\uC624'], pt:['\uD83D\uDD0A \u00C1udio','\uD83D\uDD07 \u00C1udio'] };
+  let on = false, cur = null, timer = null, playingIdx = -1;
+  let lastIdx = (typeof current === 'number' && current >= 0) ? current : 0;
+  // Per-step natural animation durations (seconds, measured at 1x). When audio is on,
+  // each step's playback speed is nudged so the animation finishes ~with its narration.
+  const ANIM = [13.06, 7.61, 23.61, 13.00, 28.89, 15.39, 16.61, 13.00, 15.78, 15.50, 26.56];
+  const SPEED_MIN = 0.6, SPEED_MAX = 2.2;
+  const audioDur = {};
+  function adir() { return (typeof currentLang === 'string' && currentLang !== 'en') ? currentLang + '/' : ''; }
+  function baseSpeed() { try { if (Array.isArray(SPEED_STEPS) && typeof speedIndex === 'number') return SPEED_STEPS[speedIndex]; } catch (_) {} return 1; }
+  // Speed override disabled for this page: narration plays without changing the animation timescale.
+  function syncSpeed(i) {}
+  function restoreSpeed() {}
+  const style = document.createElement('style');
+  style.textContent = '#aw-audio-toggle{display:inline-flex;align-items:center;justify-content:center;gap:5px;border:1px solid var(--theme-border);border-radius:4px;transition:background .2s,color .2s,border-color .2s,opacity .2s;opacity:.6}#aw-audio-toggle .aw-audio-ico{font-size:1rem;line-height:1}#aw-audio-toggle .aw-audio-time{font-variant-numeric:tabular-nums;display:inline-block;width:3.4em;text-align:center;letter-spacing:.02em;font-weight:600}#aw-audio-toggle.on{background:var(--theme-primary-translucent,rgba(0,120,212,.12));color:var(--theme-primary,#0078d4);border-color:var(--theme-primary,#0078d4);opacity:1}';
+  document.head.appendChild(style);
+  let icoEl = null, timeEl = null;
+  function fmt(s) { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
+  function updateProg() { if (!cur || !on || !timeEl) return; const d = cur.duration; if (!isFinite(d) || d <= 0) return; timeEl.textContent = fmt(d - cur.currentTime); }
+  function hideProg() { if (timeEl) timeEl.textContent = '--:--'; }
+  function stop() { hideProg(); if (window.AWCaptions) AWCaptions.clear(); if (cur) { cur.pause(); cur.currentTime = 0; cur = null; } if (timer) { clearTimeout(timer); timer = null; } }
+  function ccOn() { return !!window.__awCcOn; }
+  window.__awAudioRefreshCC = function () { if (document.body.classList.contains('aw-prestart')) return; if (on) return; stop(); if (ccOn()) { playingIdx = lastIdx; play(lastIdx); } };
+  function play(i) { stop(); if ((!on && !ccOn()) || i < 0 || i >= FILES.length || !FILES[i]) return; if (document.body.classList.contains('aw-prestart')) return; timer = setTimeout(function () { timer = null; cur = new Audio(BASE + adir() + FILES[i]); cur.volume = on ? 1 : 0; if (window.AWCaptions) AWCaptions.bind(cur, i); cur.addEventListener('loadedmetadata', function () { if (isFinite(cur.duration) && cur.duration > 0) { audioDur[i] = cur.duration; syncSpeed(i); updateProg(); } }); cur.addEventListener('timeupdate', updateProg); cur.addEventListener('ended', hideProg); cur.play().catch(function () {}); }, 250); }
+  function onStep(i) { if (typeof i !== 'number' || i < 0) return; lastIdx = i; if (document.body.classList.contains('aw-prestart')) return; if (i !== playingIdx) { playingIdx = i; if (on || ccOn()) play(i); } }
+  const _render = window.renderStep;
+  window.renderStep = function (i) { if (on && typeof i === 'number' && i >= 0 && audioDur[i]) syncSpeed(i); const r = _render.apply(this, arguments); onStep(typeof i === 'number' ? i : lastIdx); return r; };
+  // Replay/next/prev/reset all call interruptAnimation() first; clear the tracked clip so the same
+  // step's narration restarts with the animation (incidental re-renders don't call it, so they don't).
+  const _interrupt = window.interruptAnimation;
+  if (typeof _interrupt === 'function') window.interruptAnimation = function () { playingIdx = -1; return _interrupt.apply(this, arguments); };
+  function lang() { return (typeof currentLang === 'string' && LABELS[currentLang]) ? currentLang : 'en'; }
+  function relabel(btn) { if (icoEl) icoEl.textContent = on ? '\uD83D\uDD0A' : '\uD83D\uDD07'; if (timeEl && !on) timeEl.textContent = '--:--'; btn.classList.toggle('on', on); btn.setAttribute('aria-pressed', on ? 'true' : 'false'); }
+  function mount() {
+    if (document.getElementById('aw-audio-toggle')) return;
+    const btn = document.createElement('button');
+    btn.id = 'aw-audio-toggle'; btn.type = 'button'; btn.className = 'ovl-btn ovl-audio';
+    btn.setAttribute('aria-label', 'Toggle narration audio'); btn.title = 'Narration audio (current step)';
+    btn.innerHTML = '<span class="aw-audio-ico" aria-hidden="true"></span><span class="aw-audio-time" aria-hidden="true">--:--</span>';
+    icoEl = btn.querySelector('.aw-audio-ico'); timeEl = btn.querySelector('.aw-audio-time');
+    btn.addEventListener('click', function () { on = !on; relabel(btn); if (on) { if (document.body.classList.contains('aw-prestart')) { playingIdx = -1; } else { playingIdx = lastIdx; play(lastIdx); } } else { restoreSpeed(); if (ccOn() && !document.body.classList.contains('aw-prestart')) { playingIdx = lastIdx; play(lastIdx); } else { stop(); } } });
+    try { if (new URLSearchParams(location.search).get('audio') === 'on' || localStorage.getItem('aw-audio-on') === '1') { on = true; playingIdx = -1; } } catch (_) {}
+    relabel(btn);
+    const pill = document.getElementById('stage-overlay');
+    if (pill) pill.insertBefore(btn, pill.firstChild);
+    else document.body.appendChild(btn);
+    const sel = document.getElementById('lang-select');
+    if (sel) sel.addEventListener('change', function () { relabel(btn); if (on) play(lastIdx); });
+  }
+  if (document.readyState !== 'loading') mount(); else document.addEventListener('DOMContentLoaded', mount);
+})();
+</script>
+<script>
+// ── Movable / pinnable control dock ───────
+(function(){
+	const dock=document.getElementById('controls'), grip=document.getElementById('ctrl-grip'), pin=document.getElementById('ctrl-pin');
+	if(!dock||!grip) return;
+	const KEY='aw-ctrlpos:'+location.pathname;
+	let dragging=false, sx=0, sy=0, bl=0, bt=0, moved=false;
+	function place(left,top){
+		const w=dock.offsetWidth, h=dock.offsetHeight;
+		left=Math.max(6, Math.min(left, window.innerWidth - w - 6));
+		top =Math.max(6, Math.min(top,  window.innerHeight - h - 6));
+		dock.style.left=left+'px'; dock.style.top=top+'px'; dock.style.right='auto'; dock.style.bottom='auto'; dock.style.transform='none';
+		document.body.classList.add('controls-floating');
+	}
+	function recenter(){
+		dock.style.left=dock.style.top=dock.style.right=dock.style.bottom=dock.style.transform='';
+		document.body.classList.remove('controls-floating');
+		try{ localStorage.removeItem(KEY); }catch(_){}
+	}
+	grip.addEventListener('pointerdown', e=>{
+		e.preventDefault(); dragging=true; moved=false;
+		const r=dock.getBoundingClientRect(); bl=r.left; bt=r.top; sx=e.clientX; sy=e.clientY;
+		try{ grip.setPointerCapture(e.pointerId); }catch(_){}
+	});
+	grip.addEventListener('pointermove', e=>{
+		if(!dragging) return;
+		const dx=e.clientX-sx, dy=e.clientY-sy;
+		if(Math.abs(dx)>2||Math.abs(dy)>2) moved=true;
+		place(bl+dx, bt+dy);
+	});
+	function end(e){ if(!dragging) return; dragging=false; try{ grip.releasePointerCapture(e.pointerId); }catch(_){}
+		if(moved){ try{ const r=dock.getBoundingClientRect(); localStorage.setItem(KEY, JSON.stringify({left:r.left, top:r.top})); }catch(_){} } }
+	grip.addEventListener('pointerup', end); grip.addEventListener('pointercancel', end);
+	grip.addEventListener('keydown', e=>{
+		const d=e.shiftKey?40:12; const r=dock.getBoundingClientRect(); let ok=true;
+		if(e.key==='ArrowLeft') place(r.left-d, r.top);
+		else if(e.key==='ArrowRight') place(r.left+d, r.top);
+		else if(e.key==='ArrowUp') place(r.left, r.top-d);
+		else if(e.key==='ArrowDown') place(r.left, r.top+d);
+		else ok=false;
+		if(ok){ e.preventDefault(); e.stopPropagation(); }
+	});
+	if(pin) pin.addEventListener('click', e=>{ e.stopPropagation(); recenter(); });
+	window.addEventListener('resize', ()=>{ if(document.body.classList.contains('controls-floating')){ const r=dock.getBoundingClientRect(); place(r.left, r.top); } });
+	try{ const s=JSON.parse(localStorage.getItem(KEY)||'null'); if(s && typeof s.left==='number') place(s.left, s.top); }catch(_){}
+})();
+</script>
+<script>
+// ── Start gate (this page): empty/transparent stage + a centered "Ready to begin?" card. ──
+(function () {
+	if (new URLSearchParams(location.search).has('present')) return;
+	var stage = document.getElementById('stage');
+	if (!stage) return;
+	function freeze() { try { if (window.gsap && gsap.globalTimeline) gsap.globalTimeline.pause(); } catch (_) {} }
+	freeze(); requestAnimationFrame(freeze);
+	document.body.classList.add('aw-prestart');
+	stage.style.transition = 'opacity .55s ease';
+	stage.style.opacity = '0';
+
+	var T = {
+		title: { en:'Ready to begin?', es:'\u00BFTodo listo?', ja:'\u6E96\u5099\u306F\u3044\u3044\u3067\u3059\u304B\uFF1F', ko:'\uC2DC\uC791\uD560 \uC900\uBE44\uAC00 \uB418\uC168\uB098\uC694?', pt:'Tudo pronto?' },
+		sound: { en:'Sound', es:'Sonido', ja:'\u97F3\u58F0', ko:'\uC18C\uB9AC', pt:'Som' },
+		cc:    { en:'Subtitles (CC)', es:'Subt\u00EDtulos (CC)', ja:'\u5B57\u5E55\uFF08CC\uFF09', ko:'\uC790\uB9C9 (CC)', pt:'Legendas (CC)' },
+		start: { en:'Start presentation', es:'Iniciar presentaci\u00F3n', ja:'\u30D7\u30EC\u30BC\u30F3\u3092\u958B\u59CB', ko:'\uD504\uB808\uC820\uD14C\uC774\uC158 \uC2DC\uC791', pt:'Iniciar apresenta\u00E7\u00E3o' }
+	};
+	function L(){ return (typeof currentLang === 'string' && currentLang) || 'en'; }
+	function t(k){ var m = T[k], l = L(); return m[m[l] ? l : 'en']; }
+	function awAudioState(){ try{ var b=document.getElementById('aw-audio-toggle'); if(b) return b.classList.contains('on'); }catch(_){} try{ if(new URLSearchParams(location.search).get('audio')==='on') return true; return localStorage.getItem('aw-audio-on')==='1'; }catch(_){} return false; }
+	function awCcState(){ try{ if(typeof window.__awCcOn!=='undefined' && window.__awCcOn!==null) return !!window.__awCcOn; }catch(_){} try{ if(new URLSearchParams(location.search).get('audio')==='on') return true; return localStorage.getItem('aw-foundry-cc')==='1'; }catch(_){} return false; }
+
+	var style = document.createElement('style');
+	style.textContent =
+		'body.aw-prestart #controls{opacity:.4;pointer-events:none;transition:opacity .4s ease}' +
+		'#aw-play-card{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:50;box-sizing:border-box;width:min(90vw,22rem);padding:1.35rem 1.5rem 1.5rem;border-radius:16px;background:var(--theme-card-background,#fff);color:var(--theme-text,#222);border:1px solid var(--theme-border,rgba(0,0,0,.1));box-shadow:0 24px 60px rgba(0,0,0,.28);transition:opacity .3s ease,transform .3s ease}' +
+		'#aw-play-card.aw-hide{opacity:0;transform:translate(-50%,-50%) scale(.96);pointer-events:none}' +
+		'body.theme-dark #aw-play-card{border-color:rgba(255,255,255,.12);box-shadow:0 24px 60px rgba(0,0,0,.55)}' +
+		'body.present-mode #aw-play-card{display:none!important}' +
+		'.aw-card-title{margin:0 0 1rem;text-align:center;font-size:1.02rem;font-weight:800;letter-spacing:.03em;text-transform:uppercase;opacity:.85}' +
+		'.aw-row{display:flex;align-items:center;gap:.65rem;padding:.6rem 0}' +
+		'.aw-row + .aw-row{border-top:1px solid var(--theme-border,rgba(0,0,0,.08))}' +
+		'.aw-row-ico{flex:none;width:1.5rem;text-align:center;font-size:1.15rem;line-height:1}' +
+		'.aw-row-lbl{flex:1 1 auto;font-size:.9rem;font-weight:600}' +
+		'.aw-row-state{flex:none;min-width:2.5rem;text-align:right;font-size:.68rem;font-weight:800;letter-spacing:.05em;opacity:.5}' +
+		'.aw-row-state.on{color:var(--theme-primary,#0078d4);opacity:1}' +
+		'.aw-switch{position:relative;flex:none;width:44px;height:24px;padding:0;border:none;border-radius:999px;cursor:pointer;background:var(--theme-border,#c7c7d1);transition:background .18s ease}' +
+		'.aw-switch.on{background:var(--theme-primary,#0078d4)}' +
+		'.aw-switch::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.4);transition:transform .18s ease}' +
+		'.aw-switch.on::after{transform:translateX(20px)}' +
+		'#aw-start{margin-top:1.2rem;width:100%;display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:.8rem 1rem;border:none;border-radius:11px;cursor:pointer;background:var(--theme-primary,#0078d4);color:#fff;font-size:.96rem;font-weight:700;letter-spacing:.01em;box-shadow:0 8px 22px var(--theme-primary-translucent,rgba(0,120,212,.45));transition:transform .15s ease}' +
+		'#aw-start:hover{transform:translateY(-2px)}#aw-start:active{transform:scale(.98)}' +
+		'#aw-start svg{width:18px;height:18px;flex:none}';
+	document.head.appendChild(style);
+
+	var card = document.createElement('div');
+	card.id = 'aw-play-card'; card.setAttribute('role', 'dialog'); card.setAttribute('aria-modal', 'true');
+	card.innerHTML =
+		'<div class="aw-card-title"></div>' +
+		'<div class="aw-row" data-k="audio"><span class="aw-row-ico" aria-hidden="true">\uD83D\uDD0A</span><span class="aw-row-lbl"></span><span class="aw-row-state"></span><button type="button" class="aw-switch" role="switch"></button></div>' +
+		'<div class="aw-row" data-k="cc"><span class="aw-row-ico" aria-hidden="true">\uD83D\uDCAC</span><span class="aw-row-lbl"></span><span class="aw-row-state"></span><button type="button" class="aw-switch" role="switch"></button></div>' +
+		'<button type="button" id="aw-start"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 5v14l11-7z"/></svg><span class="aw-start-lbl"></span></button>';
+	document.body.appendChild(card);
+
+	var titleEl = card.querySelector('.aw-card-title');
+	var startBtn = card.querySelector('#aw-start');
+	var ROWS = [ { k:'audio', lbl:'sound', el:card.querySelector('.aw-row[data-k="audio"]'), read:awAudioState, toggle:'aw-audio-toggle' },
+	             { k:'cc',    lbl:'cc',    el:card.querySelector('.aw-row[data-k="cc"]'),    read:awCcState,    toggle:'cc-toggle' } ];
+
+	function render(){
+		titleEl.textContent = t('title'); card.setAttribute('aria-label', t('title'));
+		startBtn.querySelector('.aw-start-lbl').textContent = t('start');
+		ROWS.forEach(function(r){
+			var on = r.read();
+			r.el.querySelector('.aw-row-lbl').textContent = t(r.lbl);
+			var st = r.el.querySelector('.aw-row-state'); st.textContent = on ? 'ON' : 'OFF'; st.classList.toggle('on', on);
+			var sw = r.el.querySelector('.aw-switch'); sw.classList.toggle('on', on); sw.setAttribute('aria-checked', on ? 'true' : 'false');
+			sw.setAttribute('aria-label', t(r.lbl) + ' \u2014 ' + (on ? 'on' : 'off'));
+		});
+	}
+	ROWS.forEach(function(r){
+		r.el.querySelector('.aw-switch').addEventListener('click', function(e){ e.stopPropagation(); var b = document.getElementById(r.toggle); if(b) b.click(); render(); });
+	});
+	render();
+	document.addEventListener('DOMContentLoaded', render);
+
+	var sel = document.getElementById('lang-select');
+	if (sel) sel.addEventListener('change', function () { render(); freeze(); });
+
+	function gateKeys(e) {
+		if (done) return;
+		var tag = (e.target && e.target.tagName || '').toLowerCase();
+		if (tag === 'select' || tag === 'input' || tag === 'textarea') return;
+		if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'].indexOf(e.key) >= 0) { e.preventDefault(); e.stopPropagation(); }
+	}
+	document.addEventListener('keydown', gateKeys, true);
+
+	var done = false;
+	function start() {
+		if (done) return; done = true;
+		document.removeEventListener('keydown', gateKeys, true);
+		document.body.classList.remove('aw-prestart');
+		card.classList.add('aw-hide');
+		setTimeout(function () { if (card.parentNode) card.parentNode.removeChild(card); if (style.parentNode) style.parentNode.removeChild(style); }, 420);
+		setTimeout(function () {
+			try { if (window.gsap && gsap.globalTimeline) gsap.globalTimeline.play(); } catch (_) {}
+			stage.style.opacity = '1';
+			try { if (typeof interruptAnimation === 'function') interruptAnimation(); } catch (_) {}
+			try { if (typeof renderStep === 'function') renderStep(typeof current === 'number' && current >= 0 ? current : 0); } catch (_) {}
+		}, 380);
+	}
+	startBtn.addEventListener('click', start);
+}());
+</script>
+<script>
+// ── Captions (CC) + full screen (in-frame player controls) ──
+(function () {
+	var ccBtn = document.getElementById('cc-toggle');
+	var ccPref = false;
+	try { ccPref = localStorage.getItem('aw-foundry-cc') === '1'; } catch (_) {}
+	try { if (new URLSearchParams(location.search).get('audio') === 'on') ccPref = true; } catch (_) {}
+	window.__awCcOn = ccPref;
+	function syncCc() { if (!ccBtn) return; ccBtn.classList.toggle('toggle-active', ccPref); ccBtn.setAttribute('aria-pressed', ccPref ? 'true' : 'false'); }
+	function applyCc() { window.__awCcOn = ccPref; document.body.classList.toggle('cc-on', ccPref); if (window.AWCaptions) AWCaptions.setEnabled(ccPref); syncCc(); }
+	if (window.AWCaptions) { AWCaptions.configure({ page: 'AgentSpeech', base: '../../../narration/v2/AI/Foundry/', lang: function () { return (typeof currentLang === 'string' ? currentLang : 'en'); }, fallback: function () { return ''; }, reserve: false }); }
+	if (ccBtn) { ccBtn.addEventListener('click', function () { ccPref = !ccPref; try { localStorage.setItem('aw-foundry-cc', ccPref ? '1' : '0'); } catch (_) {} applyCc(); if (typeof window.__awAudioRefreshCC === 'function') window.__awAudioRefreshCC(); }); }
+	applyCc();
+
+	var fsBtn = document.getElementById('fs-toggle');
+	if (fsBtn) {
+		var inFs = function () { return !!(document.fullscreenElement || document.webkitFullscreenElement); };
+		var syncFs = function () { document.body.classList.toggle('is-fs', inFs()); fsBtn.setAttribute('aria-pressed', inFs() ? 'true' : 'false'); fsBtn.title = inFs() ? 'Exit full screen (F)' : 'Full screen (F)'; };
+		var toggleFs = function () { try { if (inFs()) { (document.exitFullscreen || document.webkitExitFullscreen).call(document); } else { var el = document.documentElement; (el.requestFullscreen || el.webkitRequestFullscreen).call(el); } } catch (_) {} };
+		fsBtn.addEventListener('click', function (e) { e.stopPropagation(); toggleFs(); });
+		document.addEventListener('fullscreenchange', syncFs); document.addEventListener('webkitfullscreenchange', syncFs);
+		document.addEventListener('keydown', function (e) { if (e.code === 'KeyF' && !e.metaKey && !e.ctrlKey && !e.altKey) { var tag = (e.target.tagName || '').toLowerCase(); if (tag === 'input' || tag === 'textarea' || tag === 'select') return; e.preventDefault(); toggleFs(); } });
+		syncFs();
+	}
+}());
+</script>
+<script>
+// ── Keyboard shortcut help panel (? key / left pill) ──
+(function () {
+	var overlay = document.getElementById('shortcut-overlay');
+	var btn = document.getElementById('help-toggle');
+	var closeBtn = document.getElementById('sc-close');
+	var list = document.getElementById('sc-list');
+	if (!overlay || !list) return;
+	var SC = {
+		en: { title:'Keyboard shortcuts', next:'Next step', prev:'Previous step', restart:'Restart', replay:'Replay this step', hide:'Hide / show top bar', full:'Full screen', help:'Toggle this help', tip:'Shortcuts', hint:'Press {k} anytime to toggle this panel.' },
+		es: { title:'Atajos de teclado', next:'Paso siguiente', prev:'Paso anterior', restart:'Reiniciar', replay:'Repetir este paso', hide:'Ocultar / mostrar la barra superior', full:'Pantalla completa', help:'Mostrar u ocultar esta ayuda', tip:'Atajos', hint:'Pulsa {k} en cualquier momento para abrir este panel.' },
+		ja: { title:'キーボードショートカット', next:'次のステップ', prev:'前のステップ', restart:'最初から再生', replay:'このステップを再生', hide:'上部バーの表示 / 非表示', full:'全画面表示', help:'このヘルプの表示切り替え', tip:'ショートカット', hint:'いつでも {k} キーでこのパネルを開閉できます。' },
+		ko: { title:'키보드 단축키', next:'다음 단계', prev:'이전 단계', restart:'처음부터 다시 시작', replay:'이 단계 다시 재생', hide:'상단 바 숨기기 / 표시', full:'전체 화면', help:'이 도움말 켜기 / 끄기', tip:'단축키', hint:'언제든지 {k} 키를 눌러 이 패널을 열고 닫을 수 있습니다.' },
+		pt: { title:'Atalhos de teclado', next:'Próximo passo', prev:'Passo anterior', restart:'Recomeçar', replay:'Repetir este passo', hide:'Ocultar / mostrar a barra superior', full:'Tela cheia', help:'Mostrar ou ocultar esta ajuda', tip:'Atalhos', hint:'Pressione {k} a qualquer momento para abrir este painel.' }
+	};
+	function dict() { var l = (typeof currentLang === 'string' && SC[currentLang]) ? currentLang : 'en'; return SC[l]; }
+	var ROWS = [[['\u2192', 'Space'], 'next'], [['\u2190'], 'prev'], [['R'], 'restart'], [['P'], 'replay'], [['H'], 'hide'], [['F'], 'full'], [['?'], 'help']];
+	window.buildShortcuts = function () {
+		var s = dict();
+		var title = document.getElementById('sc-title'); if (title) title.textContent = s.title;
+		var hint = document.getElementById('sc-hint'); if (hint) hint.innerHTML = s.hint.replace('{k}', '<kbd>?</kbd>');
+		if (btn) { btn.setAttribute('data-tip', s.tip); btn.setAttribute('aria-label', s.title); }
+		list.innerHTML = ROWS.map(function (r) {
+			return '<li><span>' + s[r[1]] + '</span><span class="sc-keys">' + r[0].map(function (k) { return '<kbd>' + k + '</kbd>'; }).join('') + '</span></li>';
+		}).join('');
+	};
+	buildShortcuts();
+	function open() { overlay.removeAttribute('hidden'); if (closeBtn) closeBtn.focus(); }
+	function close() { overlay.setAttribute('hidden', ''); if (btn) btn.focus(); }
+	function toggle() { overlay.hasAttribute('hidden') ? open() : close(); }
+	if (btn) btn.addEventListener('click', function (e) { e.stopPropagation(); toggle(); });
+	if (closeBtn) closeBtn.addEventListener('click', function (e) { e.stopPropagation(); close(); });
+	var bd = overlay.querySelector('.sc-backdrop'); if (bd) bd.addEventListener('click', close);
+	document.addEventListener('keydown', function (e) {
+		var tag = (e.target.tagName || '').toLowerCase();
+		if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+		if (e.key === '?') { e.preventDefault(); toggle(); }
+		else if (e.key === 'Escape' && !overlay.hasAttribute('hidden')) { e.preventDefault(); close(); }
+	});
+}());
 </script>
 <script src="../../lib/js/aw-present.js"></script>
 </body>
