@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<script src="/js/tracking.js"></script>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Azure Animations — Azure Storage Storytelling</title>
+
+	<!-- Microsoft Atlas Design System -->
+	<link rel="stylesheet" href="https://unpkg.com/@microsoft/atlas-css/dist/index.css" />
+
+	<!-- GSAP for subtle entrance animation -->
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js" defer></script>
+
+	<style>
+		/* Minimal local overrides — let Atlas tokens do the heavy lifting */
+		/* Brand logo (matches the AI/Foundry hub) */
+		.brand { display:flex; align-items:center; gap:0.6rem; color:var(--theme-text); text-decoration:none; }
+		.brand img { height:34px; width:auto; display:block; }
+		.brand .brand-name { font-size:1.15rem; font-weight:700; letter-spacing:0.01em; }
+		.brand .brand-name .accent {
+			background:linear-gradient(90deg, var(--theme-primary,#0078d4), var(--theme-tertiary,#5c2d91));
+			-webkit-background-clip:text; background-clip:text; color:transparent;
+		}
+
+		/* Soft gradient backdrop on the hero, theme-aware via Atlas color tokens */
+		.hero-gradient {
+			background:
+				radial-gradient(circle at 15% 20%, var(--theme-primary, #0078d4) 0%, transparent 55%),
+				radial-gradient(circle at 85% 80%, var(--theme-tertiary, #5c2d91) 0%, transparent 55%),
+				var(--theme-body-background, #0b1020);
+		}
+
+		/* Hero needs the same horizontal padding as the rest of the page so
+		   text doesn't slam into the viewport edge. */
+		.hero {
+			padding: 4rem clamp(1.25rem, 5vw, 4rem);
+		}
+		.hero-content { max-width: 64rem; }
+
+		/* Make the project cards feel clickable */
+		.project-card {
+			position:relative;
+			transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+		}
+		.project-card:hover,
+		.project-card:focus-within {
+			transform: translateY(-4px);
+		}
+		/* Recommended card gets a primary-colored border + ribbon */
+		.project-card.is-recommended {
+			border: 2px solid var(--theme-primary, #0078d4);
+			box-shadow: 0 8px 24px rgba(0,120,212,0.18);
+		}
+		.recommend-ribbon {
+			position:absolute; top:-0.7rem; right:1rem;
+			background: var(--theme-primary, #0078d4);
+			color:#fff;
+			font-size:0.7rem; font-weight:700;
+			letter-spacing:0.12em; text-transform:uppercase;
+			padding:0.25rem 0.65rem; border-radius:999px;
+			box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+		}
+
+		/* Hide the JS-only card animation until GSAP runs */
+		.js-anim-init {
+			opacity: 0;
+		}
+
+		/* Sparkle pulse animation for "New" ribbons */
+		.sparkle-ribbon {
+			animation: sparkle-pulse 2s ease-in-out infinite;
+		}
+		@keyframes sparkle-pulse {
+			0%, 100% { transform: scale(1); box-shadow: 0 2px 6px rgba(0,0,0,0.25); }
+			50% { transform: scale(1.08); box-shadow: 0 4px 14px rgba(0,120,212,0.5); }
+		}
+
+		/* Hero Slider */
+		.hero-slider {
+			position: relative;
+			overflow: hidden;
+		}
+		.hero-slider-track {
+			display: flex;
+			transition: transform 0.6s ease-in-out;
+		}
+		.hero-slide {
+			min-width: 100%;
+			box-sizing: border-box;
+		}
+		.hero-slide .color-primary {
+			color: rgba(255,255,255,0.85) !important;
+		}
+		.hero-slide a.button {
+			display: inline-flex;
+			align-items: center;
+			gap: 0.5rem;
+		}
+		.hero-slide .slide-badge {
+			display: inline-block;
+			background: #ff4500;
+			color: #fff;
+			font-size: 0.6rem;
+			font-weight: 700;
+			padding: 2px 6px;
+			border-radius: 4px;
+			letter-spacing: 0.05em;
+			animation: sparkle-pulse 2s ease-in-out infinite;
+		}
+		.slider-nav {
+			display: flex;
+			align-items: center;
+			gap: 1rem;
+			margin-top: 1.5rem;
+		}
+		.slider-arrow {
+			width: 36px; height: 36px;
+			border-radius: 50%;
+			background: rgba(255,255,255,0.15);
+			border: 2px solid rgba(255,255,255,0.5);
+			color: #fff;
+			font-size: 1.1rem;
+			cursor: pointer;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			transition: background 0.3s, transform 0.2s;
+		}
+		.slider-arrow:hover {
+			background: rgba(255,255,255,0.3);
+			transform: scale(1.1);
+		}
+		.slider-counter {
+			color: rgba(255,255,255,0.8);
+			font-size: 0.85rem;
+			font-weight: 600;
+		}
+
+		/* Animated Fluent Emoji (APNG from microsoft/fluentui-emoji-animated) */
+		.point-finger {
+			display: inline-block;
+			width: 24px;
+			height: 24px;
+			vertical-align: middle;
+			margin-right: 4px;
+		}
+		.anim-rocket {
+			display: inline-block;
+			width: 28px;
+			height: 28px;
+			vertical-align: middle;
+			margin-right: 2px;
+		}
+		.anim-star {
+			display: inline-block;
+			width: 28px;
+			height: 28px;
+			vertical-align: middle;
+			margin-right: 2px;
+		}
+
+		/* Deprecated section with animated cross */
+		.deprecated-section {
+			position: relative;
+			opacity: 0.45;
+			filter: grayscale(0.7);
+			border: 3px dashed #e81123;
+			border-radius: 14px;
+			padding: 1.5rem;
+		}
+		.deprecated-cross {
+			position: absolute;
+			inset: 0;
+			z-index: 10;
+			overflow: hidden;
+			pointer-events: none;
+		}
+		.deprecated-cross::before,
+		.deprecated-cross::after {
+			content: '';
+			position: absolute;
+			top: 50%; left: 50%;
+			width: 140%;
+			height: 6px;
+			background: #e81123;
+			border-radius: 3px;
+			box-shadow: 0 2px 8px rgba(232,17,35,0.5);
+			transform-origin: center;
+			animation: cross-draw 1s ease-out forwards;
+		}
+		.deprecated-cross::before {
+			transform: translate(-50%, -50%) rotate(45deg) scaleX(0);
+			animation-delay: 0.5s;
+		}
+		.deprecated-cross::after {
+			transform: translate(-50%, -50%) rotate(-45deg) scaleX(0);
+			animation-delay: 0.9s;
+		}
+		@keyframes cross-draw {
+			to { transform: translate(-50%, -50%) rotate(var(--r, 45deg)) scaleX(1); }
+		}
+		.deprecated-cross::before { --r: 45deg; }
+		.deprecated-cross::after { --r: -45deg; }
+		.deprecated-badge {
+			position: absolute;
+			top: 1rem; right: 1rem;
+			z-index: 11;
+			pointer-events: none;
+			background: #e81123;
+			color: #fff;
+			font-size: 0.75rem;
+			font-weight: 700;
+			letter-spacing: 0.1em;
+			text-transform: uppercase;
+			padding: 0.3rem 0.75rem;
+			border-radius: 999px;
+			box-shadow: 0 2px 8px rgba(232,17,35,0.4);
+			animation: badge-pop 0.4s ease-out 1.2s both;
+		}
+		@keyframes badge-pop {
+			from { transform: scale(0); opacity: 0; }
+			to { transform: scale(1); opacity: 1; }
+		}
+	</style>
+</head>
+
+<body class="theme-dark">
+
+	<!-- ============================================================ -->
+	<!-- Site header                                                  -->
+	<!-- ============================================================ -->
+	<header class="site-header padding-block-sm padding-inline-md border-bottom display-flex align-items-center gap-md">
+	<script src="/js/tracking.js"></script>
+		<a href="../index.html" class="brand" aria-label="Azure Animations home">
+			<img src="../../img/AzureAnimations-Logo.svg" alt="Azure Animations logo" />
+			<span class="brand-name">Azure <span class="accent">Animations</span></span>
+		</a>
+
+		<nav class="margin-inline-start-auto display-flex gap-xs align-items-center">
+			<a class="button button-clear button-sm" href="VisionEnabled-GenAI-App.html">Vision GenAI</a>
+			<a class="button button-clear button-sm" href="../AI/Foundry/FoundryHubProject.html">Hub &amp; Project</a>
+			<a class="button button-clear button-sm" href="FoundryAgents.html">Foundry Agents</a>
+			<a class="button button-clear button-sm" href="StorageRedundancyGuide.html">Redundancy (Guide)</a>
+			<a class="button button-clear button-sm" href="StorageRedundancy.html">Redundancy (Atlas)</a>
+			<a class="button button-clear button-sm" href="StorageDeepDiveAtlas.html">Storage (Atlas)</a>
+			<a class="button button-clear button-sm" href="StorageDeepDive.html">Deep Dive</a>
+			<a class="button button-clear button-sm" href="StorageComic.html">Comic</a>
+			<a class="button button-clear button-sm" href="About.html">About</a>
+			<button id="theme-toggle"
+					type="button"
+					class="button button-clear button-sm"
+					aria-label="Toggle color theme">
+				🌓 Theme
+			</button>
+		</nav>
+	</header>
+
+	<!-- ============================================================ -->
+	<!-- Hero                                                         -->
+	<!-- ============================================================ -->
+	<section class="hero hero-gradient">
+		<div class="hero-content">
+			<div class="hero-slider">
+				<div class="hero-slider-track" id="heroSliderTrack">
+					<div class="hero-slide">
+						<p class="letter-spacing-wide text-transform-uppercase font-size-sm color-primary">
+							Microsoft Foundry · Architecture
+						</p>
+						<h1 class="font-size-h1 font-weight-semibold margin-block-sm">
+							Foundry Hub & Project Model
+						</h1>
+						<p class="font-size-lg margin-block-sm">
+							How Microsoft AI Foundry organizes AI workloads — the Hub provides centralized
+							governance and shared infrastructure, while Projects give teams isolated
+							workspaces to build AI solutions independently.
+						</p>
+						<a href="../AI/Foundry/FoundryHubProject.html" class="button button-primary button-filled margin-top-sm">
+							<img class="point-finger" src="https://media.githubusercontent.com/media/microsoft/fluentui-emoji-animated/main/assets/Backhand%20index%20pointing%20right/Default/animated/backhand_index_pointing_right_animated_default.png" alt="👉"> Explore the Diagram → <span class="slide-badge">🆕 NEW</span>
+						</a>
+					</div>
+					<div class="hero-slide">
+						<p class="letter-spacing-wide text-transform-uppercase font-size-sm color-primary">
+							Microsoft Foundry · New Experience
+						</p>
+						<h1 class="font-size-h1 font-weight-semibold margin-block-sm">
+							The New Foundry Experience
+						</h1>
+						<p class="font-size-lg margin-block-sm">
+							The unified Microsoft Foundry experience at ai.azure.com — one resource,
+							built-in model catalog, agent service, and powerful features.
+							No hub required.
+						</p>
+						<a href="../AI/Foundry/FoundryNew.html" class="button button-primary button-filled margin-top-sm">
+							<img class="point-finger" src="https://media.githubusercontent.com/media/microsoft/fluentui-emoji-animated/main/assets/Backhand%20index%20pointing%20right/Default/animated/backhand_index_pointing_right_animated_default.png" alt="👉"> Explore New Foundry → <span class="slide-badge">🆕 NEW</span>
+						</a>
+					</div>
+					<div class="hero-slide">
+						<p class="letter-spacing-wide text-transform-uppercase font-size-sm color-primary">
+							Azure Storage · Interactive
+						</p>
+						<h1 class="font-size-h1 font-weight-semibold margin-block-sm">
+							Learn Azure Storage by watching it move.
+						</h1>
+						<p class="font-size-lg margin-block-sm">
+							Four ways to explore the same story — from a beginner-friendly comic to
+							interactive deep dives and a fully-animated redundancy walkthrough.
+							Built with Microsoft Atlas Design.
+						</p>
+						<a href="StorageRedundancy.html" class="button button-primary button-filled margin-top-sm">
+							<img class="point-finger" src="https://media.githubusercontent.com/media/microsoft/fluentui-emoji-animated/main/assets/Backhand%20index%20pointing%20right/Default/animated/backhand_index_pointing_right_animated_default.png" alt="👉"> Try Storage Redundancy →
+						</a>
+					</div>
+				</div>
+				<div class="slider-nav">
+					<button class="slider-arrow" id="sliderPrev" aria-label="Previous slide">&#10094;</button>
+					<span class="slider-counter" id="sliderCounter">1 / 3</span>
+					<button class="slider-arrow" id="sliderNext" aria-label="Next slide">&#10095;</button>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<!-- ============================================================ -->
+	<!-- Project cards                                                -->
+	<!-- ============================================================ -->
+	<main class="padding-block-xl padding-inline-md">
+		<div class="margin-bottom-lg">
+			<p class="letter-spacing-wide text-transform-uppercase font-size-sm color-primary">
+				Choose your path
+			</p>
+			<h2 class="font-size-h2 font-weight-semibold">Two stories, one storage account.</h2>
+		</div>
+
+		<div class="display-flex flex-direction-column gap-xl" style="row-gap: 4rem;">
+
+			<!-- ============================================ -->
+			<!-- GROUP 0: Animations for Microsoft Learn      -->
+			<!-- ============================================ -->
+			<section style="border: 2px solid #ff8c1a;
+						    border-radius: 14px;
+						    background: rgba(255, 140, 26, 0.06);
+						    box-shadow: 0 8px 24px rgba(255, 140, 26, 0.18);
+						    padding: 1.5rem 1.5rem 1.25rem;
+						    position: relative;">
+				<!-- Bright "Microsoft Learn" ribbon -->
+				<span style="position:absolute; top:-0.7rem; left:1.2rem;
+							 background:#ff8c1a; color:#fff;
+							 font-size:0.7rem; font-weight:700;
+							 letter-spacing:0.12em; text-transform:uppercase;
+							 padding:0.25rem 0.65rem; border-radius:999px;
+							 box-shadow: 0 2px 6px rgba(0,0,0,0.25);">
+					Microsoft Learn
+				</span>
+
+				<header class="margin-bottom-md">
+	<script src="/js/tracking.js"></script>
+					<p class="letter-spacing-wide text-transform-uppercase font-size-sm"
+					   style="color:#ff8c1a;">
+						Group 0
+					</p>
+					<h3 class="font-size-h3 font-weight-semibold">Animations for Microsoft Learn</h3>
+					<p class="font-size-sm color-text-secondary margin-top-xs">
+						Interactive animated companions to official Microsoft Learn training modules. A collaboration with Mary-Jo.
+					</p>
+				</header>
+
+				<div class="display-flex flex-wrap-wrap gap-md">
+
+					<!-- Learn Unit 2 → Foundry Agent Publishing -->
+					<article class="card project-card flex-grow-1 js-anim-init is-recommended"
+							 style="min-width: 280px; flex-basis: 320px;">
+						<span class="recommend-ribbon sparkle-ribbon">✨ New</span>
+						<div class="card-content">
+							<p class="card-supertitle">
+								<img class="anim-rocket" src="https://media.githubusercontent.com/media/microsoft/fluentui-emoji-animated/main/assets/Rocket/animated/rocket_animated.png" alt="🚀">
+								Learn · Unit 2 · Animated
+							</p>
+							<a href="FoundryAgentPublishing.html" class="card-title stretched-link">
+								<img class="point-finger" src="https://media.githubusercontent.com/media/microsoft/fluentui-emoji-animated/main/assets/Backhand%20index%20pointing%20right/Default/animated/backhand_index_pointing_right_animated_default.png" alt="👉"> Understand publishing options
+							</a>
+							<p class="card-content-description margin-top-sm">
+								Animated companion to
+								<a href="https://learn.microsoft.com/en-us/training/modules/integrate-foundry-agent-with-m365/2-understand-publishing-options"
+								   target="_blank" rel="noopener"
+								   class="color-primary"
+								   style="position:relative; z-index:2;">
+									Learn · Unit 2
+								</a>
+								— compare the channels and surfaces where a Foundry agent can be published.
+							</p>
+						</div>
+						<div class="card-footer">
+							<div class="card-footer-item">
+								<span class="tag tag-default">Foundry</span>
+								<span class="tag tag-default">Publishing</span>
+							</div>
+							<div class="card-footer-item margin-inline-start-auto">
+								<span class="button button-primary button-clear button-sm">
+									Watch →
+								</span>
+							</div>
+						</div>
+					</article>
+
+					<!-- Learn Unit 3 → Publish Agent To Teams -->
+					<article class="card project-card flex-grow-1 js-anim-init is-recommended"
+							 style="min-width: 280px; flex-basis: 320px;">
+						<span class="recommend-ribbon sparkle-ribbon">🎉 New</span>
+						<div class="card-content">
+							<p class="card-supertitle">
+								<img class="anim-star" src="https://media.githubusercontent.com/media/microsoft/fluentui-emoji-animated/main/assets/Star-struck/animated/star-struck_animated.png" alt="🤩">
+								Learn · Unit 3 · Animated
+							</p>
+							<a href="PublishAgentToTeams.html" class="card-title stretched-link">
+								<img class="point-finger" src="https://media.githubusercontent.com/media/microsoft/fluentui-emoji-animated/main/assets/Backhand%20index%20pointing%20right/Default/animated/backhand_index_pointing_right_animated_default.png" alt="👉"> Publish from the Foundry portal
+							</a>
+							<p class="card-content-description margin-top-sm">
+								Animated companion to
+								<a href="https://learn.microsoft.com/en-us/training/modules/integrate-foundry-agent-with-m365/3-publish-agent-foundry-portal"
+								   target="_blank" rel="noopener"
+								   class="color-primary"
+								   style="position:relative; z-index:2;">
+									Learn · Unit 3
+								</a>
+								— 10-step walkthrough from prerequisites to going live in Teams and M365 Copilot.
+							</p>
+						</div>
+						<div class="card-footer">
+							<div class="card-footer-item">
+								<span class="tag tag-default">Teams</span>
+								<span class="tag tag-default">M365 Copilot</span>
+							</div>
+							<div class="card-footer-item margin-inline-start-auto">
+								<span class="button button-primary button-clear button-sm">
+									Watch →
+								</span>
+							</div>
+						</div>
+					</article>
+
+					<!-- Vision-Enabled GenAI App -->
+					<article class="card project-card flex-grow-1 js-anim-init"
+							 style="min-width: 280px; flex-basis: 320px;">
+						<div class="card-content">
+							<p class="card-supertitle">Microsoft Learn · Vision · Animated</p>
+							<a href="VisionEnabled-GenAI-App.html" class="card-title stretched-link">
+								Vision-Enabled GenAI App
+							</a>
+							<p class="card-content-description margin-top-sm">
+								Animated companion to
+								<a href="https://learn.microsoft.com/en-us/training/modules/develop-generative-ai-vision-apps/"
+								   target="_blank" rel="noopener"
+								   class="color-primary"
+								   style="position:relative; z-index:2;">
+									Develop generative AI vision apps
+								</a>
+								— a 6-scene walkthrough from "a picture says a thousand words" through
+								the human bottleneck, the vision-enabled chat solution, real-world business impact,
+								and building it in Microsoft Foundry.
+							</p>
+						</div>
+						<div class="card-footer">
+							<div class="card-footer-item">
+								<span class="tag tag-default">Vision</span>
+								<span class="tag tag-default">GenAI</span>
+								<span class="tag tag-default">Chat</span>
+								<span class="tag tag-default">Foundry</span>
+							</div>
+							<div class="card-footer-item margin-inline-start-auto">
+								<span class="button button-primary button-clear button-sm">
+									Watch the story →
+								</span>
+							</div>
+						</div>
+					</article>
+
+				</div>
+			</section>
+
+			<!-- ============================================ -->
+			<!-- GROUP 1: As per template suggested by Mary-Jo -->
+			<!-- ============================================ -->
+			<section>
+				<header class="margin-bottom-md">
+	<script src="/js/tracking.js"></script>
+					<p class="letter-spacing-wide text-transform-uppercase font-size-sm color-primary">
+						Group 1
+					</p>
+					<h3 class="font-size-h3 font-weight-semibold">As per template suggested by Mary-Jo</h3>
+				</header>
+				<div class="display-flex flex-wrap-wrap gap-md">
+
+			<!-- Foundry Agents -->
+			<article class="card project-card flex-grow-1 js-anim-init" style="min-width: 280px; max-width: 480px;">
+				<div class="card-content">
+					<p class="card-supertitle">Microsoft Foundry · Animated</p>
+					<a href="FoundryAgents.html" class="card-title stretched-link">
+						Foundry Agent Service
+					</a>
+					<p class="card-content-description margin-top-sm">
+						What is an AI Agent? A 5-step animated explainer covering Input → Agent → Output,
+						the LLM + Instructions + Tools building blocks, a concrete travel-booking example,
+						operational benefits, and a comparison of the four Foundry agent kinds.
+					</p>
+				</div>
+				<div class="card-footer">
+					<div class="card-footer-item">
+						<span class="tag tag-default">LLM</span>
+						<span class="tag tag-default">Instructions</span>
+						<span class="tag tag-default">Tools</span>
+						<span class="tag tag-default">Workflow</span>
+					</div>
+					<div class="card-footer-item margin-inline-start-auto">
+						<span class="button button-primary button-clear button-sm">
+							Explore agents →
+						</span>
+					</div>
+				</div>
+			</article>
+
+			<!-- Storage Redundancy — Guide-themed (recommended) -->
+			<article class="card project-card flex-grow-1 js-anim-init is-recommended"
+					 style="min-width: 280px; max-width: 480px;">
+				<span class="recommend-ribbon">New</span>
+				<div class="card-content">
+					<p class="card-supertitle">Redundancy · Guide style · Animated</p>
+					<a href="StorageRedundancyGuide.html" class="card-title stretched-link">
+						Storage Redundancy · Visual Guide
+					</a>
+					<p class="card-content-description margin-top-sm">
+						The redundancy story re-told with the cream/pill/white-card visual
+						language from the Microsoft Foundry guide images — same step engine,
+						easier-to-read layout, prev/next/replay/speed controls.
+					</p>
+				</div>
+				<div class="card-footer">
+					<div class="card-footer-item">
+						<span class="tag tag-default">LRS</span>
+						<span class="tag tag-default">ZRS</span>
+						<span class="tag tag-default">GRS</span>
+						<span class="tag tag-default">GZRS</span>
+					</div>
+					<div class="card-footer-item margin-inline-start-auto">
+						<span class="button button-primary button-clear button-sm">
+							Start here →
+						</span>
+					</div>
+				</div>
+			</article>
+
+			<!-- ============================================ -->
+			<!-- GROUP 2: By using vanilla Atlas UI/UX        -->
+			<!-- ============================================ -->
+			</div>
+			</section>
+
+			<section>
+				<header class="margin-bottom-md">
+	<script src="/js/tracking.js"></script>
+					<p class="letter-spacing-wide text-transform-uppercase font-size-sm color-primary">
+						Group 2
+					</p>
+					<h3 class="font-size-h3 font-weight-semibold">By using vanilla Atlas UI/UX</h3>
+				</header>
+				<div class="display-flex flex-wrap-wrap gap-md">
+
+			<!-- Storage Account · Atlas Edition -->
+			<article class="card project-card flex-grow-1 js-anim-init" style="min-width: 280px; max-width: 480px;">
+				<div class="card-content">
+					<p class="card-supertitle">Architecture · Atlas</p>
+					<a href="StorageDeepDiveAtlas.html" class="card-title stretched-link">
+						Storage Account · Atlas Edition
+					</a>
+					<p class="card-content-description margin-top-sm">
+						The same Storage Account story rebuilt with the Microsoft Atlas
+						design system — cleaner typography, tokens, and theming end-to-end.
+					</p>
+				</div>
+				<div class="card-footer">
+					<div class="card-footer-item">
+						<span class="tag tag-default">Atlas</span>
+						<span class="tag tag-default">Design system</span>
+					</div>
+					<div class="card-footer-item margin-inline-start-auto">
+						<span class="button button-primary button-clear button-sm">
+							Open →
+						</span>
+					</div>
+				</div>
+			</article>
+
+			<!-- Storage Redundancy (Atlas, original) -->
+			<article class="card project-card flex-grow-1 js-anim-init"
+					 style="min-width: 280px; max-width: 480px;">
+				<div class="card-content">
+					<p class="card-supertitle">Redundancy · Atlas · Animated</p>
+					<a href="StorageRedundancy.html" class="card-title stretched-link">
+						Storage Redundancy (Atlas edition)
+					</a>
+					<p class="card-content-description margin-top-sm">
+						The most polished walk-through: LRS, ZRS, GRS, RA-GRS, GZRS and
+						RA-GZRS animated step-by-step with playback speed, replay, outline
+						panel, and a side-by-side comparison table.
+					</p>
+				</div>
+				<div class="card-footer">
+					<div class="card-footer-item">
+						<span class="tag tag-default">LRS</span>
+						<span class="tag tag-default">ZRS</span>
+						<span class="tag tag-default">GRS</span>
+						<span class="tag tag-default">GZRS</span>
+					</div>
+					<div class="card-footer-item margin-inline-start-auto">
+						<span class="button button-primary button-clear button-sm">
+							Start here →
+						</span>
+					</div>
+				</div>
+			</article>
+
+			<!-- ============================================ -->
+			<!-- GROUP 3: Comic - Type                        -->
+			<!-- ============================================ -->
+			</div>
+			</section>
+
+			<section class="deprecated-section">
+				<div class="deprecated-cross"></div>
+				<span class="deprecated-badge">🚫 Deprecated</span>
+				<header class="margin-bottom-md">
+	<script src="/js/tracking.js"></script>
+					<p class="letter-spacing-wide text-transform-uppercase font-size-sm color-primary">
+						Group 3
+					</p>
+					<h3 class="font-size-h3 font-weight-semibold">Comic - Type</h3>
+				</header>
+				<div class="display-flex flex-wrap-wrap gap-md">
+
+			<!-- Storage Comic -->
+			<article class="card project-card flex-grow-1 js-anim-init" style="min-width: 280px; max-width: 480px;">
+				<div class="card-content">
+					<p class="card-supertitle">Story · Comic</p>
+					<a href="StorageComic.html" class="card-title stretched-link">
+						Storage Comic
+					</a>
+					<p class="card-content-description margin-top-sm">
+						Learn the Storage Account in comic style — a friendly, illustrated
+						panel-by-panel walk-through of the core concepts.
+					</p>
+				</div>
+				<div class="card-footer">
+					<div class="card-footer-item">
+						<span class="tag tag-default">Illustrated</span>
+						<span class="tag tag-default">Beginner</span>
+					</div>
+					<div class="card-footer-item margin-inline-start-auto">
+						<span class="button button-primary button-clear button-sm">
+							Read the comic →
+						</span>
+					</div>
+				</div>
+			</article>
+
+			<!-- Storage Account Deep Dive (interactive) -->
+			<article class="card project-card flex-grow-1 js-anim-init" style="min-width: 280px; max-width: 480px;">
+				<div class="card-content">
+					<p class="card-supertitle">Architecture · Interactive</p>
+					<a href="StorageDeepDive.html" class="card-title stretched-link">
+						Storage Account Deep Dive
+					</a>
+					<p class="card-content-description margin-top-sm">
+						Interactive learning of an Azure Storage Account with click-to-reveal
+						links and relationships across Blob, Files, Queue, and Table services.
+					</p>
+				</div>
+				<div class="card-footer">
+					<div class="card-footer-item">
+						<span class="tag tag-default">Blob</span>
+						<span class="tag tag-default">Files</span>
+						<span class="tag tag-default">Queue</span>
+						<span class="tag tag-default">Table</span>
+					</div>
+					<div class="card-footer-item margin-inline-start-auto">
+						<span class="button button-primary button-clear button-sm">
+							View diagram →
+						</span>
+					</div>
+				</div>
+			</article>
+
+				</div>
+			</section>
+
+		</div>
+
+		<!-- Feature strip -->
+		<section class="margin-block-xxl">
+			<div class="display-flex flex-wrap-wrap gap-md">
+				<div class="card flex-grow-1" style="min-width: 220px;">
+					<div class="card-content">
+						<p class="card-supertitle">⚡ Performance</p>
+						<a class="card-title">Smooth 60 fps</a>
+						<p class="card-content-description margin-top-sm">
+							GPU-accelerated GSAP timelines keep every transition silky.
+						</p>
+					</div>
+				</div>
+				<div class="card flex-grow-1" style="min-width: 220px;">
+					<div class="card-content">
+						<p class="card-supertitle">🎯 Interactive</p>
+						<a class="card-title">Click-driven</a>
+						<p class="card-content-description margin-top-sm">
+							You control the pace — every reveal is one click away.
+						</p>
+					</div>
+				</div>
+				<div class="card flex-grow-1" style="min-width: 220px;">
+					<div class="card-content">
+						<p class="card-supertitle">📱 Responsive</p>
+						<a class="card-title">Any device</a>
+						<p class="card-content-description margin-top-sm">
+							Works on desktop, tablet, and mobile out of the box.
+						</p>
+					</div>
+				</div>
+				<div class="card flex-grow-1" style="min-width: 220px;">
+					<div class="card-content">
+						<p class="card-supertitle">♿ Accessible</p>
+						<a class="card-title">Atlas-powered</a>
+						<p class="card-content-description margin-top-sm">
+							Built on Microsoft's accessible-by-default design system.
+						</p>
+					</div>
+				</div>
+			</div>
+		</section>
+	</main>
+
+	<!-- ============================================================ -->
+	<!-- Footer                                                       -->
+	<!-- ============================================================ -->
+	<footer class="padding-block-lg padding-inline-md border-top text-align-center">
+		<p class="font-size-md font-weight-semibold" style="margin-bottom:0.25rem;">
+			Founded & created by <span style="color:var(--theme-primary, #0078d4);">Nuttapong</span>
+		</p>
+		<p class="font-size-sm color-text-subtle" style="margin-bottom:0.5rem;">
+			Pioneer & Lead — Azure Animations
+		</p>
+		<p class="font-size-sm color-text-subtle">
+			<a class="color-primary" href="https://aka.ms/azureanimations" target="_blank" rel="noopener">Azure Animations</a>
+		</p>
+		<p class="font-size-sm color-text-subtle margin-top-xxs">
+			© 2026 Microsoft Corporation. All rights reserved.
+		</p>
+	</footer>
+
+	<script>
+		// --- Hero Slider ---
+		(function () {
+			var track = document.getElementById('heroSliderTrack');
+			var counter = document.getElementById('sliderCounter');
+			var prevBtn = document.getElementById('sliderPrev');
+			var nextBtn = document.getElementById('sliderNext');
+			var total = 3;
+			var current = 0;
+			var interval = 8000;
+
+			function goTo(index) {
+				current = ((index % total) + total) % total;
+				track.style.transform = 'translateX(-' + (current * 100) + '%)';
+				counter.textContent = (current + 1) + ' / ' + total;
+			}
+
+			prevBtn.addEventListener('click', function () { goTo(current - 1); });
+			nextBtn.addEventListener('click', function () { goTo(current + 1); });
+
+			setInterval(function () {
+				goTo(current + 1);
+			}, interval);
+		})();
+
+		// --- Theme toggle: cycles theme-dark ↔ theme-light --------------
+		(function () {
+			var body = document.body;
+			var btn = document.getElementById('theme-toggle');
+			var STORAGE_KEY = 'aw-theme';
+
+			var saved = localStorage.getItem(STORAGE_KEY);
+			if (saved) {
+				body.classList.remove('theme-dark', 'theme-light');
+				body.classList.add(saved);
+			}
+
+			btn.addEventListener('click', function () {
+				var next = body.classList.contains('theme-dark') ? 'theme-light' : 'theme-dark';
+				body.classList.remove('theme-dark', 'theme-light');
+				body.classList.add(next);
+				localStorage.setItem(STORAGE_KEY, next);
+			});
+		})();
+
+		// --- Card entrance animation (GSAP) -----------------------------
+		window.addEventListener('load', function () {
+			if (typeof gsap === 'undefined') {
+				document.querySelectorAll('.js-anim-init').forEach(function (el) {
+					el.style.opacity = 1;
+				});
+				return;
+			}
+			gsap.fromTo('.js-anim-init',
+				{ opacity: 0, y: 24 },
+				{ opacity: 1, y: 0, duration: 0.7, ease: 'power3.out', stagger: 0.12 }
+			);
+		});
+
+		// --- Open all links in new tab -----------------------------------
+		document.querySelectorAll('a[href]').forEach(function (link) {
+			if (!link.getAttribute('target')) {
+				link.setAttribute('target', '_blank');
+				link.setAttribute('rel', 'noopener');
+			}
+		});
+	</script>
+</body>
+</html>
