@@ -1,4 +1,4 @@
-![GitHub license](https://raw.githubusercontent.com/AzureAnimations/AzureAnimations.github.io/refs/heads/main/images/MIT-license.svg)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com)
 [![Awesome](https://awesome.re/badge.svg)](https://awesome.re)
 
