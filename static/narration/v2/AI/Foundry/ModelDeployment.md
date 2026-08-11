@@ -36,7 +36,17 @@ One block per animation step.
 [600ms]
 [optimistic] So fewer tokens means cheaper, faster responses.
 
-## Step 4 · Chat Flow
+## Step 4 · Inference
+
+[curious] So what actually happens when the model runs?
+[600ms]
+[confident] Deep in a data center, thousands of specialized chips take your tokens, turn them into vectors, and push them through layer after layer of math.
+[600ms]
+[serious] That process is called inference — and all those calculations lead to one thing: predicting the single most likely next word.
+[600ms]
+[reflective] It's not so different from how you'd finish a sentence from memory — except it's pure math, running billions of times a second.
+
+## Step 5 · Chat Flow
 
 [confident] Now follow a single message.
 [600ms]
@@ -44,7 +54,7 @@ One block per animation step.
 [600ms]
 [serious] That's the round trip — and you're billed for every token, both in and out.
 
-## Step 5 · AI Agents
+## Step 6 · AI Agents
 
 [confident] Calling a deployment directly is simple, and it works.
 [600ms]
