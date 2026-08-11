@@ -68,6 +68,8 @@
     var countEl = btn.querySelector('[data-like-count]');
     var geoEl = btn.parentNode ? btn.parentNode.querySelector('[data-like-geo]') : null;
     var liked = localStorage.getItem(storageKey) === '1';
+    // data-like-total → show the grand total across every page instead of just this slug.
+    var totalMode = btn.hasAttribute('data-like-total');
 
     function reflect() {
       btn.classList.toggle('is-liked', liked);
@@ -77,10 +79,10 @@
     async function refreshCount() {
       if (!isConfigured) return;
       try {
-        var res = await client
-          .from('likes')
-          .select('*', { count: 'exact', head: true })
-          .eq('page_slug', slug);
+        // SELECT COUNT(*) FROM likes  [WHERE page_slug = slug]  — head:true returns the count only.
+        var q = client.from('likes').select('*', { count: 'exact', head: true });
+        if (!totalMode) q = q.eq('page_slug', slug);
+        var res = await q;
         if (!res.error && countEl) countEl.textContent = res.count || 0;
       } catch (e) {
         /* offline / unreachable — keep the current count */
