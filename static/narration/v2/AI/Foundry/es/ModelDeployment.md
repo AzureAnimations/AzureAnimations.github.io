@@ -35,7 +35,17 @@ Un bloque por paso de la animación.
 [600ms]
 [optimistic] Así que menos tokens significa respuestas más baratas y más rápidas.
 
-## Step 4 · Chat Flow
+## Step 4 · Inference
+
+[curious] Entonces, ¿qué ocurre en realidad cuando el modelo se ejecuta?
+[600ms]
+[confident] En lo profundo de un centro de datos, miles de chips especializados toman tus tokens, los convierten en vectores y los hacen pasar por capa tras capa de cálculo.
+[600ms]
+[serious] Ese proceso se llama inferencia, y todos esos cálculos llevan a una sola cosa: predecir la única palabra siguiente más probable.
+[600ms]
+[reflective] No es tan distinto de cómo tú terminarías una frase de memoria, salvo que es pura matemática, ejecutándose miles de millones de veces por segundo.
+
+## Step 5 · Chat Flow
 
 [confident] Ahora sigamos un solo mensaje.
 [600ms]
@@ -43,7 +53,7 @@ Un bloque por paso de la animación.
 [600ms]
 [serious] Ese es el viaje de ida y vuelta, y se te cobra por cada token, tanto de entrada como de salida.
 
-## Step 5 · AI Agents
+## Step 6 · AI Agents
 
 [confident] Llamar directamente a una implementación es sencillo, y funciona.
 [600ms]
