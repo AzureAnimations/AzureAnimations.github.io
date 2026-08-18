@@ -1,0 +1,2607 @@
+<!DOCTYPE html>
+<!-- Narration script: /static/narration/v2/Security/ZeroTrustSecurity.md -->
+<!--
+	Azure Animations — STARTER TEMPLATE
+	====================================
+	Copy this file to <Area>/<Sub>/YourTopic.html (e.g. AI/Foundry/MyTopic.html) and:
+	  1. Set <title>, #page-title, and the back-link href.
+	  2. Rename/expand the sample steps. Each STEPS[] entry pairs with one
+	     render<Xxx>Step(). The samples demonstrate the reusable building blocks —
+	     delete the ones you don't need, they are all optional:
+	       • PROBLEM   — a centered hero .card
+	       • FLOW      — a .ta-flow of .agent-node boxes joined by .ta-arrow (input → process → output)
+	       • CODE      — a VS Code-style .code-card (use .code-duo for a request/response pair)
+	       • USE CASES — a .uc-grid of .uc-card tiles
+	       • RECAP     — a .card + .value-chip row + closing line
+	  3. Fill the English I18N block, then add es/ja/ko/pt (full objects OR the
+	     { ...I18N.en, overrides } spread) and matching <option>s in #lang-select.
+	  4. Prefer Microsoft Fluent icons/emoji over raw OS emoji for anything shown
+	     on a projector. Source priority: Azure service icons (local lib
+	     ../../lib/icons/…) → Fluent System Icons → Fluent UI Emoji → Fluent Emoji
+	     Animated → Twemoji (last resort, CC-BY).
+	  5. Run the Definition-of-Done checklist before publishing.
+
+	DESIGN NOTES
+	  • Accent colour is --theme-tertiary (Microsoft purple #5c2d91); primary blue
+	    and green (#10a37f) act as secondary / positive accents.
+	  • The bottom #controls is a compact translucent "icon dock" of glyph-only
+	    buttons; their localized labels live in the tooltip (title), set in setLanguage().
+	  • Audio narration is optional: list one clip per step (in order) in AUDIO_FILES[]
+	    and an Audio toggle appears automatically. Present mode (dual-window) ships via
+	    aw-present.js at the bottom — it self-installs a "Present" button in the header.
+
+	NOTE: the ../../lib/ and ../../../img/ paths assume this file lives two levels
+	under static/v2/ (e.g. static/v2/AI/Foundry/). Adjust depth if you move it.
+-->
+<html lang="en">
+<head>
+	<script src="/js/tracking.js"></script>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+	<title>Zero Trust Security Architecture — Azure Security Journey</title>
+
+	<link rel="stylesheet" href="https://unpkg.com/@microsoft/atlas-css/dist/index.css" />
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+	<!-- AnimationWorks shared lib -->
+	<script src="../lib/js/aw-easings.js"></script>
+	<script src="../lib/js/aw-motion.js"></script>
+	<script src="../lib/js/aw-theme.js"></script>
+	<script src="../lib/js/aw-keyboard.js"></script>
+	<script src="../lib/js/aw-captions.js"></script>
+
+<style>
+	/* ── SHELL ─────────────────────────────── */
+	/* Brand palette — reference these tokens; don't hardcode hex */
+	:root {
+		--aw-purple:#5c2d91;   /* primary accent — titles, callouts, arrows, progress, agents */
+		--aw-blue:#0078d4;     /* secondary — inputs, links, "the model", primary button */
+		--aw-green:#10a37f;    /* positive — success, grounded/correct results, value chips */
+		--aw-orange:#e97526;   /* tools / actions — tool calls, function calling, side-effects */
+		--aw-pink:#d24aa8;     /* highlight — a fourth category / emphasis */
+	}
+	html, body { height:100%; margin:0; }
+	html { font-size:100%; }
+	body {
+		display:flex; flex-direction:column; height:100vh;
+		overflow:hidden;
+		font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif;
+		color: var(--theme-text);
+		background:
+			radial-gradient(circle at 15% 20%, rgba(92,45,145,0.18) 0%, transparent 55%),
+			radial-gradient(circle at 85% 80%, rgba(0,120,212,0.18) 0%, transparent 55%),
+			var(--theme-body-background);
+	}
+	.app-header { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:1rem; flex-shrink:0; font-size:16px; }
+	.app-header > :last-child { justify-self:end; }
+
+	/* #stage fills the space between the top bar and the control dock, and centers the fixed 16:9 frame. */
+	#stage {
+		position:relative; flex:1 1 auto; width:100%; min-height:0;
+		display:flex; align-items:center; justify-content:center;
+		overflow:hidden; container-type:size;
+		padding:1.75rem 2.75rem 5rem;   /* breathing room around the frame; bottom clears the fixed #controls dock */
+	}
+	#stage:focus-visible, button:focus-visible, a:focus-visible, select:focus-visible {
+		outline:2px solid var(--theme-primary, #0078d4); outline-offset:3px; border-radius:4px;
+	}
+	/* The visible rectangle: the largest 16:9 box that fits the stage. All scenes are drawn inside it. */
+	#stage-frame {
+		position:relative; overflow:hidden;
+		width: min(100cqw, calc(100cqh * 16 / 9));
+		aspect-ratio: 16 / 9; max-width:100%; max-height:100%;
+		border-radius:16px;
+		background: rgba(0,0,0,0.015);
+		box-shadow: 0 12px 44px rgba(0,0,0,0.22);
+	}
+	body.theme-dark #stage-frame { background: rgba(255,255,255,0.025); }
+	/* Coloured gradient border (brand purple → blue → pink) drawn as a masked ring — no interior tint. */
+	#stage-frame::before {
+		content:""; position:absolute; inset:0; border-radius:inherit; padding:2.5px;
+		background: linear-gradient(135deg, var(--aw-purple) 0%, var(--aw-blue) 55%, var(--aw-pink) 100%);
+		-webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+		mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+		-webkit-mask-composite: xor; mask-composite: exclude;
+		pointer-events:none; z-index:20;
+	}
+	#fx-svg { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:6; overflow:visible; }
+
+	/* ── SCENE ─────────────────────────────── */
+	.scene {
+		position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+		transform-origin:center center;
+		width:min(1150px, 96%); z-index:10;
+		display:flex; flex-direction:column; align-items:center; gap:1.4rem;
+	}
+	/* 200ms fade in / out between every step */
+	@keyframes awSceneIn { from { opacity:0; } to { opacity:1; } }
+	@keyframes awSceneOut { from { opacity:1; } to { opacity:0; } }
+	.scene.scene-in { animation: awSceneIn 0.2s ease both; }
+	.scene.scene-out { animation: awSceneOut 0.2s ease both; }
+	.scene-title { font-size:2.5rem; font-weight:700; color:var(--theme-tertiary, #5c2d91); margin:0; text-align:center; opacity:0; }
+	body.theme-dark .scene-title { color:#c9a5e8; }
+	.scene-lead { margin:0; text-align:center; font-size:1.35rem; color:var(--theme-text); max-width:880px; line-height:1.5; opacity:0; }
+
+	/* ── CALLOUT · draggable, slightly see-through so it never fully blocks the diagram ── */
+	.callout {
+		position:absolute; max-width:340px; padding:1rem 1.2rem;
+		background:var(--theme-body-background);
+		background:color-mix(in srgb, var(--theme-body-background) 84%, transparent);
+		-webkit-backdrop-filter:blur(5px); backdrop-filter:blur(5px);
+		border:1px solid var(--theme-border);
+		border-left:4px solid var(--theme-tertiary, #5c2d91); border-radius:6px;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2));
+		font-size:1.05rem; line-height:1.45; z-index:14; opacity:0;
+		cursor:grab; touch-action:none;
+	}
+	.callout:active { cursor:grabbing; }
+
+	/* ── RESET "PIN" · appears on a draggable panel once it has been moved off its home spot ── */
+	.aw-drag-reset {
+		position:absolute; width:24px; height:24px; padding:0; display:none;
+		align-items:center; justify-content:center; border-radius:50%;
+		background:var(--theme-tertiary,#5c2d91); color:#fff;
+		border:2px solid var(--theme-body-background,#fff);
+		box-shadow:0 2px 7px rgba(0,0,0,0.4); cursor:pointer; z-index:6;
+		opacity:0.92; transition:opacity .14s ease, transform .14s ease;
+	}
+	.aw-drag-reset:hover { opacity:1; transform:scale(1.08); }
+	.aw-drag-reset:focus-visible { outline:2px solid #5cc8ff; outline-offset:2px; }
+	.aw-drag-reset svg { width:13px; height:13px; display:block; }
+
+	/* ══════════════════════════════════════════════════════════ */
+	/* ── REUSABLE BUILDING BLOCKS · keep what you use, drop rest ─ */
+	/* ══════════════════════════════════════════════════════════ */
+
+	/* Centered hero card */
+	.card {
+		width:min(680px, 96%); padding:1.6rem 1.8rem; border-radius:16px;
+		background:var(--theme-card-background, #fff); border:2px solid var(--theme-border);
+		box-shadow:0 8px 28px rgba(0,0,0,0.14); opacity:0;
+		display:flex; flex-direction:column; gap:0.6rem; align-items:center; text-align:center;
+	}
+	body.theme-dark .card { background:rgba(255,255,255,0.05); }
+	.card .card-icon { font-size:3rem; line-height:1; }
+	.card .card-h { font-size:1.4rem; font-weight:700; }
+	.card .card-p { font-size:1.05rem; color:var(--theme-text-subtle); line-height:1.5; }
+
+	/* Wide info panel */
+	.ta-card {
+		width:min(1080px, 98%); border:1.5px solid var(--theme-border); border-radius:14px;
+		background:var(--theme-card-background, #fff); box-shadow:0 8px 30px rgba(0,0,0,0.16);
+		padding:1.1rem 1.3rem; opacity:0;
+	}
+	body.theme-dark .ta-card { background:rgba(255,255,255,0.05); }
+	.ta-card-head {
+		display:flex; align-items:center; gap:0.5rem;
+		font-size:1rem; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;
+		color:var(--theme-text-subtle); margin-bottom:0.6rem;
+	}
+	.ta-card-text { font-size:1.22rem; line-height:1.55; color:var(--theme-text); }
+
+	/* Pills / chips */
+	.chip-row { display:flex; flex-wrap:wrap; gap:0.7rem; justify-content:center; }
+	.pill {
+		display:inline-flex; align-items:center; gap:0.5rem; padding:0.55rem 1.1rem;
+		border-radius:999px; font-size:1.05rem; font-weight:600;
+		border:2px solid var(--theme-tertiary, #5c2d91); background:rgba(92,45,145,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .pill { background:rgba(92,45,145,0.2); }
+	.value-chip {
+		display:inline-flex; align-items:center; gap:0.4rem; padding:0.5rem 1rem;
+		border-radius:999px; font-size:1rem; font-weight:700;
+		border:2px solid #107c10; background:rgba(16,124,16,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .value-chip { background:rgba(16,124,16,0.16); }
+	.recap-foot { font-size:1.05rem; color:var(--theme-text); text-align:center; max-width:760px; opacity:0; }
+
+	/* Flow row: input → process → output */
+	.agent-node {
+		display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.2rem;
+		width:160px; height:160px; border-radius:24px;
+		background: linear-gradient(135deg, rgba(92,45,145,0.12), rgba(0,120,212,0.12));
+		border:2.5px solid var(--theme-tertiary, #5c2d91);
+		box-shadow:0 8px 28px rgba(92,45,145,0.2); flex-shrink:0; text-align:center;
+	}
+	.agent-node .an-icon { font-size:3rem; line-height:1; }
+	.agent-node .an-icon img { width:64px; height:64px; display:block; }
+	.agent-node .an-label { font-size:1.05rem; font-weight:700; color:var(--theme-text); }
+	.agent-node .an-sub { font-size:0.85rem; color:var(--theme-text-subtle); }
+	.ta-flow { display:flex; align-items:center; justify-content:center; gap:1.2rem; flex-wrap:wrap; width:100%; }
+	.ta-flow .agent-node { width:140px; height:140px; }
+	.ta-flow .agent-node .an-icon { font-size:2.6rem; }
+	.ta-flow .agent-node .an-icon img { width:54px; height:54px; }
+	.ta-arrow { font-size:1.9rem; color:var(--theme-tertiary,#5c2d91); opacity:0; }
+	.ta-arrow.is-big { font-size:3.2rem; }
+	.ta-arrow.is-down, .ta-arrow.is-up { font-size:2.9rem; line-height:1; }
+	@media (max-width:760px) { .ta-flow .ta-arrow { transform:rotate(90deg); } }
+
+	/* Code card (VS Code style) */
+	.code-card {
+		width:min(560px,96%); border:1px solid #30363d; border-radius:8px;
+		background:#1e1e1e; overflow:hidden; opacity:0;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.25));
+	}
+	.code-head {
+		display:flex; align-items:center; justify-content:space-between; gap:0.5rem;
+		padding:0 0 0 0.85rem; background:#323233; border-bottom:1px solid #1e1e1e;
+	}
+	.code-file { font-size:0.9rem; color:#cccccc; font-weight:500; padding:0.6rem 0; }
+	.code-winctrls { display:flex; align-items:stretch; height:100%; }
+	.code-wbtn {
+		display:flex; align-items:center; justify-content:center; width:2.6rem; padding:0.55rem 0;
+		color:#cccccc; font-family:'Segoe UI Symbol','Segoe MDL2 Assets',sans-serif; font-size:0.7rem;
+	}
+	.code-wbtn.is-close:hover { background:#e81123; color:#fff; }
+	.code-wbtn:hover { background:rgba(255,255,255,0.1); }
+	.code-body {
+		margin:0; padding:0.8rem 1rem;
+		font-family:'Cascadia Code', 'Consolas', 'SFMono-Regular', monospace;
+		font-size:0.86rem; line-height:1.5; color:#d4d4d4;
+		white-space:pre-wrap; overflow-wrap:break-word; word-break:break-word; tab-size:4;
+	}
+	.code-body .tok-com { color:#6a9955; }
+	.code-body .tok-kw  { color:#569cd6; }
+	.code-body .tok-str { color:#ce9178; }
+	.code-body .tok-fn  { color:#dcdcaa; }
+	.code-body .tok-mod { color:#4ec9b0; }
+	.code-body .tok-prop{ color:#9cdcfe; }
+	.code-body .tok-num { color:#b5cea8; }
+	.code-body .tok-punct { color:#d4d4d4; }
+	.code-body .code-hl { border-radius:4px; padding:0 0.15em; box-shadow:0 0 0 1px rgba(96,165,250,0.55); background:rgba(96,165,250,0.22); }
+	.code-duo { display:flex; gap:1.1rem; flex-wrap:wrap; align-items:flex-start; justify-content:center; width:100%; }
+	.code-duo .code-card { flex:1 1 380px; max-width:480px; }
+	.code-duo .code-body { font-size:0.8rem; line-height:1.45; }
+	.code-arrow { align-self:center; font-size:1.8rem; line-height:1; color:var(--theme-tertiary,#5c2d91); opacity:0; flex:none; }
+	.code-arrow.is-big { font-size:2.9rem; }
+	@media (max-width:760px) { .code-arrow { transform:rotate(90deg); } }
+
+	/* Use-case grid */
+	.uc-grid { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:1.1rem; width:min(980px,96%); }
+	@media (max-width:720px) { .uc-grid { grid-template-columns:1fr; } }
+	.uc-card {
+		display:flex; flex-direction:column; gap:0.5rem; padding:1rem 1.15rem;
+		border:1.5px solid var(--theme-border); border-top:4px solid var(--theme-primary,#0078d4);
+		border-radius:14px; background:var(--theme-card-background, #fff);
+		box-shadow:0 6px 22px rgba(0,0,0,0.12); opacity:0;
+		transition:transform 0.2s ease, box-shadow 0.2s ease;
+	}
+	.uc-card:hover { transform:translateY(-4px); box-shadow:0 12px 30px rgba(0,0,0,0.18); }
+	body.theme-dark .uc-card { background:rgba(255,255,255,0.05); }
+	.uc-card[data-uc="a"] { border-top-color:#0078d4; }
+	.uc-card[data-uc="b"] { border-top-color:#10a37f; }
+	.uc-card[data-uc="c"] { border-top-color:#e97526; }
+	.uc-card[data-uc="d"] { border-top-color:#d24aa8; }
+	.uc-head { display:flex; align-items:center; gap:0.55rem; font-size:1.25rem; font-weight:700; color:var(--theme-text); }
+	.uc-head .uc-icon { font-size:1.7rem; display:inline-block; }
+	.uc-desc { font-size:0.98rem; line-height:1.55; color:var(--theme-text-subtle); }
+	.uc-caps { display:flex; flex-wrap:wrap; gap:0.4rem; margin-top:0.2rem; }
+	.uc-cap {
+		display:inline-flex; align-items:center; gap:0.3rem; padding:0.25rem 0.7rem;
+		border-radius:999px; font-size:0.88rem; font-weight:700;
+		background:rgba(0,120,212,0.1); color:var(--theme-text);
+		border:1.5px solid rgba(0,120,212,0.4); opacity:0;
+	}
+
+	/* ── CONTROLS · icon dock ──────────────── */
+	#controls {
+		position:fixed; bottom:14px; left:50%; transform:translateX(-50%); z-index:40;
+		display:flex; align-items:center; gap:5px; padding:5px 7px;
+		background:var(--theme-body-background-translucent, rgba(255,255,255,0.82));
+		backdrop-filter:blur(12px) saturate(1.4); -webkit-backdrop-filter:blur(12px) saturate(1.4);
+		border:1px solid var(--theme-border); border-radius:999px;
+		box-shadow: 0 8px 26px rgba(0,0,0,0.18); font-size:13px;
+	}
+	body.theme-dark #controls { background:var(--theme-body-background-translucent, rgba(32,32,36,0.82)); }
+	#controls .ctrl-icon {
+		width:2.15rem; height:2.15rem; min-width:0; padding:0;
+		display:inline-flex; align-items:center; justify-content:center;
+		border-radius:50%; font-size:0.95rem; line-height:1; font-weight:600;
+		transition:background 0.18s ease, color 0.18s ease, transform 0.12s ease, box-shadow 0.18s ease;
+	}
+	#controls .ctrl-icon:hover { transform:translateY(-1px); }
+	#controls .ctrl-icon:active { transform:scale(0.92); }
+	#controls .ctrl-icon-next {
+		width:2.55rem; height:2.55rem; font-size:1.1rem;
+		box-shadow:0 2px 8px var(--theme-primary-translucent, rgba(0,120,212,0.45));
+	}
+	.step-counter {
+		min-width:52px; text-align:center; font-variant-numeric:tabular-nums;
+		font-size:14px; font-weight:700; color:var(--theme-text);
+		padding:0 6px; white-space:nowrap; letter-spacing:0.02em;
+	}
+	.ctrl-sep { width:1px; align-self:stretch; margin:4px 2px; background:var(--theme-border); }
+	/* Movable dock: drag handle + pin-to-center button */
+	.ctrl-grip {
+		display:inline-flex; align-items:center; justify-content:center;
+		width:1.5rem; height:2.15rem; padding:0; border:none; background:transparent;
+		color:var(--theme-text-subtle); border-radius:8px; cursor:grab; touch-action:none;
+		transition:background 0.18s ease, color 0.18s ease;
+	}
+	.ctrl-grip:hover { color:var(--theme-text); background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); }
+	.ctrl-grip:active { cursor:grabbing; }
+	.ctrl-grip svg { width:13px; height:16px; pointer-events:none; }
+	body.controls-floating .ctrl-grip { color:var(--theme-primary,#0078d4); }
+	#controls .ctrl-pin { display:none; color:var(--theme-primary,#0078d4); }
+	#controls .ctrl-pin svg { width:15px; height:15px; pointer-events:none; }
+	body.controls-floating #controls .ctrl-pin { display:inline-flex; }
+	body.controls-floating #controls { box-shadow:0 10px 30px rgba(0,0,0,0.30), 0 0 0 1.5px var(--theme-primary,#0078d4); }
+	.speed-control { display:inline-flex; align-items:center; gap:1px; padding:2px 3px; border:1px solid var(--theme-border); border-radius:999px; }
+	.speed-control .speed-btn {
+		width:1.7rem; height:1.7rem; min-width:0; padding:0;
+		display:inline-flex; align-items:center; justify-content:center;
+		font-size:0.95rem; font-weight:700; border-radius:50%;
+	}
+	.speed-control .speed-btn[disabled] { opacity:0.4; cursor:not-allowed; }
+	.speed-label { min-width:2.4rem; text-align:center; font-variant-numeric:tabular-nums; font-size:0.82rem; font-weight:700; color:var(--theme-text); }
+
+	#callout-toggle, #outline-toggle, #audio-toggle { border:1px solid var(--theme-border); border-radius:4px; transition:background .2s,color .2s,border-color .2s,opacity .2s; }
+	#callout-toggle.toggle-active, #outline-toggle.toggle-active, #audio-toggle.toggle-active {
+		background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary,#0078d4); border-color:var(--theme-primary,#0078d4); font-weight:600;
+	}
+	#callout-toggle:not(.toggle-active), #outline-toggle:not(.toggle-active), #audio-toggle:not(.toggle-active) { opacity:0.6; }
+
+	/* ── HIDE/SHOW TOP BAR ─────────────────── */
+	#header-hide { display:inline-flex; align-items:center; justify-content:center; width:2rem; height:2rem; padding:0; border:1px solid var(--theme-border); border-radius:50%; color:var(--theme-text-subtle); transition:background .2s,color .2s,transform .18s; }
+	#header-hide:hover { color:var(--theme-text); transform:translateY(-1px); }
+	#header-hide svg { width:16px; height:16px; }
+	#header-hide-top { display:inline-flex; align-items:center; justify-content:center; width:2rem; height:2rem; padding:0; border:1px solid var(--theme-border); border-radius:50%; color:var(--theme-text-subtle); background:transparent; cursor:pointer; transition:background .2s,color .2s,transform .18s; }
+	#header-hide-top:hover { color:var(--theme-text); transform:translateY(-1px); }
+	#header-hide-top svg { width:16px; height:16px; }
+	body.chrome-hidden .app-header, body.chrome-hidden .progress-track { display:none; }
+	#header-reveal {
+		position:fixed; top:0; left:50%; transform:translateX(-50%) translateY(-100%); z-index:45;
+		display:inline-flex; align-items:center; gap:0.35rem; padding:5px 14px 6px; font-size:12px; font-weight:600; line-height:1;
+		color:var(--theme-text-subtle); background:var(--theme-body-background-translucent, rgba(255,255,255,0.88));
+		backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border:1px solid var(--theme-border); border-top:none; border-radius:0 0 12px 12px;
+		box-shadow:0 4px 14px rgba(0,0,0,0.14); cursor:pointer; transition:transform .28s cubic-bezier(0.2,0.7,0.3,1), color .2s, background .2s;
+	}
+	body.theme-dark #header-reveal { background:var(--theme-body-background-translucent, rgba(32,32,36,0.88)); }
+	#header-reveal:hover { color:var(--theme-text); }
+	body.chrome-hidden #header-reveal { transform:translateX(-50%) translateY(0); }
+	#header-reveal svg { width:14px; height:14px; }
+
+	/* ── PLAYER OVERLAY · pills inside the stage frame (YouTube-style) ──
+	   Two translucent pills float over the 16:9 frame: LEFT = "view options"
+	   (callout / outline / shortcuts), RIGHT = "player" (audio / captions / hide-bar / fullscreen). */
+	.stage-overlay {
+		position:absolute; right:12px; bottom:10px; z-index:25;
+		display:flex; align-items:center; gap:2px;
+		padding:3px 6px; border-radius:999px;
+		background:rgba(16,18,24,0.58);
+		backdrop-filter:blur(9px) saturate(1.3); -webkit-backdrop-filter:blur(9px) saturate(1.3);
+		box-shadow:0 4px 16px rgba(0,0,0,0.32);
+	}
+	.ovl-btn {
+		-webkit-appearance:none; appearance:none; margin:0; font:inherit;
+		display:inline-flex; align-items:center; justify-content:center; gap:4px;
+		min-width:30px; height:30px; padding:0 8px;
+		border:none !important; border-radius:999px !important;
+		background:transparent !important; color:#fff !important;
+		box-shadow:none !important; cursor:pointer; line-height:1;
+		font-size:0.82rem; font-weight:700; opacity:0.92; transition:background .15s ease, opacity .15s ease;
+	}
+	.ovl-btn:hover { background:rgba(255,255,255,0.16) !important; opacity:1; }
+	.ovl-btn:disabled { opacity:0.4; cursor:not-allowed; }
+	.ovl-btn svg { width:18px; height:18px; fill:currentColor; display:block; }
+	.ovl-btn.on { color:#5cc8ff !important; }
+	.stage-overlay #audio-toggle { opacity:1 !important; }
+	.stage-overlay .aw-audio-ico { font-size:1rem; line-height:1; }
+	.stage-overlay .aw-audio-time { font-size:0.78rem; font-variant-numeric:tabular-nums; letter-spacing:0.02em; opacity:0.95; min-width:2.4em; text-align:left; }
+	#cc-toggle svg { width:20px; height:20px; }
+	.ovl-btn .fs-exit { display:none; }
+	body.is-fs .ovl-btn .fs-enter { display:none; }
+	body.is-fs .ovl-btn .fs-exit { display:block; }
+
+	/* ── LEFT VIEW-OPTIONS PILL · Callout / Outline / Shortcuts (icon + hover tip) ── */
+	.stage-overlay-left { right:auto; left:12px; }
+	#stage-overlay-left .ovl-btn:not(.toggle-active) { opacity:0.86; }
+	#stage-overlay-left .ovl-btn.toggle-active { color:#5cc8ff !important; opacity:1; }
+	#stage-overlay-left .ovl-btn:hover { opacity:1; }
+	/* Hover tooltip shown above the icon (left-anchored so it never clips the frame edge) */
+	.ovl-btn[data-tip] { position:relative; }
+	.ovl-btn[data-tip]::after { content:attr(data-tip); position:absolute; left:0; bottom:calc(100% + 9px); transform:translateY(4px); padding:4px 8px; border-radius:6px; background:rgba(16,18,24,0.96); color:#fff; font-size:0.72rem; font-weight:600; white-space:nowrap; letter-spacing:0.01em; opacity:0; pointer-events:none; box-shadow:0 3px 12px rgba(0,0,0,0.45); transition:opacity .14s ease, transform .14s ease; z-index:40; }
+	.ovl-btn[data-tip]::before { content:''; position:absolute; left:13px; bottom:calc(100% + 4px); border:5px solid transparent; border-top-color:rgba(16,18,24,0.96); opacity:0; pointer-events:none; transition:opacity .14s ease; z-index:40; }
+	.ovl-btn[data-tip]:hover::after { opacity:1; transform:translateY(0); }
+	.ovl-btn[data-tip]:hover::before { opacity:1; }
+
+	/* ── CAPTION · overlaid inside the frame, draggable + resizable, stays solid (not see-through) ── */
+	#aw-caption {
+		position:absolute; left:50%; transform:translateX(-50%); bottom:56px; z-index:24;
+		max-width:92%; min-width:140px; min-height:38px; max-height:44%;
+		display:none; align-items:center; justify-content:center; text-align:center;
+		padding:0.42rem 0.95rem; border-radius:9px;
+		background:rgba(8,9,13,0.8); color:#fff;
+		font-size:1.1rem; line-height:1.36; font-weight:600;
+		box-shadow:0 3px 14px rgba(0,0,0,0.42); pointer-events:auto; cursor:grab; touch-action:none;
+		overflow:auto; resize:both;   /* user can reshape the caption; corner grip = resize */
+	}
+	#aw-caption:active { cursor:grabbing; }
+	#aw-caption::-webkit-resizer { background:linear-gradient(135deg, transparent 45%, rgba(255,255,255,0.55) 45%, rgba(255,255,255,0.55) 55%, transparent 55%); }
+	body.cc-on #aw-caption.has-text { display:flex; }
+	@media (max-width:640px){ #aw-caption { font-size:0.94rem; bottom:48px; max-width:90%; } }
+
+	/* ── OUTLINE PANEL · draggable + slightly see-through ── */
+	#step-outline {
+		position:fixed; top:4.5rem; right:1rem; width:320px; max-height:calc(100vh - 8rem); overflow-y:auto;
+		padding:1.1rem; background:var(--theme-body-background);
+		background:color-mix(in srgb, var(--theme-body-background) 85%, transparent);
+		-webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
+		border:1px solid var(--theme-border);
+		border-radius:6px; box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2)); z-index:35; font-size:1rem; line-height:1.55;
+		cursor:grab; touch-action:none;
+	}
+	#step-outline:active { cursor:grabbing; }
+	#step-outline[hidden] { display:none; }
+	#step-outline h2 { font-size:0.85rem; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--theme-tertiary,#5c2d91); margin-bottom:0.5rem; }
+	#step-outline .outline-section { margin-top:0.6rem; padding-top:0.6rem; border-top:1px solid var(--theme-border); }
+	#step-outline .outline-section:first-child { margin-top:0; padding-top:0; border-top:0; }
+	#step-outline .stat-row { display:flex; justify-content:space-between; align-items:baseline; gap:0.75rem; padding:0.2rem 0; }
+	#step-outline .stat-row span:first-child { color:var(--theme-text-subtle); flex:0 0 auto; max-width:45%; }
+	#step-outline .stat-row span:last-child { text-align:right; font-weight:600; color:var(--theme-tertiary,#5c2d91); flex:1 1 auto; }
+
+	.progress-track { position:relative; height:6px; background:var(--theme-border, #e0e0e0); flex-shrink:0; cursor:pointer; }
+	.progress-fill { position:absolute; left:0; top:0; bottom:0; width:0%; background:var(--aw-purple, #5c2d91); transition:width .5s cubic-bezier(0.2,0.8,0.2,1); pointer-events:none; }
+	.progress-tick { position:absolute; top:0; bottom:0; width:2px; margin-left:-1px; background:var(--theme-body-background); opacity:0.6; pointer-events:none; }
+
+	/* ── THEME / LANG / FONT CONTROLS ──────── */
+	.theme-toggle { display:inline-flex; align-items:center; justify-content:center; width:2.25rem; height:2.25rem; padding:0; margin-inline-start:0.25rem; background:transparent; border:1px solid var(--theme-border); border-radius:999px; color:var(--theme-text); cursor:pointer; transition:background .15s,color .15s,border-color .15s; }
+	.theme-toggle:hover { background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary); border-color:var(--theme-primary); }
+	.theme-toggle .theme-icon { display:none; }
+	.theme-toggle[data-theme="dark"] .icon-sun { display:block; }
+	.theme-toggle[data-theme="light"] .icon-moon { display:block; }
+	.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+	.skip-link { position:absolute; top:-100px; left:0.5rem; z-index:100; padding:0.5rem 1rem; background:var(--theme-primary); color:var(--theme-primary-invert,#fff); border-radius:4px; text-decoration:none; font-weight:600; }
+	.skip-link:focus { top:0.5rem; }
+	.header-back-link { display:inline-flex; align-items:center; gap:0.25rem; padding:0.2rem 0.6rem; font-size:0.8rem; font-weight:600; color:var(--theme-text-subtle); border:1px solid var(--theme-border); border-radius:999px; text-decoration:none; white-space:nowrap; transition:background .15s,color .15s,border-color .15s; }
+	.header-back-link:hover { color:var(--theme-primary); border-color:var(--theme-primary); background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); }
+	.lang-select {
+		appearance:none; -webkit-appearance:none; background:var(--theme-card-background,#fff); color:var(--theme-body-text,#333);
+		border:1px solid var(--theme-border, rgba(0,0,0,0.2)); border-radius:4px; padding:4px 24px 4px 8px;
+		font-size:0.8rem; font-family:'Segoe UI', sans-serif; cursor:pointer;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+		background-repeat:no-repeat; background-position:right 6px center; min-width:80px;
+	}
+	.lang-select:hover { border-color:var(--theme-primary, #0078d4); }
+	.lang-select:focus { outline:2px solid var(--theme-primary, #0078d4); outline-offset:1px; }
+	body.theme-dark .lang-select {
+		background-color:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); border-color:rgba(255,255,255,0.15);
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23aaa' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+	}
+	body.theme-dark .lang-select option { background:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); }
+	.font-size-controls { display:flex; align-items:center; gap:2px; }
+	.font-size-btn { background:var(--theme-card-background,#fff); color:var(--theme-body-text,#333); border:1px solid var(--theme-border, rgba(0,0,0,0.2)); border-radius:4px; padding:3px 8px; font-size:0.8rem; font-weight:700; font-family:'Segoe UI', sans-serif; cursor:pointer; line-height:1.2; transition:background .15s,border-color .15s; }
+	.font-size-btn:hover { border-color:var(--theme-primary, #0078d4); }
+	body.theme-dark .font-size-btn { background:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); border-color:rgba(255,255,255,0.15); }
+
+	/* Inline icons (crisp on any OS/projector — replaces raw emoji on stage) */
+	.ic { display:inline-flex; align-items:center; justify-content:center; vertical-align:-0.125em; }
+	.ic svg { width:1em; height:1em; fill:currentColor; display:block; }
+	.help-toggle svg { width:15px; height:15px; vertical-align:-2px; }
+
+	/* Keyboard shortcut overlay */
+	#shortcut-overlay { position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center; }
+	#shortcut-overlay[hidden] { display:none; }
+	.sc-backdrop { position:absolute; inset:0; background:rgba(0,0,0,0.5); -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px); }
+	.sc-panel { position:relative; z-index:1; width:min(430px,92vw); max-height:82vh; overflow:auto; padding:1.5rem 1.6rem; background:var(--theme-body-background); border:1px solid var(--theme-border); border-radius:16px; box-shadow:0 24px 70px rgba(0,0,0,0.4); }
+	.sc-panel h2 { margin:0 0 1rem; font-size:1.25rem; color:var(--theme-tertiary,#5c2d91); }
+	body.theme-dark .sc-panel h2 { color:#c9a5e8; }
+	.sc-close { position:absolute; top:0.7rem; right:0.7rem; width:2rem; height:2rem; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--theme-border); border-radius:50%; background:transparent; color:var(--theme-text-subtle); cursor:pointer; }
+	.sc-close:hover { color:var(--theme-text); border-color:var(--theme-primary,#0078d4); }
+	.sc-close svg { width:15px; height:15px; }
+	.sc-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:0.55rem; }
+	.sc-list li { display:flex; align-items:center; justify-content:space-between; gap:1rem; font-size:1rem; color:var(--theme-text); }
+	.sc-keys { display:inline-flex; gap:0.3rem; flex:none; }
+	.sc-panel kbd, .sc-hint kbd { font-family:'Cascadia Code','Consolas',monospace; font-size:0.82rem; line-height:1; padding:0.28rem 0.5rem; border-radius:6px; border:1px solid var(--theme-border); border-bottom-width:2px; background:var(--theme-card-background,#fff); color:var(--theme-text); }
+	body.theme-dark .sc-panel kbd, body.theme-dark .sc-hint kbd { background:rgba(255,255,255,0.08); }
+	.sc-hint { margin:1.1rem 0 0; font-size:0.85rem; color:var(--theme-text-subtle); text-align:center; }
+
+	@media (max-width:640px) { .app-header { font-size:0.95rem; } .scene-title { font-size:1.9rem; } #stage { padding:0.9rem 1rem 4.5rem; } }
+	@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition:none !important; animation:none !important; } .progress-fill { transition:none !important; } }
+
+
+/* ── Zero Trust architecture map ─────────── */
+.scene { gap:0.6rem; }
+.scene-lead { max-width:1080px; min-height:4.6rem; display:flex; align-items:center; justify-content:center; }
+/* Short (laptop) viewports: trim chrome + scene header so the 16:9 frame grows and fills more width. */
+@media (max-height:760px) {
+	#stage { padding:0.8rem 1.4rem 4.4rem; }
+	.app-header { font-size:14px; }
+	#page-title { font-size:0.92rem; }
+	.scene-title { font-size:1.8rem; }
+	.scene-lead { min-height:3.1rem; font-size:1.1rem; }
+	.scene { gap:0.4rem; }
+}
+.az-ic { width:1em; height:1em; display:block; flex:none; }
+.zt-map { position:relative; width:1200px; height:546px; }
+.zt-svg { position:absolute; inset:0; width:100%; height:100%; overflow:visible; color:var(--theme-text); z-index:1; }
+/* Keep connectors above the (opaque) VNet boundary but below the cards */
+.zt-map .mi-tile, .zt-map .mi-panel, .zt-map .mi-token, .zt-map .mi-recap { z-index:2; }
+.zt-svg path { fill:none; stroke:color-mix(in srgb, var(--theme-text) 84%, transparent); stroke-width:4; stroke-linecap:round; stroke-linejoin:round; opacity:0; }
+.zt-svg path.zt-private-path { stroke:rgba(16,163,127,0.92); }
+.zt-svg path.zt-public-path { stroke:rgba(233,117,38,0.86); }
+.zt-svg path.zt-log-path { stroke:rgba(0,120,212,0.88); }
+.zt-svg path.zt-flow-path { stroke:rgba(0,120,212,0.95); stroke-width:4.5; filter:drop-shadow(0 0 3px rgba(0,120,212,0.65)) drop-shadow(0 0 6px rgba(0,120,212,0.5)); animation:ztFlowGlow 2.8s ease-in-out infinite; }
+@keyframes ztFlowGlow { 0%,100% { filter:drop-shadow(0 0 2px rgba(0,120,212,0.5)) drop-shadow(0 0 4px rgba(0,120,212,0.38)); } 50% { filter:drop-shadow(0 0 4px rgba(0,120,212,0.85)) drop-shadow(0 0 8px rgba(0,120,212,0.62)); } }
+@media (prefers-reduced-motion: reduce) { .zt-svg path.zt-flow-path { animation:none; } }
+.zt-svg marker path { fill:var(--theme-text); opacity:1; stroke:none; }
+
+.zt-principles {
+	position:absolute; left:16px; top:6px; width:566px; height:60px; display:flex; flex-direction:column; justify-content:center; gap:0.34rem;
+	padding:0.52rem 0.9rem; border-radius:18px; opacity:0;
+	border:1.5px solid color-mix(in srgb, var(--aw-purple) 26%, var(--theme-border));
+	background:color-mix(in srgb, var(--aw-purple) 8%, var(--theme-card-background));
+	box-shadow:0 8px 20px rgba(0,0,0,0.12);
+}
+body.theme-dark .zt-principles { background:rgba(255,255,255,0.07); }
+.zt-principles-head { display:flex; align-items:baseline; gap:0.5rem; }
+.zt-principles-tag { font-size:0.64rem; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:var(--aw-purple); }
+.zt-principles-title { font-size:0.82rem; font-weight:600; color:var(--theme-text-subtle); }
+.zt-principles-items { display:flex; gap:0.42rem; flex-wrap:nowrap; }
+.zt-principle-item {
+	display:inline-flex; align-items:center; gap:0.3rem; padding:0.26rem 0.56rem; border-radius:999px;
+	border:1.4px solid color-mix(in srgb, var(--aw-purple) 24%, var(--theme-border));
+	background:var(--theme-card-background,#fff); font-size:0.8rem; font-weight:600; line-height:1.1; color:var(--theme-text); white-space:nowrap;
+}
+body.theme-dark .zt-principle-item { background:rgba(255,255,255,0.06); }
+.zt-principle-item::before { content:'\2713'; color:var(--aw-green); font-weight:700; }
+.zt-goal {
+	position:absolute; left:598px; top:6px; width:586px; height:60px; display:flex; align-items:center; justify-content:center; padding:0.72rem 1.1rem;
+	border-radius:20px; border:1.5px solid rgba(0,120,212,0.34); background:rgba(0,120,212,0.08);
+	box-shadow:0 10px 26px rgba(0,0,0,0.14); text-align:center; font-size:0.98rem; line-height:1.35; font-weight:600; color:var(--theme-text); opacity:0;
+}
+body.theme-dark .zt-goal { background:rgba(0,120,212,0.16); }
+
+.mi-zone, .mi-panel, .mi-token {
+	position:absolute; border-radius:24px; background:var(--theme-card-background,#fff);
+	border:1.6px solid var(--theme-border); box-shadow:0 12px 32px rgba(0,0,0,0.16); opacity:0;
+}
+body.theme-dark .mi-zone, body.theme-dark .mi-panel, body.theme-dark .mi-token { background:rgba(255,255,255,0.06); }
+.mi-zone { border-style:dashed; }
+.mi-zone-label {
+	position:absolute; top:0; left:22px; transform:translateY(-50%);
+	display:inline-flex; align-items:center; gap:0.5rem; padding:0.45rem 0.85rem; border-radius:999px;
+	background:var(--theme-card-background,#fff); border:1.5px solid color-mix(in srgb, var(--aw-purple) 34%, var(--theme-border));
+	font-size:0.86rem; font-weight:600; color:var(--aw-purple); white-space:nowrap;
+}
+body.theme-dark .mi-zone-label { background:#16161f; }
+.mi-zone-label .az-ic { width:1.16rem; height:1.16rem; }
+
+.mi-tile, .mi-role-row {
+	position:absolute; border-radius:18px; border:1.5px solid var(--theme-border); background:var(--theme-card-background,#fff);
+	box-shadow:0 8px 22px rgba(0,0,0,0.09); opacity:0;
+}
+body.theme-dark .mi-tile, body.theme-dark .mi-role-row { background:rgba(255,255,255,0.07); }
+.mi-tile { padding:0.55rem 0.78rem 0.5rem; display:flex; flex-direction:column; gap:0.36rem; }
+.mi-head, .mi-panel-head { display:flex; align-items:flex-start; gap:0.7rem; }
+.mi-head .az-ic, .mi-panel-head .az-ic { width:2.22rem; height:2.22rem; }
+.mi-title, .mi-panel-title { font-size:1rem; font-weight:600; line-height:1.1; color:var(--theme-text); }
+.mi-sub, .mi-panel-sub { font-size:0.82rem; line-height:1.24; color:var(--theme-text-subtle); margin-top:0.1rem; }
+.mi-chip-row, .zt-feature-row { display:flex; gap:0.35rem; flex-wrap:wrap; }
+.zt-feature-row { margin-top:auto; }
+.mi-chip, .mi-scope {
+	display:inline-flex; align-items:center; gap:0.35rem; padding:0.22rem 0.6rem; border-radius:999px;
+	font-size:0.72rem; line-height:1.18; font-weight:500; white-space:nowrap; color:var(--theme-text);
+}
+.mi-chip { border:1.5px solid color-mix(in srgb, var(--aw-purple) 28%, var(--theme-border)); background:rgba(92,45,145,0.08); }
+.mi-chip.is-blue { border-color:rgba(0,120,212,0.34); background:rgba(0,120,212,0.1); }
+.mi-chip.is-green, .mi-scope { border-color:rgba(16,163,127,0.4); background:rgba(16,163,127,0.12); }
+.mi-chip.is-orange { border-color:rgba(233,117,38,0.42); background:rgba(233,117,38,0.1); }
+.mi-chip.is-red { border-color:rgba(220,38,38,0.38); background:rgba(220,38,38,0.08); }
+.mi-mi-badge {
+	position:absolute; top:0.68rem; right:0.68rem; display:inline-flex; align-items:center; gap:0.34rem;
+	padding:0.34rem 0.58rem; border-radius:999px; font-size:0.72rem; font-weight:600;
+	border:1.5px solid rgba(92,45,145,0.38); background:rgba(92,45,145,0.12); color:var(--theme-text);
+}
+.mi-mi-badge .az-ic { width:0.95rem; height:0.95rem; }
+
+.zt-vnet { left:16px; top:86px; width:566px; height:260px; padding:1.6rem 1rem 0.85rem; }
+.zt-vnet-chip { position:absolute; right:18px; bottom:14px; }
+.zt-store { left:34px; top:116px; width:158px; height:124px; }
+.zt-order { left:220px; top:116px; width:158px; height:124px; }
+.zt-db { left:406px; top:116px; width:158px; height:124px; }
+.zt-runtime { left:34px; top:262px; width:530px; height:82px; padding:0.5rem 0.9rem; }
+.zt-pe { padding:0.72rem 0.78rem; border-radius:20px; }
+.zt-pe .mi-head .az-ic { width:1.9rem; height:1.9rem; }
+.zt-pe .mi-title { font-size:0.92rem; }
+.zt-pe .mi-sub { font-size:0.76rem; }
+.zt-pe-appcfg { left:624px; top:110px; width:168px; height:76px; }
+.zt-pe-kv { left:624px; top:248px; width:168px; height:76px; }
+.zt-appcfg { left:828px; top:88px; width:356px; height:120px; }
+.zt-kv { left:828px; top:226px; width:356px; height:120px; }
+.zt-svc .zt-toggle-row { margin-top:0.38rem; }
+
+.zt-toggle-panel { left:744px; top:78px; width:376px; height:60px; padding:0.78rem 0.95rem; border-radius:22px; }
+.zt-toggle-panel .mi-panel-head { margin-bottom:0.44rem; }
+.zt-toggle-grid { display:grid; grid-template-columns:1fr 1fr; gap:0.7rem; }
+.zt-toggle-row { display:grid; grid-template-columns:1fr auto auto; gap:0.45rem; align-items:center; font-size:0.74rem; line-height:1.18; color:var(--theme-text); }
+.zt-toggle-name { font-weight:600; }
+.zt-toggle-track { position:relative; width:2.8rem; height:1.32rem; border-radius:999px; background:rgba(16,163,127,0.22); border:1.5px solid rgba(16,163,127,0.44); }
+.zt-toggle-knob { position:absolute; top:1.5px; left:1.5px; width:0.92rem; height:0.92rem; border-radius:50%; background:#fff; box-shadow:0 2px 6px rgba(0,0,0,0.24); transform:translateX(20px); }
+.zt-toggle-state { display:inline-grid; align-items:center; font-weight:600; }
+.zt-toggle-state > span { grid-area:1 / 1; }
+.zt-state-on { color:#0f8f70; }
+.zt-state-off { color:#c53030; opacity:0; }
+.zt-warning { margin-top:0.4rem; font-size:0.72rem; line-height:1.2; color:var(--theme-text-subtle); }
+.zt-public-label {
+	position:absolute; left:734px; top:336px; padding:0.35rem 0.68rem; border-radius:999px;
+	border:1.4px solid rgba(233,117,38,0.4); background:rgba(233,117,38,0.1);
+	font-size:0.72rem; font-weight:600; color:var(--theme-text); opacity:0;
+}
+
+.zt-store .mi-sub, .zt-order .mi-sub, .zt-db .mi-sub { font-size:0.77rem; line-height:1.24; }
+.zt-audit { left:16px; top:356px; width:372px; height:46px; padding:0.5rem 0.8rem; }
+.zt-audit-body { display:flex; align-items:center; gap:0.72rem; }
+.zt-audit-icons { display:flex; align-items:center; gap:0.42rem; flex:none; }
+.zt-audit-icons .az-ic { width:1.9rem; height:1.9rem; }
+.zt-audit-arrow { color:var(--aw-blue); font-size:1.05rem; font-weight:700; }
+.zt-audit .mi-panel-title { font-size:0.88rem; }
+.zt-audit .mi-panel-sub { font-size:0.74rem; }
+
+.zt-rbac { left:404px; top:356px; width:480px; height:154px; padding:0.5rem 0.9rem; }
+.zt-rbac .mi-role-list { display:flex; flex-direction:column; gap:0.2rem; }
+.zt-rbac .mi-role-row { padding:0.2rem 0.58rem; }
+.zt-rbac .mi-panel-head { margin-bottom:0.22rem; }
+.zt-rbac .mi-panel-title { font-size:0.92rem; }
+.zt-rbac .mi-panel-sub { font-size:0.74rem; }
+.mi-role-list { display:flex; flex-direction:column; gap:0.34rem; }
+.mi-role-row { position:static; opacity:1; padding:0.4rem 0.55rem; display:grid; grid-template-columns:auto 1fr auto; gap:0.52rem; align-items:center; }
+.mi-role-row .az-ic { width:1.42rem; height:1.42rem; margin-top:0.04rem; }
+.mi-role-name { font-size:0.78rem; font-weight:600; line-height:1.14; color:var(--theme-text); }
+.mi-role-desc { font-size:0.69rem; line-height:1.18; color:var(--theme-text-subtle); margin-top:0.05rem; }
+.mi-scope { font-size:0.67rem; align-self:center; }
+.mi-anti {
+	margin-top:0.38rem; padding:0.42rem 0.58rem; border-radius:14px; border:1.5px solid rgba(220,38,38,0.38);
+	background:rgba(220,38,38,0.08); color:var(--theme-text); font-size:0.71rem; line-height:1.18; position:relative;
+}
+body.theme-dark .mi-anti { background:rgba(220,38,38,0.14); }
+.mi-anti::before { content:'✕'; position:absolute; top:0.38rem; right:0.56rem; font-size:0.8rem; font-weight:700; color:#c53030; }
+.mi-anti-note { margin-top:0.12rem; font-size:0.66rem; line-height:1.14; color:var(--theme-text-subtle); }
+
+.zt-ci { left:16px; top:408px; width:372px; height:46px; padding:0.5rem 0.8rem; }
+.zt-ci .mi-panel-head .az-ic { width:1.95rem; height:1.95rem; }
+.zt-ci .mi-panel-title { font-size:0.88rem; }
+.zt-ci .mi-panel-sub { font-size:0.74rem; }
+.zt-rotate {
+	left:16px; top:460px; width:372px; height:46px; display:flex; align-items:center; gap:0.55rem;
+	padding:0.56rem 0.72rem; border-radius:18px; border:1.5px solid rgba(16,163,127,0.42); background:rgba(16,163,127,0.1);
+}
+body.theme-dark .zt-rotate { background:rgba(16,163,127,0.16); }
+.zt-rotate-glyph {
+	font-size:1rem; font-weight:700; color:#0f8f70; display:inline-flex; align-items:center; justify-content:center;
+	width:1.5rem; height:1.5rem; border-radius:50%; background:rgba(16,163,127,0.16);
+}
+.zt-rotate-title { font-size:0.76rem; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; color:#0f8f70; }
+.zt-rotate-desc { font-size:0.74rem; line-height:1.16; color:var(--theme-text); margin-top:0.12rem; }
+
+.mi-recap {
+	position:absolute; left:904px; top:356px; width:280px; height:154px;
+	display:flex; flex-direction:column; justify-content:center; align-items:center; gap:0.55rem;
+	padding:0.85rem 0.95rem; border-radius:20px; text-align:center; opacity:0;
+	border:2px solid rgba(16,163,127,0.42); background:rgba(16,163,127,0.1); box-shadow:0 10px 26px rgba(0,0,0,0.14);
+}
+body.theme-dark .mi-recap { background:rgba(16,163,127,0.16); }
+.mi-takeaway {
+	display:flex; align-items:center; justify-content:center; gap:0.4rem; flex-wrap:wrap;
+	font-size:0.9rem; font-weight:600; line-height:1.34; color:var(--theme-text);
+}
+.mi-learn {
+	display:inline-flex; align-items:center; gap:0.45rem; padding:0.55rem 0.95rem; border-radius:999px;
+	background:linear-gradient(120deg, var(--aw-purple), var(--aw-blue)); color:#fff; text-decoration:none;
+	font-size:0.84rem; font-weight:700; box-shadow:0 10px 24px rgba(92,45,145,0.34); transition:transform .15s ease, box-shadow .15s ease;
+}
+.mi-learn:hover { transform:translateY(-1px); box-shadow:0 14px 28px rgba(92,45,145,0.44); }
+.mi-learn .ic, .mi-takeaway .ic { font-size:0.92rem; }
+
+/* ── "Up next" pill — docked bottom-right on the last step ── */
+
+#journey-next { position:fixed; z-index:60; right:1.4rem; bottom:1.1rem; max-width:min(32rem,52vw); opacity:0; visibility:hidden; transform:translateY(12px); transition:opacity .5s ease, transform .5s ease, visibility .5s ease; }
+#journey-next.show { opacity:1; visibility:visible; transform:none; }
+.jn-card { display:flex; align-items:center; gap:0.7rem; padding:0.5rem 0.55rem 0.5rem 0.8rem; border-radius:14px; background:var(--theme-card-background,#fff); border:1px solid color-mix(in srgb, var(--aw-purple) 30%, var(--theme-border)); box-shadow:0 14px 34px rgba(0,0,0,0.3); }
+body.theme-dark .jn-card { background:#15151d; }
+.jn-icon { flex:none; width:2.4rem; height:2.4rem; display:grid; place-items:center; }
+.jn-icon img { width:100%; height:100%; object-fit:contain; }
+.jn-text { display:flex; flex-direction:column; line-height:1.2; min-width:0; }
+.jn-eyebrow { display:inline-flex; align-items:center; gap:0.35rem; font-size:0.62rem; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:var(--aw-purple); }
+.jn-check { display:grid; place-items:center; width:0.95rem; height:0.95rem; border-radius:50%; background:var(--aw-green); color:#fff; font-size:0.6rem; }
+.jn-title { font-size:0.98rem; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.jn-cta { flex:none; display:inline-flex; align-items:center; gap:0.4rem; padding:0.5rem 0.95rem; border-radius:10px; font-size:0.9rem; font-weight:700; text-decoration:none; color:#fff; background:linear-gradient(120deg, var(--aw-purple), var(--aw-blue)); box-shadow:0 8px 20px rgba(92,45,145,0.4); transition:transform .15s ease, box-shadow .15s ease; }
+.jn-cta:hover { transform:translateY(-1px); box-shadow:0 12px 26px rgba(92,45,145,0.5); }
+.jn-close { flex:none; width:1.7rem; height:1.7rem; display:grid; place-items:center; border:none; border-radius:8px; cursor:pointer; background:transparent; color:var(--theme-text); opacity:0.5; }
+.jn-close:hover { opacity:1; background:color-mix(in srgb, var(--theme-text) 10%, transparent); }
+.jn-close svg { width:15px; height:15px; }
+@media (max-width:860px){ #journey-next { right:0.8rem; bottom:5.1rem; max-width:min(22rem,88vw); } }
+
+</style>
+</head>
+
+<body class="theme-dark" data-theme-preset="atlas">
+
+	<a href="#stage" class="skip-link">Skip to diagram</a>
+
+	<header class="app-header padding-block-xs padding-inline-md border-bottom" role="banner" style="justify-content:space-between;">
+		<div class="display-flex align-items-center gap-xs">
+			<!-- Set href to the previous animation in the journey, or the hub index.html -->
+			<a id="journey-back-link" href="index.html" class="header-back-link" aria-label="Back to Security" title="Security">&larr; Security</a>
+			<span id="page-title" class="font-size-h6 font-weight-semibold">🛡️ Zero Trust Security Architecture</span>
+		</div>
+		<nav class="display-flex gap-xs align-items-center" aria-label="Primary">
+			<span id="breadcrumb" class="font-size-sm color-text-subtle">Step 1</span>
+		</nav>
+		<div class="display-flex gap-xs align-items-center">
+			<select id="lang-select" class="lang-select" aria-label="Language">
+				<option value="en">English</option>
+				<option value="es">Español</option>
+				<option value="ja">日本語</option>
+				<option value="ko">한국어</option>
+				<option value="pt">Português</option>
+			</select>
+			<div class="font-size-controls">
+				<button id="font-decrease" type="button" class="font-size-btn" aria-label="Decrease font size" title="Smaller text">A&minus;</button>
+				<button id="font-increase" type="button" class="font-size-btn" aria-label="Increase font size" title="Larger text">A+</button>
+			</div>
+			<button id="theme-toggle" type="button" class="theme-toggle" aria-label="Switch theme" title="Switch theme">
+				<svg class="theme-icon icon-moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg>
+				<svg class="theme-icon icon-sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.5" y1="4.5" x2="6.5" y2="6.5"/><line x1="17.5" y1="17.5" x2="19.5" y2="19.5"/><line x1="4.5" y1="19.5" x2="6.5" y2="17.5"/><line x1="17.5" y1="6.5" x2="19.5" y2="4.5"/></g></svg>
+			</button>
+			<button id="header-hide-top" type="button" aria-label="Hide top bar" title="Hide top bar (H)">
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/></svg>
+			</button>
+		</div>
+	</header>
+
+	<button id="header-reveal" type="button" aria-label="Show top bar" title="Show top bar">
+		<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/></svg>
+		<span id="toolbar-label">Toolbar</span>
+	</button>
+
+	<div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
+
+	<main id="stage" tabindex="0" role="region" aria-labelledby="stage-heading" aria-describedby="stage-instructions">
+		<h1 id="stage-heading" class="sr-only" tabindex="-1">Zero Trust Security Architecture — Azure Security Journey</h1>
+		<p id="stage-instructions" class="sr-only">Animated explainer of Zero Trust Security Architecture for the Azure Security Journey. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.</p>
+		<div id="step-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+		<!-- Fixed 16:9 stage. Every scene is drawn INSIDE this box; it always fits the viewport (no scrollbars). -->
+		<div id="stage-frame">
+			<svg id="fx-svg" aria-hidden="true" focusable="false">
+				<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L0,10 L10,5 Z" fill="currentColor"/></marker></defs>
+			</svg>
+			<!-- Caption bar (synced to the step's audio clip by aw-captions.js) -->
+			<div id="aw-caption" class="aw-caption" aria-hidden="true"></div>
+			<!-- LEFT pill · view options: callout / outline / shortcuts (icons; label shows as a hover tooltip) -->
+			<div id="stage-overlay-left" class="stage-overlay stage-overlay-left" role="group" aria-label="View options">
+				<button id="callout-toggle" type="button" class="ovl-btn" aria-label="Toggle callouts" aria-pressed="false" data-tip="Callouts: Off"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M4 5h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H10l-4 3v-3H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></svg></button>
+				<button id="outline-toggle" type="button" class="ovl-btn" aria-controls="step-outline" aria-expanded="false" aria-label="Toggle text outline" data-tip="Outline: Off"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" d="M4 6h16M4 12h16M4 18h10"/></svg></button>
+				<button id="help-toggle" class="ovl-btn help-toggle" type="button" aria-haspopup="dialog" aria-controls="shortcut-overlay" aria-label="Keyboard shortcuts (press ?)" data-tip="Shortcuts"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M11 18h2v-2h-2v2zm1.1-14C9.8 4 8 5.8 8 8h2a2 2 0 1 1 3.2 1.6c-.9.7-2.2 1.5-2.2 3.4h2c0-1 .8-1.5 1.7-2.2A4 4 0 0 0 12.1 4z"/></svg></button>
+			</div>
+			<!-- RIGHT pill · player: audio / captions / hide-top-bar / fullscreen -->
+			<div id="stage-overlay" class="stage-overlay" role="group" aria-label="Player controls">
+				<button id="audio-toggle" class="ovl-btn ovl-audio" type="button" aria-label="Toggle audio narration" aria-pressed="false" title="Narration audio"></button>
+				<button id="cc-toggle" class="ovl-btn" type="button" aria-label="Toggle captions" aria-pressed="false" title="Captions"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9.7 10.2a2.1 2.1 0 1 0 0 3.6M17 10.2a2.1 2.1 0 1 0 0 3.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+				<button id="header-hide" class="ovl-btn" type="button" aria-label="Hide top bar" title="Hide top bar (H)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/></svg></button>
+				<button id="fs-toggle" class="ovl-btn" type="button" aria-label="Toggle full screen" aria-pressed="false" title="Full screen (F)"><svg class="fs-enter" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg><svg class="fs-exit" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg></button>
+			</div>
+		</div>
+	</main>
+
+	<aside id="step-outline" hidden aria-label="Text outline of the current step">
+		<h2 id="outline-title">Step Details</h2>
+		<div id="outline-body"></div>
+	</aside>
+
+	<div id="controls" role="group" aria-label="Diagram navigation">
+		<button id="ctrl-grip" type="button" class="ctrl-grip" aria-label="Drag to move the controls" title="Drag to move">
+			<svg viewBox="0 0 16 16" aria-hidden="true"><g fill="currentColor"><circle cx="5" cy="3" r="1.4"/><circle cx="11" cy="3" r="1.4"/><circle cx="5" cy="8" r="1.4"/><circle cx="11" cy="8" r="1.4"/><circle cx="5" cy="13" r="1.4"/><circle cx="11" cy="13" r="1.4"/></g></svg>
+		</button>
+		<button id="ctrl-pin" type="button" class="button button-clear ctrl-icon ctrl-pin" aria-label="Pin the controls back to the center" title="Pin to center">
+			<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9 2h6a1 1 0 0 1 .8 1.6L14 6v4l3 3v2h-4v5l-1 2-1-2v-5H7v-2l3-3V6L8.2 3.6A1 1 0 0 1 9 2z"/></svg>
+		</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="prev-btn" type="button" class="button ctrl-icon" aria-label="Previous step (left arrow)">&#9664;</button>
+		<div class="step-counter" id="step-counter">0 / 0</div>
+		<button id="next-btn" type="button" class="button button-primary button-filled ctrl-icon ctrl-icon-next" aria-label="Next step (right arrow or space)">&#9654;</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="replay-btn" type="button" class="button ctrl-icon" aria-label="Replay this step's animation (P)">&#8635;</button>
+		<div class="speed-control" role="group" aria-label="Animation speed">
+			<button id="speed-down" type="button" class="button button-clear speed-btn" aria-label="Slower (-)" title="Slower">&minus;</button>
+			<span id="speed-label" class="speed-label" aria-live="polite" aria-label="Current speed">1&times;</span>
+			<button id="speed-up" type="button" class="button button-clear speed-btn" aria-label="Faster (+)" title="Faster">+</button>
+		</div>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="reset-btn" type="button" class="button button-clear ctrl-icon" aria-label="Restart from step 1 (R)">&#9198;</button>
+	</div>
+
+
+<!-- "Up next" pill — docked bottom-right on the last step so learners chain to the next stop -->
+<div id="journey-next" aria-hidden="true">
+	<div class="jn-card" role="group" aria-label="Continue to the next stop">
+		<span class="jn-icon"><img id="jn-icon-img" src="" alt="" decoding="async" /></span>
+		<span class="jn-text">
+			<span class="jn-eyebrow"><span class="jn-check" aria-hidden="true">✓</span><span id="jn-eyebrow-text">Up next</span></span>
+			<span class="jn-title" id="jn-title">Next stop</span>
+		</span>
+		<a id="jn-cta" class="jn-cta" href="#"><span id="jn-cta-text">Continue</span><span aria-hidden="true">→</span></a>
+		<button id="jn-close" class="jn-close" type="button" aria-label="Dismiss"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
+	</div>
+</div>
+
+	<div id="shortcut-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="sc-title">
+		<div class="sc-backdrop"></div>
+		<div class="sc-panel">
+			<button id="sc-close" class="sc-close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
+			<h2 id="sc-title">Keyboard shortcuts</h2>
+			<ul id="sc-list" class="sc-list"></ul>
+			<p class="sc-hint">Press <kbd>?</kbd> anytime to toggle this panel.</p>
+		</div>
+	</div>
+
+<script>
+// ── THEME ─────────────────────────────────
+const themeToggleBtn = document.getElementById('theme-toggle');
+function syncThemeBtn(){
+	if (!themeToggleBtn) return;
+	const isDark = document.body.classList.contains('theme-dark');
+	themeToggleBtn.dataset.theme = isDark ? 'dark' : 'light';   // drives which glyph (sun/moon) shows
+	const label = isDark ? 'Switch to light theme' : 'Switch to dark theme';
+	themeToggleBtn.setAttribute('aria-label', label);
+	themeToggleBtn.setAttribute('title', label);
+}
+if (window.AW && AW.theme) {
+	// aw-theme.js owns click handling + persistence; theme recolors via CSS variables, so no re-render/replay.
+	AW.theme.onChange(() => { syncThemeBtn(); });
+	syncThemeBtn();
+} else {
+	// Standalone fallback: toggle .theme-dark / .theme-light on <body> ourselves.
+	syncThemeBtn();
+	if (themeToggleBtn) themeToggleBtn.addEventListener('click', () => {
+		const goingDark = !document.body.classList.contains('theme-dark');
+		document.body.classList.remove('theme-dark', 'theme-light');
+		document.body.classList.add(goingDark ? 'theme-dark' : 'theme-light');
+		try { localStorage.setItem('aw-theme', goingDark ? 'theme-dark' : 'theme-light'); } catch(_){}
+		syncThemeBtn();
+	});
+	// restore a previously chosen theme (standalone only)
+	try { const saved = localStorage.getItem('aw-theme'); if (saved === 'theme-light' || saved === 'theme-dark') { document.body.classList.remove('theme-dark','theme-light'); document.body.classList.add(saved); syncThemeBtn(); } } catch(_){}
+}
+
+
+// ── i18n ──────────────────────────────────
+let currentLang = 'en';
+const I18N = {
+  "en": {
+    "skipToMain": "Skip to diagram",
+    "pageTitle": "Zero Trust Security Architecture",
+    "backLinkText": "Security",
+    "backLinkTitle": "Back to Security",
+    "toolbar": "Toolbar",
+    "stageHeading": "Zero Trust Security Architecture — Azure Security Journey",
+    "stageInstructions": "Animated explainer of Zero Trust Security Architecture for the Azure Security Journey. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.",
+    "prev": "◀ Prev",
+    "next": "Next ▶",
+    "replay": "↻ Replay",
+    "restart": "↻ Restart",
+    "slower": "Slower",
+    "faster": "Faster",
+    "calloutOn": "💬 Callout: On",
+    "calloutOff": "💬 Callout: Off",
+    "outlineOn": "📝 Outline: On",
+    "outlineOff": "📝 Outline: Off",
+    "audioTip": "Narration audio",
+    "ccTip": "Captions",
+    "shortcutsTip": "Shortcuts",
+    "stepDetails": "Step Details",
+    "stepOf": "Step",
+    "resetPos": "Reset to default position",
+    "scTitle": "Keyboard shortcuts",
+    "scNext": "Next step",
+    "scPrev": "Previous step",
+    "scRestart": "Restart",
+    "scReplay": "Replay this step",
+    "scHide": "Hide / show top bar",
+    "scHelp": "Toggle this help",
+    "dismiss": "Dismiss",
+    "nextStopGroup": "Journey complete",
+    "learnCta": "Open the Microsoft Learn path",
+    "nextEyebrow": "Journey complete",
+    "nextTitle": "Back to the Security journey hub",
+    "nextCta": "Restart the journey",
+    "verifyTitle": "Start from the assembled Contoso design",
+    "verifyCaption": "Zero Trust principles",
+    "verifyDesc": "The earlier stops already removed local secrets. Now every sensitive request must still satisfy the right identity, the right network path, and the right role — even if one component is compromised.",
+    "verifyCallout": "Zero Trust is the framing rule for the finale: do not trust a request just because it came from inside the app. Make it prove identity, path, and authorization every time.",
+    "verifyStat1": "Baseline",
+    "verifyStat1v": "Store Front + Order Processing + SQL Database",
+    "verifyStat2": "Earlier stops",
+    "verifyStat2v": "Key Vault + App Configuration + Managed Identity",
+    "verifyStat3": "Final goal",
+    "verifyStat3v": "Constrain every sensitive path",
+    "peTitle": "Add Private Endpoint to the sensitive services",
+    "peCaption": "Private IP inside the VNet",
+    "peDesc": "Bring Private Endpoint into Contoso’s Virtual Network for both Key Vault and App Configuration. The app keeps using the same services, but the path lands on a private IP inside the VNet.",
+    "peCallout": "This is the network half of Zero Trust: the route is private, local to the VNet, and explicit.",
+    "peStat1": "Services",
+    "peStat1v": "Key Vault + App Configuration",
+    "peStat2": "Network",
+    "peStat2v": "Private IP inside the VNet",
+    "peStat3": "Benefit",
+    "peStat3v": "Traffic stops relying on a public route",
+    "disableTitle": "Disable the public path too",
+    "disableCaption": "Public network access",
+    "disableDesc": "Private Endpoint helps, but it does not automatically remove the public endpoint. Public network access on Key Vault and App Configuration must also flip from Enabled to Disabled.",
+    "disableCallout": "Otherwise the secure path and the open path live side by side — a classic false sense of security.",
+    "disableStat1": "Private path",
+    "disableStat1v": "Added with Private Endpoint",
+    "disableStat2": "Public path",
+    "disableStat2v": "Must be turned off explicitly",
+    "disableStat3": "Result",
+    "disableStat3v": "Only the private route remains",
+    "rbacTitle": "Separate duties with Azure RBAC",
+    "rbacCaption": "Replace broad access",
+    "rbacDesc": "Replace legacy Key Vault access policies with Azure RBAC. The runtime app reads secrets, the SecOps/admin group manages rotation, and CI/CD gets only the narrow scope it needs for one task.",
+    "rbacCallout": "Least privilege is not one powerful identity. It is different identities doing different jobs.",
+    "rbacStat1": "Runtime",
+    "rbacStat1v": "Key Vault Secrets User",
+    "rbacStat2": "Operations",
+    "rbacStat2v": "Key Vault Administrator",
+    "rbacStat3": "CI/CD",
+    "rbacStat3v": "One narrow-scoped deployment role",
+    "auditTitle": "Assume breach operationally",
+    "auditCaption": "Logs, alerts, rotation, and secretless CI/CD",
+    "auditDescStep": "Stream diagnostic settings into Log Analytics and Microsoft Sentinel, keep secret rotation moving, and let GitHub Actions use a federated credential instead of a stored Azure admin credential.",
+    "auditCallout": "Zero Trust is operational, not just architectural: you need evidence, alerting, and rotation after the design goes live.",
+    "auditStat1": "Logs",
+    "auditStat1v": "Diagnostic settings",
+    "auditStat2": "Detection",
+    "auditStat2v": "Log Analytics + Microsoft Sentinel",
+    "auditStat3": "Pipeline",
+    "auditStat3v": "Federated credential",
+    "recapTitle": "The hardened Contoso design — end to end",
+    "recapCaption": "Final architecture at a glance",
+    "recapDesc": "The same building blocks from steps 1–3 now sit behind a private path, managed identities, separated RBAC duties, operational logs, and secretless CI/CD.",
+    "recapCallout": "This finale is the whole point of the journey: secretless, least-privilege, explicitly verified access from end to end.",
+    "recapStat1": "Identity",
+    "recapStat1v": "Managed identities + federation",
+    "recapStat2": "Network",
+    "recapStat2v": "Private Endpoint + public disabled",
+    "recapStat3": "Governance",
+    "recapStat3v": "Azure RBAC + diagnostics",
+    "contosoLabel": "Contoso E-Commerce",
+    "goalText": "Every request must pass identity, network path, and role checks.",
+    "principlesTitle": "Three guiding principles",
+    "principle1": "Verify explicitly",
+    "principle2": "Use least-privilege access",
+    "principle3": "Assume breach",
+    "vnetLabel": "Contoso Virtual Network",
+    "storeFrontTitle": "Store Front",
+    "storeFrontDesc": "Customer web tier on Azure App Service",
+    "orderTitle": "Order Processing",
+    "orderDesc": "Backend/API tier for orders and workflows",
+    "dbTitle": "Backend / DB",
+    "dbDesc": "SQL Database for orders and catalog data",
+    "miRuntimeTitle": "Managed Identity",
+    "miRuntimeDesc": "Runtime tokens for the app tiers — no secret in code",
+    "appConfigTitle": "App Configuration",
+    "appConfigDesc": "Central runtime config and feature flags",
+    "keyVaultTitle": "Key Vault",
+    "keyVaultDesc": "Secrets and certificates stay outside the app",
+    "peTitleLabel": "Private Endpoint",
+    "pePrivateIpDesc": "private IP inside the VNet",
+    "peAppCfgDesc": "for App Configuration",
+    "peKvDesc": "for Key Vault",
+    "publicPanelTitle": "Public network access",
+    "publicPanelDesc": "Private Endpoint helps, but the public endpoint still exists until you disable it on both services.",
+    "publicWarning": "Private Endpoint + public still enabled = false sense of security.",
+    "publicPathText": "Public path still open",
+    "toggleEnabled": "Enabled",
+    "toggleDisabled": "Disabled",
+    "rbacPanelTitle": "Azure RBAC",
+    "rbacPanelDesc": "Replace legacy Key Vault access policies with separated duties and narrow scopes.",
+    "roleRuntimePrincipal": "Store Front & Order Processing",
+    "roleRuntimeDesc": "Key Vault Secrets User — read secrets only at the vault scope",
+    "roleRuntimeScope": "runtime",
+    "roleAdminPrincipal": "SecOps / admin group",
+    "roleAdminDesc": "Key Vault Administrator — manage and rotate secrets",
+    "roleAdminScope": "operations",
+    "roleCiPrincipal": "GitHub Actions CI/CD",
+    "roleCiDesc": "One narrow-scoped role for one deployment task",
+    "roleCiScope": "CI/CD",
+    "legacyPolicyTitle": "Legacy Key Vault access policies",
+    "legacyPolicyDesc": "Avoid broad policy sprawl and broad contributor-style access.",
+    "auditPanelTitle": "Diagnostic settings",
+    "auditDesc": "Audit logs to Log Analytics + Sentinel",
+    "rotationTitle": "Secret rotation",
+    "rotationDesc": "Rotate on a regular cadence",
+    "ciPanelTitle": "GitHub Actions CI/CD",
+    "ciDesc": "Federated credential — no stored Azure admin credential",
+    "takeawayText": "secretless, least-privilege, explicitly verified — end to end",
+    "chipManagedIdentity": "Managed Identity",
+    "chipAppService": "App Service",
+    "chipBackendApi": "backend/API",
+    "chipSqlDatabase": "SQL Database",
+    "chipDataTier": "data tier",
+    "chipNoAppSecret": "no app secret",
+    "chipShortToken": "short-lived token",
+    "chipPrivateIp": "private IP",
+    "chipPublicDisabled": "public disabled",
+    "chipDynamicConfig": "dynamic config",
+    "chipFeatureFlags": "feature flags",
+    "chipSecrets": "secrets",
+    "chipLogs": "logs",
+    "chipAlerts": "alerts",
+    "chipFederated": "federated credential",
+    "chipNarrowScope": "narrow scope",
+    "chipSeparation": "separation of duties",
+    "chipLeastPrivilege": "least privilege",
+    "chipPrivatePathOnly": "private path only"
+  },
+  "es": {
+    "skipToMain": "Ir al diagrama",
+    "pageTitle": "Arquitectura de seguridad Zero Trust",
+    "backLinkText": "Seguridad",
+    "backLinkTitle": "Volver a Seguridad",
+    "toolbar": "Barra de herramientas",
+    "stageHeading": "Arquitectura de seguridad Zero Trust — recorrido de seguridad de Azure",
+    "stageInstructions": "Explicación animada de Zero Trust Security Architecture para Azure Security Journey. Usa los botones Siguiente/Anterior o las flechas del teclado para navegar. Pulsa R para reiniciar.",
+    "prev": "◀ Anterior",
+    "next": "Siguiente ▶",
+    "replay": "↻ Repetir",
+    "restart": "↻ Reiniciar",
+    "slower": "Más lento",
+    "faster": "Más rápido",
+    "calloutOn": "💬 Detalle: activado",
+    "calloutOff": "💬 Detalle: desactivado",
+    "outlineOn": "📝 Esquema: activado",
+    "outlineOff": "📝 Esquema: desactivado",
+    "audioTip": "Audio de narración",
+    "ccTip": "Subtítulos",
+    "shortcutsTip": "Atajos",
+    "stepDetails": "Detalles del paso",
+    "stepOf": "Paso",
+    "resetPos": "Restablecer la posición predeterminada",
+    "scTitle": "Atajos de teclado",
+    "scNext": "Siguiente paso",
+    "scPrev": "Paso anterior",
+    "scRestart": "Reiniciar",
+    "scReplay": "Repetir este paso",
+    "scHide": "Ocultar / mostrar la barra superior",
+    "scHelp": "Mostrar u ocultar esta ayuda",
+    "dismiss": "Cerrar",
+    "nextStopGroup": "Recorrido completado",
+    "learnCta": "Abrir la ruta de Microsoft Learn",
+    "nextEyebrow": "Recorrido completado",
+    "nextTitle": "Volver al hub de Security",
+    "nextCta": "Reiniciar el recorrido",
+    "verifyTitle": "Partir del diseño Contoso ya ensamblado",
+    "verifyCaption": "Principios de Zero Trust",
+    "verifyDesc": "Las paradas anteriores ya sacaron los secretos del código local. Ahora toda solicitud sensible todavía debe cumplir la identidad correcta, la ruta de red correcta y el rol correcto, incluso si un componente se ve comprometido.",
+    "verifyCallout": "Zero Trust es la regla que enmarca el final: no confíes en una solicitud solo por venir desde dentro de la aplicación. Que demuestre identidad, ruta y autorización cada vez.",
+    "verifyStat1": "Base",
+    "verifyStat1v": "Store Front + Order Processing + SQL Database",
+    "verifyStat2": "Paradas anteriores",
+    "verifyStat2v": "Key Vault + App Configuration + Managed Identity",
+    "verifyStat3": "Meta final",
+    "verifyStat3v": "Restringir cada ruta sensible",
+    "peTitle": "Agregar Private Endpoint a los servicios sensibles",
+    "peCaption": "IP privada dentro de la VNet",
+    "peDesc": "Lleva Private Endpoint a la Virtual Network de Contoso para Key Vault y App Configuration. La aplicación sigue usando los mismos servicios, pero la ruta ahora aterriza en una IP privada dentro de la VNet.",
+    "peCallout": "Esta es la mitad de red de Zero Trust: la ruta es privada, local a la VNet y explícita.",
+    "peStat1": "Servicios",
+    "peStat1v": "Key Vault + App Configuration",
+    "peStat2": "Red",
+    "peStat2v": "IP privada dentro de la VNet",
+    "peStat3": "Beneficio",
+    "peStat3v": "El tráfico deja de depender de una ruta pública",
+    "disableTitle": "Desactiva también la ruta pública",
+    "disableCaption": "Acceso de red pública",
+    "disableDesc": "Private Endpoint ayuda, pero no elimina automáticamente el endpoint público. El acceso de red pública en Key Vault y App Configuration también debe pasar de Enabled a Disabled.",
+    "disableCallout": "Si no, la ruta segura y la ruta abierta conviven lado a lado: la falsa sensación de seguridad clásica.",
+    "disableStat1": "Ruta privada",
+    "disableStat1v": "Se agrega con Private Endpoint",
+    "disableStat2": "Ruta pública",
+    "disableStat2v": "Debe apagarse de forma explícita",
+    "disableStat3": "Resultado",
+    "disableStat3v": "Solo queda la ruta privada",
+    "rbacTitle": "Separar funciones con Azure RBAC",
+    "rbacCaption": "Reemplazar el acceso amplio",
+    "rbacDesc": "Sustituye las antiguas Key Vault access policies por Azure RBAC. La aplicación de runtime lee secretos, el grupo de SecOps/admin gestiona la rotación y CI/CD recibe solo el alcance mínimo para una tarea.",
+    "rbacCallout": "Mínimo privilegio no significa una identidad poderosa. Significa identidades distintas haciendo trabajos distintos.",
+    "rbacStat1": "Runtime",
+    "rbacStat1v": "Key Vault Secrets User",
+    "rbacStat2": "Operaciones",
+    "rbacStat2v": "Key Vault Administrator",
+    "rbacStat3": "CI/CD",
+    "rbacStat3v": "Un rol de despliegue con alcance mínimo",
+    "auditTitle": "Asumir una intrusión también en la operación",
+    "auditCaption": "Registros, alertas, rotación y CI/CD sin secretos",
+    "auditDescStep": "Envía Diagnostic settings a Log Analytics y Microsoft Sentinel, mantén la rotación de secretos en marcha y deja que GitHub Actions use una federated credential en lugar de una credencial de administrador de Azure almacenada.",
+    "auditCallout": "Zero Trust también es operativo: después de publicar el diseño necesitas evidencia, alertas y rotación.",
+    "auditStat1": "Registros",
+    "auditStat1v": "Configuración de diagnóstico",
+    "auditStat2": "Detección",
+    "auditStat2v": "Log Analytics + Microsoft Sentinel",
+    "auditStat3": "Canalización",
+    "auditStat3v": "Federated credential",
+    "recapTitle": "El diseño Contoso endurecido, de extremo a extremo",
+    "recapCaption": "Arquitectura final de un vistazo",
+    "recapDesc": "Los mismos bloques de los pasos 1–3 ahora quedan detrás de una ruta privada, identidades administradas, funciones RBAC separadas, registros operativos y CI/CD sin secretos.",
+    "recapCallout": "Ese es el objetivo del recorrido: acceso sin secretos, de mínimo privilegio y verificado explícitamente de extremo a extremo.",
+    "recapStat1": "Identidad",
+    "recapStat1v": "Managed identities + federation",
+    "recapStat2": "Red",
+    "recapStat2v": "Private Endpoint + acceso público deshabilitado",
+    "recapStat3": "Gobierno",
+    "recapStat3v": "Azure RBAC + diagnósticos",
+    "contosoLabel": "Contoso E-Commerce",
+    "goalText": "Cada solicitud debe superar controles de identidad, ruta de red y rol.",
+    "principlesTitle": "Tres principios rectores",
+    "principle1": "Verificar de forma explícita",
+    "principle2": "Usar acceso de mínimo privilegio",
+    "principle3": "Asumir una intrusión",
+    "vnetLabel": "Contoso Virtual Network",
+    "storeFrontTitle": "Store Front",
+    "storeFrontDesc": "Capa web de cliente en Azure App Service",
+    "orderTitle": "Order Processing",
+    "orderDesc": "Capa backend/API para pedidos y flujos",
+    "dbTitle": "Backend / DB",
+    "dbDesc": "SQL Database para pedidos y catálogo",
+    "miRuntimeTitle": "Managed Identity",
+    "miRuntimeDesc": "Tokens de runtime para las capas de la app; sin secretos en el código",
+    "appConfigTitle": "App Configuration",
+    "appConfigDesc": "Configuración de runtime y feature flags centralizadas",
+    "keyVaultTitle": "Key Vault",
+    "keyVaultDesc": "Los secretos y certificados quedan fuera de la app",
+    "peTitleLabel": "Private Endpoint",
+    "pePrivateIpDesc": "IP privada dentro de la VNet",
+    "peAppCfgDesc": "para App Configuration",
+    "peKvDesc": "para Key Vault",
+    "publicPanelTitle": "Acceso de red pública",
+    "publicPanelDesc": "Private Endpoint ayuda, pero el endpoint público sigue existiendo hasta que lo deshabilitas en ambos servicios.",
+    "publicWarning": "Private Endpoint + acceso público habilitado = falsa sensación de seguridad.",
+    "publicPathText": "La ruta pública sigue abierta",
+    "toggleEnabled": "Habilitado",
+    "toggleDisabled": "Deshabilitado",
+    "rbacPanelTitle": "Azure RBAC",
+    "rbacPanelDesc": "Sustituye las antiguas Key Vault access policies por funciones separadas y ámbitos reducidos.",
+    "roleRuntimePrincipal": "Store Front y Order Processing",
+    "roleRuntimeDesc": "Key Vault Secrets User: solo lectura de secretos en el ámbito del vault",
+    "roleRuntimeScope": "runtime",
+    "roleAdminPrincipal": "Grupo de SecOps / administración",
+    "roleAdminDesc": "Key Vault Administrator: administrar y rotar secretos",
+    "roleAdminScope": "operaciones",
+    "roleCiPrincipal": "GitHub Actions CI/CD",
+    "roleCiDesc": "Un rol de alcance mínimo para una sola tarea de despliegue",
+    "roleCiScope": "CI/CD",
+    "legacyPolicyTitle": "Key Vault access policies heredadas",
+    "legacyPolicyDesc": "Evita la proliferación de políticas amplias y el acceso demasiado generoso.",
+    "auditPanelTitle": "Configuración de diagnóstico",
+    "auditDesc": "Registros a Log Analytics + Sentinel",
+    "rotationTitle": "Rotación de secretos",
+    "rotationDesc": "Rótalos con una cadencia periódica",
+    "ciPanelTitle": "GitHub Actions CI/CD",
+    "ciDesc": "Federated credential: sin credencial de administrador de Azure almacenada",
+    "takeawayText": "sin secretos, con mínimo privilegio y verificación explícita de extremo a extremo",
+    "chipManagedIdentity": "Managed Identity",
+    "chipAppService": "App Service",
+    "chipBackendApi": "backend/API",
+    "chipSqlDatabase": "SQL Database",
+    "chipDataTier": "capa de datos",
+    "chipNoAppSecret": "sin secreto en la app",
+    "chipShortToken": "token de corta duración",
+    "chipPrivateIp": "IP privada",
+    "chipPublicDisabled": "acceso público deshabilitado",
+    "chipDynamicConfig": "configuración dinámica",
+    "chipFeatureFlags": "indicadores de características",
+    "chipSecrets": "secretos",
+    "chipLogs": "registros",
+    "chipAlerts": "alertas",
+    "chipFederated": "federated credential",
+    "chipNarrowScope": "alcance mínimo",
+    "chipSeparation": "separación de funciones",
+    "chipLeastPrivilege": "mínimo privilegio",
+    "chipPrivatePathOnly": "solo ruta privada"
+  },
+  "ja": {
+    "skipToMain": "図に移動",
+    "pageTitle": "Zero Trust セキュリティ アーキテクチャ",
+    "backLinkText": "セキュリティ",
+    "backLinkTitle": "セキュリティに戻る",
+    "toolbar": "ツールバー",
+    "stageHeading": "Zero Trust セキュリティ アーキテクチャ — Azure セキュリティ ジャーニー",
+    "stageInstructions": "Azure Security Journey 向けの Zero Trust Security Architecture をアニメーションで解説します。次へ / 前へボタン、または矢印キーで移動します。R キーで最初からやり直します。",
+    "prev": "◀ 前へ",
+    "next": "次へ ▶",
+    "replay": "↻ 再生",
+    "restart": "↻ 最初から",
+    "slower": "遅くする",
+    "faster": "速くする",
+    "calloutOn": "💬 補足: オン",
+    "calloutOff": "💬 補足: オフ",
+    "outlineOn": "📝 アウトライン: オン",
+    "outlineOff": "📝 アウトライン: オフ",
+    "audioTip": "音声ナレーション",
+    "ccTip": "字幕",
+    "shortcutsTip": "ショートカット",
+    "stepDetails": "ステップ詳細",
+    "stepOf": "ステップ",
+    "resetPos": "既定の位置に戻す",
+    "scTitle": "キーボード ショートカット",
+    "scNext": "次のステップ",
+    "scPrev": "前のステップ",
+    "scRestart": "最初から",
+    "scReplay": "このステップを再生",
+    "scHide": "上部バーの表示 / 非表示",
+    "scHelp": "このヘルプの表示 / 非表示",
+    "dismiss": "閉じる",
+    "nextStopGroup": "ジャーニー完了",
+    "learnCta": "Microsoft Learn の学習パスを開く",
+    "nextEyebrow": "ジャーニー完了",
+    "nextTitle": "Security ジャーニーのハブに戻る",
+    "nextCta": "ジャーニーをやり直す",
+    "verifyTitle": "組み上がった Contoso 設計から始める",
+    "verifyCaption": "Zero Trust の原則",
+    "verifyDesc": "前のステップでローカル シークレットはすでに取り除かれました。ここからは、1 つのコンポーネントが侵害されても、重要な要求ごとに正しい ID、正しいネットワーク経路、正しいロールが必要になります。",
+    "verifyCallout": "フィナーレを支える考え方が Zero Trust です。アプリの内側から来たという理由だけで要求を信用せず、毎回 ID・経路・認可を証明させます。",
+    "verifyStat1": "ベース",
+    "verifyStat1v": "Store Front + Order Processing + SQL Database",
+    "verifyStat2": "前のステップ",
+    "verifyStat2v": "Key Vault + App Configuration + Managed Identity",
+    "verifyStat3": "最終目標",
+    "verifyStat3v": "重要な経路をすべて制約する",
+    "peTitle": "重要なサービスに Private Endpoint を追加する",
+    "peCaption": "VNet 内のプライベート IP",
+    "peDesc": "Key Vault と App Configuration の両方に対して、Contoso の Virtual Network に Private Endpoint を持ち込みます。アプリが使うサービス自体は同じでも、経路は VNet 内のプライベート IP に着地します。",
+    "peCallout": "これが Zero Trust のネットワーク面です。経路はプライベートで、VNet 内に閉じ、明示的になります。",
+    "peStat1": "サービス",
+    "peStat1v": "Key Vault + App Configuration",
+    "peStat2": "ネットワーク",
+    "peStat2v": "VNet 内のプライベート IP",
+    "peStat3": "効果",
+    "peStat3v": "公開経路への依存をやめる",
+    "disableTitle": "公開経路も無効化する",
+    "disableCaption": "パブリック ネットワーク アクセス",
+    "disableDesc": "Private Endpoint は有効ですが、公開エンドポイントを自動では消しません。Key Vault と App Configuration の Public network access も Enabled から Disabled に切り替える必要があります。",
+    "disableCallout": "そうしないと、安全な経路と開いた経路が並び、典型的な「守られているつもり」になります。",
+    "disableStat1": "プライベート経路",
+    "disableStat1v": "Private Endpoint で追加",
+    "disableStat2": "公開経路",
+    "disableStat2v": "明示的に無効化が必要",
+    "disableStat3": "結果",
+    "disableStat3v": "プライベート経路だけが残る",
+    "rbacTitle": "Azure RBAC で役割を分離する",
+    "rbacCaption": "広すぎる権限を置き換える",
+    "rbacDesc": "従来の Key Vault access policies を Azure RBAC に置き換えます。ランタイム アプリはシークレットを読み取り、SecOps / 管理グループはローテーションを管理し、CI/CD には 1 つの作業に必要な最小スコープだけを与えます。",
+    "rbacCallout": "最小権限とは、1 つの強い ID を作ることではありません。役割ごとに別の ID を使い分けることです。",
+    "rbacStat1": "ランタイム",
+    "rbacStat1v": "Key Vault Secrets User",
+    "rbacStat2": "運用",
+    "rbacStat2v": "Key Vault Administrator",
+    "rbacStat3": "CI/CD",
+    "rbacStat3v": "狭いスコープのデプロイ ロール 1 つ",
+    "auditTitle": "運用でも Assume breach を徹底する",
+    "auditCaption": "ログ、アラート、ローテーション、シークレットレス CI/CD",
+    "auditDescStep": "Diagnostic settings を Log Analytics と Microsoft Sentinel に流し、シークレットのローテーションを継続し、GitHub Actions には保存済みの Azure 管理者資格情報ではなく federated credential を使わせます。",
+    "auditCallout": "Zero Trust は設計だけでは終わりません。運用開始後も、証跡、アラート、ローテーションが必要です。",
+    "auditStat1": "ログ",
+    "auditStat1v": "診断設定",
+    "auditStat2": "検知",
+    "auditStat2v": "Log Analytics + Microsoft Sentinel",
+    "auditStat3": "パイプライン",
+    "auditStat3v": "Federated credential",
+    "recapTitle": "強化された Contoso 設計を端から端まで見る",
+    "recapCaption": "完成形をひと目で",
+    "recapDesc": "ステップ 1〜3 の同じ部品が、プライベート経路、Managed Identity、分離された RBAC 職務、運用ログ、そしてシークレットレス CI/CD の後ろに並びます。",
+    "recapCallout": "これがこのジャーニーの到達点です。シークレットレスで、最小権限で、端から端まで明示的に検証されたアクセスです。",
+    "recapStat1": "ID",
+    "recapStat1v": "Managed identities + federation",
+    "recapStat2": "ネットワーク",
+    "recapStat2v": "Private Endpoint + 公開経路無効",
+    "recapStat3": "ガバナンス",
+    "recapStat3v": "Azure RBAC + 診断",
+    "contosoLabel": "Contoso E-Commerce",
+    "goalText": "すべての要求は、ID・ネットワーク経路・ロールの確認を通過する必要があります。",
+    "principlesTitle": "3 つの基本原則",
+    "principle1": "明示的に検証する",
+    "principle2": "最小権限でアクセスする",
+    "principle3": "侵害を前提にする",
+    "vnetLabel": "Contoso Virtual Network",
+    "storeFrontTitle": "Store Front",
+    "storeFrontDesc": "Azure App Service 上の顧客向け Web 層",
+    "orderTitle": "Order Processing",
+    "orderDesc": "注文とワークフローのためのバックエンド / API 層",
+    "dbTitle": "Backend / DB",
+    "dbDesc": "注文とカタログ データを保持する SQL Database",
+    "miRuntimeTitle": "Managed Identity",
+    "miRuntimeDesc": "アプリ層向けのランタイム トークン。コードにシークレットは置かない",
+    "appConfigTitle": "App Configuration",
+    "appConfigDesc": "ランタイム構成と feature flags を一元化",
+    "keyVaultTitle": "Key Vault",
+    "keyVaultDesc": "シークレットと証明書をアプリの外に置く",
+    "peTitleLabel": "Private Endpoint",
+    "pePrivateIpDesc": "VNet 内のプライベート IP",
+    "peAppCfgDesc": "App Configuration 用",
+    "peKvDesc": "Key Vault 用",
+    "publicPanelTitle": "パブリック ネットワーク アクセス",
+    "publicPanelDesc": "Private Endpoint だけでは不十分です。両方のサービスで無効化するまで、公開エンドポイントは残ります。",
+    "publicWarning": "Private Endpoint と公開アクセス有効の共存は「守られているつもり」です。",
+    "publicPathText": "公開経路はまだ開いている",
+    "toggleEnabled": "有効",
+    "toggleDisabled": "無効",
+    "rbacPanelTitle": "Azure RBAC",
+    "rbacPanelDesc": "従来の Key Vault access policies を、役割分離と狭いスコープの Azure RBAC に置き換えます。",
+    "roleRuntimePrincipal": "Store Front と Order Processing",
+    "roleRuntimeDesc": "Key Vault Secrets User — vault スコープでシークレットを読むだけ",
+    "roleRuntimeScope": "ランタイム",
+    "roleAdminPrincipal": "SecOps / 管理グループ",
+    "roleAdminDesc": "Key Vault Administrator — シークレットの管理とローテーション",
+    "roleAdminScope": "運用",
+    "roleCiPrincipal": "GitHub Actions CI/CD",
+    "roleCiDesc": "1 つのデプロイ作業に必要な狭いスコープのロール 1 つ",
+    "roleCiScope": "CI/CD",
+    "legacyPolicyTitle": "従来の Key Vault access policies",
+    "legacyPolicyDesc": "広すぎるポリシーの乱立や大きすぎる権限を避けます。",
+    "auditPanelTitle": "診断設定",
+    "auditDesc": "監査ログを Log Analytics + Sentinel へ",
+    "rotationTitle": "シークレットのローテーション",
+    "rotationDesc": "定期的なサイクルでローテーションする",
+    "ciPanelTitle": "GitHub Actions CI/CD",
+    "ciDesc": "Federated credential。保存済みの Azure 管理者資格情報は不要",
+    "takeawayText": "シークレットレス、最小権限、明示的な検証を端から端まで",
+    "chipManagedIdentity": "Managed Identity",
+    "chipAppService": "App Service",
+    "chipBackendApi": "バックエンド / API",
+    "chipSqlDatabase": "SQL Database",
+    "chipDataTier": "データ層",
+    "chipNoAppSecret": "アプリにシークレットなし",
+    "chipShortToken": "短命トークン",
+    "chipPrivateIp": "プライベート IP",
+    "chipPublicDisabled": "公開経路無効",
+    "chipDynamicConfig": "動的構成",
+    "chipFeatureFlags": "機能フラグ",
+    "chipSecrets": "シークレット",
+    "chipLogs": "ログ",
+    "chipAlerts": "アラート",
+    "chipFederated": "federated credential",
+    "chipNarrowScope": "狭いスコープ",
+    "chipSeparation": "職務分離",
+    "chipLeastPrivilege": "最小権限",
+    "chipPrivatePathOnly": "プライベート経路のみ"
+  },
+  "ko": {
+    "skipToMain": "다이어그램으로 건너뛰기",
+    "pageTitle": "Zero Trust 보안 아키텍처",
+    "backLinkText": "보안",
+    "backLinkTitle": "보안으로 돌아가기",
+    "toolbar": "도구 모음",
+    "stageHeading": "Zero Trust 보안 아키텍처 — Azure 보안 여정",
+    "stageInstructions": "Azure Security Journey용 Zero Trust Security Architecture를 애니메이션으로 설명합니다. 다음/이전 버튼이나 화살표 키로 이동하고, R 키로 다시 시작하세요.",
+    "prev": "◀ 이전",
+    "next": "다음 ▶",
+    "replay": "↻ 다시 보기",
+    "restart": "↻ 처음부터",
+    "slower": "느리게",
+    "faster": "빠르게",
+    "calloutOn": "💬 설명: 켜짐",
+    "calloutOff": "💬 설명: 꺼짐",
+    "outlineOn": "📝 개요: 켜짐",
+    "outlineOff": "📝 개요: 꺼짐",
+    "audioTip": "내레이션 오디오",
+    "ccTip": "자막",
+    "shortcutsTip": "단축키",
+    "stepDetails": "단계 세부 정보",
+    "stepOf": "단계",
+    "resetPos": "기본 위치로 재설정",
+    "scTitle": "키보드 단축키",
+    "scNext": "다음 단계",
+    "scPrev": "이전 단계",
+    "scRestart": "처음부터",
+    "scReplay": "이 단계 다시 보기",
+    "scHide": "상단 바 숨기기 / 표시",
+    "scHelp": "이 도움말 표시 / 숨기기",
+    "dismiss": "닫기",
+    "nextStopGroup": "여정 완료",
+    "learnCta": "Microsoft Learn 학습 경로 열기",
+    "nextEyebrow": "여정 완료",
+    "nextTitle": "Security 여정 허브로 돌아가기",
+    "nextCta": "여정 다시 시작",
+    "verifyTitle": "완성된 Contoso 설계에서 출발하기",
+    "verifyCaption": "Zero Trust 원칙",
+    "verifyDesc": "앞선 단계에서 로컬 비밀 정보는 이미 제거했습니다. 이제 어떤 구성 요소가 침해되더라도 모든 민감한 요청은 올바른 ID, 올바른 네트워크 경로, 올바른 역할을 통과해야 합니다.",
+    "verifyCallout": "피날레를 지배하는 규칙이 Zero Trust입니다. 앱 내부에서 왔다는 이유만으로 요청을 신뢰하지 말고, 매번 ID·경로·권한을 증명하게 하세요.",
+    "verifyStat1": "기준선",
+    "verifyStat1v": "Store Front + Order Processing + SQL Database",
+    "verifyStat2": "이전 단계",
+    "verifyStat2v": "Key Vault + App Configuration + Managed Identity",
+    "verifyStat3": "최종 목표",
+    "verifyStat3v": "모든 민감 경로를 제약하기",
+    "peTitle": "민감한 서비스에 Private Endpoint 추가하기",
+    "peCaption": "VNet 내부의 프라이빗 IP",
+    "peDesc": "Key Vault와 App Configuration 모두에 대해 Contoso Virtual Network 안으로 Private Endpoint를 가져옵니다. 앱은 같은 서비스를 계속 쓰지만, 경로는 이제 VNet 내부의 프라이빗 IP에 도착합니다.",
+    "peCallout": "이것이 Zero Trust의 네트워크 측면입니다. 경로는 프라이빗하고, VNet 내부에 머물며, 명시적으로 고정됩니다.",
+    "peStat1": "서비스",
+    "peStat1v": "Key Vault + App Configuration",
+    "peStat2": "네트워크",
+    "peStat2v": "VNet 내부의 프라이빗 IP",
+    "peStat3": "효과",
+    "peStat3v": "공개 경로 의존을 끊음",
+    "disableTitle": "공개 경로도 함께 끄기",
+    "disableCaption": "공용 네트워크 액세스",
+    "disableDesc": "Private Endpoint는 도움이 되지만 공개 엔드포인트를 자동으로 없애지는 않습니다. Key Vault와 App Configuration의 Public network access도 Enabled에서 Disabled로 바꿔야 합니다.",
+    "disableCallout": "그렇지 않으면 안전한 경로와 열린 경로가 나란히 남아, 전형적인 착각만 만들게 됩니다.",
+    "disableStat1": "프라이빗 경로",
+    "disableStat1v": "Private Endpoint로 추가",
+    "disableStat2": "공개 경로",
+    "disableStat2v": "명시적으로 꺼야 함",
+    "disableStat3": "결과",
+    "disableStat3v": "프라이빗 경로만 남음",
+    "rbacTitle": "Azure RBAC로 역할 분리하기",
+    "rbacCaption": "넓은 권한 대체",
+    "rbacDesc": "기존 Key Vault access policies를 Azure RBAC로 바꿉니다. 런타임 앱은 비밀 정보를 읽고, SecOps/관리자 그룹은 회전을 관리하며, CI/CD는 한 작업에 필요한 최소 범위만 받습니다.",
+    "rbacCallout": "최소 권한은 강력한 ID 하나를 만드는 것이 아닙니다. 서로 다른 ID가 서로 다른 일을 맡는 것입니다.",
+    "rbacStat1": "런타임",
+    "rbacStat1v": "Key Vault Secrets User",
+    "rbacStat2": "운영",
+    "rbacStat2v": "Key Vault Administrator",
+    "rbacStat3": "CI/CD",
+    "rbacStat3v": "좁은 범위의 배포 역할 하나",
+    "auditTitle": "운영에서도 Assume breach 하기",
+    "auditCaption": "로그, 경고, 회전, 시크릿 없는 CI/CD",
+    "auditDescStep": "Diagnostic settings를 Log Analytics와 Microsoft Sentinel로 보내고, 비밀 회전을 계속 유지하며, GitHub Actions는 저장된 Azure 관리자 자격 증명 대신 federated credential을 사용하게 합니다.",
+    "auditCallout": "Zero Trust는 아키텍처만의 이야기가 아닙니다. 배포 후에도 증적, 경고, 회전이 필요합니다.",
+    "auditStat1": "로그",
+    "auditStat1v": "진단 설정",
+    "auditStat2": "탐지",
+    "auditStat2v": "Log Analytics + Microsoft Sentinel",
+    "auditStat3": "파이프라인",
+    "auditStat3v": "Federated credential",
+    "recapTitle": "강화된 Contoso 설계를 끝까지 보기",
+    "recapCaption": "최종 아키텍처 한눈에 보기",
+    "recapDesc": "단계 1–3의 같은 구성 요소가 이제 프라이빗 경로, Managed Identity, 분리된 RBAC 책임, 운영 로그, 시크릿 없는 CI/CD 뒤에 배치됩니다.",
+    "recapCallout": "이 피날레가 여정의 핵심입니다. 끝까지 시크릿이 없고, 최소 권한이며, 명시적으로 검증되는 액세스입니다.",
+    "recapStat1": "ID",
+    "recapStat1v": "Managed identities + federation",
+    "recapStat2": "네트워크",
+    "recapStat2v": "Private Endpoint + 공개 액세스 차단",
+    "recapStat3": "거버넌스",
+    "recapStat3v": "Azure RBAC + 진단",
+    "contosoLabel": "Contoso E-Commerce",
+    "goalText": "모든 요청은 ID, 네트워크 경로, 역할 검사를 통과해야 합니다.",
+    "principlesTitle": "세 가지 핵심 원칙",
+    "principle1": "명시적으로 검증하기",
+    "principle2": "최소 권한으로 접근하기",
+    "principle3": "침해를 가정하기",
+    "vnetLabel": "Contoso Virtual Network",
+    "storeFrontTitle": "Store Front",
+    "storeFrontDesc": "Azure App Service의 고객용 웹 계층",
+    "orderTitle": "Order Processing",
+    "orderDesc": "주문과 워크플로를 처리하는 백엔드/API 계층",
+    "dbTitle": "Backend / DB",
+    "dbDesc": "주문과 카탈로그 데이터를 보관하는 SQL Database",
+    "miRuntimeTitle": "Managed Identity",
+    "miRuntimeDesc": "앱 계층용 런타임 토큰 — 코드 안에 비밀 정보 없음",
+    "appConfigTitle": "App Configuration",
+    "appConfigDesc": "런타임 구성과 feature flags를 중앙에서 관리",
+    "keyVaultTitle": "Key Vault",
+    "keyVaultDesc": "비밀 정보와 인증서를 앱 밖에 둠",
+    "peTitleLabel": "Private Endpoint",
+    "pePrivateIpDesc": "VNet 내부의 프라이빗 IP",
+    "peAppCfgDesc": "App Configuration용",
+    "peKvDesc": "Key Vault용",
+    "publicPanelTitle": "공용 네트워크 액세스",
+    "publicPanelDesc": "Private Endpoint만으로는 충분하지 않습니다. 두 서비스 모두에서 끌 때까지 공개 엔드포인트는 남아 있습니다.",
+    "publicWarning": "Private Endpoint와 공개 액세스 활성화의 공존은 착각일 뿐입니다.",
+    "publicPathText": "공개 경로가 아직 열려 있음",
+    "toggleEnabled": "사용",
+    "toggleDisabled": "사용 안 함",
+    "rbacPanelTitle": "Azure RBAC",
+    "rbacPanelDesc": "기존 Key Vault access policies를 역할 분리와 좁은 범위의 Azure RBAC로 바꿉니다.",
+    "roleRuntimePrincipal": "Store Front 및 Order Processing",
+    "roleRuntimeDesc": "Key Vault Secrets User — vault 범위에서 비밀 정보만 읽기",
+    "roleRuntimeScope": "런타임",
+    "roleAdminPrincipal": "SecOps / 관리자 그룹",
+    "roleAdminDesc": "Key Vault Administrator — 비밀 정보 관리와 회전",
+    "roleAdminScope": "운영",
+    "roleCiPrincipal": "GitHub Actions CI/CD",
+    "roleCiDesc": "배포 작업 하나에만 필요한 좁은 범위의 역할",
+    "roleCiScope": "CI/CD",
+    "legacyPolicyTitle": "기존 Key Vault access policies",
+    "legacyPolicyDesc": "너무 넓은 정책 확산과 과도한 권한을 피합니다.",
+    "auditPanelTitle": "진단 설정",
+    "auditDesc": "감사 로그 → Log Analytics + Sentinel",
+    "rotationTitle": "시크릿 순환",
+    "rotationDesc": "정기 주기로 회전하기",
+    "ciPanelTitle": "GitHub Actions CI/CD",
+    "ciDesc": "Federated credential — 저장된 Azure 관리자 자격 증명 없음",
+    "takeawayText": "끝까지 시크릿 없이, 최소 권한으로, 명시적으로 검증되는 액세스",
+    "chipManagedIdentity": "Managed Identity",
+    "chipAppService": "App Service",
+    "chipBackendApi": "백엔드/API",
+    "chipSqlDatabase": "SQL Database",
+    "chipDataTier": "데이터 계층",
+    "chipNoAppSecret": "앱 비밀 정보 없음",
+    "chipShortToken": "짧게 살아있는 토큰",
+    "chipPrivateIp": "프라이빗 IP",
+    "chipPublicDisabled": "공개 액세스 차단",
+    "chipDynamicConfig": "동적 구성",
+    "chipFeatureFlags": "기능 플래그",
+    "chipSecrets": "비밀 정보",
+    "chipLogs": "로그",
+    "chipAlerts": "경고",
+    "chipFederated": "federated credential",
+    "chipNarrowScope": "좁은 범위",
+    "chipSeparation": "업무 분리",
+    "chipLeastPrivilege": "최소 권한",
+    "chipPrivatePathOnly": "프라이빗 경로만"
+  },
+  "pt": {
+    "skipToMain": "Ir para o diagrama",
+    "pageTitle": "Arquitetura de segurança Zero Trust",
+    "backLinkText": "Segurança",
+    "backLinkTitle": "Voltar para Segurança",
+    "toolbar": "Barra de ferramentas",
+    "stageHeading": "Arquitetura de segurança Zero Trust — jornada de segurança do Azure",
+    "stageInstructions": "Explicação animada de Zero Trust Security Architecture para a Azure Security Journey. Use os botões Próximo/Anterior ou as setas do teclado para navegar. Pressione R para reiniciar.",
+    "prev": "◀ Anterior",
+    "next": "Próximo ▶",
+    "replay": "↻ Repetir",
+    "restart": "↻ Reiniciar",
+    "slower": "Mais lento",
+    "faster": "Mais rápido",
+    "calloutOn": "💬 Detalhe: ligado",
+    "calloutOff": "💬 Detalhe: desligado",
+    "outlineOn": "📝 Resumo: ligado",
+    "outlineOff": "📝 Resumo: desligado",
+    "audioTip": "Áudio da narração",
+    "ccTip": "Legendas",
+    "shortcutsTip": "Atalhos",
+    "stepDetails": "Detalhes da etapa",
+    "stepOf": "Etapa",
+    "resetPos": "Redefinir para a posição padrão",
+    "scTitle": "Atalhos do teclado",
+    "scNext": "Próxima etapa",
+    "scPrev": "Etapa anterior",
+    "scRestart": "Reiniciar",
+    "scReplay": "Repetir esta etapa",
+    "scHide": "Ocultar / mostrar a barra superior",
+    "scHelp": "Mostrar / ocultar esta ajuda",
+    "dismiss": "Fechar",
+    "nextStopGroup": "Jornada concluída",
+    "learnCta": "Abrir a trilha do Microsoft Learn",
+    "nextEyebrow": "Jornada concluída",
+    "nextTitle": "Voltar para o hub da jornada de Security",
+    "nextCta": "Reiniciar a jornada",
+    "verifyTitle": "Parta do desenho Contoso já montado",
+    "verifyCaption": "Princípios de Zero Trust",
+    "verifyDesc": "As etapas anteriores já tiraram os segredos do código local. Agora, toda solicitação sensível ainda precisa cumprir a identidade certa, o caminho de rede certo e a função certa — mesmo que um componente seja comprometido.",
+    "verifyCallout": "Zero Trust é a regra que conduz o final: não confie em uma solicitação só porque ela veio de dentro do aplicativo. Faça-a provar identidade, caminho e autorização em toda chamada.",
+    "verifyStat1": "Base",
+    "verifyStat1v": "Store Front + Order Processing + SQL Database",
+    "verifyStat2": "Etapas anteriores",
+    "verifyStat2v": "Key Vault + App Configuration + Managed Identity",
+    "verifyStat3": "Objetivo final",
+    "verifyStat3v": "Restringir todo caminho sensível",
+    "peTitle": "Adicionar Private Endpoint aos serviços sensíveis",
+    "peCaption": "IP privado dentro da VNet",
+    "peDesc": "Leve o Private Endpoint para a Virtual Network da Contoso tanto no Key Vault quanto no App Configuration. O aplicativo continua usando os mesmos serviços, mas o caminho passa a terminar em um IP privado dentro da VNet.",
+    "peCallout": "Essa é a metade de rede do Zero Trust: o caminho fica privado, local à VNet e explícito.",
+    "peStat1": "Serviços",
+    "peStat1v": "Key Vault + App Configuration",
+    "peStat2": "Rede",
+    "peStat2v": "IP privado dentro da VNet",
+    "peStat3": "Benefício",
+    "peStat3v": "O tráfego deixa de depender de rota pública",
+    "disableTitle": "Desative também o caminho público",
+    "disableCaption": "Acesso à rede pública",
+    "disableDesc": "Private Endpoint ajuda, mas não remove automaticamente o endpoint público. O Public network access no Key Vault e no App Configuration também precisa mudar de Enabled para Disabled.",
+    "disableCallout": "Caso contrário, o caminho seguro e o caminho aberto convivem lado a lado — a clássica falsa sensação de segurança.",
+    "disableStat1": "Caminho privado",
+    "disableStat1v": "Adicionado com Private Endpoint",
+    "disableStat2": "Caminho público",
+    "disableStat2v": "Precisa ser desligado explicitamente",
+    "disableStat3": "Resultado",
+    "disableStat3v": "Só a rota privada permanece",
+    "rbacTitle": "Separe responsabilidades com Azure RBAC",
+    "rbacCaption": "Troque o acesso amplo",
+    "rbacDesc": "Substitua as antigas Key Vault access policies por Azure RBAC. O aplicativo de runtime lê segredos, o grupo de SecOps/admin cuida da rotação e o CI/CD recebe apenas o escopo mínimo necessário para uma tarefa.",
+    "rbacCallout": "Privilégio mínimo não é uma identidade poderosa. São identidades diferentes fazendo trabalhos diferentes.",
+    "rbacStat1": "Runtime",
+    "rbacStat1v": "Key Vault Secrets User",
+    "rbacStat2": "Operações",
+    "rbacStat2v": "Key Vault Administrator",
+    "rbacStat3": "CI/CD",
+    "rbacStat3v": "Um papel de implantação com escopo estreito",
+    "auditTitle": "Assuma violação também na operação",
+    "auditCaption": "Logs, alertas, rotação e CI/CD sem segredos",
+    "auditDescStep": "Envie Diagnostic settings para Log Analytics e Microsoft Sentinel, mantenha a rotação de segredos em movimento e deixe o GitHub Actions usar uma federated credential em vez de uma credencial administrativa do Azure armazenada.",
+    "auditCallout": "Zero Trust é operacional, não só arquitetural: depois que o desenho entra em produção, você precisa de evidências, alertas e rotação.",
+    "auditStat1": "Logs",
+    "auditStat1v": "Configurações de diagnóstico",
+    "auditStat2": "Detecção",
+    "auditStat2v": "Log Analytics + Microsoft Sentinel",
+    "auditStat3": "Pipeline",
+    "auditStat3v": "Federated credential",
+    "recapTitle": "O desenho Contoso endurecido, de ponta a ponta",
+    "recapCaption": "Arquitetura final em um quadro",
+    "recapDesc": "Os mesmos blocos das etapas 1–3 agora ficam atrás de um caminho privado, Managed Identity, responsabilidades RBAC separadas, logs operacionais e CI/CD sem segredos.",
+    "recapCallout": "Esse é o objetivo da jornada: acesso sem segredos, de privilégio mínimo e explicitamente verificado de ponta a ponta.",
+    "recapStat1": "Identidade",
+    "recapStat1v": "Managed identities + federation",
+    "recapStat2": "Rede",
+    "recapStat2v": "Private Endpoint + acesso público desativado",
+    "recapStat3": "Governança",
+    "recapStat3v": "Azure RBAC + diagnósticos",
+    "contosoLabel": "Contoso E-Commerce",
+    "goalText": "Toda solicitação precisa passar por verificações de identidade, caminho de rede e papel.",
+    "principlesTitle": "Três princípios norteadores",
+    "principle1": "Verificar explicitamente",
+    "principle2": "Usar acesso de privilégio mínimo",
+    "principle3": "Assumir violação",
+    "vnetLabel": "Contoso Virtual Network",
+    "storeFrontTitle": "Store Front",
+    "storeFrontDesc": "Camada web de cliente no Azure App Service",
+    "orderTitle": "Order Processing",
+    "orderDesc": "Camada de backend/API para pedidos e fluxos",
+    "dbTitle": "Backend / DB",
+    "dbDesc": "SQL Database para pedidos e catálogo",
+    "miRuntimeTitle": "Managed Identity",
+    "miRuntimeDesc": "Tokens de runtime para as camadas do aplicativo — sem segredo no código",
+    "appConfigTitle": "App Configuration",
+    "appConfigDesc": "Configuração de runtime e feature flags centralizadas",
+    "keyVaultTitle": "Key Vault",
+    "keyVaultDesc": "Segredos e certificados ficam fora do aplicativo",
+    "peTitleLabel": "Private Endpoint",
+    "pePrivateIpDesc": "IP privado dentro da VNet",
+    "peAppCfgDesc": "para App Configuration",
+    "peKvDesc": "para Key Vault",
+    "publicPanelTitle": "Acesso à rede pública",
+    "publicPanelDesc": "Private Endpoint ajuda, mas o endpoint público continua existindo até você desativá-lo nos dois serviços.",
+    "publicWarning": "Private Endpoint + acesso público habilitado = falsa sensação de segurança.",
+    "publicPathText": "O caminho público ainda está aberto",
+    "toggleEnabled": "Habilitado",
+    "toggleDisabled": "Desabilitado",
+    "rbacPanelTitle": "Azure RBAC",
+    "rbacPanelDesc": "Troque as antigas Key Vault access policies por Azure RBAC com funções separadas e escopos estreitos.",
+    "roleRuntimePrincipal": "Store Front e Order Processing",
+    "roleRuntimeDesc": "Key Vault Secrets User — ler segredos apenas no escopo do vault",
+    "roleRuntimeScope": "runtime",
+    "roleAdminPrincipal": "Grupo de SecOps / administração",
+    "roleAdminDesc": "Key Vault Administrator — gerenciar e rotacionar segredos",
+    "roleAdminScope": "operações",
+    "roleCiPrincipal": "GitHub Actions CI/CD",
+    "roleCiDesc": "Um papel de escopo estreito para uma única tarefa de implantação",
+    "roleCiScope": "CI/CD",
+    "legacyPolicyTitle": "Key Vault access policies legadas",
+    "legacyPolicyDesc": "Evite a proliferação de políticas amplas e permissões generosas demais.",
+    "auditPanelTitle": "Configurações de diagnóstico",
+    "auditDesc": "Logs para Log Analytics + Sentinel",
+    "rotationTitle": "Rotação de segredos",
+    "rotationDesc": "Rotacione em uma cadência regular",
+    "ciPanelTitle": "GitHub Actions CI/CD",
+    "ciDesc": "Federated credential — sem credencial administrativa do Azure armazenada",
+    "takeawayText": "sem segredos, com privilégio mínimo e verificação explícita de ponta a ponta",
+    "chipManagedIdentity": "Managed Identity",
+    "chipAppService": "App Service",
+    "chipBackendApi": "backend/API",
+    "chipSqlDatabase": "SQL Database",
+    "chipDataTier": "camada de dados",
+    "chipNoAppSecret": "sem segredo no app",
+    "chipShortToken": "token de curta duração",
+    "chipPrivateIp": "IP privado",
+    "chipPublicDisabled": "acesso público desativado",
+    "chipDynamicConfig": "configuração dinâmica",
+    "chipFeatureFlags": "sinalizadores de recursos",
+    "chipSecrets": "segredos",
+    "chipLogs": "logs",
+    "chipAlerts": "alertas",
+    "chipFederated": "federated credential",
+    "chipNarrowScope": "escopo estreito",
+    "chipSeparation": "separação de funções",
+    "chipLeastPrivilege": "privilégio mínimo",
+    "chipPrivatePathOnly": "somente caminho privado"
+  }
+};
+function t(key) { return (I18N[currentLang] && I18N[currentLang][key]) || I18N.en[key] || key; }
+
+function setLanguage(lang) {
+	currentLang = lang;
+	document.documentElement.lang = lang;
+	const backLink = document.querySelector('.header-back-link');
+	if (backLink) {
+		backLink.textContent = '← ' + t('backLinkText');
+		backLink.setAttribute('aria-label', t('backLinkTitle'));
+		backLink.setAttribute('title', t('backLinkTitle'));
+	}
+	const toolbarLabel = document.getElementById('toolbar-label'); if (toolbarLabel) toolbarLabel.textContent = t('toolbar');
+	document.getElementById('page-title').textContent = '🛡️ ' + t('pageTitle');
+	document.getElementById('prev-btn').title = t('prev');
+	document.getElementById('next-btn').title = t('next');
+	document.getElementById('replay-btn').title = t('replay');
+	document.getElementById('reset-btn').title = t('restart');
+	document.getElementById('speed-down').title = t('slower');
+	document.getElementById('speed-up').title = t('faster');
+	document.getElementById('outline-title').textContent = t('stepDetails');
+	document.querySelector('.skip-link').textContent = t('skipToMain');
+	document.getElementById('stage-heading').textContent = t('stageHeading');
+	document.getElementById('stage-instructions').textContent = t('stageInstructions');
+	const _hlp=document.getElementById('help-toggle'); if(_hlp) _hlp.setAttribute('data-tip', t('shortcutsTip'));
+	const _aud=document.getElementById('audio-toggle'); if(_aud) _aud.title=t('audioTip');
+	const _ccb=document.getElementById('cc-toggle'); if(_ccb) _ccb.title=t('ccTip');
+	const _jnClose=document.getElementById('jn-close'); if(_jnClose) _jnClose.setAttribute('aria-label', t('dismiss'));
+	const _jnGroup=document.querySelector('#journey-next .jn-card'); if(_jnGroup) _jnGroup.setAttribute('aria-label', t('nextStopGroup'));
+	syncCalloutBtn(); syncOutlineBtn();
+	if (typeof syncAudioBtn === 'function') syncAudioBtn();
+	if (typeof syncCcBtn === 'function') syncCcBtn();
+	if (typeof buildShortcuts === 'function') buildShortcuts();
+	document.querySelectorAll('.aw-drag-reset').forEach(b=>{ b.title=t('resetPos'); b.setAttribute('aria-label', t('resetPos')); });
+	if (typeof refreshJourneyNext === 'function') refreshJourneyNext();
+	try { localStorage.setItem('aw-sec-zt-lang', lang); } catch(_){}
+	if (current >= 0) rerenderInstant();
+}
+
+const STEPS = [
+  {
+    "id": "verify",
+    "short": "Verify",
+    "level": 1,
+    "titleKey": "verifyTitle",
+    "captionKey": "verifyCaption",
+    "descKey": "verifyDesc",
+    "calloutKey": "verifyCallout",
+    "stats": [
+      [
+        "verifyStat1",
+        "verifyStat1v"
+      ],
+      [
+        "verifyStat2",
+        "verifyStat2v"
+      ],
+      [
+        "verifyStat3",
+        "verifyStat3v"
+      ]
+    ]
+  },
+  {
+    "id": "pe",
+    "short": "PE",
+    "level": 2,
+    "titleKey": "peTitle",
+    "captionKey": "peCaption",
+    "descKey": "peDesc",
+    "calloutKey": "peCallout",
+    "stats": [
+      [
+        "peStat1",
+        "peStat1v"
+      ],
+      [
+        "peStat2",
+        "peStat2v"
+      ],
+      [
+        "peStat3",
+        "peStat3v"
+      ]
+    ]
+  },
+  {
+    "id": "disable",
+    "short": "Disable",
+    "level": 3,
+    "titleKey": "disableTitle",
+    "captionKey": "disableCaption",
+    "descKey": "disableDesc",
+    "calloutKey": "disableCallout",
+    "stats": [
+      [
+        "disableStat1",
+        "disableStat1v"
+      ],
+      [
+        "disableStat2",
+        "disableStat2v"
+      ],
+      [
+        "disableStat3",
+        "disableStat3v"
+      ]
+    ]
+  },
+  {
+    "id": "rbac",
+    "short": "RBAC",
+    "level": 4,
+    "titleKey": "rbacTitle",
+    "captionKey": "rbacCaption",
+    "descKey": "rbacDesc",
+    "calloutKey": "rbacCallout",
+    "stats": [
+      [
+        "rbacStat1",
+        "rbacStat1v"
+      ],
+      [
+        "rbacStat2",
+        "rbacStat2v"
+      ],
+      [
+        "rbacStat3",
+        "rbacStat3v"
+      ]
+    ]
+  },
+  {
+    "id": "audit",
+    "short": "Audit",
+    "level": 5,
+    "titleKey": "auditTitle",
+    "captionKey": "auditCaption",
+    "descKey": "auditDescStep",
+    "calloutKey": "auditCallout",
+    "stats": [
+      [
+        "auditStat1",
+        "auditStat1v"
+      ],
+      [
+        "auditStat2",
+        "auditStat2v"
+      ],
+      [
+        "auditStat3",
+        "auditStat3v"
+      ]
+    ]
+  },
+  {
+    "id": "recap",
+    "short": "Recap",
+    "level": 6,
+    "titleKey": "recapTitle",
+    "captionKey": "recapCaption",
+    "descKey": "recapDesc",
+    "calloutKey": "recapCallout",
+    "stats": [
+      [
+        "recapStat1",
+        "recapStat1v"
+      ],
+      [
+        "recapStat2",
+        "recapStat2v"
+      ],
+      [
+        "recapStat3",
+        "recapStat3v"
+      ]
+    ]
+  }
+];
+
+const stage=document.getElementById('stage-frame'), svg=document.getElementById('fx-svg'),
+	counter=document.getElementById('step-counter'), breadcrumb=document.getElementById('breadcrumb'),
+	progress=document.getElementById('progress-fill'), announcer=document.getElementById('step-announcer'),
+	outlineBody=document.getElementById('outline-body'), outlinePanel=document.getElementById('step-outline'),
+	outlineBtn=document.getElementById('outline-toggle'), calloutBtn=document.getElementById('callout-toggle'),
+	langSelect=document.getElementById('lang-select');
+
+langSelect.addEventListener('change', e => setLanguage(e.target.value));
+const urlLang = new URLSearchParams(location.search).get('lang');
+let savedLang=null; try{ savedLang=localStorage.getItem('aw-sec-zt-lang'); }catch(_){}
+if (urlLang && I18N[urlLang]) { currentLang = urlLang; langSelect.value = urlLang; }
+else if (savedLang && I18N[savedLang]) { currentLang = savedLang; langSelect.value = savedLang; }
+
+const fontScales=[0.8,0.9,1,1.1,1.2,1.35]; let fontScaleIdx=1;   // default one level smaller (A-) for this page
+const baseFontSize=parseFloat(getComputedStyle(document.documentElement).fontSize);
+function applyFontScale(){ document.documentElement.style.fontSize=(baseFontSize*fontScales[fontScaleIdx])+'px'; const c=document.getElementById('controls'); if(c) c.style.fontSize=baseFontSize+'px'; if(typeof current!=='undefined'&&current>=0){ const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s); } }
+function saveFont(){ try{ localStorage.setItem('aw-sec-zt-font', String(fontScaleIdx)); }catch(_){} }
+try{ const f=parseInt(localStorage.getItem('aw-sec-zt-font'),10); if(!isNaN(f)&&f>=0&&f<fontScales.length){ fontScaleIdx=f; } }catch(_){}
+document.documentElement.style.fontSize=(baseFontSize*fontScales[fontScaleIdx])+'px';   // apply the default (A-) scale now; fitScene runs later on render
+document.getElementById('font-decrease').addEventListener('click',()=>{ if(fontScaleIdx>0){fontScaleIdx--;applyFontScale();saveFont();} });
+document.getElementById('font-increase').addEventListener('click',()=>{ if(fontScaleIdx<fontScales.length-1){fontScaleIdx++;applyFontScale();saveFont();} });
+
+let current=-1, animating=false, liveEls=[], liveTimelines=[], calloutEnabled=false;
+function syncCalloutBtn(){ calloutBtn.classList.toggle('toggle-active',calloutEnabled); calloutBtn.setAttribute('aria-pressed',calloutEnabled?'true':'false'); calloutBtn.setAttribute('data-tip',calloutEnabled?t('calloutOn'):t('calloutOff')); }
+calloutBtn.addEventListener('click',()=>{
+	calloutEnabled=!calloutEnabled; syncCalloutBtn();
+	if(current<0) return;
+	const existing=stage.querySelectorAll('.callout');
+	if(calloutEnabled){ if(!existing.length){ const c=maybeCallout(STEPS[current]); if(c) gsap.fromTo(c,{opacity:0,y:10},{opacity:1,y:0,duration:0.4,overwrite:true}); } }
+	else { existing.forEach(c=>{ const idx=liveEls.indexOf(c); if(idx>-1) liveEls.splice(idx,1); gsap.killTweensOf(c); c.remove(); }); }
+}); syncCalloutBtn();
+function syncOutlineBtn(){ const on=!outlinePanel.hasAttribute('hidden'); outlineBtn.classList.toggle('toggle-active',on); outlineBtn.setAttribute('aria-expanded',on?'true':'false'); outlineBtn.setAttribute('data-tip',on?t('outlineOn'):t('outlineOff')); }
+outlineBtn.addEventListener('click',()=>{ const showing=!outlinePanel.hasAttribute('hidden'); if(showing){outlinePanel.setAttribute('hidden','');} else {outlinePanel.removeAttribute('hidden');} syncOutlineBtn(); }); syncOutlineBtn();
+
+// ── Audio narration (overlay button · speaker + remaining-time countdown) ──
+const AUDIO_BASE = 'audio/ZeroTrustSecurity/';
+const AUDIO_FILES = ['step-01.mp3','step-02.mp3','step-03.mp3','step-04.mp3','step-05.mp3','step-06.mp3'];
+let audioEnabled=false, currentAudio=null, audioTimeout=null, ccPref=false;
+const audioBtn=document.getElementById('audio-toggle');
+if(audioBtn){ audioBtn.innerHTML='<span class="aw-audio-ico" aria-hidden="true">🔇</span><span class="aw-audio-time" aria-hidden="true">--:--</span>'; }
+const audioIco=audioBtn&&audioBtn.querySelector('.aw-audio-ico'), audioTimeEl=audioBtn&&audioBtn.querySelector('.aw-audio-time');
+function playbackOn(){ return audioEnabled || ccPref; }
+function audioDir(){ return (currentLang && currentLang!=='en') ? currentLang+'/' : ''; }
+function fmtDur(s){ s=Math.max(0,Math.ceil(s)); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
+function updateAudioTime(){ if(audioTimeEl && currentAudio && isFinite(currentAudio.duration) && currentAudio.duration>0) audioTimeEl.textContent=fmtDur(currentAudio.duration-currentAudio.currentTime); }
+function syncAudioBtn(){ if(!audioBtn) return; if(audioIco) audioIco.textContent=audioEnabled?'🔊':'🔇'; if(audioTimeEl && !playbackOn()) audioTimeEl.textContent='--:--'; audioBtn.classList.toggle('toggle-active',audioEnabled); audioBtn.setAttribute('aria-pressed',audioEnabled?'true':'false'); window.__awAudioOn=()=>audioEnabled; }
+function speakFallback(i){ if(!window.speechSynthesis) return; const step=STEPS[i]; const u=new SpeechSynthesisUtterance(`${t(step.titleKey)}. ${t(step.descKey)}`); u.lang=currentLang||'en'; try{ speechSynthesis.cancel(); speechSynthesis.speak(u); }catch(_){} }
+function stopAudio(){
+	if(currentAudio){ currentAudio.pause(); currentAudio.currentTime=0; currentAudio=null; }
+	if(audioTimeout){ clearTimeout(audioTimeout); audioTimeout=null; }
+	if(audioTimeEl) audioTimeEl.textContent='--:--';
+	try{ if(window.speechSynthesis) speechSynthesis.cancel(); }catch(_){}
+	if(window.AWCaptions) AWCaptions.clear();
+}
+function playStepAudio(i){
+	stopAudio();
+	if(window.__awSkipAudioOnce){ window.__awSkipAudioOnce=false; return; }
+	if(document.body.classList.contains('aw-prestart')) return;
+	if(!playbackOn() || i<0 || i>=STEPS.length) return;
+	audioTimeout=setTimeout(()=>{
+		audioTimeout=null;
+		const file=AUDIO_FILES[i];
+		if(!file){ if(audioEnabled) speakFallback(i); return; }
+		currentAudio=new Audio(AUDIO_BASE+audioDir()+file);
+		currentAudio.volume = audioEnabled ? 1 : 0;
+		if(window.AWCaptions) AWCaptions.bind(currentAudio,i);
+		currentAudio.addEventListener('loadedmetadata',updateAudioTime);
+		currentAudio.addEventListener('timeupdate',updateAudioTime);
+		currentAudio.addEventListener('ended',()=>{ if(audioTimeEl) audioTimeEl.textContent='0:00'; });
+		currentAudio.addEventListener('error',()=>{ if(audioEnabled) speakFallback(i); });
+		currentAudio.play().catch(()=>{});
+	}, 400);
+}
+if(audioBtn){ audioBtn.addEventListener('click',()=>{
+	audioEnabled=!audioEnabled; try{localStorage.setItem('aw-sec-zt-audio',audioEnabled?'1':'0');}catch(_){} syncAudioBtn();
+	if(current>=0){
+		if(!playbackOn()) stopAudio();
+		else if(currentAudio) currentAudio.volume = audioEnabled ? 1 : 0;
+		else playStepAudio(current);
+	}
+	if(typeof applyCc==='function') applyCc();
+}); }
+(function(){
+	var p=null; try{ p=new URLSearchParams(location.search).get('audio'); }catch(_){}
+	if(p==='on'){ audioEnabled=true; ccPref=true; }
+	else if(p==='off'){ audioEnabled=false; ccPref=false; }
+	else {
+		audioEnabled=false; ccPref=false;
+		try{ var a=localStorage.getItem('aw-sec-zt-audio'); if(a==='1') audioEnabled=true; else if(a==='0') audioEnabled=false; }catch(_){}
+		try{ var c=localStorage.getItem('aw-sec-zt-cc'); if(c==='1') ccPref=true; else if(c==='0') ccPref=false; }catch(_){}
+	}
+	try{ localStorage.setItem('aw-sec-zt-audio',audioEnabled?'1':'0'); localStorage.setItem('aw-sec-zt-cc',ccPref?'1':'0'); }catch(_){}
+})();
+syncAudioBtn();
+
+// ── Captions (CC) — overlaid in the frame; play WITH or WITHOUT audio ──
+const ccBtn=document.getElementById('cc-toggle');
+function ccEffective(){ return ccPref; }
+function syncCcBtn(){ if(!ccBtn) return; ccBtn.classList.toggle('on',ccPref); ccBtn.setAttribute('aria-pressed',ccPref?'true':'false'); window.__awCcOn=ccPref; }
+function applyCc(){ if(window.AWCaptions) AWCaptions.setEnabled(ccEffective()); if(ccEffective()&&currentAudio&&window.AWCaptions) AWCaptions.bind(currentAudio,current); syncCcBtn(); }
+if(window.AWCaptions){ AWCaptions.configure({ page:'ZeroTrustSecurity', base:'../../narration/v2/Security/', lang:()=>currentLang, fallback:(i)=>(STEPS[i]?t(STEPS[i].descKey):''), reserve:false }); }
+if(ccBtn){ ccBtn.addEventListener('click',()=>{
+	ccPref=!ccPref; try{localStorage.setItem('aw-sec-zt-cc',ccPref?'1':'0');}catch(_){} applyCc();
+	if(current>=0){
+		if(playbackOn() && !currentAudio) playStepAudio(current);
+		else if(!playbackOn() && currentAudio) stopAudio();
+	}
+}); }
+applyCc();
+
+// ── Full screen ──
+(function(){
+	const fsBtn=document.getElementById('fs-toggle'); if(!fsBtn) return;
+	function inFs(){ return !!(document.fullscreenElement||document.webkitFullscreenElement); }
+	function syncFs(){ document.body.classList.toggle('is-fs',inFs()); fsBtn.setAttribute('aria-pressed',inFs()?'true':'false'); fsBtn.title=inFs()?'Exit full screen (F)':'Full screen (F)'; }
+	function toggle(){ try{ if(inFs()){ (document.exitFullscreen||document.webkitExitFullscreen).call(document); } else { const el=document.documentElement; (el.requestFullscreen||el.webkitRequestFullscreen).call(el); } }catch(_){} }
+	fsBtn.addEventListener('click',e=>{ e.stopPropagation(); toggle(); });
+	document.addEventListener('fullscreenchange',syncFs); document.addEventListener('webkitfullscreenchange',syncFs);
+	document.addEventListener('keydown',e=>{ if(e.code==='KeyF'&&!e.metaKey&&!e.ctrlKey&&!e.altKey){ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return; e.preventDefault(); toggle(); } });
+	syncFs();
+})();
+
+// ── Reduced motion ────────────────────────
+const motionMQ=window.matchMedia('(prefers-reduced-motion: reduce)'); let motionPaused=motionMQ.matches;
+motionMQ.addEventListener('change',e=>{ motionPaused=e.matches; if(current>=0 && typeof rerenderInstant==='function') rerenderInstant(); });
+
+function clearStage(){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; liveEls.forEach(el=>el.remove()); liveEls=[]; Array.from(svg.children).forEach(c=>{ if(c.tagName.toLowerCase()!=='defs') c.remove(); }); }
+function el(cls,html){ const d=document.createElement('div'); if(cls) d.className=cls; if(html!=null) d.innerHTML=html; return d; }
+const ICONS = {
+	check:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.55 17.6 4.4 12.45l1.86-1.86 3.29 3.29 8.19-8.19 1.86 1.86z"/></svg>',
+	lock:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 10a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1zm3-1V7a4 4 0 1 1 8 0v2h-2V7a2 2 0 1 0-4 0v2z"/></svg>',
+	book:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v16H6a2 2 0 0 1-2-2zm9 0h7v14a2 2 0 0 1-2 2h-5z"/></svg>'
+};
+function icon(name){ return `<span class="ic">${ICONS[name]||''}</span>`; }
+const AZ_BASE='../lib/icons/Azure_Public_Service_Icons/';
+function az(rel, alt){ return `<img class="az-ic" src="${AZ_BASE}${rel}" alt="${alt||''}" decoding="async">`; }
+function stepById(id){ return STEPS.find(s=>s.id===id); }
+function fitScene(scene){
+	if(!scene) return;
+	scene.style.transform='translate(-50%,-50%) scale(1)';
+	const box=stage.getBoundingClientRect();
+	const availW=box.width-32, availH=box.height-28;
+	const sw=scene.offsetWidth, sh=scene.offsetHeight;
+	if(!sw||!sh) return;
+	const k=Math.min(1, availW/sw, availH/sh);
+	scene.style.transform='translate(-50%,-50%) scale('+k+')';
+}
+function headerEls(scene){ return [scene.querySelector('.scene-title'), scene.querySelector('.scene-lead')]; }
+function buildScene(step){ const s=el('scene'); s.appendChild(el('scene-title', t(step.titleKey))); s.appendChild(el('scene-lead', t(step.descKey))); return s; }
+function maybeCallout(step){ if(!calloutEnabled) return null; const c=el('callout', t(step.calloutKey)); c.style.left='1.5rem'; c.style.top='1.5rem'; stage.appendChild(c); liveEls.push(c); dragify(c, 'aw-sec-zt-callout-pos'); return c; }
+function renderOutline(step,idx){
+	const rows=(step.stats||[]).map(([k,v])=>`<div class="stat-row"><span>${t(k)}</span><span>${t(v)}</span></div>`).join('');
+	outlineBody.innerHTML=`<div class="outline-section"><strong>${t('stepOf')} ${idx+1} / ${STEPS.length}: ${t(step.titleKey)}</strong><p style="margin-top:0.4rem;">${t(step.descKey)}</p></div>${rows?`<div class="outline-section">${rows}</div>`:''}`;
+}
+function announceStep(step,idx){ announcer.textContent=`${t('stepOf')} ${idx+1} / ${STEPS.length}: ${t(step.titleKey)}. ${t(step.descKey)}`; }
+
+
+// Microsoft Learn training path used for the recap CTA:
+// https://learn.microsoft.com/training/paths/implement-zero-trust-security-model-microsoft/
+function buildZeroTrustMap(){
+	const chip = (key, cls='') => `<span class="mi-chip${cls ? ` ${cls}` : ''}">${t(key)}</span>`;
+	const features = (keys, cls='') => `<div class="zt-feature-row${cls ? ` ${cls}` : ''}" data-rev="6">${keys.map(([k,c])=>chip(k,c)).join('')}</div>`;
+	const appCard = (cls, iconRel, titleKey, descKey, featPairs) =>
+		`<div class="mi-tile ${cls}" data-rev="1">`+
+			`<div class="mi-head">${az(iconRel,'')}<div><div class="mi-title">${t(titleKey)}</div><div class="mi-sub">${t(descKey)}</div></div></div>`+
+			features(featPairs)+
+		`</div>`;
+	const pubToggle = () =>
+		`<div class="zt-toggle-row zt-pub-toggle">`+
+			`<span class="zt-toggle-name">${t('publicPanelTitle')}</span>`+
+			`<span class="zt-toggle-track"><span class="zt-toggle-knob"></span></span>`+
+			`<span class="zt-toggle-state"><span class="zt-state-on">${t('toggleEnabled')}</span><span class="zt-state-off">${t('toggleDisabled')}</span></span>`+
+		`</div>`;
+	const svcCard = (cls, iconRel, titleKey, descKey, featPairs) =>
+		`<div class="mi-tile zt-svc ${cls}" data-rev="1">`+
+			`<div class="mi-head">${az(iconRel,'')}<div><div class="mi-title">${t(titleKey)}</div><div class="mi-sub">${t(descKey)}</div></div></div>`+
+			pubToggle()+
+			features(featPairs)+
+		`</div>`;
+	const peCard = (cls, descKey) =>
+		`<div class="mi-panel zt-pe ${cls}" data-rev="2">`+
+			`<div class="mi-head">${az('other/02579-icon-service-Private-Endpoints.svg','')}<div><div class="mi-title">${t('peTitleLabel')}</div><div class="mi-sub">${t(descKey)}</div></div></div>`+
+		`</div>`;
+	const roleRow = (iconRel, principalKey, descKey, scopeKey) =>
+		`<div class="mi-role-row">`+
+			`<span>${az(iconRel,'')}</span>`+
+			`<div><div class="mi-role-name">${t(principalKey)}</div><div class="mi-role-desc">${t(descKey)}</div></div>`+
+			`<span class="mi-scope">${t(scopeKey)}</span>`+
+		`</div>`;
+	const map = el('zt-map');
+	map.innerHTML =
+		`<svg class="zt-svg" viewBox="0 0 1200 546" preserveAspectRatio="xMidYMid meet" aria-hidden="true">`+
+			`<defs><marker id="ztArrow" markerUnits="userSpaceOnUse" markerWidth="16" markerHeight="16" refX="12" refY="8" orient="auto"><path d="M2,2 L14,8 L2,14 Z"></path></marker></defs>`+
+			`<path data-rev="1" class="zt-flow-path" d="M192,178 H 220"></path>`+
+			`<path data-rev="1" class="zt-flow-path" d="M378,178 H 406"></path>`+
+			`<path data-rev="1" class="zt-flow-path" d="M113,240 V 262"></path>`+
+			`<path data-rev="1" class="zt-flow-path" d="M299,240 V 262"></path>`+
+			`<path data-rev="2" class="zt-private-path" d="M582,148 H 624" marker-end="url(#ztArrow)"></path>`+
+			`<path data-rev="2" class="zt-private-path" d="M792,148 H 828" marker-end="url(#ztArrow)"></path>`+
+			`<path data-rev="2" class="zt-private-path" d="M582,286 H 624" marker-end="url(#ztArrow)"></path>`+
+			`<path data-rev="2" class="zt-private-path" d="M792,286 H 828" marker-end="url(#ztArrow)"></path>`+
+			`<path data-rev="6" class="zt-private-path" d="M884,432 H 904" marker-end="url(#ztArrow)"></path>`+
+		`</svg>`+
+		`<div class="zt-principles" data-rev="1">`+
+			`<div class="zt-principles-head"><span class="zt-principles-tag">Zero Trust</span><span class="zt-principles-title">${t('principlesTitle')}</span></div>`+
+			`<div class="zt-principles-items">`+
+				`<span class="zt-principle-item">${t('principle1')}</span>`+
+				`<span class="zt-principle-item">${t('principle2')}</span>`+
+				`<span class="zt-principle-item">${t('principle3')}</span>`+
+			`</div>`+
+		`</div>`+
+		`<div class="zt-goal" data-rev="1">${t('goalText')}</div>`+
+		`<div class="mi-zone zt-vnet" data-rev="2">`+
+			`<div class="mi-zone-label">${az('networking/10061-icon-service-Virtual-Networks.svg','')}<span>${t('vnetLabel')}</span></div>`+
+			`<span class="mi-chip is-green zt-vnet-chip" data-rev="6">${t('chipPrivatePathOnly')}</span>`+
+		`</div>`+
+		appCard('zt-store', 'web/10035-icon-service-App-Services.svg', 'storeFrontTitle', 'storeFrontDesc', [['chipAppService','is-green']])+
+		appCard('zt-order', 'compute/10029-icon-service-Function-Apps.svg', 'orderTitle', 'orderDesc', [['chipBackendApi','is-green']])+
+		appCard('zt-db', 'databases/10130-icon-service-SQL-Database.svg', 'dbTitle', 'dbDesc', [['chipSqlDatabase','is-blue']])+
+		`<div class="mi-panel zt-runtime" data-rev="1">`+
+			`<div class="mi-panel-head">${az('identity/10227-icon-service-Managed-Identities.svg','')}<div><div class="mi-panel-title">${t('miRuntimeTitle')}</div><div class="mi-panel-sub">${t('miRuntimeDesc')}</div></div></div>`+
+			features([['chipNoAppSecret','is-orange'],['chipShortToken','is-green']])+
+		`</div>`+
+		peCard('zt-pe-appcfg', 'peAppCfgDesc')+
+		peCard('zt-pe-kv', 'peKvDesc')+
+		svcCard('zt-appcfg', 'integration/10219-icon-service-App-Configuration.svg', 'appConfigTitle', 'appConfigDesc', [['chipDynamicConfig','is-blue'],['chipFeatureFlags','is-green']])+
+		svcCard('zt-kv', 'security/10245-icon-service-Key-Vaults.svg', 'keyVaultTitle', 'keyVaultDesc', [['chipSecrets','is-blue']])+
+		`<div class="mi-panel zt-rbac" data-rev="4">`+
+			`<div class="mi-panel-head">${az('identity/10340-icon-service-Entra-Identity-Roles-and-Administrators.svg','')}<div><div class="mi-panel-title">${t('rbacPanelTitle')}</div><div class="mi-panel-sub">${t('rbacPanelDesc')}</div></div></div>`+
+			`<div class="mi-role-list">`+
+				roleRow('identity/10227-icon-service-Managed-Identities.svg', 'roleRuntimePrincipal', 'roleRuntimeDesc', 'roleRuntimeScope')+
+				roleRow('identity/10340-icon-service-Entra-Identity-Roles-and-Administrators.svg', 'roleAdminPrincipal', 'roleAdminDesc', 'roleAdminScope')+
+				roleRow('identity/10232-icon-service-App-Registrations.svg', 'roleCiPrincipal', 'roleCiDesc', 'roleCiScope')+
+			`</div>`+
+		`</div>`+
+		`<div class="mi-panel zt-audit" data-rev="5">`+
+			`<div class="zt-audit-body">`+
+				`<div class="zt-audit-icons">${az('monitor/00009-icon-service-Log-Analytics-Workspaces.svg','')}<span class="zt-audit-arrow">→</span>${az('security/10248-icon-service-Azure-Sentinel.svg','')}</div>`+
+				`<div><div class="mi-panel-title">${t('auditPanelTitle')}</div><div class="mi-panel-sub">${t('auditDesc')}</div></div>`+
+			`</div>`+
+		`</div>`+
+		`<div class="mi-panel zt-ci" data-rev="5">`+
+			`<div class="mi-panel-head">${az('identity/10232-icon-service-App-Registrations.svg','')}<div><div class="mi-panel-title">${t('ciPanelTitle')}</div><div class="mi-panel-sub">${t('ciDesc')}</div></div></div>`+
+		`</div>`+
+		`<div class="mi-token zt-rotate" data-rev="5">`+
+			`<span class="zt-rotate-glyph">↻</span>`+
+			`<div><div class="zt-rotate-title">${t('rotationTitle')}</div><div class="zt-rotate-desc">${t('rotationDesc')}</div></div>`+
+		`</div>`+
+		`<div class="mi-recap" data-rev="6"><span class="mi-takeaway">${icon('lock')}<span>${t('takeawayText')}</span></span><a class="mi-learn" href="https://learn.microsoft.com/training/paths/implement-zero-trust-security-model-microsoft/" target="_blank" rel="noopener noreferrer">${icon('book')}<span>${t('learnCta')}</span></a></div>`;
+	return map;
+}
+
+function setPublicState(map, disabled, lineOpacity, labelOpacity){
+	map.querySelectorAll('.zt-toggle-row').forEach(row=>{
+		const knob=row.querySelector('.zt-toggle-knob');
+		const track=row.querySelector('.zt-toggle-track');
+		const on=row.querySelector('.zt-state-on');
+		const off=row.querySelector('.zt-state-off');
+		gsap.set(knob, { x: disabled ? 0 : 20 });
+		gsap.set(on, { opacity: disabled ? 0 : 1 });
+		gsap.set(off, { opacity: disabled ? 1 : 0 });
+		track.style.background = disabled ? 'rgba(220,38,38,0.18)' : 'rgba(16,163,127,0.22)';
+		track.style.borderColor = disabled ? 'rgba(220,38,38,0.34)' : 'rgba(16,163,127,0.44)';
+	});
+}
+
+function renderZeroTrustStep(stepId, level){
+	const step=stepById(stepId);
+	const scene=buildScene(step);
+	const map=buildZeroTrustMap();
+	scene.appendChild(map);
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	const items=[...map.querySelectorAll('[data-rev]')];
+	const isPath=e=>e.tagName.toLowerCase()==='path';
+	const lvl=e=>parseInt(e.getAttribute('data-rev'),10);
+	const past=items.filter(e=>lvl(e)<level), now=items.filter(e=>lvl(e)===level), future=items.filter(e=>lvl(e)>level);
+	future.forEach(e=>{ if(isPath(e)){ e.style.opacity='0'; e.style.strokeDasharray='none'; e.style.strokeDashoffset='0'; } else e.style.opacity='0'; });
+	past.forEach(e=>{ if(isPath(e)){ e.style.opacity='0.9'; e.style.strokeDasharray='none'; e.style.strokeDashoffset='0'; } else gsap.set(e,{opacity:1,x:0,y:0,scale:1}); });
+	if(level===2) setPublicState(map, false, 0.18, 0);
+	else if(level===3) setPublicState(map, false, 0.78, 0);
+	else if(level>=4) setPublicState(map, true, 0, 0);
+	if(motionPaused){
+		now.forEach(e=>{ if(isPath(e)){ e.style.opacity='0.9'; e.style.strokeDasharray='none'; e.style.strokeDashoffset='0'; } else gsap.set(e,{opacity:1,x:0,y:0,scale:1}); });
+		if(level===3) setPublicState(map, true, 0, 0);
+		gsap.set(headerEls(scene), {opacity:1}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return;
+	}
+	const nowNodes=now.filter(e=>!isPath(e));
+	const nowPaths=now.filter(isPath);
+	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	if(nowNodes.length) tl.fromTo(nowNodes, {opacity:0,y:16,scale:0.94}, {opacity:1,y:0,scale:1,duration:0.48,stagger:0.06,ease:'back.out(1.4)'}, '-=0.1');
+	if(nowPaths.length){
+		nowPaths.forEach(p=>{ const len=p.getTotalLength(); p.style.strokeDasharray=len; p.style.strokeDashoffset=len; });
+		tl.fromTo(nowPaths, {opacity:0}, {opacity:0.92,duration:0.24,stagger:0.08,ease:'power1.out'}, '-=0.12');
+		tl.to(nowPaths, {strokeDashoffset:0,duration:0.62,stagger:0.08,ease:'power1.inOut'}, '<');
+	}
+	if(level===3){
+		const knobs=map.querySelectorAll('.zt-toggle-knob');
+		const tracks=map.querySelectorAll('.zt-toggle-track');
+		const ons=map.querySelectorAll('.zt-state-on');
+		const offs=map.querySelectorAll('.zt-state-off');
+		tl.to(knobs, {x:0,duration:0.32,stagger:0.05,ease:'power2.out'}, '+=0.1');
+		tl.to(ons, {opacity:0,duration:0.18,stagger:0.05}, '<');
+		tl.to(offs, {opacity:1,duration:0.18,stagger:0.05}, '<');
+		tl.to(tracks, {backgroundColor:'rgba(220,38,38,0.18)', borderColor:'rgba(220,38,38,0.34)', duration:0.2, stagger:0.05}, '<');
+		tl.call(()=>setPublicState(map, true));
+	}
+	if(level===5){
+		const spin=map.querySelector('.zt-rotate-glyph');
+		if(spin) tl.fromTo(spin, {rotation:0}, {rotation:360,duration:0.8,ease:'power2.out'}, '-=0.18');
+	}
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.5}, '-=0.2');
+}
+function renderVerifyStep(){ renderZeroTrustStep('verify', 1); }
+function renderPeStep(){ renderZeroTrustStep('pe', 2); }
+function renderDisableStep(){ renderZeroTrustStep('disable', 3); }
+function renderRbacStep(){ renderZeroTrustStep('rbac', 4); }
+function renderAuditStep(){ renderZeroTrustStep('audit', 5); }
+function renderRecapStep(){ renderZeroTrustStep('recap', 6); }
+
+function renderStep(i){
+	if(i<0||i>=STEPS.length) return;
+	if(animating){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; animating=false; }
+	animating=true;
+	const step=STEPS[i];
+	const outgoing=stage.querySelector('.scene:not(.scene-out)');
+	if(outgoing) liveEls=liveEls.filter(x=>x!==outgoing);
+	clearStage();
+	if(outgoing){ outgoing.style.zIndex='5';
+		if(motionPaused){ outgoing.remove(); }
+		else { outgoing.classList.remove('scene-in'); outgoing.classList.add('scene-out'); setTimeout(()=>outgoing.remove(), 240); } }
+	if(step.id==='verify') renderVerifyStep();
+	else if(step.id==='pe') renderPeStep();
+	else if(step.id==='disable') renderDisableStep();
+	else if(step.id==='rbac') renderRbacStep();
+	else if(step.id==='audit') renderAuditStep();
+	else if(step.id==='recap') renderRecapStep();
+	const incoming=stage.querySelector('.scene:not(.scene-out)');
+	if(incoming && !motionPaused) incoming.classList.add('scene-in');
+	fitScene(incoming);
+	current=i;
+	try{ const u=new URL(location.href); u.searchParams.set('step', String(i+1)); history.replaceState(null,'',u); }catch(_){ }
+	counter.textContent=`${t('stepOf')} ${current+1} / ${STEPS.length}`;
+	breadcrumb.textContent=t(step.captionKey);
+	progress.style.width=((current+1)/STEPS.length*100)+'%';
+	renderOutline(step,i); announceStep(step,i);
+	if(typeof playStepAudio==='function') playStepAudio(i);
+	if(typeof armJourneyNext==='function') armJourneyNext(i);
+}
+
+function rerenderInstant(){ if(current<0) return; const _mp=motionPaused; motionPaused=true; window.__awSkipAudioOnce=true; renderStep(current); window.__awSkipAudioOnce=false; requestAnimationFrame(()=>requestAnimationFrame(()=>{ motionPaused=_mp; })); }
+
+var NEXT_STOP = { href:'index.html', iconSrc:'../lib/icons/Azure_Public_Service_Icons/security/10245-icon-service-Key-Vaults.svg' };
+var jnEl = document.getElementById('journey-next');
+
+var jnTimer = null, jnDismissed = false;
+function refreshJourneyNext(){
+	if(!jnEl || !NEXT_STOP || !NEXT_STOP.href) return;
+	var set = function(id,val){ var e=document.getElementById(id); if(e && val!=null) e.textContent=val; };
+	set('jn-eyebrow-text', t('nextEyebrow'));
+	set('jn-title', t('nextTitle'));
+	set('jn-cta-text', t('nextCta'));
+	var img=document.getElementById('jn-icon-img'); if(img && NEXT_STOP.iconSrc) img.src=NEXT_STOP.iconSrc;
+	var cta=document.getElementById('jn-cta'); if(cta) cta.setAttribute('href', NEXT_STOP.href + '?lang=' + encodeURIComponent(currentLang || 'en'));
+}
+function hideJourneyNext(){ if(jnEl){ jnEl.classList.remove('show'); jnEl.setAttribute('aria-hidden','true'); } }
+function showJourneyNext(){ if(document.body.classList.contains('aw-prestart')) return; if(jnEl && !jnDismissed){ jnEl.classList.add('show'); jnEl.setAttribute('aria-hidden','false'); } }
+function armJourneyNext(i){
+	if(jnTimer){ clearTimeout(jnTimer); jnTimer=null; }
+	var isLast = (i === STEPS.length-1) && NEXT_STOP && NEXT_STOP.href;
+	if(!isLast){ jnDismissed=false; hideJourneyNext(); return; }
+	jnDismissed=false;
+	jnTimer=setTimeout(function(){ jnTimer=null; showJourneyNext(); }, motionPaused ? 0 : 1050);
+}
+if(jnEl){
+	var jnCloseBtn=document.getElementById('jn-close');
+	if(jnCloseBtn) jnCloseBtn.addEventListener('click', function(e){ e.stopPropagation(); jnDismissed=true; hideJourneyNext(); });
+	document.addEventListener('keydown', function(e){ if(e.key==='Escape' && jnEl.classList.contains('show')){ jnDismissed=true; hideJourneyNext(); } });
+}
+// ── CONTROLS ──────────────────────────────
+function focusHeading(){ const h=document.getElementById('stage-heading'); if(h){ try{ h.focus({preventScroll:true}); }catch(_){ h.focus(); } } }
+function interruptAnimation(){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; animating=false; }
+function next(){ interruptAnimation(); if(current<STEPS.length-1){ renderStep(current+1); focusHeading(); } }
+function prev(){ interruptAnimation(); if(current>0){ renderStep(current-1); focusHeading(); } }
+function reset(){ interruptAnimation(); renderStep(0); focusHeading(); }
+function replay(){ if(current<0) return; interruptAnimation(); renderStep(current); focusHeading(); }
+
+// ── Hide / show top bar (toggle; the ^ chevron flips to v when hidden) ──
+(function(){
+	const hideBtn=document.getElementById('header-hide'), revealBtn=document.getElementById('header-reveal');
+	if(!hideBtn||!revealBtn) return;
+	var hideBtnTop=document.getElementById('header-hide-top'); if(hideBtnTop) hideBtnTop.addEventListener('click',function(e){ e.stopPropagation(); hideBtn.click(); });
+	const hidePath=hideBtn.querySelector('svg path');
+	const UP='M6 15l6-6 6 6', DOWN='M6 9l6 6 6-6';   // ^ points up to hide the bar; flips to v to show it again
+	function setHidden(h){
+		document.body.classList.toggle('chrome-hidden',h);
+		hideBtn.setAttribute('aria-expanded',String(!h));
+		hideBtn.setAttribute('aria-label',h?'Show top bar':'Hide top bar');
+		hideBtn.title=(h?'Show top bar':'Hide top bar')+' (H)';
+		if(hidePath) hidePath.setAttribute('d',h?DOWN:UP);
+		try{localStorage.setItem('aw-sec-zt-chrome-hidden',h?'1':'0');}catch(_){}
+		if(current>=0) requestAnimationFrame(()=>{ const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s); });
+	}
+	hideBtn.addEventListener('click',e=>{e.stopPropagation();setHidden(!document.body.classList.contains('chrome-hidden'));});
+	revealBtn.addEventListener('click',e=>{e.stopPropagation();setHidden(false);});
+	try{ if(localStorage.getItem('aw-sec-zt-chrome-hidden')==='1') setHidden(true); }catch(_){}
+	document.addEventListener('keydown',e=>{ if(e.code==='KeyH'&&!e.metaKey&&!e.ctrlKey&&!e.altKey){ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return; e.preventDefault(); setHidden(!document.body.classList.contains('chrome-hidden')); } });
+})();
+
+document.getElementById('next-btn').addEventListener('click',e=>{e.stopPropagation();next();});
+document.getElementById('prev-btn').addEventListener('click',e=>{e.stopPropagation();prev();});
+document.getElementById('reset-btn').addEventListener('click',e=>{e.stopPropagation();reset();});
+document.getElementById('replay-btn').addEventListener('click',e=>{e.stopPropagation();replay();});
+
+// ── Clickable progress bar + step ticks ──
+(function(){
+	const track=document.querySelector('.progress-track'); if(!track) return;
+	for(let s=1; s<STEPS.length; s++){ const tk=document.createElement('div'); tk.className='progress-tick'; tk.style.left=(s/STEPS.length*100)+'%'; track.appendChild(tk); }
+	track.setAttribute('title','Jump to a step');
+	track.addEventListener('click', e=>{
+		const r=track.getBoundingClientRect(); const frac=(e.clientX-r.left)/r.width;
+		const target=Math.max(0, Math.min(STEPS.length-1, Math.floor(frac*STEPS.length)));
+		if(target!==current){ interruptAnimation(); renderStep(target); focusHeading(); }
+	});
+})();
+
+// ── Movable / pinnable control dock ───────
+(function(){
+	const dock=document.getElementById('controls'), grip=document.getElementById('ctrl-grip'), pin=document.getElementById('ctrl-pin');
+	if(!dock||!grip) return;
+	const KEY='aw-sec-zt-controls-pos';
+	let dragging=false, sx=0, sy=0, bl=0, bt=0, moved=false;
+	function place(left,top){
+		const w=dock.offsetWidth, h=dock.offsetHeight;
+		left=Math.max(6, Math.min(left, window.innerWidth - w - 6));
+		top =Math.max(6, Math.min(top,  window.innerHeight - h - 6));
+		dock.style.left=left+'px'; dock.style.top=top+'px'; dock.style.right='auto'; dock.style.bottom='auto'; dock.style.transform='none';
+		document.body.classList.add('controls-floating');
+	}
+	function recenter(){
+		dock.style.left=dock.style.top=dock.style.right=dock.style.bottom=dock.style.transform='';
+		document.body.classList.remove('controls-floating');
+		try{ localStorage.removeItem(KEY); }catch(_){}
+	}
+	grip.addEventListener('pointerdown', e=>{
+		e.preventDefault(); dragging=true; moved=false;
+		const r=dock.getBoundingClientRect(); bl=r.left; bt=r.top; sx=e.clientX; sy=e.clientY;
+		try{ grip.setPointerCapture(e.pointerId); }catch(_){}
+	});
+	grip.addEventListener('pointermove', e=>{
+		if(!dragging) return;
+		const dx=e.clientX-sx, dy=e.clientY-sy;
+		if(Math.abs(dx)>2||Math.abs(dy)>2) moved=true;
+		place(bl+dx, bt+dy);
+	});
+	function end(e){ if(!dragging) return; dragging=false; try{ grip.releasePointerCapture(e.pointerId); }catch(_){}
+		if(moved){ try{ const r=dock.getBoundingClientRect(); localStorage.setItem(KEY, JSON.stringify({left:r.left, top:r.top})); }catch(_){} } }
+	grip.addEventListener('pointerup', end); grip.addEventListener('pointercancel', end);
+	// keyboard-nudge the dock when the grip is focused (arrow keys; Shift = larger step)
+	grip.addEventListener('keydown', e=>{
+		const d=e.shiftKey?40:12; const r=dock.getBoundingClientRect(); let ok=true;
+		if(e.key==='ArrowLeft') place(r.left-d, r.top);
+		else if(e.key==='ArrowRight') place(r.left+d, r.top);
+		else if(e.key==='ArrowUp') place(r.left, r.top-d);
+		else if(e.key==='ArrowDown') place(r.left, r.top+d);
+		else ok=false;
+		if(ok){ e.preventDefault(); e.stopPropagation(); }
+	});
+	if(pin) pin.addEventListener('click', e=>{ e.stopPropagation(); recenter(); });
+	window.addEventListener('resize', ()=>{ if(document.body.classList.contains('controls-floating')){ const r=dock.getBoundingClientRect(); place(r.left, r.top); } });
+	try{ const s=JSON.parse(localStorage.getItem(KEY)||'null'); if(s && typeof s.left==='number') place(s.left, s.top); }catch(_){}
+})();
+
+// ── Make callout / outline / caption draggable (same pointer-drag as the control dock) ──
+function dragify(el, key){
+	if(!el || el.__awDrag) return; el.__awDrag=true;
+	let dragging=false, sx=0, sy=0, bl=0, bt=0, moved=false;
+	const resizable = getComputedStyle(el).resize !== 'none';
+	const sizeKey = key ? key + '-size' : null;
+	// snapshot the home position + size so the reset pin can restore it exactly
+	const home={ position:el.style.position, left:el.style.left, top:el.style.top,
+		right:el.style.right, bottom:el.style.bottom, margin:el.style.margin, transform:el.style.transform,
+		width:el.style.width, height:el.style.height };
+	// reset "pin" — hidden until the panel is dragged or resized off its home spot
+	const pin=document.createElement('button');
+	pin.type='button'; pin.className='aw-drag-reset';
+	pin.title=t('resetPos'); pin.setAttribute('aria-label', t('resetPos'));
+	pin.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>';
+	// keep the pin inside scrollable / resizable panels so it isn't clipped
+	const oy=getComputedStyle(el).overflowY; const clips=(oy==='auto'||oy==='scroll'||oy==='hidden');
+	pin.style.top=clips?'8px':'-10px'; pin.style.right=clips?'8px':'-10px';
+	el.appendChild(pin);
+	function showPin(on){ pin.style.display=on?'flex':'none'; }
+	pin.addEventListener('pointerdown', e=>{ e.stopPropagation(); });
+	pin.addEventListener('click', e=>{
+		e.preventDefault(); e.stopPropagation();
+		el.style.position=home.position; el.style.left=home.left; el.style.top=home.top;
+		el.style.right=home.right; el.style.bottom=home.bottom; el.style.margin=home.margin; el.style.transform=home.transform;
+		el.style.width=home.width; el.style.height=home.height;
+		if(key){ try{ localStorage.removeItem(key); }catch(_){} }
+		if(sizeKey){ try{ localStorage.removeItem(sizeKey); }catch(_){} }
+		showPin(false);
+	});
+	function fix(left,top){
+		const w=el.offsetWidth, h=el.offsetHeight;
+		left=Math.max(6, Math.min(left, window.innerWidth  - w - 6));
+		top =Math.max(6, Math.min(top,  window.innerHeight - h - 6));
+		el.style.position='fixed'; el.style.left=left+'px'; el.style.top=top+'px';
+		el.style.right='auto'; el.style.bottom='auto'; el.style.margin='0'; el.style.transform='none';
+	}
+	// persist user resizes (the CSS resize grip writes inline width/height; content changes don't)
+	if(resizable && typeof ResizeObserver!=='undefined'){
+		let rt;
+		new ResizeObserver(()=>{
+			if(el.style.width || el.style.height){
+				showPin(true);
+				if(sizeKey){ clearTimeout(rt); rt=setTimeout(()=>{ try{ localStorage.setItem(sizeKey, JSON.stringify({w:el.style.width, h:el.style.height})); }catch(_){} }, 150); }
+			}
+		}).observe(el);
+	}
+	el.addEventListener('pointerdown', e=>{
+		if(e.button!==0 || (e.target.closest && e.target.closest('a,button,select,input,textarea'))) return;
+		if(resizable){ const r=el.getBoundingClientRect(); if(e.clientX>r.right-18 && e.clientY>r.bottom-18) return; } // let the resize grip win
+		dragging=true; moved=false;
+		const r=el.getBoundingClientRect(); bl=r.left; bt=r.top; sx=e.clientX; sy=e.clientY;
+		fix(bl, bt);   // pin at the current spot first, so there's no jump
+		try{ el.setPointerCapture(e.pointerId); }catch(_){}
+		e.preventDefault();
+	});
+	el.addEventListener('pointermove', e=>{
+		if(!dragging) return;
+		const dx=e.clientX-sx, dy=e.clientY-sy;
+		if(Math.abs(dx)>2||Math.abs(dy)>2) moved=true;
+		fix(bl+dx, bt+dy);
+	});
+	function end(e){
+		if(!dragging) return; dragging=false;
+		try{ el.releasePointerCapture(e.pointerId); }catch(_){}
+		if(moved){ showPin(true); if(key){ try{ const r=el.getBoundingClientRect(); localStorage.setItem(key, JSON.stringify({left:r.left, top:r.top})); }catch(_){} } }
+	}
+	el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+	if(sizeKey){ try{ const z=JSON.parse(localStorage.getItem(sizeKey)||'null'); if(z && (z.w||z.h)){ if(z.w) el.style.width=z.w; if(z.h) el.style.height=z.h; showPin(true); } }catch(_){} }
+	if(key){ try{ const s=JSON.parse(localStorage.getItem(key)||'null'); if(s && isFinite(s.left) && isFinite(s.top)){ fix(s.left, s.top); showPin(true); } }catch(_){} }
+}
+dragify(document.getElementById('step-outline'), 'aw-sec-zt-outline-pos');
+dragify(document.getElementById('aw-caption'), 'aw-sec-zt-caption-pos');
+
+// ── Speed ─────────────────────────────────
+const SPEED_STEPS=[0.5,0.75,1,1.25,1.5,2]; const BASE_TIMESCALE=0.25;
+let speedIndex=SPEED_STEPS.indexOf(1);
+try{ const sp=parseInt(localStorage.getItem('aw-sec-zt-speed'),10); if(!isNaN(sp)&&sp>=0&&sp<SPEED_STEPS.length) speedIndex=sp; }catch(_){}
+const speedLabel=document.getElementById('speed-label'), speedDownBtn=document.getElementById('speed-down'), speedUpBtn=document.getElementById('speed-up');
+function saveSpeed(){ try{ localStorage.setItem('aw-sec-zt-speed', String(speedIndex)); }catch(_){} }
+function syncSpeedUI(){ const spd=SPEED_STEPS[speedIndex]; speedLabel.textContent=spd+'\u00d7'; speedDownBtn.disabled=speedIndex===0; speedUpBtn.disabled=speedIndex===SPEED_STEPS.length-1; gsap.globalTimeline.timeScale(spd*BASE_TIMESCALE); }
+syncSpeedUI();
+speedDownBtn.addEventListener('click',e=>{e.stopPropagation(); if(speedIndex>0){speedIndex--;syncSpeedUI();saveSpeed();}});
+speedUpBtn.addEventListener('click',e=>{e.stopPropagation(); if(speedIndex<SPEED_STEPS.length-1){speedIndex++;syncSpeedUI();saveSpeed();}});
+
+// ── Keyboard ──────────────────────────────
+if (window.AW && AW.keyboard) { AW.keyboard.bind({ next, prev, reset, replay }); }
+else { document.addEventListener('keydown', e => {
+	if (['Space','ArrowRight','Enter'].includes(e.code)) { e.preventDefault(); next(); }
+	else if (e.code==='ArrowLeft') { e.preventDefault(); prev(); }
+	else if (e.code==='KeyR') { e.preventDefault(); reset(); }
+	else if (e.code==='KeyP') { e.preventDefault(); replay(); }
+}); }
+
+// ── Touch swipe (tablets) ─────────────────
+(function(){
+	const surf=document.getElementById('stage'); if(!surf) return;
+	let x0=null,y0=null,t0=0;
+	surf.addEventListener('touchstart',e=>{ if(e.touches.length!==1){x0=null;return;} x0=e.touches[0].clientX; y0=e.touches[0].clientY; t0=Date.now(); },{passive:true});
+	surf.addEventListener('touchend',e=>{
+		if(x0===null) return; const tch=e.changedTouches[0]; const dx=tch.clientX-x0, dy=tch.clientY-y0; x0=null;
+		if(Date.now()-t0>800) return;
+		if(Math.abs(dx)>50 && Math.abs(dx)>Math.abs(dy)*1.6){ if(dx<0) next(); else prev(); }
+	},{passive:true});
+})();
+
+// ── Keyboard shortcut help overlay ────────
+(function(){
+	const overlay=document.getElementById('shortcut-overlay'), btn=document.getElementById('help-toggle'), closeBtn=document.getElementById('sc-close'), list=document.getElementById('sc-list');
+	if(!overlay||!list) return;
+	const ROWS=[[['\u2192','Space'],'scNext'],[['\u2190'],'scPrev'],[['R'],'scRestart'],[['P'],'scReplay'],[['H'],'scHide'],[['?'],'scHelp']];
+	window.buildShortcuts=function(){ const title=document.getElementById('sc-title'); if(title) title.textContent=t('scTitle');
+		list.innerHTML=ROWS.map(([keys,k])=>`<li><span>${t(k)}</span><span class="sc-keys">${keys.map(x=>`<kbd>${x}</kbd>`).join('')}</span></li>`).join(''); };
+	buildShortcuts();
+	function open(){ overlay.removeAttribute('hidden'); if(closeBtn) closeBtn.focus(); }
+	function close(){ overlay.setAttribute('hidden',''); if(btn) btn.focus(); }
+	function toggle(){ overlay.hasAttribute('hidden')?open():close(); }
+	if(btn) btn.addEventListener('click',e=>{e.stopPropagation();toggle();});
+	if(closeBtn) closeBtn.addEventListener('click',e=>{e.stopPropagation();close();});
+	const bd=overlay.querySelector('.sc-backdrop'); if(bd) bd.addEventListener('click',close);
+	document.addEventListener('keydown',e=>{ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return;
+		if(e.key==='?'){ e.preventDefault(); toggle(); }
+		else if(e.key==='Escape' && !overlay.hasAttribute('hidden')){ e.preventDefault(); close(); } });
+})();
+
+// ── Resize (re-fit only — never rebuild or replay the animation) ──
+let resizeTimer, lastStageW=0, lastStageH=0;
+window.addEventListener('resize',()=>{ clearTimeout(resizeTimer); resizeTimer=setTimeout(()=>{
+	if(current<0) return;
+	const box=stage.getBoundingClientRect();
+	if(Math.abs(box.width-lastStageW)<1 && Math.abs(box.height-lastStageH)<1) return;   // ignore no-op reflows (focus/URL-bar) so the animation never restarts
+	lastStageW=box.width; lastStageH=box.height;
+	const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s);
+},200); });
+
+// ── Init ──────────────────────────────────
+setLanguage(currentLang);
+counter.textContent = `1 / ${STEPS.length}`;
+const urlStep = parseInt(new URLSearchParams(location.search).get('step'), 10);   // ?step=N opens on step N
+renderStep((!isNaN(urlStep) && urlStep>=1 && urlStep<=STEPS.length) ? urlStep-1 : 0);
+</script>
+<script>
+// ── Start gate · hold autoplay until the viewer clicks Play (empty stage + centered Play) ──
+(function () {
+	if (new URLSearchParams(location.search).has('present')) return;
+	var stage = document.getElementById('stage');
+	if (!stage) return;
+	function freeze() { try { if (window.gsap && gsap.globalTimeline) gsap.globalTimeline.pause(); } catch (_) {} }
+	freeze(); requestAnimationFrame(freeze);
+	document.body.classList.add('aw-prestart');
+	try { if (typeof stopAudio === 'function') stopAudio(); } catch (_) {}
+	stage.style.transition = 'opacity .55s ease';
+	stage.style.opacity = '0';
+
+	var T = {
+		title: { en:'Ready to begin?', es:'\u00BFTodo listo?', ja:'\u6E96\u5099\u306F\u3044\u3044\u3067\u3059\u304B\uFF1F', ko:'\uC2DC\uC791\uD560 \uC900\uBE44\uAC00 \uB418\uC168\uB098\uC694?', pt:'Tudo pronto?' },
+		sound: { en:'Sound', es:'Sonido', ja:'\u97F3\u58F0', ko:'\uC18C\uB9AC', pt:'Som' },
+		cc:    { en:'Subtitles (CC)', es:'Subt\u00EDtulos (CC)', ja:'\u5B57\u5E55\uFF08CC\uFF09', ko:'\uC790\uB9C9 (CC)', pt:'Legendas (CC)' },
+		start: { en:'Start presentation', es:'Iniciar presentaci\u00F3n', ja:'\u30D7\u30EC\u30BC\u30F3\u3092\u958B\u59CB', ko:'\uD504\uB808\uC820\uD14C\uC774\uC158 \uC2DC\uC791', pt:'Iniciar apresenta\u00E7\u00E3o' }
+	};
+	function L(){ return (typeof currentLang === 'string' && currentLang) || (typeof CURRENT_LANG === 'string' && CURRENT_LANG) || 'en'; }
+	function t(k){ var m = T[k], l = L(); return m[m[l] ? l : 'en']; }
+	function awAudioState(){ try{ if(typeof window.__awAudioOn==='function') return !!window.__awAudioOn(); }catch(_){} return (typeof audioEnabled!=='undefined') && !!audioEnabled; }
+	function awCcState(){ try{ if(typeof window.__awCcOn!=='undefined' && window.__awCcOn!==null) return !!window.__awCcOn; }catch(_){} return (typeof ccPref!=='undefined') && !!ccPref; }
+
+	var style = document.createElement('style');
+	style.textContent =
+		'body.aw-prestart #controls{opacity:.4;pointer-events:none;transition:opacity .4s ease}' +
+		'#aw-play-card{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:50;box-sizing:border-box;width:min(90vw,22rem);padding:1.35rem 1.5rem 1.5rem;border-radius:16px;background:var(--theme-card-background,#fff);color:var(--theme-text,#222);border:1px solid var(--theme-border,rgba(0,0,0,.1));box-shadow:0 24px 60px rgba(0,0,0,.28);transition:opacity .3s ease,transform .3s ease}' +
+		'#aw-play-card.aw-hide{opacity:0;transform:translate(-50%,-50%) scale(.96);pointer-events:none}' +
+		'body.theme-dark #aw-play-card{border-color:rgba(255,255,255,.12);box-shadow:0 24px 60px rgba(0,0,0,.55)}' +
+		'body.present-mode #aw-play-card{display:none!important}' +
+		'.aw-card-title{margin:0 0 1rem;text-align:center;font-size:1.02rem;font-weight:800;letter-spacing:.03em;text-transform:uppercase;opacity:.85}' +
+		'.aw-row{display:flex;align-items:center;gap:.65rem;padding:.6rem 0}' +
+		'.aw-row + .aw-row{border-top:1px solid var(--theme-border,rgba(0,0,0,.08))}' +
+		'.aw-row-ico{flex:none;width:1.5rem;text-align:center;font-size:1.15rem;line-height:1}' +
+		'.aw-row-lbl{flex:1 1 auto;font-size:.9rem;font-weight:600}' +
+		'.aw-row-state{flex:none;min-width:2.5rem;text-align:right;font-size:.68rem;font-weight:800;letter-spacing:.05em;opacity:.5}' +
+		'.aw-row-state.on{color:var(--theme-primary,#0078d4);opacity:1}' +
+		'.aw-switch{position:relative;flex:none;width:44px;height:24px;padding:0;border:none;border-radius:999px;cursor:pointer;background:var(--theme-border,#c7c7d1);transition:background .18s ease}' +
+		'.aw-switch.on{background:var(--theme-primary,#0078d4)}' +
+		'.aw-switch::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.4);transition:transform .18s ease}' +
+		'.aw-switch.on::after{transform:translateX(20px)}' +
+		'#aw-start{margin-top:1.2rem;width:100%;display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:.8rem 1rem;border:none;border-radius:11px;cursor:pointer;background:var(--theme-primary,#0078d4);color:#fff;font-size:.96rem;font-weight:700;letter-spacing:.01em;box-shadow:0 8px 22px var(--theme-primary-translucent,rgba(0,120,212,.45));transition:transform .15s ease}' +
+		'#aw-start:hover{transform:translateY(-2px)}#aw-start:active{transform:scale(.98)}' +
+		'#aw-start svg{width:18px;height:18px;flex:none}';
+	document.head.appendChild(style);
+
+	var card = document.createElement('div');
+	card.id = 'aw-play-card'; card.setAttribute('role', 'dialog'); card.setAttribute('aria-modal', 'true');
+	card.innerHTML =
+		'<div class="aw-card-title"></div>' +
+		'<div class="aw-row" data-k="audio"><span class="aw-row-ico" aria-hidden="true">\uD83D\uDD0A</span><span class="aw-row-lbl"></span><span class="aw-row-state"></span><button type="button" class="aw-switch" role="switch"></button></div>' +
+		'<div class="aw-row" data-k="cc"><span class="aw-row-ico" aria-hidden="true">\uD83D\uDCAC</span><span class="aw-row-lbl"></span><span class="aw-row-state"></span><button type="button" class="aw-switch" role="switch"></button></div>' +
+		'<button type="button" id="aw-start"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 5v14l11-7z"/></svg><span class="aw-start-lbl"></span></button>';
+	document.body.appendChild(card);
+
+	var titleEl = card.querySelector('.aw-card-title');
+	var startBtn = card.querySelector('#aw-start');
+	var ROWS = [ { k:'audio', lbl:'sound', el:card.querySelector('.aw-row[data-k="audio"]'), read:awAudioState, toggle:'audio-toggle' },
+	             { k:'cc',    lbl:'cc',    el:card.querySelector('.aw-row[data-k="cc"]'),    read:awCcState,    toggle:'cc-toggle' } ];
+
+	function render(){
+		titleEl.textContent = t('title'); card.setAttribute('aria-label', t('title'));
+		startBtn.querySelector('.aw-start-lbl').textContent = t('start');
+		ROWS.forEach(function(r){
+			var on = r.read();
+			r.el.querySelector('.aw-row-lbl').textContent = t(r.lbl);
+			var st = r.el.querySelector('.aw-row-state'); st.textContent = on ? 'ON' : 'OFF'; st.classList.toggle('on', on);
+			var sw = r.el.querySelector('.aw-switch'); sw.classList.toggle('on', on); sw.setAttribute('aria-checked', on ? 'true' : 'false');
+			sw.setAttribute('aria-label', t(r.lbl) + ' \u2014 ' + (on ? 'on' : 'off'));
+		});
+	}
+	ROWS.forEach(function(r){
+		r.el.querySelector('.aw-switch').addEventListener('click', function(e){ e.stopPropagation(); var b = document.getElementById(r.toggle); if(b) b.click(); render(); });
+	});
+	render();
+
+	var sel = document.getElementById('lang-select');
+	if (sel) sel.addEventListener('change', function () { render(); freeze(); });
+
+	function gateKeys(e) {
+		if (done) return;
+		var tag = (e.target && e.target.tagName || '').toLowerCase();
+		if (tag === 'select' || tag === 'input' || tag === 'textarea') return;
+		if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'].indexOf(e.key) >= 0) { e.preventDefault(); e.stopPropagation(); }
+	}
+	document.addEventListener('keydown', gateKeys, true);
+
+	var done = false;
+	function start() {
+		if (done) return; done = true;
+		document.removeEventListener('keydown', gateKeys, true);
+		document.body.classList.remove('aw-prestart');
+		card.classList.add('aw-hide');
+		setTimeout(function () { if (card.parentNode) card.parentNode.removeChild(card); if (style.parentNode) style.parentNode.removeChild(style); }, 420);
+		setTimeout(function () {
+			try { if (window.gsap && gsap.globalTimeline) gsap.globalTimeline.play(); } catch (_) {}
+			stage.style.opacity = '1';
+			try { if (typeof interruptAnimation === 'function') interruptAnimation(); } catch (_) {}
+			try { if (typeof renderStep === 'function') renderStep(typeof current === 'number' && current >= 0 ? current : 0); } catch (_) {}
+		}, 380);
+	}
+	startBtn.addEventListener('click', start);
+}());
+</script>
+<script src="../lib/js/aw-present.js"></script>
+<script src="../lib/js/aw-declutter.js"></script>
+
+</body>
+</html>
