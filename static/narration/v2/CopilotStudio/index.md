@@ -8,4 +8,8 @@ Male voice (en-US-Andrew). Plays as a short welcome when narration is turned on 
 
 ## Step 1 · Welcome
 
-[excited] Welcome to Azure Animations — where we learn Cloud and AI the fun way: visual, story-driven, and refreshingly light on text. [300ms] In this journey, we explore Microsoft Copilot Studio in four short, animated stops — from why it exists and what it costs, to building an agent, extending it to real systems, and putting it to work in the real world. [300ms] And it speaks your language — English, Spanish, Japanese, Korean, and Portuguese — just pick yours at the top. [confident] Leave audio on and it will follow you into every journey, so you can simply press play when you arrive.
+[confident] Welcome to the Copilot Studio journey.
+[500ms]
+[calm] Across four short, visual stops, you'll learn to build AI agents the low-code way — what Copilot Studio is and what it costs, how an agent is put together, how to extend it to real systems with connectors, MCP, and Logic Apps, and finally how to put it to work with real-world use cases.
+[700ms]
+[encouraging] Keep audio on, and I'll walk you through every step. Pick a stop, and let's begin.

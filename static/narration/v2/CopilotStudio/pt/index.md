@@ -8,4 +8,8 @@ Voz masculina (pt-BR-Macerio). Reproduz como uma breve boas-vindas ao ativar a n
 
 ## Step 1 · Welcome
 
-[excited] Boas-vindas ao Azure Animations, onde aprendemos nuvem e IA do jeito divertido: visual, narrado e com muito pouco texto. [300ms] Nesta jornada, exploramos o Microsoft Copilot Studio em quatro paradas curtas e animadas — de por que ele existe e quanto custa, até criar um agente, estendê-lo a sistemas reais e colocá-lo para trabalhar no mundo real. [300ms] E ele fala o seu idioma: inglês, espanhol, japonês, coreano e português; é só escolher o seu no topo. [confident] Deixe o áudio ligado e ele vai acompanhar você em cada jornada, para que você só precise apertar o play ao chegar.
+[confident] Boas-vindas à jornada do Copilot Studio.
+[500ms]
+[calm] Ao longo de quatro paradas curtas e visuais, você vai aprender a criar agentes de IA com pouco código: o que é o Copilot Studio e quanto custa, como um agente é montado, como estendê-lo a sistemas reais com conectores, MCP e Logic Apps e, por fim, como colocá-lo para trabalhar com casos de uso reais.
+[700ms]
+[encouraging] Deixe o áudio ligado e eu acompanho você em cada passo. Escolha uma parada e vamos começar.

@@ -9,4 +9,8 @@ Spoken lines translated to Spanish. Step headings stay in English for 1:1 mappin
 
 ## Step 1 · Welcome
 
-[excited] Te damos la bienvenida a Azure Animations, donde aprendemos la nube y la IA de forma divertida: visual, con historias y sin muros de texto. [300ms] En este episodio seguimos el recorrido del agente de IA con Microsoft Foundry: ocho breves paradas animadas, desde tu primer proyecto de Foundry hasta extraer información estructurada de documentos, audio y vídeo. [300ms] Y habla tu idioma: inglés, español, japonés, coreano y portugués; solo elige el tuyo arriba. [confident] Deja el audio activado y te acompañará en cada parada, así solo tendrás que pulsar reproducir cuando llegues.
+[confident] Te damos la bienvenida al recorrido de agentes de IA con Microsoft Foundry.
+[500ms]
+[calm] A lo largo de ocho paradas breves y visuales, pasarás de tu primer proyecto de Foundry y un modelo desplegado a entender qué hace que algo sea realmente un agente, y luego pondrás a los agentes a trabajar extrayendo información estructurada de documentos, imágenes, voz y vídeo.
+[700ms]
+[encouraging] Deja el audio activado y te guiaré en cada paso. Elige una parada y empecemos.
