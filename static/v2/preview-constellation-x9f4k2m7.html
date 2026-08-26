@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<!--
+	DESIGN 5 of 5 — "Constellation"
+	A radial map: one core, three arcs, seven worlds. Each journey is a planet sized by how
+	many stops it holds, sitting on the arc of its theme — so the grouping is spatial and the
+	weight of each journey is visible at a glance. Positions are computed once from a data
+	array; the only motion is the slow rotation of the dashed guide rings (nothing flies).
+-->
+<html lang="en">
+<head>
+	<script src="/js/tracking.js"></script>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+	<meta name="description" content="Azure Animations — a constellation of seven journeys orbiting one core, grouped into three themes." />
+	<title>Azure Animations · Constellation · Design 5</title>
+	<link rel="icon" href="../img/favicon.png" />
+	<link rel="stylesheet" href="https://unpkg.com/@microsoft/atlas-css/dist/index.css" />
+	<script src="lib/js/aw-theme.js"></script>
+<style>
+	:root { --aw-page:#0b1020; --aw-card:rgba(255,255,255,0.06); --ink:#e8eeff; }
+	*, *::before, *::after { box-sizing:border-box; }
+	html, body { height:100%; margin:0; }
+	body { display:flex; flex-direction:column; overflow:hidden; color:var(--ink);
+		font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif;
+		background:
+			radial-gradient(900px 620px at 50% 46%, rgba(60,90,200,0.20), transparent 62%),
+			radial-gradient(700px 520px at 82% 12%, rgba(139,92,246,0.16), transparent 58%),
+			var(--aw-page); }
+	/* the night sky is the concept, so light mode warms it rather than inverting it */
+	body.theme-light { --aw-page:#141a30; --ink:#eef2ff; }
+	a { color:inherit; text-decoration:none; }
+	@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation:none !important; transition:none !important; } }
+
+	.bar { flex:none; display:flex; align-items:center; justify-content:space-between; gap:1rem;
+		padding:0.5rem 1.1rem; border-bottom:1px solid rgba(255,255,255,0.12); }
+	.brand { display:flex; align-items:center; gap:0.6rem; }
+	.brand img { height:30px; display:block; }
+	.brand-name { font-size:1.1rem; font-weight:700; }
+	.brand-name .accent { background:linear-gradient(90deg,#5cb6ff,#a78bfa); -webkit-background-clip:text; background-clip:text; color:transparent; }
+	.bar-actions { display:flex; align-items:center; gap:0.5rem; }
+	.pill-link { padding:0.4rem 0.85rem; border-radius:8px; font-size:0.85rem; font-weight:600;
+		border:1px solid rgba(255,255,255,0.2); color:var(--ink); }
+	.theme-toggle { display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:8px;
+		border:1px solid rgba(255,255,255,0.2); background:transparent; color:var(--ink); cursor:pointer; }
+	.theme-toggle .icon-moon { display:none; }
+	body.theme-dark .theme-toggle .icon-sun { display:none; } body.theme-dark .theme-toggle .icon-moon { display:block; }
+
+	.stage { flex:1 1 auto; position:relative; min-height:0; display:flex; align-items:center; justify-content:center; padding:0.7rem 1.4rem; }
+	.sky { width:1500px; height:860px; flex:none; position:relative; transform-origin:center center; }
+
+	.title { position:absolute; left:0; top:8px; width:390px; }
+	.title h1 { margin:0 0 0.5rem; font-size:2.5rem; line-height:1.1; font-weight:700; }
+	.title h1 .grad { background:linear-gradient(90deg,#5cb6ff,#a78bfa,#f472b6); -webkit-background-clip:text; background-clip:text; color:transparent; }
+	.title p { margin:0 0 1rem; font-size:1.04rem; line-height:1.5; opacity:0.78; }
+	.title .stats { display:flex; gap:1.5rem; }
+	.title .stats div { display:flex; flex-direction:column; }
+	.title .stats b { font-size:1.6rem; font-weight:700; }
+	.title .stats span { font-size:0.86rem; opacity:0.7; }
+	.arcs-key { margin-top:1.2rem; display:flex; flex-direction:column; gap:0.36rem; }
+	.arcs-key .k { display:flex; align-items:center; gap:0.55rem; font-size:0.92rem; }
+	.arcs-key .dot { width:11px; height:11px; border-radius:50%; flex:none; box-shadow:0 0 10px currentColor; }
+
+	.ring { position:absolute; border-radius:50%; border:1.5px dashed var(--rc); opacity:0.42; }
+	.ring.spin { animation:spin 40s linear infinite; }
+	.ring.spin.slow { animation-duration:64s; animation-direction:reverse; }
+	@keyframes spin { to { transform:rotate(360deg); } }
+
+	.core { position:absolute; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.15rem;
+		width:150px; height:150px; border-radius:50%; z-index:4;
+		background:radial-gradient(circle at 50% 38%, rgba(90,150,255,0.35), rgba(20,28,60,0.9));
+		border:2px solid rgba(140,190,255,0.6); box-shadow:0 0 44px rgba(80,140,255,0.42); }
+	.core img { width:46px; height:46px; }
+	.core b { font-size:0.8rem; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; opacity:0.85; }
+	.core span { font-size:0.74rem; opacity:0.62; }
+
+	/* a planet: size scales with the number of stops, colour with its theme */
+	.planet { position:absolute; z-index:5; display:flex; flex-direction:column; align-items:center; gap:0.4rem;
+		transform:translate(-50%,-50%); width:190px; text-align:center; }
+	.planet .orb { position:relative; display:grid; place-items:center; border-radius:50%;
+		background:radial-gradient(circle at 38% 32%, color-mix(in srgb, var(--pc) 62%, #fff 18%), color-mix(in srgb, var(--pc) 88%, #000 28%));
+		border:2px solid color-mix(in srgb, var(--pc) 70%, #fff 12%);
+		box-shadow:0 8px 26px color-mix(in srgb, var(--pc) 46%, transparent), inset 0 -6px 16px rgba(0,0,0,0.34);
+		transition:transform .18s ease, box-shadow .18s ease; }
+	.planet:hover .orb { transform:scale(1.09); box-shadow:0 12px 38px color-mix(in srgb, var(--pc) 70%, transparent), inset 0 -6px 16px rgba(0,0,0,0.34); }
+	.planet .orb img { width:52%; height:52%; object-fit:contain; }
+	.planet .orb .cnt { position:absolute; right:-6px; bottom:-4px; min-width:26px; height:26px; padding:0 6px;
+		display:grid; place-items:center; border-radius:999px; font-size:0.78rem; font-weight:700;
+		background:#0b1020; border:2px solid color-mix(in srgb, var(--pc) 70%, #fff 12%); color:#fff; }
+	.planet .nm { font-size:1rem; font-weight:600; line-height:1.24; text-shadow:0 2px 8px rgba(0,0,0,0.6); }
+	.planet .sb { font-size:0.83rem; line-height:1.36; opacity:0.72; }
+
+	.foot-note { position:absolute; left:0; bottom:6px; width:390px; font-size:0.86rem; line-height:1.5; opacity:0.7; }
+	.foot-note a { color:#8fd0ff; font-weight:600; }
+
+	.site-foot { flex:none; padding:0.55rem 1.6rem 0.65rem; text-align:center; font-size:0.84rem; opacity:0.8;
+		border-top:1px solid rgba(255,255,255,0.12); }
+	.site-foot a { color:#8fd0ff; font-weight:600; }
+
+	@media (max-width:960px) { body { overflow:auto; } .stage { display:block; padding:1rem; } .sky { transform:none !important; } }
+</style>
+</head>
+<body class="theme-dark" data-theme-preset="atlas">
+
+	<header class="bar">
+		<a class="brand" href="index.html">
+			<img src="../img/AzureAnimations-Logo.svg" alt="" />
+			<span class="brand-name">Azure <span class="accent">Animations</span></span>
+		</a>
+		<div class="bar-actions">
+			<a class="pill-link" href="index.html">Current hub</a>
+			<button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch theme" title="Switch theme">
+				<svg class="theme-icon icon-sun" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.5" y1="4.5" x2="6.5" y2="6.5"/><line x1="17.5" y1="17.5" x2="19.5" y2="19.5"/><line x1="4.5" y1="19.5" x2="6.5" y2="17.5"/><line x1="17.5" y1="6.5" x2="19.5" y2="4.5"/></g></svg>
+				<svg class="theme-icon icon-moon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg>
+			</button>
+		</div>
+	</header>
+
+	<main class="stage">
+		<div class="sky" id="sky">
+			<div class="title">
+				<h1>Seven worlds,<br />one <span class="grad">universe</span></h1>
+				<p>Each planet is a journey — the bigger it is, the more stops it holds. Colour groups them into three families.</p>
+				<div class="stats">
+					<div><b>7</b><span>journeys</span></div>
+					<div><b>45</b><span>stops</span></div>
+					<div><b>5</b><span>languages</span></div>
+				</div>
+				<div class="arcs-key" id="key"></div>
+			</div>
+			<div class="foot-note">
+				Free, forever · made by Microsoft Technical Trainers &amp; MCTs ·
+				<a href="https://aka.ms/AzureAnimations" target="_blank" rel="noopener noreferrer">aka.ms/AzureAnimations</a>
+			</div>
+		</div>
+	</main>
+
+	<footer class="site-foot">
+		Design · constellation · <a href="index.html">main hub</a> · <a href="hub-legacy-x9f4k2m7.html">legacy hub</a> ·
+		<a href="preview-honeycomb-x9f4k2m7.html">honeycomb</a> · <a href="preview-skilltree-x9f4k2m7.html">skill tree</a> ·
+		<a href="preview-blueprint-x9f4k2m7.html">blueprint</a> · <a href="preview-isometric-x9f4k2m7.html">isometric</a>
+	</footer>
+
+	<script>
+		// centre of the constellation, pushed right so the title block owns the left third
+		var CX = 990, CY = 430, R = 300;
+
+		var FAMILIES = [
+			{ c:'#e97526', label:'Build & run' },
+			{ c:'#0a84e0', label:'Store & secure' },
+			{ c:'#8b5cf6', label:'AI & Copilot' }
+		];
+		// evenly spaced around one ring, ordered so each family sits together —
+		// equal spacing is what guarantees the labels can never collide
+		var PLANETS = [
+			{ size:104, stops:4,  c:'#e97526', name:'Azure PaaS Compute', sub:'App Service · Functions',
+			  href:'Compute/index.html',       icon:'lib/icons/Azure_Public_Service_Icons/app%20services/10035-icon-service-App-Services.svg' },
+			{ size:112, stops:5,  c:'#326ce5', name:'Azure Containers', sub:'Docker → Kubernetes',
+			  href:'Container/index.html',     icon:'lib/icons/Azure_Public_Service_Icons/compute/10023-icon-service-Kubernetes-Services.svg' },
+			{ size:136, stops:9,  c:'#0a84e0', name:'Azure Storage', sub:'Accounts · redundancy · SAS',
+			  href:'Storage/index.html',       icon:'lib/icons/Azure_Public_Service_Icons/storage/10086-icon-service-Storage-Accounts.svg' },
+			{ size:112, stops:5,  c:'#5c2d91', name:'Azure Security', sub:'Key Vault · Zero Trust',
+			  href:'Security/index.html',      icon:'lib/icons/Azure_Public_Service_Icons/security/10245-icon-service-Key-Vaults.svg' },
+			{ size:130, stops:8,  c:'#8b5cf6', name:'AI Agents · Foundry', sub:'Projects · models · agents',
+			  href:'AI/Foundry/index.html',    icon:'lib/icons/Azure_Public_Service_Icons/ai%20+%20machine%20learning/03513-icon-service-AI-Studio.svg' },
+			{ size:100, stops:4,  c:'#14b8a6', name:'Copilot Studio', sub:'Low-code agents',
+			  href:'CopilotStudio/index.html', icon:'lib/icons/Power-Platform-icons-scalable/CopilotStudio_scalable.svg' },
+			{ size:142, stops:10, c:'#0078d4', name:'Microsoft 365 Copilot', sub:'Free Copilot → Word, Excel, Teams',
+			  href:'Copilot/index.html',       icon:'lib/icons/brands/MicrosoftCopilot.png' }
+		];
+
+		var sky = document.getElementById('sky');
+
+		// guide rings — decorative, slowly counter-rotating, never carrying content
+		[{ r:R, c:'#5aa9ff', cls:'spin' }, { r:150, c:'#a78bfa', cls:'spin slow' }].forEach(function (g) {
+			var d = document.createElement('div');
+			d.className = 'ring ' + g.cls;
+			d.style.cssText = 'left:' + (CX - g.r) + 'px;top:' + (CY - g.r) + 'px;width:' + (g.r*2) + 'px;height:' + (g.r*2) + 'px;--rc:' + g.c;
+			sky.appendChild(d);
+		});
+
+		var core = document.createElement('div');
+		core.className = 'core';
+		core.style.cssText = 'left:' + (CX - 75) + 'px;top:' + (CY - 75) + 'px';
+		core.innerHTML = '<img src="../img/AzureAnimations-Logo.svg" alt=""><b>Azure Animations</b><span>pick a world</span>';
+		sky.appendChild(core);
+
+		var STEP = 360 / PLANETS.length;
+		PLANETS.forEach(function (p, i) {
+			var rad = (-90 + i * STEP) * Math.PI / 180;   // start at the top, go clockwise
+			var x = CX + Math.cos(rad) * R;
+			var y = CY + Math.sin(rad) * R;
+			var a = document.createElement('a');
+			a.className = 'planet'; a.href = p.href;
+			a.style.cssText = 'left:' + x + 'px;top:' + y + 'px;--pc:' + p.c;
+			a.innerHTML =
+				'<span class="orb" style="width:' + p.size + 'px;height:' + p.size + 'px">' +
+					'<img src="' + p.icon + '" alt="" decoding="async">' +
+					'<span class="cnt">' + p.stops + '</span>' +
+				'</span>' +
+				'<span class="nm">' + p.name + '</span>' +
+				'<span class="sb">' + p.sub + '</span>';
+			sky.appendChild(a);
+		});
+
+		document.getElementById('key').innerHTML = FAMILIES.map(function (f) {
+			return '<span class="k"><span class="dot" style="background:' + f.c + ';color:' + f.c + '"></span>' + f.label + '</span>';
+		}).join('');
+
+		(function () {
+			var btn = document.getElementById('theme-toggle');
+			function sync(){ btn.dataset.theme = document.body.classList.contains('theme-dark') ? 'dark' : 'light'; }
+			if (window.AW && AW.theme) { AW.theme.onChange(function(){ sync(); fit(); }); sync(); }
+			else { sync(); btn.addEventListener('click', function () {
+				var d = !document.body.classList.contains('theme-dark');
+				document.body.classList.remove('theme-dark','theme-light'); document.body.classList.add(d?'theme-dark':'theme-light');
+				try { localStorage.setItem('aw-theme', d?'theme-dark':'theme-light'); } catch(e){} sync(); }); }
+		})();
+
+		var stage = document.querySelector('.stage');
+		function fit(){
+			if (window.matchMedia('(max-width:960px)').matches) { sky.style.transform=''; return; }
+			sky.style.transform = 'scale(1)';
+			var cs = getComputedStyle(stage);
+			var w = stage.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+			var h = stage.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+			sky.style.transform = 'scale(' + Math.min(1, w/sky.offsetWidth, h/sky.offsetHeight) + ')';
+		}
+		fit(); window.addEventListener('resize', fit); window.addEventListener('load', fit);
+	</script>
+</body>
+</html>

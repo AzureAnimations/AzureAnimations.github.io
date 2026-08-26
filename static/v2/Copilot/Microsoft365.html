@@ -1,0 +1,2514 @@
+<!DOCTYPE html>
+<!-- Narration script: /static/narration/v2/Copilot/Microsoft365.md -->
+<!--
+	Azure Animations — STARTER TEMPLATE
+	====================================
+	Copy this file to <Area>/<Sub>/YourTopic.html (e.g. AI/Foundry/MyTopic.html) and:
+	  1. Set <title>, #page-title, and the back-link href.
+	  2. Rename/expand the sample steps. Each STEPS[] entry pairs with one
+	     render<Xxx>Step(). The samples demonstrate the reusable building blocks —
+	     delete the ones you don't need, they are all optional:
+	       • PROBLEM   — a centered hero .card
+	       • FLOW      — a .ta-flow of .agent-node boxes joined by .ta-arrow (input → process → output)
+	       • CODE      — a VS Code-style .code-card (use .code-duo for a request/response pair)
+	       • USE CASES — a .uc-grid of .uc-card tiles
+	       • RECAP     — a .card + .value-chip row + closing line
+	  3. Fill the English I18N block, then add es/ja/ko/pt (full objects OR the
+	     { ...I18N.en, overrides } spread) and matching <option>s in #lang-select.
+	  4. Prefer Microsoft Fluent icons/emoji over raw OS emoji for anything shown
+	     on a projector. Source priority: Azure service icons (local lib
+	     ../lib/icons/…) → Fluent System Icons → Fluent UI Emoji → Fluent Emoji
+	     Animated → Twemoji (last resort, CC-BY).
+	  5. Run the Definition-of-Done checklist before publishing.
+
+	DESIGN NOTES
+	  • Accent colour is --theme-tertiary (Microsoft purple #5c2d91); primary blue
+	    and green (#10a37f) act as secondary / positive accents.
+	  • The bottom #controls is a compact translucent "icon dock" of glyph-only
+	    buttons; their localized labels live in the tooltip (title), set in setLanguage().
+	  • Audio narration is optional: list one clip per step (in order) in AUDIO_FILES[]
+	    and an Audio toggle appears automatically. Present mode (dual-window) ships via
+	    aw-present.js at the bottom — it self-installs a "Present" button in the header.
+
+	NOTE: the ../lib/ and ../../../img/ paths assume this file lives two levels
+	under static/v2/ (e.g. static/v2/AI/Foundry/). Adjust depth if you move it.
+-->
+<html lang="en">
+<head>
+	<script src="/js/tracking.js"></script>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+	<meta name="description" content="Your first day with Microsoft 365 — the subscription, licence and account that unlock Word, Excel, PowerPoint, Outlook, Teams and OneDrive; the company tenant that holds your work data; the admin policies and sensitivity labels that protect it; desktop and web access; and the bridge to Microsoft 365 Copilot." />
+	<title>Your First Day with Microsoft 365 · Azure Animations</title>
+	<link rel="icon" type="image/svg+xml" href="../lib/icons/brands/m365/Microsoft365.svg" />
+
+	<link rel="stylesheet" href="https://unpkg.com/@microsoft/atlas-css/dist/index.css" />
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+	<!-- AnimationWorks shared lib -->
+	<script src="../lib/js/aw-easings.js"></script>
+	<script src="../lib/js/aw-motion.js"></script>
+	<script src="../lib/js/aw-theme.js"></script>
+	<script src="../lib/js/aw-keyboard.js"></script>
+	<script src="../lib/js/aw-captions.js"></script>
+
+<style>
+	/* ── SHELL ─────────────────────────────── */
+	/* Brand palette — reference these tokens; don't hardcode hex */
+	:root {
+		--aw-purple:#5c2d91;   /* primary accent — titles, callouts, arrows, progress, agents */
+		--aw-blue:#0078d4;     /* secondary — inputs, links, "the model", primary button */
+		--aw-green:#10a37f;    /* positive — success, grounded/correct results, value chips */
+		--aw-orange:#e97526;   /* tools / actions — tool calls, function calling, side-effects */
+		--aw-pink:#d24aa8;     /* highlight — a fourth category / emphasis */
+	}
+	html, body { height:100%; margin:0; }
+	html { font-size:100%; }
+	body {
+		display:flex; flex-direction:column; height:100vh;
+		overflow:hidden;
+		font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif;
+		color: var(--theme-text);
+		background:
+			radial-gradient(circle at 15% 20%, rgba(92,45,145,0.18) 0%, transparent 55%),
+			radial-gradient(circle at 85% 80%, rgba(0,120,212,0.18) 0%, transparent 55%),
+			var(--theme-body-background);
+	}
+	.app-header { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:1rem; flex-shrink:0; font-size:16px; }
+	.app-header > :last-child { justify-self:end; }
+
+	/* #stage fills the space between the top bar and the control dock, and centers the fixed 16:9 frame. */
+	#stage {
+		position:relative; flex:1 1 auto; width:100%; min-height:0;
+		display:flex; align-items:center; justify-content:center;
+		overflow:hidden; container-type:size;
+		padding:1.75rem 2.75rem 5rem;   /* breathing room around the frame; bottom clears the fixed #controls dock */
+	}
+	#stage:focus-visible, button:focus-visible, a:focus-visible, select:focus-visible {
+		outline:2px solid var(--theme-primary, #0078d4); outline-offset:3px; border-radius:4px;
+	}
+	/* The visible rectangle: the largest 16:9 box that fits the stage. All scenes are drawn inside it. */
+	#stage-frame {
+		position:relative; overflow:hidden;
+		width: min(100cqw, calc(100cqh * 16 / 9));
+		aspect-ratio: 16 / 9; max-width:100%; max-height:100%;
+		border-radius:16px;
+		background: rgba(0,0,0,0.015);
+		box-shadow: 0 12px 44px rgba(0,0,0,0.22);
+	}
+	body.theme-dark #stage-frame { background: rgba(255,255,255,0.025); }
+	/* Coloured gradient border (brand purple → blue → pink) drawn as a masked ring — no interior tint. */
+	#stage-frame::before {
+		content:""; position:absolute; inset:0; border-radius:inherit; padding:2.5px;
+		background: linear-gradient(135deg, var(--aw-purple) 0%, var(--aw-blue) 55%, var(--aw-pink) 100%);
+		-webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+		mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+		-webkit-mask-composite: xor; mask-composite: exclude;
+		pointer-events:none; z-index:20;
+	}
+	#fx-svg { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:6; overflow:visible; }
+
+	/* ── SCENE ─────────────────────────────── */
+	.scene {
+		position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+		transform-origin:center center;
+		width:min(1150px, 96%); z-index:10;
+		display:flex; flex-direction:column; align-items:center; gap:1.4rem;
+	}
+	/* 200ms fade in / out between every step */
+	@keyframes awSceneIn { from { opacity:0; } to { opacity:1; } }
+	@keyframes awSceneOut { from { opacity:1; } to { opacity:0; } }
+	.scene.scene-in { animation: awSceneIn 0.2s ease both; }
+	.scene.scene-out { animation: awSceneOut 0.2s ease both; }
+	.scene-title { font-size:2.5rem; font-weight:700; color:var(--theme-tertiary, #5c2d91); margin:0; text-align:center; opacity:0; }
+	body.theme-dark .scene-title { color:#c9a5e8; }
+	/* lead spans wide (near the scene width) to use the side gutters and stay within 2 lines — trim copy if it wraps to 3 */
+	.scene-lead { margin:0; text-align:center; font-size:1.35rem; color:var(--theme-text); max-width:min(1180px,96%); line-height:1.5; opacity:0; }
+
+	/* ── CALLOUT · draggable, slightly see-through so it never fully blocks the diagram ── */
+	.callout {
+		position:absolute; max-width:340px; padding:1rem 1.2rem;
+		background:var(--theme-body-background);
+		background:color-mix(in srgb, var(--theme-body-background) 84%, transparent);
+		-webkit-backdrop-filter:blur(5px); backdrop-filter:blur(5px);
+		border:1px solid var(--theme-border);
+		border-left:4px solid var(--theme-tertiary, #5c2d91); border-radius:6px;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2));
+		font-size:1.05rem; line-height:1.45; z-index:14; opacity:0;
+		cursor:grab; touch-action:none;
+	}
+	.callout:active { cursor:grabbing; }
+
+	/* ── RESET "PIN" · appears on a draggable panel once it has been moved off its home spot ── */
+	.aw-drag-reset {
+		position:absolute; width:24px; height:24px; padding:0; display:none;
+		align-items:center; justify-content:center; border-radius:50%;
+		background:var(--theme-tertiary,#5c2d91); color:#fff;
+		border:2px solid var(--theme-body-background,#fff);
+		box-shadow:0 2px 7px rgba(0,0,0,0.4); cursor:pointer; z-index:6;
+		opacity:0.92; transition:opacity .14s ease, transform .14s ease;
+	}
+	.aw-drag-reset:hover { opacity:1; transform:scale(1.08); }
+	.aw-drag-reset:focus-visible { outline:2px solid #5cc8ff; outline-offset:2px; }
+	.aw-drag-reset svg { width:13px; height:13px; display:block; }
+
+	/* ══════════════════════════════════════════════════════════ */
+	/* ── REUSABLE BUILDING BLOCKS · keep what you use, drop rest ─ */
+	/* ══════════════════════════════════════════════════════════ */
+
+	/* Centered hero card */
+	.card {
+		width:min(680px, 96%); padding:1.6rem 1.8rem; border-radius:16px;
+		background:var(--theme-card-background, #fff); border:2px solid var(--theme-border);
+		box-shadow:0 8px 28px rgba(0,0,0,0.14); opacity:0;
+		display:flex; flex-direction:column; gap:0.6rem; align-items:center; text-align:center;
+	}
+	body.theme-dark .card { background:rgba(255,255,255,0.05); }
+	.card .card-icon { font-size:3rem; line-height:1; }
+	.card .card-h { font-size:1.4rem; font-weight:700; }
+	.card .card-p { font-size:1.05rem; color:var(--theme-text-subtle); line-height:1.5; }
+
+	/* Wide info panel */
+	.ta-card {
+		width:min(1080px, 98%); border:1.5px solid var(--theme-border); border-radius:14px;
+		background:var(--theme-card-background, #fff); box-shadow:0 8px 30px rgba(0,0,0,0.16);
+		padding:1.1rem 1.3rem; opacity:0;
+	}
+	body.theme-dark .ta-card { background:rgba(255,255,255,0.05); }
+	.ta-card-head {
+		display:flex; align-items:center; gap:0.5rem;
+		font-size:1rem; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;
+		color:var(--theme-text-subtle); margin-bottom:0.6rem;
+	}
+	.ta-card-text { font-size:1.22rem; line-height:1.55; color:var(--theme-text); }
+
+	/* Pills / chips */
+	.chip-row { display:flex; flex-wrap:wrap; gap:0.7rem; justify-content:center; }
+	.pill {
+		display:inline-flex; align-items:center; gap:0.5rem; padding:0.55rem 1.1rem;
+		border-radius:999px; font-size:1.05rem; font-weight:600;
+		border:2px solid var(--theme-tertiary, #5c2d91); background:rgba(92,45,145,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .pill { background:rgba(92,45,145,0.2); }
+	.value-chip {
+		display:inline-flex; align-items:center; gap:0.4rem; padding:0.5rem 1rem;
+		border-radius:999px; font-size:1rem; font-weight:700;
+		border:2px solid #107c10; background:rgba(16,124,16,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .value-chip { background:rgba(16,124,16,0.16); }
+	.recap-foot { font-size:1.05rem; color:var(--theme-text); text-align:center; max-width:760px; opacity:0; }
+
+	/* Flow row: input → process → output */
+	.agent-node {
+		display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.2rem;
+		width:160px; height:160px; border-radius:24px;
+		background: linear-gradient(135deg, rgba(92,45,145,0.12), rgba(0,120,212,0.12));
+		border:2.5px solid var(--theme-tertiary, #5c2d91);
+		box-shadow:0 8px 28px rgba(92,45,145,0.2); flex-shrink:0; text-align:center;
+	}
+	.agent-node .an-icon { font-size:3rem; line-height:1; }
+	.agent-node .an-icon img { width:64px; height:64px; display:block; }
+	.agent-node .an-label { font-size:1.05rem; font-weight:700; color:var(--theme-text); }
+	.agent-node .an-sub { font-size:0.85rem; color:var(--theme-text-subtle); }
+	.ta-flow { display:flex; align-items:center; justify-content:center; gap:1.2rem; flex-wrap:wrap; width:100%; }
+	.ta-flow .agent-node { width:140px; height:140px; }
+	.ta-flow .agent-node .an-icon { font-size:2.6rem; }
+	.ta-flow .agent-node .an-icon img { width:54px; height:54px; }
+	.ta-arrow { font-size:1.9rem; color:var(--theme-tertiary,#5c2d91); opacity:0; }
+	.ta-arrow.is-big { font-size:3.2rem; }
+	.ta-arrow.is-down, .ta-arrow.is-up { font-size:2.9rem; line-height:1; }
+	@media (max-width:760px) { .ta-flow .ta-arrow { transform:rotate(90deg); } }
+
+	/* Code card (VS Code style) */
+	.code-card {
+		width:min(560px,96%); border:1px solid #30363d; border-radius:8px;
+		background:#1e1e1e; overflow:hidden; opacity:0;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.25));
+	}
+	.code-head {
+		display:flex; align-items:center; justify-content:space-between; gap:0.5rem;
+		padding:0 0 0 0.85rem; background:#323233; border-bottom:1px solid #1e1e1e;
+	}
+	.code-file { font-size:0.9rem; color:#cccccc; font-weight:500; padding:0.6rem 0; }
+	.code-winctrls { display:flex; align-items:stretch; height:100%; }
+	.code-wbtn {
+		display:flex; align-items:center; justify-content:center; width:2.6rem; padding:0.55rem 0;
+		color:#cccccc; font-family:'Segoe UI Symbol','Segoe MDL2 Assets',sans-serif; font-size:0.7rem;
+	}
+	.code-wbtn.is-close:hover { background:#e81123; color:#fff; }
+	.code-wbtn:hover { background:rgba(255,255,255,0.1); }
+	.code-body {
+		margin:0; padding:0.8rem 1rem;
+		font-family:'Cascadia Code', 'Consolas', 'SFMono-Regular', monospace;
+		font-size:0.86rem; line-height:1.5; color:#d4d4d4;
+		white-space:pre-wrap; overflow-wrap:break-word; word-break:break-word; tab-size:4;
+	}
+	.code-body .tok-com { color:#6a9955; }
+	.code-body .tok-kw  { color:#569cd6; }
+	.code-body .tok-str { color:#ce9178; }
+	.code-body .tok-fn  { color:#dcdcaa; }
+	.code-body .tok-mod { color:#4ec9b0; }
+	.code-body .tok-prop{ color:#9cdcfe; }
+	.code-body .tok-num { color:#b5cea8; }
+	.code-body .tok-punct { color:#d4d4d4; }
+	.code-body .code-hl { border-radius:4px; padding:0 0.15em; box-shadow:0 0 0 1px rgba(96,165,250,0.55); background:rgba(96,165,250,0.22); }
+	.code-duo { display:flex; gap:1.1rem; flex-wrap:wrap; align-items:flex-start; justify-content:center; width:100%; }
+	.code-duo .code-card { flex:1 1 380px; max-width:480px; }
+	.code-duo .code-body { font-size:0.8rem; line-height:1.45; }
+	.code-arrow { align-self:center; font-size:1.8rem; line-height:1; color:var(--theme-tertiary,#5c2d91); opacity:0; flex:none; }
+	.code-arrow.is-big { font-size:2.9rem; }
+	@media (max-width:760px) { .code-arrow { transform:rotate(90deg); } }
+
+	/* Use-case grid */
+	.uc-grid { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:1.1rem; width:min(980px,96%); }
+	@media (max-width:720px) { .uc-grid { grid-template-columns:1fr; } }
+	.uc-card {
+		display:flex; flex-direction:column; gap:0.5rem; padding:1rem 1.15rem;
+		border:1.5px solid var(--theme-border); border-top:4px solid var(--theme-primary,#0078d4);
+		border-radius:14px; background:var(--theme-card-background, #fff);
+		box-shadow:0 6px 22px rgba(0,0,0,0.12); opacity:0;
+		transition:transform 0.2s ease, box-shadow 0.2s ease;
+	}
+	.uc-card:hover { transform:translateY(-4px); box-shadow:0 12px 30px rgba(0,0,0,0.18); }
+	body.theme-dark .uc-card { background:rgba(255,255,255,0.05); }
+	.uc-card[data-uc="a"] { border-top-color:#0078d4; }
+	.uc-card[data-uc="b"] { border-top-color:#10a37f; }
+	.uc-card[data-uc="c"] { border-top-color:#e97526; }
+	.uc-card[data-uc="d"] { border-top-color:#d24aa8; }
+	.uc-head { display:flex; align-items:center; gap:0.55rem; font-size:1.25rem; font-weight:700; color:var(--theme-text); }
+	.uc-head .uc-icon { font-size:1.7rem; display:inline-block; }
+	.uc-desc { font-size:0.98rem; line-height:1.55; color:var(--theme-text-subtle); }
+	.uc-caps { display:flex; flex-wrap:wrap; gap:0.4rem; margin-top:0.2rem; }
+	.uc-cap {
+		display:inline-flex; align-items:center; gap:0.3rem; padding:0.25rem 0.7rem;
+		border-radius:999px; font-size:0.88rem; font-weight:700;
+		background:rgba(0,120,212,0.1); color:var(--theme-text);
+		border:1.5px solid rgba(0,120,212,0.4); opacity:0;
+	}
+
+	/* ── CONTROLS · icon dock ──────────────── */
+	#controls {
+		position:fixed; bottom:14px; left:50%; transform:translateX(-50%); z-index:40;
+		display:flex; align-items:center; gap:5px; padding:5px 7px;
+		background:var(--theme-body-background-translucent, rgba(255,255,255,0.82));
+		backdrop-filter:blur(12px) saturate(1.4); -webkit-backdrop-filter:blur(12px) saturate(1.4);
+		border:1px solid var(--theme-border); border-radius:999px;
+		box-shadow: 0 8px 26px rgba(0,0,0,0.18); font-size:13px;
+	}
+	body.theme-dark #controls { background:var(--theme-body-background-translucent, rgba(32,32,36,0.82)); }
+	#controls .ctrl-icon {
+		width:2.15rem; height:2.15rem; min-width:0; padding:0;
+		display:inline-flex; align-items:center; justify-content:center;
+		border-radius:50%; font-size:0.95rem; line-height:1; font-weight:600;
+		transition:background 0.18s ease, color 0.18s ease, transform 0.12s ease, box-shadow 0.18s ease;
+	}
+	#controls .ctrl-icon:hover { transform:translateY(-1px); }
+	#controls .ctrl-icon:active { transform:scale(0.92); }
+	#controls .ctrl-icon-next {
+		width:2.55rem; height:2.55rem; font-size:1.1rem;
+		box-shadow:0 2px 8px var(--theme-primary-translucent, rgba(0,120,212,0.45));
+	}
+	.step-counter {
+		min-width:52px; text-align:center; font-variant-numeric:tabular-nums;
+		font-size:14px; font-weight:700; color:var(--theme-text);
+		padding:0 6px; white-space:nowrap; letter-spacing:0.02em;
+	}
+	.ctrl-sep { width:1px; align-self:stretch; margin:4px 2px; background:var(--theme-border); }
+	/* Movable dock: drag handle + pin-to-center button */
+	.ctrl-grip {
+		display:inline-flex; align-items:center; justify-content:center;
+		width:1.5rem; height:2.15rem; padding:0; border:none; background:transparent;
+		color:var(--theme-text-subtle); border-radius:8px; cursor:grab; touch-action:none;
+		transition:background 0.18s ease, color 0.18s ease;
+	}
+	.ctrl-grip:hover { color:var(--theme-text); background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); }
+	.ctrl-grip:active { cursor:grabbing; }
+	.ctrl-grip svg { width:13px; height:16px; pointer-events:none; }
+	body.controls-floating .ctrl-grip { color:var(--theme-primary,#0078d4); }
+	#controls .ctrl-pin { display:none; color:var(--theme-primary,#0078d4); }
+	#controls .ctrl-pin svg { width:15px; height:15px; pointer-events:none; }
+	body.controls-floating #controls .ctrl-pin { display:inline-flex; }
+	body.controls-floating #controls { box-shadow:0 10px 30px rgba(0,0,0,0.30), 0 0 0 1.5px var(--theme-primary,#0078d4); }
+	.speed-control { display:inline-flex; align-items:center; gap:1px; padding:2px 3px; border:1px solid var(--theme-border); border-radius:999px; }
+	.speed-control .speed-btn {
+		width:1.7rem; height:1.7rem; min-width:0; padding:0;
+		display:inline-flex; align-items:center; justify-content:center;
+		font-size:0.95rem; font-weight:700; border-radius:50%;
+	}
+	.speed-control .speed-btn[disabled] { opacity:0.4; cursor:not-allowed; }
+	.speed-label { min-width:2.4rem; text-align:center; font-variant-numeric:tabular-nums; font-size:0.82rem; font-weight:700; color:var(--theme-text); }
+
+	#callout-toggle, #outline-toggle, #audio-toggle { border:1px solid var(--theme-border); border-radius:4px; transition:background .2s,color .2s,border-color .2s,opacity .2s; }
+	#callout-toggle.toggle-active, #outline-toggle.toggle-active, #audio-toggle.toggle-active {
+		background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary,#0078d4); border-color:var(--theme-primary,#0078d4); font-weight:600;
+	}
+	#callout-toggle:not(.toggle-active), #outline-toggle:not(.toggle-active), #audio-toggle:not(.toggle-active) { opacity:0.6; }
+
+	/* ── HIDE/SHOW TOP BAR ─────────────────── */
+	#header-hide { display:inline-flex; align-items:center; justify-content:center; width:2rem; height:2rem; padding:0; border:1px solid var(--theme-border); border-radius:50%; color:var(--theme-text-subtle); transition:background .2s,color .2s,transform .18s; }
+	#header-hide:hover { color:var(--theme-text); transform:translateY(-1px); }
+	#header-hide svg { width:16px; height:16px; }
+	#header-hide-top { display:inline-flex; align-items:center; justify-content:center; width:2rem; height:2rem; padding:0; border:1px solid var(--theme-border); border-radius:50%; color:var(--theme-text-subtle); background:transparent; cursor:pointer; transition:background .2s,color .2s,transform .18s; }
+	#header-hide-top:hover { color:var(--theme-text); transform:translateY(-1px); }
+	#header-hide-top svg { width:16px; height:16px; }
+	body.chrome-hidden .app-header, body.chrome-hidden .progress-track { display:none; }
+	#header-reveal {
+		position:fixed; top:0; left:50%; transform:translateX(-50%) translateY(-100%); z-index:45;
+		display:inline-flex; align-items:center; gap:0.35rem; padding:5px 14px 6px; font-size:12px; font-weight:600; line-height:1;
+		color:var(--theme-text-subtle); background:var(--theme-body-background-translucent, rgba(255,255,255,0.88));
+		backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border:1px solid var(--theme-border); border-top:none; border-radius:0 0 12px 12px;
+		box-shadow:0 4px 14px rgba(0,0,0,0.14); cursor:pointer; transition:transform .28s cubic-bezier(0.2,0.7,0.3,1), color .2s, background .2s;
+	}
+	body.theme-dark #header-reveal { background:var(--theme-body-background-translucent, rgba(32,32,36,0.88)); }
+	#header-reveal:hover { color:var(--theme-text); }
+	body.chrome-hidden #header-reveal { transform:translateX(-50%) translateY(0); }
+	#header-reveal svg { width:14px; height:14px; }
+
+	/* ── PLAYER OVERLAY · pills inside the stage frame (YouTube-style) ──
+	   Two translucent pills float over the 16:9 frame: LEFT = "view options"
+	   (callout / outline / shortcuts), RIGHT = "player" (audio / captions / hide-bar / fullscreen). */
+	.stage-overlay {
+		position:absolute; right:12px; bottom:10px; z-index:25;
+		display:flex; align-items:center; gap:2px;
+		padding:3px 6px; border-radius:999px;
+		background:rgba(16,18,24,0.58);
+		backdrop-filter:blur(9px) saturate(1.3); -webkit-backdrop-filter:blur(9px) saturate(1.3);
+		box-shadow:0 4px 16px rgba(0,0,0,0.32);
+	}
+	.ovl-btn {
+		-webkit-appearance:none; appearance:none; margin:0; font:inherit;
+		display:inline-flex; align-items:center; justify-content:center; gap:4px;
+		min-width:30px; height:30px; padding:0 8px;
+		border:none !important; border-radius:999px !important;
+		background:transparent !important; color:#fff !important;
+		box-shadow:none !important; cursor:pointer; line-height:1;
+		font-size:0.82rem; font-weight:700; opacity:0.92; transition:background .15s ease, opacity .15s ease;
+	}
+	.ovl-btn:hover { background:rgba(255,255,255,0.16) !important; opacity:1; }
+	.ovl-btn:disabled { opacity:0.4; cursor:not-allowed; }
+	.ovl-btn svg { width:18px; height:18px; fill:currentColor; display:block; }
+	.ovl-btn.on { color:#5cc8ff !important; }
+	.stage-overlay #audio-toggle { opacity:1 !important; }
+	.stage-overlay .aw-audio-ico { font-size:1rem; line-height:1; }
+	.stage-overlay .aw-audio-time { font-size:0.78rem; font-variant-numeric:tabular-nums; letter-spacing:0.02em; opacity:0.95; min-width:2.4em; text-align:left; }
+	#cc-toggle svg { width:20px; height:20px; }
+	.ovl-btn .fs-exit { display:none; }
+	body.is-fs .ovl-btn .fs-enter { display:none; }
+	body.is-fs .ovl-btn .fs-exit { display:block; }
+
+	/* ── LEFT VIEW-OPTIONS PILL · Callout / Outline / Shortcuts (icon + hover tip) ── */
+	.stage-overlay-left { right:auto; left:12px; }
+	#stage-overlay-left .ovl-btn:not(.toggle-active) { opacity:0.86; }
+	#stage-overlay-left .ovl-btn.toggle-active { color:#5cc8ff !important; opacity:1; }
+	#stage-overlay-left .ovl-btn:hover { opacity:1; }
+	/* Hover tooltip shown above the icon (left-anchored so it never clips the frame edge) */
+	.ovl-btn[data-tip] { position:relative; }
+	.ovl-btn[data-tip]::after { content:attr(data-tip); position:absolute; left:0; bottom:calc(100% + 9px); transform:translateY(4px); padding:4px 8px; border-radius:6px; background:rgba(16,18,24,0.96); color:#fff; font-size:0.72rem; font-weight:600; white-space:nowrap; letter-spacing:0.01em; opacity:0; pointer-events:none; box-shadow:0 3px 12px rgba(0,0,0,0.45); transition:opacity .14s ease, transform .14s ease; z-index:40; }
+	.ovl-btn[data-tip]::before { content:''; position:absolute; left:13px; bottom:calc(100% + 4px); border:5px solid transparent; border-top-color:rgba(16,18,24,0.96); opacity:0; pointer-events:none; transition:opacity .14s ease; z-index:40; }
+	.ovl-btn[data-tip]:hover::after { opacity:1; transform:translateY(0); }
+	.ovl-btn[data-tip]:hover::before { opacity:1; }
+
+	/* ── CAPTION · overlaid inside the frame, draggable + resizable, stays solid (not see-through) ── */
+	#aw-caption {
+		position:absolute; left:50%; transform:translateX(-50%); bottom:56px; z-index:24;
+		max-width:92%; min-width:140px; min-height:38px; max-height:44%;
+		display:none; align-items:center; justify-content:center; text-align:center;
+		padding:0.42rem 0.95rem; border-radius:9px;
+		background:rgba(8,9,13,0.8); color:#fff;
+		font-size:1.1rem; line-height:1.36; font-weight:600;
+		box-shadow:0 3px 14px rgba(0,0,0,0.42); pointer-events:auto; cursor:grab; touch-action:none;
+		overflow:auto; resize:both;   /* user can reshape the caption; corner grip = resize */
+	}
+	#aw-caption:active { cursor:grabbing; }
+	#aw-caption::-webkit-resizer { background:linear-gradient(135deg, transparent 45%, rgba(255,255,255,0.55) 45%, rgba(255,255,255,0.55) 55%, transparent 55%); }
+	body.cc-on #aw-caption.has-text { display:flex; }
+	@media (max-width:640px){ #aw-caption { font-size:0.94rem; bottom:48px; max-width:90%; } }
+
+	/* ── OUTLINE PANEL · draggable + slightly see-through ── */
+	#step-outline {
+		position:fixed; top:4.5rem; right:1rem; width:320px; max-height:calc(100vh - 8rem); overflow-y:auto;
+		padding:1.1rem; background:var(--theme-body-background);
+		background:color-mix(in srgb, var(--theme-body-background) 85%, transparent);
+		-webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
+		border:1px solid var(--theme-border);
+		border-radius:6px; box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2)); z-index:35; font-size:1rem; line-height:1.55;
+		cursor:grab; touch-action:none;
+	}
+	#step-outline:active { cursor:grabbing; }
+	#step-outline[hidden] { display:none; }
+	#step-outline h2 { font-size:0.85rem; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--theme-tertiary,#5c2d91); margin-bottom:0.5rem; }
+	#step-outline .outline-section { margin-top:0.6rem; padding-top:0.6rem; border-top:1px solid var(--theme-border); }
+	#step-outline .outline-section:first-child { margin-top:0; padding-top:0; border-top:0; }
+	#step-outline .stat-row { display:flex; justify-content:space-between; align-items:baseline; gap:0.75rem; padding:0.2rem 0; }
+	#step-outline .stat-row span:first-child { color:var(--theme-text-subtle); flex:0 0 auto; max-width:45%; }
+	#step-outline .stat-row span:last-child { text-align:right; font-weight:600; color:var(--theme-tertiary,#5c2d91); flex:1 1 auto; }
+
+	.progress-track { position:relative; height:6px; background:var(--theme-border, #e0e0e0); flex-shrink:0; cursor:pointer; }
+	.progress-fill { position:absolute; left:0; top:0; bottom:0; width:0%; background:var(--aw-purple, #5c2d91); transition:width .5s cubic-bezier(0.2,0.8,0.2,1); pointer-events:none; }
+	.progress-tick { position:absolute; top:0; bottom:0; width:2px; margin-left:-1px; background:var(--theme-body-background); opacity:0.6; pointer-events:none; }
+
+	/* ── THEME / LANG / FONT CONTROLS ──────── */
+	.theme-toggle { display:inline-flex; align-items:center; justify-content:center; width:2.25rem; height:2.25rem; padding:0; margin-inline-start:0.25rem; background:transparent; border:1px solid var(--theme-border); border-radius:999px; color:var(--theme-text); cursor:pointer; transition:background .15s,color .15s,border-color .15s; }
+	.theme-toggle:hover { background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary); border-color:var(--theme-primary); }
+	.theme-toggle .theme-icon { display:none; }
+	.theme-toggle[data-theme="dark"] .icon-sun { display:block; }
+	.theme-toggle[data-theme="light"] .icon-moon { display:block; }
+	.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+	.skip-link { position:absolute; top:-100px; left:0.5rem; z-index:100; padding:0.5rem 1rem; background:var(--theme-primary); color:var(--theme-primary-invert,#fff); border-radius:4px; text-decoration:none; font-weight:600; }
+	.skip-link:focus { top:0.5rem; }
+	.header-back-link { display:inline-flex; align-items:center; gap:0.25rem; padding:0.2rem 0.6rem; font-size:0.8rem; font-weight:600; color:var(--theme-text-subtle); border:1px solid var(--theme-border); border-radius:999px; text-decoration:none; white-space:nowrap; transition:background .15s,color .15s,border-color .15s; }
+	.header-back-link:hover { color:var(--theme-primary); border-color:var(--theme-primary); background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); }
+	.lang-select {
+		appearance:none; -webkit-appearance:none; background:var(--theme-card-background,#fff); color:var(--theme-body-text,#333);
+		border:1px solid var(--theme-border, rgba(0,0,0,0.2)); border-radius:4px; padding:4px 24px 4px 8px;
+		font-size:0.8rem; font-family:'Segoe UI', sans-serif; cursor:pointer;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+		background-repeat:no-repeat; background-position:right 6px center; min-width:80px;
+	}
+	.lang-select:hover { border-color:var(--theme-primary, #0078d4); }
+	.lang-select:focus { outline:2px solid var(--theme-primary, #0078d4); outline-offset:1px; }
+	body.theme-dark .lang-select {
+		background-color:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); border-color:rgba(255,255,255,0.15);
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23aaa' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+	}
+	body.theme-dark .lang-select option { background:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); }
+	.font-size-controls { display:flex; align-items:center; gap:2px; }
+	.font-size-btn { background:var(--theme-card-background,#fff); color:var(--theme-body-text,#333); border:1px solid var(--theme-border, rgba(0,0,0,0.2)); border-radius:4px; padding:3px 8px; font-size:0.8rem; font-weight:700; font-family:'Segoe UI', sans-serif; cursor:pointer; line-height:1.2; transition:background .15s,border-color .15s; }
+	.font-size-btn:hover { border-color:var(--theme-primary, #0078d4); }
+	body.theme-dark .font-size-btn { background:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); border-color:rgba(255,255,255,0.15); }
+
+	/* Inline icons (crisp on any OS/projector — replaces raw emoji on stage) */
+	.ic { display:inline-flex; align-items:center; justify-content:center; vertical-align:-0.125em; }
+	.ic svg { width:1em; height:1em; fill:currentColor; display:block; }
+	.help-toggle svg { width:15px; height:15px; vertical-align:-2px; }
+
+	/* Keyboard shortcut overlay */
+	#shortcut-overlay { position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center; }
+	#shortcut-overlay[hidden] { display:none; }
+	.sc-backdrop { position:absolute; inset:0; background:rgba(0,0,0,0.5); -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px); }
+	.sc-panel { position:relative; z-index:1; width:min(430px,92vw); max-height:82vh; overflow:auto; padding:1.5rem 1.6rem; background:var(--theme-body-background); border:1px solid var(--theme-border); border-radius:16px; box-shadow:0 24px 70px rgba(0,0,0,0.4); }
+	.sc-panel h2 { margin:0 0 1rem; font-size:1.25rem; color:var(--theme-tertiary,#5c2d91); }
+	body.theme-dark .sc-panel h2 { color:#c9a5e8; }
+	.sc-close { position:absolute; top:0.7rem; right:0.7rem; width:2rem; height:2rem; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--theme-border); border-radius:50%; background:transparent; color:var(--theme-text-subtle); cursor:pointer; }
+	.sc-close:hover { color:var(--theme-text); border-color:var(--theme-primary,#0078d4); }
+	.sc-close svg { width:15px; height:15px; }
+	.sc-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:0.55rem; }
+	.sc-list li { display:flex; align-items:center; justify-content:space-between; gap:1rem; font-size:1rem; color:var(--theme-text); }
+	.sc-keys { display:inline-flex; gap:0.3rem; flex:none; }
+	.sc-panel kbd, .sc-hint kbd { font-family:'Cascadia Code','Consolas',monospace; font-size:0.82rem; line-height:1; padding:0.28rem 0.5rem; border-radius:6px; border:1px solid var(--theme-border); border-bottom-width:2px; background:var(--theme-card-background,#fff); color:var(--theme-text); }
+	body.theme-dark .sc-panel kbd, body.theme-dark .sc-hint kbd { background:rgba(255,255,255,0.08); }
+	.sc-hint { margin:1.1rem 0 0; font-size:0.85rem; color:var(--theme-text-subtle); text-align:center; }
+
+	@media (max-width:640px) { .app-header { font-size:0.95rem; } .scene-title { font-size:1.9rem; } #stage { padding:0.9rem 1rem 4.5rem; } }
+	/* ── "Up next" pill · appears on the last step so learners chain to the next stop ── */
+	#journey-next { position:fixed; z-index:60; right:1.4rem; bottom:1.1rem; max-width:min(32rem,52vw); opacity:0; visibility:hidden; transform:translateY(12px); transition:opacity .5s ease, transform .5s ease, visibility .5s ease; }
+	#journey-next.show { opacity:1; visibility:visible; transform:none; }
+	.jn-card { display:flex; align-items:center; gap:0.7rem; padding:0.5rem 0.55rem 0.5rem 0.8rem; border-radius:14px; background:var(--theme-card-background,#fff); border:1px solid color-mix(in srgb, var(--aw-purple) 30%, var(--theme-border)); box-shadow:0 14px 34px rgba(0,0,0,0.3); }
+	body.theme-dark .jn-card { background:#15151d; }
+	.jn-icon { flex:none; width:2.4rem; height:2.4rem; display:grid; place-items:center; }
+	.jn-icon img { width:100%; height:100%; object-fit:contain; }
+	.jn-text { display:flex; flex-direction:column; line-height:1.2; min-width:0; }
+	.jn-eyebrow { display:inline-flex; align-items:center; gap:0.35rem; font-size:0.7rem; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:var(--aw-purple); }
+	.jn-check { display:grid; place-items:center; width:0.95rem; height:0.95rem; border-radius:50%; background:var(--aw-green); color:#fff; font-size:0.68rem; }
+	.jn-title { font-size:1.11rem; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+	.jn-cta { flex:none; display:inline-flex; align-items:center; gap:0.4rem; padding:0.5rem 0.95rem; border-radius:10px; font-size:1.02rem; font-weight:700; text-decoration:none; color:#fff; background:linear-gradient(120deg, var(--aw-purple), var(--aw-blue)); box-shadow:0 8px 20px rgba(92,45,145,0.4); transition:transform .15s ease, box-shadow .15s ease; }
+	.jn-cta:hover { transform:translateY(-1px); box-shadow:0 12px 26px rgba(92,45,145,0.5); }
+	.jn-close { flex:none; width:1.7rem; height:1.7rem; display:grid; place-items:center; border:none; border-radius:8px; cursor:pointer; background:transparent; color:var(--theme-text); opacity:0.5; }
+	.jn-close:hover { opacity:1; background:color-mix(in srgb, var(--theme-text) 10%, transparent); }
+	.jn-close svg { width:15px; height:15px; }
+	@media (max-width:860px){ #journey-next { right:0.8rem; bottom:5.1rem; max-width:min(22rem,88vw); } }
+	@media (prefers-reduced-motion: reduce){ #journey-next { transition:none !important; transform:none !important; } }
+
+	@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition:none !important; animation:none !important; } .progress-fill { transition:none !important; } }
+
+	/* ══ MICROSOFT 365 SCENES ══ */
+	.m3-logo { display:inline-block; vertical-align:middle; flex:0 0 auto; }
+	.m3-ic { display:block; flex:0 0 auto; }
+	.m3-typing::after { content:''; display:inline-block; width:2px; height:1.05em; background:#5c2d91; margin-left:2px; vertical-align:-2px; animation:m3Blink 0.9s steps(1,end) infinite; }
+	@keyframes m3Blink { 50% { opacity:0; } }
+	/* shared surfaces — always light, so the scenes read like product surfaces on a projector */
+	.m3-card { background:#fff; border:1px solid #e6e3ef; border-radius:14px; box-shadow:0 3px 12px rgba(60,30,90,0.08); }
+
+	/* Step 1 · the platform box + the apps that come out of it */
+	.m3-box { display:inline-flex; align-items:center; gap:15px; padding:16px 24px; border-radius:16px; opacity:0;
+		background:linear-gradient(135deg,#eef3fd,#f6effb); border:1px solid #dcd8ea; box-shadow:0 6px 20px rgba(60,30,90,0.10); }
+	.m3-box-tx { display:flex; flex-direction:column; gap:2px; text-align:left; }
+	.m3-box-tx b { font-size:1.3rem; font-weight:600; color:#241f2e; }
+	.m3-box-tx span { font-size:0.98rem; color:#5f5a6b; }
+	.m3-approw { display:flex; gap:14px; flex-wrap:wrap; justify-content:center; }
+	.m3-app { position:relative; display:flex; flex-direction:column; align-items:center; gap:7px; width:104px; padding:14px 8px; opacity:0;
+		background:#fff; border:1px solid #e6e3ef; border-radius:14px; box-shadow:0 3px 12px rgba(60,30,90,0.08); }
+	.m3-app span { font-size:0.96rem; font-weight:500; color:#2f2b39; }
+	.m3-app.is-locked { filter:grayscale(1); opacity:0.55; }
+	.m3-lock { position:absolute; top:6px; right:8px; font-size:0.9rem; }
+	.m3-app:not(.is-locked) .m3-lock { display:none; }
+
+	/* Step 2 · subscription → licence → account */
+	.m3-flow { display:flex; align-items:stretch; justify-content:center; gap:12px; flex-wrap:wrap; }
+	.m3-stage { flex:0 0 236px; display:flex; flex-direction:column; gap:5px; padding:15px 16px; opacity:0; text-align:left;
+		background:#fff; border:1px solid #e6e3ef; border-top:3px solid #5c2d91; border-radius:13px; box-shadow:0 3px 12px rgba(60,30,90,0.08); }
+	.m3-stage:nth-child(3){ border-top-color:#0067d6; } .m3-stage:nth-child(5){ border-top-color:#107c41; }
+	.m3-stage-ic { font-size:1.7rem; line-height:1; }
+	.m3-stage b { font-size:1.12rem; font-weight:600; color:#241f2e; }
+	.m3-stage span:last-child { font-size:0.95rem; color:#5f5a6b; line-height:1.4; }
+	.m3-arrow { align-self:center; font-size:3.1rem; font-weight:700; line-height:1; color:#7a49b8; opacity:0; padding:0 2px; }
+	.m3-lockrow .m3-app { width:92px; padding:11px 7px; }
+	.m3-state { font-size:1.02rem; font-weight:600; color:#8a6d1f; background:#fdf6e3; border:1px solid #f0dfae; border-radius:999px; padding:6px 16px; opacity:0; }
+	.m3-state.is-on { color:#0f6d43; background:#eafaf1; border-color:#b7e6c9; }
+
+	/* Step 3 · sign-in → tenant */
+	.m3-tenantrow { display:flex; align-items:center; justify-content:center; gap:20px; flex-wrap:wrap; }
+	.m3-signin { flex:0 0 268px; display:flex; flex-direction:column; gap:9px; padding:17px 18px; opacity:0; text-align:left;
+		background:#fff; border:1px solid #e6e3ef; border-radius:14px; box-shadow:0 6px 18px rgba(60,30,90,0.10); }
+	.m3-si-h { font-size:1.12rem; font-weight:600; color:#241f2e; }
+	.m3-si-f { display:flex; flex-direction:column; gap:3px; }
+	.m3-si-lbl { font-size:0.85rem; color:#7b7688; }
+	.m3-si-in { min-height:1.4em; font-size:1.02rem; color:#241f2e; background:#f7f6fb; border:1px solid #e3e0ec; border-radius:7px; padding:6px 10px; }
+	.m3-si-btn { align-self:flex-start; margin-top:3px; font-size:0.98rem; font-weight:600; color:#fff; background:#5c2d91; border-radius:8px; padding:7px 18px; }
+	.m3-tenant { flex:0 0 auto; max-width:560px; padding:15px 17px 17px; opacity:0;
+		background:linear-gradient(180deg,#fbfaff,#f5f2fb); border:2px dashed #b79fe0; border-radius:16px; }
+	.m3-tn-h { display:flex; align-items:center; gap:8px; font-size:1.12rem; font-weight:600; color:#4b2a7b; margin-bottom:11px; }
+	.m3-tn-ic { font-size:1.42rem; }
+	.m3-tn-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:9px; }
+	.m3-tchip { display:flex; align-items:center; gap:8px; padding:9px 11px; opacity:0; font-size:0.97rem; font-weight:500; color:#2f2b39;
+		background:#fff; border:1px solid #e6e3ef; border-radius:10px; box-shadow:0 2px 6px rgba(60,30,90,0.06); }
+	.m3-tc-emoji { font-size:1.25rem; line-height:1; }
+
+	/* Step 4 · a day of work */
+	.m3-daylist { display:flex; flex-direction:column; gap:9px; width:min(660px,96%); }
+	.m3-day { display:flex; align-items:center; gap:13px; padding:11px 15px; opacity:0;
+		background:#fff; border:1px solid #e6e3ef; border-left:4px solid #0067d6; border-radius:12px; box-shadow:0 2px 8px rgba(60,30,90,0.07); }
+	.m3-day:nth-child(2){ border-left-color:#5059C9; } .m3-day:nth-child(3){ border-left-color:#185ABD; }
+	.m3-day:nth-child(4){ border-left-color:#C43E1C; } .m3-day:nth-child(5){ border-left-color:#107C41; }
+	.m3-day-tx { display:flex; flex-direction:column; gap:1px; text-align:left; }
+	.m3-day-tx b { font-size:1.08rem; font-weight:600; color:#241f2e; }
+	.m3-day-tx span { font-size:0.92rem; color:#6a6570; }
+	.m3-dayout { display:inline-flex; align-items:center; gap:10px; padding:12px 22px; opacity:0; font-size:1.12rem; font-weight:600; color:#4b2a7b;
+		background:linear-gradient(135deg,#f3eefb,#eef3fd); border:1.5px solid #d9c9f0; border-radius:13px; }
+	.m3-dayout-ic { font-size:1.48rem; }
+
+	/* Step 5 · where the work lands */
+	.m3-srcrow { display:flex; gap:14px; justify-content:center; flex-wrap:wrap; }
+	.m3-src { position:relative; flex:0 0 196px; display:flex; flex-direction:column; align-items:center; gap:4px; padding:14px 13px 32px; opacity:0; text-align:center;
+		background:#fff; border:1px solid #e6e3ef; border-radius:13px; box-shadow:0 3px 12px rgba(60,30,90,0.08); }
+	.m3-src b { font-size:1.08rem; font-weight:600; color:#241f2e; }
+	.m3-src span:not(.m3-drop) { font-size:0.92rem; color:#6a6570; }
+	.m3-drop { position:absolute; bottom:-19px; left:50%; transform:translateX(-50%); font-size:3rem; font-weight:700; line-height:1; color:#7a49b8; opacity:0; }
+	.m3-hub { margin-top:16px; display:flex; flex-direction:column; align-items:center; gap:4px; width:min(760px,96%); padding:16px 20px; opacity:0;
+		background:linear-gradient(135deg,#efeafc,#e9f2fd); border:2px solid #c9b6ea; border-radius:16px; }
+	.m3-hub b { font-size:1.25rem; font-weight:600; color:#3f2470; }
+	.m3-hub span { font-size:1rem; color:#5f5a6b; }
+	/* the whole map sits inside the company tenant introduced in step 3 */
+	.m3-storebox { width:100%; max-width:none; }
+	.m3-storebox .m3-hub { margin-inline:auto; } /* .m3-tenant is not a flex box, so centre the hub explicitly */
+	.m3-storenote { margin-left:auto; font-size:0.92rem; font-weight:400; color:#6a6570; }
+
+	/* Step 6 · labels, policy, enforcement */
+	.m3-labels { display:inline-flex; align-items:center; gap:9px; flex-wrap:wrap; justify-content:center; opacity:0; }
+	.m3-lbl-h { font-size:0.9rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--theme-text-subtle); }
+	.m3-lbl { font-size:0.97rem; font-weight:500; padding:5px 14px; border-radius:999px; opacity:0; border:1.5px solid transparent; }
+	.m3-lbl.l-pub { color:#0f6d43; background:#eafaf1; border-color:#b7e6c9; }
+	.m3-lbl.l-int { color:#8a6d1f; background:#fdf6e3; border-color:#f0dfae; }
+	.m3-lbl.l-conf { color:#a4262c; background:#fdeceb; border-color:#f3b8b4; }
+	.m3-lbl.is-on { box-shadow:0 0 0 3px rgba(164,38,44,0.18); font-weight:600; }
+	.m3-doc { display:inline-flex; align-items:center; gap:12px; padding:12px 18px; opacity:0;
+		background:#fff; border:1px solid #e6e3ef; border-radius:12px; box-shadow:0 3px 12px rgba(60,30,90,0.08); }
+	.m3-doc-tx { display:flex; flex-direction:column; gap:3px; text-align:left; }
+	.m3-doc-tx b { font-size:1.08rem; font-weight:600; color:#241f2e; }
+	.m3-doc-badge { align-self:flex-start; font-size:0.86rem; font-weight:600; color:#a4262c; background:#fdeceb; border:1px solid #f3b8b4; border-radius:999px; padding:2px 10px; opacity:0; }
+	.m3-share { display:inline-flex; align-items:center; gap:8px; font-size:1rem; color:#3f3a4a; background:#f7f6fb; border:1px dashed #ccc6dd; border-radius:10px; padding:8px 16px; opacity:0; }
+	.m3-engine { display:inline-flex; align-items:center; gap:9px; font-size:1.08rem; font-weight:600; color:#4b2a7b; background:#f3eefb; border:1.5px solid #d9c9f0; border-radius:12px; padding:9px 20px; opacity:0; }
+	.m3-eng-ic { font-size:1.36rem; }
+	.m3-outs { display:flex; gap:11px; justify-content:center; flex-wrap:wrap; }
+	.m3-out { flex:0 0 178px; display:flex; flex-direction:column; align-items:center; gap:2px; padding:11px 13px; opacity:0; text-align:center;
+		background:#fff; border:1.5px solid #e6e3ef; border-radius:12px; }
+	.m3-out-g { font-size:1.25rem; font-weight:700; line-height:1; }
+	.m3-out b { font-size:1.05rem; font-weight:600; color:#241f2e; }
+	.m3-out span:last-child { font-size:0.9rem; color:#6a6570; }
+	.m3-out.o-allow .m3-out-g { color:#107c41; } .m3-out.o-warn .m3-out-g { color:#c98a12; } .m3-out.o-block .m3-out-g { color:#a4262c; }
+	.m3-out.is-hit { border-color:#f3b8b4; background:#fdeceb; box-shadow:0 0 0 3px rgba(164,38,44,0.14); }
+
+	/* Step 7 · desktop or browser */
+	.m3-split { display:flex; gap:20px; align-items:flex-start; justify-content:center; width:100%; flex-wrap:wrap; }
+	.m3-side { flex:1 1 300px; max-width:520px; display:flex; flex-direction:column; gap:11px; opacity:0; }
+	/* these two headings sit on the stage (not on a white card), so they follow the theme */
+	.m3-side-h { display:flex; flex-direction:column; gap:1px; font-size:1.12rem; font-weight:600; color:var(--theme-text); }
+	.m3-side-h span { font-size:0.92rem; font-weight:400; color:var(--theme-text-subtle); }
+	/* same six apps as the web grid opposite, so both sides carry equal weight */
+	.m3-desk { display:grid; grid-template-columns:repeat(3,1fr); gap:11px; }
+	.m3-deskwin { position:relative; display:flex; flex-direction:column; align-items:center; gap:7px; padding:22px 8px 14px; opacity:0;
+		background:#fff; border:1px solid #dfdbe9; border-radius:11px; box-shadow:0 4px 14px rgba(60,30,90,0.12); }
+	.m3-deskwin span:last-child { font-size:0.94rem; font-weight:500; color:#2f2b39; }
+	.m3-deskbar { position:absolute; top:0; left:0; right:0; height:13px; background:#efedf5; border-radius:10px 10px 0 0; border-bottom:1px solid #e3e0ec; }
+	.m3-win { border-radius:11px; overflow:hidden; background:#faf9fc; border:1px solid rgba(0,0,0,0.14); box-shadow:0 12px 30px rgba(0,0,0,0.20); text-align:left; }
+	.m3-winbar { display:flex; align-items:center; gap:10px; padding:7px 11px; background:#e9e7f0; }
+	.m3-dots { display:inline-flex; gap:4px; } .m3-dots i { width:8px; height:8px; border-radius:50%; background:#c9c5d6; }
+	.m3-url { font-size:0.88rem; color:#55505f; background:#fff; border-radius:999px; padding:3px 12px; }
+	a.m3-url { text-decoration:none; cursor:pointer; transition:color .15s ease, box-shadow .15s ease; }
+	a.m3-url:hover { color:#0067b8; text-decoration:underline; box-shadow:0 0 0 1px rgba(0,103,184,0.35); }
+	a.m3-url:focus-visible { outline:2px solid #0067b8; outline-offset:2px; }
+	.m3-winbody { padding:13px 15px 15px; background:#faf9fc; }
+	.m3-webhead { display:flex; align-items:center; gap:8px; font-size:1.05rem; color:#241f2e; margin-bottom:11px; }
+	.m3-webgreet { margin-left:auto; font-size:0.92rem; color:#6a6570; }
+	.m3-webgrid { display:grid; grid-template-columns:repeat(3,1fr); gap:9px; }
+	.m3-webcard { display:flex; align-items:center; gap:8px; padding:9px 11px; opacity:0; font-size:0.95rem; font-weight:500; color:#2f2b39;
+		background:#fff; border:1px solid #e6e3ef; border-radius:10px; }
+	.m3-webcard.is-open { border-color:#185ABD; box-shadow:0 0 0 2.5px rgba(24,90,189,0.20); }
+	.m3-webtoast { margin-top:11px; font-size:0.94rem; font-weight:600; color:#0f4c81; background:#eef4fb; border:1px solid #cfe0f2; border-radius:9px; padding:7px 13px; opacity:0; text-align:center; }
+	.m3-webtoast.is-saved { color:#0f6d43; background:#eafaf1; border-color:#b7e6c9; }
+
+	/* Step 8 · Microsoft 365 Copilot */
+	.m3-cpwrap { display:flex; flex-direction:column; align-items:center; gap:11px; width:100%; }
+	.m3-cpsrc { display:flex; gap:9px; justify-content:center; flex-wrap:wrap; }
+	.m3-cpchip { display:inline-flex; align-items:center; justify-content:center; padding:7px; opacity:0;
+		background:#fff; border:1px solid #e6e3ef; border-radius:11px; box-shadow:0 2px 8px rgba(60,30,90,0.08); }
+	.m3-chat { width:min(760px,97%); display:flex; flex-direction:column; gap:9px; padding:14px 16px 16px; text-align:left;
+		background:#fff; border:1px solid #e2dcf0; border-radius:16px; box-shadow:0 10px 28px rgba(60,30,90,0.14); }
+	.m3-chat-h { display:flex; align-items:center; gap:8px; font-size:1.05rem; color:#3f2470; }
+	.m3-chat-tag { margin-left:auto; font-size:0.86rem; font-weight:600; color:#0f4c81; background:#eef4fb; border:1px solid #cfe0f2; border-radius:999px; padding:2px 10px; }
+	.m3-bub { font-size:1.02rem; line-height:1.5; padding:11px 14px; border-radius:13px; }
+	.m3-bub-user { align-self:flex-end; max-width:88%; background:linear-gradient(135deg,#7a5cf0,#c05bd1); color:#fff; border-bottom-right-radius:5px; }
+	.m3-bub-bot { display:flex; flex-direction:column; gap:8px; background:#f7f6fb; color:#26242b; border:1px solid #e6e3ef; border-bottom-left-radius:5px; }
+	.m3-srcs { display:flex; gap:7px; flex-wrap:wrap; }
+	.m3-srcchip { display:inline-flex; align-items:center; gap:5px; opacity:0; font-size:0.88rem; font-weight:600; color:#0067b8; background:#eef4fb; border-radius:999px; padding:3px 10px; }
+	.m3-compare { display:flex; align-items:center; justify-content:center; gap:14px; flex-wrap:wrap; }
+	.m3-cmp { flex:0 0 250px; display:flex; flex-direction:column; gap:2px; padding:11px 16px; opacity:0; text-align:center; border-radius:12px; border:1.5px solid; }
+	.m3-cmp b { font-size:1rem; font-weight:600; } .m3-cmp span { font-size:0.97rem; }
+	.m3-cmp-before { color:#6a6570; background:#f6f5f8; border-color:#e2dfe8; }
+	.m3-cmp-after { color:#0f6d43; background:#eafaf1; border-color:#b7e6c9; }
+	.m3-cmp-arrow { font-size:3.1rem; font-weight:700; line-height:1; color:#7a49b8; opacity:0; padding:0 4px; }
+	.m3-cpfoot, .m3-webfoot { font-size:1rem; color:var(--theme-text); text-align:center; max-width:780px; opacity:0; line-height:1.5; }
+	.m3-cpfoot a, .m3-webfoot a { color:var(--aw-purple,#5c2d91); font-weight:600; text-decoration:none; border-bottom:2px solid rgba(92,45,145,0.35); }
+	body.theme-dark .m3-cpfoot a, body.theme-dark .m3-webfoot a { color:#c9a5e8; border-bottom-color:rgba(201,165,232,0.4); }
+
+	/* ── DARK THEME · concept surfaces follow the theme (the browser mock in step 7 stays light on purpose — it is a product screenshot) ── */
+	body.theme-dark .m3-box { background:linear-gradient(135deg,#241f33,#2a2036); border-color:#3d3650; }
+	body.theme-dark .m3-box-tx b { color:#ece9f2; }
+	body.theme-dark .m3-box-tx span { color:#b4afc2; }
+	body.theme-dark .m3-app,
+	body.theme-dark .m3-stage,
+	body.theme-dark .m3-signin,
+	body.theme-dark .m3-day,
+	body.theme-dark .m3-src,
+	body.theme-dark .m3-doc,
+	body.theme-dark .m3-out,
+	body.theme-dark .m3-tchip,
+	body.theme-dark .m3-cpchip,
+	body.theme-dark .m3-chat { background:#221f2b; border-color:#3a3547; box-shadow:0 4px 16px rgba(0,0,0,0.34); }
+	body.theme-dark .m3-app span,
+	body.theme-dark .m3-stage b, body.theme-dark .m3-day-tx b, body.theme-dark .m3-src b,
+	body.theme-dark .m3-doc-tx b, body.theme-dark .m3-out b, body.theme-dark .m3-tchip,
+	body.theme-dark .m3-si-h, body.theme-dark .m3-si-in { color:#ece9f2; }
+	body.theme-dark .m3-stage span:last-child, body.theme-dark .m3-day-tx span,
+	body.theme-dark .m3-src span:not(.m3-drop), body.theme-dark .m3-out span:last-child,
+	body.theme-dark .m3-si-lbl { color:#b4afc2; }
+	body.theme-dark .m3-storenote { color:#b4afc2; }
+	body.theme-dark .m3-si-in { background:#2b2736; border-color:#3f3950; }
+	body.theme-dark .m3-tenant { background:linear-gradient(180deg,#241f33,#1f1b2b); border-color:#8661c5; }
+	body.theme-dark .m3-tn-h { color:#d3bdf2; }
+	body.theme-dark .m3-dayout { background:linear-gradient(135deg,#2a2038,#1f2436); border-color:#4a3a6b; color:#d9c6f5; }
+	body.theme-dark .m3-hub { background:linear-gradient(135deg,#2a2144,#1e2740); border-color:#6b53a8; }
+	body.theme-dark .m3-hub b { color:#d9c6f5; } body.theme-dark .m3-hub span { color:#b4afc2; }
+	body.theme-dark .m3-share { background:#262231; border-color:#413a52; color:#c8c3d4; }
+	body.theme-dark .m3-engine { background:#2b2140; border-color:#5c4590; color:#d9c6f5; }
+	body.theme-dark .m3-lbl.l-pub { background:rgba(16,124,65,0.22); border-color:#2f7d55; color:#7fe0aa; }
+	body.theme-dark .m3-lbl.l-int { background:rgba(201,138,18,0.20); border-color:#8a6d1f; color:#f0cf7d; }
+	body.theme-dark .m3-lbl.l-conf { background:rgba(164,38,44,0.22); border-color:#8f3238; color:#f2a3a0; }
+	body.theme-dark .m3-doc-badge { background:rgba(164,38,44,0.22); border-color:#8f3238; color:#f2a3a0; }
+	body.theme-dark .m3-out.is-hit { background:rgba(164,38,44,0.20); border-color:#8f3238; }
+	body.theme-dark .m3-state { background:rgba(201,138,18,0.18); border-color:#8a6d1f; color:#f0cf7d; }
+	body.theme-dark .m3-state.is-on { background:rgba(16,124,65,0.22); border-color:#2f7d55; color:#7fe0aa; }
+	body.theme-dark .m3-chat-h { color:#d3bdf2; }
+	body.theme-dark .m3-chat-tag { background:rgba(0,120,212,0.18); border-color:#2f5f8f; color:#8ec5f5; }
+	body.theme-dark .m3-bub-bot { background:#2b2736; border-color:#3f3950; color:#ece9f2; }
+	body.theme-dark .m3-srcchip { background:rgba(0,120,212,0.18); color:#8ec5f5; }
+	body.theme-dark .m3-cmp-before { background:#262231; border-color:#3f3950; color:#b4afc2; }
+	body.theme-dark .m3-cmp-after { background:rgba(16,124,65,0.22); border-color:#2f7d55; color:#7fe0aa; }
+	body.theme-dark .m3-deskwin { background:#221f2b; border-color:#3a3547; }
+	body.theme-dark .m3-deskwin span:last-child { color:#ece9f2; }
+	body.theme-dark .m3-deskbar { background:#2f2a3d; border-bottom-color:#3f3950; }
+	body.theme-dark .m3-arrow, body.theme-dark .m3-drop, body.theme-dark .m3-cmp-arrow { color:#c9a5e8; }
+</style>
+</head>
+
+<body class="theme-dark" data-theme-preset="atlas">
+
+	<a href="#stage" class="skip-link">Skip to diagram</a>
+
+	<header class="app-header padding-block-xs padding-inline-md border-bottom" role="banner" style="justify-content:space-between;">
+		<div class="display-flex align-items-center gap-xs">
+			<!-- Set href to the previous animation in the journey, or the hub index.html -->
+			<a href="index.html" class="header-back-link" aria-label="Back to the Microsoft 365 Copilot journey">&larr; Copilot journey</a>
+			<span id="page-title" class="font-size-h6 font-weight-semibold"><img class="m3-logo" src="../lib/icons/brands/m365/Microsoft365.svg" alt="" width="20" height="20" decoding="async"> Microsoft 365</span>
+		</div>
+		<nav class="display-flex gap-xs align-items-center" aria-label="Primary">
+			<span id="breadcrumb" class="font-size-sm color-text-subtle">Step 1</span>
+		</nav>
+		<div class="display-flex gap-xs align-items-center">
+			<select id="lang-select" class="lang-select" aria-label="Language">
+				<option value="en">English</option>
+				<option value="es">Español</option>
+				<option value="ja">日本語</option>
+				<option value="ko">한국어</option>
+				<option value="pt">Português</option>
+			</select>
+			<div class="font-size-controls">
+				<button id="font-decrease" type="button" class="font-size-btn" aria-label="Decrease font size" title="Smaller text">A&minus;</button>
+				<button id="font-increase" type="button" class="font-size-btn" aria-label="Increase font size" title="Larger text">A+</button>
+			</div>
+			<button id="theme-toggle" type="button" class="theme-toggle" aria-label="Switch theme" title="Switch theme">
+				<svg class="theme-icon icon-moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg>
+				<svg class="theme-icon icon-sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.5" y1="4.5" x2="6.5" y2="6.5"/><line x1="17.5" y1="17.5" x2="19.5" y2="19.5"/><line x1="4.5" y1="19.5" x2="6.5" y2="17.5"/><line x1="17.5" y1="6.5" x2="19.5" y2="4.5"/></g></svg>
+			</button>
+			<button id="header-hide-top" type="button" aria-label="Hide top bar" title="Hide top bar (H)">
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/></svg>
+			</button>
+		</div>
+	</header>
+
+	<button id="header-reveal" type="button" aria-label="Show top bar" title="Show top bar">
+		<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/></svg>
+		<span>Toolbar</span>
+	</button>
+
+	<div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
+
+	<main id="stage" tabindex="0" role="region" aria-labelledby="stage-heading" aria-describedby="stage-instructions">
+		<h1 id="stage-heading" class="sr-only" tabindex="-1">Title Here</h1>
+		<p id="stage-instructions" class="sr-only">Animated explainer. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.</p>
+		<div id="step-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+		<!-- Fixed 16:9 stage. Every scene is drawn INSIDE this box; it always fits the viewport (no scrollbars). -->
+		<div id="stage-frame">
+			<svg id="fx-svg" aria-hidden="true" focusable="false">
+				<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L0,10 L10,5 Z" fill="currentColor"/></marker></defs>
+			</svg>
+			<!-- Caption bar (synced to the step's audio clip by aw-captions.js) -->
+			<div id="aw-caption" class="aw-caption" aria-hidden="true"></div>
+			<!-- LEFT pill · view options: callout / outline / shortcuts (icons; label shows as a hover tooltip) -->
+			<div id="stage-overlay-left" class="stage-overlay stage-overlay-left" role="group" aria-label="View options">
+				<button id="callout-toggle" type="button" class="ovl-btn" aria-label="Toggle callouts" aria-pressed="false" data-tip="Callouts: Off"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M4 5h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H10l-4 3v-3H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></svg></button>
+				<button id="outline-toggle" type="button" class="ovl-btn" aria-controls="step-outline" aria-expanded="false" aria-label="Toggle text outline" data-tip="Outline: Off"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" d="M4 6h16M4 12h16M4 18h10"/></svg></button>
+				<button id="help-toggle" class="ovl-btn help-toggle" type="button" aria-haspopup="dialog" aria-controls="shortcut-overlay" aria-label="Keyboard shortcuts (press ?)" data-tip="Shortcuts"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M11 18h2v-2h-2v2zm1.1-14C9.8 4 8 5.8 8 8h2a2 2 0 1 1 3.2 1.6c-.9.7-2.2 1.5-2.2 3.4h2c0-1 .8-1.5 1.7-2.2A4 4 0 0 0 12.1 4z"/></svg></button>
+			</div>
+			<!-- RIGHT pill · player: audio / captions / hide-top-bar / fullscreen -->
+			<div id="stage-overlay" class="stage-overlay" role="group" aria-label="Player controls">
+				<button id="audio-toggle" class="ovl-btn ovl-audio" type="button" aria-label="Toggle audio narration" aria-pressed="false" title="Narration audio"></button>
+				<button id="cc-toggle" class="ovl-btn" type="button" aria-label="Toggle captions" aria-pressed="false" title="Captions"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9.7 10.2a2.1 2.1 0 1 0 0 3.6M17 10.2a2.1 2.1 0 1 0 0 3.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+				<button id="header-hide" class="ovl-btn" type="button" aria-label="Hide top bar" title="Hide top bar (H)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/></svg></button>
+				<button id="fs-toggle" class="ovl-btn" type="button" aria-label="Toggle full screen" aria-pressed="false" title="Full screen (F)"><svg class="fs-enter" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg><svg class="fs-exit" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg></button>
+			</div>
+		</div>
+	</main>
+
+	<aside id="step-outline" hidden aria-label="Text outline of the current step">
+		<h2 id="outline-title">Step Details</h2>
+		<div id="outline-body"></div>
+	</aside>
+
+	<div id="controls" role="group" aria-label="Diagram navigation">
+		<button id="ctrl-grip" type="button" class="ctrl-grip" aria-label="Drag to move the controls" title="Drag to move">
+			<svg viewBox="0 0 16 16" aria-hidden="true"><g fill="currentColor"><circle cx="5" cy="3" r="1.4"/><circle cx="11" cy="3" r="1.4"/><circle cx="5" cy="8" r="1.4"/><circle cx="11" cy="8" r="1.4"/><circle cx="5" cy="13" r="1.4"/><circle cx="11" cy="13" r="1.4"/></g></svg>
+		</button>
+		<button id="ctrl-pin" type="button" class="button button-clear ctrl-icon ctrl-pin" aria-label="Pin the controls back to the center" title="Pin to center">
+			<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9 2h6a1 1 0 0 1 .8 1.6L14 6v4l3 3v2h-4v5l-1 2-1-2v-5H7v-2l3-3V6L8.2 3.6A1 1 0 0 1 9 2z"/></svg>
+		</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="prev-btn" type="button" class="button ctrl-icon" aria-label="Previous step (left arrow)">&#9664;</button>
+		<div class="step-counter" id="step-counter">0 / 0</div>
+		<button id="next-btn" type="button" class="button button-primary button-filled ctrl-icon ctrl-icon-next" aria-label="Next step (right arrow or space)">&#9654;</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="replay-btn" type="button" class="button ctrl-icon" aria-label="Replay this step's animation (P)">&#8635;</button>
+		<div class="speed-control" role="group" aria-label="Animation speed">
+			<button id="speed-down" type="button" class="button button-clear speed-btn" aria-label="Slower (-)" title="Slower">&minus;</button>
+			<span id="speed-label" class="speed-label" aria-live="polite" aria-label="Current speed">1&times;</span>
+			<button id="speed-up" type="button" class="button button-clear speed-btn" aria-label="Faster (+)" title="Faster">+</button>
+		</div>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="reset-btn" type="button" class="button button-clear ctrl-icon" aria-label="Restart from step 1 (R)">&#9198;</button>
+	</div>
+
+	<!-- "Up next" pill — docked bottom-right on the last step so learners chain to the next stop -->
+	<div id="journey-next" aria-hidden="true">
+		<div class="jn-card" role="group" aria-label="Continue to the next stop">
+			<span class="jn-icon"><img id="jn-icon-img" src="" alt="" decoding="async" /></span>
+			<span class="jn-text">
+				<span class="jn-eyebrow"><span class="jn-check" aria-hidden="true">✓</span><span id="jn-eyebrow-text">Up next</span></span>
+				<span class="jn-title" id="jn-title">Next stop</span>
+			</span>
+			<a id="jn-cta" class="jn-cta" href="#"><span id="jn-cta-text">Continue</span><span aria-hidden="true">→</span></a>
+			<button id="jn-close" class="jn-close" type="button" aria-label="Dismiss"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
+		</div>
+	</div>
+
+	<div id="shortcut-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="sc-title">
+		<div class="sc-backdrop"></div>
+		<div class="sc-panel">
+			<button id="sc-close" class="sc-close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
+			<h2 id="sc-title">Keyboard shortcuts</h2>
+			<ul id="sc-list" class="sc-list"></ul>
+			<p class="sc-hint">Press <kbd>?</kbd> anytime to toggle this panel.</p>
+		</div>
+	</div>
+
+<script>
+// ── THEME ─────────────────────────────────
+const themeToggleBtn = document.getElementById('theme-toggle');
+function syncThemeBtn(){
+	if (!themeToggleBtn) return;
+	const isDark = document.body.classList.contains('theme-dark');
+	themeToggleBtn.dataset.theme = isDark ? 'dark' : 'light';   // drives which glyph (sun/moon) shows
+	const label = isDark ? 'Switch to light theme' : 'Switch to dark theme';
+	themeToggleBtn.setAttribute('aria-label', label);
+	themeToggleBtn.setAttribute('title', label);
+}
+if (window.AW && AW.theme) {
+	// aw-theme.js owns click handling + persistence; theme recolors via CSS variables, so no re-render/replay.
+	AW.theme.onChange(() => { syncThemeBtn(); });
+	syncThemeBtn();
+} else {
+	// Standalone fallback: toggle .theme-dark / .theme-light on <body> ourselves.
+	syncThemeBtn();
+	if (themeToggleBtn) themeToggleBtn.addEventListener('click', () => {
+		const goingDark = !document.body.classList.contains('theme-dark');
+		document.body.classList.remove('theme-dark', 'theme-light');
+		document.body.classList.add(goingDark ? 'theme-dark' : 'theme-light');
+		try { localStorage.setItem('aw-theme', goingDark ? 'theme-dark' : 'theme-light'); } catch(_){}
+		syncThemeBtn();
+	});
+	// restore a previously chosen theme (standalone only)
+	try { const saved = localStorage.getItem('aw-theme'); if (saved === 'theme-light' || saved === 'theme-dark') { document.body.classList.remove('theme-dark','theme-light'); document.body.classList.add(saved); syncThemeBtn(); } } catch(_){}
+}
+
+// ── i18n ──────────────────────────────────
+// English is the source language. Add sibling objects (es/ja/ko/pt) with the
+// SAME keys + matching <option>s in #lang-select. Keep brand/code/proper-noun
+// sample data untranslated.
+let currentLang = 'en';
+const I18N = {
+	en: {
+		skipToMain: 'Skip to diagram',
+		pageTitle: 'Microsoft 365',
+		stageHeading: 'Your first day with Microsoft 365',
+		stageInstructions: 'An animated first-day tour of Microsoft 365 — the subscription, licence and account, the company tenant, the work data you create, how admins protect it, desktop and web access, and the bridge to Microsoft 365 Copilot. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.',
+		prev: '\u25C0 Prev', next: 'Next \u25B6', replay: '\u21BB Replay', restart: '\u21BB Restart',
+		slower: 'Slower', faster: 'Faster',
+		calloutOn: 'Callouts: On', calloutOff: 'Callouts: Off',
+		outlineOn: 'Outline: On', outlineOff: 'Outline: Off',
+		audioTip: 'Narration audio', ccTip: 'Captions', shortcutsTip: 'Shortcuts',
+		stepDetails: 'Step Details', stepOf: 'Step',
+		resetPos: 'Reset to default position',
+		openNewTab: 'Open in a new tab',
+		scTitle: 'Keyboard shortcuts',
+		scNext: 'Next step', scPrev: 'Previous step', scRestart: 'Restart', scReplay: 'Replay this step', scHide: 'Hide / show top bar', scHelp: 'Toggle this help',
+
+		// ── Step 1 · WELCOME ──
+		wcTitle: 'Your first day at Contoso',
+		wcCaption: 'Day one',
+		wcDesc: 'You just joined Contoso. The company hands you a Microsoft 365 account \u2014 not just Word and PowerPoint, but a whole platform: apps, email, storage, collaboration, identity and security.',
+		wcCallout: 'Microsoft 365 is a platform, not a box of apps \u2014 it bundles the apps with identity, storage and security.',
+		wcBox: 'Microsoft 365',
+		wcBoxSub: 'One subscription \u00b7 apps + email + storage + identity + security',
+		wcA1: 'Word', wcA2: 'Excel', wcA3: 'PowerPoint', wcA4: 'Outlook', wcA5: 'Teams', wcA6: 'OneDrive',
+		wcStat1: 'You get', wcStat1v: 'A Microsoft 365 account',
+		wcStat2: 'It is', wcStat2v: 'A platform, not just apps',
+		wcStat3: 'Includes', wcStat3v: 'Apps \u00b7 email \u00b7 storage \u00b7 identity',
+
+		// ── Step 2 · LICENCE ──
+		lcTitle: 'Subscription, licence, account',
+		lcCaption: 'What unlocks the apps',
+		lcDesc: 'Before you can use any Microsoft 365 service, three things must line up: the company buys a subscription, assigns you a licence, and creates your user account. Without a licence, the services stay locked.',
+		lcCallout: 'Subscription \u2192 licence \u2192 account. The licence is what turns a locked app into a working one.',
+		lcS1: 'Subscription', lcS1s: 'Contoso buys a Microsoft 365 plan',
+		lcS2: 'Licence', lcS2s: 'A seat from that plan is assigned to you',
+		lcS3: 'User account', lcS3s: 'alex@contoso.com is created',
+		lcLocked: 'Locked', lcUnlocked: 'Unlocked',
+		lcStat1: 'Company buys', lcStat1v: 'A subscription (plan)',
+		lcStat2: 'You are given', lcStat2v: 'A licence + user account',
+		lcStat3: 'No licence', lcStat3v: 'Services stay locked',
+
+		// ── Step 3 · TENANT ──
+		tnTitle: 'Signing in to the company tenant',
+		tnCaption: 'Where your account lives',
+		tnDesc: 'You sign in with your company email. That account belongs to Contoso\u2019s tenant \u2014 the company\u2019s own isolated space in Microsoft 365 holding its users, data, services and policies.',
+		tnCallout: 'A tenant is the company\u2019s isolated boundary in Microsoft 365 \u2014 your identity, data and policies all live inside it.',
+		tnSignIn: 'Sign in', tnUser: 'alex@contoso.com', tnPwd: '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022',
+		tnTenant: 'Contoso tenant',
+		tnT1: 'Users & identity', tnT2: 'Outlook', tnT3: 'Teams', tnT4: 'OneDrive', tnT5: 'SharePoint', tnT6: 'Policies',
+		tnStat1: 'You sign in with', tnStat1v: 'Your work account',
+		tnStat2: 'It belongs to', tnStat2v: 'The Contoso tenant',
+		tnStat3: 'Tenant holds', tnStat3v: 'Users \u00b7 data \u00b7 services \u00b7 policies',
+
+		// ── Step 4 · A DAY OF WORK ──
+		dyTitle: 'A day of work \u2014 and the data it creates',
+		dyCaption: 'Day in the life',
+		dyDesc: 'Now you actually work: you answer mail, join a meeting, chat with your team, write a document, build a deck and crunch some numbers. Every one of those actions creates company data.',
+		dyCallout: 'Every ordinary action \u2014 a mail, a chat, a deck \u2014 becomes company data inside the tenant.',
+		dyD1: 'Reply to a customer', dyD1s: 'Outlook \u00b7 email',
+		dyD2: 'Join the standup', dyD2s: 'Teams \u00b7 meeting + chat',
+		dyD3: 'Draft the proposal', dyD3s: 'Word \u00b7 document',
+		dyD4: 'Build the deck', dyD4s: 'PowerPoint \u00b7 presentation',
+		dyD5: 'Update the forecast', dyD5s: 'Excel \u00b7 spreadsheet',
+		dyOut: 'All of it becomes company work data',
+		dyStat1: 'You do', dyStat1v: 'Mail \u00b7 meetings \u00b7 docs \u00b7 decks',
+		dyStat2: 'It creates', dyStat2v: 'Company work data',
+		dyStat3: 'Where', dyStat3v: 'Inside the tenant',
+
+		// ── Step 5 · WHERE IT ALL GOES ──
+		stTitle: 'Where does everything go?',
+		stCaption: 'The work data map',
+		stDesc: 'Each thing you create lands in a service: mail in Exchange/Outlook, chats and meetings in Teams, your own files in OneDrive, and shared team files in SharePoint. Together they are your work data.',
+		stCallout: 'Outlook, Teams, OneDrive and SharePoint are where the work lands \u2014 and exactly what Microsoft 365 Copilot can later reason over.',
+		stM1: 'Outlook', stM1s: 'Email & calendar',
+		stM2: 'Teams', stM2s: 'Chats & meetings',
+		stM3: 'OneDrive', stM3s: 'Your own work files',
+		stM4: 'SharePoint', stM4s: 'Shared team files & sites',
+		stHub: 'Your work data',
+		stHubSub: 'Emails \u00b7 meetings \u00b7 chats \u00b7 documents \u00b7 decks \u00b7 files',
+		stTenantNote: 'All of it stays inside your company\u2019s tenant',
+		stStat1: 'Mail & calendar', stStat1v: 'Outlook',
+		stStat2: 'Chats & meetings', stStat2v: 'Teams',
+		stStat3: 'Files', stStat3v: 'OneDrive (yours) \u00b7 SharePoint (shared)',
+
+		// ── Step 6 · PROTECTION ──
+		pxTitle: 'How the company protects it',
+		pxCaption: 'Admin, policy & labels',
+		pxDesc: 'Company data is valuable, so administrators protect it: sensitivity labels classify a file, and policies decide what may happen to it. When you share, the policy engine checks the request first.',
+		pxCallout: 'Labels classify the data; policies enforce what can be done with it \u2014 allow, warn, or block.',
+		pxLabelsH: 'Sensitivity labels',
+		pxL1: 'Public', pxL2: 'Internal', pxL3: 'Confidential',
+		pxDoc: 'Q4-Proposal.docx',
+		pxApplied: 'Confidential applied',
+		pxShare: 'Share externally \u2192 partner@outside.com',
+		pxEngine: 'Policy engine',
+		pxR1: 'Allow', pxR1s: 'Public content',
+		pxR2: 'Warn', pxR2s: 'Internal content',
+		pxR3: 'Block', pxR3s: 'Confidential content',
+		pxStat1: 'Classify with', pxStat1v: 'Sensitivity labels',
+		pxStat2: 'Enforced by', pxStat2v: 'Admin policies',
+		pxStat3: 'Outcome', pxStat3v: 'Allow \u00b7 warn \u00b7 block',
+
+		// ── Step 7 · ANYWHERE (desktop + web mock) ──
+		awTitle: 'Desktop apps or just a browser',
+		awCaption: 'Access anywhere',
+		awDesc: 'The same account works in the installed desktop apps and at microsoft365.com in any browser. Open Word on the web, edit, and it saves straight back to the cloud \u2014 same file, same account.',
+		awCallout: 'Desktop or web, it is the same account, the same files and the same tenant \u2014 the browser needs no install.',
+		awDesktop: 'Desktop apps', awDesktopSub: 'Installed on your laptop',
+		awWeb: 'On the web', awWebSub: 'microsoft365.com \u00b7 nothing to install',
+		awHome: 'Microsoft 365', awGreet: 'Good morning, Alex',
+		awOpen: 'Opening Word for the web\u2026', awSaved: 'Saved to OneDrive',
+		awTry: 'Try it yourself at <a href="https://m365.cloud.microsoft/apps" target="_blank" rel="noopener">m365.cloud.microsoft/apps</a> \u2014 or the alternative address <a href="https://www.microsoft365.com" target="_blank" rel="noopener">microsoft365.com</a>.',
+		awStat1: 'Desktop', awStat1v: 'Installed apps',
+		awStat2: 'Web', awStat2v: 'microsoft365.com, no install',
+		awStat3: 'Files', awStat3v: 'Same account, saved to the cloud',
+
+		// ── Step 8 · MEET M365 COPILOT ──
+		cpTitle: 'Now meet Microsoft 365 Copilot',
+		cpCaption: 'The bridge',
+		cpDesc: 'After weeks of work your tenant holds emails, meetings, chats, documents and decks. Microsoft 365 Copilot lets you simply ask about that work in natural language \u2014 and shows where each answer came from.',
+		cpCallout: 'Microsoft 365 creates the work. Microsoft 365 Copilot helps you work with it \u2014 grounded in your tenant, with sources you can check.',
+		cpPrompt: 'Summarise the emails from last week and prepare a meeting brief.',
+		cpReply: 'Last week\u2019s thread with Northwind centred on the Q4 renewal: they asked for revised pricing and a security review. I\u2019ve drafted a brief with the three open points, the agreed dates, and the owners from your Teams standup.',
+		cpSrc1: 'Outlook', cpSrc2: 'Teams', cpSrc3: 'SharePoint',
+		cpGrounded: 'Grounded in your work data',
+		cpBeforeH: 'Without Copilot', cpBefore: 'Search \u2192 read \u2192 analyse \u2192 write',
+		cpAfterH: 'With Copilot', cpAfter: 'Ask \u2192 review \u2192 use',
+		cpFoot: 'Next stop: <strong>Microsoft 365 Copilot</strong> \u2014 the chat experience and Copilot inside the apps. Learn more in the <a href="https://learn.microsoft.com/copilot/microsoft-365/" target="_blank" rel="noopener">Microsoft 365 Copilot documentation</a>.',
+		cpStat1: 'You ask', cpStat1v: 'In natural language',
+		cpStat2: 'It uses', cpStat2v: 'Your tenant work data',
+		cpStat3: 'You get', cpStat3v: 'An answer with sources'
+	},
+	es: {
+		skipToMain: 'Ir al diagrama',
+		pageTitle: 'Microsoft 365',
+		stageHeading: 'Tu primer día con Microsoft 365',
+		stageInstructions: 'Un recorrido animado por el primer día con Microsoft 365: la suscripción, la licencia y la cuenta, el inquilino de la empresa, los datos de trabajo que creas, cómo los protegen los administradores, el acceso desde escritorio y web, y el puente hacia Microsoft 365 Copilot. Usa los botones Siguiente/Anterior o las teclas de flecha para navegar. Pulsa R para reiniciar.',
+		prev: '\u25C0 Anterior', next: 'Siguiente \u25B6', replay: '\u21BB Repetir', restart: '\u21BB Reiniciar',
+		slower: 'Más lento', faster: 'Más rápido',
+		calloutOn: 'Notas: activadas', calloutOff: 'Notas: desactivadas',
+		outlineOn: 'Esquema: activado', outlineOff: 'Esquema: desactivado',
+		audioTip: 'Audio de narración', ccTip: 'Subtítulos', shortcutsTip: 'Atajos',
+		stepDetails: 'Detalles del paso', stepOf: 'Paso',
+		resetPos: 'Restablecer la posición predeterminada',
+		openNewTab: 'Abrir en una pestaña nueva',
+		scTitle: 'Atajos de teclado',
+		scNext: 'Paso siguiente', scPrev: 'Paso anterior', scRestart: 'Reiniciar', scReplay: 'Repetir este paso', scHide: 'Ocultar / mostrar barra superior', scHelp: 'Mostrar u ocultar esta ayuda',
+
+		// ── Step 1 · WELCOME ──
+		wcTitle: 'Tu primer día en Contoso',
+		wcCaption: 'Día uno',
+		wcDesc: 'Acabas de entrar en Contoso. La empresa te da una cuenta de Microsoft 365 \u2014 no solo Word y PowerPoint, sino toda una plataforma: aplicaciones, correo, almacenamiento, colaboración, identidad y seguridad.',
+		wcCallout: 'Microsoft 365 es una plataforma, no una caja de aplicaciones \u2014 combina las apps con identidad, almacenamiento y seguridad.',
+		wcBox: 'Microsoft 365',
+		wcBoxSub: 'Una suscripción \u00b7 apps + correo + almacenamiento + identidad + seguridad',
+		wcA1: 'Word', wcA2: 'Excel', wcA3: 'PowerPoint', wcA4: 'Outlook', wcA5: 'Teams', wcA6: 'OneDrive',
+		wcStat1: 'Recibes', wcStat1v: 'Una cuenta de Microsoft 365',
+		wcStat2: 'Es', wcStat2v: 'Una plataforma, no solo apps',
+		wcStat3: 'Incluye', wcStat3v: 'Apps \u00b7 correo \u00b7 almacenamiento \u00b7 identidad',
+
+		// ── Step 2 · LICENCE ──
+		lcTitle: 'Suscripción, licencia y cuenta',
+		lcCaption: 'Lo que desbloquea las apps',
+		lcDesc: 'Antes de usar cualquier servicio de Microsoft 365 deben coincidir tres cosas: la empresa compra una suscripción, te asigna una licencia y crea tu cuenta de usuario. Sin licencia, los servicios siguen bloqueados.',
+		lcCallout: 'Suscripción \u2192 licencia \u2192 cuenta. La licencia convierte una app bloqueada en una app operativa.',
+		lcS1: 'Suscripción', lcS1s: 'Contoso compra un plan de Microsoft 365',
+		lcS2: 'Licencia', lcS2s: 'Se te asigna un puesto de ese plan',
+		lcS3: 'Cuenta de usuario', lcS3s: 'Se crea alex@contoso.com',
+		lcLocked: 'Bloqueado', lcUnlocked: 'Desbloqueado',
+		lcStat1: 'La empresa compra', lcStat1v: 'Una suscripción (plan)',
+		lcStat2: 'Tú recibes', lcStat2v: 'Una licencia + cuenta de usuario',
+		lcStat3: 'Sin licencia', lcStat3v: 'Los servicios siguen bloqueados',
+
+		// ── Step 3 · TENANT ──
+		tnTitle: 'Iniciar sesión en el inquilino de la empresa',
+		tnCaption: 'Dónde vive tu cuenta',
+		tnDesc: 'Inicias sesión con el correo de la empresa. Esa cuenta pertenece al inquilino de Contoso \u2014 el espacio aislado propio de la empresa en Microsoft 365 con sus usuarios, datos, servicios y directivas.',
+		tnCallout: 'Un inquilino es el límite aislado de la empresa en Microsoft 365 \u2014 tu identidad, tus datos y las directivas viven dentro de él.',
+		tnSignIn: 'Iniciar sesión', tnUser: 'alex@contoso.com', tnPwd: '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022',
+		tnTenant: 'Inquilino de Contoso',
+		tnT1: 'Usuarios e identidad', tnT2: 'Outlook', tnT3: 'Teams', tnT4: 'OneDrive', tnT5: 'SharePoint', tnT6: 'Directivas',
+		tnStat1: 'Inicias sesión con', tnStat1v: 'Tu cuenta de trabajo',
+		tnStat2: 'Pertenece a', tnStat2v: 'El inquilino de Contoso',
+		tnStat3: 'El inquilino guarda', tnStat3v: 'Usuarios \u00b7 datos \u00b7 servicios \u00b7 directivas',
+
+		// ── Step 4 · A DAY OF WORK ──
+		dyTitle: 'Un día de trabajo \u2014 y los datos que genera',
+		dyCaption: 'Un día cualquiera',
+		dyDesc: 'Ahora trabajas de verdad: respondes correos, entras en una reunión, chateas con tu equipo, escribes un documento, montas una presentación y ajustas unos números. Cada una de esas acciones crea datos de la empresa.',
+		dyCallout: 'Cada acción corriente \u2014 un correo, un chat, una presentación \u2014 se convierte en datos de la empresa dentro del inquilino.',
+		dyD1: 'Responder a un cliente', dyD1s: 'Outlook \u00b7 correo',
+		dyD2: 'Entrar en la reunión diaria', dyD2s: 'Teams \u00b7 reunión + chat',
+		dyD3: 'Redactar la propuesta', dyD3s: 'Word \u00b7 documento',
+		dyD4: 'Montar la presentación', dyD4s: 'PowerPoint \u00b7 presentación',
+		dyD5: 'Actualizar la previsión', dyD5s: 'Excel \u00b7 hoja de cálculo',
+		dyOut: 'Todo ello se convierte en datos de trabajo de la empresa',
+		dyStat1: 'Tú haces', dyStat1v: 'Correo \u00b7 reuniones \u00b7 docs \u00b7 presentaciones',
+		dyStat2: 'Genera', dyStat2v: 'Datos de trabajo de la empresa',
+		dyStat3: 'Dónde', dyStat3v: 'Dentro del inquilino',
+
+		// ── Step 5 · WHERE IT ALL GOES ──
+		stTitle: '¿Dónde acaba todo?',
+		stCaption: 'El mapa de tus datos de trabajo',
+		stDesc: 'Cada cosa que creas aterriza en un servicio: el correo en Exchange/Outlook, los chats y reuniones en Teams, tus propios archivos en OneDrive y los archivos compartidos del equipo en SharePoint. Juntos son tus datos de trabajo.',
+		stCallout: 'Outlook, Teams, OneDrive y SharePoint son donde aterriza el trabajo \u2014 y justo lo que Microsoft 365 Copilot podrá razonar después.',
+		stM1: 'Outlook', stM1s: 'Correo y calendario',
+		stM2: 'Teams', stM2s: 'Chats y reuniones',
+		stM3: 'OneDrive', stM3s: 'Tus propios archivos de trabajo',
+		stM4: 'SharePoint', stM4s: 'Archivos y sitios compartidos del equipo',
+		stHub: 'Tus datos de trabajo',
+		stHubSub: 'Correos \u00b7 reuniones \u00b7 chats \u00b7 documentos \u00b7 presentaciones \u00b7 archivos',
+		stTenantNote: 'Todo permanece dentro del inquilino de tu empresa',
+		stStat1: 'Correo y calendario', stStat1v: 'Outlook',
+		stStat2: 'Chats y reuniones', stStat2v: 'Teams',
+		stStat3: 'Archivos', stStat3v: 'OneDrive (tuyos) \u00b7 SharePoint (compartidos)',
+
+		// ── Step 6 · PROTECTION ──
+		pxTitle: 'Cómo lo protege la empresa',
+		pxCaption: 'Administración, directivas y etiquetas',
+		pxDesc: 'Los datos de la empresa son valiosos, así que los administradores los protegen: las etiquetas de confidencialidad clasifican un archivo y las directivas deciden qué puede pasar con él. Al compartir, el motor de directivas comprueba primero la solicitud.',
+		pxCallout: 'Las etiquetas clasifican los datos; las directivas imponen qué se puede hacer con ellos \u2014 permitir, avisar o bloquear.',
+		pxLabelsH: 'Etiquetas de confidencialidad',
+		pxL1: 'Público', pxL2: 'Interno', pxL3: 'Confidencial',
+		pxDoc: 'Q4-Proposal.docx',
+		pxApplied: 'Confidencial aplicada',
+		pxShare: 'Compartir fuera \u2192 partner@outside.com',
+		pxEngine: 'Motor de directivas',
+		pxR1: 'Permitir', pxR1s: 'Contenido público',
+		pxR2: 'Avisar', pxR2s: 'Contenido interno',
+		pxR3: 'Bloquear', pxR3s: 'Contenido confidencial',
+		pxStat1: 'Clasificar con', pxStat1v: 'Etiquetas de confidencialidad',
+		pxStat2: 'Se aplica con', pxStat2v: 'Directivas de administración',
+		pxStat3: 'Resultado', pxStat3v: 'Permitir \u00b7 avisar \u00b7 bloquear',
+
+		// ── Step 7 · ANYWHERE (desktop + web mock) ──
+		awTitle: 'Apps de escritorio o solo un navegador',
+		awCaption: 'Acceso desde cualquier sitio',
+		awDesc: 'La misma cuenta funciona en las apps de escritorio instaladas y en microsoft365.com desde cualquier navegador. Abre Word en la web, edita, y se guarda directamente en la nube \u2014 mismo archivo, misma cuenta.',
+		awCallout: 'En escritorio o en web es la misma cuenta, los mismos archivos y el mismo inquilino \u2014 el navegador no necesita instalación.',
+		awDesktop: 'Apps de escritorio', awDesktopSub: 'Instaladas en tu portátil',
+		awWeb: 'En la web', awWebSub: 'microsoft365.com \u00b7 nada que instalar',
+		awHome: 'Microsoft 365', awGreet: 'Buenos días, Alex',
+		awOpen: 'Abriendo Word para la web\u2026', awSaved: 'Guardado en OneDrive',
+		awTry: 'Pruébalo tú mismo en <a href="https://m365.cloud.microsoft/apps" target="_blank" rel="noopener">m365.cloud.microsoft/apps</a> \u2014 o en la dirección alternativa <a href="https://www.microsoft365.com" target="_blank" rel="noopener">microsoft365.com</a>.',
+		awStat1: 'Escritorio', awStat1v: 'Apps instaladas',
+		awStat2: 'Web', awStat2v: 'microsoft365.com, sin instalar nada',
+		awStat3: 'Archivos', awStat3v: 'Misma cuenta, guardados en la nube',
+
+		// ── Step 8 · MEET M365 COPILOT ──
+		cpTitle: 'Ahora conoce Microsoft 365 Copilot',
+		cpCaption: 'El puente',
+		cpDesc: 'Tras semanas de trabajo, tu inquilino guarda correos, reuniones, chats, documentos y presentaciones. Microsoft 365 Copilot te deja preguntar por ese trabajo en lenguaje natural \u2014 y muestra de dónde sale cada respuesta.',
+		cpCallout: 'Microsoft 365 crea el trabajo. Microsoft 365 Copilot te ayuda a trabajar con él \u2014 anclado en tu inquilino y con fuentes que puedes comprobar.',
+		cpPrompt: 'Resume los correos de la semana pasada y prepara un informe para la reunión.',
+		cpReply: 'El hilo de la semana pasada con Northwind giró en torno a la renovación del Q4: pidieron precios revisados y una revisión de seguridad. He redactado un informe con los tres puntos abiertos, las fechas acordadas y los responsables de tu reunión diaria en Teams.',
+		cpSrc1: 'Outlook', cpSrc2: 'Teams', cpSrc3: 'SharePoint',
+		cpGrounded: 'Anclado en tus datos de trabajo',
+		cpBeforeH: 'Sin Copilot', cpBefore: 'Buscar \u2192 leer \u2192 analizar \u2192 escribir',
+		cpAfterH: 'Con Copilot', cpAfter: 'Preguntar \u2192 revisar \u2192 usar',
+		cpFoot: 'Siguiente parada: <strong>Microsoft 365 Copilot</strong> \u2014 la experiencia de chat y Copilot dentro de las apps. Más información en la <a href="https://learn.microsoft.com/copilot/microsoft-365/" target="_blank" rel="noopener">documentación de Microsoft 365 Copilot</a>.',
+		cpStat1: 'Tú preguntas', cpStat1v: 'En lenguaje natural',
+		cpStat2: 'Usa', cpStat2v: 'Los datos de trabajo de tu inquilino',
+		cpStat3: 'Obtienes', cpStat3v: 'Una respuesta con fuentes'
+	},
+	ja: {
+		skipToMain: '図にスキップ',
+		pageTitle: 'Microsoft 365',
+		stageHeading: 'Microsoft 365 での最初の一日',
+		stageInstructions: 'Microsoft 365 の初日をたどるアニメーション解説です。サブスクリプション、ライセンスとアカウント、会社のテナント、業務で生まれるデータ、管理者による保護、デスクトップと Web からの利用、そして Microsoft 365 Copilot への橋渡しを紹介します。次へ / 前へボタンまたは矢印キーで移動し、R キーで最初からやり直せます。',
+		prev: '\u25C0 前へ', next: '次へ \u25B6', replay: '\u21BB 再生', restart: '\u21BB 最初から',
+		slower: '遅く', faster: '速く',
+		calloutOn: '補足: オン', calloutOff: '補足: オフ',
+		outlineOn: 'アウトライン: オン', outlineOff: 'アウトライン: オフ',
+		audioTip: 'ナレーション音声', ccTip: '字幕', shortcutsTip: 'ショートカット',
+		stepDetails: 'ステップの詳細', stepOf: 'ステップ',
+		resetPos: '既定の位置に戻す',
+		openNewTab: '新しいタブで開く',
+		scTitle: 'キーボード ショートカット',
+		scNext: '次のステップ', scPrev: '前のステップ', scRestart: '最初から', scReplay: 'このステップを再生', scHide: '上部バーの表示 / 非表示', scHelp: 'このヘルプの表示切り替え',
+
+		// ── Step 1 · WELCOME ──
+		wcTitle: 'Contoso での初日',
+		wcCaption: '初日',
+		wcDesc: 'あなたは Contoso に入社しました。会社から渡されるのは Microsoft 365 アカウント \u2014 Word や PowerPoint だけでなく、アプリ、メール、ストレージ、共同作業、ID、セキュリティを含むプラットフォーム全体です。',
+		wcCallout: 'Microsoft 365 はアプリの詰め合わせではなくプラットフォームです \u2014 アプリに ID・ストレージ・セキュリティが組み合わさっています。',
+		wcBox: 'Microsoft 365',
+		wcBoxSub: '1 つのサブスクリプション \u00b7 アプリ + メール + ストレージ + ID + セキュリティ',
+		wcA1: 'Word', wcA2: 'Excel', wcA3: 'PowerPoint', wcA4: 'Outlook', wcA5: 'Teams', wcA6: 'OneDrive',
+		wcStat1: '受け取るもの', wcStat1v: 'Microsoft 365 アカウント',
+		wcStat2: '正体は', wcStat2v: 'アプリではなくプラットフォーム',
+		wcStat3: '含まれるもの', wcStat3v: 'アプリ \u00b7 メール \u00b7 ストレージ \u00b7 ID',
+
+		// ── Step 2 · LICENCE ──
+		lcTitle: 'サブスクリプション・ライセンス・アカウント',
+		lcCaption: 'アプリを使えるようにするもの',
+		lcDesc: 'Microsoft 365 のサービスを使うには 3 つがそろう必要があります。会社がサブスクリプションを購入し、あなたにライセンスを割り当て、ユーザー アカウントを作成します。ライセンスがなければサービスはロックされたままです。',
+		lcCallout: 'サブスクリプション \u2192 ライセンス \u2192 アカウント。ロックされたアプリを使える状態にするのがライセンスです。',
+		lcS1: 'サブスクリプション', lcS1s: 'Contoso が Microsoft 365 プランを購入',
+		lcS2: 'ライセンス', lcS2s: 'そのプランの 1 席があなたに割り当てられる',
+		lcS3: 'ユーザー アカウント', lcS3s: 'alex@contoso.com が作成される',
+		lcLocked: 'ロック中', lcUnlocked: 'ロック解除',
+		lcStat1: '会社が購入', lcStat1v: 'サブスクリプション (プラン)',
+		lcStat2: 'あなたに付与', lcStat2v: 'ライセンス + ユーザー アカウント',
+		lcStat3: 'ライセンスなし', lcStat3v: 'サービスはロックのまま',
+
+		// ── Step 3 · TENANT ──
+		tnTitle: '会社のテナントにサインイン',
+		tnCaption: 'アカウントの居場所',
+		tnDesc: '会社のメール アドレスでサインインします。そのアカウントは Contoso のテナント \u2014 ユーザー、データ、サービス、ポリシーを収める会社専用の分離された領域 \u2014 に属しています。',
+		tnCallout: 'テナントは Microsoft 365 における会社の分離された境界です \u2014 ID もデータもポリシーもすべてその中にあります。',
+		tnSignIn: 'サインイン', tnUser: 'alex@contoso.com', tnPwd: '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022',
+		tnTenant: 'Contoso テナント',
+		tnT1: 'ユーザーと ID', tnT2: 'Outlook', tnT3: 'Teams', tnT4: 'OneDrive', tnT5: 'SharePoint', tnT6: 'ポリシー',
+		tnStat1: 'サインインに使う', tnStat1v: '職場アカウント',
+		tnStat2: '所属先', tnStat2v: 'Contoso テナント',
+		tnStat3: 'テナントが保持', tnStat3v: 'ユーザー \u00b7 データ \u00b7 サービス \u00b7 ポリシー',
+
+		// ── Step 4 · A DAY OF WORK ──
+		dyTitle: '一日の仕事 \u2014 そこで生まれるデータ',
+		dyCaption: 'ある一日',
+		dyDesc: 'いよいよ実務です。メールに返信し、会議に参加し、チームとチャットし、文書を書き、資料を作り、数字を整えます。その一つ一つの行動が会社のデータを生み出します。',
+		dyCallout: 'メール、チャット、資料 \u2014 何気ない行動のすべてがテナント内の会社データになります。',
+		dyD1: '顧客に返信する', dyD1s: 'Outlook \u00b7 メール',
+		dyD2: '朝会に参加する', dyD2s: 'Teams \u00b7 会議 + チャット',
+		dyD3: '提案書を書く', dyD3s: 'Word \u00b7 ドキュメント',
+		dyD4: '資料を作る', dyD4s: 'PowerPoint \u00b7 プレゼンテーション',
+		dyD5: '予測を更新する', dyD5s: 'Excel \u00b7 スプレッドシート',
+		dyOut: 'そのすべてが会社の業務データになる',
+		dyStat1: 'あなたの行動', dyStat1v: 'メール \u00b7 会議 \u00b7 文書 \u00b7 資料',
+		dyStat2: '生まれるもの', dyStat2v: '会社の業務データ',
+		dyStat3: '場所', dyStat3v: 'テナントの中',
+
+		// ── Step 5 · WHERE IT ALL GOES ──
+		stTitle: 'すべてはどこに保存される?',
+		stCaption: '業務データの地図',
+		stDesc: '作ったものはそれぞれのサービスに届きます。メールは Exchange/Outlook、チャットと会議は Teams、自分のファイルは OneDrive、チームの共有ファイルは SharePoint。これらが合わさって業務データになります。',
+		stCallout: 'Outlook・Teams・OneDrive・SharePoint が仕事の着地点 \u2014 のちに Microsoft 365 Copilot が読み解く対象そのものです。',
+		stM1: 'Outlook', stM1s: 'メールと予定表',
+		stM2: 'Teams', stM2s: 'チャットと会議',
+		stM3: 'OneDrive', stM3s: '自分の業務ファイル',
+		stM4: 'SharePoint', stM4s: 'チームの共有ファイルとサイト',
+		stHub: 'あなたの業務データ',
+		stHubSub: 'メール \u00b7 会議 \u00b7 チャット \u00b7 文書 \u00b7 資料 \u00b7 ファイル',
+		stTenantNote: 'そのすべては会社のテナント内にとどまります',
+		stStat1: 'メールと予定表', stStat1v: 'Outlook',
+		stStat2: 'チャットと会議', stStat2v: 'Teams',
+		stStat3: 'ファイル', stStat3v: 'OneDrive (自分) \u00b7 SharePoint (共有)',
+
+		// ── Step 6 · PROTECTION ──
+		pxTitle: '会社はどう守っているか',
+		pxCaption: '管理者・ポリシー・ラベル',
+		pxDesc: '会社のデータは貴重なので管理者が保護します。秘密度ラベルがファイルを分類し、ポリシーがその扱いを決めます。共有しようとすると、ポリシー エンジンがまず要求を確認します。',
+		pxCallout: 'ラベルがデータを分類し、ポリシーが可否を強制します \u2014 許可・警告・ブロック。',
+		pxLabelsH: '秘密度ラベル',
+		pxL1: 'パブリック', pxL2: '社内', pxL3: '社外秘',
+		pxDoc: 'Q4-Proposal.docx',
+		pxApplied: '社外秘を適用',
+		pxShare: '社外と共有 \u2192 partner@outside.com',
+		pxEngine: 'ポリシー エンジン',
+		pxR1: '許可', pxR1s: 'パブリックな内容',
+		pxR2: '警告', pxR2s: '社内向けの内容',
+		pxR3: 'ブロック', pxR3s: '社外秘の内容',
+		pxStat1: '分類の方法', pxStat1v: '秘密度ラベル',
+		pxStat2: '強制するもの', pxStat2v: '管理者ポリシー',
+		pxStat3: '結果', pxStat3v: '許可 \u00b7 警告 \u00b7 ブロック',
+
+		// ── Step 7 · ANYWHERE (desktop + web mock) ──
+		awTitle: 'デスクトップ アプリでもブラウザーだけでも',
+		awCaption: 'どこからでもアクセス',
+		awDesc: '同じアカウントが、インストール済みのデスクトップ アプリでも、任意のブラウザーの microsoft365.com でも使えます。Word を Web で開いて編集すれば、そのままクラウドに保存 \u2014 同じファイル、同じアカウントです。',
+		awCallout: 'デスクトップでも Web でも、同じアカウント・同じファイル・同じテナントです \u2014 ブラウザーならインストールも不要です。',
+		awDesktop: 'デスクトップ アプリ', awDesktopSub: 'ノート PC にインストール',
+		awWeb: 'Web で使う', awWebSub: 'microsoft365.com \u00b7 インストール不要',
+		awHome: 'Microsoft 365', awGreet: 'おはようございます、Alex さん',
+		awOpen: 'Word for the web を開いています\u2026', awSaved: 'OneDrive に保存しました',
+		awTry: '<a href="https://m365.cloud.microsoft/apps" target="_blank" rel="noopener">m365.cloud.microsoft/apps</a> で実際に試せます \u2014 別のアドレス <a href="https://www.microsoft365.com" target="_blank" rel="noopener">microsoft365.com</a> でも同じです。',
+		awStat1: 'デスクトップ', awStat1v: 'インストール済みアプリ',
+		awStat2: 'Web', awStat2v: 'microsoft365.com、インストール不要',
+		awStat3: 'ファイル', awStat3v: '同じアカウント、クラウドに保存',
+
+		// ── Step 8 · MEET M365 COPILOT ──
+		cpTitle: 'いよいよ Microsoft 365 Copilot',
+		cpCaption: '橋渡し',
+		cpDesc: '数週間働けば、テナントにはメール、会議、チャット、文書、資料がたまります。Microsoft 365 Copilot なら、その仕事について自然な言葉で尋ねるだけ \u2014 しかも答えの出どころも示されます。',
+		cpCallout: 'Microsoft 365 が仕事を生み、Microsoft 365 Copilot がその仕事を扱うのを助けます \u2014 自分のテナントに基づき、確認できる出典付きで。',
+		cpPrompt: '先週のメールを要約して、会議用の資料をまとめて。',
+		cpReply: '先週の Northwind とのやり取りは Q4 の更新が中心でした。価格の見直しとセキュリティ レビューを求められています。未解決の 3 点、合意した日程、Teams の朝会で決まった担当者をまとめた資料を作成しました。',
+		cpSrc1: 'Outlook', cpSrc2: 'Teams', cpSrc3: 'SharePoint',
+		cpGrounded: 'あなたの業務データに基づく',
+		cpBeforeH: 'Copilot なし', cpBefore: '検索 \u2192 読む \u2192 分析 \u2192 執筆',
+		cpAfterH: 'Copilot あり', cpAfter: '尋ねる \u2192 確認 \u2192 使う',
+		cpFoot: '次は <strong>Microsoft 365 Copilot</strong> \u2014 チャット体験とアプリ内の Copilot です。詳しくは <a href="https://learn.microsoft.com/copilot/microsoft-365/" target="_blank" rel="noopener">Microsoft 365 Copilot のドキュメント</a>をご覧ください。',
+		cpStat1: '尋ねる', cpStat1v: '自然な言葉で',
+		cpStat2: '使うもの', cpStat2v: 'テナントの業務データ',
+		cpStat3: '得られるもの', cpStat3v: '出典付きの回答'
+	},
+	ko: {
+		skipToMain: '다이어그램으로 건너뛰기',
+		pageTitle: 'Microsoft 365',
+		stageHeading: 'Microsoft 365와 함께하는 첫날',
+		stageInstructions: 'Microsoft 365의 첫날을 따라가는 애니메이션 안내입니다. 구독, 라이선스와 계정, 회사 테넌트, 업무 중에 생기는 데이터, 관리자의 보호 방식, 데스크톱과 웹 접근, 그리고 Microsoft 365 Copilot으로 이어지는 다리를 살펴봅니다. 다음/이전 버튼이나 화살표 키로 이동하고 R 키로 다시 시작하세요.',
+		prev: '\u25C0 이전', next: '다음 \u25B6', replay: '\u21BB 다시 재생', restart: '\u21BB 처음부터',
+		slower: '느리게', faster: '빠르게',
+		calloutOn: '설명: 켬', calloutOff: '설명: 끔',
+		outlineOn: '개요: 켬', outlineOff: '개요: 끔',
+		audioTip: '내레이션 오디오', ccTip: '자막', shortcutsTip: '단축키',
+		stepDetails: '단계 상세', stepOf: '단계',
+		resetPos: '기본 위치로 되돌리기',
+		openNewTab: '새 탭에서 열기',
+		scTitle: '키보드 단축키',
+		scNext: '다음 단계', scPrev: '이전 단계', scRestart: '처음부터', scReplay: '이 단계 다시 재생', scHide: '상단 바 숨기기 / 표시', scHelp: '이 도움말 켜고 끄기',
+
+		// ── Step 1 · WELCOME ──
+		wcTitle: 'Contoso에서의 첫날',
+		wcCaption: '첫째 날',
+		wcDesc: '이제 막 Contoso에 입사했습니다. 회사는 Microsoft 365 계정을 건네줍니다 \u2014 Word와 PowerPoint만이 아니라 앱, 메일, 저장소, 협업, ID, 보안을 아우르는 플랫폼 전체입니다.',
+		wcCallout: 'Microsoft 365는 앱 묶음이 아니라 플랫폼입니다 \u2014 앱에 ID, 저장소, 보안이 함께 묶여 있습니다.',
+		wcBox: 'Microsoft 365',
+		wcBoxSub: '하나의 구독 \u00b7 앱 + 메일 + 저장소 + ID + 보안',
+		wcA1: 'Word', wcA2: 'Excel', wcA3: 'PowerPoint', wcA4: 'Outlook', wcA5: 'Teams', wcA6: 'OneDrive',
+		wcStat1: '받는 것', wcStat1v: 'Microsoft 365 계정',
+		wcStat2: '정체는', wcStat2v: '앱이 아니라 플랫폼',
+		wcStat3: '포함 항목', wcStat3v: '앱 \u00b7 메일 \u00b7 저장소 \u00b7 ID',
+
+		// ── Step 2 · LICENCE ──
+		lcTitle: '구독, 라이선스, 계정',
+		lcCaption: '앱을 여는 열쇠',
+		lcDesc: 'Microsoft 365 서비스를 쓰려면 세 가지가 맞아야 합니다. 회사가 구독을 구매하고, 라이선스를 배정하고, 사용자 계정을 만듭니다. 라이선스가 없으면 서비스는 잠긴 채로 남습니다.',
+		lcCallout: '구독 \u2192 라이선스 \u2192 계정. 잠긴 앱을 쓸 수 있게 만드는 것이 라이선스입니다.',
+		lcS1: '구독', lcS1s: 'Contoso가 Microsoft 365 요금제를 구매',
+		lcS2: '라이선스', lcS2s: '그 요금제의 한 자리가 나에게 배정됨',
+		lcS3: '사용자 계정', lcS3s: 'alex@contoso.com이 생성됨',
+		lcLocked: '잠김', lcUnlocked: '잠금 해제',
+		lcStat1: '회사가 구매', lcStat1v: '구독(요금제)',
+		lcStat2: '내가 받는 것', lcStat2v: '라이선스 + 사용자 계정',
+		lcStat3: '라이선스 없음', lcStat3v: '서비스는 계속 잠김',
+
+		// ── Step 3 · TENANT ──
+		tnTitle: '회사 테넌트에 로그인',
+		tnCaption: '계정이 머무는 곳',
+		tnDesc: '회사 메일로 로그인합니다. 그 계정은 Contoso 테넌트 \u2014 사용자, 데이터, 서비스, 정책을 담은 회사 전용의 분리된 공간 \u2014 에 속합니다.',
+		tnCallout: '테넌트는 Microsoft 365 안에서 회사가 갖는 분리된 경계입니다 \u2014 ID, 데이터, 정책이 모두 그 안에 있습니다.',
+		tnSignIn: '로그인', tnUser: 'alex@contoso.com', tnPwd: '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022',
+		tnTenant: 'Contoso 테넌트',
+		tnT1: '사용자 및 ID', tnT2: 'Outlook', tnT3: 'Teams', tnT4: 'OneDrive', tnT5: 'SharePoint', tnT6: '정책',
+		tnStat1: '로그인 수단', tnStat1v: '회사 계정',
+		tnStat2: '소속', tnStat2v: 'Contoso 테넌트',
+		tnStat3: '테넌트가 담는 것', tnStat3v: '사용자 \u00b7 데이터 \u00b7 서비스 \u00b7 정책',
+
+		// ── Step 4 · A DAY OF WORK ──
+		dyTitle: '하루의 업무 \u2014 그리고 생겨나는 데이터',
+		dyCaption: '어느 하루',
+		dyDesc: '이제 실제로 일합니다. 메일에 답하고, 회의에 참석하고, 팀과 대화하고, 문서를 쓰고, 자료를 만들고, 숫자를 다듬습니다. 이 모든 행동이 회사 데이터를 만듭니다.',
+		dyCallout: '메일 하나, 대화 하나, 자료 하나 \u2014 평범한 행동이 모두 테넌트 안의 회사 데이터가 됩니다.',
+		dyD1: '고객에게 답장하기', dyD1s: 'Outlook \u00b7 메일',
+		dyD2: '스탠드업 참석하기', dyD2s: 'Teams \u00b7 회의 + 채팅',
+		dyD3: '제안서 작성하기', dyD3s: 'Word \u00b7 문서',
+		dyD4: '발표 자료 만들기', dyD4s: 'PowerPoint \u00b7 프레젠테이션',
+		dyD5: '전망치 업데이트하기', dyD5s: 'Excel \u00b7 스프레드시트',
+		dyOut: '이 모두가 회사 업무 데이터가 됩니다',
+		dyStat1: '내가 하는 일', dyStat1v: '메일 \u00b7 회의 \u00b7 문서 \u00b7 자료',
+		dyStat2: '생기는 것', dyStat2v: '회사 업무 데이터',
+		dyStat3: '위치', dyStat3v: '테넌트 안',
+
+		// ── Step 5 · WHERE IT ALL GOES ──
+		stTitle: '모든 것은 어디로 갈까요?',
+		stCaption: '업무 데이터 지도',
+		stDesc: '만들어진 것은 각각의 서비스에 담깁니다. 메일은 Exchange/Outlook, 채팅과 회의는 Teams, 내 파일은 OneDrive, 팀 공유 파일은 SharePoint에. 이 모두가 나의 업무 데이터입니다.',
+		stCallout: 'Outlook, Teams, OneDrive, SharePoint가 업무가 쌓이는 곳입니다 \u2014 나중에 Microsoft 365 Copilot이 읽어 내는 대상이기도 합니다.',
+		stM1: 'Outlook', stM1s: '메일 및 일정',
+		stM2: 'Teams', stM2s: '채팅 및 회의',
+		stM3: 'OneDrive', stM3s: '내 업무 파일',
+		stM4: 'SharePoint', stM4s: '팀 공유 파일 및 사이트',
+		stHub: '나의 업무 데이터',
+		stHubSub: '메일 \u00b7 회의 \u00b7 채팅 \u00b7 문서 \u00b7 자료 \u00b7 파일',
+		stTenantNote: '모두 회사 테넌트 안에 머뭅니다',
+		stStat1: '메일 및 일정', stStat1v: 'Outlook',
+		stStat2: '채팅 및 회의', stStat2v: 'Teams',
+		stStat3: '파일', stStat3v: 'OneDrive(내 것) \u00b7 SharePoint(공유)',
+
+		// ── Step 6 · PROTECTION ──
+		pxTitle: '회사는 어떻게 보호할까요',
+		pxCaption: '관리자, 정책, 레이블',
+		pxDesc: '회사 데이터는 소중하므로 관리자가 보호합니다. 민감도 레이블이 파일을 분류하고, 정책이 그 파일로 무엇을 할 수 있는지 정합니다. 공유하려 하면 정책 엔진이 먼저 요청을 검사합니다.',
+		pxCallout: '레이블은 데이터를 분류하고, 정책은 허용·경고·차단을 실제로 강제합니다.',
+		pxLabelsH: '민감도 레이블',
+		pxL1: '공개', pxL2: '내부용', pxL3: '기밀',
+		pxDoc: 'Q4-Proposal.docx',
+		pxApplied: '기밀 적용됨',
+		pxShare: '외부와 공유 \u2192 partner@outside.com',
+		pxEngine: '정책 엔진',
+		pxR1: '허용', pxR1s: '공개 콘텐츠',
+		pxR2: '경고', pxR2s: '내부용 콘텐츠',
+		pxR3: '차단', pxR3s: '기밀 콘텐츠',
+		pxStat1: '분류 수단', pxStat1v: '민감도 레이블',
+		pxStat2: '강제 주체', pxStat2v: '관리자 정책',
+		pxStat3: '결과', pxStat3v: '허용 \u00b7 경고 \u00b7 차단',
+
+		// ── Step 7 · ANYWHERE (desktop + web mock) ──
+		awTitle: '데스크톱 앱 또는 브라우저만으로',
+		awCaption: '어디서나 접근',
+		awDesc: '같은 계정이 설치형 데스크톱 앱에서도, 어떤 브라우저의 microsoft365.com에서도 동작합니다. 웹에서 Word를 열어 편집하면 곧바로 클라우드에 저장됩니다 \u2014 같은 파일, 같은 계정입니다.',
+		awCallout: '데스크톱이든 웹이든 같은 계정, 같은 파일, 같은 테넌트입니다 \u2014 브라우저는 설치가 필요 없습니다.',
+		awDesktop: '데스크톱 앱', awDesktopSub: '노트북에 설치됨',
+		awWeb: '웹에서', awWebSub: 'microsoft365.com \u00b7 설치 불필요',
+		awHome: 'Microsoft 365', awGreet: '좋은 아침이에요, Alex 님',
+		awOpen: 'Word for the web 여는 중\u2026', awSaved: 'OneDrive에 저장됨',
+		awTry: '<a href="https://m365.cloud.microsoft/apps" target="_blank" rel="noopener">m365.cloud.microsoft/apps</a>에서 직접 사용해 보세요 \u2014 다른 주소인 <a href="https://www.microsoft365.com" target="_blank" rel="noopener">microsoft365.com</a>도 같습니다.',
+		awStat1: '데스크톱', awStat1v: '설치된 앱',
+		awStat2: '웹', awStat2v: 'microsoft365.com, 설치 불필요',
+		awStat3: '파일', awStat3v: '같은 계정, 클라우드에 저장',
+
+		// ── Step 8 · MEET M365 COPILOT ──
+		cpTitle: '이제 Microsoft 365 Copilot을 만나요',
+		cpCaption: '다리',
+		cpDesc: '몇 주 일하고 나면 테넌트에는 메일, 회의, 채팅, 문서, 자료가 쌓입니다. Microsoft 365 Copilot은 그 업무에 대해 평소 말투로 묻기만 하면 되고 \u2014 답이 어디서 왔는지도 보여 줍니다.',
+		cpCallout: 'Microsoft 365는 업무를 만들고, Microsoft 365 Copilot은 그 업무를 다루도록 돕습니다 \u2014 내 테넌트에 근거하고 확인 가능한 출처와 함께.',
+		cpPrompt: '지난주 메일을 요약하고 회의용 브리핑을 준비해 줘.',
+		cpReply: '지난주 Northwind와 오간 대화는 Q4 갱신이 중심이었습니다. 가격 재조정과 보안 검토를 요청했습니다. 미해결 3개 항목, 합의된 일정, Teams 스탠드업에서 정해진 담당자를 담은 브리핑을 작성했습니다.',
+		cpSrc1: 'Outlook', cpSrc2: 'Teams', cpSrc3: 'SharePoint',
+		cpGrounded: '내 업무 데이터에 근거함',
+		cpBeforeH: 'Copilot 없이', cpBefore: '검색 \u2192 읽기 \u2192 분석 \u2192 작성',
+		cpAfterH: 'Copilot과 함께', cpAfter: '질문 \u2192 검토 \u2192 활용',
+		cpFoot: '다음 여정: <strong>Microsoft 365 Copilot</strong> \u2014 채팅 경험과 앱 안의 Copilot입니다. 자세한 내용은 <a href="https://learn.microsoft.com/copilot/microsoft-365/" target="_blank" rel="noopener">Microsoft 365 Copilot 설명서</a>를 참고하세요.',
+		cpStat1: '내가 묻고', cpStat1v: '평소 말투로',
+		cpStat2: '사용하는 것', cpStat2v: '내 테넌트의 업무 데이터',
+		cpStat3: '얻는 것', cpStat3v: '출처가 붙은 답변'
+	},
+	pt: {
+		skipToMain: 'Ir para o diagrama',
+		pageTitle: 'Microsoft 365',
+		stageHeading: 'Seu primeiro dia com o Microsoft 365',
+		stageInstructions: 'Um tour animado do primeiro dia com o Microsoft 365: a assinatura, a licença e a conta, o locatário da empresa, os dados de trabalho que você cria, como os administradores os protegem, o acesso pelo desktop e pela web e a ponte para o Microsoft 365 Copilot. Use os botões Avançar/Voltar ou as setas para navegar. Pressione R para reiniciar.',
+		prev: '\u25C0 Voltar', next: 'Avançar \u25B6', replay: '\u21BB Repetir', restart: '\u21BB Reiniciar',
+		slower: 'Mais lento', faster: 'Mais rápido',
+		calloutOn: 'Notas: ativadas', calloutOff: 'Notas: desativadas',
+		outlineOn: 'Estrutura: ativada', outlineOff: 'Estrutura: desativada',
+		audioTip: 'Áudio da narração', ccTip: 'Legendas', shortcutsTip: 'Atalhos',
+		stepDetails: 'Detalhes da etapa', stepOf: 'Etapa',
+		resetPos: 'Restaurar a posição padrão',
+		openNewTab: 'Abrir em uma nova guia',
+		scTitle: 'Atalhos de teclado',
+		scNext: 'Próxima etapa', scPrev: 'Etapa anterior', scRestart: 'Reiniciar', scReplay: 'Repetir esta etapa', scHide: 'Ocultar / mostrar a barra superior', scHelp: 'Mostrar ou ocultar esta ajuda',
+
+		// ── Step 1 · WELCOME ──
+		wcTitle: 'Seu primeiro dia na Contoso',
+		wcCaption: 'Dia um',
+		wcDesc: 'Você acabou de entrar na Contoso. A empresa lhe entrega uma conta do Microsoft 365 \u2014 não apenas Word e PowerPoint, mas uma plataforma inteira: aplicativos, e-mail, armazenamento, colaboração, identidade e segurança.',
+		wcCallout: 'O Microsoft 365 é uma plataforma, não uma caixa de aplicativos \u2014 ele une os apps a identidade, armazenamento e segurança.',
+		wcBox: 'Microsoft 365',
+		wcBoxSub: 'Uma assinatura \u00b7 apps + e-mail + armazenamento + identidade + segurança',
+		wcA1: 'Word', wcA2: 'Excel', wcA3: 'PowerPoint', wcA4: 'Outlook', wcA5: 'Teams', wcA6: 'OneDrive',
+		wcStat1: 'Você recebe', wcStat1v: 'Uma conta do Microsoft 365',
+		wcStat2: 'Ele é', wcStat2v: 'Uma plataforma, não só apps',
+		wcStat3: 'Inclui', wcStat3v: 'Apps \u00b7 e-mail \u00b7 armazenamento \u00b7 identidade',
+
+		// ── Step 2 · LICENCE ──
+		lcTitle: 'Assinatura, licença e conta',
+		lcCaption: 'O que libera os aplicativos',
+		lcDesc: 'Antes de usar qualquer serviço do Microsoft 365, três coisas precisam se alinhar: a empresa compra uma assinatura, atribui uma licença a você e cria sua conta de usuário. Sem licença, os serviços continuam bloqueados.',
+		lcCallout: 'Assinatura \u2192 licença \u2192 conta. É a licença que transforma um app bloqueado em um app funcionando.',
+		lcS1: 'Assinatura', lcS1s: 'A Contoso compra um plano do Microsoft 365',
+		lcS2: 'Licença', lcS2s: 'Um lugar desse plano é atribuído a você',
+		lcS3: 'Conta de usuário', lcS3s: 'alex@contoso.com é criada',
+		lcLocked: 'Bloqueado', lcUnlocked: 'Desbloqueado',
+		lcStat1: 'A empresa compra', lcStat1v: 'Uma assinatura (plano)',
+		lcStat2: 'Você recebe', lcStat2v: 'Uma licença + conta de usuário',
+		lcStat3: 'Sem licença', lcStat3v: 'Os serviços seguem bloqueados',
+
+		// ── Step 3 · TENANT ──
+		tnTitle: 'Entrando no locatário da empresa',
+		tnCaption: 'Onde sua conta vive',
+		tnDesc: 'Você entra com o e-mail da empresa. Essa conta pertence ao locatário da Contoso \u2014 o espaço isolado da própria empresa no Microsoft 365, com seus usuários, dados, serviços e políticas.',
+		tnCallout: 'Um locatário é o limite isolado da empresa no Microsoft 365 \u2014 sua identidade, seus dados e as políticas vivem dentro dele.',
+		tnSignIn: 'Entrar', tnUser: 'alex@contoso.com', tnPwd: '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022',
+		tnTenant: 'Locatário da Contoso',
+		tnT1: 'Usuários e identidade', tnT2: 'Outlook', tnT3: 'Teams', tnT4: 'OneDrive', tnT5: 'SharePoint', tnT6: 'Políticas',
+		tnStat1: 'Você entra com', tnStat1v: 'Sua conta corporativa',
+		tnStat2: 'Ela pertence ao', tnStat2v: 'Locatário da Contoso',
+		tnStat3: 'O locatário guarda', tnStat3v: 'Usuários \u00b7 dados \u00b7 serviços \u00b7 políticas',
+
+		// ── Step 4 · A DAY OF WORK ──
+		dyTitle: 'Um dia de trabalho \u2014 e os dados que ele cria',
+		dyCaption: 'Um dia comum',
+		dyDesc: 'Agora você trabalha de verdade: responde e-mails, entra em uma reunião, conversa com o time, escreve um documento, monta uma apresentação e ajusta alguns números. Cada uma dessas ações cria dados da empresa.',
+		dyCallout: 'Toda ação comum \u2014 um e-mail, um chat, uma apresentação \u2014 vira dado da empresa dentro do locatário.',
+		dyD1: 'Responder a um cliente', dyD1s: 'Outlook \u00b7 e-mail',
+		dyD2: 'Entrar na reunião diária', dyD2s: 'Teams \u00b7 reunião + chat',
+		dyD3: 'Escrever a proposta', dyD3s: 'Word \u00b7 documento',
+		dyD4: 'Montar a apresentação', dyD4s: 'PowerPoint \u00b7 apresentação',
+		dyD5: 'Atualizar a previsão', dyD5s: 'Excel \u00b7 planilha',
+		dyOut: 'Tudo isso vira dado de trabalho da empresa',
+		dyStat1: 'Você faz', dyStat1v: 'E-mails \u00b7 reuniões \u00b7 docs \u00b7 apresentações',
+		dyStat2: 'Isso cria', dyStat2v: 'Dados de trabalho da empresa',
+		dyStat3: 'Onde', dyStat3v: 'Dentro do locatário',
+
+		// ── Step 5 · WHERE IT ALL GOES ──
+		stTitle: 'Para onde vai tudo isso?',
+		stCaption: 'O mapa dos dados de trabalho',
+		stDesc: 'Cada coisa que você cria chega a um serviço: e-mail no Exchange/Outlook, chats e reuniões no Teams, seus próprios arquivos no OneDrive e os arquivos compartilhados do time no SharePoint. Juntos, eles são seus dados de trabalho.',
+		stCallout: 'Outlook, Teams, OneDrive e SharePoint são onde o trabalho aterrissa \u2014 e exatamente o que o Microsoft 365 Copilot poderá analisar depois.',
+		stM1: 'Outlook', stM1s: 'E-mail e calendário',
+		stM2: 'Teams', stM2s: 'Chats e reuniões',
+		stM3: 'OneDrive', stM3s: 'Seus próprios arquivos de trabalho',
+		stM4: 'SharePoint', stM4s: 'Arquivos e sites compartilhados do time',
+		stHub: 'Seus dados de trabalho',
+		stHubSub: 'E-mails \u00b7 reuniões \u00b7 chats \u00b7 documentos \u00b7 apresentações \u00b7 arquivos',
+		stTenantNote: 'Tudo permanece dentro do locatário da sua empresa',
+		stStat1: 'E-mail e calendário', stStat1v: 'Outlook',
+		stStat2: 'Chats e reuniões', stStat2v: 'Teams',
+		stStat3: 'Arquivos', stStat3v: 'OneDrive (seus) \u00b7 SharePoint (compartilhados)',
+
+		// ── Step 6 · PROTECTION ──
+		pxTitle: 'Como a empresa protege tudo isso',
+		pxCaption: 'Administração, políticas e rótulos',
+		pxDesc: 'Os dados da empresa são valiosos, então os administradores os protegem: rótulos de confidencialidade classificam um arquivo e políticas decidem o que pode acontecer com ele. Ao compartilhar, o mecanismo de políticas verifica a solicitação primeiro.',
+		pxCallout: 'Os rótulos classificam os dados; as políticas impõem o que pode ser feito com eles \u2014 permitir, avisar ou bloquear.',
+		pxLabelsH: 'Rótulos de confidencialidade',
+		pxL1: 'Público', pxL2: 'Interno', pxL3: 'Confidencial',
+		pxDoc: 'Q4-Proposal.docx',
+		pxApplied: 'Confidencial aplicado',
+		pxShare: 'Compartilhar externamente \u2192 partner@outside.com',
+		pxEngine: 'Mecanismo de políticas',
+		pxR1: 'Permitir', pxR1s: 'Conteúdo público',
+		pxR2: 'Avisar', pxR2s: 'Conteúdo interno',
+		pxR3: 'Bloquear', pxR3s: 'Conteúdo confidencial',
+		pxStat1: 'Classificar com', pxStat1v: 'Rótulos de confidencialidade',
+		pxStat2: 'Imposto por', pxStat2v: 'Políticas do administrador',
+		pxStat3: 'Resultado', pxStat3v: 'Permitir \u00b7 avisar \u00b7 bloquear',
+
+		// ── Step 7 · ANYWHERE (desktop + web mock) ──
+		awTitle: 'Aplicativos de desktop ou só o navegador',
+		awCaption: 'Acesso de qualquer lugar',
+		awDesc: 'A mesma conta funciona nos aplicativos de desktop instalados e em microsoft365.com em qualquer navegador. Abra o Word na web, edite, e ele salva direto na nuvem \u2014 mesmo arquivo, mesma conta.',
+		awCallout: 'No desktop ou na web, é a mesma conta, os mesmos arquivos e o mesmo locatário \u2014 o navegador não exige instalação.',
+		awDesktop: 'Aplicativos de desktop', awDesktopSub: 'Instalados no seu notebook',
+		awWeb: 'Na web', awWebSub: 'microsoft365.com \u00b7 nada para instalar',
+		awHome: 'Microsoft 365', awGreet: 'Bom dia, Alex',
+		awOpen: 'Abrindo o Word para a web\u2026', awSaved: 'Salvo no OneDrive',
+		awTry: 'Experimente você mesmo em <a href="https://m365.cloud.microsoft/apps" target="_blank" rel="noopener">m365.cloud.microsoft/apps</a> \u2014 ou no endereço alternativo <a href="https://www.microsoft365.com" target="_blank" rel="noopener">microsoft365.com</a>.',
+		awStat1: 'Desktop', awStat1v: 'Aplicativos instalados',
+		awStat2: 'Web', awStat2v: 'microsoft365.com, sem instalar',
+		awStat3: 'Arquivos', awStat3v: 'Mesma conta, salvos na nuvem',
+
+		// ── Step 8 · MEET M365 COPILOT ──
+		cpTitle: 'Agora conheça o Microsoft 365 Copilot',
+		cpCaption: 'A ponte',
+		cpDesc: 'Depois de semanas de trabalho, seu locatário guarda e-mails, reuniões, chats, documentos e apresentações. O Microsoft 365 Copilot permite simplesmente perguntar sobre esse trabalho em linguagem natural \u2014 e mostra de onde veio cada resposta.',
+		cpCallout: 'O Microsoft 365 cria o trabalho. O Microsoft 365 Copilot ajuda você a trabalhar com ele \u2014 fundamentado no seu locatário, com fontes que você pode conferir.',
+		cpPrompt: 'Resuma os e-mails da semana passada e prepare um briefing para a reunião.',
+		cpReply: 'A conversa da semana passada com a Northwind girou em torno da renovação do Q4: pediram preços revisados e uma revisão de segurança. Preparei um briefing com os três pontos em aberto, as datas acordadas e os responsáveis definidos na sua reunião diária no Teams.',
+		cpSrc1: 'Outlook', cpSrc2: 'Teams', cpSrc3: 'SharePoint',
+		cpGrounded: 'Fundamentado nos seus dados de trabalho',
+		cpBeforeH: 'Sem o Copilot', cpBefore: 'Buscar \u2192 ler \u2192 analisar \u2192 escrever',
+		cpAfterH: 'Com o Copilot', cpAfter: 'Perguntar \u2192 revisar \u2192 usar',
+		cpFoot: 'Próxima parada: <strong>Microsoft 365 Copilot</strong> \u2014 a experiência de chat e o Copilot dentro dos aplicativos. Saiba mais na <a href="https://learn.microsoft.com/copilot/microsoft-365/" target="_blank" rel="noopener">documentação do Microsoft 365 Copilot</a>.',
+		cpStat1: 'Você pergunta', cpStat1v: 'Em linguagem natural',
+		cpStat2: 'Ele usa', cpStat2v: 'Os dados de trabalho do seu locatário',
+		cpStat3: 'Você recebe', cpStat3v: 'Uma resposta com fontes'
+	}
+};
+function t(key) { return (I18N[currentLang] && I18N[currentLang][key]) || I18N.en[key] || key; }
+
+function setLanguage(lang) {
+	currentLang = lang;
+	document.documentElement.lang = lang;
+	try { const u=new URL(location.href); u.searchParams.set('lang', lang); history.replaceState(null,'',u); } catch(_){}
+	document.getElementById('page-title').innerHTML = '<img class="m3-logo" src="../lib/icons/brands/m365/Microsoft365.svg" alt="" width="20" height="20" decoding="async"> ' + t('pageTitle');
+	// icon-only nav buttons: the localized label lives in the tooltip (title)
+	document.getElementById('prev-btn').title = t('prev');
+	document.getElementById('next-btn').title = t('next');
+	document.getElementById('replay-btn').title = t('replay');
+	document.getElementById('reset-btn').title = t('restart');
+	document.getElementById('speed-down').title = t('slower');
+	document.getElementById('speed-up').title = t('faster');
+	document.getElementById('outline-title').textContent = t('stepDetails');
+	document.querySelector('.skip-link').textContent = t('skipToMain');
+	document.getElementById('stage-heading').textContent = t('stageHeading');
+	document.getElementById('stage-instructions').textContent = t('stageInstructions');
+	// localize overlay tooltips (icon buttons show their label on hover / as native title)
+	const _hlp=document.getElementById('help-toggle'); if(_hlp) _hlp.setAttribute('data-tip', t('shortcutsTip'));
+	const _aud=document.getElementById('audio-toggle'); if(_aud) _aud.title=t('audioTip');
+	const _ccb=document.getElementById('cc-toggle'); if(_ccb) _ccb.title=t('ccTip');
+	syncCalloutBtn(); syncOutlineBtn();
+	if (typeof syncAudioBtn === 'function') syncAudioBtn();
+	if (typeof buildShortcuts === 'function') buildShortcuts();
+	if (typeof refreshJourneyNext === 'function') refreshJourneyNext();
+	document.querySelectorAll('.aw-drag-reset').forEach(b=>{ b.title=t('resetPos'); b.setAttribute('aria-label', t('resetPos')); });
+	try { localStorage.setItem('aw-m365-lang', lang); } catch(_){}
+	if (current >= 0) renderStep(current);
+}
+
+// ── STEPS (journey order) ─────────────────
+const STEPS = [
+	{ id:'welcome', short:'Day one', titleKey:'wcTitle', captionKey:'wcCaption', descKey:'wcDesc', calloutKey:'wcCallout',
+		stats:[['wcStat1','wcStat1v'],['wcStat2','wcStat2v'],['wcStat3','wcStat3v']] },
+	{ id:'licence', short:'Licence', titleKey:'lcTitle', captionKey:'lcCaption', descKey:'lcDesc', calloutKey:'lcCallout',
+		stats:[['lcStat1','lcStat1v'],['lcStat2','lcStat2v'],['lcStat3','lcStat3v']] },
+	{ id:'tenant', short:'Tenant', titleKey:'tnTitle', captionKey:'tnCaption', descKey:'tnDesc', calloutKey:'tnCallout',
+		stats:[['tnStat1','tnStat1v'],['tnStat2','tnStat2v'],['tnStat3','tnStat3v']] },
+	{ id:'day', short:'A day', titleKey:'dyTitle', captionKey:'dyCaption', descKey:'dyDesc', calloutKey:'dyCallout',
+		stats:[['dyStat1','dyStat1v'],['dyStat2','dyStat2v'],['dyStat3','dyStat3v']] },
+	{ id:'store', short:'Where it goes', titleKey:'stTitle', captionKey:'stCaption', descKey:'stDesc', calloutKey:'stCallout',
+		stats:[['stStat1','stStat1v'],['stStat2','stStat2v'],['stStat3','stStat3v']] },
+	{ id:'protect', short:'Protection', titleKey:'pxTitle', captionKey:'pxCaption', descKey:'pxDesc', calloutKey:'pxCallout',
+		stats:[['pxStat1','pxStat1v'],['pxStat2','pxStat2v'],['pxStat3','pxStat3v']] },
+	{ id:'anywhere', short:'Anywhere', titleKey:'awTitle', captionKey:'awCaption', descKey:'awDesc', calloutKey:'awCallout',
+		stats:[['awStat1','awStat1v'],['awStat2','awStat2v'],['awStat3','awStat3v']] },
+	{ id:'copilot', short:'Copilot', titleKey:'cpTitle', captionKey:'cpCaption', descKey:'cpDesc', calloutKey:'cpCallout',
+		stats:[['cpStat1','cpStat1v'],['cpStat2','cpStat2v'],['cpStat3','cpStat3v']] }
+];
+
+// ── DOM REFS ──────────────────────────────
+const stage=document.getElementById('stage-frame'), svg=document.getElementById('fx-svg'),
+	counter=document.getElementById('step-counter'), breadcrumb=document.getElementById('breadcrumb'),
+	progress=document.getElementById('progress-fill'), announcer=document.getElementById('step-announcer'),
+	outlineBody=document.getElementById('outline-body'), outlinePanel=document.getElementById('step-outline'),
+	outlineBtn=document.getElementById('outline-toggle'), calloutBtn=document.getElementById('callout-toggle'),
+	langSelect=document.getElementById('lang-select');
+
+langSelect.addEventListener('change', e => setLanguage(e.target.value));
+const urlLang = new URLSearchParams(location.search).get('lang');
+let savedLang=null; try{ savedLang=localStorage.getItem('aw-m365-lang'); }catch(_){}
+if (urlLang && I18N[urlLang]) { currentLang = urlLang; langSelect.value = urlLang; }
+else if (savedLang && I18N[savedLang]) { currentLang = savedLang; langSelect.value = savedLang; }
+
+// ── Font size ─────────────────────────────
+const fontScales=[0.8,0.9,1,1.1,1.2,1.35]; let fontScaleIdx=2;
+const baseFontSize=parseFloat(getComputedStyle(document.documentElement).fontSize);
+function applyFontScale(){ document.documentElement.style.fontSize=(baseFontSize*fontScales[fontScaleIdx])+'px'; const c=document.getElementById('controls'); if(c) c.style.fontSize=baseFontSize+'px'; if(typeof current!=='undefined'&&current>=0){ const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s); } }
+function saveFont(){ try{ localStorage.setItem('aw-m365-font', String(fontScaleIdx)); }catch(_){} }
+try{ const f=parseInt(localStorage.getItem('aw-m365-font'),10); if(!isNaN(f)&&f>=0&&f<fontScales.length){ fontScaleIdx=f; applyFontScale(); } }catch(_){}
+document.getElementById('font-decrease').addEventListener('click',()=>{ if(fontScaleIdx>0){fontScaleIdx--;applyFontScale();saveFont();} });
+document.getElementById('font-increase').addEventListener('click',()=>{ if(fontScaleIdx<fontScales.length-1){fontScaleIdx++;applyFontScale();saveFont();} });
+
+let current=-1, animating=false, liveEls=[], liveTimelines=[], calloutEnabled=false;
+
+function syncCalloutBtn(){ calloutBtn.classList.toggle('toggle-active',calloutEnabled); calloutBtn.setAttribute('aria-pressed',calloutEnabled?'true':'false'); calloutBtn.setAttribute('data-tip',calloutEnabled?t('calloutOn'):t('calloutOff')); }
+calloutBtn.addEventListener('click',()=>{
+	calloutEnabled=!calloutEnabled; syncCalloutBtn();
+	if(current<0) return;
+	// Toggle just the callout box in place — don't re-render (no animation replay).
+	const existing=stage.querySelectorAll('.callout');
+	if(calloutEnabled){ if(!existing.length){ const c=maybeCallout(STEPS[current]); if(c) gsap.fromTo(c,{opacity:0,y:10},{opacity:1,y:0,duration:0.4,overwrite:true}); } }
+	else { existing.forEach(c=>{ const idx=liveEls.indexOf(c); if(idx>-1) liveEls.splice(idx,1); gsap.killTweensOf(c); c.remove(); }); }
+}); syncCalloutBtn();
+function syncOutlineBtn(){ const on=!outlinePanel.hasAttribute('hidden'); outlineBtn.classList.toggle('toggle-active',on); outlineBtn.setAttribute('aria-expanded',on?'true':'false'); outlineBtn.setAttribute('data-tip',on?t('outlineOn'):t('outlineOff')); }
+outlineBtn.addEventListener('click',()=>{ const showing=!outlinePanel.hasAttribute('hidden'); if(showing){outlinePanel.setAttribute('hidden','');} else {outlinePanel.removeAttribute('hidden');} syncOutlineBtn(); }); syncOutlineBtn();
+
+// ── Audio narration (overlay button · speaker + remaining-time countdown) ──
+// Drop one recorded clip per step (in STEPS order) into AUDIO_FILES for real narration;
+// localized clips live under AUDIO_BASE/<lang>/. With no files, the browser reads each
+// step's title + description aloud (speech synthesis), so the button works with zero assets.
+const AUDIO_BASE = 'audio/Microsoft365/';
+const AUDIO_FILES = [
+	'step-01.mp3','step-02.mp3','step-03.mp3','step-04.mp3','step-05.mp3','step-06.mp3','step-07.mp3','step-08.mp3'
+];
+let audioEnabled=false, currentAudio=null, audioTimeout=null, ccPref=false;
+const audioBtn=document.getElementById('audio-toggle');
+if(audioBtn){ audioBtn.innerHTML='<span class="aw-audio-ico" aria-hidden="true">\uD83D\uDD07</span><span class="aw-audio-time" aria-hidden="true">--:--</span>'; }
+const audioIco=audioBtn&&audioBtn.querySelector('.aw-audio-ico'), audioTimeEl=audioBtn&&audioBtn.querySelector('.aw-audio-time');
+// Captions can play WITHOUT sound: when CC is on but audio is off we still play the clip MUTED, so the
+// caption reveals at the same pace — speaker shows 🔇 and the remaining-time countdown keeps running.
+function playbackOn(){ return audioEnabled || ccPref; }
+function audioDir(){ return (currentLang && currentLang!=='en') ? currentLang+'/' : ''; }
+function fmtDur(s){ s=Math.max(0,Math.ceil(s)); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
+function updateAudioTime(){ if(audioTimeEl && currentAudio && isFinite(currentAudio.duration) && currentAudio.duration>0) audioTimeEl.textContent=fmtDur(currentAudio.duration-currentAudio.currentTime); }
+function syncAudioBtn(){ if(!audioBtn) return; if(audioIco) audioIco.textContent=audioEnabled?'\uD83D\uDD0A':'\uD83D\uDD07'; if(audioTimeEl && !playbackOn()) audioTimeEl.textContent='--:--'; audioBtn.classList.toggle('toggle-active',audioEnabled); audioBtn.setAttribute('aria-pressed',audioEnabled?'true':'false'); }
+function speakFallback(i){ if(!window.speechSynthesis) return; const step=STEPS[i]; const u=new SpeechSynthesisUtterance(`${t(step.titleKey)}. ${t(step.descKey)}`); u.lang=currentLang||'en'; try{ speechSynthesis.cancel(); speechSynthesis.speak(u); }catch(_){} }
+function stopAudio(){
+	if(currentAudio){ currentAudio.pause(); currentAudio.currentTime=0; currentAudio=null; }
+	if(audioTimeout){ clearTimeout(audioTimeout); audioTimeout=null; }
+	if(audioTimeEl) audioTimeEl.textContent='--:--';
+	try{ if(window.speechSynthesis) speechSynthesis.cancel(); }catch(_){}
+	if(window.AWCaptions) AWCaptions.clear();
+}
+function playStepAudio(i){
+	stopAudio();
+	if(document.body.classList.contains('aw-prestart')) return;   // start gate holds audio too
+	if(!playbackOn() || i<0 || i>=STEPS.length) return;
+	audioTimeout=setTimeout(()=>{
+		audioTimeout=null;
+		const file=AUDIO_FILES[i];
+		if(!file){ if(audioEnabled) speakFallback(i); return; }   // no clip = no timing source for caption-only
+		currentAudio=new Audio(AUDIO_BASE+audioDir()+file);
+		currentAudio.volume = audioEnabled ? 1 : 0;              // caption-only = silent (volume 0) timing source
+		if(window.AWCaptions) AWCaptions.bind(currentAudio,i);
+		currentAudio.addEventListener('loadedmetadata',updateAudioTime);
+		currentAudio.addEventListener('timeupdate',updateAudioTime);
+		currentAudio.addEventListener('ended',()=>{ if(audioTimeEl) audioTimeEl.textContent='0:00'; });
+		currentAudio.addEventListener('error',()=>{ if(audioEnabled) speakFallback(i); });
+		currentAudio.play().catch(()=>{});
+	}, 400);
+}
+if(audioBtn){ audioBtn.addEventListener('click',()=>{
+	audioEnabled=!audioEnabled; try{localStorage.setItem('aw-m365-audio',audioEnabled?'1':'0');}catch(_){} syncAudioBtn();
+	if(current>=0){
+		if(!playbackOn()) stopAudio();
+		else if(currentAudio) currentAudio.volume = audioEnabled ? 1 : 0;   // flip sound without restarting the clip
+		else playStepAudio(current);
+	}
+	if(typeof applyCc==='function') applyCc();
+}); }
+// Initial audio + CC from the ?audio parameter:
+//   on -> audio ON + captions ON  ·  off -> both OFF  ·  (absent) -> audio ON, captions OFF (a prior stored choice still wins).
+(function(){
+	var p=null; try{ p=new URLSearchParams(location.search).get('audio'); }catch(_){}
+	if(p==='on'){ audioEnabled=true; ccPref=true; }
+	else if(p==='off'){ audioEnabled=false; ccPref=false; }
+	else {
+		audioEnabled=true; ccPref=false;
+		try{ var a=localStorage.getItem('aw-m365-audio'); if(a==='1') audioEnabled=true; else if(a==='0') audioEnabled=false; }catch(_){}
+		try{ var c=localStorage.getItem('aw-m365-cc'); if(c==='1') ccPref=true; else if(c==='0') ccPref=false; }catch(_){}
+	}
+	try{ localStorage.setItem('aw-m365-audio',audioEnabled?'1':'0'); localStorage.setItem('aw-m365-cc',ccPref?'1':'0'); }catch(_){}
+})();
+syncAudioBtn();
+
+// ── Captions (CC) — overlaid in the frame; play WITH or WITHOUT audio ──
+// Reads the SAME narration Markdown used to synthesize the audio. Set page to THIS file's
+// stem and base to its narration folder (see the path note near the top of the file).
+const ccBtn=document.getElementById('cc-toggle');
+function ccEffective(){ return ccPref; }                          // captions show whenever CC is on (audio not required)
+function syncCcBtn(){ if(!ccBtn) return; ccBtn.classList.toggle('on',ccPref); ccBtn.setAttribute('aria-pressed',ccPref?'true':'false'); }
+function applyCc(){ if(window.AWCaptions) AWCaptions.setEnabled(ccEffective()); if(ccEffective()&&currentAudio&&window.AWCaptions) AWCaptions.bind(currentAudio,current); syncCcBtn(); }
+if(window.AWCaptions){ AWCaptions.configure({ page:'Microsoft365', base:'../../narration/v2/Copilot/', lang:()=>currentLang, fallback:(i)=>(STEPS[i]?t(STEPS[i].descKey):''), reserve:false }); }
+if(ccBtn){ ccBtn.addEventListener('click',()=>{
+	ccPref=!ccPref; try{localStorage.setItem('aw-m365-cc',ccPref?'1':'0');}catch(_){} applyCc();
+	if(current>=0){
+		if(playbackOn() && !currentAudio) playStepAudio(current);   // caption-only: start the muted timing clip
+		else if(!playbackOn() && currentAudio) stopAudio();          // CC off + audio off: nothing left to play
+	}
+}); }
+applyCc();
+
+// ── Full screen ──
+(function(){
+	const fsBtn=document.getElementById('fs-toggle'); if(!fsBtn) return;
+	function inFs(){ return !!(document.fullscreenElement||document.webkitFullscreenElement); }
+	function syncFs(){ document.body.classList.toggle('is-fs',inFs()); fsBtn.setAttribute('aria-pressed',inFs()?'true':'false'); fsBtn.title=inFs()?'Exit full screen (F)':'Full screen (F)'; }
+	function toggle(){ try{ if(inFs()){ (document.exitFullscreen||document.webkitExitFullscreen).call(document); } else { const el=document.documentElement; (el.requestFullscreen||el.webkitRequestFullscreen).call(el); } }catch(_){} }
+	fsBtn.addEventListener('click',e=>{ e.stopPropagation(); toggle(); });
+	document.addEventListener('fullscreenchange',syncFs); document.addEventListener('webkitfullscreenchange',syncFs);
+	document.addEventListener('keydown',e=>{ if(e.code==='KeyF'&&!e.metaKey&&!e.ctrlKey&&!e.altKey){ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return; e.preventDefault(); toggle(); } });
+	syncFs();
+})();
+
+// ── Reduced motion ────────────────────────
+const motionMQ=window.matchMedia('(prefers-reduced-motion: reduce)'); let motionPaused=motionMQ.matches;
+motionMQ.addEventListener('change',e=>{ motionPaused=e.matches; renderStep(current); });
+
+// ── Helpers ───────────────────────────────
+function clearStage(){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; liveEls.forEach(el=>el.remove()); liveEls=[]; Array.from(svg.children).forEach(c=>{ if(c.tagName.toLowerCase()!=='defs') c.remove(); }); }
+// Product URLs are written as plain text in the i18n strings (so speech + aria read them cleanly);
+// they become real links only here, at render time. Text already inside an <a> is left alone.
+const AW_URL_RE=/\b((?:aka\.ms|copilot\.microsoft\.com|m365\.cloud\.microsoft|microsoft365\.com|office\.com)(?:\/[A-Za-z0-9._~:\/?#@!$&'()*+,;=%-]*)?)/g;
+function linkifyUrls(html){
+	let depth=0;
+	return String(html).split(/(<[^>]+>)/).map(part=>{
+		if(part.startsWith('<')){ if(/^<a\b/i.test(part)) depth++; else if(/^<\/a>/i.test(part)) depth--; return part; }
+		if(depth>0) return part;
+		return part.replace(AW_URL_RE, m=>{ const clean=m.replace(/[.,;:]+$/,''), tail=m.slice(clean.length);
+			return `<a href="https://${clean}" target="_blank" rel="noopener">${clean}</a>${tail}`; });
+	}).join('');
+}
+function el(cls,html){ const d=document.createElement('div'); if(cls) d.className=cls; if(html!=null) d.innerHTML=linkifyUrls(html); return d; }
+// Inline SVG icons (monochrome, currentColor) — crisp on any OS/projector. Add your own here.
+const ICONS = {
+	puzzle:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h8v8H3zm10 0h8v8h-8zM3 13h8v8H3zm10 0h8v8h-8z"/></svg>',
+	inbox:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 3h2v5h3l-4 4-4-4h3zM5 14h14v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1z"/></svg>',
+	gear:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M19.14 12.94a7.9 7.9 0 0 0 0-1.88l2-1.56-2-3.46-2.36.96a7.7 7.7 0 0 0-1.62-.94L14.8 2.5h-4l-.36 2.56c-.58.24-1.12.56-1.62.94L6.46 6.04l-2 3.46 2 1.56a7.9 7.9 0 0 0 0 1.88l-2 1.56 2 3.46 2.36-.96c.5.38 1.04.7 1.62.94l.36 2.56h4l.36-2.56c.58-.24 1.12-.56 1.62-.94l2.36.96 2-3.46-2-1.56zM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg>',
+	sparkle:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg>',
+	bulb:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-4 12.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26A7 7 0 0 0 12 2zM9 20h6v1a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1z"/></svg>',
+	check:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.55 17.6 4.4 12.45l1.86-1.86 3.29 3.29 8.19-8.19 1.86 1.86z"/></svg>',
+	bolt:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>',
+	lock:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 10a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1zm3-1V7a4 4 0 1 1 8 0v2h-2V7a2 2 0 1 0-4 0v2z"/></svg>',
+	box:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 3 7v10l9 5 9-5V7zm0 2.3L17.7 7 12 10.2 6.3 7zM5 9.1l6 3.4v6.8l-6-3.3zm14 0v6.9l-6 3.3v-6.8z"/></svg>',
+	key:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M14 2a6 6 0 0 0-5.66 8L2 16.34V22h5.66l.34-.34V20h2v-2h2l.34-.34A6 6 0 1 0 14 2zm2 3a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z"/></svg>',
+	rocket:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2c3 3 4 6 4 9l3 3-4 1-1 4-2-3-2 3-1-4-4-1 3-3c0-3 1-6 4-9zm0 5a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>',
+	health:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 2h6v5h5v6h-5v5H9v-5H4V7h5z"/></svg>',
+	headset:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a8 8 0 0 0-8 8v5a3 3 0 0 0 3 3h1v-7H6v-1a6 6 0 1 1 12 0v1h-2v7h1a3 3 0 0 0 3-3v-5a8 8 0 0 0-8-8z"/></svg>',
+	media:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M4 4h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zm5 4v8l7-4z"/></svg>',
+	book:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v16H6a2 2 0 0 1-2-2zm9 0h7v14a2 2 0 0 1-2 2h-5z"/></svg>',
+	party:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5zm6 11l.9 2.6L21.5 16.5l-2.6.9L18 20l-.9-2.6L14.5 16.5l2.6-.9zM6 14l.7 2 2 .7-2 .7L6 19.4l-.7-2-2-.7 2-.7z"/></svg>',
+	chat:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-4 4v-4H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/></svg>',
+	access:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a2.2 2.2 0 1 1 0 4.4A2.2 2.2 0 0 1 12 2zM4 8h16v2h-5.4l1 12h-2.3l-.7-6h-1.2l-.7 6H8.4l1-12H4z"/></svg>',
+	globe:'<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></g></svg>'
+};
+function icon(name){ return `<span class="ic">${ICONS[name]||''}</span>`; }
+function stepById(id){ return STEPS.find(s=>s.id===id); }
+// Scale the current scene down (never up) so it always fits inside the 16:9 frame — no clipping, no scroll.
+function fitScene(scene){
+	if(!scene) return;
+	scene.style.transform='translate(-50%,-50%) scale(1)';
+	const box=stage.getBoundingClientRect();
+	const availW=box.width-32, availH=box.height-28;
+	const sw=scene.offsetWidth, sh=scene.offsetHeight;
+	if(!sw||!sh) return;
+	const k=Math.min(1, availW/sw, availH/sh);
+	scene.style.transform='translate(-50%,-50%) scale('+k+')';
+}
+function headerEls(scene){ return [scene.querySelector('.scene-title'), scene.querySelector('.scene-lead')]; }
+function buildScene(step){ const s=el('scene'); s.appendChild(el('scene-title', t(step.titleKey))); s.appendChild(el('scene-lead', t(step.descKey))); return s; }
+function maybeCallout(step){ if(!calloutEnabled) return null; const c=el('callout', t(step.calloutKey)); c.style.left='1.5rem'; c.style.top='1.5rem'; stage.appendChild(c); liveEls.push(c); dragify(c, 'aw-m365-callout-pos'); return c; }
+function renderOutline(step,idx){
+	const rows=(step.stats||[]).map(([k,v])=>`<div class="stat-row"><span>${t(k)}</span><span>${t(v)}</span></div>`).join('');
+	outlineBody.innerHTML=`<div class="outline-section"><strong>${t('stepOf')} ${idx+1} / ${STEPS.length}: ${t(step.titleKey)}</strong><p style="margin-top:0.4rem;">${t(step.descKey)}</p></div>${rows?`<div class="outline-section">${rows}</div>`:''}`;
+}
+function announceStep(step,idx){ announcer.textContent=`${t('stepOf')} ${idx+1} / ${STEPS.length}: ${t(step.titleKey)}. ${t(step.descKey)}`; }
+
+// ── RENDER DISPATCH ───────────────────────
+function renderStep(i){
+	if(i<0||i>=STEPS.length) return;
+	if(animating){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; animating=false; }
+	animating=true;
+	const step=STEPS[i];
+	// cross-fade (200ms, CSS keyframes so it's independent of the speed control) — outgoing fades out, incoming fades in, on every step
+	const outgoing=stage.querySelector('.scene:not(.scene-out)');
+	if(outgoing) liveEls=liveEls.filter(x=>x!==outgoing);
+	clearStage();
+	if(outgoing){ outgoing.style.zIndex='5';
+		if(motionPaused){ outgoing.remove(); }
+		else { outgoing.classList.remove('scene-in'); outgoing.classList.add('scene-out'); setTimeout(()=>outgoing.remove(), 240); } }
+	// Measure the scene at its FINISHED state first and reserve that height: the scene is
+	// vertically centred, so a box that fills in later would otherwise shift everything up.
+	const build=()=>{
+		if(step.id==='welcome') renderWelcomeStep();
+		else if(step.id==='licence') renderLicenceStep();
+		else if(step.id==='tenant') renderTenantStep();
+		else if(step.id==='day') renderDayStep();
+		else if(step.id==='store') renderStoreStep();
+		else if(step.id==='protect') renderProtectStep();
+		else if(step.id==='anywhere') renderAnywhereStep();
+		else if(step.id==='copilot') renderCopilotStep();
+	};
+	const reservedH=(()=>{
+		const wasPaused=motionPaused, keptEls=liveEls, keptTls=liveTimelines;
+		motionPaused=true; liveEls=[]; liveTimelines=[];
+		build();
+		const probe=stage.querySelector('.scene:not(.scene-out)');
+		const h=probe?probe.offsetHeight:0;
+		liveTimelines.forEach(tl=>tl.kill()); liveEls.forEach(e=>e.remove());
+		motionPaused=wasPaused; liveEls=keptEls; liveTimelines=keptTls;
+		return h;
+	})();
+	animating=true;
+	build();
+	const incoming=stage.querySelector('.scene:not(.scene-out)');
+	if(incoming && reservedH) incoming.style.minHeight=reservedH+'px';
+	if(incoming && !motionPaused) incoming.classList.add('scene-in');
+	fitScene(incoming);
+	current=i;
+	try{ const u=new URL(location.href); u.searchParams.set('step', String(i+1)); history.replaceState(null,'',u); }catch(_){}
+	counter.textContent=`${t('stepOf')} ${current+1} / ${STEPS.length}`;
+	breadcrumb.textContent=t(step.captionKey);
+	progress.style.width=((current+1)/STEPS.length*100)+'%';
+	renderOutline(step,i); announceStep(step,i);
+	if(typeof playStepAudio==='function') playStepAudio(i);
+	if(typeof armJourneyNext==='function') armJourneyNext(i);
+}
+
+// ── Microsoft 365 app marks + shared scene helpers ──
+const M3_ICONS='../lib/icons/brands/m365/';
+function m3ic(name, px){ return `<img class="m3-ic" src="${M3_ICONS}${name}.svg" alt="" width="${px||28}" height="${px||28}" decoding="async">`; }
+const M3_APPS=[['Word','wcA1'],['Excel','wcA2'],['PowerPoint','wcA3'],['Outlook','wcA4'],['Teams','wcA5'],['OneDrive','wcA6']];
+function m3Timeline(){ const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl); return tl; }
+function m3Header(tl, scene){ tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.5,stagger:0.1,ease:'power2.out'}); }
+// type text into an element (proxy tween — geometry is never measured here)
+function m3Type(tl, elem, text, dur, pos){
+	// Reserve the finished text's box up front: the scene is vertically centred, so a box that
+	// grows line-by-line while typing would shift the whole scene up.
+	const prev=elem.textContent;
+	elem.textContent=text;
+	const hPlain=elem.offsetHeight;
+	elem.classList.add('m3-typing');
+	const hCaret=elem.offsetHeight;   // the caret also stretches the last line box a little
+	elem.classList.remove('m3-typing');
+	elem.textContent=prev;
+	// the caret adds only a few px; if it happened to force a wrap, ignore that extra line
+	const reserved=Math.min(Math.max(hPlain, hCaret), hPlain+4);
+	if(reserved) elem.style.minHeight=reserved+'px';
+	const o={n:0};
+	tl.to(o, {n:text.length, duration:dur, ease:'none',
+		onStart:()=>{ elem.textContent=''; elem.classList.add('m3-typing'); },
+		onUpdate:()=>{ elem.textContent=text.slice(0, Math.ceil(o.n)); },
+		onComplete:()=>{ elem.classList.remove('m3-typing'); elem.textContent=text; }
+	}, pos);
+}
+
+// ── STEP 1 · DAY ONE — the platform, not just apps ──
+function renderWelcomeStep(){
+	const step=stepById('welcome'); const scene=buildScene(step);
+	const box=el('m3-box', `<img src="${M3_ICONS}Microsoft365.svg" alt="" width="44" height="44" decoding="async"><div class="m3-box-tx"><b>${t('wcBox')}</b><span>${t('wcBoxSub')}</span></div>`);
+	const apps=el('m3-approw');
+	M3_APPS.forEach(([n,k])=>apps.appendChild(el('m3-app', `${m3ic(n,44)}<span>${t(k)}</span>`)));
+	scene.appendChild(box); scene.appendChild(apps); stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step); const tiles=apps.querySelectorAll('.m3-app');
+	if(motionPaused){ gsap.set([...headerEls(scene), box, ...tiles], {opacity:1}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
+	const tl=m3Timeline(); m3Header(tl, scene);
+	tl.fromTo(box, {opacity:0,y:18,scale:0.96}, {opacity:1,y:0,scale:1,duration:0.5,ease:'back.out(1.4)'}, '-=0.05');
+	// the apps come OUT of the box
+	tl.fromTo(tiles, {opacity:0,y:-26,scale:0.6}, {opacity:1,y:0,scale:1,duration:0.5,stagger:0.09,ease:'back.out(1.6)'}, '-=0.1');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.3');
+}
+
+// ── STEP 2 · SUBSCRIPTION → LICENCE → ACCOUNT (apps unlock) ──
+function renderLicenceStep(){
+	const step=stepById('licence'); const scene=buildScene(step);
+	const flow=el('m3-flow');
+	const stages=[['\uD83E\uDDFE','lcS1','lcS1s'],['\uD83C\uDFAB','lcS2','lcS2s'],['\uD83D\uDC64','lcS3','lcS3s']];
+	const stageEls=[], arrowEls=[];
+	stages.forEach(([ic,h,s],i)=>{
+		const c=el('m3-stage', `<span class="m3-stage-ic">${ic}</span><b>${t(h)}</b><span>${t(s)}</span>`);
+		flow.appendChild(c); stageEls.push(c);
+		if(i<stages.length-1){ const a=el('m3-arrow','\u2192'); flow.appendChild(a); arrowEls.push(a); }
+	});
+	const lockRow=el('m3-approw m3-lockrow');
+	M3_APPS.forEach(([n,k])=>lockRow.appendChild(el('m3-app is-locked', `${m3ic(n,38)}<span>${t(k)}</span><span class="m3-lock">\uD83D\uDD12</span>`)));
+	const state=el('m3-state', t('lcLocked'));
+	scene.appendChild(flow); scene.appendChild(lockRow); scene.appendChild(state); stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step); const tiles=[...lockRow.querySelectorAll('.m3-app')];
+	if(motionPaused){
+		gsap.set([...headerEls(scene), ...stageEls, ...arrowEls, ...tiles, state], {opacity:1});
+		tiles.forEach(x=>x.classList.remove('is-locked')); state.textContent=t('lcUnlocked'); state.classList.add('is-on');
+		if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return;
+	}
+	const tl=m3Timeline(); m3Header(tl, scene);
+	tl.fromTo(stageEls, {opacity:0,y:18,scale:0.94}, {opacity:1,y:0,scale:1,duration:0.45,stagger:0.18,ease:'back.out(1.4)'}, '-=0.05');
+	tl.fromTo(arrowEls, {opacity:0,x:-10}, {opacity:1,x:0,duration:0.3,stagger:0.18,ease:'power2.out'}, '-=0.7');
+	tl.fromTo(tiles, {opacity:0,y:14}, {opacity:1,y:0,duration:0.35,stagger:0.06,ease:'power2.out'}, '-=0.1');
+	tl.fromTo(state, {opacity:0}, {opacity:1,duration:0.3}, '-=0.2');
+	// the licence lands — apps unlock one by one
+	tiles.forEach((tile,i)=>{
+		tl.to(tile, {scale:1.08, duration:0.16, ease:'power1.out', onStart:()=>tile.classList.remove('is-locked')}, i===0?'+=0.25':'>-0.08')
+		  .to(tile, {scale:1, duration:0.2, ease:'back.out(2)'}, '>');
+	});
+	tl.call(()=>{ state.textContent=t('lcUnlocked'); state.classList.add('is-on'); });
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.2');
+}
+
+// ── STEP 3 · SIGN IN → THE COMPANY TENANT ──
+function renderTenantStep(){
+	const step=stepById('tenant'); const scene=buildScene(step);
+	const row=el('m3-tenantrow');
+	const signin=el('m3-signin', `<div class="m3-si-h">${t('tnSignIn')}</div>`+
+		`<div class="m3-si-f"><span class="m3-si-lbl">Email</span><span class="m3-si-in m3-si-user"></span></div>`+
+		`<div class="m3-si-f"><span class="m3-si-lbl">Password</span><span class="m3-si-in">${t('tnPwd')}</span></div>`+
+		`<div class="m3-si-btn">${t('tnSignIn')}</div>`);
+	const arrow=el('m3-arrow','\u2192');
+	const tenant=el('m3-tenant', `<div class="m3-tn-h"><span class="m3-tn-ic">\uD83C\uDFE2</span>${t('tnTenant')}</div><div class="m3-tn-grid"></div>`);
+	row.appendChild(signin); row.appendChild(arrow); row.appendChild(tenant);
+	const grid=tenant.querySelector('.m3-tn-grid');
+	[['\uD83D\uDC65','tnT1'],['Outlook','tnT2'],['Teams','tnT3'],['OneDrive','tnT4'],['SharePoint','tnT5'],['\uD83D\uDEE1\uFE0F','tnT6']].forEach(([ic,k])=>{
+		const glyph = /^[A-Z]/.test(ic) ? m3ic(ic,26) : `<span class="m3-tc-emoji">${ic}</span>`;
+		grid.appendChild(el('m3-tchip', `${glyph}<span>${t(k)}</span>`));
+	});
+	scene.appendChild(row); stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	const userEl=signin.querySelector('.m3-si-user'), btn=signin.querySelector('.m3-si-btn'), chips=[...grid.querySelectorAll('.m3-tchip')];
+	if(motionPaused){
+		gsap.set([...headerEls(scene), signin, arrow, tenant, ...chips], {opacity:1});
+		userEl.textContent=t('tnUser'); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return;
+	}
+	gsap.set([arrow, tenant], {opacity:0}); gsap.set(chips, {opacity:0});
+	const tl=m3Timeline(); m3Header(tl, scene);
+	tl.fromTo(signin, {opacity:0,y:16,scale:0.97}, {opacity:1,y:0,scale:1,duration:0.45,ease:'power2.out'}, '-=0.05');
+	m3Type(tl, userEl, t('tnUser'), 0.75, '+=0.1');
+	tl.to(btn, {scale:0.94, duration:0.12, ease:'power1.inOut'}, '+=0.2').to(btn, {scale:1, duration:0.2, ease:'back.out(2.4)'}, '>');
+	tl.to(arrow, {opacity:1, duration:0.25}, '-=0.05');
+	tl.fromTo(tenant, {opacity:0,x:20,scale:0.96}, {opacity:1,x:0,scale:1,duration:0.5,ease:'back.out(1.3)'}, '-=0.05');
+	tl.to(chips, {opacity:1, duration:0.32, stagger:0.07, ease:'power2.out'}, '-=0.1');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.2');
+}
+
+// ── STEP 4 · A DAY OF WORK ──
+function renderDayStep(){
+	const step=stepById('day'); const scene=buildScene(step);
+	const list=el('m3-daylist');
+	[['Outlook','dyD1','dyD1s'],['Teams','dyD2','dyD2s'],['Word','dyD3','dyD3s'],['PowerPoint','dyD4','dyD4s'],['Excel','dyD5','dyD5s']]
+		.forEach(([n,h,s])=>list.appendChild(el('m3-day', `${m3ic(n,36)}<div class="m3-day-tx"><b>${t(h)}</b><span>${t(s)}</span></div>`)));
+	const out=el('m3-dayout', `<span class="m3-dayout-ic">\uD83D\uDCE6</span>${t('dyOut')}`);
+	scene.appendChild(list); scene.appendChild(out); stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step); const rows=[...list.querySelectorAll('.m3-day')];
+	if(motionPaused){ gsap.set([...headerEls(scene), ...rows, out], {opacity:1}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
+	const tl=m3Timeline(); m3Header(tl, scene);
+	tl.fromTo(rows, {opacity:0,x:-22}, {opacity:1,x:0,duration:0.42,stagger:0.14,ease:'back.out(1.3)'}, '-=0.05');
+	tl.fromTo(out, {opacity:0,y:14,scale:0.96}, {opacity:1,y:0,scale:1,duration:0.5,ease:'back.out(1.5)'}, '-=0.05');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.3');
+}
+
+// ── STEP 5 · WHERE THE WORK LANDS ──
+function renderStoreStep(){
+	const step=stepById('store'); const scene=buildScene(step);
+	const row=el('m3-srcrow');
+	[['Outlook','stM1','stM1s'],['Teams','stM2','stM2s'],['OneDrive','stM3','stM3s'],['SharePoint','stM4','stM4s']]
+		.forEach(([n,h,s])=>row.appendChild(el('m3-src', `${m3ic(n,38)}<b>${t(h)}</b><span>${t(s)}</span><span class="m3-drop">\u2193</span>`)));
+	const hub=el('m3-hub', `<b>${t('stHub')}</b><span>${t('stHubSub')}</span>`);
+	const box=el('m3-tenant m3-storebox', `<div class="m3-tn-h"><span class="m3-tn-ic">\uD83C\uDFE2</span>${t('tnTenant')}<span class="m3-storenote">${t('stTenantNote')}</span></div>`);
+	box.appendChild(row); box.appendChild(hub);
+	scene.appendChild(box); stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	const cards=[...row.querySelectorAll('.m3-src')], drops=[...row.querySelectorAll('.m3-drop')];
+	if(motionPaused){ gsap.set([...headerEls(scene), box, ...cards, ...drops, hub], {opacity:1}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
+	gsap.set(drops, {opacity:0});
+	const tl=m3Timeline(); m3Header(tl, scene);
+	tl.fromTo(box, {opacity:0,y:16,scale:0.97}, {opacity:1,y:0,scale:1,duration:0.45,ease:'power2.out'}, '-=0.05');
+	tl.fromTo(cards, {opacity:0,y:18,scale:0.95}, {opacity:1,y:0,scale:1,duration:0.45,stagger:0.12,ease:'back.out(1.4)'}, '-=0.1');
+	tl.to(drops, {opacity:1, duration:0.3, stagger:0.1, ease:'power2.out'}, '-=0.15');
+	tl.fromTo(hub, {opacity:0,y:16,scale:0.96}, {opacity:1,y:0,scale:1,duration:0.55,ease:'back.out(1.5)'}, '-=0.1');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.3');
+}
+
+// ── STEP 6 · LABELS, POLICY, ENFORCEMENT ──
+function renderProtectStep(){
+	const step=stepById('protect'); const scene=buildScene(step);
+	const labels=el('m3-labels', `<span class="m3-lbl-h">${t('pxLabelsH')}</span>`);
+	const lbls=[];
+	[['pxL1','l-pub'],['pxL2','l-int'],['pxL3','l-conf']].forEach(([k,c])=>{ const s=el('m3-lbl '+c, t(k)); labels.appendChild(s); lbls.push(s); });
+	const doc=el('m3-doc', `<span class="m3-doc-ic">${m3ic('Word',26)}</span><div class="m3-doc-tx"><b>${t('pxDoc')}</b><span class="m3-doc-badge">${t('pxApplied')}</span></div>`);
+	const share=el('m3-share', `<span>\u2197</span>${t('pxShare')}`);
+	const engine=el('m3-engine', `<span class="m3-eng-ic">\uD83D\uDEE1\uFE0F</span>${t('pxEngine')}`);
+	const outs=el('m3-outs');
+	const outEls=[];
+	[['pxR1','pxR1s','o-allow','\u2713'],['pxR2','pxR2s','o-warn','!'],['pxR3','pxR3s','o-block','\u2715']].forEach(([h,s,c,g])=>{
+		const o=el('m3-out '+c, `<span class="m3-out-g">${g}</span><b>${t(h)}</b><span>${t(s)}</span>`); outs.appendChild(o); outEls.push(o);
+	});
+	scene.appendChild(labels); scene.appendChild(doc); scene.appendChild(share); scene.appendChild(engine); scene.appendChild(outs);
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step); const badge=doc.querySelector('.m3-doc-badge');
+	if(motionPaused){
+		gsap.set([...headerEls(scene), labels, ...lbls, doc, badge, share, engine, ...outEls], {opacity:1});
+		lbls[2].classList.add('is-on'); outEls[2].classList.add('is-hit');
+		if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return;
+	}
+	gsap.set([badge, share, engine], {opacity:0}); gsap.set(outEls, {opacity:0});
+	const tl=m3Timeline(); m3Header(tl, scene);
+	tl.fromTo(labels, {opacity:0,y:14}, {opacity:1,y:0,duration:0.4,ease:'power2.out'}, '-=0.05');
+	tl.fromTo(lbls, {opacity:0,scale:0.85}, {opacity:1,scale:1,duration:0.3,stagger:0.09,ease:'back.out(1.8)'}, '-=0.15');
+	tl.fromTo(doc, {opacity:0,y:16,scale:0.96}, {opacity:1,y:0,scale:1,duration:0.45,ease:'back.out(1.4)'}, '-=0.05');
+	// the admin classifies the file as Confidential
+	tl.to(lbls[2], {scale:1.12, duration:0.18, ease:'power1.out', onStart:()=>lbls[2].classList.add('is-on')}, '+=0.2')
+	  .to(lbls[2], {scale:1, duration:0.22, ease:'back.out(2)'}, '>');
+	tl.to(badge, {opacity:1, duration:0.3, ease:'power2.out'}, '-=0.05');
+	// the user tries to share it out, and the policy engine answers
+	tl.fromTo(share, {opacity:0,x:-18}, {opacity:1,x:0,duration:0.4,ease:'power2.out'}, '+=0.2');
+	tl.fromTo(engine, {opacity:0,scale:0.9}, {opacity:1,scale:1,duration:0.4,ease:'back.out(1.6)'}, '-=0.1');
+	tl.to(engine, {boxShadow:'0 0 0 7px rgba(92,45,145,0.16)', duration:0.3, yoyo:true, repeat:1}, '>-0.05');
+	tl.to(outEls, {opacity:1, duration:0.32, stagger:0.11, ease:'power2.out'}, '-=0.1');
+	tl.call(()=>outEls[2].classList.add('is-hit'));
+	tl.fromTo(outEls[2], {scale:1}, {scale:1.06, duration:0.22, yoyo:true, repeat:1, ease:'power1.inOut'}, '>');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.2');
+}
+
+// ── STEP 7 · DESKTOP OR BROWSER (microsoft365.com mock) ──
+function renderAnywhereStep(){
+	const step=stepById('anywhere'); const scene=buildScene(step);
+	const split=el('m3-split');
+	const left=el('m3-side', `<div class="m3-side-h">${t('awDesktop')}<span>${t('awDesktopSub')}</span></div>`);
+	const deskWrap=el('m3-desk');
+	M3_APPS.forEach(([n,k])=>deskWrap.appendChild(el('m3-deskwin', `<span class="m3-deskbar"></span>${m3ic(n,36)}<span>${t(k)}</span>`)));
+	left.appendChild(deskWrap);
+	const right=el('m3-side', `<div class="m3-side-h">${t('awWeb')}<span>${t('awWebSub')}</span></div>`);
+	const win=el('m3-win',
+		`<div class="m3-winbar"><span class="m3-dots"><i></i><i></i><i></i></span><a class="m3-url" href="https://www.microsoft365.com" target="_blank" rel="noopener noreferrer" title="${t('openNewTab')}">\uD83D\uDD12 microsoft365.com</a></div>`+
+		`<div class="m3-winbody"><div class="m3-webhead"><img src="${M3_ICONS}Microsoft365.svg" alt="" width="20" height="20"><b>${t('awHome')}</b><span class="m3-webgreet">${t('awGreet')}</span></div>`+
+		`<div class="m3-webgrid"></div><div class="m3-webtoast"></div></div>`);
+	const wg=win.querySelector('.m3-webgrid');
+	M3_APPS.forEach(([n,k])=>wg.appendChild(el('m3-webcard', `${m3ic(n,30)}<span>${t(k)}</span>`)));
+	right.appendChild(win);
+	split.appendChild(left); split.appendChild(right);
+	const foot=el('m3-webfoot', t('awTry'));
+	scene.appendChild(split); scene.appendChild(foot); stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	const wins=[...deskWrap.querySelectorAll('.m3-deskwin')], cards=[...wg.querySelectorAll('.m3-webcard')],
+		toast=win.querySelector('.m3-webtoast'), wordCard=cards[0];
+	if(motionPaused){
+		gsap.set([...headerEls(scene), left, right, ...wins, ...cards, toast, foot], {opacity:1});
+		wordCard.classList.add('is-open'); toast.textContent=t('awSaved'); toast.classList.add('is-saved');
+		if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return;
+	}
+	gsap.set([toast, foot], {opacity:0});
+	const tl=m3Timeline(); m3Header(tl, scene);
+	tl.fromTo([left,right], {opacity:0,y:16}, {opacity:1,y:0,duration:0.45,stagger:0.12,ease:'power2.out'}, '-=0.05');
+	tl.fromTo(wins, {opacity:0,y:14,scale:0.95}, {opacity:1,y:0,scale:1,duration:0.4,stagger:0.1,ease:'back.out(1.4)'}, '-=0.2');
+	tl.fromTo(cards, {opacity:0,y:12,scale:0.9}, {opacity:1,y:0,scale:1,duration:0.35,stagger:0.07,ease:'back.out(1.6)'}, '-=0.25');
+	// the learner "clicks" Word on the web — it opens, then saves back to the cloud
+	tl.to(wordCard, {scale:0.93, duration:0.14, ease:'power1.inOut'}, '+=0.3')
+	  .to(wordCard, {scale:1, duration:0.22, ease:'back.out(2.2)', onStart:()=>wordCard.classList.add('is-open')}, '>');
+	tl.call(()=>{ toast.textContent=t('awOpen'); toast.classList.remove('is-saved'); });
+	tl.to(toast, {opacity:1, duration:0.3}, '>-0.05');
+	tl.call(()=>{ toast.textContent=t('awSaved'); toast.classList.add('is-saved'); }, null, '+=0.55');
+	tl.fromTo(toast, {scale:0.94}, {scale:1, duration:0.3, ease:'back.out(2)'}, '>');
+	tl.to(foot, {opacity:1, duration:0.4}, '-=0.1');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.2');
+}
+
+// ── STEP 8 · MEET MICROSOFT 365 COPILOT ──
+function renderCopilotStep(){
+	const step=stepById('copilot'); const scene=buildScene(step);
+	const wrap=el('m3-cpwrap');
+	const sources=el('m3-cpsrc');
+	['Outlook','Teams','OneDrive','SharePoint','Word','PowerPoint'].forEach(n=>sources.appendChild(el('m3-cpchip', m3ic(n,28))));
+	const chat=el('m3-chat',
+		`<div class="m3-chat-h"><img src="../lib/icons/brands/Microsoft365Copilot.svg" alt="" width="22" height="22" decoding="async"><b>Microsoft 365 Copilot</b><span class="m3-chat-tag">${t('cpGrounded')}</span></div>`+
+		`<div class="m3-bub m3-bub-user"></div>`+
+		`<div class="m3-bub m3-bub-bot"><span class="m3-reply"></span><span class="m3-srcs"></span></div>`);
+	const srcs=chat.querySelector('.m3-srcs');
+	[['cpSrc1','Outlook'],['cpSrc2','Teams'],['cpSrc3','SharePoint']].forEach(([k,n])=>srcs.appendChild(el('m3-srcchip', `${m3ic(n,15)}<span>${t(k)}</span>`)));
+	const compare=el('m3-compare',
+		`<div class="m3-cmp m3-cmp-before"><b>${t('cpBeforeH')}</b><span>${t('cpBefore')}</span></div>`+
+		`<div class="m3-cmp-arrow">\u2192</div>`+
+		`<div class="m3-cmp m3-cmp-after"><b>${t('cpAfterH')}</b><span>${t('cpAfter')}</span></div>`);
+	const foot=el('m3-cpfoot', t('cpFoot'));
+	wrap.appendChild(sources); wrap.appendChild(chat);
+	scene.appendChild(wrap); scene.appendChild(compare); scene.appendChild(foot);
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	const chips=[...sources.querySelectorAll('.m3-cpchip')], userBub=chat.querySelector('.m3-bub-user'),
+		botBub=chat.querySelector('.m3-bub-bot'), replyEl=chat.querySelector('.m3-reply'),
+		srcChips=[...srcs.querySelectorAll('.m3-srcchip')], cmps=[...compare.querySelectorAll('.m3-cmp, .m3-cmp-arrow')];
+	if(motionPaused){
+		gsap.set([...headerEls(scene), ...chips, chat, userBub, botBub, ...srcChips, ...cmps, foot], {opacity:1});
+		userBub.textContent=t('cpPrompt'); replyEl.textContent=t('cpReply');
+		if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return;
+	}
+	gsap.set([userBub, botBub], {opacity:0}); gsap.set(srcChips, {opacity:0}); gsap.set(cmps, {opacity:0}); gsap.set(foot, {opacity:0});
+	replyEl.textContent='';
+	const tl=m3Timeline(); m3Header(tl, scene);
+	// every service from the journey converges on Copilot
+	tl.fromTo(chips, {opacity:0,y:-14,scale:0.7}, {opacity:1,y:0,scale:1,duration:0.4,stagger:0.08,ease:'back.out(1.7)'}, '-=0.05');
+	tl.fromTo(chat, {opacity:0,y:16,scale:0.97}, {opacity:1,y:0,scale:1,duration:0.45,ease:'power2.out'}, '-=0.1');
+	tl.to(userBub, {opacity:1, duration:0.2}, '>-0.1');
+	m3Type(tl, userBub, t('cpPrompt'), 0.85, '>');
+	tl.to(botBub, {opacity:1, duration:0.3, ease:'power2.out'}, '+=0.2');
+	m3Type(tl, replyEl, t('cpReply'), 1.5, '>-0.05');
+	tl.to(srcChips, {opacity:1, duration:0.3, stagger:0.1, ease:'power2.out'}, '+=0.1');
+	tl.fromTo(cmps, {opacity:0,y:12}, {opacity:1,y:0,duration:0.4,stagger:0.1,ease:'back.out(1.4)'}, '+=0.15');
+	tl.to(foot, {opacity:1, duration:0.4}, '-=0.05');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.2');
+}
+
+// ── CONTROLS ──────────────────────────────
+function focusHeading(){ const h=document.getElementById('stage-heading'); if(h){ try{ h.focus({preventScroll:true}); }catch(_){ h.focus(); } } }
+function interruptAnimation(){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; animating=false; }
+function next(){ interruptAnimation(); if(current<STEPS.length-1){ renderStep(current+1); focusHeading(); } }
+function prev(){ interruptAnimation(); if(current>0){ renderStep(current-1); focusHeading(); } }
+function reset(){ interruptAnimation(); renderStep(0); focusHeading(); }
+function replay(){ if(current<0) return; interruptAnimation(); renderStep(current); focusHeading(); }
+
+// ── Hide / show top bar (toggle; the ^ chevron flips to v when hidden) ──
+(function(){
+	const hideBtn=document.getElementById('header-hide'), revealBtn=document.getElementById('header-reveal');
+	if(!hideBtn||!revealBtn) return;
+	var hideBtnTop=document.getElementById('header-hide-top'); if(hideBtnTop) hideBtnTop.addEventListener('click',function(e){ e.stopPropagation(); hideBtn.click(); });
+	const hidePath=hideBtn.querySelector('svg path');
+	const UP='M6 15l6-6 6 6', DOWN='M6 9l6 6 6-6';   // ^ points up to hide the bar; flips to v to show it again
+	function setHidden(h){
+		document.body.classList.toggle('chrome-hidden',h);
+		hideBtn.setAttribute('aria-expanded',String(!h));
+		hideBtn.setAttribute('aria-label',h?'Show top bar':'Hide top bar');
+		hideBtn.title=(h?'Show top bar':'Hide top bar')+' (H)';
+		if(hidePath) hidePath.setAttribute('d',h?DOWN:UP);
+		try{localStorage.setItem('aw-m365-chrome-hidden',h?'1':'0');}catch(_){}
+		if(current>=0) requestAnimationFrame(()=>{ const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s); });
+	}
+	hideBtn.addEventListener('click',e=>{e.stopPropagation();setHidden(!document.body.classList.contains('chrome-hidden'));});
+	revealBtn.addEventListener('click',e=>{e.stopPropagation();setHidden(false);});
+	try{ if(localStorage.getItem('aw-m365-chrome-hidden')==='1') setHidden(true); }catch(_){}
+	document.addEventListener('keydown',e=>{ if(e.code==='KeyH'&&!e.metaKey&&!e.ctrlKey&&!e.altKey){ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return; e.preventDefault(); setHidden(!document.body.classList.contains('chrome-hidden')); } });
+})();
+
+document.getElementById('next-btn').addEventListener('click',e=>{e.stopPropagation();next();});
+document.getElementById('prev-btn').addEventListener('click',e=>{e.stopPropagation();prev();});
+document.getElementById('reset-btn').addEventListener('click',e=>{e.stopPropagation();reset();});
+document.getElementById('replay-btn').addEventListener('click',e=>{e.stopPropagation();replay();});
+
+// ── Clickable progress bar + step ticks ──
+(function(){
+	const track=document.querySelector('.progress-track'); if(!track) return;
+	for(let s=1; s<STEPS.length; s++){ const tk=document.createElement('div'); tk.className='progress-tick'; tk.style.left=(s/STEPS.length*100)+'%'; track.appendChild(tk); }
+	track.setAttribute('title','Jump to a step');
+	track.addEventListener('click', e=>{
+		const r=track.getBoundingClientRect(); const frac=(e.clientX-r.left)/r.width;
+		const target=Math.max(0, Math.min(STEPS.length-1, Math.floor(frac*STEPS.length)));
+		if(target!==current){ interruptAnimation(); renderStep(target); focusHeading(); }
+	});
+})();
+
+// ── Movable / pinnable control dock ───────
+(function(){
+	const dock=document.getElementById('controls'), grip=document.getElementById('ctrl-grip'), pin=document.getElementById('ctrl-pin');
+	if(!dock||!grip) return;
+	const KEY='aw-m365-controls-pos';
+	let dragging=false, sx=0, sy=0, bl=0, bt=0, moved=false;
+	function place(left,top){
+		const w=dock.offsetWidth, h=dock.offsetHeight;
+		left=Math.max(6, Math.min(left, window.innerWidth - w - 6));
+		top =Math.max(6, Math.min(top,  window.innerHeight - h - 6));
+		dock.style.left=left+'px'; dock.style.top=top+'px'; dock.style.right='auto'; dock.style.bottom='auto'; dock.style.transform='none';
+		document.body.classList.add('controls-floating');
+	}
+	function recenter(){
+		dock.style.left=dock.style.top=dock.style.right=dock.style.bottom=dock.style.transform='';
+		document.body.classList.remove('controls-floating');
+		try{ localStorage.removeItem(KEY); }catch(_){}
+	}
+	grip.addEventListener('pointerdown', e=>{
+		e.preventDefault(); dragging=true; moved=false;
+		const r=dock.getBoundingClientRect(); bl=r.left; bt=r.top; sx=e.clientX; sy=e.clientY;
+		try{ grip.setPointerCapture(e.pointerId); }catch(_){}
+	});
+	grip.addEventListener('pointermove', e=>{
+		if(!dragging) return;
+		const dx=e.clientX-sx, dy=e.clientY-sy;
+		if(Math.abs(dx)>2||Math.abs(dy)>2) moved=true;
+		place(bl+dx, bt+dy);
+	});
+	function end(e){ if(!dragging) return; dragging=false; try{ grip.releasePointerCapture(e.pointerId); }catch(_){}
+		if(moved){ try{ const r=dock.getBoundingClientRect(); localStorage.setItem(KEY, JSON.stringify({left:r.left, top:r.top})); }catch(_){} } }
+	grip.addEventListener('pointerup', end); grip.addEventListener('pointercancel', end);
+	// keyboard-nudge the dock when the grip is focused (arrow keys; Shift = larger step)
+	grip.addEventListener('keydown', e=>{
+		const d=e.shiftKey?40:12; const r=dock.getBoundingClientRect(); let ok=true;
+		if(e.key==='ArrowLeft') place(r.left-d, r.top);
+		else if(e.key==='ArrowRight') place(r.left+d, r.top);
+		else if(e.key==='ArrowUp') place(r.left, r.top-d);
+		else if(e.key==='ArrowDown') place(r.left, r.top+d);
+		else ok=false;
+		if(ok){ e.preventDefault(); e.stopPropagation(); }
+	});
+	if(pin) pin.addEventListener('click', e=>{ e.stopPropagation(); recenter(); });
+	window.addEventListener('resize', ()=>{ if(document.body.classList.contains('controls-floating')){ const r=dock.getBoundingClientRect(); place(r.left, r.top); } });
+	try{ const s=JSON.parse(localStorage.getItem(KEY)||'null'); if(s && typeof s.left==='number') place(s.left, s.top); }catch(_){}
+})();
+
+// ── Make callout / outline / caption draggable (same pointer-drag as the control dock) ──
+function dragify(el, key){
+	if(!el || el.__awDrag) return; el.__awDrag=true;
+	let dragging=false, sx=0, sy=0, bl=0, bt=0, moved=false;
+	const resizable = getComputedStyle(el).resize !== 'none';
+	const sizeKey = key ? key + '-size' : null;
+	// snapshot the home position + size so the reset pin can restore it exactly
+	const home={ position:el.style.position, left:el.style.left, top:el.style.top,
+		right:el.style.right, bottom:el.style.bottom, margin:el.style.margin, transform:el.style.transform,
+		width:el.style.width, height:el.style.height };
+	// reset "pin" — hidden until the panel is dragged or resized off its home spot
+	const pin=document.createElement('button');
+	pin.type='button'; pin.className='aw-drag-reset';
+	pin.title=t('resetPos'); pin.setAttribute('aria-label', t('resetPos'));
+	pin.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>';
+	// keep the pin inside scrollable / resizable panels so it isn't clipped
+	const oy=getComputedStyle(el).overflowY; const clips=(oy==='auto'||oy==='scroll'||oy==='hidden');
+	pin.style.top=clips?'8px':'-10px'; pin.style.right=clips?'8px':'-10px';
+	el.appendChild(pin);
+	function showPin(on){ pin.style.display=on?'flex':'none'; }
+	pin.addEventListener('pointerdown', e=>{ e.stopPropagation(); });
+	pin.addEventListener('click', e=>{
+		e.preventDefault(); e.stopPropagation();
+		el.style.position=home.position; el.style.left=home.left; el.style.top=home.top;
+		el.style.right=home.right; el.style.bottom=home.bottom; el.style.margin=home.margin; el.style.transform=home.transform;
+		el.style.width=home.width; el.style.height=home.height;
+		if(key){ try{ localStorage.removeItem(key); }catch(_){} }
+		if(sizeKey){ try{ localStorage.removeItem(sizeKey); }catch(_){} }
+		showPin(false);
+	});
+	function fix(left,top){
+		const w=el.offsetWidth, h=el.offsetHeight;
+		left=Math.max(6, Math.min(left, window.innerWidth  - w - 6));
+		top =Math.max(6, Math.min(top,  window.innerHeight - h - 6));
+		el.style.position='fixed'; el.style.left=left+'px'; el.style.top=top+'px';
+		el.style.right='auto'; el.style.bottom='auto'; el.style.margin='0'; el.style.transform='none';
+	}
+	// persist user resizes (the CSS resize grip writes inline width/height; content changes don't)
+	if(resizable && typeof ResizeObserver!=='undefined'){
+		let rt;
+		new ResizeObserver(()=>{
+			if(el.style.width || el.style.height){
+				showPin(true);
+				if(sizeKey){ clearTimeout(rt); rt=setTimeout(()=>{ try{ localStorage.setItem(sizeKey, JSON.stringify({w:el.style.width, h:el.style.height})); }catch(_){} }, 150); }
+			}
+		}).observe(el);
+	}
+	el.addEventListener('pointerdown', e=>{
+		if(e.button!==0 || (e.target.closest && e.target.closest('a,button,select,input,textarea'))) return;
+		if(resizable){ const r=el.getBoundingClientRect(); if(e.clientX>r.right-18 && e.clientY>r.bottom-18) return; } // let the resize grip win
+		dragging=true; moved=false;
+		const r=el.getBoundingClientRect(); bl=r.left; bt=r.top; sx=e.clientX; sy=e.clientY;
+		fix(bl, bt);   // pin at the current spot first, so there's no jump
+		try{ el.setPointerCapture(e.pointerId); }catch(_){}
+		e.preventDefault();
+	});
+	el.addEventListener('pointermove', e=>{
+		if(!dragging) return;
+		const dx=e.clientX-sx, dy=e.clientY-sy;
+		if(Math.abs(dx)>2||Math.abs(dy)>2) moved=true;
+		fix(bl+dx, bt+dy);
+	});
+	function end(e){
+		if(!dragging) return; dragging=false;
+		try{ el.releasePointerCapture(e.pointerId); }catch(_){}
+		if(moved){ showPin(true); if(key){ try{ const r=el.getBoundingClientRect(); localStorage.setItem(key, JSON.stringify({left:r.left, top:r.top})); }catch(_){} } }
+	}
+	el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+	if(sizeKey){ try{ const z=JSON.parse(localStorage.getItem(sizeKey)||'null'); if(z && (z.w||z.h)){ if(z.w) el.style.width=z.w; if(z.h) el.style.height=z.h; showPin(true); } }catch(_){} }
+	if(key){ try{ const s=JSON.parse(localStorage.getItem(key)||'null'); if(s && isFinite(s.left) && isFinite(s.top)){ fix(s.left, s.top); showPin(true); } }catch(_){} }
+}
+dragify(document.getElementById('step-outline'), 'aw-m365-outline-pos');
+dragify(document.getElementById('aw-caption'), 'aw-m365-caption-pos');
+
+// ── Speed ─────────────────────────────────
+const SPEED_STEPS=[0.5,0.75,1,1.25,1.5,2]; const BASE_TIMESCALE=0.25;
+let speedIndex=SPEED_STEPS.indexOf(1);
+try{ const sp=parseInt(localStorage.getItem('aw-m365-speed'),10); if(!isNaN(sp)&&sp>=0&&sp<SPEED_STEPS.length) speedIndex=sp; }catch(_){}
+const speedLabel=document.getElementById('speed-label'), speedDownBtn=document.getElementById('speed-down'), speedUpBtn=document.getElementById('speed-up');
+function saveSpeed(){ try{ localStorage.setItem('aw-m365-speed', String(speedIndex)); }catch(_){} }
+function syncSpeedUI(){ const spd=SPEED_STEPS[speedIndex]; speedLabel.textContent=spd+'\u00d7'; speedDownBtn.disabled=speedIndex===0; speedUpBtn.disabled=speedIndex===SPEED_STEPS.length-1; gsap.globalTimeline.timeScale(spd*BASE_TIMESCALE); }
+syncSpeedUI();
+speedDownBtn.addEventListener('click',e=>{e.stopPropagation(); if(speedIndex>0){speedIndex--;syncSpeedUI();saveSpeed();}});
+speedUpBtn.addEventListener('click',e=>{e.stopPropagation(); if(speedIndex<SPEED_STEPS.length-1){speedIndex++;syncSpeedUI();saveSpeed();}});
+
+// ── Keyboard ──────────────────────────────
+if (window.AW && AW.keyboard) { AW.keyboard.bind({ next, prev, reset, replay }); }
+else { document.addEventListener('keydown', e => {
+	if (['Space','ArrowRight','Enter'].includes(e.code)) { e.preventDefault(); next(); }
+	else if (e.code==='ArrowLeft') { e.preventDefault(); prev(); }
+	else if (e.code==='KeyR') { e.preventDefault(); reset(); }
+	else if (e.code==='KeyP') { e.preventDefault(); replay(); }
+}); }
+
+// ── Touch swipe (tablets) ─────────────────
+(function(){
+	const surf=document.getElementById('stage'); if(!surf) return;
+	let x0=null,y0=null,t0=0;
+	surf.addEventListener('touchstart',e=>{ if(e.touches.length!==1){x0=null;return;} x0=e.touches[0].clientX; y0=e.touches[0].clientY; t0=Date.now(); },{passive:true});
+	surf.addEventListener('touchend',e=>{
+		if(x0===null) return; const tch=e.changedTouches[0]; const dx=tch.clientX-x0, dy=tch.clientY-y0; x0=null;
+		if(Date.now()-t0>800) return;
+		if(Math.abs(dx)>50 && Math.abs(dx)>Math.abs(dy)*1.6){ if(dx<0) next(); else prev(); }
+	},{passive:true});
+})();
+
+// ── Keyboard shortcut help overlay ────────
+(function(){
+	const overlay=document.getElementById('shortcut-overlay'), btn=document.getElementById('help-toggle'), closeBtn=document.getElementById('sc-close'), list=document.getElementById('sc-list');
+	if(!overlay||!list) return;
+	const ROWS=[[['\u2192','Space'],'scNext'],[['\u2190'],'scPrev'],[['R'],'scRestart'],[['P'],'scReplay'],[['H'],'scHide'],[['?'],'scHelp']];
+	window.buildShortcuts=function(){ const title=document.getElementById('sc-title'); if(title) title.textContent=t('scTitle');
+		list.innerHTML=ROWS.map(([keys,k])=>`<li><span>${t(k)}</span><span class="sc-keys">${keys.map(x=>`<kbd>${x}</kbd>`).join('')}</span></li>`).join(''); };
+	buildShortcuts();
+	function open(){ overlay.removeAttribute('hidden'); if(closeBtn) closeBtn.focus(); }
+	function close(){ overlay.setAttribute('hidden',''); if(btn) btn.focus(); }
+	function toggle(){ overlay.hasAttribute('hidden')?open():close(); }
+	if(btn) btn.addEventListener('click',e=>{e.stopPropagation();toggle();});
+	if(closeBtn) closeBtn.addEventListener('click',e=>{e.stopPropagation();close();});
+	const bd=overlay.querySelector('.sc-backdrop'); if(bd) bd.addEventListener('click',close);
+	document.addEventListener('keydown',e=>{ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return;
+		if(e.key==='?'){ e.preventDefault(); toggle(); }
+		else if(e.key==='Escape' && !overlay.hasAttribute('hidden')){ e.preventDefault(); close(); } });
+})();
+
+// ── Resize (re-fit only — never rebuild or replay the animation) ──
+let resizeTimer, lastStageW=0, lastStageH=0;
+window.addEventListener('resize',()=>{ clearTimeout(resizeTimer); resizeTimer=setTimeout(()=>{
+	if(current<0) return;
+	const box=stage.getBoundingClientRect();
+	if(Math.abs(box.width-lastStageW)<1 && Math.abs(box.height-lastStageH)<1) return;   // ignore no-op reflows (focus/URL-bar) so the animation never restarts
+	lastStageW=box.width; lastStageH=box.height;
+	const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s);
+},200); });
+
+// ── "Up next" destination — the next stop in the Copilot journey ──
+var NEXT_STOP = {
+	href: 'M365Copilot.html',
+	iconSrc: '../lib/icons/brands/Microsoft365Copilot.svg',
+	i18n: { en: { eyebrow: 'Up next', title: 'Meet Microsoft 365 Copilot', cta: 'Continue' } }
+};
+
+// ── "Up next" pill (last step → next journey stop) ──
+var jnEl = document.getElementById('journey-next');
+var jnTimer = null, jnDismissed = false;
+function refreshJourneyNext(){
+	if(!jnEl || !NEXT_STOP || !NEXT_STOP.href) return;
+	var d = (NEXT_STOP.i18n && (NEXT_STOP.i18n[currentLang] || NEXT_STOP.i18n.en)) || {};
+	var q = '?lang=' + encodeURIComponent(currentLang || 'en');
+	var set = function(id,val){ var e=document.getElementById(id); if(e && val!=null) e.textContent=val; };
+	set('jn-eyebrow-text', d.eyebrow);
+	set('jn-title', d.title);
+	set('jn-cta-text', d.cta);
+	var img=document.getElementById('jn-icon-img'); if(img && NEXT_STOP.iconSrc) img.src=NEXT_STOP.iconSrc;
+	var cta=document.getElementById('jn-cta'); if(cta) cta.setAttribute('href', NEXT_STOP.href + q);
+}
+function hideJourneyNext(){ if(jnEl){ jnEl.classList.remove('show'); jnEl.setAttribute('aria-hidden','true'); } }
+function showJourneyNext(){ if(document.body.classList.contains('aw-prestart')) return; if(jnEl && !jnDismissed){ jnEl.classList.add('show'); jnEl.setAttribute('aria-hidden','false'); } }
+function armJourneyNext(i){
+	if(jnTimer){ clearTimeout(jnTimer); jnTimer=null; }
+	var isLast = (i === STEPS.length-1) && NEXT_STOP && NEXT_STOP.href;
+	if(!isLast){ jnDismissed=false; hideJourneyNext(); return; }
+	jnDismissed=false;
+	jnTimer=setTimeout(function(){ jnTimer=null; showJourneyNext(); }, motionPaused ? 0 : 1100);
+}
+if(jnEl){
+	var jnCloseBtn=document.getElementById('jn-close');
+	if(jnCloseBtn) jnCloseBtn.addEventListener('click', function(e){ e.stopPropagation(); jnDismissed=true; hideJourneyNext(); });
+	document.addEventListener('keydown', function(e){ if(e.key==='Escape' && jnEl.classList.contains('show')){ jnDismissed=true; hideJourneyNext(); } });
+}
+
+// ── Init ──────────────────────────────────
+setLanguage(currentLang);
+counter.textContent = `1 / ${STEPS.length}`;
+const urlStep = parseInt(new URLSearchParams(location.search).get('step'), 10);   // ?step=N opens on step N
+renderStep((!isNaN(urlStep) && urlStep>=1 && urlStep<=STEPS.length) ? urlStep-1 : 0);
+</script>
+<script>
+// ── Start gate · hold autoplay until the viewer clicks Play (empty stage + centered Play) ──
+(function () {
+	if (new URLSearchParams(location.search).has('present')) return;
+	var stage = document.getElementById('stage');
+	if (!stage) return;
+	function freeze() { try { if (window.gsap && gsap.globalTimeline) gsap.globalTimeline.pause(); } catch (_) {} }
+	freeze(); requestAnimationFrame(freeze);
+	document.body.classList.add('aw-prestart');
+	try { if (typeof stopAudio === 'function') stopAudio(); } catch (_) {}
+	stage.style.transition = 'opacity .55s ease';
+	stage.style.opacity = '0';
+
+	var T = {
+		title: { en:'Ready to begin?', es:'\u00BFTodo listo?', ja:'\u6E96\u5099\u306F\u3044\u3044\u3067\u3059\u304B\uFF1F', ko:'\uC2DC\uC791\uD560 \uC900\uBE44\uAC00 \uB418\uC168\uB098\uC694?', pt:'Tudo pronto?' },
+		sound: { en:'Sound', es:'Sonido', ja:'\u97F3\u58F0', ko:'\uC18C\uB9AC', pt:'Som' },
+		cc:    { en:'Subtitles (CC)', es:'Subt\u00EDtulos (CC)', ja:'\u5B57\u5E55\uFF08CC\uFF09', ko:'\uC790\uB9C9 (CC)', pt:'Legendas (CC)' },
+		start: { en:'Start presentation', es:'Iniciar presentaci\u00F3n', ja:'\u30D7\u30EC\u30BC\u30F3\u3092\u958B\u59CB', ko:'\uD504\uB808\uC820\uD14C\uC774\uC158 \uC2DC\uC791', pt:'Iniciar apresenta\u00E7\u00E3o' }
+	};
+	function L(){ return (typeof currentLang === 'string' && currentLang) || (typeof CURRENT_LANG === 'string' && CURRENT_LANG) || 'en'; }
+	function t(k){ var m = T[k], l = L(); return m[m[l] ? l : 'en']; }
+	function awAudioState(){ try{ if(typeof window.__awAudioOn==='function') return !!window.__awAudioOn(); }catch(_){} return (typeof audioEnabled!=='undefined') && !!audioEnabled; }
+	function awCcState(){ try{ if(typeof window.__awCcOn!=='undefined' && window.__awCcOn!==null) return !!window.__awCcOn; }catch(_){} return (typeof ccPref!=='undefined') && !!ccPref; }
+
+	var style = document.createElement('style');
+	style.textContent =
+		'body.aw-prestart #controls{opacity:.4;pointer-events:none;transition:opacity .4s ease}' +
+		'#aw-play-card{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:50;box-sizing:border-box;width:min(90vw,22rem);padding:1.35rem 1.5rem 1.5rem;border-radius:16px;background:var(--theme-card-background,#fff);color:var(--theme-text,#222);border:1px solid var(--theme-border,rgba(0,0,0,.1));box-shadow:0 24px 60px rgba(0,0,0,.28);transition:opacity .3s ease,transform .3s ease}' +
+		'#aw-play-card.aw-hide{opacity:0;transform:translate(-50%,-50%) scale(.96);pointer-events:none}' +
+		'body.theme-dark #aw-play-card{border-color:rgba(255,255,255,.12);box-shadow:0 24px 60px rgba(0,0,0,.55)}' +
+		'body.present-mode #aw-play-card{display:none!important}' +
+		'.aw-card-title{margin:0 0 1rem;text-align:center;font-size:1.02rem;font-weight:800;letter-spacing:.03em;text-transform:uppercase;opacity:.85}' +
+		'.aw-row{display:flex;align-items:center;gap:.65rem;padding:.6rem 0}' +
+		'.aw-row + .aw-row{border-top:1px solid var(--theme-border,rgba(0,0,0,.08))}' +
+		'.aw-row-ico{flex:none;width:1.5rem;text-align:center;font-size:1.15rem;line-height:1}' +
+		'.aw-row-lbl{flex:1 1 auto;font-size:.9rem;font-weight:600}' +
+		'.aw-row-state{flex:none;min-width:2.5rem;text-align:right;font-size:.68rem;font-weight:800;letter-spacing:.05em;opacity:.5}' +
+		'.aw-row-state.on{color:var(--theme-primary,#0078d4);opacity:1}' +
+		'.aw-switch{position:relative;flex:none;width:44px;height:24px;padding:0;border:none;border-radius:999px;cursor:pointer;background:var(--theme-border,#c7c7d1);transition:background .18s ease}' +
+		'.aw-switch.on{background:var(--theme-primary,#0078d4)}' +
+		'.aw-switch::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.4);transition:transform .18s ease}' +
+		'.aw-switch.on::after{transform:translateX(20px)}' +
+		'#aw-start{margin-top:1.2rem;width:100%;display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:.8rem 1rem;border:none;border-radius:11px;cursor:pointer;background:var(--theme-primary,#0078d4);color:#fff;font-size:.96rem;font-weight:700;letter-spacing:.01em;box-shadow:0 8px 22px var(--theme-primary-translucent,rgba(0,120,212,.45));transition:transform .15s ease}' +
+		'#aw-start:hover{transform:translateY(-2px)}#aw-start:active{transform:scale(.98)}' +
+		'#aw-start svg{width:18px;height:18px;flex:none}';
+	document.head.appendChild(style);
+
+	var card = document.createElement('div');
+	card.id = 'aw-play-card'; card.setAttribute('role', 'dialog'); card.setAttribute('aria-modal', 'true');
+	card.innerHTML =
+		'<div class="aw-card-title"></div>' +
+		'<div class="aw-row" data-k="audio"><span class="aw-row-ico" aria-hidden="true">\uD83D\uDD0A</span><span class="aw-row-lbl"></span><span class="aw-row-state"></span><button type="button" class="aw-switch" role="switch"></button></div>' +
+		'<div class="aw-row" data-k="cc"><span class="aw-row-ico" aria-hidden="true">\uD83D\uDCAC</span><span class="aw-row-lbl"></span><span class="aw-row-state"></span><button type="button" class="aw-switch" role="switch"></button></div>' +
+		'<button type="button" id="aw-start"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 5v14l11-7z"/></svg><span class="aw-start-lbl"></span></button>';
+	document.body.appendChild(card);
+
+	var titleEl = card.querySelector('.aw-card-title');
+	var startBtn = card.querySelector('#aw-start');
+	var ROWS = [ { k:'audio', lbl:'sound', el:card.querySelector('.aw-row[data-k="audio"]'), read:awAudioState, toggle:'audio-toggle' },
+	             { k:'cc',    lbl:'cc',    el:card.querySelector('.aw-row[data-k="cc"]'),    read:awCcState,    toggle:'cc-toggle' } ];
+
+	function render(){
+		titleEl.textContent = t('title'); card.setAttribute('aria-label', t('title'));
+		startBtn.querySelector('.aw-start-lbl').textContent = t('start');
+		ROWS.forEach(function(r){
+			var on = r.read();
+			r.el.querySelector('.aw-row-lbl').textContent = t(r.lbl);
+			var st = r.el.querySelector('.aw-row-state'); st.textContent = on ? 'ON' : 'OFF'; st.classList.toggle('on', on);
+			var sw = r.el.querySelector('.aw-switch'); sw.classList.toggle('on', on); sw.setAttribute('aria-checked', on ? 'true' : 'false');
+			sw.setAttribute('aria-label', t(r.lbl) + ' \u2014 ' + (on ? 'on' : 'off'));
+		});
+	}
+	ROWS.forEach(function(r){
+		r.el.querySelector('.aw-switch').addEventListener('click', function(e){ e.stopPropagation(); var b = document.getElementById(r.toggle); if(b) b.click(); render(); });
+	});
+	render();
+
+	var sel = document.getElementById('lang-select');
+	// Only re-freeze while the gate is still up — after Play, freezing would pause the
+	// global timeline for good and every later scene would stay at opacity 0 (blank stage).
+	if (sel) sel.addEventListener('change', function () { if (done) return; render(); freeze(); });
+
+	function gateKeys(e) {
+		if (done) return;
+		var tag = (e.target && e.target.tagName || '').toLowerCase();
+		if (tag === 'select' || tag === 'input' || tag === 'textarea') return;
+		if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'].indexOf(e.key) >= 0) { e.preventDefault(); e.stopPropagation(); }
+	}
+	document.addEventListener('keydown', gateKeys, true);
+
+	var done = false;
+	function start() {
+		if (done) return; done = true;
+		document.removeEventListener('keydown', gateKeys, true);
+		document.body.classList.remove('aw-prestart');
+		card.classList.add('aw-hide');
+		setTimeout(function () { if (card.parentNode) card.parentNode.removeChild(card); if (style.parentNode) style.parentNode.removeChild(style); }, 420);
+		setTimeout(function () {
+			try { if (window.gsap && gsap.globalTimeline) gsap.globalTimeline.play(); } catch (_) {}
+			stage.style.opacity = '1';
+			try { if (typeof interruptAnimation === 'function') interruptAnimation(); } catch (_) {}
+			try { if (typeof renderStep === 'function') renderStep(typeof current === 'number' && current >= 0 ? current : 0); } catch (_) {}
+		}, 380);
+	}
+	startBtn.addEventListener('click', start);
+}());
+</script>
+<script src="../lib/js/aw-present.js"></script>
+<script src="../lib/js/aw-declutter.js"></script>
+<script src="../lib/js/aw-url-state.js"></script>
+
+</body>
+</html>
