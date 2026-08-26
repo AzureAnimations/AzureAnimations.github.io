@@ -116,6 +116,7 @@ one male — so the localized voices are reused across journeys, but the English
 | Azure Storage | `storage` | `v2/Storage/` | Ava · Ximena · Nanami · SunHi · Thalita (female) |
 | Copilot Studio | `copilotstudio` | `v2/CopilotStudio/` | Andrew · Tristan · Masaru · Hyunsu · Macerio (male) |
 | PaaS Compute | `compute` | `v2/Compute/` | **Brian** · Tristan · Masaru · Hyunsu · Macerio (male) |
+| Microsoft 365 Copilot | `copilot` | `v2/Copilot/` | **Aria** · Ximena · Nanami · SunHi · Thalita (female) |
 
 All voices are `:DragonHDLatestNeural`. Compute's English lead is `en-US-Brian` — a fresh male
 persona (unlike Foundry/Storage's female Ava and Copilot Studio's Andrew) — giving an audible

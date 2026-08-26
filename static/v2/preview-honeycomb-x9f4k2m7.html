@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<!--
+	DESIGN B — "Honeycomb"
+	Hexes tessellate, so a row of them reads as one solid family without drawing a box around
+	anything: three rows = three families. Cells MUST stay a uniform size — scaling them by
+	stop count breaks the tessellation and they start painting over each other's labels — so
+	the weight of a journey is carried by its count badge instead.
+-->
+<html lang="en">
+<head>
+	<script src="/js/tracking.js"></script>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+	<meta name="description" content="Azure Animations — nine journeys tessellated into three honeycomb families: build & run, store & secure, AI & Copilot." />
+	<title>Azure Animations · Honeycomb · Design B</title>
+	<link rel="icon" href="../img/favicon.png" />
+	<link rel="stylesheet" href="https://unpkg.com/@microsoft/atlas-css/dist/index.css" />
+	<script src="lib/js/aw-theme.js"></script>
+<style>
+	:root { --aw-page:#eef0f4; --ink:#171a24; --cell:#ffffff; }
+	*, *::before, *::after { box-sizing:border-box; }
+	html, body { height:100%; margin:0; }
+	body { display:flex; flex-direction:column; overflow:hidden; color:var(--ink);
+		font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif; background-color:var(--aw-page); }
+	body.theme-dark { --aw-page:#1a1d27; --ink:#e9ecf5; --cell:#272b38; }
+	body.theme-light, body.theme-dark { background-color:var(--aw-page); }
+	a { color:inherit; text-decoration:none; }
+	@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation:none !important; transition:none !important; } }
+
+	.bar { flex:none; display:flex; align-items:center; justify-content:space-between; gap:1rem;
+		padding:0.5rem 1.1rem; border-bottom:1px solid var(--theme-border, rgba(128,128,128,0.2)); }
+	.brand { display:flex; align-items:center; gap:0.6rem; }
+	.brand img { height:30px; display:block; }
+	.brand-name { font-size:1.1rem; font-weight:700; }
+	.brand-name .accent { background:linear-gradient(90deg,#0078d4,#00b7c3); -webkit-background-clip:text; background-clip:text; color:transparent; }
+	.bar-actions { display:flex; align-items:center; gap:0.5rem; }
+	.pill-link { padding:0.4rem 0.85rem; border-radius:8px; font-size:0.85rem; font-weight:600; border:1px solid var(--theme-border); }
+	.theme-toggle { display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:8px;
+		border:1px solid var(--theme-border); background:transparent; color:var(--ink); cursor:pointer; }
+	.theme-toggle .icon-moon { display:none; }
+	body.theme-dark .theme-toggle .icon-sun { display:none; } body.theme-dark .theme-toggle .icon-moon { display:block; }
+
+	.stage { flex:1 1 auto; position:relative; min-height:0; display:flex; align-items:center; justify-content:center; padding:0.7rem 1.5rem; }
+	.comb { width:1560px; height:820px; flex:none; position:relative; transform-origin:center center; }
+
+	.title { position:absolute; left:0; top:96px; width:340px; }
+	.title h1 { margin:0 0 0.5rem; font-size:2.45rem; line-height:1.1; font-weight:700; }
+	.title h1 .grad { background:linear-gradient(90deg,#0078d4,#8b5cf6,#d24aa8); -webkit-background-clip:text; background-clip:text; color:transparent; }
+	.title p { margin:0 0 1rem; font-size:1.02rem; line-height:1.5; opacity:0.8; }
+	.title .stats { display:flex; gap:1.4rem; }
+	.title .stats div { display:flex; flex-direction:column; }
+	.title .stats b { font-size:1.6rem; font-weight:700; }
+	.title .stats span { font-size:0.85rem; opacity:0.72; }
+
+	/* a hex cell — the whole tile is the link.
+	   Padding MUST be px: a % here resolves against the containing block, not the cell, and
+	   with border-box that inflates every hex far past its set width. */
+	.hex { position:absolute; transform:translate(-50%,-50%); display:flex; flex-direction:column;
+		align-items:center; justify-content:center; gap:0.16rem; text-align:center; padding:0 30px;
+		clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
+		background:var(--cell); transition:transform .18s ease, filter .18s ease; }
+	.hex::before { content:''; position:absolute; inset:0; clip-path:inherit; z-index:0;
+		background:linear-gradient(160deg, color-mix(in srgb, var(--hc) 26%, transparent), color-mix(in srgb, var(--hc) 7%, transparent)); }
+	.hex > * { position:relative; z-index:1; }
+	.hex:hover { transform:translate(-50%,-50%) scale(1.04); filter:drop-shadow(0 12px 26px color-mix(in srgb, var(--hc) 55%, transparent)); }
+	.hex img { width:34px; height:34px; }
+	.hex svg.gh { width:32px; height:32px; color:var(--ink); }
+	.hex b { font-size:0.95rem; font-weight:600; line-height:1.18; }
+	.hex span.s { font-size:0.78rem; line-height:1.26; opacity:0.72; }
+	.hex .cnt { margin-top:0.16rem; font-size:0.74rem; font-weight:700; color:#fff; background:var(--hc);
+		border-radius:999px; padding:1px 9px; }
+
+	/* each ROW is a family; its caption sits to the left of the row */
+	.fam { position:absolute; transform:translate(-50%,-50%); text-align:right; width:190px; pointer-events:none; }
+	.fam b { display:block; font-size:1rem; font-weight:600; color:var(--lc); }
+	body.theme-dark .fam b { color:color-mix(in srgb, var(--lc) 46%, #fff); }
+	.fam span { display:block; font-size:0.81rem; opacity:0.66; margin-top:0.08rem; }
+	.fam i { display:inline-block; width:34px; height:4px; border-radius:2px; background:var(--lc); margin-top:0.4rem; }
+
+	.foot-note { position:absolute; left:0; bottom:74px; width:340px; font-size:0.86rem; line-height:1.5; opacity:0.72; }
+	.foot-note a { color:#0078d4; font-weight:600; }
+	body.theme-dark .foot-note a { color:#6cb8ff; }
+
+	.site-foot { flex:none; padding:0.5rem 1.6rem 0.6rem; text-align:center; font-size:0.84rem; opacity:0.8;
+		border-top:1px solid var(--theme-border); }
+	.site-foot a { color:#0078d4; font-weight:600; }
+	body.theme-dark .site-foot a { color:#6cb8ff; }
+
+	@media (max-width:1040px) { body { overflow:auto; } .stage { display:block; padding:1rem; } .comb { transform:none !important; } }
+</style>
+</head>
+<body class="theme-dark" data-theme-preset="atlas">
+
+	<header class="bar">
+		<a class="brand" href="index.html">
+			<img src="../img/AzureAnimations-Logo.svg" alt="" />
+			<span class="brand-name">Azure <span class="accent">Animations</span></span>
+		</a>
+		<div class="bar-actions">
+			<a class="pill-link" href="index.html">Current hub</a>
+			<button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch theme" title="Switch theme">
+				<svg class="theme-icon icon-sun" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.5" y1="4.5" x2="6.5" y2="6.5"/><line x1="17.5" y1="17.5" x2="19.5" y2="19.5"/><line x1="4.5" y1="19.5" x2="6.5" y2="17.5"/><line x1="17.5" y1="6.5" x2="19.5" y2="4.5"/></g></svg>
+				<svg class="theme-icon icon-moon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg>
+			</button>
+		</div>
+	</header>
+
+	<main class="stage">
+		<div class="comb" id="comb">
+			<div class="title">
+				<h1>One <span class="grad">comb</span>,<br />three families</h1>
+				<p>Nine stops-worth of journeys, tessellated into three groups. Tap any cell to start.</p>
+				<div class="stats">
+					<div><b>7</b><span>journeys</span></div>
+					<div><b>45</b><span>stops</span></div>
+					<div><b>5</b><span>languages</span></div>
+				</div>
+			</div>
+			<div class="foot-note">
+				Free, forever · made by Microsoft Technical Trainers &amp; MCTs ·
+				<a href="https://aka.ms/AzureAnimations" target="_blank" rel="noopener noreferrer">aka.ms/AzureAnimations</a>
+			</div>
+		</div>
+	</main>
+
+	<footer class="site-foot">
+		Design B · <a href="index.html">main hub</a> · <a href="hub-legacy-x9f4k2m7.html">legacy hub</a> ·
+		<a href="preview-skilltree-x9f4k2m7.html">skill tree</a> · <a href="preview-blueprint-x9f4k2m7.html">blueprint</a> ·
+		<a href="preview-constellation-x9f4k2m7.html">constellation</a> · <a href="preview-isometric-x9f4k2m7.html">isometric</a>
+	</footer>
+
+	<script>
+		var GH = '<svg class="gh" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>';
+		var IC = 'lib/icons/Azure_Public_Service_Icons/';
+
+		// pointy-top hex grid. H/W must stay ≈1.155 and the vertical pitch 0.75·H,
+		// otherwise the cells stop interlocking and overlap their neighbours' labels.
+		var W = 216, H = 250, CX = 862, CY = 428;
+		function cell(col, row) { return [CX + (col + ((row & 1) ? 0.5 : 0)) * W, CY + row * H * 0.75]; }
+
+		// one row per family — the tessellation itself does the grouping
+		var ROWS = [
+			{ row:-1, c:'#e97526', name:'Build & run', sub:'somewhere to deploy', items:[
+				{ n:'PaaS Compute', s:'App Service · Functions', stops:4, c:'#e97526',
+				  href:'Compute/index.html', icon:IC+'app%20services/10035-icon-service-App-Services.svg' },
+				{ n:'Containers', s:'Docker → Kubernetes', stops:5, c:'#326ce5',
+				  href:'Container/index.html', icon:IC+'compute/10023-icon-service-Kubernetes-Services.svg' },
+				{ n:'GitHub Flow', s:'how code ships', stops:1, c:'#8b949e',
+				  href:'DevOps/GitHub/GitHubFlow.html', svg:GH }
+			]},
+			{ row:0, c:'#0a84e0', name:'Store & secure', sub:'data, and who sees it', items:[
+				{ n:'Storage', s:'redundancy · SAS', stops:9, c:'#0a84e0',
+				  href:'Storage/index.html', icon:IC+'storage/10086-icon-service-Storage-Accounts.svg' },
+				{ n:'Virtual Network', s:'subnets & traffic', stops:1, c:'#00b7c3',
+				  href:'Network/VirtualNetwork.html', icon:IC+'networking/10061-icon-service-Virtual-Networks.svg' },
+				{ n:'Security', s:'Key Vault · Zero Trust', stops:5, c:'#5c2d91',
+				  href:'Security/index.html', icon:IC+'security/10245-icon-service-Key-Vaults.svg' }
+			]},
+			{ row:1, c:'#8b5cf6', name:'AI & Copilot', sub:'put AI to work', items:[
+				{ n:'AI Agents', s:'Microsoft Foundry', stops:8, c:'#8b5cf6',
+				  href:'AI/Foundry/index.html', icon:IC+'ai%20+%20machine%20learning/03513-icon-service-AI-Studio.svg' },
+				{ n:'Copilot Studio', s:'low-code agents', stops:4, c:'#14b8a6',
+				  href:'CopilotStudio/index.html', icon:'lib/icons/Power-Platform-icons-scalable/CopilotStudio_scalable.svg' },
+				{ n:'M365 Copilot', s:'Word · Excel · Teams', stops:10, c:'#0078d4',
+				  href:'Copilot/index.html', icon:'lib/icons/brands/MicrosoftCopilot.png' }
+			]}
+		];
+
+		var comb = document.getElementById('comb');
+		ROWS.forEach(function (r) {
+			r.items.forEach(function (it, i) {
+				var p = cell(i, r.row);
+				var a = document.createElement('a');
+				a.className = 'hex'; a.href = it.href;
+				a.style.cssText = 'left:' + p[0] + 'px;top:' + p[1] + 'px;width:' + (W - 10) + 'px;height:' + (H - 10) + 'px;--hc:' + it.c;
+				a.innerHTML = (it.svg || '<img src="' + it.icon + '" alt="" decoding="async">') +
+					'<b>' + it.n + '</b><span class="s">' + it.s + '</span>' +
+					'<span class="cnt">' + it.stops + (it.stops === 1 ? ' stop' : ' stops') + '</span>';
+				comb.appendChild(a);
+			});
+			var lp = cell(-1.16, r.row);
+			var d = document.createElement('div');
+			d.className = 'fam';
+			d.style.cssText = 'left:' + lp[0] + 'px;top:' + lp[1] + 'px;--lc:' + r.c;
+			d.innerHTML = '<b>' + r.name + '</b><span>' + r.sub + '</span><i></i>';
+			comb.appendChild(d);
+		});
+
+		(function () {
+			var btn = document.getElementById('theme-toggle');
+			function sync(){ btn.dataset.theme = document.body.classList.contains('theme-dark') ? 'dark' : 'light'; }
+			if (window.AW && AW.theme) { AW.theme.onChange(function(){ sync(); fit(); }); sync(); }
+			else { sync(); btn.addEventListener('click', function () {
+				var d = !document.body.classList.contains('theme-dark');
+				document.body.classList.remove('theme-dark','theme-light'); document.body.classList.add(d?'theme-dark':'theme-light');
+				try { localStorage.setItem('aw-theme', d?'theme-dark':'theme-light'); } catch(e){} sync(); }); }
+		})();
+
+		var stage = document.querySelector('.stage');
+		function fit(){
+			if (window.matchMedia('(max-width:1040px)').matches) { comb.style.transform=''; return; }
+			comb.style.transform = 'scale(1)';
+			var cs = getComputedStyle(stage);
+			var w = stage.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+			var h = stage.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+			comb.style.transform = 'scale(' + Math.min(1, w/comb.offsetWidth, h/comb.offsetHeight) + ')';
+		}
+		fit(); window.addEventListener('resize', fit); window.addEventListener('load', fit);
+	</script>
+</body>
+</html>

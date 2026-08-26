@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<!--
+	DESIGN C — "Isometric districts"
+	The catalogue as a small city: three district platforms, and each journey is a tower whose
+	HEIGHT is its number of stops — so the biggest journeys are literally the tallest buildings.
+	Towers are laid out in TWO rows (back = AI, front = the rest) because a single row leaves the
+	tall towers no headroom for their labels, which then run off the top of the canvas.
+	Only the platforms are tilted; labels stay upright so they remain readable.
+-->
+<html lang="en">
+<head>
+	<script src="/js/tracking.js"></script>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+	<meta name="description" content="Azure Animations — the seven journeys as an isometric city: three districts, towers sized by how many stops each journey holds." />
+	<title>Azure Animations · Isometric Districts · Design C</title>
+	<link rel="icon" href="../img/favicon.png" />
+	<link rel="stylesheet" href="https://unpkg.com/@microsoft/atlas-css/dist/index.css" />
+	<script src="lib/js/aw-theme.js"></script>
+<style>
+	:root { --aw-page:#0f1526; --ink:#e9eeff; }
+	*, *::before, *::after { box-sizing:border-box; }
+	html, body { height:100%; margin:0; }
+	body { display:flex; flex-direction:column; overflow:hidden; color:var(--ink);
+		font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif;
+		background:
+			radial-gradient(1000px 700px at 55% 116%, rgba(60,100,210,0.24), transparent 62%),
+			radial-gradient(700px 480px at 86% -6%, rgba(139,92,246,0.16), transparent 58%),
+			var(--aw-page); }
+	body.theme-light { --aw-page:#1a2237; }
+	a { color:inherit; text-decoration:none; }
+	@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation:none !important; transition:none !important; } }
+
+	.bar { flex:none; display:flex; align-items:center; justify-content:space-between; gap:1rem;
+		padding:0.5rem 1.1rem; border-bottom:1px solid rgba(255,255,255,0.12); }
+	.brand { display:flex; align-items:center; gap:0.6rem; }
+	.brand img { height:30px; display:block; }
+	.brand-name { font-size:1.1rem; font-weight:700; }
+	.brand-name .accent { background:linear-gradient(90deg,#5cb6ff,#a78bfa); -webkit-background-clip:text; background-clip:text; color:transparent; }
+	.bar-actions { display:flex; align-items:center; gap:0.5rem; }
+	.pill-link { padding:0.4rem 0.85rem; border-radius:8px; font-size:0.85rem; font-weight:600;
+		border:1px solid rgba(255,255,255,0.2); color:var(--ink); }
+	.theme-toggle { display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:8px;
+		border:1px solid rgba(255,255,255,0.2); background:transparent; color:var(--ink); cursor:pointer; }
+	.theme-toggle .icon-moon { display:none; }
+	body.theme-dark .theme-toggle .icon-sun { display:none; } body.theme-dark .theme-toggle .icon-moon { display:block; }
+
+	.stage { flex:1 1 auto; position:relative; min-height:0; display:flex; align-items:center; justify-content:center; padding:0.6rem 1.2rem; }
+	.city { width:1660px; height:920px; flex:none; position:relative; transform-origin:center center; }
+
+	.title { position:absolute; left:0; top:150px; width:350px; z-index:8; }
+	.title h1 { margin:0 0 0.5rem; font-size:2.45rem; line-height:1.1; font-weight:700; }
+	.title h1 .grad { background:linear-gradient(90deg,#5cb6ff,#a78bfa,#f472b6); -webkit-background-clip:text; background-clip:text; color:transparent; }
+	.title p { margin:0 0 1rem; font-size:1.02rem; line-height:1.5; opacity:0.8; }
+	.title .stats { display:flex; gap:1.4rem; margin-bottom:1.1rem; }
+	.title .stats div { display:flex; flex-direction:column; }
+	.title .stats b { font-size:1.55rem; font-weight:700; }
+	.title .stats span { font-size:0.85rem; opacity:0.7; }
+	.key { display:flex; flex-direction:column; gap:0.4rem; }
+	.key .k { display:flex; align-items:center; gap:0.6rem; font-size:0.93rem; }
+	.key .ks { width:18px; height:18px; flex:none; border-radius:3px; transform:rotate(45deg) scaleY(0.58); }
+
+	/* a district platform: a square turned into an isometric diamond, so its screen
+	   footprint is predictable (w = S·1.414, h = S·1.414·0.58) and easy to keep apart */
+	.plat { position:absolute; transform:translate(-50%,-50%) rotate(45deg) scaleY(0.58);
+		border-radius:26px; border:2px solid color-mix(in srgb, var(--pc) 60%, transparent);
+		background:linear-gradient(140deg, color-mix(in srgb, var(--pc) 26%, transparent), color-mix(in srgb, var(--pc) 7%, transparent));
+		box-shadow:0 30px 70px rgba(0,0,0,0.42); }
+	.plat-name { position:absolute; transform:translate(-50%,-50%); text-align:center; width:210px; pointer-events:none; z-index:7; }
+	.plat-name b { display:block; font-size:1.02rem; font-weight:600; color:var(--lc); }
+	.plat-name span { display:block; font-size:0.81rem; opacity:0.68; margin-top:0.08rem; }
+
+	/* a tower: upright label + icon above an extruded block, anchored at its base */
+	.tower { position:absolute; transform:translate(-50%,-100%); z-index:5;
+		display:flex; flex-direction:column; align-items:center; gap:0.28rem; transition:transform .18s ease; }
+	.tower:hover { transform:translate(-50%,-100%) translateY(-10px); }
+	.tw-lbl { display:flex; flex-direction:column; align-items:center; gap:0.04rem; text-align:center; width:184px; }
+	.tw-lbl b { font-size:0.97rem; font-weight:600; line-height:1.2; text-shadow:0 2px 9px rgba(0,0,0,0.85); }
+	.tw-lbl span { font-size:0.79rem; line-height:1.26; opacity:0.76; text-shadow:0 2px 9px rgba(0,0,0,0.85); }
+	.tw-chip { margin-top:0.14rem; font-size:0.73rem; font-weight:700; color:#fff; background:var(--tc);
+		border-radius:999px; padding:1px 9px; }
+	.tw-ico { width:46px; height:46px; border-radius:12px; display:grid; place-items:center;
+		background:rgba(255,255,255,0.96); box-shadow:0 8px 18px rgba(0,0,0,0.5); }
+	.tw-ico img { width:29px; height:29px; }
+	.tw-ico svg { width:27px; height:27px; color:#24292f; }
+	.tw-body { position:relative; width:96px; }
+	.tw-cap { position:absolute; left:9px; right:9px; top:0; height:78px; transform:rotate(45deg) scaleY(0.58);
+		border-radius:9px; background:linear-gradient(140deg, color-mix(in srgb, var(--tc) 80%, #fff 24%), var(--tc));
+		box-shadow:0 0 0 1.5px color-mix(in srgb, var(--tc) 55%, #fff 24%); }
+	.tw-col { position:absolute; left:50%; top:39px; width:56px; transform:translateX(-50%);
+		background:linear-gradient(90deg, color-mix(in srgb, var(--tc) 58%, #000 30%) 0 50%, color-mix(in srgb, var(--tc) 38%, #000 48%) 50% 100%);
+		border-radius:0 0 8px 8px; }
+
+	.foot-note { position:absolute; left:0; bottom:96px; width:350px; font-size:0.86rem; line-height:1.5; opacity:0.7; z-index:8; }
+	.foot-note a { color:#8fd0ff; font-weight:600; }
+
+	.site-foot { flex:none; padding:0.5rem 1.6rem 0.6rem; text-align:center; font-size:0.84rem; opacity:0.8;
+		border-top:1px solid rgba(255,255,255,0.12); }
+	.site-foot a { color:#8fd0ff; font-weight:600; }
+
+	@media (max-width:1060px) { body { overflow:auto; } .stage { display:block; padding:1rem; } .city { transform:none !important; } }
+</style>
+</head>
+<body class="theme-dark" data-theme-preset="atlas">
+
+	<header class="bar">
+		<a class="brand" href="index.html">
+			<img src="../img/AzureAnimations-Logo.svg" alt="" />
+			<span class="brand-name">Azure <span class="accent">Animations</span></span>
+		</a>
+		<div class="bar-actions">
+			<a class="pill-link" href="index.html">Current hub</a>
+			<button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch theme" title="Switch theme">
+				<svg class="theme-icon icon-sun" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.5" y1="4.5" x2="6.5" y2="6.5"/><line x1="17.5" y1="17.5" x2="19.5" y2="19.5"/><line x1="4.5" y1="19.5" x2="6.5" y2="17.5"/><line x1="17.5" y1="6.5" x2="19.5" y2="4.5"/></g></svg>
+				<svg class="theme-icon icon-moon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg>
+			</button>
+		</div>
+	</header>
+
+	<main class="stage">
+		<div class="city" id="city">
+			<div class="title">
+				<h1>The Azure<br /><span class="grad">skyline</span></h1>
+				<p>Three districts, seven towers. The taller the building, the more stops that journey holds.</p>
+				<div class="stats">
+					<div><b>7</b><span>journeys</span></div>
+					<div><b>45</b><span>stops</span></div>
+					<div><b>5</b><span>languages</span></div>
+				</div>
+				<div class="key" id="key"></div>
+			</div>
+			<div class="foot-note">
+				Climb any tower to start · every floor is a short animated explainer ·
+				<a href="https://aka.ms/AzureAnimations" target="_blank" rel="noopener noreferrer">aka.ms/AzureAnimations</a>
+			</div>
+		</div>
+	</main>
+
+	<footer class="site-foot">
+		Design C · <a href="index.html">main hub</a> · <a href="hub-legacy-x9f4k2m7.html">legacy hub</a> ·
+		<a href="preview-honeycomb-x9f4k2m7.html">honeycomb</a> · <a href="preview-skilltree-x9f4k2m7.html">skill tree</a> ·
+		<a href="preview-blueprint-x9f4k2m7.html">blueprint</a> · <a href="preview-constellation-x9f4k2m7.html">constellation</a>
+	</footer>
+
+	<script>
+		var GH = '<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>';
+		var IC = 'lib/icons/Azure_Public_Service_Icons/';
+
+		// two rows: the AI district sits BEHIND (higher on screen) so every tower keeps
+		// ~340px of clear headroom for its upright label
+		var BACK = 400, FRONT = 770;
+
+		var DISTRICTS = [
+			{ name:'AI & Copilot', sub:'put AI to work', c:'#8b5cf6', x:1030, y:BACK + 20, s:420, labelAt:[1500, 300] },
+			{ name:'Build & run', sub:'somewhere to deploy', c:'#e97526', x:695, y:FRONT, s:320, labelAt:[470, 892] },
+			{ name:'Store & secure', sub:'data, and who sees it', c:'#0a84e0', x:1245, y:FRONT, s:320, labelAt:[1330, 892] }
+		];
+
+		var TOWERS = [
+			{ n:'AI Agents · Foundry', s:'projects · models · agents', stops:8, c:'#8b5cf6', x:760, y:BACK,
+			  href:'AI/Foundry/index.html', icon:IC+'ai%20+%20machine%20learning/03513-icon-service-AI-Studio.svg' },
+			{ n:'Copilot Studio', s:'low-code agents', stops:4, c:'#14b8a6', x:1030, y:BACK,
+			  href:'CopilotStudio/index.html', icon:'lib/icons/Power-Platform-icons-scalable/CopilotStudio_scalable.svg' },
+			{ n:'Microsoft 365 Copilot', s:'Word · Excel · Teams', stops:10, c:'#0078d4', x:1300, y:BACK,
+			  href:'Copilot/index.html', icon:'lib/icons/brands/MicrosoftCopilot.png' },
+
+			{ n:'Azure PaaS Compute', s:'App Service · Functions', stops:4, c:'#e97526', x:570, y:FRONT,
+			  href:'Compute/index.html', icon:IC+'app%20services/10035-icon-service-App-Services.svg' },
+			{ n:'Azure Containers', s:'Docker → Kubernetes', stops:5, c:'#326ce5', x:820, y:FRONT,
+			  href:'Container/index.html', icon:IC+'compute/10023-icon-service-Kubernetes-Services.svg' },
+			{ n:'Azure Storage', s:'redundancy · SAS', stops:9, c:'#0a84e0', x:1120, y:FRONT,
+			  href:'Storage/index.html', icon:IC+'storage/10086-icon-service-Storage-Accounts.svg' },
+			{ n:'Azure Security', s:'Key Vault · Zero Trust', stops:5, c:'#5c2d91', x:1370, y:FRONT,
+			  href:'Security/index.html', icon:IC+'security/10245-icon-service-Key-Vaults.svg' }
+		];
+
+		var city = document.getElementById('city');
+
+		DISTRICTS.forEach(function (d) {
+			var p = document.createElement('div');
+			p.className = 'plat';
+			p.style.cssText = 'left:' + d.x + 'px;top:' + d.y + 'px;width:' + d.s + 'px;height:' + d.s + 'px;--pc:' + d.c;
+			city.appendChild(p);
+			var nm = document.createElement('div');
+			nm.className = 'plat-name';
+			nm.style.cssText = 'left:' + d.labelAt[0] + 'px;top:' + d.labelAt[1] + 'px;--lc:' + d.c;
+			nm.innerHTML = '<b>' + d.name + '</b><span>' + d.sub + '</span>';
+			city.appendChild(nm);
+		});
+
+		TOWERS.forEach(function (t) {
+			var body = 30 + t.stops * 14;           // height carries the stop count
+			var a = document.createElement('a');
+			a.className = 'tower'; a.href = t.href;
+			a.style.cssText = 'left:' + t.x + 'px;top:' + t.y + 'px;--tc:' + t.c;
+			a.innerHTML =
+				'<span class="tw-lbl"><b>' + t.n + '</b><span>' + t.s + '</span>' +
+					'<span class="tw-chip">' + t.stops + ' stops</span></span>' +
+				'<span class="tw-ico">' + (t.svg || '<img src="' + t.icon + '" alt="" decoding="async">') + '</span>' +
+				'<span class="tw-body" style="height:' + (body + 44) + 'px">' +
+					'<span class="tw-col" style="height:' + body + 'px"></span>' +
+					'<span class="tw-cap"></span>' +
+				'</span>';
+			city.appendChild(a);
+		});
+
+		document.getElementById('key').innerHTML = DISTRICTS.map(function (d) {
+			return '<span class="k"><span class="ks" style="background:' + d.c + '"></span>' + d.name + '</span>';
+		}).join('');
+
+		(function () {
+			var btn = document.getElementById('theme-toggle');
+			function sync(){ btn.dataset.theme = document.body.classList.contains('theme-dark') ? 'dark' : 'light'; }
+			if (window.AW && AW.theme) { AW.theme.onChange(function(){ sync(); fit(); }); sync(); }
+			else { sync(); btn.addEventListener('click', function () {
+				var d = !document.body.classList.contains('theme-dark');
+				document.body.classList.remove('theme-dark','theme-light'); document.body.classList.add(d?'theme-dark':'theme-light');
+				try { localStorage.setItem('aw-theme', d?'theme-dark':'theme-light'); } catch(e){} sync(); }); }
+		})();
+
+		var stage = document.querySelector('.stage');
+		function fit(){
+			if (window.matchMedia('(max-width:1060px)').matches) { city.style.transform=''; return; }
+			city.style.transform = 'scale(1)';
+			var cs = getComputedStyle(stage);
+			var w = stage.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+			var h = stage.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+			city.style.transform = 'scale(' + Math.min(1, w/city.offsetWidth, h/city.offsetHeight) + ')';
+		}
+		fit(); window.addEventListener('resize', fit); window.addEventListener('load', fit);
+	</script>
+</body>
+</html>
