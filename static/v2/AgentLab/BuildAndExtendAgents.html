@@ -1,0 +1,1393 @@
+<!DOCTYPE html>
+<!--
+	Build and extend an AI agent — visual companion to the Microsoft Learn lab
+	"Build and extend AI agents" (Tasks 1-3).
+
+	The lab is text-only, so learners follow steps without ever seeing the SHAPE of what
+	they're assembling. Step 2 shows the finished assistant greyed out, every middle step
+	lights one more piece of it, and the recap is the same diagram fully assembled.
+
+	EXPERIMENTAL: English only, no narration. Lives one level under static/v2/, so shared
+	lib paths are ../lib/ (not ../../lib/ as in _TEMPLATE.html).
+
+	Code shown on stage is taken from the lab, not invented:
+	  https://ivorb.github.io/mslearn-ai-agents/Instructions/Exercises/A-build-and-extend-ai-agents.html
+-->
+<html lang="en">
+<head>
+	<script src="/js/tracking.js"></script>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+	<meta name="description" content="A visual walkthrough of the Build and extend AI agents lab - ground an agent in the Foundry portal, extend it with a remote MCP server, and call it from a client app." />
+	<title>Build &amp; extend an AI agent &mdash; Azure Animations</title>
+
+	<link rel="stylesheet" href="https://unpkg.com/@microsoft/atlas-css/dist/index.css" />
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+	<script src="../lib/js/aw-easings.js"></script>
+	<script src="../lib/js/aw-motion.js"></script>
+	<script src="../lib/js/aw-theme.js"></script>
+	<script src="../lib/js/aw-keyboard.js"></script>
+
+<style>
+	:root {
+		--aw-purple:#5c2d91; --aw-blue:#0078d4; --aw-green:#10a37f;
+		--aw-orange:#e97526; --aw-pink:#d24aa8; --aw-red:#c94f4f;
+	}
+	html, body { height:100%; margin:0; }
+	html { font-size:100%; }
+	body {
+		display:flex; flex-direction:column; height:100vh; overflow:hidden;
+		font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif; color:var(--theme-text);
+		background:
+			radial-gradient(circle at 15% 20%, rgba(92,45,145,0.18) 0%, transparent 55%),
+			radial-gradient(circle at 85% 80%, rgba(0,120,212,0.18) 0%, transparent 55%),
+			var(--theme-body-background);
+	}
+	.app-header { display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-shrink:0; font-size:16px; }
+	#stage {
+		position:relative; flex:1 1 auto; width:100%; min-height:0;
+		display:flex; align-items:center; justify-content:center;
+		overflow:hidden; container-type:size; padding:1.5rem 2.5rem 5rem;
+	}
+	#stage:focus-visible, button:focus-visible, a:focus-visible { outline:2px solid var(--theme-primary,#0078d4); outline-offset:3px; border-radius:4px; }
+	#stage-frame {
+		position:relative; overflow:hidden;
+		width:min(100cqw, calc(100cqh * 16 / 9)); aspect-ratio:16/9; max-width:100%; max-height:100%;
+		border-radius:16px; background:rgba(0,0,0,0.015); box-shadow:0 12px 44px rgba(0,0,0,0.22);
+	}
+	body.theme-dark #stage-frame { background:rgba(255,255,255,0.025); }
+	#stage-frame::before {
+		content:""; position:absolute; inset:0; border-radius:inherit; padding:2.5px;
+		background:linear-gradient(135deg, var(--aw-purple) 0%, var(--aw-blue) 55%, var(--aw-pink) 100%);
+		-webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+		mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+		-webkit-mask-composite:xor; mask-composite:exclude; pointer-events:none; z-index:20;
+	}
+
+	.scene {
+		position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); transform-origin:center center;
+		width:min(1150px, 96%); z-index:10;
+		display:flex; flex-direction:column; align-items:center; gap:1.1rem;
+	}
+	@keyframes awSceneIn { from { opacity:0; } to { opacity:1; } }
+	@keyframes awSceneOut { from { opacity:1; } to { opacity:0; } }
+	.scene.scene-in { animation:awSceneIn 0.2s ease both; }
+	.scene.scene-out { animation:awSceneOut 0.2s ease both; }
+	.scene-title { font-size:2.3rem; font-weight:700; color:var(--theme-tertiary,#5c2d91); margin:0; text-align:center; opacity:0; }
+	body.theme-dark .scene-title { color:#c9a5e8; }
+	.scene-lead { margin:0; text-align:center; font-size:1.25rem; color:var(--theme-text); max-width:min(1080px,96%); line-height:1.5; opacity:0; }
+
+	.callout {
+		position:absolute; max-width:340px; padding:1rem 1.2rem;
+		background:color-mix(in srgb, var(--theme-body-background) 84%, transparent);
+		-webkit-backdrop-filter:blur(5px); backdrop-filter:blur(5px);
+		border:1px solid var(--theme-border); border-left:4px solid var(--theme-tertiary,#5c2d91);
+		border-radius:6px; box-shadow:0 4px 16px rgba(0,0,0,0.2);
+		font-size:1.02rem; line-height:1.45; z-index:14; opacity:0; cursor:grab; touch-action:none;
+	}
+	.callout:active { cursor:grabbing; }
+
+	/* ── task ribbon · which lab task the current step belongs to ── */
+	.task-ribbon { display:flex; gap:0.4rem; align-items:center; flex-wrap:wrap; justify-content:center; opacity:0; }
+	.task-chip {
+		display:inline-flex; align-items:center; gap:0.4rem; padding:0.24rem 0.7rem; border-radius:999px;
+		font-size:0.85rem; font-weight:600; border:1.5px solid var(--theme-border);
+		color:var(--theme-text-subtle); background:transparent; transition:all .2s ease;
+	}
+	.task-chip.is-now { border-color:var(--tc); color:#fff; background:var(--tc); }
+	.task-chip.is-done { border-color:var(--tc); color:var(--tc); }
+
+	/* ── ASSEMBLY · the persistent "what you're building" diagram ── */
+	.asm { display:flex; flex-direction:column; align-items:center; gap:1.35rem; width:min(1060px,98%); }
+	.asm-core {
+		display:flex; align-items:center; gap:0.85rem; padding:0.7rem 1.35rem; border-radius:16px;
+		border:2.5px solid var(--aw-purple); background:linear-gradient(135deg, rgba(92,45,145,0.14), rgba(0,120,212,0.12));
+		box-shadow:0 8px 26px rgba(92,45,145,0.22); opacity:0;
+	}
+	.asm-core .ac-ico { font-size:1.9rem; line-height:1; color:var(--aw-purple); }
+	body.theme-dark .asm-core .ac-ico { color:#c9a5e8; }
+	.asm-core .ac-name { font-size:1.25rem; font-weight:600; }
+	.asm-core .ac-sub { font-size:0.95rem; color:var(--theme-text-subtle); }
+	.asm-row { display:flex; gap:0.85rem; width:100%; align-items:stretch; }
+	.slot {
+		position:relative; flex:1 1 0; min-width:0; padding:0.85rem 0.9rem 0.9rem;
+		border:2px dashed var(--theme-border); border-radius:14px; background:transparent;
+		display:flex; flex-direction:column; gap:0.35rem; opacity:0;
+		transition:border-color .35s ease, background .35s ease, box-shadow .35s ease;
+	}
+	/* the stem that ties each slot back to the core above it */
+	.slot::before {
+		content:''; position:absolute; left:50%; top:-1.35rem; width:2px; height:1.35rem;
+		background:var(--theme-border); transition:background .35s ease;
+	}
+	.slot .slot-task {
+		align-self:flex-start; font-size:0.8rem; font-weight:600; letter-spacing:0.04em;
+		padding:2px 8px; border-radius:5px; border:1px solid var(--theme-border); color:var(--theme-text-subtle);
+	}
+	.slot .slot-h { display:flex; align-items:center; gap:0.45rem; font-size:1.1rem; font-weight:600; }
+	.slot .slot-h .ic { color:var(--theme-text-subtle); transition:color .35s ease; }
+	.slot .slot-p { font-size:0.95rem; line-height:1.4; color:var(--theme-text-subtle); }
+	.slot.is-dim { opacity:0.42; }
+	.slot.is-on {
+		opacity:1; border-style:solid; border-color:var(--sc);
+		background:color-mix(in srgb, var(--sc) 12%, transparent);
+		box-shadow:0 6px 22px color-mix(in srgb, var(--sc) 26%, transparent);
+	}
+	.slot.is-on::before { background:var(--sc); }
+	.slot.is-on .slot-h .ic { color:var(--sc); }
+	.slot.is-on .slot-task { border-color:var(--sc); color:var(--sc); }
+	.slot .slot-flag {
+		position:absolute; top:-0.7rem; right:0.6rem; padding:2px 9px; border-radius:999px;
+		font-size:0.8rem; font-weight:600; color:#fff; background:var(--aw-orange);
+		box-shadow:0 3px 10px rgba(0,0,0,0.3); opacity:0; white-space:nowrap;
+	}
+	.slot .slot-flag.is-live { background:var(--aw-green); }
+
+	/* ── CHAT ── */
+	.chat { display:flex; flex-direction:column; gap:0.65rem; width:min(820px,96%); }
+	.bubble {
+		padding:0.75rem 1.1rem; border-radius:14px; font-size:1.1rem; line-height:1.45; opacity:0;
+		border:1.5px solid var(--theme-border); background:var(--theme-card-background,#fff);
+	}
+	body.theme-dark .bubble { background:rgba(255,255,255,0.05); }
+	.bubble.is-user { align-self:flex-start; border-bottom-left-radius:4px; max-width:90%; }
+	.bubble.is-bot { align-self:flex-end; border-bottom-right-radius:4px; max-width:90%; }
+	.bubble .bub-who { display:block; font-size:0.82rem; font-weight:600; letter-spacing:0.05em;
+		text-transform:uppercase; color:var(--theme-text-subtle); margin-bottom:0.25rem; }
+	.bubble.is-bad { border-color:var(--aw-red); background:color-mix(in srgb, var(--aw-red) 10%, transparent); }
+	.bubble.is-good { border-color:var(--aw-green); background:color-mix(in srgb, var(--aw-green) 10%, transparent); }
+	.verdict {
+		display:inline-flex; align-items:center; gap:0.45rem; padding:0.42rem 1rem; border-radius:999px;
+		font-size:1.02rem; font-weight:600; opacity:0; align-self:center;
+	}
+	.verdict.is-bad { border:2px solid var(--aw-red); color:var(--aw-red); background:color-mix(in srgb, var(--aw-red) 10%, transparent); }
+	.verdict.is-good { border:2px solid var(--aw-green); color:var(--aw-green); background:color-mix(in srgb, var(--aw-green) 10%, transparent); }
+	.cite { display:flex; align-items:center; gap:0.35rem; margin-top:0.45rem; font-size:0.9rem;
+		font-weight:600; color:var(--aw-green); }
+	.cite .ic { font-size:0.95rem; }
+
+	/* ── PORTAL MOCK · a browser window showing the Foundry portal ── */
+	.ui-win {
+		width:min(760px,96%); border:1.5px solid var(--theme-border); border-radius:10px; overflow:hidden;
+		background:var(--theme-body-background); box-shadow:0 14px 40px rgba(0,0,0,0.28); opacity:0;
+	}
+	.ui-chrome { display:flex; align-items:flex-end; gap:0.5rem; padding:0.35rem 0.5rem 0;
+		background:color-mix(in srgb, var(--theme-text) 10%, transparent); }
+	.ui-tab { display:flex; align-items:center; gap:0.4rem; padding:0.32rem 0.75rem; font-size:0.82rem; font-weight:500;
+		background:var(--theme-body-background); border:1px solid var(--theme-border); border-bottom:none;
+		border-radius:7px 7px 0 0; color:var(--theme-text); }
+	.ui-tab img { width:15px; height:15px; display:block; }
+	.ui-tab .tab-x { color:var(--theme-text-subtle); font-size:0.75rem; margin-left:0.15rem; }
+	.ui-winbtns { display:flex; margin-left:auto; align-self:flex-start; }
+	.ui-winbtns span { display:inline-flex; align-items:center; justify-content:center; width:1.9rem; height:1.4rem;
+		font-size:0.7rem; color:var(--theme-text-subtle); }
+	.ui-winbtns span.win-close:hover { background:#e81123; color:#fff; }
+	.ui-addr { display:flex; align-items:center; gap:0.5rem; padding:0.4rem 0.6rem;
+		background:var(--theme-body-background); border-bottom:1px solid var(--theme-border); }
+	.ui-nav { display:flex; gap:0.3rem; color:var(--theme-text-subtle); font-size:0.9rem; }
+	.ui-url { flex:1; display:flex; align-items:center; gap:0.4rem; padding:0.22rem 0.65rem; border-radius:999px;
+		border:1px solid var(--theme-border); background:color-mix(in srgb, var(--theme-text) 5%, transparent);
+		font-size:0.82rem; color:var(--theme-text-subtle); }
+	.ui-portal { display:flex; align-items:center; gap:0.5rem; padding:0.55rem 1rem;
+		border-bottom:1px solid var(--theme-border); }
+	.ui-portal img { width:22px; height:22px; display:block; }
+	.ui-brand { font-size:1rem; font-weight:600; color:var(--theme-text); }
+	.ui-crumb { margin-left:auto; font-size:0.85rem; color:var(--theme-text-subtle); }
+	.ui-body { padding:0.85rem 1rem; display:flex; flex-direction:column; gap:0.55rem;
+		background:var(--theme-card-background,#fff); }
+	body.theme-dark .ui-body { background:rgba(255,255,255,0.03); }
+	.ui-row { display:flex; align-items:center; gap:0.55rem; padding:0.5rem 0.75rem; border-radius:9px;
+		border:1.5px solid var(--theme-border); font-size:1.02rem; opacity:0;
+		background:var(--theme-body-background); }
+	.ui-row.is-add { border-style:dashed; color:var(--theme-text-subtle); background:transparent; }
+	.ui-row.is-new { border-color:var(--aw-green); background:color-mix(in srgb, var(--aw-green) 10%, transparent); }
+	.ui-row .ui-tag { margin-left:auto; font-size:0.82rem; font-weight:600; color:var(--aw-green); }
+	.ui-row .ic { color:var(--theme-text-subtle); }
+	.ui-row.is-new .ic { color:var(--aw-green); }
+	.ui-file { font-family:'Cascadia Code','Consolas',monospace; font-size:0.95rem; }
+
+	/* ── CODE ── */
+	.code-card { width:min(720px,96%); border:1px solid #30363d; border-radius:8px; background:#1e1e1e;
+		overflow:hidden; opacity:0; box-shadow:0 8px 26px rgba(0,0,0,0.3); }
+	.code-head { display:flex; align-items:center; justify-content:space-between; padding:0 0 0 0.85rem;
+		background:#323233; border-bottom:1px solid #1e1e1e; }
+	.code-file { font-size:0.88rem; color:#ccc; font-weight:500; padding:0.5rem 0; }
+	.code-winctrls { display:flex; }
+	.code-wbtn { display:flex; align-items:center; justify-content:center; width:2.3rem; padding:0.45rem 0;
+		color:#ccc; font-size:0.68rem; }
+	.code-wbtn.is-close:hover { background:#e81123; color:#fff; }
+	.code-body { margin:0; padding:0.75rem 1rem; font-family:'Cascadia Code','Consolas',monospace;
+		font-size:0.9rem; line-height:1.55; color:#d4d4d4; white-space:pre-wrap; }
+	.code-body .tok-com { color:#6a9955; } .code-body .tok-kw { color:#569cd6; }
+	.code-body .tok-str { color:#ce9178; } .code-body .tok-fn { color:#dcdcaa; }
+	.code-hl { border-radius:4px; padding:0 0.15em; box-shadow:0 0 0 1px rgba(96,165,250,0.55); background:rgba(96,165,250,0.22); }
+
+	/* ── HANDSHAKE · the MCP approval pause ── */
+	.hs { display:flex; align-items:stretch; gap:0.7rem; width:min(1000px,98%); }
+	.hs-node {
+		flex:1 1 0; min-width:0; padding:0.85rem 0.9rem; border-radius:13px; border:2px solid var(--hc);
+		background:color-mix(in srgb, var(--hc) 10%, transparent); opacity:0;
+		display:flex; flex-direction:column; gap:0.3rem; text-align:center; align-items:center;
+	}
+	.hs-node .hs-n { font-size:0.82rem; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--hc); }
+	.hs-node.is-cmd .hs-n { text-transform:none; letter-spacing:0; font-family:'Cascadia Code','Consolas',monospace; font-size:0.88rem; }
+	.hs-node .hs-t { font-size:1.08rem; font-weight:600; line-height:1.3; }
+	.hs-node .hs-s { font-size:0.92rem; color:var(--theme-text-subtle); line-height:1.35; }
+	.hs-arrow { align-self:center; font-size:1.7rem; color:var(--theme-text-subtle); opacity:0; flex:none; }
+
+	/* ── PILLS / RECAP ── */
+	.chip-row { display:flex; flex-wrap:wrap; gap:0.6rem; justify-content:center; }
+	.pill { display:inline-flex; align-items:center; gap:0.45rem; padding:0.45rem 1rem; border-radius:999px;
+		font-size:1rem; font-weight:600; border:2px solid var(--theme-tertiary,#5c2d91);
+		background:rgba(92,45,145,0.08); opacity:0; }
+	body.theme-dark .pill { background:rgba(92,45,145,0.2); }
+	.value-chip { display:inline-flex; align-items:center; gap:0.4rem; padding:0.42rem 0.95rem; border-radius:999px;
+		font-size:1rem; font-weight:600; border:2px solid var(--aw-green);
+		background:color-mix(in srgb, var(--aw-green) 10%, transparent); opacity:0; }
+	.recap-foot { font-size:1.05rem; text-align:center; max-width:820px; opacity:0; color:var(--theme-text); }
+
+	/* ── OVERVIEW · the six tasks at a glance ── */
+	.ov-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:0.7rem; width:min(1090px,98%); }
+	.ov-card { display:flex; flex-direction:column; gap:0.25rem; padding:0.75rem 0.85rem 0.8rem; border-radius:13px;
+		border:2px solid var(--tc); background:color-mix(in srgb, var(--tc) 10%, transparent); opacity:0; }
+	.ov-top { display:flex; align-items:center; gap:0.45rem; }
+	.ov-n { font-size:0.8rem; font-weight:600; letter-spacing:0.05em; text-transform:uppercase; color:var(--tc); }
+	.ov-kind { margin-left:auto; font-size:0.74rem; font-weight:600; padding:1px 8px; border-radius:999px;
+		border:1px solid var(--theme-border); color:var(--theme-text-subtle); }
+	.ov-kind.is-core { border-color:var(--aw-green); color:var(--aw-green); }
+	.ov-h { font-size:1.04rem; font-weight:600; line-height:1.25; }
+	.ov-p { font-size:0.9rem; color:var(--theme-text-subtle); line-height:1.35; }
+	.ov-meta { margin-top:auto; padding-top:0.35rem; display:flex; align-items:center; gap:0.55rem;
+		font-size:0.82rem; color:var(--theme-text-subtle); }
+	.ov-bar { letter-spacing:0.08em; color:var(--tc); }
+
+	/* ── ARCHITECTURE · where every component lives, and which task builds it ── */
+	.arch { display:flex; align-items:center; gap:0.45rem; width:min(1140px,99%); }
+	.tier { flex:1 1 0; min-width:0; display:flex; flex-direction:column; gap:0.5rem;
+		padding:0.65rem 0.65rem 0.75rem; border-radius:14px; border:1.5px dashed var(--theme-border); opacity:0; }
+	.tier.is-foundry { flex:1.3 1 0; border-style:solid; border-color:var(--aw-blue);
+		background:color-mix(in srgb, var(--aw-blue) 7%, transparent); }
+	.tier-head { display:flex; align-items:center; gap:0.35rem; font-size:0.82rem; font-weight:600;
+		letter-spacing:0.05em; text-transform:uppercase; color:var(--theme-text-subtle); }
+	.tier.is-foundry .tier-head { color:var(--aw-blue); }
+	.tier-head .tier-mark { width:1.15rem; height:1.15rem; display:block; }
+	body.theme-dark .tier.is-foundry .tier-head { color:#5cc8ff; }
+	.comp { position:relative; padding:0.45rem 0.6rem 0.5rem; border-radius:10px; display:flex; flex-direction:column; gap:0.1rem;
+		border:1.5px solid var(--theme-border); background:var(--theme-card-background,#fff); transition:box-shadow .35s ease, border-color .35s ease; }
+	body.theme-dark .comp { background:rgba(255,255,255,0.05); }
+	.comp-name { font-size:0.97rem; font-weight:600; display:flex; align-items:center; gap:0.35rem; }
+	.comp-name .ic { color:var(--tc); }
+	.comp-sub { font-size:0.84rem; color:var(--theme-text-subtle); line-height:1.3; }
+	.comp-task { position:absolute; top:-0.55rem; right:0.5rem; padding:1px 7px; border-radius:999px;
+		font-size:0.72rem; font-weight:600; color:#fff; background:var(--tc); white-space:nowrap; }
+	.comp.is-lit { border-color:var(--tc); box-shadow:0 4px 18px color-mix(in srgb, var(--tc) 32%, transparent); }
+	.arch-link { flex:0 0 auto; align-self:center; display:flex; flex-direction:column; align-items:center; gap:0.15rem; opacity:0; }
+	.arch-link .al-a { font-size:1.35rem; line-height:1; color:var(--theme-text-subtle); }
+	.arch-link .al-t { font-size:0.76rem; line-height:1.25; text-align:center; max-width:8.5rem; color:var(--theme-text-subtle); }
+	.arch-legend { display:flex; flex-wrap:wrap; gap:0.65rem; justify-content:center; opacity:0; }
+	.leg { display:inline-flex; align-items:center; gap:0.35rem; font-size:0.84rem; color:var(--theme-text-subtle); }
+	.leg i { width:0.68rem; height:0.68rem; border-radius:3px; background:var(--tc); }
+
+	.code-duo { display:flex; gap:0.7rem; width:min(1090px,98%); align-items:stretch; }
+	.code-duo .code-card { flex:1 1 0; width:auto; min-width:0; display:flex; flex-direction:column; }
+	.code-duo .code-body { flex:1 1 auto; }
+
+	/* ── CONTROLS ── */
+	#controls {
+		position:fixed; bottom:14px; left:50%; transform:translateX(-50%); z-index:40;
+		display:flex; align-items:center; gap:5px; padding:5px 7px;
+		background:var(--theme-body-background-translucent, rgba(255,255,255,0.82));
+		backdrop-filter:blur(12px) saturate(1.4); -webkit-backdrop-filter:blur(12px) saturate(1.4);
+		border:1px solid var(--theme-border); border-radius:999px;
+		box-shadow:0 8px 26px rgba(0,0,0,0.18); font-size:13px;
+	}
+	body.theme-dark #controls { background:var(--theme-body-background-translucent, rgba(32,32,36,0.82)); }
+	#controls .ctrl-icon { width:2.15rem; height:2.15rem; min-width:0; padding:0; display:inline-flex;
+		align-items:center; justify-content:center; border-radius:50%; font-size:0.95rem; font-weight:600;
+		transition:background .18s ease, transform .12s ease; }
+	#controls .ctrl-icon:hover { transform:translateY(-1px); }
+	#controls .ctrl-icon-next { width:2.55rem; height:2.55rem; font-size:1.1rem;
+		box-shadow:0 2px 8px var(--theme-primary-translucent, rgba(0,120,212,0.45)); }
+	.step-counter { min-width:78px; text-align:center; font-variant-numeric:tabular-nums; font-size:14px;
+		font-weight:600; padding:0 6px; white-space:nowrap; }
+	.ctrl-sep { width:1px; align-self:stretch; margin:4px 2px; background:var(--theme-border); }
+	.speed-control { display:inline-flex; align-items:center; gap:1px; padding:2px 3px;
+		border:1px solid var(--theme-border); border-radius:999px; }
+	.speed-control .speed-btn { width:1.7rem; height:1.7rem; min-width:0; padding:0; display:inline-flex;
+		align-items:center; justify-content:center; font-size:0.95rem; font-weight:600; border-radius:50%; }
+	.speed-control .speed-btn[disabled] { opacity:0.4; cursor:not-allowed; }
+	.speed-label { min-width:2.4rem; text-align:center; font-variant-numeric:tabular-nums; font-size:0.82rem; font-weight:600; }
+
+	.stage-overlay { position:absolute; left:12px; bottom:10px; z-index:25; display:flex; align-items:center; gap:2px;
+		padding:3px 6px; border-radius:999px; background:rgba(16,18,24,0.58);
+		backdrop-filter:blur(9px); -webkit-backdrop-filter:blur(9px); box-shadow:0 4px 16px rgba(0,0,0,0.32); }
+	.ovl-btn { -webkit-appearance:none; appearance:none; margin:0; font:inherit; display:inline-flex;
+		align-items:center; justify-content:center; min-width:30px; height:30px; padding:0 8px;
+		border:none !important; border-radius:999px !important; background:transparent !important;
+		color:#fff !important; cursor:pointer; opacity:0.86; transition:background .15s ease, opacity .15s ease; }
+	.ovl-btn:hover { background:rgba(255,255,255,0.16) !important; opacity:1; }
+	.ovl-btn svg { width:18px; height:18px; fill:currentColor; display:block; }
+	.ovl-btn.toggle-active { color:#5cc8ff !important; opacity:1; }
+	.ovl-btn[data-tip] { position:relative; }
+	.ovl-btn[data-tip]::after { content:attr(data-tip); position:absolute; left:0; bottom:calc(100% + 9px);
+		padding:4px 8px; border-radius:6px; background:rgba(16,18,24,0.96); color:#fff; font-size:0.72rem;
+		font-weight:600; white-space:nowrap; opacity:0; pointer-events:none; transition:opacity .14s ease; z-index:40; }
+	.ovl-btn[data-tip]:hover::after { opacity:1; }
+
+	#step-outline { position:fixed; top:4.5rem; right:1rem; width:330px; max-height:calc(100vh - 8rem);
+		overflow-y:auto; padding:1.1rem; background:color-mix(in srgb, var(--theme-body-background) 88%, transparent);
+		-webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px); border:1px solid var(--theme-border);
+		border-radius:6px; box-shadow:0 4px 16px rgba(0,0,0,0.2); z-index:35; font-size:0.98rem; line-height:1.55;
+		cursor:grab; touch-action:none; }
+	#step-outline[hidden] { display:none; }
+	#step-outline h2 { font-size:0.82rem; font-weight:700; letter-spacing:0.18em; text-transform:uppercase;
+		color:var(--theme-tertiary,#5c2d91); margin:0 0 0.5rem; }
+	#step-outline .outline-section { margin-top:0.6rem; padding-top:0.6rem; border-top:1px solid var(--theme-border); }
+	#step-outline .outline-section:first-child { margin-top:0; padding-top:0; border-top:0; }
+	#step-outline p { margin:0.4rem 0 0; }
+	#step-outline .stat-row { display:flex; justify-content:space-between; gap:0.75rem; padding:0.2rem 0; }
+	#step-outline .stat-row span:first-child { color:var(--theme-text-subtle); flex:0 0 auto; max-width:45%; }
+	#step-outline .stat-row span:last-child { text-align:right; font-weight:600; color:var(--theme-tertiary,#5c2d91); }
+	body.theme-dark #step-outline .stat-row span:last-child { color:#c9a5e8; }
+
+	.progress-track { position:relative; height:6px; background:var(--theme-border,#e0e0e0); flex-shrink:0; }
+	.progress-fill { position:absolute; left:0; top:0; bottom:0; width:0%; background:var(--aw-purple);
+		transition:width .5s cubic-bezier(0.2,0.8,0.2,1); }
+
+	.theme-toggle { display:inline-flex; align-items:center; justify-content:center; width:2.25rem; height:2.25rem;
+		padding:0; background:transparent; border:1px solid var(--theme-border); border-radius:999px;
+		color:var(--theme-text); cursor:pointer; }
+	.theme-toggle .theme-icon { display:none; }
+	.theme-toggle[data-theme="dark"] .icon-sun { display:block; }
+	.theme-toggle[data-theme="light"] .icon-moon { display:block; }
+	.font-size-btn { background:transparent; color:var(--theme-text); border:1px solid var(--theme-border);
+		border-radius:4px; padding:3px 8px; font-size:0.8rem; font-weight:600; cursor:pointer; }
+	.header-back-link { display:inline-flex; align-items:center; gap:0.25rem; padding:0.2rem 0.6rem; font-size:0.8rem;
+		font-weight:600; color:var(--theme-text-subtle); border:1px solid var(--theme-border); border-radius:999px;
+		text-decoration:none; white-space:nowrap; }
+	.lab-link { font-size:0.8rem; font-weight:600; color:var(--theme-primary,#0078d4); text-decoration:none;
+		border:1px solid var(--theme-border); border-radius:999px; padding:0.2rem 0.7rem; white-space:nowrap; }
+	.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+	.ic { display:inline-flex; align-items:center; justify-content:center; vertical-align:-0.125em; }
+	.ic svg { width:1em; height:1em; fill:currentColor; display:block; }
+
+	@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition:none !important; animation:none !important; } }
+</style>
+</head>
+
+<body class="theme-dark" data-theme-preset="atlas">
+
+	<header class="app-header padding-block-xs padding-inline-md border-bottom" role="banner">
+		<div class="display-flex align-items-center gap-xs">
+			<a href="../index.html" class="header-back-link" aria-label="Back to Azure Animations">&larr; Back</a>
+			<span id="page-title" class="font-size-h6 font-weight-semibold">Build &amp; extend an AI agent</span>
+		</div>
+		<div class="display-flex gap-xs align-items-center">
+			<span id="breadcrumb" class="font-size-sm color-text-subtle">The problem</span>
+			<a class="lab-link" href="https://ivorb.github.io/mslearn-ai-agents/Instructions/Exercises/A-build-and-extend-ai-agents.html" target="_blank" rel="noopener noreferrer">Open the lab &#8599;</a>
+			<button id="font-decrease" type="button" class="font-size-btn" aria-label="Decrease font size" title="Smaller text">A&minus;</button>
+			<button id="font-increase" type="button" class="font-size-btn" aria-label="Increase font size" title="Larger text">A+</button>
+			<button id="theme-toggle" type="button" class="theme-toggle" aria-label="Switch theme" title="Switch theme">
+				<svg class="theme-icon icon-moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg>
+				<svg class="theme-icon icon-sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.5" y1="4.5" x2="6.5" y2="6.5"/><line x1="17.5" y1="17.5" x2="19.5" y2="19.5"/><line x1="4.5" y1="19.5" x2="6.5" y2="17.5"/><line x1="17.5" y1="6.5" x2="19.5" y2="4.5"/></g></svg>
+			</button>
+		</div>
+	</header>
+
+	<div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
+
+	<main id="stage" tabindex="0" role="region" aria-labelledby="stage-heading">
+		<h1 id="stage-heading" class="sr-only" tabindex="-1">Build and extend an AI agent</h1>
+		<div id="step-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+		<div id="stage-frame">
+			<div id="stage-overlay-left" class="stage-overlay" role="group" aria-label="View options">
+				<button id="callout-toggle" type="button" class="ovl-btn" aria-label="Toggle callouts" aria-pressed="false" data-tip="Callouts: Off"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M4 5h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H10l-4 3v-3H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></svg></button>
+				<button id="outline-toggle" type="button" class="ovl-btn" aria-controls="step-outline" aria-expanded="false" aria-label="Toggle text outline" data-tip="Outline: Off"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" d="M4 6h16M4 12h16M4 18h10"/></svg></button>
+			</div>
+		</div>
+	</main>
+
+	<aside id="step-outline" hidden aria-label="Text outline of the current step">
+		<h2>Step details</h2>
+		<div id="outline-body"></div>
+	</aside>
+
+	<div id="controls" role="group" aria-label="Diagram navigation">
+		<button id="prev-btn" type="button" class="button ctrl-icon" aria-label="Previous step (left arrow)">&#9664;</button>
+		<div class="step-counter" id="step-counter">1 / 8</div>
+		<button id="next-btn" type="button" class="button button-primary button-filled ctrl-icon ctrl-icon-next" aria-label="Next step (right arrow or space)">&#9654;</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="replay-btn" type="button" class="button ctrl-icon" aria-label="Replay this step (P)">&#8635;</button>
+		<div class="speed-control" role="group" aria-label="Animation speed">
+			<button id="speed-down" type="button" class="button button-clear speed-btn" aria-label="Slower" title="Slower">&minus;</button>
+			<span id="speed-label" class="speed-label" aria-live="polite">1&times;</span>
+			<button id="speed-up" type="button" class="button button-clear speed-btn" aria-label="Faster" title="Faster">+</button>
+		</div>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="reset-btn" type="button" class="button button-clear ctrl-icon" aria-label="Restart from step 1 (R)">&#9198;</button>
+	</div>
+
+<script>
+// ── THEME ─────────────────────────────────
+const themeToggleBtn = document.getElementById('theme-toggle');
+function syncThemeBtn(){
+	if(!themeToggleBtn) return;
+	const isDark = document.body.classList.contains('theme-dark');
+	themeToggleBtn.dataset.theme = isDark ? 'dark' : 'light';
+	themeToggleBtn.setAttribute('aria-label', isDark ? 'Switch to light theme' : 'Switch to dark theme');
+}
+if (window.AW && AW.theme) { AW.theme.onChange(syncThemeBtn); syncThemeBtn(); }
+else {
+	try { const s=localStorage.getItem('aw-theme'); if(s){ document.body.classList.remove('theme-dark','theme-light'); document.body.classList.add(s); } } catch(_){}
+	syncThemeBtn();
+	themeToggleBtn.addEventListener('click', () => {
+		const dark = !document.body.classList.contains('theme-dark');
+		document.body.classList.remove('theme-dark','theme-light');
+		document.body.classList.add(dark ? 'theme-dark' : 'theme-light');
+		try { localStorage.setItem('aw-theme', dark ? 'theme-dark':'theme-light'); } catch(_){}
+		syncThemeBtn();
+	});
+}
+
+// ── COPY ──────────────────────────────────
+// English only for this experimental page; every string lives here so it stays translatable later.
+const T = {
+	problemTitle:'Tailwind has a model, not an assistant',
+	problemCaption:'The problem',
+	problemDesc:'A model that has never seen Tailwind Traders\u2019 own documents will still answer \u2014 fluently, and wrong.',
+	problemCallout:'The model is not broken. It has simply never read the store policy, so it fills the gap with something plausible.',
+	problemQ:'What\u2019s your return policy for a tent?',
+	problemA:'Tents can be returned within 90 days, no receipt required, for a full refund.',
+	problemVerdict:'Invented \u2014 nothing here came from Tailwind',
+	problemStat1:'Who', problemStat1v:'Tailwind Traders staff',
+	problemStat2:'Problem', problemStat2v:'The model guesses',
+	problemStat3:'Fix', problemStat3v:'Give it real sources',
+
+	bpTitle:'What you\u2019re actually building',
+	bpCaption:'The blueprint',
+	bpDesc:'One assistant, four pieces \u2014 and every task in this lab adds or upgrades exactly one of them.',
+	bpCallout:'Keep this shape in mind. Every step from here lights up one more piece of it.',
+	bpStat1:'Tasks 1', bpStat1v:'Instructions + knowledge',
+	bpStat2:'Tasks 2, 4, 5', bpStat2v:'Tools',
+	bpStat3:'Tasks 3, 6', bpStat3v:'A client, then hosting',
+
+	ovTitle:'Six tasks, one assistant',
+	ovCaption:'Lab at a glance',
+	ovDesc:'Two core tasks get you a working, tool-using agent in about 35 minutes. Four optional tasks take it the rest of the way.',
+	ovCallout:'Every task is written to stand alone, sharing one starter folder and one .env \u2014 so you can do just Task 1, or work straight through.',
+	ovCore:'Core', ovOpt:'Optional',
+	ovH1:'Create and ground an agent', ovP1:'In the Foundry portal \u2014 no code at all',
+	ovH2:'Connect a remote MCP server', ovP2:'Live Microsoft Learn docs, plus tool approval',
+	ovH3:'Call your agent from a client app', ovP3:'Drive it from your own chat window',
+	ovH4:'Add custom function tools', ovP4:'Your Python logic, called by the agent',
+	ovH5:'Capstone: your own MCP server', ovP5:'Host tools, then combine every tool set',
+	ovH6:'Promote it to a hosted agent', ovP6:'Your code, in a Foundry-run container',
+	ovStat1:'Core only', ovStat1v:'~35 min (Tasks 1\u20132)',
+	ovStat2:'Everything', ovStat2v:'~2 h 25 m',
+	ovStat3:'Scenario', ovStat3v:'Tailwind Traders',
+
+	archTitle:'How the pieces fit together',
+	archCaption:'Application overview',
+	archDesc:'Your code runs on your machine. The agent, its knowledge and its tools live in Microsoft Foundry. Each badge marks the task that builds that piece.',
+	archCallout:'Only Task 1 happens in the portal. Everything else is code you run locally \u2014 until Task 6 moves your code into Foundry too.',
+	archT1:'Your machine', archT2:'Microsoft Foundry project', archT3:'Data &amp; remote sources',
+	archC1:'tailwind_ui.py', archC1s:'Provided web chat window \u2014 you never edit it',
+	archC2:'client.py', archC2s:'You write respond() and route each tool call',
+	archC3:'functions.py', archC3s:'Trip planner and rental pricing, in Python',
+	archC4:'server.py', archC4s:'Your own MCP server, tools over stdio',
+	archC5:'Model deployment', archC5s:'The model your agent runs on',
+	archC6:'Agent \u00b7 instructions', archC6s:'Who it is, and how it should answer',
+	archC7:'Knowledge \u00b7 File search', archC7s:'Your uploaded documents, indexed',
+	archC8:'Tool definitions', archC8s:'Remote MCP, your functions, your MCP server',
+	archC9:'Agent Service', archC9s:'Your code in a hosted container, with its own endpoint',
+	archC10:'Learn Docs MCP server', archC10s:'learn.microsoft.com/api/mcp',
+	archC11:'Your documents', archC11s:'Store_Policy.txt, weekly_sales.csv',
+	archL1:'Responses API \u00b7 agent_reference',
+	archL2:'function_call goes out, your result comes back',
+	archL3:'MCP \u00b7 approval required',
+	archSetup:'Setup',
+	archStat1:'You run', archStat1v:'Python, on your machine',
+	archStat2:'Foundry runs', archStat2v:'The agent and its tools',
+	archStat3:'Task 6 moves', archStat3v:'Your code into Foundry',
+
+	groundTitle:'Task 1 \u00b7 Give it something true to read',
+	groundCaption:'Task 1 \u00b7 Ground it',
+	groundDesc:'Add the File search tool, upload the store policy, and the same question is answered from the document.',
+	groundCallout:'This whole task happens in the Foundry portal \u2014 no code, no environment file, nothing to install.',
+	groundVerdict:'Grounded \u2014 answered from the document',
+	groundCite:'Store_Policy.txt',
+	portalTab:'Microsoft Foundry',
+	portalUrl:'ai.azure.com/agents/tailwind-agent',
+	portalBrand:'Microsoft Foundry',
+	portalCrumb:'Agent playground \u00b7 Tools',
+	groundA:'Tents can be returned within 30 days with proof of purchase, unused and in the original packaging.',
+	groundStat1:'Where', groundStat1v:'Foundry portal',
+	groundStat2:'Tool', groundStat2v:'File search',
+	groundStat3:'Source', groundStat3v:'Store_Policy.txt',
+
+	limitsTitle:'Grounding has a hard edge',
+	limitsCaption:'The gap',
+	limitsDesc:'The policy document knows Tailwind. It knows nothing about Azure \u2014 and nothing added after you uploaded it.',
+	limitsCallout:'Grounding is internal, and frozen at upload time. That is exactly the gap the next task closes.',
+	limitsQ:'How do we deploy the product catalog API to Azure Container Apps?',
+	limitsA:'That isn\u2019t covered in the store policy document.',
+	limitsVerdict:'Out of reach \u2014 internal sources only',
+	limitsStat1:'Knows', limitsStat1v:'Tailwind\u2019s own docs',
+	limitsStat2:'Blind to', limitsStat2v:'Anything external',
+	limitsStat3:'Frozen at', limitsStat3v:'Upload time',
+
+	mcpTitle:'Task 2 \u00b7 Let it reach outside',
+	mcpCaption:'Task 2 \u00b7 Add a tool',
+	mcpDesc:'MCP lets an agent call tools it never shipped with \u2014 here, the live Microsoft Learn documentation server.',
+	mcpCallout:'The agent is not downloading the docs. It calls the server at question time, so the answer is never stale.',
+	mcpStat1:'Protocol', mcpStat1v:'Model Context Protocol',
+	mcpStat2:'Server', mcpStat2v:'Microsoft Learn Docs',
+	mcpStat3:'Freshness', mcpStat3v:'Fetched per question',
+
+	apprTitle:'Task 2 \u00b7 It asks before it acts',
+	apprCaption:'Task 2 \u00b7 Approval',
+	apprDesc:'With require_approval set to always, the run pauses and waits for a yes. Your loop is what un-pauses it.',
+	apprCallout:'Miss this loop and the agent looks broken: it stops, returns no text, and never calls the tool.',
+	apprN1:'Agent', apprT1:'Wants the tool', apprS1:'Raises mcp_approval_request, then stops',
+	apprN2:'Your loop', apprT2:'Says yes', apprS2:'Returns McpApprovalResponse(approve=True)',
+	apprN3:'Agent', apprT3:'Resumes', apprS3:'Calls the tool and writes the answer',
+	apprStat1:'Trigger', apprStat1v:'require_approval="always"',
+	apprStat2:'You send', apprStat2v:'McpApprovalResponse',
+	apprStat3:'Loop ends', apprStat3v:'No approvals left',
+
+	clientTitle:'Task 3 \u00b7 Give it a face',
+	clientCaption:'Task 3 \u00b7 Call it from an app',
+	clientDesc:'Load the agent you already built by name, drive it from your own app, and charts render right in the chat.',
+	clientCallout:'Nothing new is created here. The agent already exists \u2014 the client just loads it and starts talking.',
+	clientP1:'Web chat window', clientP2:'Charts render inline', clientP3:'You only write respond()',
+	clientStat1:'Load', clientStat1v:'agents.get(agent_name=\u2026)',
+	clientStat2:'Point at it', clientStat2v:'agent_reference',
+	clientStat3:'You write', clientStat3v:'respond()',
+
+	fnTitle:'Task 4 \u00b7 Wire in your own Python',
+	fnCaption:'Task 4 \u00b7 Function tools',
+	fnDesc:'You describe each function with a JSON schema. The agent decides when to call it \u2014 your code is what actually runs it.',
+	fnCallout:'The model never runs your code. It only asks; the function-calling loop in your app does the work and hands the result back.',
+	fnN1:'Agent', fnT1:'Picks a tool', fnS1:'Emits a function_call with JSON arguments',
+	fnN2:'Your code', fnT2:'Runs it', fnS2:'next_available_trip("alps") returns real data',
+	fnN3:'Agent', fnT3:'Answers', fnS3:'Reads the FunctionCallOutput and writes the reply',
+	fnStat1:'You describe', fnStat1v:'A JSON schema per function',
+	fnStat2:'Agent sends', fnStat2v:'function_call',
+	fnStat3:'You send back', fnStat3v:'FunctionCallOutput',
+
+	msTitle:'Task 5 \u00b7 Host your own tools',
+	msCaption:'Task 5 \u00b7 Capstone',
+	msDesc:'A server registers tools; a client discovers and calls them. One agent can hold your local functions and your MCP tools at the same time.',
+	msCallout:'Diagnostics must go to stderr \u2014 MCP speaks JSON-RPC over stdout, so a stray banner corrupts the stream.',
+	msP1:'Trip tools run in-process', msP2:'Stock tools run over MCP', msP3:'respond() routes each call',
+	msStat1:'Server', msStat1v:'Registers tools with @mcp.tool()',
+	msStat2:'Client', msStat2v:'Discovers and calls them',
+	msStat3:'One agent', msStat3v:'Two kinds of tool',
+
+	hoTitle:'Task 6 \u00b7 Ship it as a hosted agent',
+	hoCaption:'Task 6 \u00b7 Hosted agent',
+	hoDesc:'A prompt agent is a definition Foundry runs. A hosted agent is your code, in a container Foundry runs \u2014 same reference, your logic.',
+	hoCallout:'Any app that called your prompt agent by agent_reference can point at the hosted agent instead. Nothing on the caller changes.',
+	hoN1:'azd ai agent init', hoT1:'Scaffold', hoS1:'Generates azure.yaml for an azure.ai.agent service',
+	hoN2:'azd ai agent run', hoT2:'Test locally', hoS2:'Runs your handler and opens the inspector',
+	hoN3:'azd deploy', hoT3:'Go live', hoS3:'Foundry builds the container and gives it an endpoint',
+	hoP1:'Responses protocol \u00b7 OpenAI-compatible', hoP2:'Its own endpoint and identity', hoP3:'azd down removes it all',
+	hoStat1:'Before', hoStat1v:'Prompt agent \u2014 a definition',
+	hoStat2:'After', hoStat2v:'Hosted agent \u2014 your code',
+	hoStat3:'Callers', hoStat3v:'Unchanged',
+
+	recapTitle:'One assistant, six tasks',
+	recapCaption:'All in one',
+	recapDesc:'Every component built \u2014 and you can see exactly which task built which piece.',
+	recapCallout:'Knowledge makes it accurate. Tools make it useful. A client makes it real. Hosting makes it yours to run.',
+	recapV1:'Accurate', recapV2:'Useful', recapV3:'Real', recapV4:'Yours to run',
+	recapFoot:'Core tasks take about 35 minutes. The whole lab, about 2 hours 25 minutes.',
+	recapStat1:'Tasks 1\u20132', recapStat1v:'Grounded, and tool-using',
+	recapStat2:'Tasks 3\u20135', recapStat2v:'Your app, your tools',
+	recapStat3:'Task 6', recapStat3v:'Running in Foundry',
+
+	slotInstr:'Instructions', slotInstrP:'Who it is, and how it should answer',
+	slotKnow:'Knowledge', slotKnowP:'Your documents, via File search',
+	slotTools:'Tools', slotToolsP:'Live sources, your functions, your server',
+	slotClient:'Client app', slotClientP:'Where people actually talk to it',
+	slotTaskInstr:'Task 1', slotTaskKnow:'Task 1', slotTaskTools:'Tasks 2, 4, 5', slotTaskClient:'Tasks 3, 6',
+	coreName:'Tailwind Traders assistant', coreSub:'one agent, built across six tasks',
+	tTask1:'1', tTask2:'2', tTask3:'3', tTask4:'4', tTask5:'5', tTask6:'6',
+	tTaskLong1:'Task 1', tTaskLong2:'Task 2', tTaskLong3:'Task 3',
+	tTaskLong4:'Task 4', tTaskLong5:'Task 5', tTaskLong6:'Task 6',
+	flagFrozen:'frozen at upload', flagLive:'live', flagYours:'your Python', flagYourMcp:'your MCP server', flagHosted:'hosted in Foundry'
+};
+function t(k){ return T[k] != null ? T[k] : k; }
+
+// ── STEPS ─────────────────────────────────
+const FOUNDRY_ICON = '../lib/icons/Azure_Public_Service_Icons/ai + machine learning/03513-icon-service-AI-Studio.svg';
+const TASK_COLORS = { 1:'#10a37f', 2:'#e97526', 3:'#0078d4', 4:'#d24aa8', 5:'#7b4ddc', 6:'#0e7490' };
+const STEPS = [
+	{ id:'problem',  titleKey:'problemTitle', captionKey:'problemCaption', descKey:'problemDesc', calloutKey:'problemCallout',
+		stats:[['problemStat1','problemStat1v'],['problemStat2','problemStat2v'],['problemStat3','problemStat3v']] },
+	{ id:'overview', titleKey:'ovTitle', captionKey:'ovCaption', descKey:'ovDesc', calloutKey:'ovCallout',
+		stats:[['ovStat1','ovStat1v'],['ovStat2','ovStat2v'],['ovStat3','ovStat3v']] },
+	{ id:'blueprint',titleKey:'bpTitle', captionKey:'bpCaption', descKey:'bpDesc', calloutKey:'bpCallout',
+		stats:[['bpStat1','bpStat1v'],['bpStat2','bpStat2v'],['bpStat3','bpStat3v']] },
+	{ id:'arch',     titleKey:'archTitle', captionKey:'archCaption', descKey:'archDesc', calloutKey:'archCallout',
+		stats:[['archStat1','archStat1v'],['archStat2','archStat2v'],['archStat3','archStat3v']] },
+	{ id:'ground',   titleKey:'groundTitle', captionKey:'groundCaption', descKey:'groundDesc', calloutKey:'groundCallout',
+		stats:[['groundStat1','groundStat1v'],['groundStat2','groundStat2v'],['groundStat3','groundStat3v']] },
+	{ id:'limits',   titleKey:'limitsTitle', captionKey:'limitsCaption', descKey:'limitsDesc', calloutKey:'limitsCallout',
+		stats:[['limitsStat1','limitsStat1v'],['limitsStat2','limitsStat2v'],['limitsStat3','limitsStat3v']] },
+	{ id:'mcp',      titleKey:'mcpTitle', captionKey:'mcpCaption', descKey:'mcpDesc', calloutKey:'mcpCallout',
+		stats:[['mcpStat1','mcpStat1v'],['mcpStat2','mcpStat2v'],['mcpStat3','mcpStat3v']] },
+	{ id:'approval', titleKey:'apprTitle', captionKey:'apprCaption', descKey:'apprDesc', calloutKey:'apprCallout',
+		stats:[['apprStat1','apprStat1v'],['apprStat2','apprStat2v'],['apprStat3','apprStat3v']] },
+	{ id:'client',   titleKey:'clientTitle', captionKey:'clientCaption', descKey:'clientDesc', calloutKey:'clientCallout',
+		stats:[['clientStat1','clientStat1v'],['clientStat2','clientStat2v'],['clientStat3','clientStat3v']] },
+	{ id:'functions',titleKey:'fnTitle', captionKey:'fnCaption', descKey:'fnDesc', calloutKey:'fnCallout',
+		stats:[['fnStat1','fnStat1v'],['fnStat2','fnStat2v'],['fnStat3','fnStat3v']] },
+	{ id:'mcpserver',titleKey:'msTitle', captionKey:'msCaption', descKey:'msDesc', calloutKey:'msCallout',
+		stats:[['msStat1','msStat1v'],['msStat2','msStat2v'],['msStat3','msStat3v']] },
+	{ id:'hosted',   titleKey:'hoTitle', captionKey:'hoCaption', descKey:'hoDesc', calloutKey:'hoCallout',
+		stats:[['hoStat1','hoStat1v'],['hoStat2','hoStat2v'],['hoStat3','hoStat3v']] },
+	{ id:'recap',    titleKey:'recapTitle', captionKey:'recapCaption', descKey:'recapDesc', calloutKey:'recapCallout',
+		stats:[['recapStat1','recapStat1v'],['recapStat2','recapStat2v'],['recapStat3','recapStat3v']] }
+];
+
+// ── DOM ───────────────────────────────────
+const stage=document.getElementById('stage-frame'),
+	counter=document.getElementById('step-counter'), breadcrumb=document.getElementById('breadcrumb'),
+	progress=document.getElementById('progress-fill'), announcer=document.getElementById('step-announcer'),
+	outlineBody=document.getElementById('outline-body'), outlinePanel=document.getElementById('step-outline'),
+	outlineBtn=document.getElementById('outline-toggle'), calloutBtn=document.getElementById('callout-toggle');
+
+let current=-1, animating=false, liveEls=[], liveTimelines=[], calloutEnabled=false;
+
+// ── Font size ─────────────────────────────
+const fontScales=[0.8,0.9,1,1.1,1.2,1.35]; let fontScaleIdx=2;
+const baseFontSize=parseFloat(getComputedStyle(document.documentElement).fontSize);
+function applyFontScale(){
+	document.documentElement.style.fontSize=(baseFontSize*fontScales[fontScaleIdx])+'px';
+	const c=document.getElementById('controls'); if(c) c.style.fontSize=baseFontSize+'px';
+	const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s);
+}
+try{ const f=parseInt(localStorage.getItem('aw-lab-font'),10); if(!isNaN(f)&&f>=0&&f<fontScales.length){ fontScaleIdx=f; } }catch(_){}
+document.getElementById('font-decrease').addEventListener('click',()=>{ if(fontScaleIdx>0){fontScaleIdx--;applyFontScale();try{localStorage.setItem('aw-lab-font',String(fontScaleIdx));}catch(_){}} });
+document.getElementById('font-increase').addEventListener('click',()=>{ if(fontScaleIdx<fontScales.length-1){fontScaleIdx++;applyFontScale();try{localStorage.setItem('aw-lab-font',String(fontScaleIdx));}catch(_){}} });
+
+// ── Toggles ───────────────────────────────
+function syncCalloutBtn(){ calloutBtn.classList.toggle('toggle-active',calloutEnabled); calloutBtn.setAttribute('aria-pressed',calloutEnabled?'true':'false'); calloutBtn.setAttribute('data-tip',calloutEnabled?'Callouts: On':'Callouts: Off'); }
+calloutBtn.addEventListener('click',()=>{
+	calloutEnabled=!calloutEnabled; syncCalloutBtn();
+	if(current<0) return;
+	const existing=stage.querySelectorAll('.callout');
+	if(calloutEnabled){ if(!existing.length){ const c=maybeCallout(STEPS[current]); if(c) gsap.fromTo(c,{opacity:0,y:10},{opacity:1,y:0,duration:0.4,overwrite:true}); } }
+	else { existing.forEach(c=>{ const i=liveEls.indexOf(c); if(i>-1) liveEls.splice(i,1); gsap.killTweensOf(c); c.remove(); }); }
+}); syncCalloutBtn();
+function syncOutlineBtn(){ const on=!outlinePanel.hasAttribute('hidden'); outlineBtn.classList.toggle('toggle-active',on); outlineBtn.setAttribute('aria-expanded',on?'true':'false'); outlineBtn.setAttribute('data-tip',on?'Outline: On':'Outline: Off'); }
+outlineBtn.addEventListener('click',()=>{ if(outlinePanel.hasAttribute('hidden')) outlinePanel.removeAttribute('hidden'); else outlinePanel.setAttribute('hidden',''); syncOutlineBtn(); }); syncOutlineBtn();
+
+const motionMQ=window.matchMedia('(prefers-reduced-motion: reduce)'); let motionPaused=motionMQ.matches;
+motionMQ.addEventListener('change',e=>{ motionPaused=e.matches; if(current>=0) renderStep(current); });
+
+// ── Helpers ───────────────────────────────
+function clearStage(){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; liveEls.forEach(e=>e.remove()); liveEls=[]; }
+function el(cls,html){ const d=document.createElement('div'); if(cls) d.className=cls; if(html!=null) d.innerHTML=html; return d; }
+const ICONS={
+	robot:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a1 1 0 0 1 1 1v2h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V3a1 1 0 0 1 1-1zM9 10a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm6 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM3 10h1v5H3a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1zm17 0h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1z"/></svg>',
+	doc:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h7l5 5v15a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zm7 1.5V8h4.5zM8 12h8v1.6H8zm0 3.4h8V17H8z"/></svg>',
+	tool:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 6.5 17.5 10 14 6.5 17.5 3a5 5 0 0 0-6.4 6.4l-8 8a2 2 0 0 0 2.8 2.8l8-8A5 5 0 0 0 21 6.5z"/></svg>',
+	window:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M3 4h18a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zm1 4v10h16V8z"/></svg>',
+	list:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v2H4zm0 6h16v2H4zm0 6h10v2H4z"/></svg>',
+	search:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M10 3a7 7 0 1 1-4.2 12.6l-3.1 3.1-1.4-1.4 3.1-3.1A7 7 0 0 1 10 3zm0 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10z"/></svg>',
+	plus:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg>',
+	check:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.55 17.6 4.4 12.45l1.86-1.86 3.29 3.29 8.19-8.19 1.86 1.86z"/></svg>',
+	cross:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.3 5.7 12 12l6.3 6.3-1.4 1.4L10.6 13.4 5.7 18.3 4.3 16.9 10.6 12 4.3 7.1 5.7 5.7l4.9 4.9 6.3-6.3z"/></svg>',
+	chart:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10h4v10zm6 0V4h4v16zm6 0v-7h4v7z"/></svg>',
+	bolt:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>',
+	lock:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 10a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1zm3-1V7a4 4 0 1 1 8 0v2h-2V7a2 2 0 1 0-4 0v2z"/></svg>',
+	party:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5zm6 11l.9 2.6L21.5 16.5l-2.6.9L18 20l-.9-2.6L14.5 16.5l2.6-.9z"/></svg>',
+	server:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M4 3h16a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm2 2.5v2h2v-2zm-2 8h16a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-5a1 1 0 0 1 1-1zm2 2.5v2h2v-2z"/></svg>',
+	code:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.4 16.6 4.8 12l4.6-4.6L8 6l-6 6 6 6zm5.2 0 4.6-4.6-4.6-4.6L16 6l6 6-6 6z"/></svg>',
+	cloud:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 19a4.5 4.5 0 0 1-.6-8.96 6 6 0 0 1 11.64-1.02A4.25 4.25 0 0 1 18 19z"/></svg>',
+	cube:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 3 7v10l9 5 9-5V7zm0 2.3L17.7 7 12 10.2 6.3 7zM5 9.1l6 3.4v6.8l-6-3.3zm14 0v6.9l-6 3.3v-6.8z"/></svg>',
+	brain:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1 4 4 0 0 1-4-4 3 3 0 0 1-2.7-4.3A3 3 0 0 1 4 11a3 3 0 0 1 2-2.8A3.5 3.5 0 0 1 9 3.5 3.9 3.9 0 0 1 12 2zm3 0a3.9 3.9 0 0 1 3 1.5 3.5 3.5 0 0 1 3 4.7A3 3 0 0 1 23 11a3 3 0 0 1-1.3 2.7A3 3 0 0 1 19 18a4 4 0 0 1-4 4 1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/></svg>',
+	folder:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h6l2 2h10a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></svg>'
+};
+function icon(n){ return '<span class="ic">'+(ICONS[n]||'')+'</span>'; }
+function stepById(id){ return STEPS.find(s=>s.id===id); }
+function fitScene(scene){
+	if(!scene) return;
+	scene.style.transform='translate(-50%,-50%) scale(1)';
+	const box=stage.getBoundingClientRect();
+	const availW=box.width-32, availH=box.height-28;
+	const sw=scene.offsetWidth, sh=scene.offsetHeight;
+	if(!sw||!sh) return;
+	scene.style.transform='translate(-50%,-50%) scale('+Math.min(1, availW/sw, availH/sh)+')';
+}
+function headerEls(s){ return [s.querySelector('.scene-title'), s.querySelector('.scene-lead')]; }
+function buildScene(step){
+	const s=el('scene');
+	s.appendChild(el('scene-title', t(step.titleKey)));
+	s.appendChild(el('scene-lead', t(step.descKey)));
+	return s;
+}
+function maybeCallout(step){
+	if(!calloutEnabled) return null;
+	const c=el('callout', t(step.calloutKey));
+	c.style.left='1.5rem'; c.style.top='1.5rem';
+	stage.appendChild(c); liveEls.push(c); dragify(c,'aw-lab-callout-pos');
+	return c;
+}
+// Repeated on every task scene so a learner always knows which of the six tasks they're in.
+function taskRibbon(activeTask){
+	const r=el('task-ribbon');
+	for(let n=1;n<=6;n++){
+		const chip=el('task-chip', t('tTaskLong'+n));
+		chip.style.setProperty('--tc', TASK_COLORS[n]);
+		if(n===activeTask) chip.classList.add('is-now');
+		else if(activeTask>0 && n<activeTask) chip.classList.add('is-done');
+		r.appendChild(chip);
+	}
+	return r;
+}
+
+// ── The assembly diagram · shared by the task steps ──
+function buildAssembly(on, flags){
+	on = on || []; flags = flags || {};
+	const wrap=el('asm');
+	wrap.appendChild(el('asm-core',
+		'<span class="ac-ico">'+ICONS.robot+'</span>' +
+		'<span><span class="ac-name">'+t('coreName')+'</span><br><span class="ac-sub">'+t('coreSub')+'</span></span>'));
+	const row=el('asm-row');
+	[['instr','#10a37f','slotTaskInstr','slotInstr','slotInstrP','list'],
+	 ['know', '#10a37f','slotTaskKnow','slotKnow','slotKnowP','doc'],
+	 ['tools','#e97526','slotTaskTools','slotTools','slotToolsP','tool'],
+	 ['client','#0078d4','slotTaskClient','slotClient','slotClientP','window']].forEach(function(d){
+		const s=el('slot',
+			'<span class="slot-task">'+t(d[2])+'</span>' +
+			'<span class="slot-h">'+icon(d[5])+'<span>'+t(d[3])+'</span></span>' +
+			'<span class="slot-p">'+t(d[4])+'</span>');
+		s.style.setProperty('--sc', d[1]);
+		s.setAttribute('data-slot', d[0]);
+		s.classList.add(on.indexOf(d[0])>-1 ? 'is-on' : 'is-dim');
+		if(flags[d[0]]){
+			const f=el('slot-flag', t(flags[d[0]]));
+			if(flags[d[0]]!=='flagFrozen') f.classList.add('is-live');
+			s.appendChild(f);
+		}
+		row.appendChild(s);
+	});
+	wrap.appendChild(row);
+	return wrap;
+}
+function animateAssembly(tl, asm, at){
+	const core=asm.querySelector('.asm-core'), slots=asm.querySelectorAll('.slot'), flags=asm.querySelectorAll('.slot-flag');
+	tl.fromTo(core,{opacity:0,y:14,scale:0.97},{opacity:1,y:0,scale:1,duration:0.5,ease:'back.out(1.4)'}, at);
+	tl.fromTo(slots,{opacity:0,y:18},{opacity:(i,e)=>e.classList.contains('is-dim')?0.42:1,y:0,duration:0.45,stagger:0.11,ease:'power2.out'},'-=0.15');
+	if(flags.length) tl.fromTo(flags,{opacity:0,scale:0.6},{opacity:1,scale:1,duration:0.35,ease:'back.out(2)'},'-=0.1');
+}
+function setAssemblyStatic(asm){
+	gsap.set(asm.querySelector('.asm-core'),{opacity:1});
+	gsap.set(asm.querySelectorAll('.slot.is-on'),{opacity:1});
+	gsap.set(asm.querySelectorAll('.slot.is-dim'),{opacity:0.42});
+	gsap.set(asm.querySelectorAll('.slot-flag'),{opacity:1});
+}
+
+// ── The application diagram · every component, where it runs, and the task that builds it ──
+// [key, nameKey, subKey, task (0 = setup), icon]
+const ARCH_TIERS = [
+	{ head:'archT1', icon:'code', cls:'', comps:[
+		['ui',  'archC1','archC1s',3,'window'],
+		['cli', 'archC2','archC2s',3,'code'],
+		['fn',  'archC3','archC3s',4,'tool'],
+		['srv', 'archC4','archC4s',5,'server'] ] },
+	{ head:'archT2', icon:'cloud', cls:'is-foundry', comps:[
+		['model','archC5','archC5s',0,'brain'],
+		['agent','archC6','archC6s',1,'robot'],
+		['know', 'archC7','archC7s',1,'doc'],
+		['tools','archC8','archC8s',2,'tool'],
+		['host', 'archC9','archC9s',6,'cube'] ] },
+	{ head:'archT3', icon:'cloud', cls:'', comps:[
+		['learn','archC10','archC10s',2,'server'],
+		['docs', 'archC11','archC11s',1,'folder'] ] }
+];
+const ARCH_LINKS = ['\u21c4','\u2192'];
+
+function buildArch(lit){
+	const wrap=el('arch');
+	ARCH_TIERS.forEach(function(tier,ti){
+		const col=el('tier '+tier.cls);
+		col.appendChild(el('tier-head',
+			(tier.cls==='is-foundry' ? '<img class="tier-mark" src="'+FOUNDRY_ICON+'" alt="" aria-hidden="true">' : icon(tier.icon))
+			+'<span>'+t(tier.head)+'</span>'));
+		tier.comps.forEach(function(c){
+			const node=el('comp',
+				'<span class="comp-task">'+(c[3] ? t('tTaskLong'+c[3]) : t('archSetup'))+'</span>'+
+				'<span class="comp-name">'+icon(c[4])+'<span>'+t(c[1])+'</span></span>'+
+				'<span class="comp-sub">'+t(c[2])+'</span>');
+			node.style.setProperty('--tc', c[3] ? TASK_COLORS[c[3]] : '#8a8f98');
+			if(lit) node.classList.add('is-lit');
+			col.appendChild(node);
+		});
+		wrap.appendChild(col);
+		if(ti<ARCH_TIERS.length-1){
+			wrap.appendChild(el('arch-link',
+				'<span class="al-a">'+ARCH_LINKS[ti]+'</span>'+
+				'<span class="al-t">'+t(ti===0?'archL1':'archL3')+'</span>'+
+				(ti===0 ? '<span class="al-t">'+t('archL2')+'</span>' : '')));
+		}
+	});
+	return wrap;
+}
+function archLegend(){
+	const l=el('arch-legend');
+	for(let n=1;n<=6;n++){
+		const item=el('leg','<i></i><span>'+t('tTaskLong'+n)+'</span>');
+		item.style.setProperty('--tc', TASK_COLORS[n]);
+		l.appendChild(item);
+	}
+	return l;
+}
+function animateArch(tl, arch, at){
+	tl.fromTo(arch.querySelectorAll('.tier'),{opacity:0,y:16},{opacity:1,y:0,duration:0.5,stagger:0.14,ease:'power2.out'}, at);
+	tl.fromTo(arch.querySelectorAll('.comp'),{opacity:0,scale:0.94},{opacity:1,scale:1,duration:0.3,stagger:0.05,ease:'back.out(1.6)'},'-=0.5');
+	tl.fromTo(arch.querySelectorAll('.arch-link'),{opacity:0},{opacity:1,duration:0.35},'-=0.15');
+}
+function setArchStatic(arch){
+	gsap.set(arch.querySelectorAll('.tier,.comp,.arch-link'),{opacity:1});
+}
+
+function renderOutline(step,idx){
+	const rows=(step.stats||[]).map(function(p){ return '<div class="stat-row"><span>'+t(p[0])+'</span><span>'+t(p[1])+'</span></div>'; }).join('');
+	outlineBody.innerHTML='<div class="outline-section"><strong>Step '+(idx+1)+' of '+STEPS.length+': '+t(step.titleKey)+'</strong>'+
+		'<p>'+t(step.descKey)+'</p></div>'+(rows?'<div class="outline-section">'+rows+'</div>':'');
+}
+
+// ── RENDER DISPATCH ───────────────────────
+function renderStep(i){
+	if(i<0||i>=STEPS.length) return;
+	if(animating){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; animating=false; }
+	animating=true;
+	const step=STEPS[i];
+	const outgoing=stage.querySelector('.scene:not(.scene-out)');
+	if(outgoing) liveEls=liveEls.filter(x=>x!==outgoing);
+	clearStage();
+	if(outgoing){
+		outgoing.style.zIndex='5';
+		if(motionPaused) outgoing.remove();
+		else { outgoing.classList.remove('scene-in'); outgoing.classList.add('scene-out'); setTimeout(()=>outgoing.remove(),240); }
+	}
+	RENDERERS[step.id]();
+	const incoming=stage.querySelector('.scene:not(.scene-out)');
+	if(incoming && !motionPaused) incoming.classList.add('scene-in');
+	fitScene(incoming);
+	current=i;
+	try{ const u=new URL(location.href); u.searchParams.set('step',String(i+1)); history.replaceState(null,'',u); }catch(_){}
+	counter.textContent=(current+1)+' / '+STEPS.length;
+	breadcrumb.textContent=t(step.captionKey);
+	progress.style.width=((current+1)/STEPS.length*100)+'%';
+	renderOutline(step,i);
+	announcer.textContent='Step '+(i+1)+' of '+STEPS.length+': '+t(step.titleKey)+'. '+t(step.descKey);
+}
+function baseTl(scene){
+	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene),{opacity:0,y:-14},{opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	return tl;
+}
+function mount(scene){ stage.appendChild(scene); liveEls.push(scene); }
+
+// ── 1 · PROBLEM ───────────────────────────
+function renderProblem(){
+	const step=stepById('problem'), scene=buildScene(step);
+	const chat=el('chat');
+	const q=el('bubble is-user','<span class="bub-who">Store staff</span>'+t('problemQ'));
+	const a=el('bubble is-bot is-bad','<span class="bub-who">Model, ungrounded</span>'+t('problemA'));
+	chat.appendChild(q); chat.appendChild(a);
+	const v=el('verdict is-bad', icon('cross')+'<span>'+t('problemVerdict')+'</span>');
+	scene.appendChild(chat); scene.appendChild(v);
+	mount(scene);
+	const c=maybeCallout(step);
+	if(motionPaused){ gsap.set([].concat(headerEls(scene),[q,a,v]),{opacity:1}); if(c) gsap.set(c,{opacity:1}); animating=false; return; }
+	const tl=baseTl(scene);
+	tl.fromTo(q,{opacity:0,x:-24},{opacity:1,x:0,duration:0.45,ease:'power2.out'},'-=0.1');
+	tl.fromTo(a,{opacity:0,x:24},{opacity:1,x:0,duration:0.45,ease:'power2.out'},'+=0.15');
+	tl.fromTo(v,{opacity:0,scale:0.85},{opacity:1,scale:1,duration:0.4,ease:'back.out(1.8)'},'+=0.1');
+	if(c) tl.fromTo(c,{opacity:0,y:10},{opacity:1,y:0,duration:0.5},'-=0.2');
+}
+
+// ── 2 · BLUEPRINT · the destination, shown before task one ──
+function renderBlueprint(){
+	const step=stepById('blueprint'), scene=buildScene(step);
+	const ribbon=taskRibbon(0), asm=buildAssembly([], {});
+	scene.appendChild(ribbon); scene.appendChild(asm);
+	mount(scene);
+	const c=maybeCallout(step);
+	if(motionPaused){ gsap.set([].concat(headerEls(scene),[ribbon]),{opacity:1}); setAssemblyStatic(asm); if(c) gsap.set(c,{opacity:1}); animating=false; return; }
+	const tl=baseTl(scene);
+	tl.fromTo(ribbon,{opacity:0,y:-8},{opacity:1,y:0,duration:0.35},'-=0.15');
+	animateAssembly(tl, asm, '-=0.05');
+	if(c) tl.fromTo(c,{opacity:0,y:10},{opacity:1,y:0,duration:0.5},'-=0.2');
+}
+
+// ── 2 · OVERVIEW · the six tasks at a glance ──
+function renderOverview(){
+	const step=stepById('overview'), scene=buildScene(step);
+	const grid=el('ov-grid');
+	[[1,true,'\u25b0\u25b0\u25b1\u25b1\u25b1','L200','~15 min'],
+	 [2,true,'\u25b0\u25b0\u25b0\u25b1\u25b1','L300','~20 min'],
+	 [3,false,'\u25b0\u25b0\u25b0\u25b1\u25b1','L300','~20 min'],
+	 [4,false,'\u25b0\u25b0\u25b0\u25b1\u25b1','L300','~25 min'],
+	 [5,false,'\u25b0\u25b0\u25b0\u25b0\u25b1','L400','~35 min'],
+	 [6,false,'\u25b0\u25b0\u25b0\u25b1\u25b1','L300','~30 min']].forEach(function(d){
+		const card=el('ov-card',
+			'<span class="ov-top"><span class="ov-n">'+t('tTaskLong'+d[0])+'</span>'+
+			'<span class="ov-kind'+(d[1]?' is-core':'')+'">'+t(d[1]?'ovCore':'ovOpt')+'</span></span>'+
+			'<span class="ov-h">'+t('ovH'+d[0])+'</span>'+
+			'<span class="ov-p">'+t('ovP'+d[0])+'</span>'+
+			'<span class="ov-meta"><span class="ov-bar">'+d[2]+'</span><span>'+d[3]+'</span><span>'+d[4]+'</span></span>');
+		card.style.setProperty('--tc', TASK_COLORS[d[0]]);
+		grid.appendChild(card);
+	});
+	scene.appendChild(grid);
+	mount(scene);
+	const c=maybeCallout(step);
+	const cards=grid.querySelectorAll('.ov-card');
+	if(motionPaused){ gsap.set(headerEls(scene),{opacity:1}); gsap.set(cards,{opacity:1}); if(c) gsap.set(c,{opacity:1}); animating=false; return; }
+	const tl=baseTl(scene);
+	tl.fromTo(cards,{opacity:0,y:16,scale:0.95},{opacity:1,y:0,scale:1,duration:0.4,stagger:0.09,ease:'back.out(1.5)'},'-=0.1');
+	if(c) tl.fromTo(c,{opacity:0,y:10},{opacity:1,y:0,duration:0.5},'-=0.2');
+}
+
+// ── 4 · ARCHITECTURE · the application overview ──
+function renderArch(){
+	const step=stepById('arch'), scene=buildScene(step);
+	const arch=buildArch(false), legend=archLegend();
+	scene.appendChild(arch); scene.appendChild(legend);
+	mount(scene);
+	const c=maybeCallout(step);
+	if(motionPaused){ gsap.set(headerEls(scene),{opacity:1}); setArchStatic(arch); gsap.set(legend,{opacity:1}); if(c) gsap.set(c,{opacity:1}); animating=false; return; }
+	const tl=baseTl(scene);
+	animateArch(tl, arch, '-=0.1');
+	tl.fromTo(legend,{opacity:0,y:8},{opacity:1,y:0,duration:0.4},'-=0.1');
+	if(c) tl.fromTo(c,{opacity:0,y:10},{opacity:1,y:0,duration:0.5},'-=0.2');
+}
+
+// ── 5 · GROUND (Task 1) ───────────────────
+function renderGround(){
+	const step=stepById('ground'), scene=buildScene(step);
+	const ribbon=taskRibbon(1);
+	const win=el('ui-win');
+	win.innerHTML=
+		'<div class="ui-chrome">'+
+			'<span class="ui-tab"><img src="'+FOUNDRY_ICON+'" alt="" aria-hidden="true"><span>'+t('portalTab')+'</span><span class="tab-x">&#10005;</span></span>'+
+			'<span class="ui-winbtns"><span>&#8211;</span><span>&#9633;</span><span class="win-close">&#10005;</span></span>'+
+		'</div>'+
+		'<div class="ui-addr">'+
+			'<span class="ui-nav"><span>&#8249;</span><span>&#8250;</span><span>&#8635;</span></span>'+
+			'<span class="ui-url">'+icon('lock')+'<span>'+t('portalUrl')+'</span></span>'+
+		'</div>'+
+		'<div class="ui-portal"><img src="'+FOUNDRY_ICON+'" alt="Microsoft Foundry">'+
+			'<span class="ui-brand">'+t('portalBrand')+'</span>'+
+			'<span class="ui-crumb">'+t('portalCrumb')+'</span></div>'+
+		'<div class="ui-body">'+
+			'<div class="ui-row is-add">'+icon('plus')+'<span>Add a tool</span></div>'+
+			'<div class="ui-row is-new">'+icon('search')+'<span>File search</span><span class="ui-tag">added</span></div>'+
+			'<div class="ui-row is-new">'+icon('doc')+'<span class="ui-file">Store_Policy.txt</span><span class="ui-tag">indexed</span></div>'+
+		'</div>';
+	const a=el('bubble is-bot is-good','<span class="bub-who">Agent, grounded</span>'+t('groundA')+
+		'<span class="cite">'+icon('doc')+'<span>'+t('groundCite')+'</span></span>');
+	a.style.alignSelf='center'; a.style.width='min(760px,96%)'; a.style.maxWidth='none';
+	const v=el('verdict is-good', icon('check')+'<span>'+t('groundVerdict')+'</span>');
+	scene.appendChild(ribbon); scene.appendChild(win); scene.appendChild(a); scene.appendChild(v);
+	mount(scene);
+	const c=maybeCallout(step);
+	const rows=win.querySelectorAll('.ui-row');
+	if(motionPaused){ gsap.set([].concat(headerEls(scene),[ribbon,win,a,v]),{opacity:1}); gsap.set(rows,{opacity:1}); if(c) gsap.set(c,{opacity:1}); animating=false; return; }
+	const tl=baseTl(scene);
+	tl.fromTo(ribbon,{opacity:0,y:-8},{opacity:1,y:0,duration:0.35},'-=0.15');
+	tl.fromTo(win,{opacity:0,y:16},{opacity:1,y:0,duration:0.45,ease:'power2.out'},'-=0.05');
+	tl.fromTo(rows,{opacity:0,x:-14},{opacity:1,x:0,duration:0.35,stagger:0.18,ease:'power2.out'},'-=0.1');
+	tl.fromTo(a,{opacity:0,y:14},{opacity:1,y:0,duration:0.45,ease:'power2.out'},'+=0.1');
+	tl.fromTo(v,{opacity:0,scale:0.85},{opacity:1,scale:1,duration:0.4,ease:'back.out(1.8)'},'-=0.1');
+	if(c) tl.fromTo(c,{opacity:0,y:10},{opacity:1,y:0,duration:0.5},'-=0.2');
+}
+
+// ── 4 · LIMITS ────────────────────────────
+function renderLimits(){
+	const step=stepById('limits'), scene=buildScene(step);
+	const ribbon=taskRibbon(1);
+	const asm=buildAssembly(['instr','know'], { know:'flagFrozen' });
+	const chat=el('chat');
+	const q=el('bubble is-user','<span class="bub-who">Platform team</span>'+t('limitsQ'));
+	const a=el('bubble is-bot','<span class="bub-who">Agent</span>'+t('limitsA'));
+	chat.appendChild(q); chat.appendChild(a);
+	const v=el('verdict is-bad', icon('lock')+'<span>'+t('limitsVerdict')+'</span>');
+	scene.appendChild(ribbon); scene.appendChild(asm); scene.appendChild(chat); scene.appendChild(v);
+	mount(scene);
+	const c=maybeCallout(step);
+	if(motionPaused){ gsap.set([].concat(headerEls(scene),[ribbon,q,a,v]),{opacity:1}); setAssemblyStatic(asm); if(c) gsap.set(c,{opacity:1}); animating=false; return; }
+	const tl=baseTl(scene);
+	tl.fromTo(ribbon,{opacity:0,y:-8},{opacity:1,y:0,duration:0.35},'-=0.15');
+	animateAssembly(tl, asm, '-=0.05');
+	tl.fromTo(q,{opacity:0,x:-20},{opacity:1,x:0,duration:0.4,ease:'power2.out'},'+=0.05');
+	tl.fromTo(a,{opacity:0,x:20},{opacity:1,x:0,duration:0.4,ease:'power2.out'},'+=0.1');
+	tl.fromTo(v,{opacity:0,scale:0.85},{opacity:1,scale:1,duration:0.4,ease:'back.out(1.8)'},'-=0.05');
+	if(c) tl.fromTo(c,{opacity:0,y:10},{opacity:1,y:0,duration:0.5},'-=0.2');
+}
+
+// ── 5 · MCP (Task 2) ──────────────────────
+function renderMcp(){
+	const step=stepById('mcp'), scene=buildScene(step);
+	const ribbon=taskRibbon(2);
+	const asm=buildAssembly(['instr','know','tools'], { tools:'flagLive' });
+	const code=el('code-card');
+	code.innerHTML=
+		'<div class="code-head"><span class="code-file">remote_mcp_agent.py</span>'+
+		'<span class="code-winctrls"><span class="code-wbtn">&#8211;</span><span class="code-wbtn">&#9633;</span><span class="code-wbtn is-close">&#10005;</span></span></div>'+
+		'<pre class="code-body">mcp_tool = <span class="tok-fn">MCPTool</span>(\n'+
+		'    server_label=<span class="tok-str">"api-specs"</span>,\n'+
+		'    server_url=<span class="tok-str">"https://learn.microsoft.com/api/mcp"</span>,\n'+
+		'    require_approval=<span class="tok-str">"always"</span>,\n'+
+		')</pre>';
+	scene.appendChild(ribbon); scene.appendChild(asm); scene.appendChild(code);
+	mount(scene);
+	const c=maybeCallout(step);
+	if(motionPaused){ gsap.set([].concat(headerEls(scene),[ribbon,code]),{opacity:1}); setAssemblyStatic(asm); if(c) gsap.set(c,{opacity:1}); animating=false; return; }
+	const tl=baseTl(scene);
+	tl.fromTo(ribbon,{opacity:0,y:-8},{opacity:1,y:0,duration:0.35},'-=0.15');
+	animateAssembly(tl, asm, '-=0.05');
+	tl.fromTo(code,{opacity:0,y:16},{opacity:1,y:0,duration:0.45,ease:'power2.out'},'+=0.05');
+	if(c) tl.fromTo(c,{opacity:0,y:10},{opacity:1,y:0,duration:0.5},'-=0.2');
+}
+
+// ── 6 · APPROVAL (Task 2) ─────────────────
+function renderApproval(){
+	const step=stepById('approval'), scene=buildScene(step);
+	const ribbon=taskRibbon(2);
+	const hs=el('hs');
+	const n1=el('hs-node','<span class="hs-n">'+t('apprN1')+'</span><span class="hs-t">'+t('apprT1')+'</span><span class="hs-s">'+t('apprS1')+'</span>');
+	n1.style.setProperty('--hc','#e97526');
+	const ar1=el('hs-arrow','\u279C');
+	const n2=el('hs-node','<span class="hs-n">'+t('apprN2')+'</span><span class="hs-t">'+t('apprT2')+'</span><span class="hs-s">'+t('apprS2')+'</span>');
+	n2.style.setProperty('--hc','#0078d4');
+	const ar2=el('hs-arrow','\u279C');
+	const n3=el('hs-node','<span class="hs-n">'+t('apprN3')+'</span><span class="hs-t">'+t('apprT3')+'</span><span class="hs-s">'+t('apprS3')+'</span>');
+	n3.style.setProperty('--hc','#10a37f');
+	[n1,ar1,n2,ar2,n3].forEach(n=>hs.appendChild(n));
+	const code=el('code-card');
+	code.innerHTML=
+		'<div class="code-head"><span class="code-file">the loop that un-pauses the run</span>'+
+		'<span class="code-winctrls"><span class="code-wbtn">&#8211;</span><span class="code-wbtn">&#9633;</span><span class="code-wbtn is-close">&#10005;</span></span></div>'+
+		'<pre class="code-body"><span class="tok-kw">for</span> item <span class="tok-kw">in</span> response.output:\n'+
+		'    <span class="tok-kw">if</span> item.type == <span class="tok-str">"mcp_approval_request"</span>:\n'+
+		'        input_list.<span class="tok-fn">append</span>(<span class="code-hl"><span class="tok-fn">McpApprovalResponse</span>(approve=<span class="tok-kw">True</span>, \u2026)</span>)</pre>';
+	scene.appendChild(ribbon); scene.appendChild(hs); scene.appendChild(code);
+	mount(scene);
+	const c=maybeCallout(step);
+	if(motionPaused){ gsap.set([].concat(headerEls(scene),[ribbon,n1,ar1,n2,ar2,n3,code]),{opacity:1}); if(c) gsap.set(c,{opacity:1}); animating=false; return; }
+	const tl=baseTl(scene);
+	tl.fromTo(ribbon,{opacity:0,y:-8},{opacity:1,y:0,duration:0.35},'-=0.15');
+	tl.fromTo(n1,{opacity:0,y:18,scale:0.92},{opacity:1,y:0,scale:1,duration:0.45,ease:'back.out(1.5)'},'-=0.05');
+	tl.fromTo(ar1,{opacity:0,x:-8},{opacity:1,x:0,duration:0.3},'+=0.1');
+	tl.fromTo(n2,{opacity:0,y:18,scale:0.92},{opacity:1,y:0,scale:1,duration:0.45,ease:'back.out(1.5)'},'-=0.05');
+	tl.fromTo(ar2,{opacity:0,x:-8},{opacity:1,x:0,duration:0.3},'+=0.1');
+	tl.fromTo(n3,{opacity:0,y:18,scale:0.92},{opacity:1,y:0,scale:1,duration:0.45,ease:'back.out(1.5)'},'-=0.05');
+	tl.fromTo(code,{opacity:0,y:14},{opacity:1,y:0,duration:0.45,ease:'power2.out'},'+=0.05');
+	if(c) tl.fromTo(c,{opacity:0,y:10},{opacity:1,y:0,duration:0.5},'-=0.2');
+}
+
+// ── 7 · CLIENT (Task 3) ───────────────────
+function renderClient(){
+	const step=stepById('client'), scene=buildScene(step);
+	const ribbon=taskRibbon(3);
+	const asm=buildAssembly(['instr','know','tools','client'], {});
+	const code=el('code-card');
+	code.innerHTML=
+		'<div class="code-head"><span class="code-file">tailwind_ui.py</span>'+
+		'<span class="code-winctrls"><span class="code-wbtn">&#8211;</span><span class="code-wbtn">&#9633;</span><span class="code-wbtn is-close">&#10005;</span></span></div>'+
+		'<pre class="code-body"><span class="tok-com"># load the agent you already built \u2014 by name</span>\n'+
+		'agent = project_client.agents.<span class="tok-fn">get</span>(agent_name=agent_name)\n\n'+
+		'<span class="tok-com"># point the Responses API at it</span>\n'+
+		'response = openai_client.responses.<span class="tok-fn">create</span>(\n'+
+		'    conversation=conversation.id,\n'+
+		'    extra_body={<span class="code-hl"><span class="tok-str">"agent_reference"</span>: {<span class="tok-str">"name"</span>: agent.name, \u2026}</span>},\n'+
+		')</pre>';
+	const pills=el('chip-row',
+		'<span class="pill">'+icon('window')+'<span>'+t('clientP1')+'</span></span>'+
+		'<span class="pill">'+icon('chart')+'<span>'+t('clientP2')+'</span></span>'+
+		'<span class="pill">'+icon('bolt')+'<span>'+t('clientP3')+'</span></span>');
+	scene.appendChild(ribbon); scene.appendChild(asm); scene.appendChild(code); scene.appendChild(pills);
+	mount(scene);
+	const c=maybeCallout(step);
+	const pillEls=pills.querySelectorAll('.pill');
+	if(motionPaused){ gsap.set([].concat(headerEls(scene),[ribbon,code]),{opacity:1}); gsap.set(pillEls,{opacity:1}); setAssemblyStatic(asm); if(c) gsap.set(c,{opacity:1}); animating=false; return; }
+	const tl=baseTl(scene);
+	tl.fromTo(ribbon,{opacity:0,y:-8},{opacity:1,y:0,duration:0.35},'-=0.15');
+	animateAssembly(tl, asm, '-=0.05');
+	tl.fromTo(code,{opacity:0,y:14},{opacity:1,y:0,duration:0.45,ease:'power2.out'},'+=0.05');
+	tl.fromTo(pillEls,{opacity:0,y:10,scale:0.9},{opacity:1,y:0,scale:1,duration:0.35,stagger:0.09,ease:'back.out(1.8)'},'-=0.1');
+	if(c) tl.fromTo(c,{opacity:0,y:10},{opacity:1,y:0,duration:0.5},'-=0.2');
+}
+
+// ── 10 · FUNCTION TOOLS (Task 4) ──────────
+function renderFunctions(){
+	const step=stepById('functions'), scene=buildScene(step);
+	const ribbon=taskRibbon(4);
+	const asm=buildAssembly(['instr','know','tools','client'], { tools:'flagYours' });
+	const hs=el('hs');
+	[['fnN1','fnT1','fnS1','#0078d4'],['fnN2','fnT2','fnS2','#d24aa8'],['fnN3','fnT3','fnS3','#10a37f']].forEach(function(d,i){
+		if(i) hs.appendChild(el('hs-arrow','\u279C'));
+		const n=el('hs-node','<span class="hs-n">'+t(d[0])+'</span><span class="hs-t">'+t(d[1])+'</span><span class="hs-s">'+t(d[2])+'</span>');
+		n.style.setProperty('--hc', d[3]);
+		hs.appendChild(n);
+	});
+	scene.appendChild(ribbon); scene.appendChild(asm); scene.appendChild(hs);
+	mount(scene);
+	const c=maybeCallout(step);
+	const nodes=hs.querySelectorAll('.hs-node'), arrows=hs.querySelectorAll('.hs-arrow');
+	if(motionPaused){ gsap.set([].concat(headerEls(scene),[ribbon],[...nodes],[...arrows]),{opacity:1}); setAssemblyStatic(asm); if(c) gsap.set(c,{opacity:1}); animating=false; return; }
+	const tl=baseTl(scene);
+	tl.fromTo(ribbon,{opacity:0,y:-8},{opacity:1,y:0,duration:0.35},'-=0.15');
+	animateAssembly(tl, asm, '-=0.05');
+	tl.fromTo(nodes,{opacity:0,y:16,scale:0.93},{opacity:1,y:0,scale:1,duration:0.4,stagger:0.2,ease:'back.out(1.5)'},'+=0.05');
+	tl.fromTo(arrows,{opacity:0},{opacity:1,duration:0.3,stagger:0.2},'-=0.55');
+	if(c) tl.fromTo(c,{opacity:0,y:10},{opacity:1,y:0,duration:0.5},'-=0.2');
+}
+
+// ── 11 · YOUR OWN MCP SERVER (Task 5) ─────
+function renderMcpServer(){
+	const step=stepById('mcpserver'), scene=buildScene(step);
+	const ribbon=taskRibbon(5);
+	const asm=buildAssembly(['instr','know','tools','client'], { tools:'flagYourMcp' });
+	const duo=el('code-duo');
+	const server=el('code-card');
+	server.innerHTML=
+		'<div class="code-head"><span class="code-file">server.py</span>'+
+		'<span class="code-winctrls"><span class="code-wbtn">&#8211;</span><span class="code-wbtn">&#9633;</span><span class="code-wbtn is-close">&#10005;</span></span></div>'+
+		'<pre class="code-body">mcp = <span class="tok-fn">FastMCP</span>(name=<span class="tok-str">"Inventory"</span>)\n\n'+
+		'<span class="code-hl">@mcp.<span class="tok-fn">tool</span>()</span>\n'+
+		'<span class="tok-kw">def</span> <span class="tok-fn">get_inventory_levels</span>() -&gt; <span class="tok-kw">dict</span>: ...\n\n'+
+		'<span class="tok-com"># stdout is the protocol \u2014 keep it clean</span>\n'+
+		'mcp.<span class="tok-fn">run</span>(show_banner=<span class="tok-kw">False</span>)</pre>';
+	const client=el('code-card');
+	client.innerHTML=
+		'<div class="code-head"><span class="code-file">client.py &middot; respond()</span>'+
+		'<span class="code-winctrls"><span class="code-wbtn">&#8211;</span><span class="code-wbtn">&#9633;</span><span class="code-wbtn is-close">&#10005;</span></span></div>'+
+		'<pre class="code-body"><span class="tok-com"># one agent, two kinds of tool</span>\n'+
+		'<span class="tok-kw">if</span> item.name <span class="tok-kw">in</span> local_functions:\n'+
+		'    result = <span class="code-hl">local_functions[item.name](**args)</span>\n'+
+		'<span class="tok-kw">else</span>:\n'+
+		'    result = <span class="tok-kw">await</span> <span class="code-hl">session.<span class="tok-fn">call_tool</span>(item.name, args)</span></pre>';
+	duo.appendChild(server); duo.appendChild(client);
+	const pills=el('chip-row',
+		'<span class="pill">'+icon('tool')+'<span>'+t('msP1')+'</span></span>'+
+		'<span class="pill">'+icon('server')+'<span>'+t('msP2')+'</span></span>'+
+		'<span class="pill">'+icon('code')+'<span>'+t('msP3')+'</span></span>');
+	scene.appendChild(ribbon); scene.appendChild(asm); scene.appendChild(duo); scene.appendChild(pills);
+	mount(scene);
+	const c=maybeCallout(step);
+	const pillEls=pills.querySelectorAll('.pill');
+	if(motionPaused){ gsap.set([].concat(headerEls(scene),[ribbon,server,client]),{opacity:1}); gsap.set(pillEls,{opacity:1}); setAssemblyStatic(asm); if(c) gsap.set(c,{opacity:1}); animating=false; return; }
+	const tl=baseTl(scene);
+	tl.fromTo(ribbon,{opacity:0,y:-8},{opacity:1,y:0,duration:0.35},'-=0.15');
+	animateAssembly(tl, asm, '-=0.05');
+	tl.fromTo([server,client],{opacity:0,y:14},{opacity:1,y:0,duration:0.42,stagger:0.18,ease:'power2.out'},'+=0.05');
+	tl.fromTo(pillEls,{opacity:0,y:10,scale:0.9},{opacity:1,y:0,scale:1,duration:0.35,stagger:0.09,ease:'back.out(1.8)'},'-=0.1');
+	if(c) tl.fromTo(c,{opacity:0,y:10},{opacity:1,y:0,duration:0.5},'-=0.2');
+}
+
+// ── 12 · HOSTED AGENT (Task 6) ────────────
+function renderHosted(){
+	const step=stepById('hosted'), scene=buildScene(step);
+	const ribbon=taskRibbon(6);
+	const asm=buildAssembly(['instr','know','tools','client'], { client:'flagHosted' });
+	const hs=el('hs');
+	[['hoN1','hoT1','hoS1','#7b4ddc'],['hoN2','hoT2','hoS2','#0078d4'],['hoN3','hoT3','hoS3','#10a37f']].forEach(function(d,i){
+		if(i) hs.appendChild(el('hs-arrow','\u279C'));
+		const n=el('hs-node is-cmd','<span class="hs-n">'+t(d[0])+'</span><span class="hs-t">'+t(d[1])+'</span><span class="hs-s">'+t(d[2])+'</span>');
+		n.style.setProperty('--hc', d[3]);
+		hs.appendChild(n);
+	});
+	const pills=el('chip-row',
+		'<span class="pill">'+icon('bolt')+'<span>'+t('hoP1')+'</span></span>'+
+		'<span class="pill">'+icon('cube')+'<span>'+t('hoP2')+'</span></span>'+
+		'<span class="pill">'+icon('lock')+'<span>'+t('hoP3')+'</span></span>');
+	scene.appendChild(ribbon); scene.appendChild(asm); scene.appendChild(hs); scene.appendChild(pills);
+	mount(scene);
+	const c=maybeCallout(step);
+	const nodes=hs.querySelectorAll('.hs-node'), arrows=hs.querySelectorAll('.hs-arrow'), pillEls=pills.querySelectorAll('.pill');
+	if(motionPaused){ gsap.set([].concat(headerEls(scene),[ribbon],[...nodes],[...arrows],[...pillEls]),{opacity:1}); setAssemblyStatic(asm); if(c) gsap.set(c,{opacity:1}); animating=false; return; }
+	const tl=baseTl(scene);
+	tl.fromTo(ribbon,{opacity:0,y:-8},{opacity:1,y:0,duration:0.35},'-=0.15');
+	animateAssembly(tl, asm, '-=0.05');
+	tl.fromTo(nodes,{opacity:0,y:16,scale:0.93},{opacity:1,y:0,scale:1,duration:0.4,stagger:0.2,ease:'back.out(1.5)'},'+=0.05');
+	tl.fromTo(arrows,{opacity:0},{opacity:1,duration:0.3,stagger:0.2},'-=0.55');
+	tl.fromTo(pillEls,{opacity:0,y:10,scale:0.9},{opacity:1,y:0,scale:1,duration:0.35,stagger:0.09,ease:'back.out(1.8)'},'-=0.1');
+	if(c) tl.fromTo(c,{opacity:0,y:10},{opacity:1,y:0,duration:0.5},'-=0.2');
+}
+
+// ── 13 · RECAP · the whole application, every component built ──
+function renderRecap(){
+	const step=stepById('recap'), scene=buildScene(step);
+	const arch=buildArch(true);
+	const vals=el('chip-row');
+	[['recapV1','check'],['recapV2','bolt'],['recapV3','window'],['recapV4','cube']].forEach(function(p){
+		vals.appendChild(el('value-chip', icon(p[1])+'<span>'+t(p[0])+'</span>'));
+	});
+	const foot=el('recap-foot', t('recapFoot'));
+	scene.appendChild(arch); scene.appendChild(vals); scene.appendChild(foot);
+	mount(scene);
+	const c=maybeCallout(step);
+	const valEls=vals.querySelectorAll('.value-chip');
+	if(motionPaused){ gsap.set([].concat(headerEls(scene),[foot]),{opacity:1}); gsap.set(valEls,{opacity:1}); setArchStatic(arch); if(c) gsap.set(c,{opacity:1}); animating=false; return; }
+	const tl=baseTl(scene);
+	animateArch(tl, arch, '-=0.1');
+	tl.fromTo(valEls,{opacity:0,y:12,scale:0.85},{opacity:1,y:0,scale:1,duration:0.4,stagger:0.1,ease:'back.out(1.8)'},'+=0.05');
+	tl.fromTo(foot,{opacity:0,y:10},{opacity:1,y:0,duration:0.45,ease:'power2.out'},'-=0.1');
+	if(c) tl.fromTo(c,{opacity:0,y:10},{opacity:1,y:0,duration:0.5},'-=0.2');
+}
+
+const RENDERERS={ problem:renderProblem, overview:renderOverview, blueprint:renderBlueprint, arch:renderArch,
+	ground:renderGround, limits:renderLimits, mcp:renderMcp, approval:renderApproval, client:renderClient,
+	functions:renderFunctions, mcpserver:renderMcpServer, hosted:renderHosted, recap:renderRecap };
+
+// ── CONTROLS ──────────────────────────────
+function interruptAnimation(){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; animating=false; }
+function next(){ interruptAnimation(); if(current<STEPS.length-1) renderStep(current+1); }
+function prev(){ interruptAnimation(); if(current>0) renderStep(current-1); }
+function reset(){ interruptAnimation(); renderStep(0); }
+function replay(){ if(current<0) return; interruptAnimation(); renderStep(current); }
+document.getElementById('next-btn').addEventListener('click',next);
+document.getElementById('prev-btn').addEventListener('click',prev);
+document.getElementById('replay-btn').addEventListener('click',replay);
+document.getElementById('reset-btn').addEventListener('click',reset);
+
+// ── Drag (outline + callout) ──────────────
+function dragify(elm, key){
+	if(!elm) return;
+	let dragging=false, sx=0, sy=0, bl=0, bt=0;
+	elm.addEventListener('pointerdown',e=>{
+		if(e.target.closest('button')) return;
+		dragging=true; sx=e.clientX; sy=e.clientY;
+		const r=elm.getBoundingClientRect(); bl=r.left; bt=r.top;
+		elm.style.position='fixed'; elm.style.left=bl+'px'; elm.style.top=bt+'px';
+		elm.style.right='auto'; elm.style.bottom='auto';
+		try{ elm.setPointerCapture(e.pointerId); }catch(_){}
+	});
+	elm.addEventListener('pointermove',e=>{
+		if(!dragging) return;
+		elm.style.left=(bl+e.clientX-sx)+'px'; elm.style.top=(bt+e.clientY-sy)+'px';
+	});
+	function end(e){ if(!dragging) return; dragging=false;
+		try{ elm.releasePointerCapture(e.pointerId); }catch(_){}
+		if(key){ try{ const r=elm.getBoundingClientRect(); localStorage.setItem(key, JSON.stringify({left:r.left,top:r.top})); }catch(_){} } }
+	elm.addEventListener('pointerup',end); elm.addEventListener('pointercancel',end);
+	if(key){ try{ const s=JSON.parse(localStorage.getItem(key)||'null');
+		if(s&&isFinite(s.left)&&isFinite(s.top)){ elm.style.position='fixed'; elm.style.left=s.left+'px'; elm.style.top=s.top+'px'; elm.style.right='auto'; } }catch(_){} }
+}
+dragify(outlinePanel,'aw-lab-outline-pos');
+
+// ── Speed ─────────────────────────────────
+const SPEED_STEPS=[0.5,0.75,1,1.25,1.5,2], BASE_TIMESCALE=0.25;
+let speedIndex=SPEED_STEPS.indexOf(1);
+try{ const sp=parseInt(localStorage.getItem('aw-lab-speed'),10); if(!isNaN(sp)&&sp>=0&&sp<SPEED_STEPS.length) speedIndex=sp; }catch(_){}
+const speedLabel=document.getElementById('speed-label'), speedDownBtn=document.getElementById('speed-down'), speedUpBtn=document.getElementById('speed-up');
+function syncSpeedUI(){
+	speedLabel.textContent=SPEED_STEPS[speedIndex]+'\u00d7';
+	speedDownBtn.disabled=speedIndex===0; speedUpBtn.disabled=speedIndex===SPEED_STEPS.length-1;
+	gsap.globalTimeline.timeScale(SPEED_STEPS[speedIndex]*BASE_TIMESCALE);
+}
+syncSpeedUI();
+speedDownBtn.addEventListener('click',()=>{ if(speedIndex>0){speedIndex--;syncSpeedUI();try{localStorage.setItem('aw-lab-speed',String(speedIndex));}catch(_){}} });
+speedUpBtn.addEventListener('click',()=>{ if(speedIndex<SPEED_STEPS.length-1){speedIndex++;syncSpeedUI();try{localStorage.setItem('aw-lab-speed',String(speedIndex));}catch(_){}} });
+
+// ── Keyboard + swipe ──────────────────────
+if (window.AW && AW.keyboard) { AW.keyboard.bind({ next, prev, reset, replay }); }
+else { document.addEventListener('keydown', e => {
+	const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='select'||tag==='textarea') return;
+	if(['Space','ArrowRight','Enter'].includes(e.code)){ e.preventDefault(); next(); }
+	else if(e.code==='ArrowLeft'){ e.preventDefault(); prev(); }
+	else if(e.code==='KeyR'){ e.preventDefault(); reset(); }
+	else if(e.code==='KeyP'){ e.preventDefault(); replay(); }
+}); }
+(function(){
+	const surf=document.getElementById('stage'); if(!surf) return;
+	let x0=null,y0=null,t0=0;
+	surf.addEventListener('touchstart',e=>{ if(e.touches.length!==1){x0=null;return;} x0=e.touches[0].clientX; y0=e.touches[0].clientY; t0=Date.now(); },{passive:true});
+	surf.addEventListener('touchend',e=>{
+		if(x0===null) return; const tc=e.changedTouches[0], dx=tc.clientX-x0, dy=tc.clientY-y0; x0=null;
+		if(Date.now()-t0>800) return;
+		if(Math.abs(dx)>50 && Math.abs(dx)>Math.abs(dy)*1.6){ if(dx<0) next(); else prev(); }
+	},{passive:true});
+})();
+
+// ── Resize (re-fit only — never rebuild or replay) ──
+let resizeTimer, lastW=0, lastH=0;
+window.addEventListener('resize',()=>{ clearTimeout(resizeTimer); resizeTimer=setTimeout(()=>{
+	if(current<0) return;
+	const box=stage.getBoundingClientRect();
+	if(Math.abs(box.width-lastW)<1 && Math.abs(box.height-lastH)<1) return;
+	lastW=box.width; lastH=box.height;
+	const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s);
+},200); });
+
+// ── Init ──────────────────────────────────
+applyFontScale();
+const urlStep=parseInt(new URLSearchParams(location.search).get('step'),10);
+renderStep((!isNaN(urlStep)&&urlStep>=1&&urlStep<=STEPS.length) ? urlStep-1 : 0);
+</script>
+
+<script>
+// ── Start gate · hold the first animation until the viewer presses Play ──
+(function () {
+	if (new URLSearchParams(location.search).has('present')) return;
+	var stageEl = document.getElementById('stage');
+	if (!stageEl) return;
+	function freeze(){ try{ if(window.gsap && gsap.globalTimeline) gsap.globalTimeline.pause(); }catch(_){} }
+	freeze(); requestAnimationFrame(freeze);
+	stageEl.style.transition='opacity .55s ease';
+	stageEl.style.opacity='0';
+
+	var style=document.createElement('style');
+	style.textContent =
+		'#aw-play-card{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:50;box-sizing:border-box;width:min(90vw,23rem);padding:1.5rem;border-radius:16px;background:var(--theme-card-background,#fff);color:var(--theme-text,#222);border:1px solid var(--theme-border,rgba(0,0,0,.1));box-shadow:0 24px 60px rgba(0,0,0,.28);text-align:center;transition:opacity .3s ease,transform .3s ease}' +
+		'#aw-play-card.aw-hide{opacity:0;transform:translate(-50%,-50%) scale(.96);pointer-events:none}' +
+		'body.theme-dark #aw-play-card{border-color:rgba(255,255,255,.12)}' +
+		'.aw-card-title{margin:0 0 .35rem;font-size:1.1rem;font-weight:700}' +
+		'.aw-card-sub{margin:0 0 1.2rem;font-size:.9rem;opacity:.75;line-height:1.45}' +
+		'#aw-start{width:100%;display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:.8rem 1rem;border:none;border-radius:11px;cursor:pointer;background:var(--theme-primary,#0078d4);color:#fff;font-size:.95rem;font-weight:600;box-shadow:0 8px 22px var(--theme-primary-translucent,rgba(0,120,212,.45));transition:transform .15s ease}' +
+		'#aw-start:hover{transform:translateY(-2px)}#aw-start svg{width:18px;height:18px}';
+	document.head.appendChild(style);
+
+	var card=document.createElement('div');
+	card.id='aw-play-card'; card.setAttribute('role','dialog'); card.setAttribute('aria-modal','true');
+	card.innerHTML='<p class="aw-card-title">Ready to begin?</p>'+
+		'<p class="aw-card-sub">An overview of what you\u2019ll build, then all six tasks of the lab.</p>'+
+		'<button type="button" id="aw-start"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 5v14l11-7z"/></svg><span>Start</span></button>';
+	document.body.appendChild(card);
+
+	var done=false;
+	function gateKeys(e){
+		if(done) return;
+		if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','PageUp','PageDown','Home','End',' '].indexOf(e.key)>=0){ e.preventDefault(); e.stopPropagation(); }
+	}
+	document.addEventListener('keydown', gateKeys, true);
+
+	document.getElementById('aw-start').addEventListener('click', function () {
+		if(done) return; done=true;
+		document.removeEventListener('keydown', gateKeys, true);
+		card.classList.add('aw-hide');
+		setTimeout(function(){ if(card.parentNode) card.parentNode.removeChild(card); if(style.parentNode) style.parentNode.removeChild(style); }, 420);
+		setTimeout(function(){
+			try{ if(window.gsap && gsap.globalTimeline) gsap.globalTimeline.play(); }catch(_){}
+			stageEl.style.opacity='1';
+			try{ interruptAnimation(); renderStep(typeof current==='number' && current>=0 ? current : 0); }catch(_){}
+		}, 380);
+	});
+}());
+</script>
+<script src="../lib/js/aw-present.js"></script>
+<script src="../lib/js/aw-declutter.js"></script>
+<script src="../lib/js/aw-url-state.js"></script>
+
+</body>
+</html>
