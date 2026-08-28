@@ -48,7 +48,7 @@
 	function gOn(fn) { gHandlers.push(fn); return function () { var i = gHandlers.indexOf(fn); if (i >= 0) gHandlers.splice(i, 1); }; }
 	function gDispatch(msg) { if (!msg) return; for (var i = 0; i < gHandlers.length; i++) { try { gHandlers[i](msg); } catch (_) {} } }
 	function gSend(msg) { msg.n = Date.now(); try { localStorage.setItem(GKEY, JSON.stringify(msg)); } catch (_) {} if (gbus) { try { gbus.postMessage(msg); } catch (_) {} } }
-	function audienceAlive() { try { var v = parseInt(localStorage.getItem(ALIVE) || '0', 10); return !isNaN(v) && (Date.now() - v) < 5000; } catch (_) { return false; } }
+	function audienceAlive() { try { var v = parseInt(localStorage.getItem(ALIVE) || '0', 10); return !isNaN(v) && (Date.now() - v) < 70000; } catch (_) { return false; } }
 	if (gbus) gbus.onmessage = function (ev) { gDispatch(ev.data); };
 	// ── Sync ────────────────────────────────────────────────────────────────
 	function totalSteps() {
@@ -101,7 +101,7 @@
 		} catch (_) {}
 	}
 	function sendControl(action, step, value) {
-		var msg = { type: 'control', action: action, step: (typeof step === 'number') ? step : null, value: (typeof value === 'number') ? value : null, n: Date.now() };
+		var msg = { type: 'control', action: action, step: (typeof step === 'number') ? step : null, value: (value === undefined) ? null : value, n: Date.now() };
 		try { localStorage.setItem(CTRL, JSON.stringify(msg)); } catch (_) {}
 		if (bus) { try { bus.postMessage(msg); } catch (_) {} }
 	}
@@ -141,7 +141,26 @@
 		else if (msg.action === 'resume') setPaused(false);
 		else if (msg.action === 'replay') forceRender(typeof msg.step === 'number' ? msg.step : lastStep);
 		else if (msg.action === 'speed') mirrorSpeed(msg.value);
+		else if (msg.action === 'theme') applyTheme(msg.value);
 		else if (msg.action === 'ui') { var h = uiHandlers[msg.uiAction]; if (typeof h === 'function') { try { h(msg.value); } catch (_) {} } }
+	}
+	// ── Theme mirroring ─────────────────────────────────────────────────────
+	// Every page themes itself with body.theme-dark / body.theme-light, so the
+	// presenter's toggle can be mirrored generically — no page changes needed.
+	function currentTheme() { return document.body.classList.contains('theme-light') ? 'theme-light' : 'theme-dark'; }
+	function applyTheme(name) {
+		if (name !== 'theme-light' && name !== 'theme-dark') return;
+		if (document.body.classList.contains(name)) return;
+		document.body.classList.remove('theme-dark', 'theme-light');
+		document.body.classList.add(name);
+	}
+	function watchTheme() {
+		if (isPresent) return;
+		var last = currentTheme();
+		new MutationObserver(function () {
+			var now = currentTheme();
+			if (now !== last) { last = now; sendControl('theme', null, now); }
+		}).observe(document.body, { attributes: true, attributeFilter: ['class'] });
 	}
 	// Begin playback (audience): drop the waiting overlay and play from `step`.
 	function startPlayback(step) {
@@ -156,7 +175,7 @@
 			applyingRemote = true;
 			try { window.renderStep(target); } finally { applyingRemote = false; }
 		}
-		if (isPresent && enterFsRef) { try { enterFsRef(); } catch (_) {} }
+		if (isPresent && enterFsRef && navigator.userActivation && navigator.userActivation.isActive) { try { enterFsRef(); } catch (_) {} }
 	}
 	// Presenter side: refresh the Start / Pause / Resume toggle label.
 	function updatePlayBtn() {
@@ -169,7 +188,7 @@
 		else { if (ico) ico.textContent = '\u23F8'; if (lab) lab.textContent = 'Pause'; b.setAttribute('aria-label', 'Pause the animation'); }
 	}
 	function onPlayClick() {
-		if (!presStarted) { presStarted = true; pausedState = false; sendControl('start', lastStep); sendControl('speed', null, currentSpeed()); }
+		if (!presStarted) { presStarted = true; pausedState = false; sendControl('start', lastStep); sendControl('speed', null, currentSpeed()); sendControl('theme', null, currentTheme()); }
 		else if (!pausedState) { setPaused(true); sendControl('pause'); }
 		else { setPaused(false); sendControl('resume'); }
 		updatePlayBtn();
@@ -207,21 +226,49 @@
 			: 'translate(' + uPanX.toFixed(1) + 'px,' + uPanY.toFixed(1) + 'px) scale(' + uZoom.toFixed(4) + ')';
 	}
 	function resetZoom() { uZoom = 1; uPanX = 0; uPanY = 0; applyZoom(); }
-	// Scale a .scene (when present) so the slide fits the audience viewport
+	// The step that is actually on screen — never the outgoing one still fading out.
+	function activeScene() {
+		return document.querySelector('.scene:not(.scene-out)') || document.querySelector('.scene');
+	}
+	// Re-fit the active slide. The page owns its own centring + scale-to-fit, so
+	// prefer its fitScene(); only fall back to measuring ourselves.
 	function fitScene() {
 		if (!isPresent) return;
-		var scene = document.querySelector('.scene');
-		var stage = document.getElementById('stage');
-		if (!scene || !stage) return;
+		var scene = activeScene();
+		if (!scene) return;
+		if (typeof window.fitScene === 'function') {
+			try { window.fitScene(scene); } catch (_) {}
+			requestAnimationFrame(function () { boostScene(scene); });
+			return;
+		}
+		var box = scene.parentElement || document.getElementById('stage');
+		if (!box) return;
 		scene.style.transform = 'none';
 		requestAnimationFrame(function () {
-			var availH = stage.clientHeight - 28, availW = stage.clientWidth - 28;
+			var availH = box.clientHeight - 28, availW = box.clientWidth - 28;
 			var h = scene.scrollHeight, w = scene.scrollWidth;
 			if (!h || !w) return;
-			var scale = Math.min(1, availH / h, availW / w);
+			var scale = Math.min(availH / h, availW / w, 1.6);
 			scene.style.transformOrigin = 'center center';
-			scene.style.transform = scale < 1 ? 'scale(' + scale.toFixed(4) + ')' : 'none';
+			scene.style.transform = 'scale(' + scale.toFixed(4) + ')';
 		});
+	}
+	// Page fitScene() only ever scales DOWN (it targets a fixed frame). On a
+	// projector that leaves the slide small, so grow it into the spare room by
+	// multiplying the scale the page already chose — keeping its centring intact.
+	function boostScene(scene) {
+		var frame = document.getElementById('stage-frame') || document.getElementById('stage');
+		if (!frame) return;
+		var fr = frame.getBoundingClientRect(), sr = scene.getBoundingClientRect();
+		if (!sr.width || !sr.height) return;
+		var k = Math.min((fr.width - 24) / sr.width, (fr.height - 24) / sr.height);
+		if (!isFinite(k) || k <= 1.02) return;
+		k = Math.min(k, 1.6);
+		var tr = scene.style.transform || '';
+		var m = /scale\(([\d.]+)\)/.exec(tr);
+		var next = ((m ? parseFloat(m[1]) : 1) * k).toFixed(4);
+		scene.style.transformOrigin = 'center center';
+		scene.style.transform = m ? tr.replace(/scale\([\d.]+\)/, 'scale(' + next + ')') : (tr + ' scale(' + next + ')').trim();
 	}
 
 	// ── Wrap renderStep so every step change broadcasts + refits ────────────
@@ -250,10 +297,17 @@
 			+ '#present-btn .aw-present-ico{font-size:1rem;line-height:1;}'
 			+ '#present-btn:hover{color:#fff;background:#0a84ff;transform:translateY(-1px);box-shadow:0 3px 12px rgba(10,132,255,.35);animation:none;}'
 			+ '@keyframes awPresentPulse{0%,100%{box-shadow:0 0 0 0 rgba(10,132,255,0);}50%{box-shadow:0 0 0 4px rgba(10,132,255,.16);}}'
-			+ 'body.present-mode .app-header,body.present-mode .progress-track,body.present-mode #controls,body.present-mode #header-reveal,body.present-mode #step-outline{display:none !important;}'
+			+ 'body.present-mode .app-header,body.present-mode .progress-track,body.present-mode #controls,body.present-mode #header-reveal,body.present-mode #step-outline,body.present-mode .stage-overlay,body.present-mode .stage-overlay-left,body.present-mode #shortcut-overlay,body.present-mode .aw-drag-reset,body.present-mode #aw-play-card{display:none !important;}'
 			+ 'body.present-mode{padding-bottom:0 !important;overflow:hidden !important;}'
-			+ 'body.present-mode #stage{flex:1 1 auto;min-height:0;height:auto;display:flex;align-items:center;justify-content:center;overflow:hidden;}'
-			+ 'body.present-mode .scene{position:relative;top:auto;left:auto;transform:none;margin:0 auto;width:min(1200px,94vw);}'
+			// The page's own fitScene() writes an INLINE transform (usually
+			// translate(-50%,-50%) scale(k)), which always beats a stylesheet rule — so
+			// present mode must not try to re-position .scene, or the slide lands
+			// off-screen. Instead we just give #stage the whole viewport and let the
+			// page centre and scale itself exactly as it does in the main window.
+			+ 'body.present-mode #stage{flex:1 1 auto;min-height:0;height:auto;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:1rem !important;}'
+			// Pages with no fitScene() of their own don't centre .scene themselves, so
+			// they still need the legacy flow-layout override.
+			+ 'body.present-mode.aw-present-basic .scene{position:relative;top:auto;left:auto;transform:none;margin:0 auto;width:min(1200px,94vw);}'
 			+ 'body.present-mode.cursor-idle,body.present-mode.cursor-idle *{cursor:none !important;}'
 			+ '#present-hint{position:fixed;bottom:1.2rem;left:50%;transform:translateX(-50%);z-index:60;padding:.5rem 1rem;border-radius:999px;font-size:.85rem;font-weight:600;color:#fff;background:rgba(20,20,28,.82);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);box-shadow:0 4px 16px rgba(0,0,0,.3);transition:opacity .6s ease;pointer-events:none;}'
 			+ '#present-start{position:fixed;inset:0;z-index:80;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.5rem;padding:2rem;text-align:center;cursor:pointer;background:var(--theme-body-background,#0b1020);color:var(--theme-text-color,inherit);}'
@@ -337,6 +391,10 @@
 		function clearBeat() { try { localStorage.removeItem(ALIVE); } catch (_) {} }
 		beat();
 		var beatTimer = setInterval(beat, 2000);
+		// Background tabs get their timers throttled to ~1/min, so refresh on every
+		// visibility/focus change too and keep the liveness window generous.
+		document.addEventListener('visibilitychange', beat);
+		window.addEventListener('focus', beat);
 		window.addEventListener('pagehide', function () { clearInterval(beatTimer); clearBeat(); });
 		window.addEventListener('beforeunload', clearBeat);
 
@@ -490,10 +548,25 @@
 	// ── Boot ────────────────────────────────────────────────────────────────
 	function boot() {
 		injectStyle();
+		if (typeof window.fitScene !== 'function') document.body.classList.add('aw-present-basic');
 		injectButton();
 		wrapRenderStep();
 		wirePresenterControls();
-		if (isPresent) initPresent();
+		watchTheme();
+		// Reloading the presenter shouldn't strand a live audience window with no
+		// way to drive it — bring the Start / Pause toggle straight back.
+		if (!isPresent && audienceAlive()) {
+			var play = document.getElementById('present-play');
+			if (play) play.classList.add('is-visible');
+			updatePlayBtn();
+		}
+		if (isPresent) {
+			initPresent();
+			// The page renders its first step before this script runs, so that one
+			// never went through the wrapper — fit it explicitly.
+			setTimeout(fitScene, 60);
+			setTimeout(fitScene, 500);
+		}
 		window.addEventListener('resize', function () { if (isPresent) fitScene(); });
 	}
 	if (document.body) boot();
