@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<script src="/js/tracking.js"></script>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+	<meta name="description" content="The Azure Networking Journey — one enterprise reference architecture on a single screen, built from ten animated explainers: virtual networks, NSGs and ASGs, peering and Bastion, DNS and Private Link, load balancing, firewalls and WAF, VPN and ExpressRoute, Virtual WAN, network monitoring, and naming conventions." />
+	<title>Azure Networking Journey · Azure Animations</title>
+	<link rel="icon" href="../../img/favicon.png" />
+
+	<link rel="stylesheet" href="https://unpkg.com/@microsoft/atlas-css/dist/index.css" />
+	<!-- AnimationWorks shared lib (one level under static/v2/ → ../lib/) -->
+	<script src="../lib/js/aw-theme.js"></script>
+	<script src="../lib/js/aw-captions.js"></script>
+	<script src="../lib/js/aw-tour.js"></script>
+	<link rel="stylesheet" href="../lib/css/aw-likes.css" />
+	<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+	<script src="../lib/js/aw-likes.js"></script>
+
+<style>
+	:root {
+		--nw-blue:#0078d4; --nw-teal:#00b7c3; --nw-purple:#5c2d91; --nw-green:#10a37f;
+		--c-build:#0078d4; --c-secure:#5c2d91; --c-connect:#00b7c3; --c-operate:#10a37f;
+		--topbar-h:54px;
+	}
+	body.theme-dark {
+		/* The :root hues are light-theme values; on this background --c-secure read 1.8:1. */
+		--nw-blue:#6cb8ff; --nw-teal:#4fd6e0; --nw-purple:#c9a5e8; --nw-green:#3ecf9a;
+		--c-build:#6cb8ff; --c-secure:#c9a5e8; --c-connect:#4fd6e0; --c-operate:#3ecf9a;
+		/* text ON a filled accent has to flip too, or white lands on a light hue */
+		--on-accent:#10131a;
+	}
+	* { box-sizing:border-box; }
+	html, body { margin:0; }
+	html { font-size:100%; scroll-behavior:smooth; }
+	body {
+		min-height:100vh; display:flex; flex-direction:column;
+		font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif;
+		color:var(--theme-text);
+		background:
+			radial-gradient(1100px 620px at 86% -10%, rgba(0,120,212,0.18), transparent 60%),
+			radial-gradient(900px 540px at 2% 10%, rgba(0,183,195,0.13), transparent 55%),
+			radial-gradient(1000px 680px at 55% 118%, rgba(92,45,145,0.16), transparent 60%),
+			var(--theme-body-background);
+	}
+	a { color:inherit; }
+	a:focus-visible, button:focus-visible { outline:2px solid var(--nw-blue); outline-offset:3px; border-radius:8px; }
+
+	/* ── HEADER ───────────────────────────── */
+	.topbar {
+		flex:none; display:flex; align-items:center; justify-content:space-between; gap:1rem;
+		padding:0.6rem 1.4rem;
+		border-bottom:1px solid var(--theme-border, rgba(128,128,128,0.18));
+		background:color-mix(in srgb, var(--theme-body-background) 76%, transparent);
+	}
+	.brand { display:flex; align-items:center; gap:0.55rem; text-decoration:none; color:var(--theme-text); font-weight:600; font-size:1.06rem; }
+	.brand img { width:29px; height:29px; display:block; }
+	.brand .b-sub { font-weight:600; opacity:0.55; font-size:0.88rem; }
+	.top-actions { display:flex; align-items:center; gap:0.6rem; }
+	.top-actions a.tl { text-decoration:none; font-size:0.95rem; font-weight:600; color:var(--theme-text); opacity:0.8; }
+	.top-actions a.tl:hover { opacity:1; }
+
+	/* guided-tour launcher — a card in the topbar, not a plain button */
+	.tour-cta-wrap { position:relative; display:inline-flex; align-items:center; }
+	.tour-cta {
+		display:inline-flex; align-items:center; gap:0.4rem; cursor:pointer;
+		padding:0.3rem 0.75rem; border-radius:10px; font-family:inherit;
+		font-size:0.88rem; font-weight:600; line-height:1.2; white-space:nowrap;
+		background:#ffffff; color:#161616;
+		border:2px solid var(--nw-blue);
+		box-shadow:0 2px 8px rgba(0,0,0,0.10);
+		transition:transform .15s ease, box-shadow .15s ease, background .15s ease;
+	}
+	body.theme-dark .tour-cta { background:#2a2b34; color:var(--theme-text); }
+	.tour-cta:hover { transform:translateY(-1px); box-shadow:0 8px 20px color-mix(in srgb, var(--nw-blue) 30%, transparent); }
+	.tour-cta-ico { flex:none; display:inline-flex; color:var(--nw-blue); }
+	/* pulse + point a finger at it until the tour has been started once */
+	.tour-cta.is-new { animation:tourGlow 1.9s ease-in-out infinite; }
+	.tour-hint {
+		position:absolute; left:50%; top:100%; margin-top:2px;
+		font-size:2.4rem; line-height:1; pointer-events:none; z-index:2;
+		filter:drop-shadow(0 3px 8px rgba(0,0,0,0.35));
+		animation:tourFinger 1s ease-in-out infinite;
+	}
+	.tour-cta:not(.is-new) ~ .tour-hint { display:none; }
+	@keyframes tourGlow {
+		0%,100% { box-shadow:0 0 0 0 rgba(79,214,224,0); }
+		50%     { box-shadow:0 0 16px 5px color-mix(in srgb, var(--nw-blue) 60%, transparent); }
+	}
+	@keyframes tourFinger {
+		0%,100% { transform:translate(-50%,3px); }
+		50%     { transform:translate(-50%,-5px); }
+	}
+
+	.lang-select {
+		appearance:none; -webkit-appearance:none; font-family:inherit; cursor:pointer;
+		padding:0.34rem 1.6rem 0.34rem 0.6rem; border-radius:10px; font-size:0.88rem;
+		background-color:#ffffff; color:#161616;
+		border:1.5px solid var(--theme-border, rgba(128,128,128,0.4));
+		background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+		background-repeat:no-repeat; background-position:right 8px center;
+	}
+	.lang-select:hover { border-color:var(--nw-blue); }
+	body.theme-dark .lang-select { background-color:#2a2b34; color:var(--theme-text); }
+	body.theme-dark .lang-select option { background:#2a2b34; color:var(--theme-text); }
+
+	@media (prefers-reduced-motion: reduce) {
+		.tour-cta.is-new, .tour-hint { animation:none; }
+	}
+	@media (max-width:900px) {
+		.top-actions .aw-like-top { display:none; }
+	}
+	.theme-toggle {
+		display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px;
+		border-radius:10px; cursor:pointer; background:transparent; color:var(--theme-text);
+		border:1.5px solid var(--theme-border, rgba(128,128,128,0.4));
+	}
+	.theme-toggle:hover { border-color:var(--nw-blue); }
+	.theme-toggle .theme-icon { display:none; }
+	.theme-toggle[data-theme="dark"] .icon-sun { display:block; }
+	.theme-toggle[data-theme="light"] .icon-moon { display:block; }
+
+	/* ── COMPACT HERO BAND ────────────────── */
+	.band { flex:none; display:flex; align-items:center; justify-content:space-between; gap:1.6rem; flex-wrap:wrap;
+		max-width:1380px; width:100%; margin:0 auto; padding:0.9rem 1.4rem 0.5rem; }
+	.band-copy h1 { margin:0 0 0.3rem; font-size:clamp(1.7rem,3vw,2.4rem); font-weight:700; letter-spacing:-0.025em; }
+	.band-copy h1 em { font-style:normal; background-clip:text; -webkit-background-clip:text; color:transparent;
+		background-image:linear-gradient(92deg,var(--nw-blue),var(--nw-teal)); }
+	.band-copy p { margin:0; font-size:1.08rem; line-height:1.5; color:var(--theme-text-subtle); max-width:90ch; }
+	.band-actions { display:flex; gap:0.55rem; flex-wrap:wrap; align-items:center; }
+	.btn-cta { display:inline-flex; align-items:center; gap:0.35rem; padding:0.62rem 1.15rem; border-radius:11px;
+		border:none; cursor:pointer; font-size:1rem; font-weight:600; text-decoration:none; color:#fff;
+		background:linear-gradient(92deg,var(--nw-blue),var(--nw-teal));
+		box-shadow:0 8px 22px rgba(0,120,212,0.32); transition:transform .15s ease; }
+	.btn-cta:hover { transform:translateY(-2px); }
+	.btn-ghost { display:inline-flex; align-items:center; gap:0.35rem; padding:0.62rem 1.05rem; border-radius:11px;
+		cursor:pointer; text-decoration:none; font-family:inherit; font-size:1rem; font-weight:600; color:var(--theme-text);
+		background:transparent;
+		border:1.5px solid var(--theme-border, rgba(128,128,128,0.45)); transition:border-color .15s ease, transform .15s ease; }
+	.btn-ghost:hover { border-color:var(--nw-purple); transform:translateY(-2px); }
+
+	/* ── HERO · screen 1 ──────────────────── */
+	.band-left { flex:1 1 430px; min-width:0; display:flex; flex-direction:column; gap:1.1rem; }
+	.hero-net { flex:0 1 620px; min-width:290px; display:flex; justify-content:center; }
+	.hn-svg { width:100%; max-width:620px; height:auto; color:var(--theme-text); }
+
+	.learn-head { font-size:0.8rem; font-weight:700; letter-spacing:0.12em; text-transform:uppercase;
+		color:var(--theme-text-subtle); }
+	.learn-list { list-style:none; margin:0.5rem 0 0; padding:0; display:flex; flex-direction:column; gap:0.5rem; }
+	.learn-list li { display:flex; align-items:flex-start; gap:0.62rem; font-size:1rem; line-height:1.42;
+		color:var(--theme-text-subtle); }
+	.learn-list i { flex:none; width:11px; height:11px; margin-top:0.33rem; border-radius:3px; background:var(--accent); }
+	.learn-list b { font-weight:600; color:var(--theme-text); }
+	.learn-tail { margin:0.7rem 0 0; font-size:0.95rem; color:var(--theme-text-subtle); }
+
+	/* certification the journey works toward — official Microsoft Learn badge art */
+	.cert-card { display:flex; align-items:center; gap:0.9rem; margin-top:0.95rem; padding:0.75rem 1rem;
+		border-radius:14px; text-decoration:none; color:var(--theme-text);
+		background:var(--theme-card-background,#fff);
+		border:2px solid color-mix(in srgb, var(--nw-blue) 34%, var(--theme-border));
+		box-shadow:0 8px 22px rgba(0,0,0,0.08);
+		transition:border-color .15s ease, transform .15s ease, box-shadow .15s ease; }
+	body.theme-dark .cert-card { background:rgba(255,255,255,0.05); }
+	.cert-card:hover { border-color:var(--nw-blue); transform:translateY(-2px);
+		box-shadow:0 12px 28px color-mix(in srgb, var(--nw-blue) 24%, transparent); }
+	.cert-badge { width:56px; height:56px; flex:none; }
+	.cert-tx { display:flex; flex-direction:column; gap:0.14rem; min-width:0; }
+	.cert-eyebrow { font-size:0.74rem; font-weight:700; letter-spacing:0.12em; text-transform:uppercase;
+		color:var(--nw-blue); }
+	.cert-tx b { font-size:1rem; font-weight:600; line-height:1.3; }
+	.cert-sub { font-size:0.9rem; line-height:1.4; color:var(--theme-text-subtle); }
+	.cert-go { margin-left:auto; flex:none; font-size:1.15rem; color:var(--nw-blue); }
+	.cert-links { margin:0.5rem 0 0; font-size:0.92rem; color:var(--theme-text-subtle); }
+	.cert-links a { font-weight:600; color:var(--nw-blue); text-decoration:none; }
+	.cert-links a:hover { text-decoration:underline; }
+
+	/* the diagram: plain boxes, named subnets, orthogonal links — read it like a Visio drawing */
+	.hn-zone { fill:none; stroke:var(--nw-blue); stroke-width:1.5; stroke-dasharray:6 6; opacity:0.65; }
+	.hn-box { fill:var(--theme-card-background,#fff); stroke-width:2; }
+	body.theme-dark .hn-box { fill:#21232c; }
+	.hn-row { fill:color-mix(in srgb, currentColor 6%, transparent);
+		stroke:color-mix(in srgb, currentColor 16%, transparent); stroke-width:1; }
+	.hn-title { font-size:14px; font-weight:600; fill:currentColor; }
+	.hn-cidr { font-family:ui-monospace,Consolas,'Courier New',monospace; font-size:11.5px; fill:var(--theme-text-subtle); }
+	.hn-name { font-family:ui-monospace,Consolas,'Courier New',monospace; font-size:11px; fill:currentColor; }
+	.hn-label { font-size:13px; font-weight:600; text-anchor:middle; fill:currentColor; }
+	.hn-sub { font-size:11.5px; text-anchor:middle; fill:var(--theme-text-subtle); }
+	.hn-edge { font-size:10.5px; text-anchor:middle; fill:var(--theme-text-subtle); }
+
+	/* one-time draw-in; pathLength="1" normalises every link to the same timing */
+	.hn-link { fill:none; stroke-width:2.5; stroke-linecap:round; stroke-linejoin:round;
+		stroke-dasharray:1; stroke-dashoffset:1; animation:hnDraw .8s ease forwards; }
+	.hn-link.in { stroke:var(--c-connect); }
+	.hn-link.out { stroke:var(--c-build); }
+	.hn-link.vpn { stroke:var(--c-connect); stroke-dasharray:0.028 0.018; stroke-dashoffset:1;
+		animation:hnDrawVpn .9s ease forwards; }
+	@keyframes hnDraw { to { stroke-dashoffset:0; } }
+	@keyframes hnDrawVpn { to { stroke-dashoffset:0; } }
+
+	.hn-node { opacity:0; transform-box:fill-box; transform-origin:center;
+		animation:hnPop .5s cubic-bezier(.2,.7,.3,1) forwards; }
+	@keyframes hnPop { from { opacity:0; transform:scale(.9); } to { opacity:1; transform:scale(1); } }
+
+	/* ── BOARD — sized to sit in one screen ── */
+	/* top padding must clear the .az-tag pill, which hangs 15px above the board's top border */
+	.board-wrap { flex:1 1 auto; display:flex; align-items:flex-start; max-width:1380px; width:100%; margin:0 auto; padding:1.75rem 1.4rem 0.7rem; }
+	.board { position:relative; flex:1 1 auto; display:flex; flex-direction:column; gap:0.7rem;
+		border-radius:20px; padding:2.4rem 1.4rem 0.75rem;
+		background:var(--theme-card-background,#fff);
+		border:1.5px solid color-mix(in srgb, var(--nw-blue) 28%, var(--theme-border));
+		box-shadow:0 18px 44px rgba(0,0,0,0.08); }
+	body.theme-dark .board { background:rgba(255,255,255,0.03); }
+
+	/* the board itself is the cloud — tag it with the Azure mark */
+	.az-tag { position:absolute; top:-15px; left:1.5rem; z-index:6;
+		display:inline-flex; align-items:center; gap:0.5rem; padding:0.3rem 0.85rem; border-radius:999px;
+		background:var(--theme-card-background,#fff);
+		border:1.5px solid color-mix(in srgb, var(--nw-blue) 55%, transparent);
+		box-shadow:0 6px 18px rgba(0,120,212,0.2); }
+	body.theme-dark .az-tag { background:#1a1a22; }
+	.az-tag img { width:21px; height:21px; flex:none; }
+	.az-tag b { font-size:1rem; font-weight:600; }
+
+	/* three equal zones — edge → hub → spokes — separated by two identical gutters */
+	.grid {
+		flex:1 1 auto; display:grid; align-items:stretch;
+		grid-template-columns:minmax(210px,1.1fr) 74px minmax(200px,0.98fr) 74px minmax(220px,1.06fr);
+	}
+	.col { display:flex; flex-direction:column; gap:0.45rem; height:100%; }
+	/* an SVG arrow, not the "→" glyph — the text glyph is a hairline and reads tiny at diagram scale */
+	.col-arw { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.3rem;
+		height:100%; color:var(--theme-text-subtle); opacity:0.9; }
+	.col-arw span { display:block; color:color-mix(in srgb, var(--nw-blue) 60%, var(--theme-text-subtle)); }
+	.col-arw svg { display:block; }
+	.col-arw small { width:100%; font-size:0.8rem; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; text-align:center; line-height:1.25; opacity:0.85; }
+
+	/* margin-bottom keeps the next card's -10px number badge off the label */
+	.lbl { display:block; margin-bottom:0.35rem; font-size:0.8rem; font-weight:700; letter-spacing:0.12em; text-transform:uppercase;
+		color:var(--theme-text-subtle); }
+	.lbl.sp { margin-top:0.5rem; }
+
+	/* context (non-clickable) pieces */
+	.ctx { display:flex; align-items:center; gap:0.55rem; padding:0.4rem 0.7rem; border-radius:11px;
+		background:color-mix(in srgb, var(--theme-text) 4%, var(--theme-card-background,#fff));
+		border:1px solid var(--theme-border, rgba(128,128,128,0.22)); }
+	body.theme-dark .ctx { background:rgba(255,255,255,0.05); }
+	.ctx.out { border-style:dashed; background:transparent; }
+	.ctx img { width:30px; height:30px; flex:none; }
+	.ctx .em { font-size:1.6rem; line-height:1; flex:none; }
+	.ctx > div { display:flex; flex-direction:column; line-height:1.22; min-width:0; }
+	.ctx b { font-size:1.05rem; font-weight:600; }
+	.ctx small { font-size:0.9rem; color:var(--theme-text-subtle); }
+
+	/* clickable explainer nodes */
+	.node { position:relative; display:flex; align-items:center; gap:0.6rem;
+		padding:0.5rem 0.7rem 0.5rem 0.75rem; border-radius:13px; text-decoration:none; color:inherit;
+		background:var(--theme-card-background,#fff);
+		border:1.5px solid color-mix(in srgb, var(--accent) 40%, var(--theme-border));
+		box-shadow:0 7px 18px color-mix(in srgb, var(--accent) 12%, transparent);
+		transition:transform .18s cubic-bezier(.2,.7,.3,1), box-shadow .18s, border-color .18s; }
+	body.theme-dark .node { background:rgba(255,255,255,0.06); }
+	.node::before { content:""; position:absolute; left:0; top:0; bottom:0; width:4px; border-radius:13px 0 0 13px; background:var(--accent); }
+	.node:hover { transform:translateY(-3px); box-shadow:0 14px 32px color-mix(in srgb, var(--accent) 26%, transparent); border-color:var(--accent); }
+	.node .ico { flex:none; width:44px; height:44px; border-radius:11px; display:flex; align-items:center; justify-content:center; margin-left:0.1rem;
+		background:color-mix(in srgb, var(--accent) 12%, transparent); border:1px solid color-mix(in srgb, var(--accent) 26%, transparent); }
+	.node .ico img { width:29px; height:29px; }
+	.node .ico .em { font-size:1.45rem; line-height:1; }
+	.node .txt { display:flex; flex-direction:column; line-height:1.25; min-width:0; }
+	.node .txt b { font-size:1.05rem; font-weight:600; letter-spacing:-0.01em; }
+	.node .txt small { font-size:0.9rem; font-weight:400; color:var(--theme-text-subtle); }
+	.node .go { margin-left:auto; font-size:1.45rem; font-weight:600; color:var(--accent); transition:transform .18s; flex:none; }
+	.node:hover .go { transform:translateX(3px); }
+	.num { position:absolute; top:-10px; left:-10px; z-index:4; width:26px; height:26px; border-radius:50%;
+		display:flex; align-items:center; justify-content:center; font-size:0.86rem; font-weight:700; color:var(--on-accent,#fff);
+		background:var(--accent); box-shadow:0 4px 10px color-mix(in srgb, var(--accent) 45%, transparent);
+		border:2px solid var(--theme-card-background,#fff); }
+	body.theme-dark .num { border-color:#1e1e26; }
+	.is-build { --accent:var(--c-build); }
+	.is-secure { --accent:var(--c-secure); }
+	.is-connect { --accent:var(--c-connect); }
+	.is-operate { --accent:var(--c-operate); }
+
+	/* dashed boundary columns — the edge, the hub and the spokes.
+	   top padding clears the half-overlapping header pill; side padding clears the -10px number badges. */
+	.bound { position:relative; padding:2.5rem 1.4rem 0.8rem; border-radius:16px;
+		border:2px dashed color-mix(in srgb, var(--accent) 52%, var(--theme-border));
+		background:color-mix(in srgb, var(--accent) 5%, transparent); }
+	.tab { position:absolute; top:0; left:1.4rem; right:1.4rem; transform:translateY(-50%); z-index:3;
+		display:flex; align-items:center; gap:0.45rem; padding:0.4rem 0.7rem; border-radius:999px;
+		text-decoration:none; color:inherit; background:var(--theme-card-background,#fff);
+		border:1.5px solid var(--accent); box-shadow:0 6px 16px color-mix(in srgb, var(--accent) 22%, transparent);
+		transition:transform .18s, box-shadow .18s; }
+	body.theme-dark .tab { background:#1a1a22; }
+	.tab:hover { transform:translateY(calc(-50% - 2px)); box-shadow:0 10px 24px color-mix(in srgb, var(--accent) 32%, transparent); }
+	.tab img { width:25px; height:25px; flex:none; }
+	.tab .txt { display:flex; flex-direction:column; line-height:1.18; min-width:0; }
+	.tab b { font-size:1.05rem; font-weight:600; color:var(--accent); }
+	.tab small { font-size:0.9rem; font-weight:400; color:var(--theme-text-subtle); }
+	.tab .go { margin-left:auto; font-size:1.35rem; font-weight:600; color:var(--accent); flex:none; }
+	.tab .num { top:-9px; left:-9px; width:24px; height:24px; font-size:0.8rem; }
+
+	.note { margin:0.15rem 0 0; font-size:0.9rem; line-height:1.45; color:var(--theme-text-subtle); }
+
+	/* what actually runs inside a zone — subnets, apps, VMs, databases.
+	   margin-top:auto anchors the panel to the bottom of the zone so the three panels line up;
+	   the leftover height stays as plain zone background instead of inflating a half-empty box. */
+	.wl { flex:none; margin-top:auto; display:flex; flex-direction:column; gap:0.5rem;
+		padding:0.6rem; border-radius:12px;
+		background:color-mix(in srgb, var(--theme-text) 3.5%, transparent);
+		border:1px dashed color-mix(in srgb, var(--accent) 34%, var(--theme-border)); }
+	.wl-h { font-size:0.8rem; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:var(--theme-text-subtle); }
+	.wl-row { display:flex; align-items:center; gap:0.35rem; flex-wrap:wrap; }
+	.wl-sub { flex:none; font-size:0.8rem; font-weight:600; font-family:ui-monospace,Consolas,'Courier New',monospace;
+		padding:0.16rem 0.45rem; border-radius:6px; color:var(--accent);
+		background:color-mix(in srgb, var(--accent) 13%, transparent); }
+	body.theme-dark .wl-sub { color:color-mix(in srgb, var(--accent) 45%, #fff);
+		background:color-mix(in srgb, var(--accent) 34%, transparent); }
+	.wl-i { display:inline-flex; align-items:center; gap:0.35rem; font-size:0.88rem; font-weight:500;
+		padding:0.22rem 0.5rem; border-radius:8px;
+		background:var(--theme-card-background,#fff);
+		border:1px solid var(--theme-border, rgba(128,128,128,0.25)); }
+	body.theme-dark .wl-i { background:rgba(255,255,255,0.07); }
+	.wl-i img { width:21px; height:21px; flex:none; }
+
+	/* the payoff of stop 02, dropped into the spoke zone so the column carries real content
+	   instead of dead space above the workload panel */
+	.rulestrip { flex:none; display:flex; flex-direction:column; gap:0.25rem;
+		margin-top:0.6rem; padding:0.45rem 0.6rem; border-radius:12px;
+		background:color-mix(in srgb, var(--theme-text) 3.5%, transparent);
+		border:1px dashed color-mix(in srgb, var(--accent) 34%, var(--theme-border)); }
+	.rs-code { margin:0; font-family:ui-monospace,Consolas,'Courier New',monospace;
+		font-size:0.86rem; line-height:1.5; color:var(--theme-text); }
+	.rs-code b { color:var(--c-operate); font-weight:700; }
+	.rs-code em { font-style:normal; font-weight:600; padding:0.05rem 0.4rem; border-radius:6px;
+		color:var(--accent); background:color-mix(in srgb, var(--accent) 13%, transparent); }
+	body.theme-dark .rs-code em { color:color-mix(in srgb, var(--accent) 45%, #fff);
+		background:color-mix(in srgb, var(--accent) 34%, transparent); }
+	.rs-n { font-size:0.84rem; line-height:1.4; color:var(--theme-text-subtle); }
+
+	/* bottom rail */
+	.rail { display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;
+		padding-top:0.7rem; border-top:1px solid var(--theme-border, rgba(128,128,128,0.18)); }
+	.rail .lbl { flex:none; }
+	.rail .node { flex:1 1 250px; max-width:400px; }
+	.legend { flex:none; display:flex; flex-wrap:wrap; gap:0.35rem 0.95rem; margin-left:auto; font-size:0.76rem; color:var(--theme-text-subtle); }
+	.legend span { display:inline-flex; align-items:center; gap:0.35rem; }
+	.legend i { width:11px; height:11px; border-radius:3px; display:inline-block; }
+
+	/* ── FOOTER (below the fold on purpose) ── */
+	.site-foot { flex:none; max-width:1380px; width:100%; margin:0 auto; padding:1.1rem 1.4rem 1.6rem;
+		display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;
+		font-size:0.95rem; color:var(--theme-text-subtle); }
+	.credit-link { display:inline-flex; align-items:center; gap:0.3rem; font-weight:600; text-decoration:none; color:var(--theme-text); }
+	.credit-link:hover { color:var(--nw-blue); }
+
+	/* ── FULL-PAGE SCROLL SNAP ────────────────
+	   Two screens: the story, then the board on its own as the menu. */
+	.panel { display:flex; flex-direction:column; position:relative; }
+	.panel-map { flex:1 1 auto; }
+	.scroll-cue { display:none; position:absolute; left:50%; bottom:1.3rem; transform:translateX(-50%);
+		align-items:center; gap:0.5rem; padding:0.5rem 1.05rem; border-radius:999px;
+		text-decoration:none; font-size:0.95rem; font-weight:600; color:var(--theme-text);
+		border:1.5px solid var(--theme-border, rgba(128,128,128,0.45));
+		background:var(--theme-card-background,#fff); }
+	body.theme-dark .scroll-cue { background:rgba(255,255,255,0.06); }
+	.scroll-cue:hover { border-color:var(--nw-blue); color:var(--nw-blue); }
+	.scroll-cue svg { animation:cueBob 1.9s ease-in-out infinite; }
+	@keyframes cueBob { 0%,100% { transform:translateY(0); } 50% { transform:translateY(3px); } }
+
+	/* only on a desktop-sized window — anywhere smaller the page scrolls normally */
+	@media (min-width:901px) and (min-height:640px) {
+		/* proximity, not mandatory: on a short window the board is taller than the screen, and
+		   mandatory would spring back to the panel top and hide the bottom of the diagram */
+		html { scroll-snap-type:y proximity; scroll-padding-top:var(--topbar-h); }
+		.topbar { position:sticky; top:0; z-index:30; height:var(--topbar-h);
+			backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); }
+		.panel { min-height:calc(100vh - var(--topbar-h)); min-height:calc(100svh - var(--topbar-h));
+			scroll-snap-align:start; scroll-snap-stop:always; }
+		.panel-intro { justify-content:center; padding-bottom:4.5rem; }
+		.panel-intro .band { align-items:center; gap:2.4rem; padding:1.2rem 1.4rem; }
+		.panel-intro .band-copy h1 { font-size:clamp(2.1rem,3.4vw,3rem); margin-bottom:0.7rem; }
+		.panel-intro .band-copy p { font-size:1.16rem; max-width:52ch; }
+		.scroll-cue { display:inline-flex; }
+		/* the board now owns a whole screen — let it fill it instead of hugging its content */
+		.board-wrap { align-items:stretch; padding-bottom:0.3rem; }
+	}
+
+	@media (max-width:900px) {
+		.grid { grid-template-columns:1fr; gap:0.9rem; }
+		.col-arw { flex-direction:row; gap:0.5rem; padding:0.1rem 0; }
+		.col-arw span { transform:rotate(90deg); }
+		.bound { margin-top:0.9rem; }
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.node, .tab, .btn-cta, .btn-ghost { transition:none; }
+		html { scroll-behavior:auto; }
+		.scroll-cue svg { animation:none; }
+		.hn-node { opacity:1; animation:none; }
+		.hn-link { stroke-dashoffset:0; animation:none; }
+	}
+</style>
+</head>
+
+<body class="theme-dark" data-theme-preset="atlas">
+
+	<header class="topbar">
+		<a class="brand" href="../index.html" aria-label="Azure Animations home">
+			<img src="../lib/icons/Azure_Public_Service_Icons/networking/10061-icon-service-Virtual-Networks.svg" alt="" decoding="async">
+			Azure Networking <span class="b-sub">/ Journey</span>
+		</a>
+		<div class="top-actions">
+			<div class="aw-like-top pop-right">
+				<button class="aw-like" data-aw-like data-like-total data-page-slug="journey-network" type="button" aria-pressed="false" aria-label="Support Azure Animations — tap the heart">
+					<span class="aw-like-heart" aria-hidden="true">❤️</span>
+					<span class="aw-like-label">Support</span>
+					<span class="aw-like-count" data-like-count>0</span>
+				</button>
+				<div class="aw-like-pop" role="tooltip">
+					<strong>A little tap makes our day 💙</strong>
+					<span>These Azure animations are a labour of love. If they helped you, a tap of the heart means the world — thank you for your support! 🙏</span>
+					<span class="aw-like-geo" data-like-geo hidden></span>
+				</div>
+			</div>
+			<span class="tour-cta-wrap">
+				<button id="tour-start" type="button" class="tour-cta is-new" data-i18n-title="ctaSub" title="10 stops · narrated">
+					<span class="tour-cta-ico" aria-hidden="true">
+						<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z" fill="currentColor" stroke="none"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+					</span>
+					<span data-i18n="ctaTitle">Walk me through it</span>
+				</button>
+				<span class="tour-hint" aria-hidden="true">👆</span>
+			</span>
+			<select id="lang-select" class="lang-select" aria-label="Language" title="Language">
+				<option value="en">English</option>
+				<option value="es">Español</option>
+				<option value="ja">日本語</option>
+				<option value="ko">한국어</option>
+				<option value="pt">Português</option>
+			</select>
+			<a class="tl" href="https://aka.ms/AzureAnimations" target="_blank" rel="noopener noreferrer">All animations ↗</a>
+			<button id="theme-toggle" class="theme-toggle" data-theme="dark" aria-label="Toggle light/dark theme" title="Toggle theme">
+				<svg class="theme-icon icon-sun" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+				<svg class="theme-icon icon-moon" width="19" height="19" viewBox="0 0 24 24" fill="currentColor"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+			</button>
+		</div>
+	</header>
+
+	<section class="panel panel-intro" id="intro" tabindex="-1" aria-label="Introduction">
+		<div class="band">
+			<div class="band-left">
+				<div class="band-copy">
+					<h1 data-i18n-html="heroTitle">One architecture. <em>Ten explainers.</em></h1>
+					<p data-i18n="heroLead">This is the enterprise network almost every Azure workload ends up with. Ten short animations take it apart, one piece at a time — in the order you'd actually build it.</p>
+				</div>
+
+				<div>
+					<span class="learn-head" data-i18n="learnHead">What you'll learn</span>
+					<ul class="learn-list">
+						<li style="--accent:var(--c-build)"><i></i><span data-i18n-html="learnBuild"><b>Build it</b> — virtual networks, subnets and NICs, plus a naming convention that survives a redesign.</span></li>
+						<li style="--accent:var(--c-secure)"><i></i><span data-i18n-html="learnSecure"><b>Secure it</b> — NSGs and ASGs, Azure Firewall and WAF, and private endpoints instead of public IPs.</span></li>
+						<li style="--accent:var(--c-connect)"><i></i><span data-i18n-html="learnConnect"><b>Connect it</b> — peering, Bastion, DNS, VPN and ExpressRoute, Virtual WAN, and load balancing.</span></li>
+						<li style="--accent:var(--c-operate)"><i></i><span data-i18n-html="learnOperate"><b>Operate it</b> — Network Watcher for right now, Azure Monitor for always.</span></li>
+					</ul>
+					<p class="learn-tail" data-i18n="learnTail">By the end you can read this diagram — and draw your own.</p>
+
+					<a class="cert-card" href="https://learn.microsoft.com/credentials/certifications/azure-network-engineer-associate/" target="_blank" rel="noopener noreferrer">
+						<img class="cert-badge" src="https://learn.microsoft.com/media/learn/certification/badges/microsoft-certified-associate-badge.svg" alt="" decoding="async" width="56" height="56">
+						<span class="cert-tx">
+							<span class="cert-eyebrow" data-i18n="certEyebrow">Works toward</span>
+							<b>Microsoft Certified: Azure Network Engineer Associate</b>
+							<span class="cert-sub" data-i18n="certSub">Exam AZ-700 — this journey covers the skills it measures</span>
+						</span>
+						<span class="cert-go" aria-hidden="true">↗</span>
+					</a>
+					<p class="cert-links" data-i18n-html="certLinks">Study with the official <a href="https://learn.microsoft.com/training/paths/design-implement-microsoft-azure-networking-solutions-az-700/" target="_blank" rel="noopener noreferrer">AZ-700 learning path ↗</a> and the <a href="https://learn.microsoft.com/credentials/certifications/resources/study-guides/az-700" target="_blank" rel="noopener noreferrer">exam study guide ↗</a></p>
+				</div>
+
+				<div class="band-actions">
+					<a href="VirtualNetwork.html" class="btn-cta" data-i18n="heroCta">Start with the virtual network →</a>
+				</div>
+			</div>
+
+			<div class="hero-net">
+				<svg class="hn-svg" viewBox="0 0 620 450" role="img" aria-label="A hub and spoke topology: the internet and an on-premises network connect into a hub virtual network holding AzureFirewallSubnet, AzureBastionSubnet and GatewaySubnet, which peers with a spoke-web virtual network and a spoke-data virtual network.">
+					<rect class="hn-zone" x="140" y="16" width="472" height="418" rx="18" />
+					<g class="hn-node" style="animation-delay:.06s">
+						<rect class="hn-box" x="152" y="4" width="152" height="26" rx="13" stroke="var(--c-build)" />
+						<image href="../lib/icons/Azure_Public_Service_Icons/other/10018-icon-service-Azure-A.svg" x="160" y="8" width="18" height="18" />
+						<text class="hn-title" x="184" y="22" style="font-size:12.5px">Microsoft Azure</text>
+					</g>
+
+					<!-- the internet -->
+					<g class="hn-node" style="animation-delay:.12s">
+						<path class="hn-box" stroke="var(--c-connect)" d="M30,88 A16,16 0 0 1 30,56 A22,22 0 0 1 70,44 A18,18 0 0 1 98,60 A15,15 0 0 1 96,88 Z" />
+						<text class="hn-label" x="60" y="74">Internet</text>
+						<text class="hn-sub" x="60" y="108">Public traffic</text>
+					</g>
+
+					<!-- your datacentre -->
+					<g class="hn-node" style="animation-delay:.18s">
+						<rect class="hn-box" x="14" y="330" width="92" height="56" rx="10" stroke="var(--c-connect)" />
+						<image href="../lib/icons/Azure_Public_Service_Icons/networking/10077-icon-service-Local-Network-Gateways.svg" x="46" y="344" width="28" height="28" />
+						<text class="hn-label" x="60" y="406">On-premises</text>
+						<text class="hn-sub" x="60" y="423">VPN · ExpressRoute</text>
+					</g>
+
+					<path class="hn-link in"  pathLength="1" d="M108,70 H130 V125 H158"  style="animation-delay:.30s" />
+					<path class="hn-link vpn" pathLength="1" d="M108,358 H130 V205 H158" style="animation-delay:.38s" />
+
+					<!-- the hub -->
+					<g class="hn-node" style="animation-delay:0s">
+						<rect class="hn-box" x="160" y="62" width="196" height="176" rx="12" stroke="var(--c-build)" />
+						<text class="hn-title" x="170" y="84">hub-vnet</text>
+						<text class="hn-cidr"  x="170" y="100">10.10.0.0/16</text>
+						<rect class="hn-row" x="170" y="108" width="176" height="34" rx="8" />
+						<image href="../lib/icons/Azure_Public_Service_Icons/networking/10084-icon-service-Firewalls.svg" x="178" y="114" width="22" height="22" />
+						<text class="hn-name" x="208" y="129">AzureFirewallSubnet</text>
+						<rect class="hn-row" x="170" y="148" width="176" height="34" rx="8" />
+						<image href="../lib/icons/Azure_Public_Service_Icons/networking/02422-icon-service-Bastions.svg" x="178" y="154" width="22" height="22" />
+						<text class="hn-name" x="208" y="169">AzureBastionSubnet</text>
+						<rect class="hn-row" x="170" y="188" width="176" height="34" rx="8" />
+						<image href="../lib/icons/Azure_Public_Service_Icons/networking/10063-icon-service-Virtual-Network-Gateways.svg" x="178" y="194" width="22" height="22" />
+						<text class="hn-name" x="208" y="209">GatewaySubnet</text>
+					</g>
+
+					<path class="hn-link out" pathLength="1" d="M356,150 H386 V125 H416" style="animation-delay:.70s" />
+					<path class="hn-link out" pathLength="1" d="M356,150 H386 V300 H416" style="animation-delay:.78s" />
+					<text class="hn-edge" x="386" y="112">peering</text>
+
+					<!-- the spokes -->
+					<g class="hn-node" style="animation-delay:.50s">
+						<rect class="hn-box" x="416" y="62" width="184" height="136" rx="12" stroke="var(--c-secure)" />
+						<text class="hn-title" x="426" y="84">spoke-web</text>
+						<text class="hn-cidr"  x="426" y="100">10.20.0.0/16</text>
+						<rect class="hn-row" x="426" y="108" width="164" height="34" rx="8" />
+						<image href="../lib/icons/Azure_Public_Service_Icons/networking/10076-icon-service-Application-Gateways.svg" x="434" y="114" width="22" height="22" />
+						<text class="hn-name" x="464" y="129">snet-agw</text>
+						<rect class="hn-row" x="426" y="148" width="164" height="34" rx="8" />
+						<image href="../lib/icons/Azure_Public_Service_Icons/web/10035-icon-service-App-Services.svg" x="434" y="154" width="22" height="22" />
+						<text class="hn-name" x="464" y="169">snet-web</text>
+					</g>
+
+					<g class="hn-node" style="animation-delay:.56s">
+						<rect class="hn-box" x="416" y="248" width="184" height="136" rx="12" stroke="var(--c-secure)" />
+						<text class="hn-title" x="426" y="270">spoke-data</text>
+						<text class="hn-cidr"  x="426" y="286">10.30.0.0/16</text>
+						<rect class="hn-row" x="426" y="294" width="164" height="34" rx="8" />
+						<image href="../lib/icons/Azure_Public_Service_Icons/compute/10021-icon-service-Virtual-Machine.svg" x="434" y="300" width="22" height="22" />
+						<text class="hn-name" x="464" y="315">snet-app</text>
+						<rect class="hn-row" x="426" y="334" width="164" height="34" rx="8" />
+						<image href="../lib/icons/Azure_Public_Service_Icons/other/02579-icon-service-Private-Endpoints.svg" x="434" y="340" width="22" height="22" />
+						<text class="hn-name" x="464" y="355">snet-data</text>
+					</g>
+				</svg>
+			</div>
+		</div>
+		<a class="scroll-cue" href="#map">
+			<span data-i18n="scrollCue">See the architecture</span>
+			<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+		</a>
+	</section>
+
+	<section class="panel panel-map" id="map" tabindex="-1" aria-label="The architecture — pick an explainer">
+	<main class="board-wrap">
+		<div class="board">
+			<div class="az-tag">
+				<img src="../lib/icons/Azure_Public_Service_Icons/other/10018-icon-service-Azure-A.svg" alt="Microsoft Azure" decoding="async">
+				<b>Microsoft Azure</b>
+			</div>
+			<div class="grid">
+
+				<!-- ── COLUMN 1 · how traffic arrives ── -->
+				<div class="col bound" style="--accent:var(--c-connect);">
+					<span class="lbl" data-i18n="bInternet">From the internet</span>
+					<div class="ctx out"><span class="em" aria-hidden="true">🌍</span><div><b data-i18n="bUsers">Users, worldwide</b><small data-i18n="bUsersSub">Public internet</small></div></div>
+					<a class="node is-connect" href="DnsAndPrivateLink.html">
+						<span class="num">04</span>
+						<span class="ico"><img src="../lib/icons/Azure_Public_Service_Icons/networking/10064-icon-service-DNS-Zones.svg" alt="" decoding="async"></span>
+						<span class="txt"><b>DNS &amp; Private Link</b><small data-i18n="bDnsSub">Resolve the name · private endpoints</small></span>
+						<span class="go" aria-hidden="true">→</span>
+					</a>
+					<a class="node is-connect" href="LoadBalancing.html">
+						<span class="num">05</span>
+						<span class="ico"><img src="../lib/icons/Azure_Public_Service_Icons/networking/10073-icon-service-Front-Door-and-CDN-Profiles.svg" alt="" decoding="async"></span>
+						<span class="txt"><b data-i18n="bLoadBal">Load balancing</b><small>Front Door · App Gateway · Load Balancer</small></span>
+						<span class="go" aria-hidden="true">→</span>
+					</a>
+
+					<span class="lbl sp" data-i18n="bDatacentre">From your datacentre</span>
+					<div class="ctx out"><img src="../lib/icons/Azure_Public_Service_Icons/networking/10077-icon-service-Local-Network-Gateways.svg" alt="" decoding="async"><div><b data-i18n="bOnprem">On-premises &amp; branches</b><small data-i18n="bOnpremSub">Offices, remote users</small></div></div>
+					<a class="node is-connect" href="VpnExpressRoute.html">
+						<span class="num">07</span>
+						<span class="ico"><img src="../lib/icons/Azure_Public_Service_Icons/networking/10079-icon-service-ExpressRoute-Circuits.svg" alt="" decoding="async"></span>
+						<span class="txt"><b>VPN Gateway &amp; ExpressRoute</b><small data-i18n="bVpnSub">Encrypt the internet, or bypass it</small></span>
+						<span class="go" aria-hidden="true">→</span>
+					</a>
+
+					<div class="wl" style="--accent:var(--c-connect);">
+						<span class="wl-h" data-i18n="bFront">Always sitting in front</span>
+						<div class="wl-row">
+							<span class="wl-i"><img src="../lib/icons/Azure_Public_Service_Icons/networking/10069-icon-service-Public-IP-Addresses.svg" alt="" decoding="async"><span data-i18n="bPublicIps">Public IP addresses</span></span>
+							<span class="wl-i"><img src="../lib/icons/Azure_Public_Service_Icons/networking/10310-icon-service-NAT.svg" alt="" decoding="async">NAT Gateway</span>
+						</div>
+						<div class="wl-row">
+							<span class="wl-i"><img src="../lib/icons/Azure_Public_Service_Icons/networking/10072-icon-service-DDoS-Protection-Plans.svg" alt="" decoding="async"><span data-i18n="bDdos">DDoS platform protection · always on</span></span>
+						</div>
+					</div>
+				</div>
+
+				<div class="col-arw" aria-hidden="true"><span><svg width="46" height="22" viewBox="0 0 46 22" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M2 11h38"/><path d="M32 4l8 7-8 7"/></svg></span><small data-i18n-html="bArrTraffic">Traffic<br>in</small></div>
+
+				<!-- ── COLUMN 2 · the hub ── -->
+				<div class="col bound" style="--accent:var(--c-build);">
+					<a class="tab" href="VirtualWan.html">
+						<span class="num">08</span>
+						<img src="../lib/icons/Azure_Public_Service_Icons/networking/10353-icon-service-Virtual-WANs.svg" alt="" decoding="async">
+						<span class="txt"><b>Azure Virtual WAN</b><small data-i18n="bVwanSub">Or a hub you run yourself</small></span>
+						<span class="go" aria-hidden="true">→</span>
+					</a>
+					<span class="lbl" data-i18n="bHub">The hub</span>
+					<a class="node is-secure" href="FirewallAndWaf.html">
+						<span class="num">06</span>
+						<span class="ico"><img src="../lib/icons/Azure_Public_Service_Icons/networking/10084-icon-service-Firewalls.svg" alt="" decoding="async"></span>
+						<span class="txt"><b>WAF &amp; Azure Firewall</b><small data-i18n="bWafSub">Inspect it · and the routes to it</small></span>
+						<span class="go" aria-hidden="true">→</span>
+					</a>
+					<a class="node is-build" href="PeeringBastion.html">
+						<span class="num">03</span>
+						<span class="ico"><img src="../lib/icons/Azure_Public_Service_Icons/networking/02422-icon-service-Bastions.svg" alt="" decoding="async"></span>
+						<span class="txt"><b>VNet peering &amp; Bastion</b><small data-i18n="bPeerSub">Private reach · no public IPs</small></span>
+						<span class="go" aria-hidden="true">→</span>
+					</a>
+					<p class="note" data-i18n="bHubNote">Every flow above crosses this hub — internet, on-premises and spoke-to-spoke.</p>
+					<div class="wl">
+						<span class="wl-h" data-i18n="bShared">Shared services in the hub</span>
+						<div class="wl-row">
+							<span class="wl-i"><img src="../lib/icons/Azure_Public_Service_Icons/networking/10063-icon-service-Virtual-Network-Gateways.svg" alt="" decoding="async">GatewaySubnet</span>
+							<span class="wl-i"><img src="../lib/icons/Azure_Public_Service_Icons/networking/10084-icon-service-Firewalls.svg" alt="" decoding="async">AzureFirewallSubnet</span>
+						</div>
+						<div class="wl-row">
+							<span class="wl-i"><img src="../lib/icons/Azure_Public_Service_Icons/networking/02422-icon-service-Bastions.svg" alt="" decoding="async">AzureBastionSubnet</span>
+							<span class="wl-i"><img src="../lib/icons/Azure_Public_Service_Icons/networking/10082-icon-service-Route-Tables.svg" alt="" decoding="async"><span data-i18n="bRouteTables">Route tables</span></span>
+						</div>
+						<div class="wl-row">
+							<span class="wl-i"><img src="../lib/icons/Azure_Public_Service_Icons/networking/10064-icon-service-DNS-Zones.svg" alt="" decoding="async"><span data-i18n="bPrivDns">Private DNS zones</span></span>
+							<span class="wl-i"><img src="../lib/icons/Azure_Public_Service_Icons/analytics/00009-icon-service-Log-Analytics-Workspaces.svg" alt="" decoding="async">Log Analytics</span>
+						</div>
+						<div class="wl-row">
+							<span class="wl-i"><img src="../lib/icons/Azure_Public_Service_Icons/networking/02496-icon-service-Virtual-Router.svg" alt="" decoding="async">RouteServerSubnet</span>
+							<span class="wl-i"><img src="../lib/icons/Azure_Public_Service_Icons/networking/02882-icon-service-DNS-Private-Resolver.svg" alt="" decoding="async">DNS Private Resolver</span>
+						</div>
+					</div>
+				</div>
+
+				<div class="col-arw" aria-hidden="true"><span><svg width="46" height="22" viewBox="0 0 46 22" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M2 11h38"/><path d="M32 4l8 7-8 7"/></svg></span><small>VNet<br>peering</small></div>
+
+				<!-- ── COLUMN 3 · the spokes ── -->
+				<div class="col bound" style="--accent:var(--c-secure);">
+					<a class="tab" href="VirtualNetwork.html">
+						<span class="num">01</span>
+						<img src="../lib/icons/Azure_Public_Service_Icons/networking/10061-icon-service-Virtual-Networks.svg" alt="" decoding="async">
+						<span class="txt"><b data-i18n="bVnetTitle">Virtual Network</b><small>VNet · subnets · NICs</small></span>
+						<span class="go" aria-hidden="true">→</span>
+					</a>
+					<span class="lbl" data-i18n="bSpokes">The spokes — where the workload lives</span>
+					<a class="node is-secure" href="NsgAsg.html">
+						<span class="num">02</span>
+						<span class="ico"><img src="../lib/icons/Azure_Public_Service_Icons/networking/10067-icon-service-Network-Security-Groups.svg" alt="" decoding="async"></span>
+						<span class="txt"><b>NSG &amp; ASG</b><small data-i18n="bNsgSub">Filter by name, not by IP address</small></span>
+						<span class="go" aria-hidden="true">→</span>
+					</a>
+					<p class="note" data-i18n="bSpokeNote">Each tier sits in its own subnet — the NSG guards the subnet, the ASG names the workload.</p>
+					<div class="rulestrip">
+						<span class="wl-h" data-i18n="bRuleHead">The rule it produces</span>
+						<p class="rs-code"><b>Allow</b> 1433 &middot; TCP &middot; from <em>AsgApp</em> to <em>AsgDb</em></p>
+						<span class="rs-n" data-i18n="bRuleNote">No IP addresses. Add a subnet, nothing changes.</span>
+					</div>
+					<div class="wl">
+						<span class="wl-h" data-i18n="bSolution">The solution the network exists for</span>
+						<div class="wl-row">
+							<span class="wl-sub">snet-agw</span>
+							<span class="wl-i"><img src="../lib/icons/Azure_Public_Service_Icons/networking/10076-icon-service-Application-Gateways.svg" alt="" decoding="async"><span data-i18n="bAgw">App Gateway · its own subnet</span></span>
+						</div>
+						<div class="wl-row">
+							<span class="wl-sub">snet-web</span>
+							<span class="wl-i"><img src="../lib/icons/Azure_Public_Service_Icons/web/10035-icon-service-App-Services.svg" alt="" decoding="async">App Service</span>
+							<span class="wl-i"><img src="../lib/icons/Azure_Public_Service_Icons/other/02989-icon-service-Container-Apps-Environments.svg" alt="" decoding="async">Container Apps</span>
+						</div>
+						<div class="wl-row">
+							<span class="wl-sub">snet-app</span>
+							<span class="wl-i"><img src="../lib/icons/Azure_Public_Service_Icons/compute/10021-icon-service-Virtual-Machine.svg" alt="" decoding="async"><span data-i18n="bVms">Virtual machines</span></span>
+							<span class="wl-i"><img src="../lib/icons/Azure_Public_Service_Icons/containers/10023-icon-service-Kubernetes-Services.svg" alt="" decoding="async">AKS</span>
+						</div>
+						<div class="wl-row">
+							<span class="wl-sub">snet-data</span>
+							<span class="wl-i"><img src="../lib/icons/Azure_Public_Service_Icons/other/02579-icon-service-Private-Endpoints.svg" alt="" decoding="async"><span data-i18n="bPrivEp">Private endpoint</span></span>
+							<span class="wl-i"><img src="../lib/icons/Azure_Public_Service_Icons/databases/10130-icon-service-SQL-Database.svg" alt="" decoding="async">Azure SQL</span>
+							<span class="wl-i"><img src="../lib/icons/Azure_Public_Service_Icons/databases/10121-icon-service-Azure-Cosmos-DB.svg" alt="" decoding="async">Cosmos DB</span>
+							<span class="wl-i"><img src="../lib/icons/Azure_Public_Service_Icons/security/10245-icon-service-Key-Vaults.svg" alt="" decoding="async">Key Vault</span>
+							<span class="wl-i"><img src="../lib/icons/Azure_Public_Service_Icons/storage/10086-icon-service-Storage-Accounts.svg" alt="" decoding="async">Storage</span>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- ── bottom rail · the two that are not a place in the topology ── -->
+			<div class="rail">
+				<span class="lbl" data-i18n="bAcross">Across all of it</span>
+				<a class="node is-operate" href="NetworkMonitoring.html">
+					<span class="num">09</span>
+					<span class="ico"><img src="../lib/icons/Azure_Public_Service_Icons/networking/10066-icon-service-Network-Watcher.svg" alt="" decoding="async"></span>
+					<span class="txt"><b data-i18n="bMonTitle">Network monitoring</b><small data-i18n="bMonSub">Network Watcher for now, Azure Monitor for always</small></span>
+					<span class="go" aria-hidden="true">→</span>
+				</a>
+				<a class="node is-build" href="NamingConvention.html">
+					<span class="num">10</span>
+					<span class="ico"><span class="em" aria-hidden="true">🏷️</span></span>
+					<span class="txt"><b data-i18n="bNameTitle">Naming convention</b><small data-i18n="bNameSub">Names that tell you what a resource is</small></span>
+					<span class="go" aria-hidden="true">→</span>
+				</a>
+				<div class="legend">
+					<span><i style="background:var(--c-build);"></i><span data-i18n="bLegBuild">Build</span></span>
+					<span><i style="background:var(--c-secure);"></i><span data-i18n="bLegSecure">Secure</span></span>
+					<span><i style="background:var(--c-connect);"></i><span data-i18n="bLegConnect">Connect</span></span>
+					<span><i style="background:var(--c-operate);"></i><span data-i18n="bLegOperate">Operate</span></span>
+				</div>
+			</div>
+		</div>
+	</main>
+
+	<footer class="site-foot">
+		<span data-i18n="footBy">Brought to you by</span>
+		<a class="credit-link" href="https://www.linkedin.com/in/nutwongaree/" target="_blank" rel="noopener noreferrer" aria-label="Azure Animations Creator on LinkedIn">
+			<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" focusable="false">
+				<path fill="currentColor" d="M20.45 20.45h-3.55v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.36V9h3.41v1.56h.05c.47-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM7.12 20.45H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.73V1.73C24 .77 23.2 0 22.22 0z"/>
+			</svg>
+			<span>Azure Animations Creator</span>
+		</a>
+		<span data-i18n-html="footSrc">· Content grounded in <a href="https://learn.microsoft.com/azure/networking/" target="_blank" rel="noopener noreferrer">Microsoft Learn</a>.</span>
+	</footer>
+	</section>
+
+	<script>
+		/* ── i18n ───────────────────────────────────────────────────────────
+		   Azure service names (VNet, NSG, ASG, Azure Firewall, Bastion…) stay in
+		   English in every locale — that is how the portal and the docs name them.
+		   `tour[]` is index-aligned with TOUR_STOPS below and with
+		   static/narration/v2/Network/<lang>/index.md → audio/index/<lang>/step-NN.mp3
+		   ------------------------------------------------------------------ */
+		var I18N = {
+			en: {
+				heroTitle: 'One architecture. <em>Ten explainers.</em>',
+				heroLead: "This is the enterprise network almost every Azure workload ends up with. Ten short animations take it apart, one piece at a time — in the order you'd actually build it.",
+				learnHead: "What you'll learn",
+				learnBuild: '<b>Build it</b> — virtual networks, subnets and NICs, plus a naming convention that survives a redesign.',
+				learnSecure: '<b>Secure it</b> — NSGs and ASGs, Azure Firewall and WAF, and private endpoints instead of public IPs.',
+				learnConnect: '<b>Connect it</b> — peering, Bastion, DNS, VPN and ExpressRoute, Virtual WAN, and load balancing.',
+				learnOperate: '<b>Operate it</b> — Network Watcher for right now, Azure Monitor for always.',
+				learnTail: 'By the end you can read this diagram — and draw your own.',
+				certEyebrow: 'Works toward',
+				certSub: 'Exam AZ-700 — this journey covers the skills it measures',
+				certLinks: 'Study with the official <a href="https://learn.microsoft.com/training/paths/design-implement-microsoft-azure-networking-solutions-az-700/" target="_blank" rel="noopener noreferrer">AZ-700 learning path ↗</a> and the <a href="https://learn.microsoft.com/credentials/certifications/resources/study-guides/az-700" target="_blank" rel="noopener noreferrer">exam study guide ↗</a>',
+				heroCta: 'Start with the virtual network →',
+				scrollCue: 'See the architecture',
+				ctaTitle: 'Walk me through it',
+				ctaSub: '10 stops · narrated',
+				tourOpen: 'Open this animation →',
+				bInternet: 'From the internet', bUsers: 'Users, worldwide', bUsersSub: 'Public internet',
+				bDnsSub: 'Resolve the name · private endpoints', bLoadBal: 'Load balancing',
+				bDatacentre: 'From your datacentre', bOnprem: 'On-premises & branches', bOnpremSub: 'Offices, remote users',
+				bVpnSub: 'Encrypt the internet, or bypass it',
+				bFront: 'Always sitting in front', bPublicIps: 'Public IP addresses', bDdos: 'DDoS platform protection · always on',
+				bArrTraffic: 'Traffic<br>in',
+				bVwanSub: 'Or a hub you run yourself', bHub: 'The hub',
+				bWafSub: 'Inspect it · and the routes to it', bPeerSub: 'Private reach · no public IPs',
+				bHubNote: 'Every flow above crosses this hub — internet, on-premises and spoke-to-spoke.',
+				bShared: 'Shared services in the hub', bRouteTables: 'Route tables', bPrivDns: 'Private DNS zones',
+				bVnetTitle: 'Virtual Network', bSpokes: 'The spokes — where the workload lives',
+				bNsgSub: 'Filter by name, not by IP address',
+				bSpokeNote: 'Each tier sits in its own subnet — the NSG guards the subnet, the ASG names the workload.',
+				bRuleHead: 'The rule it produces', bRuleNote: 'No IP addresses. Add a subnet, nothing changes.',
+				bSolution: 'The solution the network exists for', bAgw: 'App Gateway · its own subnet',
+				bVms: 'Virtual machines', bPrivEp: 'Private endpoint',
+				bAcross: 'Across all of it', bMonTitle: 'Network monitoring',
+				bMonSub: 'Network Watcher for now, Azure Monitor for always',
+				bNameTitle: 'Naming convention', bNameSub: 'Names that tell you what a resource is',
+				bLegBuild: 'Build', bLegSecure: 'Secure', bLegConnect: 'Connect', bLegOperate: 'Operate',
+				footBy: 'Brought to you by',
+				footSrc: '· Content grounded in <a href="https://learn.microsoft.com/azure/networking/" target="_blank" rel="noopener noreferrer">Microsoft Learn</a>.',
+				tour: [
+					{ eyebrow: 'The journey', title: 'One architecture, ten explainers', body: 'This is the network almost every serious Azure workload ends up with. Ten short animations take it apart, in the order you would actually build it.' },
+					{ eyebrow: 'Stop 01 of 10', title: 'Virtual Network', body: 'Everything starts here. A VNet is your private slice of the Azure network, carved into subnets — and subnets are what you route to and secure.' },
+					{ eyebrow: 'Stop 02 of 10', title: 'NSG & ASG', body: 'The NSG guards the subnet. The ASG names the workload — so you write “allow app to reach database” instead of a rule full of IP addresses.' },
+					{ eyebrow: 'Stop 03 of 10', title: 'VNet peering & Bastion', body: 'Peering joins VNets privately over the Azure backbone. Bastion gives you RDP and SSH from the portal, so no VM needs a public IP.' },
+					{ eyebrow: 'Stop 04 of 10', title: 'DNS & Private Link', body: 'First resolve the name, then reach it privately. A private endpoint projects a PaaS service into your subnet as an ordinary private IP.' },
+					{ eyebrow: 'Stop 05 of 10', title: 'Load balancing', body: 'Front Door, Traffic Manager, Application Gateway, Load Balancer. Global or regional, HTTP or not — answer those two and the choice makes itself.' },
+					{ eyebrow: 'Stop 06 of 10', title: 'WAF & Azure Firewall', body: 'A WAF inspects the web request; Azure Firewall gates everything else. And a firewall only protects what your route tables actually send to it.' },
+					{ eyebrow: 'Stop 07 of 10', title: 'VPN Gateway & ExpressRoute', body: 'Two ways in from your datacentre: an encrypted tunnel across the internet, or a private circuit that never touches it. Many run both.' },
+					{ eyebrow: 'Stop 08 of 10', title: 'Azure Virtual WAN', body: 'The managed alternative to running the hub yourself — global transit built in, so branches, VPN users, circuits and spokes all meet in one place.' },
+					{ eyebrow: 'Stop 09 of 10', title: 'Network monitoring', body: 'Network Watcher answers “why was this packet dropped, right now”. Azure Monitor and flow logs answer “what happened last Tuesday”.' },
+					{ eyebrow: 'Stop 10 of 10', title: 'Naming convention', body: 'The least technical stop, and the one that decides whether the other nine stay maintainable. Agree it early — renaming usually means recreating.' },
+					{ eyebrow: 'That’s the journey', title: 'Build it, secure it, connect it, operate it', body: 'A request arrives at the edge, crosses a hub that inspects it, and reaches a workload in a spoke. Pick any stop to dive in — or start at 01.' }
+				]
+			},
+			es: {
+				heroTitle: 'Una arquitectura. <em>Diez explicaciones.</em>',
+				heroLead: 'Esta es la red empresarial con la que acaba casi toda carga de trabajo de Azure. Diez animaciones cortas la desmontan, pieza a pieza, en el orden en que realmente la construirías.',
+				learnHead: 'Lo que aprenderás',
+				learnBuild: '<b>Constrúyela</b> — redes virtuales, subredes y NIC, más una convención de nombres que sobrevive a un rediseño.',
+				learnSecure: '<b>Protégela</b> — NSG y ASG, Azure Firewall y WAF, y puntos de conexión privados en lugar de IP públicas.',
+				learnConnect: '<b>Conéctala</b> — emparejamiento, Bastion, DNS, VPN y ExpressRoute, Virtual WAN y balanceo de carga.',
+				learnOperate: '<b>Opérala</b> — Network Watcher para el ahora, Azure Monitor para siempre.',
+				learnTail: 'Al final sabrás leer este diagrama — y dibujar el tuyo.',
+				certEyebrow: 'Te acerca a',
+				certSub: 'Examen AZ-700 — este recorrido cubre las aptitudes que mide',
+				certLinks: 'Estudia con la <a href="https://learn.microsoft.com/training/paths/design-implement-microsoft-azure-networking-solutions-az-700/" target="_blank" rel="noopener noreferrer">ruta de aprendizaje AZ-700 ↗</a> oficial y la <a href="https://learn.microsoft.com/credentials/certifications/resources/study-guides/az-700" target="_blank" rel="noopener noreferrer">guía de estudio del examen ↗</a>',
+				heroCta: 'Empieza por la red virtual →',
+				scrollCue: 'Ver la arquitectura',
+				ctaTitle: 'Guíame paso a paso',
+				ctaSub: '10 paradas · narrado',
+				tourOpen: 'Abrir esta animación →',
+				bInternet: 'Desde internet', bUsers: 'Usuarios de todo el mundo', bUsersSub: 'Internet pública',
+				bDnsSub: 'Resuelve el nombre · puntos de conexión privados', bLoadBal: 'Balanceo de carga',
+				bDatacentre: 'Desde tu centro de datos', bOnprem: 'Local y sucursales', bOnpremSub: 'Oficinas, usuarios remotos',
+				bVpnSub: 'Cifra internet, o esquívala',
+				bFront: 'Siempre por delante', bPublicIps: 'Direcciones IP públicas', bDdos: 'Protección DDoS de la plataforma · siempre activa',
+				bArrTraffic: 'Tráfico<br>entrante',
+				bVwanSub: 'O un hub que gestionas tú', bHub: 'El hub',
+				bWafSub: 'Inspecciónalo · y las rutas hacia él', bPeerSub: 'Alcance privado · sin IP públicas',
+				bHubNote: 'Todo el flujo de arriba cruza este hub: internet, local y entre radios.',
+				bShared: 'Servicios compartidos del hub', bRouteTables: 'Tablas de rutas', bPrivDns: 'Zonas DNS privadas',
+				bVnetTitle: 'Red virtual', bSpokes: 'Los radios: donde vive la carga de trabajo',
+				bNsgSub: 'Filtra por nombre, no por dirección IP',
+				bSpokeNote: 'Cada capa vive en su propia subred: el NSG protege la subred, el ASG nombra la carga de trabajo.',
+				bRuleHead: 'La regla que produce', bRuleNote: 'Sin direcciones IP. Añade una subred y nada cambia.',
+				bSolution: 'La solución para la que existe la red', bAgw: 'App Gateway · su propia subred',
+				bVms: 'Máquinas virtuales', bPrivEp: 'Punto de conexión privado',
+				bAcross: 'A lo largo de todo', bMonTitle: 'Supervisión de red',
+				bMonSub: 'Network Watcher para el ahora, Azure Monitor para siempre',
+				bNameTitle: 'Convención de nombres', bNameSub: 'Nombres que te dicen qué es un recurso',
+				bLegBuild: 'Construir', bLegSecure: 'Proteger', bLegConnect: 'Conectar', bLegOperate: 'Operar',
+				footBy: 'Con el apoyo de',
+				footSrc: '· Contenido basado en <a href="https://learn.microsoft.com/azure/networking/" target="_blank" rel="noopener noreferrer">Microsoft Learn</a>.',
+				tour: [
+					{ eyebrow: 'El recorrido', title: 'Una arquitectura, diez explicaciones', body: 'Esta es la red con la que acaba casi toda carga de trabajo seria en Azure. Diez animaciones cortas la desmontan, en el orden en que realmente la construirías.' },
+					{ eyebrow: 'Parada 01 de 10', title: 'Red virtual', body: 'Todo empieza aquí. Una VNet es tu porción privada de la red de Azure, dividida en subredes — y las subredes son lo que enrutas y proteges.' },
+					{ eyebrow: 'Parada 02 de 10', title: 'NSG y ASG', body: 'El NSG protege la subred. El ASG nombra la carga de trabajo — así escribes «permitir que la aplicación llegue a la base de datos» en lugar de una regla llena de direcciones IP.' },
+					{ eyebrow: 'Parada 03 de 10', title: 'Emparejamiento de VNet y Bastion', body: 'El emparejamiento une VNets de forma privada por la red troncal de Azure. Bastion te da RDP y SSH desde el portal, así ninguna VM necesita IP pública.' },
+					{ eyebrow: 'Parada 04 de 10', title: 'DNS y Private Link', body: 'Primero resuelve el nombre, luego alcánzalo en privado. Un punto de conexión privado proyecta un servicio PaaS en tu subred como una IP privada normal.' },
+					{ eyebrow: 'Parada 05 de 10', title: 'Balanceo de carga', body: 'Front Door, Traffic Manager, Application Gateway, Load Balancer. Global o regional, HTTP o no — responde esas dos y la elección se hace sola.' },
+					{ eyebrow: 'Parada 06 de 10', title: 'WAF y Azure Firewall', body: 'Un WAF inspecciona la petición web; Azure Firewall controla todo lo demás. Y un firewall solo protege lo que tus tablas de rutas le envían.' },
+					{ eyebrow: 'Parada 07 de 10', title: 'VPN Gateway y ExpressRoute', body: 'Dos formas de entrar desde tu centro de datos: un túnel cifrado por internet, o un circuito privado que nunca lo toca. Muchos usan ambos.' },
+					{ eyebrow: 'Parada 08 de 10', title: 'Azure Virtual WAN', body: 'La alternativa gestionada a operar el hub tú mismo — tránsito global incluido, para que sucursales, usuarios VPN, circuitos y radios se encuentren en un solo sitio.' },
+					{ eyebrow: 'Parada 09 de 10', title: 'Supervisión de red', body: 'Network Watcher responde «por qué se descartó este paquete, ahora mismo». Azure Monitor y los registros de flujo responden «qué pasó el martes pasado».' },
+					{ eyebrow: 'Parada 10 de 10', title: 'Convención de nombres', body: 'La parada menos técnica, y la que decide si las otras nueve siguen siendo mantenibles. Acuérdala pronto — renombrar suele significar recrear.' },
+					{ eyebrow: 'Ese es el recorrido', title: 'Constrúyela, protégela, conéctala, opérala', body: 'Una petición llega al borde, cruza un hub que la inspecciona y alcanza una carga de trabajo en un radio. Elige cualquier parada para profundizar — o empieza por la 01.' }
+				]
+			},
+			ja: {
+				heroTitle: '1つのアーキテクチャ。<em>10の解説。</em>',
+				heroLead: 'これは、ほぼすべての Azure ワークロードが行き着くエンタープライズ ネットワークです。10 本の短いアニメーションが、実際に構築する順序で 1 つずつ分解します。',
+				learnHead: '学べること',
+				learnBuild: '<b>構築する</b> — 仮想ネットワーク、サブネット、NIC、そして再設計にも耐える命名規則。',
+				learnSecure: '<b>保護する</b> — NSG と ASG、Azure Firewall と WAF、パブリック IP の代わりにプライベート エンドポイント。',
+				learnConnect: '<b>接続する</b> — ピアリング、Bastion、DNS、VPN と ExpressRoute、Virtual WAN、負荷分散。',
+				learnOperate: '<b>運用する</b> — 今を見る Network Watcher、ずっと見る Azure Monitor。',
+				learnTail: '最後には、この図を読めるようになり、自分でも描けるようになります。',
+				certEyebrow: '目指せる資格',
+				certSub: 'AZ-700 試験 — このジャーニーは出題スキルを網羅します',
+				certLinks: '公式の <a href="https://learn.microsoft.com/training/paths/design-implement-microsoft-azure-networking-solutions-az-700/" target="_blank" rel="noopener noreferrer">AZ-700 ラーニング パス ↗</a> と <a href="https://learn.microsoft.com/credentials/certifications/resources/study-guides/az-700" target="_blank" rel="noopener noreferrer">試験のスタディ ガイド ↗</a> で学習しましょう',
+				heroCta: '仮想ネットワークから始める →',
+				scrollCue: 'アーキテクチャを見る',
+				ctaTitle: '順番に解説する',
+				ctaSub: '10 ステップ · ナレーション付き',
+				tourOpen: 'このアニメーションを開く →',
+				bInternet: 'インターネットから', bUsers: '世界中のユーザー', bUsersSub: 'パブリックな通信',
+				bDnsSub: '名前を解決 · プライベート エンドポイント', bLoadBal: '負荷分散',
+				bDatacentre: '自社データセンターから', bOnprem: 'オンプレミスと拠点', bOnpremSub: 'オフィス、リモート ユーザー',
+				bVpnSub: 'インターネットを暗号化するか、通らないか',
+				bFront: '常に最前面にあるもの', bPublicIps: 'パブリック IP アドレス', bDdos: 'DDoS プラットフォーム保護 · 常時有効',
+				bArrTraffic: '通信<br>流入',
+				bVwanSub: 'または自分で運用するハブ', bHub: 'ハブ',
+				bWafSub: '中身を検査 · そして経路も', bPeerSub: 'プライベートな到達 · パブリック IP 不要',
+				bHubNote: '上記のすべての通信がこのハブを通ります — インターネット、オンプレミス、スポーク間。',
+				bShared: 'ハブの共有サービス', bRouteTables: 'ルート テーブル', bPrivDns: 'プライベート DNS ゾーン',
+				bVnetTitle: '仮想ネットワーク', bSpokes: 'スポーク — ワークロードが置かれる場所',
+				bNsgSub: 'IP アドレスではなく名前でフィルター',
+				bSpokeNote: '各層はそれぞれのサブネットに配置します — NSG がサブネットを守り、ASG がワークロードに名前を付けます。',
+				bRuleHead: '生まれるルール', bRuleNote: 'IP アドレスは不要。サブネットを追加しても変更はありません。',
+				bSolution: 'このネットワークが支えるソリューション', bAgw: 'App Gateway · 専用のサブネット',
+				bVms: '仮想マシン', bPrivEp: 'プライベート エンドポイント',
+				bAcross: 'すべてに共通', bMonTitle: 'ネットワーク監視',
+				bMonSub: '今を見る Network Watcher、ずっと見る Azure Monitor',
+				bNameTitle: '命名規則', bNameSub: 'リソースが何かがわかる名前',
+				bLegBuild: '構築', bLegSecure: '保護', bLegConnect: '接続', bLegOperate: '運用',
+				footBy: '制作',
+				footSrc: '· コンテンツの根拠は <a href="https://learn.microsoft.com/azure/networking/" target="_blank" rel="noopener noreferrer">Microsoft Learn</a> です。',
+				tour: [
+					{ eyebrow: 'ジャーニー', title: '1つのアーキテクチャ、10の解説', body: 'これは、本格的な Azure ワークロードがほぼ必ず行き着くネットワークです。10 本の短いアニメーションが、実際に構築する順序で分解します。' },
+					{ eyebrow: 'ステップ 01 / 10', title: '仮想ネットワーク', body: 'すべてはここから始まります。VNet は Azure ネットワーク上のプライベートな領域で、サブネットに分割します。ルーティングと保護の単位はサブネットです。' },
+					{ eyebrow: 'ステップ 02 / 10', title: 'NSG と ASG', body: 'NSG はサブネットを守ります。ASG はワークロードに名前を付けます。IP アドレスだらけのルールではなく「アプリからデータベースへの通信を許可」と書けます。' },
+					{ eyebrow: 'ステップ 03 / 10', title: 'VNet ピアリングと Bastion', body: 'ピアリングは Azure バックボーン経由で VNet をプライベートに接続します。Bastion はポータルから RDP と SSH を提供するので、VM にパブリック IP は不要です。' },
+					{ eyebrow: 'ステップ 04 / 10', title: 'DNS と Private Link', body: 'まず名前を解決し、次にプライベートに到達します。プライベート エンドポイントは PaaS サービスを通常のプライベート IP としてサブネットに投影します。' },
+					{ eyebrow: 'ステップ 05 / 10', title: '負荷分散', body: 'Front Door、Traffic Manager、Application Gateway、Load Balancer。グローバルかリージョナルか、HTTP かどうか — この 2 つに答えれば選択は決まります。' },
+					{ eyebrow: 'ステップ 06 / 10', title: 'WAF と Azure Firewall', body: 'WAF は Web 要求を検査し、Azure Firewall はそれ以外を制御します。そしてファイアウォールは、ルート テーブルが実際に送ったものしか守れません。' },
+					{ eyebrow: 'ステップ 07 / 10', title: 'VPN Gateway と ExpressRoute', body: 'データセンターからの 2 つの入口。インターネット経由の暗号化トンネルか、インターネットを通らない専用回線か。両方を使う組織も多くあります。' },
+					{ eyebrow: 'ステップ 08 / 10', title: 'Azure Virtual WAN', body: 'ハブを自分で運用する代わりのマネージド版です。グローバル トランジットが組み込まれ、拠点、VPN ユーザー、回線、スポークが 1 か所で出会います。' },
+					{ eyebrow: 'ステップ 09 / 10', title: 'ネットワーク監視', body: 'Network Watcher は「今このパケットがなぜ破棄されたか」に答えます。Azure Monitor とフロー ログは「先週の火曜に何が起きたか」に答えます。' },
+					{ eyebrow: 'ステップ 10 / 10', title: '命名規則', body: '最も技術的でないステップですが、残り 9 つを保守可能に保てるかを決めます。早めに合意しましょう。名前の変更は作り直しになりがちです。' },
+					{ eyebrow: 'ジャーニーのまとめ', title: '構築し、保護し、接続し、運用する', body: '要求はエッジに届き、検査するハブを通り、スポークのワークロードに到達します。どのステップからでも、または 01 から始めましょう。' }
+				]
+			},
+			ko: {
+				heroTitle: '하나의 아키텍처. <em>열 개의 해설.</em>',
+				heroLead: '거의 모든 Azure 워크로드가 결국 도달하는 엔터프라이즈 네트워크입니다. 열 편의 짧은 애니메이션이 실제로 구축하는 순서대로 하나씩 분해합니다.',
+				learnHead: '무엇을 배우나요',
+				learnBuild: '<b>구축하기</b> — 가상 네트워크, 서브넷과 NIC, 그리고 재설계에도 살아남는 명명 규칙.',
+				learnSecure: '<b>보호하기</b> — NSG와 ASG, Azure Firewall과 WAF, 공용 IP 대신 프라이빗 엔드포인트.',
+				learnConnect: '<b>연결하기</b> — 피어링, Bastion, DNS, VPN과 ExpressRoute, Virtual WAN, 부하 분산.',
+				learnOperate: '<b>운영하기</b> — 지금을 보는 Network Watcher, 항상을 보는 Azure Monitor.',
+				learnTail: '끝나면 이 다이어그램을 읽고, 직접 그릴 수 있습니다.',
+				certEyebrow: '이 자격증으로',
+				certSub: 'AZ-700 시험 — 이 여정은 시험이 측정하는 기술을 다룹니다',
+				certLinks: '공식 <a href="https://learn.microsoft.com/training/paths/design-implement-microsoft-azure-networking-solutions-az-700/" target="_blank" rel="noopener noreferrer">AZ-700 러닝 패스 ↗</a>와 <a href="https://learn.microsoft.com/credentials/certifications/resources/study-guides/az-700" target="_blank" rel="noopener noreferrer">시험 스터디 가이드 ↗</a>로 학습하세요',
+				heroCta: '가상 네트워크부터 시작 →',
+				scrollCue: '아키텍처 보기',
+				ctaTitle: '단계별로 안내',
+				ctaSub: '10단계 · 나레이션',
+				tourOpen: '이 애니메이션 열기 →',
+				bInternet: '인터넷에서', bUsers: '전 세계 사용자', bUsersSub: '공개 인터넷',
+				bDnsSub: '이름 확인 · 프라이빗 엔드포인트', bLoadBal: '부하 분산',
+				bDatacentre: '자체 데이터센터에서', bOnprem: '온프레미스와 지사', bOnpremSub: '사무실, 원격 사용자',
+				bVpnSub: '인터넷을 암호화하거나, 지나치거나',
+				bFront: '항상 가장 앞에', bPublicIps: '공용 IP 주소', bDdos: 'DDoS 플랫폼 보호 · 항상 켜짐',
+				bArrTraffic: '트래픽<br>유입',
+				bVwanSub: '또는 직접 운영하는 허브', bHub: '허브',
+				bWafSub: '내용을 검사 · 경로까지', bPeerSub: '사설로 연결 · 공용 IP 없음',
+				bHubNote: '위의 모든 흐름이 이 허브를 지납니다 — 인터넷, 온프레미스, 스포크 간.',
+				bShared: '허브의 공유 서비스', bRouteTables: '경로 테이빔', bPrivDns: '프라이빗 DNS 영역',
+				bVnetTitle: '가상 네트워크', bSpokes: '스포크 — 워크로드가 사는 곳',
+				bNsgSub: 'IP 주소가 아니라 이름으로 필터링',
+				bSpokeNote: '각 계층은 자신의 서브넷에 놓입니다 — NSG는 서브넷을 지키고, ASG는 워크로드에 이름을 붙입니다.',
+				bRuleHead: '그것이 만드는 규칙', bRuleNote: 'IP 주소가 없습니다. 서브넷을 더해도 바뀔 것이 없습니다.',
+				bSolution: '이 네트워크가 존재하는 이유', bAgw: 'App Gateway · 전용 서브넷',
+				bVms: '가상 머신', bPrivEp: '프라이빗 엔드포인트',
+				bAcross: '전체에 걸쳐', bMonTitle: '네트워크 모니터링',
+				bMonSub: '지금을 보는 Network Watcher, 항상을 보는 Azure Monitor',
+				bNameTitle: '명명 규칙', bNameSub: '리소스가 무엇인지 알려 주는 이름',
+				bLegBuild: '구축', bLegSecure: '보호', bLegConnect: '연결', bLegOperate: '운영',
+				footBy: '제작',
+				footSrc: '· 콘텐츠는 <a href="https://learn.microsoft.com/azure/networking/" target="_blank" rel="noopener noreferrer">Microsoft Learn</a>를 근거로 합니다.',
+				tour: [
+					{ eyebrow: '여정', title: '하나의 아키텍처, 열 개의 해설', body: '제대로 된 Azure 워크로드가 거의 항상 도달하는 네트워크입니다. 열 편의 짧은 애니메이션이 실제 구축 순서대로 분해합니다.' },
+					{ eyebrow: '단계 01 / 10', title: '가상 네트워크', body: '모든 것이 여기서 시작됩니다. VNet은 Azure 네트워크의 사설 영역이며 서브넷으로 나뉩니다. 라우팅하고 보호하는 단위가 바로 서브넷입니다.' },
+					{ eyebrow: '단계 02 / 10', title: 'NSG와 ASG', body: 'NSG는 서브넷을 지킵니다. ASG는 워크로드에 이름을 붙입니다. IP 주소로 가득한 규칙 대신 “앱이 데이터베이스에 접근하도록 허용”이라고 쓸 수 있습니다.' },
+					{ eyebrow: '단계 03 / 10', title: 'VNet 피어링과 Bastion', body: '피어링은 Azure 백본을 통해 VNet을 사설로 연결합니다. Bastion은 포털에서 RDP와 SSH를 제공하므로 VM에 공용 IP가 필요 없습니다.' },
+					{ eyebrow: '단계 04 / 10', title: 'DNS와 Private Link', body: '먼저 이름을 확인하고, 그다음 사설로 접근합니다. 프라이빗 엔드포인트는 PaaS 서비스를 평범한 사설 IP로 서브넷에 투영합니다.' },
+					{ eyebrow: '단계 05 / 10', title: '부하 분산', body: 'Front Door, Traffic Manager, Application Gateway, Load Balancer. 전역인가 지역인가, HTTP인가 아닌가 — 이 두 가지에 답하면 선택은 저절로 정해집니다.' },
+					{ eyebrow: '단계 06 / 10', title: 'WAF와 Azure Firewall', body: 'WAF는 웹 요청을 검사하고, Azure Firewall은 나머지를 통제합니다. 그리고 방화벽은 경로 테이블이 실제로 보낸 것만 보호합니다.' },
+					{ eyebrow: '단계 07 / 10', title: 'VPN Gateway와 ExpressRoute', body: '데이터센터에서 들어오는 두 가지 길. 인터넷을 지나는 암호화 터널, 또는 인터넷을 전혀 거치지 않는 전용 회선. 둘 다 쓰는 곳도 많습니다.' },
+					{ eyebrow: '단계 08 / 10', title: 'Azure Virtual WAN', body: '허브를 직접 운영하는 대신 선택하는 관리형 대안입니다. 전역 전송이 내장되어 지사, VPN 사용자, 회선, 스포크가 한곳에서 만납니다.' },
+					{ eyebrow: '단계 09 / 10', title: '네트워크 모니터링', body: 'Network Watcher는 “지금 이 패킷이 왜 삭제됐는가”에 답합니다. Azure Monitor와 흐름 로그는 “지난 화요일에 무슨 일이 있었는가”에 답합니다.' },
+					{ eyebrow: '단계 10 / 10', title: '명명 규칙', body: '가장 덜 기술적인 단계이지만, 나머지 아홉이 유지 가능한지를 결정합니다. 일찍 합의하세요. 이름 변경은 대개 재생성을 뜻합니다.' },
+					{ eyebrow: '여정 정리', title: '구축하고, 보호하고, 연결하고, 운영하기', body: '요청이 에지에 도착해 검사하는 허브를 지나 스포크의 워크로드에 도달합니다. 원하는 단계를 고르거나 01부터 시작하세요.' }
+				]
+			},
+			pt: {
+				heroTitle: 'Uma arquitetura. <em>Dez explicações.</em>',
+				heroLead: 'Esta é a rede corporativa em que quase toda carga de trabalho do Azure acaba. Dez animações curtas a desmontam, peça por peça — na ordem em que você realmente a construiria.',
+				learnHead: 'O que você vai aprender',
+				learnBuild: '<b>Construir</b> — redes virtuais, sub-redes e NICs, além de uma convenção de nomes que sobrevive a um redesenho.',
+				learnSecure: '<b>Proteger</b> — NSGs e ASGs, Azure Firewall e WAF, e pontos de extremidade privados no lugar de IPs públicos.',
+				learnConnect: '<b>Conectar</b> — emparelhamento, Bastion, DNS, VPN e ExpressRoute, Virtual WAN e balanceamento de carga.',
+				learnOperate: '<b>Operar</b> — Network Watcher para agora, Azure Monitor para sempre.',
+				learnTail: 'No final você lê este diagrama — e desenha o seu.',
+				certEyebrow: 'Leva à certificação',
+				certSub: 'Exame AZ-700 — esta jornada cobre as habilidades que ele mede',
+				certLinks: 'Estude com o <a href="https://learn.microsoft.com/training/paths/design-implement-microsoft-azure-networking-solutions-az-700/" target="_blank" rel="noopener noreferrer">roteiro de aprendizagem AZ-700 ↗</a> oficial e o <a href="https://learn.microsoft.com/credentials/certifications/resources/study-guides/az-700" target="_blank" rel="noopener noreferrer">guia de estudo do exame ↗</a>',
+				heroCta: 'Comece pela rede virtual →',
+				scrollCue: 'Ver a arquitetura',
+				ctaTitle: 'Me explique passo a passo',
+				ctaSub: '10 paradas · narrado',
+				tourOpen: 'Abrir esta animação →',
+				bInternet: 'Da internet', bUsers: 'Usuários no mundo todo', bUsersSub: 'Internet pública',
+				bDnsSub: 'Resolva o nome · pontos de extremidade privados', bLoadBal: 'Balanceamento de carga',
+				bDatacentre: 'Do seu datacenter', bOnprem: 'Local e filiais', bOnpremSub: 'Escritórios, usuários remotos',
+				bVpnSub: 'Criptografe a internet, ou desvie dela',
+				bFront: 'Sempre à frente', bPublicIps: 'Endereços IP públicos', bDdos: 'Proteção DDoS da plataforma · sempre ativa',
+				bArrTraffic: 'Tráfego<br>entrante',
+				bVwanSub: 'Ou um hub que você mesmo opera', bHub: 'O hub',
+				bWafSub: 'Inspecione · e as rotas até ele', bPeerSub: 'Alcance privado · sem IPs públicos',
+				bHubNote: 'Todo o fluxo acima cruza este hub — internet, local e entre spokes.',
+				bShared: 'Serviços compartilhados no hub', bRouteTables: 'Tabelas de rotas', bPrivDns: 'Zonas DNS privadas',
+				bVnetTitle: 'Rede virtual', bSpokes: 'Os spokes — onde a carga de trabalho vive',
+				bNsgSub: 'Filtre por nome, não por endereço IP',
+				bSpokeNote: 'Cada camada fica na sua própria sub-rede — o NSG protege a sub-rede, o ASG dá nome à carga de trabalho.',
+				bRuleHead: 'A regra que isso produz', bRuleNote: 'Sem endereços IP. Adicione uma sub-rede e nada muda.',
+				bSolution: 'A solução para a qual a rede existe', bAgw: 'App Gateway · sua própria sub-rede',
+				bVms: 'Máquinas virtuais', bPrivEp: 'Ponto de extremidade privado',
+				bAcross: 'Em tudo isso', bMonTitle: 'Monitoramento de rede',
+				bMonSub: 'Network Watcher para agora, Azure Monitor para sempre',
+				bNameTitle: 'Convenção de nomes', bNameSub: 'Nomes que dizem o que um recurso é',
+				bLegBuild: 'Construir', bLegSecure: 'Proteger', bLegConnect: 'Conectar', bLegOperate: 'Operar',
+				footBy: 'Oferecido por',
+				footSrc: '· Conteúdo baseado no <a href="https://learn.microsoft.com/azure/networking/" target="_blank" rel="noopener noreferrer">Microsoft Learn</a>.',
+				tour: [
+					{ eyebrow: 'A jornada', title: 'Uma arquitetura, dez explicações', body: 'Esta é a rede em que quase toda carga de trabalho séria do Azure acaba. Dez animações curtas a desmontam, na ordem em que você realmente a construiria.' },
+					{ eyebrow: 'Parada 01 de 10', title: 'Rede virtual', body: 'Tudo começa aqui. Uma VNet é sua fatia privada da rede do Azure, dividida em sub-redes — e é para as sub-redes que você roteia e que você protege.' },
+					{ eyebrow: 'Parada 02 de 10', title: 'NSG e ASG', body: 'O NSG protege a sub-rede. O ASG dá nome à carga de trabalho — assim você escreve “permitir que o app alcance o banco de dados” em vez de uma regra cheia de endereços IP.' },
+					{ eyebrow: 'Parada 03 de 10', title: 'Emparelhamento de VNet e Bastion', body: 'O emparelhamento une VNets de forma privada pelo backbone do Azure. O Bastion dá RDP e SSH pelo portal, então nenhuma VM precisa de IP público.' },
+					{ eyebrow: 'Parada 04 de 10', title: 'DNS e Private Link', body: 'Primeiro resolva o nome, depois alcance-o de forma privada. Um ponto de extremidade privado projeta um serviço PaaS na sua sub-rede como um IP privado comum.' },
+					{ eyebrow: 'Parada 05 de 10', title: 'Balanceamento de carga', body: 'Front Door, Traffic Manager, Application Gateway, Load Balancer. Global ou regional, HTTP ou não — responda essas duas e a escolha se resolve sozinha.' },
+					{ eyebrow: 'Parada 06 de 10', title: 'WAF e Azure Firewall', body: 'O WAF inspeciona a requisição web; o Azure Firewall controla todo o resto. E um firewall só protege o que suas tabelas de rotas realmente enviam a ele.' },
+					{ eyebrow: 'Parada 07 de 10', title: 'VPN Gateway e ExpressRoute', body: 'Dois caminhos de entrada do seu datacenter: um túnel criptografado pela internet, ou um circuito privado que nunca a toca. Muitos usam os dois.' },
+					{ eyebrow: 'Parada 08 de 10', title: 'Azure Virtual WAN', body: 'A alternativa gerenciada a operar o hub você mesmo — trânsito global embutido, para filiais, usuários de VPN, circuitos e spokes se encontrarem em um só lugar.' },
+					{ eyebrow: 'Parada 09 de 10', title: 'Monitoramento de rede', body: 'O Network Watcher responde “por que este pacote foi descartado, agora”. O Azure Monitor e os logs de fluxo respondem “o que aconteceu na terça passada”.' },
+					{ eyebrow: 'Parada 10 de 10', title: 'Convenção de nomes', body: 'A parada menos técnica, e a que decide se as outras nove continuam sustentáveis. Combine cedo — renomear costuma significar recriar.' },
+					{ eyebrow: 'Essa é a jornada', title: 'Construir, proteger, conectar, operar', body: 'Uma requisição chega à borda, cruza um hub que a inspeciona e alcança uma carga de trabalho em um spoke. Escolha qualquer parada — ou comece pela 01.' }
+				]
+			}
+		};
+
+		// Where each stop points and how it is framed. Index-aligned with I18N[lang].tour.
+		// href^= (not href=) because the links gain a ?lang= suffix in every non-English locale.
+		var TOUR_STOPS = [
+			{ scrollTo: '#intro', ring: 'var(--nw-blue)' },
+			{ scrollTo: '#map', target: '.board a[href^="VirtualNetwork.html"]', ring: 'var(--c-secure)' },
+			{ target: '.board a[href^="NsgAsg.html"]', ring: 'var(--c-secure)' },
+			{ target: '.board a[href^="PeeringBastion.html"]', ring: 'var(--c-build)' },
+			{ target: '.board a[href^="DnsAndPrivateLink.html"]', ring: 'var(--c-connect)' },
+			{ target: '.board a[href^="LoadBalancing.html"]', ring: 'var(--c-connect)' },
+			{ target: '.board a[href^="FirewallAndWaf.html"]', ring: 'var(--c-secure)' },
+			{ target: '.board a[href^="VpnExpressRoute.html"]', ring: 'var(--c-connect)' },
+			{ target: '.board a[href^="VirtualWan.html"]', ring: 'var(--c-build)' },
+			{ target: '.board a[href^="NetworkMonitoring.html"]', ring: 'var(--c-operate)' },
+			{ target: '.board a[href^="NamingConvention.html"]', ring: 'var(--c-build)' },
+			{ scrollTo: '#map', ring: 'var(--nw-teal)' }
+		];
+
+		var LANGS = ['en', 'es', 'ja', 'ko', 'pt'];
+		var lang = (function () {
+			var q = new URLSearchParams(location.search).get('lang');
+			if (q && LANGS.indexOf(q) > -1) return q;
+			try { var s = localStorage.getItem('aw-lang'); if (s && LANGS.indexOf(s) > -1) return s; } catch (e) { }
+			var n = (navigator.language || 'en').slice(0, 2).toLowerCase();
+			return LANGS.indexOf(n) > -1 ? n : 'en';
+		})();
+		function curLang() { return lang; }
+		function t(k) { var d = I18N[lang] || I18N.en; return d[k] != null ? d[k] : I18N.en[k]; }
+
+		function tourSteps() {
+			var tx = (I18N[lang] || I18N.en).tour || I18N.en.tour;
+			return TOUR_STOPS.map(function (s, i) {
+				var c = tx[i] || I18N.en.tour[i];
+				return { scrollTo: s.scrollTo, target: s.target, ring: s.ring,
+					eyebrow: c.eyebrow, title: c.title, body: c.body };
+			});
+		}
+
+		// Carry the chosen language to every step page, so the journey stays in one language.
+		function propagateLang() {
+			var suffix = lang === 'en' ? '' : '?lang=' + lang;
+			document.querySelectorAll('.board a[href$=".html"], .band-actions a[href$=".html"]').forEach(function (a) {
+				a.setAttribute('href', (a.getAttribute('href') || '').split('?')[0] + suffix);
+			});
+		}
+
+		function applyI18n() {
+			document.querySelectorAll('[data-i18n]').forEach(function (el) {
+				var v = t(el.getAttribute('data-i18n')); if (v != null) el.textContent = v;
+			});
+			document.querySelectorAll('[data-i18n-html]').forEach(function (el) {
+				var v = t(el.getAttribute('data-i18n-html')); if (v != null) el.innerHTML = v;
+			});
+			document.querySelectorAll('[data-i18n-title]').forEach(function (el) {
+				var v = t(el.getAttribute('data-i18n-title')); if (v != null) el.title = v;
+			});
+			document.documentElement.lang = lang;
+			propagateLang();
+			if (window.AWTour) { AWTour.configure(tourConfig()); AWTour.setSteps(tourSteps()); }
+		}
+
+		// Step N == `## Step N` in static/narration/v2/Network/<lang>/index.md == audio/index/<lang>/step-NN.mp3
+		function tourConfig() {
+			return {
+				audioBase: 'audio/index/',
+				narration: '../../narration/v2/Network/',
+				narrationPage: 'index',
+				startButton: '#tour-start',
+				lang: curLang,
+				openLabel: t('tourOpen'),
+				steps: tourSteps()
+			};
+		}
+		AWTour.configure(tourConfig());
+
+		(function wireLang() {
+			var sel = document.getElementById('lang-select');
+			sel.value = lang;
+			sel.addEventListener('change', function () {
+				lang = sel.value;
+				try { localStorage.setItem('aw-lang', lang); } catch (e) { }
+				var u = new URL(location.href);
+				if (lang === 'en') u.searchParams.delete('lang'); else u.searchParams.set('lang', lang);
+				history.replaceState(null, '', u);
+				applyI18n();
+			});
+			applyI18n();
+		})();
+
+		// Stop pulsing and drop the pointing finger once the tour has been opened once.
+		(function wireCta() {
+			var btn = document.getElementById('tour-start');
+			try { if (localStorage.getItem('aw-net-tour-seen')) btn.classList.remove('is-new'); } catch (e) { }
+			btn.addEventListener('click', function () {
+				btn.classList.remove('is-new');
+				try { localStorage.setItem('aw-net-tour-seen', '1'); } catch (e) { }
+			});
+		})();
+	</script>
+</body>
+</html>
