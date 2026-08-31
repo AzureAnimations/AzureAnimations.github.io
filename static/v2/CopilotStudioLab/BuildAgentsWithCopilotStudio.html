@@ -1162,6 +1162,95 @@ setLanguage(currentLang);
 	renderStep((!isNaN(st)&&st>=1&&st<=STEPS.length)?st-1:0); })();
 </script>
 
+<script>
+// ── Start gate · hold the first animation until the viewer presses Start ──
+// Mirrors the other lab guides. The rows drive the REAL overlay buttons, so the gate
+// never owns audio/CC state itself and can't drift from them.
+(function () {
+	if (new URLSearchParams(location.search).has('present')) return;
+	var stageEl = document.getElementById('stage');
+	if (!stageEl) return;
+	function freeze(){ try{ if(window.gsap && gsap.globalTimeline) gsap.globalTimeline.pause(); }catch(_){} }
+	freeze(); requestAnimationFrame(freeze);
+	document.body.classList.add('aw-prestart');
+	try{ if(typeof stopAudio==='function') stopAudio(); }catch(_){}
+	stageEl.style.transition='opacity .55s ease';
+	stageEl.style.opacity='0';
+
+	var style=document.createElement('style');
+	style.textContent =
+		'body.aw-prestart #controls{opacity:.4;pointer-events:none;transition:opacity .4s ease}' +
+		'#aw-play-card{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:50;box-sizing:border-box;width:min(90vw,23rem);padding:1.5rem;border-radius:20px;background:var(--card,#fff);color:var(--ink,#241f18);border:1px solid var(--card-border,rgba(0,0,0,.1));box-shadow:var(--shadow-strong,0 24px 60px rgba(0,0,0,.28));text-align:center;transition:opacity .3s ease,transform .3s ease}' +
+		'#aw-play-card.aw-hide{opacity:0;transform:translate(-50%,-50%) scale(.96);pointer-events:none}' +
+		'.aw-card-title{margin:0 0 .35rem;font-size:1.1rem;font-weight:700}' +
+		'.aw-card-sub{margin:0 0 .9rem;font-size:.9rem;opacity:.75;line-height:1.45}' +
+		'.aw-row{display:flex;align-items:center;gap:.65rem;padding:.6rem 0;text-align:left}' +
+		'.aw-row + .aw-row{border-top:1px solid var(--card-border,rgba(0,0,0,.08))}' +
+		'.aw-row-ico{flex:none;width:1.5rem;text-align:center;font-size:1.15rem;line-height:1}' +
+		'.aw-row-lbl{flex:1 1 auto;font-size:.9rem;font-weight:600}' +
+		'.aw-row-state{flex:none;min-width:2.5rem;text-align:right;font-size:.68rem;font-weight:700;letter-spacing:.05em;opacity:.5}' +
+		'.aw-row-state.on{color:var(--accent-blue,#1f6dff);opacity:1}' +
+		'.aw-switch{position:relative;flex:none;width:44px;height:24px;padding:0;border:none;border-radius:999px;cursor:pointer;background:var(--card-border,#c7c7d1);transition:background .18s ease}' +
+		'.aw-switch.on{background:var(--accent-blue,#1f6dff)}' +
+		'.aw-switch::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.4);transition:transform .18s ease}' +
+		'.aw-switch.on::after{transform:translateX(20px)}' +
+		'#aw-start{margin-top:1.2rem;width:100%;display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:.8rem 1rem;border:none;border-radius:999px;cursor:pointer;background:var(--accent-blue,#1f6dff);color:var(--on-accent,#fff);font-size:.95rem;font-weight:600;box-shadow:var(--shadow-strong,0 8px 22px rgba(0,0,0,.25));transition:transform .15s ease}' +
+		'#aw-start:hover{transform:translateY(-2px)}#aw-start svg{width:18px;height:18px}';
+	document.head.appendChild(style);
+
+	var card=document.createElement('div');
+	card.id='aw-play-card'; card.setAttribute('role','dialog'); card.setAttribute('aria-modal','true'); card.setAttribute('aria-label','Ready to begin?');
+	card.innerHTML='<p class="aw-card-title">Ready to begin?</p>'+
+		'<p class="aw-card-sub">What the course covers, then all five labs \u2014 what you build, and what catches people out.</p>'+
+		'<div class="aw-row" data-k="audio"><span class="aw-row-ico" aria-hidden="true">\uD83D\uDD0A</span><span class="aw-row-lbl">Sound</span><span class="aw-row-state"></span><button type="button" class="aw-switch" role="switch"></button></div>'+
+		'<div class="aw-row" data-k="cc"><span class="aw-row-ico" aria-hidden="true">\uD83D\uDCAC</span><span class="aw-row-lbl">Subtitles (CC)</span><span class="aw-row-state"></span><button type="button" class="aw-switch" role="switch"></button></div>'+
+		'<button type="button" id="aw-start"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 5v14l11-7z"/></svg><span>Start</span></button>';
+	document.body.appendChild(card);
+
+	var ROWS=[
+		{ el:card.querySelector('.aw-row[data-k="audio"]'), lbl:'Sound',          toggle:'audio-toggle', read:function(){ return typeof audioEnabled!=='undefined' && audioEnabled; } },
+		{ el:card.querySelector('.aw-row[data-k="cc"]'),    lbl:'Subtitles (CC)', toggle:'cc-toggle',    read:function(){ return typeof ccPref!=='undefined' && ccPref; } }
+	];
+	function renderRows(){
+		ROWS.forEach(function(r){
+			var on=r.read();
+			var st=r.el.querySelector('.aw-row-state'); st.textContent=on?'ON':'OFF'; st.classList.toggle('on',on);
+			var sw=r.el.querySelector('.aw-switch'); sw.classList.toggle('on',on);
+			sw.setAttribute('aria-checked',on?'true':'false');
+			sw.setAttribute('aria-label',r.lbl+' \u2014 '+(on?'on':'off'));
+		});
+	}
+	ROWS.forEach(function(r){
+		r.el.querySelector('.aw-switch').addEventListener('click',function(e){
+			e.stopPropagation();
+			var b=document.getElementById(r.toggle); if(b) b.click();
+			renderRows();
+		});
+	});
+	renderRows();
+
+	var done=false;
+	function gateKeys(e){
+		if(done) return;
+		if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','PageUp','PageDown','Home','End',' '].indexOf(e.key)>=0){ e.preventDefault(); e.stopPropagation(); }
+	}
+	document.addEventListener('keydown', gateKeys, true);
+
+	document.getElementById('aw-start').addEventListener('click', function () {
+		if(done) return; done=true;
+		document.removeEventListener('keydown', gateKeys, true);
+		document.body.classList.remove('aw-prestart');
+		card.classList.add('aw-hide');
+		setTimeout(function(){ if(card.parentNode) card.parentNode.removeChild(card); if(style.parentNode) style.parentNode.removeChild(style); }, 420);
+		setTimeout(function(){
+			try{ if(window.gsap && gsap.globalTimeline) gsap.globalTimeline.play(); }catch(_){}
+			stageEl.style.opacity='1';
+			try{ interruptAnimation(); renderStep(typeof current==='number' && current>=0 ? current : 0); }catch(_){}
+		}, 380);
+	});
+}());
+</script>
+
 <script src="../lib/js/aw-present.js"></script>
 <script src="../lib/js/aw-declutter.js"></script>
 <script src="../lib/js/aw-url-state.js"></script>
