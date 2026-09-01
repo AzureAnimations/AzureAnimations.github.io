@@ -1,0 +1,2046 @@
+<!DOCTYPE html>
+<!--
+	Build and extend an AI agent — visual companion to the Microsoft Learn lab
+	"Build and extend AI agents" (Tasks 1-3).
+
+	The lab is text-only, so learners follow steps without ever seeing the SHAPE of what
+	they're assembling. Step 2 shows the finished assistant greyed out, every middle step
+	lights one more piece of it, and the recap is the same diagram fully assembled.
+
+	EXPERIMENTAL: English only, no narration. Lives three levels under the site root, so shared
+	lib paths are ../../../lib/ (not ../../lib/ as in _TEMPLATE.html).
+
+	Code shown on stage is taken from the lab, not invented:
+	  https://ivorb.github.io/mslearn-ai-agents/Instructions/Exercises/A-build-and-extend-ai-agents.html
+
+	Narration script: /narration/AgentLab/BuildAndExtendAgents.md
+-->
+<html lang="en">
+<head>
+	<script src="/js/tracking.js"></script>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+	<meta name="description" content="A visual walkthrough of the Build and extend AI agents lab - ground an agent in the Foundry portal, extend it with a remote MCP server, and call it from a client app." />
+	<title>Build &amp; extend an AI agent &mdash; Azure Animations</title>
+
+	<link rel="stylesheet" href="https://unpkg.com/@microsoft/atlas-css/dist/index.css" />
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+	<script src="../../../lib/js/aw-easings.js"></script>
+	<script src="../../../lib/js/aw-motion.js"></script>
+	<script src="../../../lib/js/aw-theme.js"></script>
+	<script src="../../../lib/js/aw-keyboard.js"></script>
+	<script src="../../../lib/js/aw-captions.js"></script>
+
+<style>
+	/* ══ WARM "PARCHMENT" PALETTE · the single source of truth ══
+	   Surfaces are FLAT — no gradients anywhere. Accents lighten in the dark theme,
+	   so titles, borders and the per-task hues stay legible without dark overrides.
+	   --task-1..6 are read from JS (TASK_COLORS) and pushed into --tc / --sc / --hc. */
+	:root {
+		--bg:            #f4ead6;
+		--bg-soft:       #fbf6ea;
+		--bg-translucent: rgba(251,246,234,0.88);
+		--ink:           #241f18;
+		--ink-soft:      #5b5245;
+		--card:          #ffffff;
+		--card-border:   #ddd2bb;
+		--shadow:        0 6px 18px rgba(60,48,30,0.10);
+		--shadow-strong: 0 12px 28px rgba(60,48,30,0.16);
+
+		--accent-blue:   #1f6dff;
+		--accent-purple: #9b2bd9;
+		--accent-pink:   #ec3f7d;
+		--accent-orange: #ff7a1a;
+		--accent-green:  #2ea043;
+		--accent-plum:   #7b4ddc;
+		--accent-teal:   #0e7490;
+		--accent-red:    #d13438;
+
+		--accent-blue-soft:   rgba(31,109,255,0.12);
+		--accent-purple-soft: rgba(155,43,217,0.10);
+		--accent-green-soft:  rgba(46,160,67,0.10);
+
+		/* Text ON a filled accent. Must flip with the theme: dark-theme accents are
+		   LIGHTENED, so white-on-accent drops to ~2:1 there. */
+		--on-accent: #ffffff;
+
+		--task-1: var(--accent-green);
+		--task-2: var(--accent-orange);
+		--task-3: var(--accent-blue);
+		--task-4: var(--accent-pink);
+		--task-5: var(--accent-plum);
+		--task-6: var(--accent-teal);
+
+		/* legacy aliases so blocks copied from sibling pages still resolve */
+		--aw-purple: var(--accent-purple); --aw-blue: var(--accent-blue); --aw-green: var(--accent-green);
+		--aw-orange: var(--accent-orange); --aw-pink: var(--accent-pink); --aw-red: var(--accent-red);
+	}
+	/* Dark theme — a WARM charcoal in the parchment family, not a near-black. */
+	body.theme-dark {
+		--bg:            #2e2823;
+		--bg-soft:       #38312a;
+		--bg-translucent: rgba(56,49,42,0.88);
+		--ink:           #f6f0e2;
+		--ink-soft:      #cdc4b2;
+		--card:          #423a31;
+		--card-border:   #635948;
+		--shadow:        0 6px 18px rgba(0,0,0,0.34);
+		--shadow-strong: 0 12px 28px rgba(0,0,0,0.44);
+
+		--accent-blue:   #6fa5ff;
+		--accent-purple: #cd90ec;
+		--accent-pink:   #f4739f;
+		--accent-orange: #ff9d4d;
+		--accent-green:  #5ac96f;
+		--accent-plum:   #b39aff;
+		--accent-teal:   #4fc2d8;
+		--accent-red:    #ff8a80;
+
+		--accent-blue-soft:   rgba(111,165,255,0.18);
+		--accent-purple-soft: rgba(205,144,236,0.18);
+		--accent-green-soft:  rgba(90,201,111,0.16);
+
+		--on-accent: var(--bg);
+
+		/* Must be re-declared here: a custom property containing var() is substituted
+		   where it is DECLARED, so the :root copies would stay frozen at the light hues. */
+		--task-1: var(--accent-green);
+		--task-2: var(--accent-orange);
+		--task-3: var(--accent-blue);
+		--task-4: var(--accent-pink);
+		--task-5: var(--accent-plum);
+		--task-6: var(--accent-teal);
+	}
+	/* Map onto atlas-css's --theme-* names. Needs [data-theme-preset] PLUS a theme
+	   class to outrank atlas's own body[data-theme-preset]. */
+	body[data-theme-preset].theme-light,
+	body[data-theme-preset].theme-dark {
+		--theme-body-background:             var(--bg);
+		--theme-body-background-translucent: var(--bg-translucent);
+		--theme-card-background:             var(--card);
+		--theme-text:                        var(--ink);
+		--theme-body-text:                   var(--ink);
+		--theme-text-subtle:                 var(--ink-soft);
+		--theme-border:                      var(--card-border);
+		--theme-primary:                     var(--accent-blue);
+		--theme-primary-translucent:         var(--accent-blue-soft);
+		--theme-primary-invert:              #ffffff;
+		--theme-tertiary:                    var(--accent-purple);
+		--theme-box-shadow-medium:           var(--shadow);
+	}
+	html, body { height:100%; margin:0; }
+	html { font-size:100%; }
+	body {
+		display:flex; flex-direction:column; height:100vh; overflow:hidden;
+		font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif; color:var(--ink);
+	}
+	body.theme-light, body.theme-dark { background: var(--bg); }
+	.app-header { display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-shrink:0; font-size:16px; background:var(--bg-soft); }
+	#stage {
+		position:relative; flex:1 1 auto; width:100%; min-height:0;
+		display:flex; align-items:center; justify-content:center;
+		overflow:hidden; container-type:size; padding:1.5rem 2.5rem 5rem;
+	}
+	#stage:focus-visible, button:focus-visible, a:focus-visible { outline:2px solid var(--accent-blue); outline-offset:3px; border-radius:4px; }
+	#stage-frame {
+		position:relative; overflow:hidden; box-sizing:border-box;
+		width:min(100cqw, calc(100cqh * 16 / 9)); aspect-ratio:16/9; max-width:100%; max-height:100%;
+		border-radius:16px; border:2px solid var(--card-border);
+		background:var(--bg-soft); box-shadow:var(--shadow-strong);
+	}
+
+	.scene {
+		position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); transform-origin:center center;
+		width:min(1150px, 96%); z-index:10;
+		display:flex; flex-direction:column; align-items:center; gap:1.1rem;
+	}
+	@keyframes awSceneIn { from { opacity:0; } to { opacity:1; } }
+	@keyframes awSceneOut { from { opacity:1; } to { opacity:0; } }
+	.scene.scene-in { animation:awSceneIn 0.2s ease both; }
+	.scene.scene-out { animation:awSceneOut 0.2s ease both; }
+	.scene-title { font-size:2.3rem; font-weight:700; color:var(--accent-purple); margin:0; text-align:center; opacity:0; }
+	.scene-lead { margin:0; text-align:center; font-size:1.25rem; color:var(--ink); max-width:min(1080px,96%); line-height:1.5; opacity:0; }
+
+	.callout {
+		position:absolute; max-width:340px; padding:1rem 1.2rem;
+		background:color-mix(in srgb, var(--card) 88%, transparent);
+		-webkit-backdrop-filter:blur(5px); backdrop-filter:blur(5px);
+		border:1px solid var(--card-border); border-left:4px solid var(--accent-purple);
+		border-radius:8px; box-shadow:var(--shadow);
+		font-size:1.02rem; line-height:1.45; color:var(--ink); z-index:14; opacity:0; cursor:grab; touch-action:none;
+	}
+	.callout:active { cursor:grabbing; }
+
+	/* ── task ribbon · which lab task the current step belongs to ── */
+	.task-ribbon { display:flex; gap:0.4rem; align-items:center; flex-wrap:wrap; justify-content:center; opacity:0; }
+	.task-chip {
+		display:inline-flex; align-items:center; gap:0.4rem; padding:0.24rem 0.7rem; border-radius:999px;
+		font-size:0.85rem; font-weight:600; border:1.5px solid var(--card-border);
+		color:var(--ink-soft); background:transparent; transition:all .2s ease;
+	}
+	.task-chip.is-now { border-color:var(--tc); color:var(--on-accent); background:var(--tc); }
+	.task-chip.is-done { border-color:var(--tc); color:var(--tc); }
+	/* dashed = optional task, solid = core — so the split stays visible on every task step */
+	.task-chip.is-opt { border-style:dashed; }
+
+	/* ── ACHIEVEMENT · closes each task with what the learner can now do ── */
+	.achieve { display:flex; align-items:center; gap:0.65rem; max-width:min(1000px,98%);
+		padding:0.45rem 1.05rem; border-radius:999px; border:2px solid var(--accent-green);
+		background:var(--accent-green-soft); opacity:0; }
+	.achieve .ach-tag { flex:none; padding:2px 10px; border-radius:999px; font-size:0.78rem; font-weight:600;
+		letter-spacing:0.06em; text-transform:uppercase; color:var(--on-accent); background:var(--accent-green); }
+	.achieve .ach-tag.is-opt { background:var(--ink-soft); }
+	.achieve .ach-lead { flex:none; font-size:1.05rem; color:var(--accent-green); }
+	.achieve .ach-t { font-size:1rem; line-height:1.35; }
+
+	/* ── ASSEMBLY · the persistent "what you're building" diagram ── */
+	.asm { position:relative; display:flex; flex-direction:column; align-items:center; gap:2.4rem; width:min(1060px,98%); }
+	/* Wire tree from the core down to each slot — measured in JS, so it can be drawn in. */
+	.asm-wires { position:absolute; left:0; top:0; overflow:visible; pointer-events:none; z-index:0; }
+	.asm-wire { fill:none; stroke:var(--sc, var(--card-border)); stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+	.asm-core {
+		position:relative; z-index:1;
+		display:flex; align-items:center; gap:0.85rem; padding:0.7rem 1.35rem; border-radius:16px;
+		border:2.5px solid var(--accent-purple); background:var(--accent-purple-soft);
+		box-shadow:var(--shadow); opacity:0;
+	}
+	.asm-core .ac-ico { font-size:1.9rem; line-height:1; color:var(--accent-purple); }
+	.asm-core .ac-name { font-size:1.25rem; font-weight:600; }
+	.asm-core .ac-sub { font-size:0.95rem; color:var(--ink-soft); }
+	.asm-row { position:relative; z-index:1; display:flex; gap:0.85rem; width:100%; align-items:stretch; }
+	.slot {
+		position:relative; flex:1 1 0; min-width:0; padding:0.85rem 0.9rem 0.9rem;
+		border:2px dashed var(--card-border); border-radius:14px; background:var(--bg-soft);
+		display:flex; flex-direction:column; gap:0.35rem; opacity:0;
+		transition:border-color .35s ease, background .35s ease, box-shadow .35s ease;
+	}
+	.slot .slot-task {
+		align-self:flex-start; font-size:0.8rem; font-weight:600; letter-spacing:0.04em;
+		padding:2px 8px; border-radius:5px; border:1px solid var(--card-border); color:var(--ink-soft);
+	}
+	.slot .slot-h { display:flex; align-items:center; gap:0.45rem; font-size:1.1rem; font-weight:600; }
+	.slot .slot-h .ic { color:var(--ink-soft); transition:color .35s ease; }
+	.slot .slot-p { font-size:0.95rem; line-height:1.4; color:var(--ink-soft); }
+	.slot.is-dim { opacity:0.42; }
+	.slot.is-on {
+		opacity:1; border-style:solid; border-color:var(--sc);
+		background:color-mix(in srgb, var(--sc) 12%, var(--bg-soft));
+		box-shadow:0 6px 22px color-mix(in srgb, var(--sc) 26%, transparent);
+	}
+	.slot.is-on .slot-h .ic { color:var(--sc); }
+	.slot.is-on .slot-task { border-color:var(--sc); color:var(--sc); }
+	.slot .slot-flag {
+		position:absolute; top:-0.7rem; right:0.6rem; padding:2px 9px; border-radius:999px;
+		font-size:0.8rem; font-weight:600; color:var(--on-accent); background:var(--accent-orange);
+		box-shadow:var(--shadow); opacity:0; white-space:nowrap;
+	}
+	.slot .slot-flag.is-live { background:var(--accent-green); }
+
+	/* ── CHAT ── */
+	.chat { display:flex; flex-direction:column; gap:0.65rem; width:min(820px,96%); }
+	.bubble {
+		padding:0.75rem 1.1rem; border-radius:14px; font-size:1.1rem; line-height:1.45; opacity:0;
+		border:1.5px solid var(--card-border); background:var(--card); color:var(--ink);
+	}
+	.bubble.is-user { align-self:flex-start; border-bottom-left-radius:4px; max-width:90%; }
+	.bubble.is-bot { align-self:flex-end; border-bottom-right-radius:4px; max-width:90%; }
+	.bubble .bub-who { display:block; font-size:0.82rem; font-weight:600; letter-spacing:0.05em;
+		text-transform:uppercase; color:var(--ink-soft); margin-bottom:0.25rem; }
+	.bubble.is-bad { border-color:var(--accent-red); background:color-mix(in srgb, var(--accent-red) 10%, var(--card)); }
+	.bubble.is-good { border-color:var(--accent-green); background:color-mix(in srgb, var(--accent-green) 10%, var(--card)); }
+	.verdict {
+		display:inline-flex; align-items:center; gap:0.45rem; padding:0.42rem 1rem; border-radius:999px;
+		font-size:1.02rem; font-weight:600; opacity:0; align-self:center;
+	}
+	.verdict.is-bad { border:2px solid var(--accent-red); color:var(--accent-red); background:color-mix(in srgb, var(--accent-red) 10%, transparent); }
+	.verdict.is-good { border:2px solid var(--accent-green); color:var(--accent-green); background:color-mix(in srgb, var(--accent-green) 10%, transparent); }
+	.cite { display:flex; align-items:center; gap:0.35rem; margin-top:0.45rem; font-size:0.9rem;
+		font-weight:600; color:var(--accent-green); }
+	.cite .ic { font-size:0.95rem; }
+
+	/* ── PORTAL MOCK · a browser window showing the Foundry portal ── */
+	.ui-win {
+		width:min(760px,96%); border:1.5px solid var(--card-border); border-radius:10px; overflow:hidden;
+		background:var(--bg-soft); box-shadow:var(--shadow-strong); opacity:0;
+	}
+	.ui-chrome { display:flex; align-items:flex-end; gap:0.5rem; padding:0.35rem 0.5rem 0;
+		background:color-mix(in srgb, var(--ink) 10%, transparent); }
+	.ui-tab { display:flex; align-items:center; gap:0.4rem; padding:0.32rem 0.75rem; font-size:0.82rem; font-weight:500;
+		background:var(--bg-soft); border:1px solid var(--card-border); border-bottom:none;
+		border-radius:7px 7px 0 0; color:var(--ink); }
+	.ui-tab img { width:15px; height:15px; display:block; }
+	.ui-tab .tab-x { color:var(--ink-soft); font-size:0.75rem; margin-left:0.15rem; }
+	.ui-winbtns { display:flex; margin-left:auto; align-self:flex-start; }
+	.ui-winbtns span { display:inline-flex; align-items:center; justify-content:center; width:1.9rem; height:1.4rem;
+		font-size:0.7rem; color:var(--ink-soft); }
+	.ui-winbtns span.win-close:hover { background:#e81123; color:#fff; }
+	.ui-addr { display:flex; align-items:center; gap:0.5rem; padding:0.4rem 0.6rem;
+		background:var(--bg-soft); border-bottom:1px solid var(--card-border); }
+	.ui-nav { display:flex; gap:0.3rem; color:var(--ink-soft); font-size:0.9rem; }
+	.ui-url { flex:1; display:flex; align-items:center; gap:0.4rem; padding:0.22rem 0.65rem; border-radius:999px;
+		border:1px solid var(--card-border); background:color-mix(in srgb, var(--ink) 5%, transparent);
+		font-size:0.82rem; color:var(--ink-soft); }
+	.ui-portal { display:flex; align-items:center; gap:0.5rem; padding:0.55rem 1rem;
+		border-bottom:1px solid var(--card-border); }
+	.ui-portal img { width:22px; height:22px; display:block; }
+	.ui-brand { font-size:1rem; font-weight:600; color:var(--ink); }
+	.ui-crumb { margin-left:auto; font-size:0.85rem; color:var(--ink-soft); }
+	.ui-body { padding:0.85rem 1rem; display:flex; flex-direction:column; gap:0.55rem;
+		background:var(--card); }
+	.ui-row { display:flex; align-items:center; gap:0.55rem; padding:0.5rem 0.75rem; border-radius:9px;
+		border:1.5px solid var(--card-border); font-size:1.02rem; opacity:0;
+		background:var(--bg-soft); color:var(--ink); }
+	.ui-row.is-add { border-style:dashed; color:var(--ink-soft); background:transparent; }
+	.ui-row.is-new { border-color:var(--accent-green); background:color-mix(in srgb, var(--accent-green) 10%, var(--card)); }
+	.ui-row .ui-tag { margin-left:auto; font-size:0.82rem; font-weight:600; color:var(--accent-green); }
+	.ui-row .ic { color:var(--ink-soft); }
+	.ui-row.is-new .ic { color:var(--accent-green); }
+	.ui-file { font-family:'Cascadia Code','Consolas',monospace; font-size:0.95rem; }
+
+	/* ── CODE ── */
+	.code-card { width:min(720px,96%); border:1px solid #30363d; border-radius:8px; background:#1e1e1e;
+		overflow:hidden; opacity:0; box-shadow:0 8px 26px rgba(0,0,0,0.3); }
+	.code-head { display:flex; align-items:center; justify-content:space-between; padding:0 0 0 0.85rem;
+		background:#323233; border-bottom:1px solid #1e1e1e; }
+	.code-file { font-size:0.88rem; color:#ccc; font-weight:500; padding:0.5rem 0; }
+	.code-winctrls { display:flex; }
+	.code-wbtn { display:flex; align-items:center; justify-content:center; width:2.3rem; padding:0.45rem 0;
+		color:#ccc; font-size:0.68rem; }
+	.code-wbtn.is-close:hover { background:#e81123; color:#fff; }
+	.code-body { margin:0; padding:0.75rem 1rem; font-family:'Cascadia Code','Consolas',monospace;
+		font-size:0.9rem; line-height:1.55; color:#d4d4d4; white-space:pre-wrap; }
+	.code-body .tok-com { color:#6a9955; } .code-body .tok-kw { color:#569cd6; }
+	.code-body .tok-str { color:#ce9178; } .code-body .tok-fn { color:#dcdcaa; }
+	.code-hl { border-radius:4px; padding:0 0.15em; box-shadow:0 0 0 1px rgba(96,165,250,0.55); background:rgba(96,165,250,0.22); }
+
+	/* ── HANDSHAKE · the MCP approval pause ── */
+	.hs { display:flex; align-items:stretch; gap:0.7rem; width:min(1000px,98%); }
+	.hs-node {
+		flex:1 1 0; min-width:0; padding:0.85rem 0.9rem; border-radius:13px; border:2px solid var(--hc);
+		background:color-mix(in srgb, var(--hc) 10%, transparent); opacity:0;
+		display:flex; flex-direction:column; gap:0.3rem; text-align:center; align-items:center;
+	}
+	.hs-node .hs-n { font-size:0.82rem; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--hc); }
+	.hs-node.is-cmd .hs-n { text-transform:none; letter-spacing:0; font-family:'Cascadia Code','Consolas',monospace; font-size:0.88rem; }
+	.hs-node .hs-t { font-size:1.08rem; font-weight:600; line-height:1.3; }
+	.hs-node .hs-s { font-size:0.92rem; color:var(--ink-soft); line-height:1.35; }
+	.hs-arrow { align-self:center; font-size:1.7rem; color:var(--ink-soft); opacity:0; flex:none; }
+
+	/* ── PILLS / RECAP ── */
+	.chip-row { display:flex; flex-wrap:wrap; gap:0.6rem; justify-content:center; }
+	.pill { display:inline-flex; align-items:center; gap:0.45rem; padding:0.45rem 1rem; border-radius:999px;
+		font-size:1rem; font-weight:600; border:2px solid var(--accent-purple);
+		background:var(--accent-purple-soft); color:var(--ink); opacity:0; }
+	.value-chip { display:inline-flex; align-items:center; gap:0.4rem; padding:0.42rem 0.95rem; border-radius:999px;
+		font-size:1rem; font-weight:600; border:2px solid var(--accent-green);
+		background:var(--accent-green-soft); color:var(--ink); opacity:0; }
+	.recap-foot { font-size:1.05rem; text-align:center; max-width:820px; opacity:0; color:var(--ink); }
+
+	/* ── OUTCOMES · what core earned you, what optional added ── */
+	.outcomes { display:flex; flex-direction:column; gap:0.5rem; width:min(1010px,98%); }
+	.outcome { display:flex; align-items:center; gap:0.8rem; padding:0.55rem 1rem; border-radius:12px;
+		border:2px solid var(--oc); background:color-mix(in srgb, var(--oc) 9%, transparent); opacity:0; }
+	.outcome .oc-tag { flex:none; min-width:5.4rem; text-align:center; padding:2px 10px; border-radius:999px;
+		font-size:0.78rem; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--on-accent); background:var(--oc); }
+	.outcome .oc-task { flex:none; font-size:0.9rem; font-weight:600; color:var(--oc); }
+	.outcome .oc-t { font-size:1rem; line-height:1.35; }
+	.outcome .oc-v { margin-left:auto; flex:none; font-size:0.9rem; font-weight:600; color:var(--ink-soft); }
+
+	/* ── OVERVIEW · the six tasks at a glance ── */
+	.ov-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:0.7rem; width:min(1090px,98%); }
+	.ov-card { display:flex; flex-direction:column; gap:0.25rem; padding:0.75rem 0.85rem 0.8rem; border-radius:13px;
+		border:2px solid var(--tc); background:color-mix(in srgb, var(--tc) 10%, var(--card)); opacity:0; }
+	.ov-top { display:flex; align-items:center; gap:0.45rem; }
+	.ov-n { font-size:0.8rem; font-weight:600; letter-spacing:0.05em; text-transform:uppercase; color:var(--tc); }
+	.ov-kind { margin-left:auto; font-size:0.74rem; font-weight:600; padding:1px 8px; border-radius:999px;
+		border:1px solid var(--card-border); color:var(--ink-soft); }
+	.ov-kind.is-core { border-color:var(--accent-green); color:var(--accent-green); }
+	.ov-h { font-size:1.04rem; font-weight:600; line-height:1.25; }
+	.ov-p { font-size:0.9rem; color:var(--ink-soft); line-height:1.35; }
+	.ov-meta { margin-top:auto; padding-top:0.35rem; display:flex; align-items:center; flex-wrap:wrap; gap:0.55rem;
+		font-size:0.82rem; color:var(--ink-soft); }
+	.ov-bar { letter-spacing:0.08em; color:var(--tc); }
+	.ov-note { font-weight:600; color:var(--accent-orange); }
+
+	/* ── PATHWAYS · the three routes through the lab ── */
+	.pathways { display:flex; flex-wrap:wrap; gap:0.6rem; justify-content:center; align-items:stretch; }
+	.pathway { display:flex; flex-direction:column; gap:0.08rem; text-align:center; opacity:0;
+		padding:0.5rem 1.1rem; border-radius:12px; border:2px solid var(--pc);
+		background:color-mix(in srgb, var(--pc) 9%, transparent); }
+	.pathway .pw-n { font-size:0.78rem; font-weight:600; letter-spacing:0.05em; text-transform:uppercase; color:var(--pc); }
+	.pathway .pw-t { font-size:1rem; font-weight:600; }
+	.pathway .pw-s { font-size:0.88rem; color:var(--ink-soft); }
+
+	/* ── ARCHITECTURE · where every component lives, and which task builds it ── */
+	.arch { display:flex; align-items:center; gap:0.45rem; width:min(1140px,99%); }
+	.tier { flex:1 1 0; min-width:0; display:flex; flex-direction:column; gap:0.5rem;
+		padding:0.65rem 0.65rem 0.75rem; border-radius:14px; border:1.5px dashed var(--card-border); opacity:0; }
+	.tier.is-foundry { flex:1.3 1 0; border-style:solid; border-color:var(--accent-blue);
+		background:var(--accent-blue-soft); }
+	.tier-head { display:flex; align-items:center; gap:0.35rem; font-size:0.82rem; font-weight:600;
+		letter-spacing:0.05em; text-transform:uppercase; color:var(--ink-soft); }
+	.tier.is-foundry .tier-head { color:var(--accent-blue); }
+	.tier-head .tier-mark { width:1.15rem; height:1.15rem; display:block; }
+	.comp { position:relative; padding:0.45rem 0.6rem 0.5rem; border-radius:10px; display:flex; flex-direction:column; gap:0.1rem;
+		border:1.5px solid var(--card-border); background:var(--card); transition:box-shadow .35s ease, border-color .35s ease; }
+	.comp-name { font-size:0.97rem; font-weight:600; display:flex; align-items:center; gap:0.35rem; color:var(--ink); }
+	.comp-name .ic { color:var(--tc); }
+	.comp-sub { font-size:0.84rem; color:var(--ink-soft); line-height:1.3; }
+	.comp-task { position:absolute; top:-0.55rem; right:0.5rem; padding:1px 7px; border-radius:999px;
+		font-size:0.72rem; font-weight:600; color:var(--on-accent); background:var(--tc); white-space:nowrap; }
+	.comp.is-lit { border-color:var(--tc); box-shadow:0 4px 18px color-mix(in srgb, var(--tc) 32%, transparent); }
+	.arch-link { flex:0 0 auto; align-self:center; display:flex; flex-direction:column; align-items:center; gap:0.15rem; opacity:0; }
+	.arch-link .al-a { font-size:1.35rem; line-height:1; color:var(--ink-soft); }
+	.arch-link .al-t { font-size:0.76rem; line-height:1.25; text-align:center; max-width:8.5rem; color:var(--ink-soft); }
+	.arch-legend { display:flex; flex-wrap:wrap; gap:0.65rem; justify-content:center; opacity:0; }
+	.leg { display:inline-flex; align-items:center; gap:0.35rem; font-size:0.84rem; color:var(--ink-soft); }
+	.leg i { width:0.68rem; height:0.68rem; border-radius:3px; background:var(--tc); }
+
+	/* ── TASK BUTTONS · step 4 assembles the diagram on click ── */
+	.arch-controls { display:flex; flex-direction:column; align-items:center; gap:0.5rem; opacity:0; }
+	.arch-hint { font-size:0.92rem; color:var(--ink-soft); }
+	.arch-btns { display:flex; flex-wrap:wrap; gap:0.5rem; justify-content:center; }
+	.task-btn {
+		-webkit-appearance:none; appearance:none; margin:0; font:inherit;
+		display:inline-flex; align-items:center; gap:0.45rem; padding:0.4rem 1rem;
+		border:2px solid color-mix(in srgb, var(--tc) 45%, transparent); border-radius:999px;
+		background:transparent; color:var(--ink);
+		font-size:0.92rem; font-weight:600; cursor:pointer; white-space:nowrap;
+		transition:background .2s ease, border-color .2s ease, box-shadow .2s ease, transform .12s ease;
+	}
+	.task-btn i { width:0.7rem; height:0.7rem; border-radius:3px; background:var(--tc); flex:none; }
+	.task-btn:hover { transform:translateY(-1px); background:color-mix(in srgb, var(--tc) 12%, transparent); }
+	/* tinted, not filled — a solid accent fill drops the label under 4:1 in the light theme */
+	.task-btn.is-on {
+		border-color:var(--tc); background:color-mix(in srgb, var(--tc) 22%, var(--card));
+		box-shadow:0 0 0 3px color-mix(in srgb, var(--tc) 20%, transparent);
+	}
+
+	/* ── TASK PICKER · the six tasks share one step, one panel at a time ── */
+	/* The picker is persistent chrome, so this scene anchors to the TOP instead of
+	   centring — otherwise each panel's height re-centres and the buttons drift. */
+	.scene.is-top { top:1.5rem; transform:translate(-50%,0); transform-origin:top center; }
+	.scene.is-top .scene-lead { min-height:3.8rem; display:flex; align-items:center; justify-content:center; }
+	.task-picker { display:flex; flex-direction:column; align-items:center; gap:0.35rem; opacity:0; }
+	.task-picker-row { display:flex; flex-wrap:wrap; gap:0.5rem; justify-content:center; }
+	.task-picker-hint { font-size:0.9rem; color:var(--ink-soft); }
+	.task-body { width:100%; display:flex; justify-content:center; align-items:flex-start; }
+	.task-panel { display:flex; flex-direction:column; align-items:center; gap:0.85rem; width:100%; }
+	.task-note { max-width:min(880px,96%); padding:0.4rem 1rem; border-radius:10px;
+		border:1px dashed var(--card-border); font-size:0.94rem; line-height:1.4;
+		color:var(--ink-soft); text-align:center; opacity:0; }
+
+	.code-duo { display:flex; gap:0.7rem; width:min(1090px,98%); align-items:stretch; }
+	.code-duo .code-card { flex:1 1 0; width:auto; min-width:0; display:flex; flex-direction:column; }
+	.code-duo .code-body { flex:1 1 auto; }
+
+	/* ── CONTROLS ── */
+	#controls {
+		position:fixed; bottom:14px; left:50%; transform:translateX(-50%); z-index:40;
+		display:flex; align-items:center; gap:5px; padding:5px 7px;
+		background:var(--bg-translucent);
+		backdrop-filter:blur(12px) saturate(1.4); -webkit-backdrop-filter:blur(12px) saturate(1.4);
+		border:1px solid var(--card-border); border-radius:999px;
+		box-shadow:var(--shadow-strong); font-size:13px; color:var(--ink);
+	}
+	#controls .ctrl-icon { width:2.15rem; height:2.15rem; min-width:0; padding:0; display:inline-flex;
+		align-items:center; justify-content:center; border-radius:50%; font-size:0.95rem; font-weight:600;
+		transition:background .18s ease, transform .12s ease; }
+	#controls .ctrl-icon:hover { transform:translateY(-1px); }
+	#controls .ctrl-icon-next { width:2.55rem; height:2.55rem; font-size:1.1rem;
+		box-shadow:0 2px 8px var(--accent-blue-soft); }
+	.step-counter { min-width:78px; text-align:center; font-variant-numeric:tabular-nums; font-size:14px;
+		font-weight:600; padding:0 6px; white-space:nowrap; color:var(--ink); }
+	.ctrl-sep { width:1px; align-self:stretch; margin:4px 2px; background:var(--card-border); }
+	.speed-control { display:inline-flex; align-items:center; gap:1px; padding:2px 3px;
+		border:1px solid var(--card-border); border-radius:999px; }
+	.speed-control .speed-btn { width:1.7rem; height:1.7rem; min-width:0; padding:0; display:inline-flex;
+		align-items:center; justify-content:center; font-size:0.95rem; font-weight:600; border-radius:50%; }
+	.speed-control .speed-btn[disabled] { opacity:0.4; cursor:not-allowed; }
+	.speed-label { min-width:2.4rem; text-align:center; font-variant-numeric:tabular-nums; font-size:0.82rem; font-weight:600; }
+
+	/* Movable dock — drag by the grip, pin it back to centre */
+	.ctrl-grip { display:inline-flex; align-items:center; justify-content:center; width:1.5rem; height:2.15rem;
+		padding:0; border:none; background:transparent; color:var(--ink-soft); border-radius:8px;
+		cursor:grab; touch-action:none; transition:background .18s ease, color .18s ease; }
+	.ctrl-grip:hover { color:var(--ink); background:var(--accent-blue-soft); }
+	.ctrl-grip:active { cursor:grabbing; }
+	.ctrl-grip svg { width:13px; height:16px; pointer-events:none; }
+	body.controls-floating .ctrl-grip { color:var(--accent-blue); }
+	#controls .ctrl-pin { display:none; color:var(--accent-blue); }
+	#controls .ctrl-pin svg { width:15px; height:15px; pointer-events:none; }
+	body.controls-floating #controls .ctrl-pin { display:inline-flex; }
+	body.controls-floating #controls { box-shadow:var(--shadow-strong), 0 0 0 1.5px var(--accent-blue); }
+
+	/* Reset "pin" — shown on a panel once it has been dragged or resized off its home spot */
+	.aw-drag-reset { position:absolute; width:24px; height:24px; padding:0; display:none;
+		align-items:center; justify-content:center; border-radius:50%;
+		background:var(--accent-purple); color:#fff; border:2px solid var(--card);
+		box-shadow:0 2px 7px rgba(0,0,0,0.4); cursor:pointer; z-index:6; opacity:0.92;
+		transition:opacity .14s ease, transform .14s ease; }
+	.aw-drag-reset:hover { opacity:1; transform:scale(1.08); }
+	.aw-drag-reset svg { width:13px; height:13px; display:block; }
+
+	.stage-overlay { position:absolute; left:12px; bottom:10px; z-index:25; display:flex; align-items:center; gap:2px;
+		padding:3px 6px; border-radius:999px; background:rgba(16,18,24,0.58);
+		backdrop-filter:blur(9px); -webkit-backdrop-filter:blur(9px); box-shadow:0 4px 16px rgba(0,0,0,0.32); }
+	.ovl-btn { -webkit-appearance:none; appearance:none; margin:0; font:inherit; display:inline-flex;
+		align-items:center; justify-content:center; min-width:30px; height:30px; padding:0 8px;
+		border:none !important; border-radius:999px !important; background:transparent !important;
+		color:#fff !important; cursor:pointer; opacity:0.86; transition:background .15s ease, opacity .15s ease; }
+	.ovl-btn:hover { background:rgba(255,255,255,0.16) !important; opacity:1; }
+	.ovl-btn svg { width:18px; height:18px; fill:currentColor; display:block; }
+	.ovl-btn.toggle-active { color:#5cc8ff !important; opacity:1; }
+	.ovl-btn[data-tip] { position:relative; }
+	.ovl-btn[data-tip]::after { content:attr(data-tip); position:absolute; left:0; bottom:calc(100% + 9px);
+		padding:4px 8px; border-radius:6px; background:rgba(16,18,24,0.96); color:#fff; font-size:0.72rem;
+		font-weight:600; white-space:nowrap; opacity:0; pointer-events:none; transition:opacity .14s ease; z-index:40; }
+	.ovl-btn[data-tip]:hover::after { opacity:1; }
+	.stage-overlay.is-right { left:auto; right:12px; }
+	.ovl-btn.ovl-audio { gap:0.35rem; font-size:0.82rem; font-weight:600; }
+	.ovl-btn .aw-audio-time { font-variant-numeric:tabular-nums; }
+	.ovl-btn .fs-exit { display:none; }
+	body.is-fs .ovl-btn .fs-enter { display:none; }
+	body.is-fs .ovl-btn .fs-exit { display:block; }
+
+	/* Hiding the top bar grows the stage — the scene is re-FITTED, never replayed. */
+	body.chrome-hidden .app-header, body.chrome-hidden .progress-track { display:none; }
+	#header-hide-top { display:inline-flex; align-items:center; justify-content:center; width:2.25rem; height:2.25rem;
+		padding:0; background:transparent; border:1px solid var(--card-border); border-radius:999px;
+		color:var(--ink-soft); cursor:pointer; transition:color .2s ease, transform .18s ease; }
+	#header-hide-top:hover { color:var(--ink); transform:translateY(-1px); }
+	#header-hide-top svg { width:16px; height:16px; }
+	#header-reveal {
+		position:fixed; top:0; left:50%; transform:translateX(-50%) translateY(-100%); z-index:45;
+		display:inline-flex; align-items:center; gap:0.35rem; padding:5px 14px 6px;
+		font-size:12px; font-weight:600; line-height:1; font-family:inherit;
+		color:var(--ink-soft); background:var(--bg-translucent);
+		backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+		border:1px solid var(--card-border); border-top:none; border-radius:0 0 12px 12px;
+		box-shadow:var(--shadow); cursor:pointer;
+		transition:transform .28s cubic-bezier(0.2,0.7,0.3,1), color .2s ease;
+	}
+	#header-reveal:hover { color:var(--ink); }
+	body.chrome-hidden #header-reveal { transform:translateX(-50%) translateY(0); }
+	#header-reveal svg { width:14px; height:14px; }
+
+	/* Caption bar · synced to the step's clip by aw-captions.js */
+	#aw-caption {
+		position:absolute; left:50%; transform:translateX(-50%); bottom:64px; z-index:30;
+		display:none; align-items:center; justify-content:center; text-align:center;
+		max-width:min(880px,88%); min-width:140px; min-height:38px; max-height:44%;
+		padding:0.55rem 1.1rem; border-radius:12px;
+		background:rgba(16,18,24,0.84); color:#fff; font-size:1.02rem; line-height:1.45;
+		-webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
+		box-shadow:0 4px 16px rgba(0,0,0,0.32);
+		overflow:auto; resize:both;   /* corner grip reshapes the bar */
+		pointer-events:auto; cursor:grab; touch-action:none;
+	}
+	#aw-caption:active { cursor:grabbing; }
+	#aw-caption::-webkit-resizer { background:linear-gradient(135deg, transparent 45%, rgba(255,255,255,0.55) 45%, rgba(255,255,255,0.55) 55%, transparent 55%); }
+	body.cc-on #aw-caption.has-text { display:flex; }
+
+	#step-outline { position:fixed; top:4.5rem; right:1rem; width:330px; max-height:calc(100vh - 8rem);
+		overflow-y:auto; padding:1.1rem; background:color-mix(in srgb, var(--card) 90%, transparent);
+		-webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px); border:1px solid var(--card-border);
+		border-radius:12px; box-shadow:var(--shadow-strong); z-index:35; font-size:0.98rem; line-height:1.55;
+		color:var(--ink); cursor:grab; touch-action:none; }
+	#step-outline[hidden] { display:none; }
+	#step-outline h2 { font-size:0.82rem; font-weight:700; letter-spacing:0.18em; text-transform:uppercase;
+		color:var(--accent-purple); margin:0 0 0.5rem; }
+	#step-outline .outline-section { margin-top:0.6rem; padding-top:0.6rem; border-top:1px solid var(--card-border); }
+	#step-outline .outline-section:first-child { margin-top:0; padding-top:0; border-top:0; }
+	#step-outline p { margin:0.4rem 0 0; }
+	#step-outline .stat-row { display:flex; justify-content:space-between; gap:0.75rem; padding:0.2rem 0; }
+	#step-outline .stat-row span:first-child { color:var(--ink-soft); flex:0 0 auto; max-width:45%; }
+	#step-outline .stat-row span:last-child { text-align:right; font-weight:600; color:var(--accent-purple); }
+
+	.progress-track { position:relative; height:6px; background:var(--card-border); flex-shrink:0; }
+	.progress-fill { position:absolute; left:0; top:0; bottom:0; width:0%; background:var(--accent-purple);
+		transition:width .5s cubic-bezier(0.2,0.8,0.2,1); }
+
+	.theme-toggle { display:inline-flex; align-items:center; justify-content:center; width:2.25rem; height:2.25rem;
+		padding:0; background:transparent; border:1px solid var(--card-border); border-radius:999px;
+		color:var(--ink); cursor:pointer; }
+	.theme-toggle .theme-icon { display:none; }
+	.theme-toggle[data-theme="dark"] .icon-sun { display:block; }
+	.theme-toggle[data-theme="light"] .icon-moon { display:block; }
+	.font-size-btn { background:transparent; color:var(--ink); border:1px solid var(--card-border);
+		border-radius:4px; padding:3px 8px; font-size:0.8rem; font-weight:600; cursor:pointer; }
+	.header-back-link { display:inline-flex; align-items:center; gap:0.25rem; padding:0.2rem 0.6rem; font-size:0.8rem;
+		font-weight:600; color:var(--ink-soft); border:1px solid var(--card-border); border-radius:999px;
+		text-decoration:none; white-space:nowrap; }
+	.lab-link { font-size:0.8rem; font-weight:600; color:var(--accent-blue); text-decoration:none;
+		border:1px solid var(--card-border); border-radius:999px; padding:0.2rem 0.7rem; white-space:nowrap; }
+	.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+	.ic { display:inline-flex; align-items:center; justify-content:center; vertical-align:-0.125em; }
+	.ic svg { width:1em; height:1em; fill:currentColor; display:block; }
+	.help-toggle svg { width:15px; height:15px; }
+
+	/* Keyboard shortcut overlay */
+	#shortcut-overlay { position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center; }
+	#shortcut-overlay[hidden] { display:none; }
+	.sc-backdrop { position:absolute; inset:0; background:rgba(0,0,0,0.5); -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px); }
+	.sc-panel { position:relative; z-index:1; width:min(430px,92vw); max-height:82vh; overflow:auto;
+		padding:1.5rem 1.6rem; background:var(--card); border:1px solid var(--card-border);
+		border-radius:18px; box-shadow:var(--shadow-strong); color:var(--ink); }
+	.sc-panel h2 { margin:0 0 1rem; font-size:1.25rem; color:var(--accent-purple); }
+	.sc-close { position:absolute; top:0.7rem; right:0.7rem; width:2rem; height:2rem; display:inline-flex;
+		align-items:center; justify-content:center; border:1px solid var(--card-border); border-radius:50%;
+		background:transparent; color:var(--ink-soft); cursor:pointer; }
+	.sc-close:hover { color:var(--ink); border-color:var(--accent-blue); }
+	.sc-close svg { width:15px; height:15px; }
+	.sc-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:0.55rem; }
+	.sc-list li { display:flex; align-items:center; justify-content:space-between; gap:1rem; font-size:1rem; }
+	.sc-keys { display:inline-flex; gap:0.3rem; flex:none; }
+	.sc-panel kbd, .sc-hint kbd { font-family:'Cascadia Code','Consolas',monospace; font-size:0.82rem; line-height:1;
+		padding:0.28rem 0.5rem; border-radius:6px; border:1px solid var(--card-border); border-bottom-width:2px;
+		background:var(--bg-soft); color:var(--ink); }
+	.sc-hint { margin:1.1rem 0 0; font-size:0.85rem; color:var(--ink-soft); text-align:center; }
+
+	@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition:none !important; animation:none !important; } }
+</style>
+</head>
+
+<body class="theme-light" data-theme-preset="atlas">
+
+	<header class="app-header padding-block-xs padding-inline-md border-bottom" role="banner">
+		<div class="display-flex align-items-center gap-xs">
+			<a href="../../../index.html" class="header-back-link" aria-label="Back to Azure Animations">&larr; Back</a>
+			<span id="page-title" class="font-size-h6 font-weight-semibold">Build &amp; extend an AI agent</span>
+		</div>
+		<div class="display-flex gap-xs align-items-center">
+			<span id="breadcrumb" class="font-size-sm color-text-subtle">The problem</span>
+			<a class="lab-link" href="https://ivorb.github.io/mslearn-ai-agents/Instructions/Exercises/A-build-and-extend-ai-agents.html" target="_blank" rel="noopener noreferrer">Open the lab &#8599;</a>
+			<button id="font-decrease" type="button" class="font-size-btn" aria-label="Decrease font size" title="Smaller text">A&minus;</button>
+			<button id="font-increase" type="button" class="font-size-btn" aria-label="Increase font size" title="Larger text">A+</button>
+			<button id="header-hide-top" type="button" aria-label="Hide top bar" title="Hide top bar (H)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/></svg></button>
+			<button id="theme-toggle" type="button" class="theme-toggle" aria-label="Switch theme" title="Switch theme">
+				<svg class="theme-icon icon-moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg>
+				<svg class="theme-icon icon-sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.5" y1="4.5" x2="6.5" y2="6.5"/><line x1="17.5" y1="17.5" x2="19.5" y2="19.5"/><line x1="4.5" y1="19.5" x2="6.5" y2="17.5"/><line x1="17.5" y1="6.5" x2="19.5" y2="4.5"/></g></svg>
+			</button>
+		</div>
+	</header>
+
+	<div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
+
+	<button id="header-reveal" type="button" aria-label="Show top bar" title="Show top bar (H)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/></svg><span>Show top bar</span></button>
+
+	<main id="stage" tabindex="0" role="region" aria-labelledby="stage-heading">
+		<h1 id="stage-heading" class="sr-only" tabindex="-1">Build and extend an AI agent</h1>
+		<div id="step-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+		<div id="stage-frame">
+			<div id="aw-caption" aria-hidden="true"></div>
+			<div id="stage-overlay-left" class="stage-overlay" role="group" aria-label="View options">
+				<button id="callout-toggle" type="button" class="ovl-btn" aria-label="Toggle callouts" aria-pressed="false" data-tip="Callouts: Off"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M4 5h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H10l-4 3v-3H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></svg></button>
+				<button id="outline-toggle" type="button" class="ovl-btn" aria-controls="step-outline" aria-expanded="false" aria-label="Toggle text outline" data-tip="Outline: Off"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" d="M4 6h16M4 12h16M4 18h10"/></svg></button>
+				<button id="help-toggle" type="button" class="ovl-btn help-toggle" aria-haspopup="dialog" aria-controls="shortcut-overlay" aria-label="Keyboard shortcuts (press ?)" data-tip="Shortcuts"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M11 18h2v-2h-2v2zm1.1-14C9.8 4 8 5.8 8 8h2a2 2 0 1 1 3.2 1.6c-.9.7-2.2 1.5-2.2 3.4h2c0-1 .8-1.5 1.7-2.2A4 4 0 0 0 12.1 4z"/></svg></button>
+			</div>
+			<div id="stage-overlay" class="stage-overlay is-right" role="group" aria-label="Player controls">
+				<button id="audio-toggle" type="button" class="ovl-btn ovl-audio" aria-label="Toggle audio narration" aria-pressed="false" data-tip="Narration: Off"></button>
+				<button id="cc-toggle" type="button" class="ovl-btn" aria-label="Toggle captions" aria-pressed="false" data-tip="Captions: Off"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9.7 10.2a2.1 2.1 0 1 0 0 3.6M17 10.2a2.1 2.1 0 1 0 0 3.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+				<button id="header-hide" type="button" class="ovl-btn" aria-label="Hide top bar" aria-expanded="true" data-tip="Hide top bar (H)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/></svg></button>
+				<button id="fs-toggle" type="button" class="ovl-btn" aria-label="Toggle full screen" aria-pressed="false" data-tip="Full screen (F)"><svg class="fs-enter" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg><svg class="fs-exit" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg></button>
+			</div>
+		</div>
+	</main>
+
+	<aside id="step-outline" hidden aria-label="Text outline of the current step">
+		<h2>Step details</h2>
+		<div id="outline-body"></div>
+	</aside>
+
+	<div id="controls" role="group" aria-label="Diagram navigation">
+		<button id="ctrl-grip" type="button" class="ctrl-grip" aria-label="Drag to move the controls" title="Drag to move">
+			<svg viewBox="0 0 16 16" aria-hidden="true"><g fill="currentColor"><circle cx="5" cy="3" r="1.4"/><circle cx="11" cy="3" r="1.4"/><circle cx="5" cy="8" r="1.4"/><circle cx="11" cy="8" r="1.4"/><circle cx="5" cy="13" r="1.4"/><circle cx="11" cy="13" r="1.4"/></g></svg>
+		</button>
+		<button id="ctrl-pin" type="button" class="button button-clear ctrl-icon ctrl-pin" aria-label="Pin the controls back to the centre" title="Pin to centre">
+			<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9 2h6a1 1 0 0 1 .8 1.6L14 6v4l3 3v2h-4v5l-1 2-1-2v-5H7v-2l3-3V6L8.2 3.6A1 1 0 0 1 9 2z"/></svg>
+		</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="prev-btn" type="button" class="button ctrl-icon" aria-label="Previous step (left arrow)">&#9664;</button>
+		<div class="step-counter" id="step-counter">1 / 8</div>
+		<button id="next-btn" type="button" class="button button-primary button-filled ctrl-icon ctrl-icon-next" aria-label="Next step (right arrow or space)">&#9654;</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="replay-btn" type="button" class="button ctrl-icon" aria-label="Replay this step (P)">&#8635;</button>
+		<div class="speed-control" role="group" aria-label="Animation speed">
+			<button id="speed-down" type="button" class="button button-clear speed-btn" aria-label="Slower" title="Slower">&minus;</button>
+			<span id="speed-label" class="speed-label" aria-live="polite">1&times;</span>
+			<button id="speed-up" type="button" class="button button-clear speed-btn" aria-label="Faster" title="Faster">+</button>
+		</div>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="reset-btn" type="button" class="button button-clear ctrl-icon" aria-label="Restart from step 1 (R)">&#9198;</button>
+	</div>
+
+	<div id="shortcut-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="sc-title">
+		<div class="sc-backdrop"></div>
+		<div class="sc-panel">
+			<button id="sc-close" class="sc-close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
+			<h2 id="sc-title">Keyboard shortcuts</h2>
+			<ul id="sc-list" class="sc-list"></ul>
+			<p class="sc-hint">Press <kbd>?</kbd> anytime to toggle this panel.</p>
+		</div>
+	</div>
+
+<script>
+// ── THEME ─────────────────────────────────
+const themeToggleBtn = document.getElementById('theme-toggle');
+function syncThemeBtn(){
+	if(!themeToggleBtn) return;
+	const isDark = document.body.classList.contains('theme-dark');
+	themeToggleBtn.dataset.theme = isDark ? 'dark' : 'light';
+	themeToggleBtn.setAttribute('aria-label', isDark ? 'Switch to light theme' : 'Switch to dark theme');
+}
+if (window.AW && AW.theme) { AW.theme.onChange(syncThemeBtn); syncThemeBtn(); }
+else {
+	try { const s=localStorage.getItem('aw-theme'); if(s){ document.body.classList.remove('theme-dark','theme-light'); document.body.classList.add(s); } } catch(_){}
+	syncThemeBtn();
+	themeToggleBtn.addEventListener('click', () => {
+		const dark = !document.body.classList.contains('theme-dark');
+		document.body.classList.remove('theme-dark','theme-light');
+		document.body.classList.add(dark ? 'theme-dark' : 'theme-light');
+		try { localStorage.setItem('aw-theme', dark ? 'theme-dark':'theme-light'); } catch(_){}
+		syncThemeBtn();
+	});
+}
+
+// ── COPY ──────────────────────────────────
+// English only for this experimental page; every string lives here so it stays translatable later.
+const T = {
+	problemTitle:'Tailwind has a model, not an assistant',
+	problemCaption:'The problem',
+	problemDesc:'A model that has never seen Tailwind Traders\u2019 own documents will still answer \u2014 fluently, and wrong.',
+	problemCallout:'The model is not broken. It has simply never read the store policy, so it fills the gap with something plausible.',
+	problemQ:'What\u2019s your return policy for a tent?',
+	problemA:'Tents can be returned within 90 days, no receipt required, for a full refund.',
+	problemVerdict:'Invented \u2014 nothing here came from Tailwind',
+	problemStat1:'Who', problemStat1v:'Tailwind Traders staff',
+	problemStat2:'Problem', problemStat2v:'The model guesses',
+	problemStat3:'Fix', problemStat3v:'Give it real sources',
+
+	bpTitle:'What you\u2019re actually building',
+	bpCaption:'The blueprint',
+	bpDesc:'One assistant, four pieces \u2014 and every task in this lab adds or upgrades exactly one of them.',
+	bpCallout:'Keep this shape in mind. Every step from here lights up one more piece of it.',
+	bpStat1:'Tasks 1', bpStat1v:'Instructions + knowledge',
+	bpStat2:'Tasks 2, 4, 5', bpStat2v:'Tools',
+	bpStat3:'Tasks 3, 6', bpStat3v:'A client, then hosting',
+
+	ovTitle:'Six tasks, one assistant',
+	ovCaption:'Lab at a glance',
+	ovDesc:'Two core tasks get you a working, tool-using agent in about 35 minutes. Four optional tasks take it the rest of the way.',
+	ovCallout:'Every task is written to stand alone, sharing one starter folder and one .env \u2014 so you can do just Task 1, or work straight through.',
+	ovCore:'Core', ovOpt:'Optional',
+	ovH1:'Create and ground an agent', ovP1:'In the Foundry portal \u2014 no code at all',
+	ovH2:'Connect a remote MCP server', ovP2:'Live Microsoft Learn docs, plus tool approval',
+	ovH3:'Call your agent from a client app', ovP3:'Drive it from your own chat window',
+	ovH4:'Add custom function tools', ovP4:'Your Python logic, called by the agent',
+	ovH5:'Capstone: your own MCP server', ovP5:'Host tools, then combine every tool set',
+	ovH6:'Promote it to a hosted agent', ovP6:'Your code, in a Foundry-run container',
+	ovStat1:'Core only', ovStat1v:'~35 min (Tasks 1\u20132)',
+	ovStat2:'Everything', ovStat2v:'~2 h 25 m',
+	ovStat3:'Scenario', ovStat3v:'Tailwind Traders',
+
+	archTitle:'How the pieces fit together',
+	archCaption:'Application overview',
+	archDesc:'Your code runs on your machine. The agent, its knowledge and its tools live in Microsoft Foundry. Each badge marks the task that builds that piece.',
+	archCallout:'Only Task 1 happens in the portal. Everything else is code you run locally \u2014 until Task 6 moves your code into Foundry too.',
+	archT1:'Your machine', archT2:'Microsoft Foundry project', archT3:'Data &amp; remote sources',
+	archC1:'tailwind_ui.py', archC1s:'Provided web chat window \u2014 you never edit it',
+	archC2:'client.py', archC2s:'You write respond() and route each tool call',
+	archC3:'functions.py', archC3s:'Trip planner and rental pricing, in Python',
+	archC4:'server.py', archC4s:'Your own MCP server, tools over stdio',
+	archC5:'Model deployment', archC5s:'The model your agent runs on',
+	archC6:'Agent \u00b7 instructions', archC6s:'Who it is, and how it should answer',
+	archC7:'Knowledge \u00b7 File search', archC7s:'Your uploaded documents, indexed',
+	archC8:'Tool definitions', archC8s:'Remote MCP, your functions, your MCP server',
+	archC9:'Agent Service', archC9s:'Your code in a hosted container, with its own endpoint',
+	archC10:'Learn Docs MCP server', archC10s:'learn.microsoft.com/api/mcp',
+	archC11:'Your documents', archC11s:'Store_Policy.txt, weekly_sales.csv',
+	archL1:'Responses API \u00b7 agent_reference',
+	archL2:'function_call goes out, your result comes back',
+	archL3:'MCP \u00b7 approval required',
+	archSetup:'Setup',
+	archHint:'Pick a task to add what it builds \u2014 tap again to take it away.',
+
+	// The six tasks share one step; the picker swaps panels.
+	tasksTitle:'Explore each task',
+	tasksCaption:'The six tasks',
+	tasksDesc:'Pick a task to see what you build in it.',
+	tasksCallout:'Every task starts from the same folder and the same .env \u2014 so you can do just one, or work straight through.',
+	tasksHint:'Two core tasks, four optional \u2014 pick any, in any order.',
+	tasksStat1:'Core', tasksStat1v:'Tasks 1\u20132 \u00b7 ~35 min',
+	tasksStat2:'Optional', tasksStat2v:'Tasks 3\u20136 \u00b7 ~1 h 50 m',
+	tasksStat3:'Order', tasksStat3v:'Any \u2014 Task 5 follows Task 4',
+	// the old "grounding has a hard edge" beat, kept as Task 1's closing note
+	gapNote:'But it only knows what you uploaded, as of when you uploaded it. Closing that gap is Task 2.',
+	archStat1:'You run', archStat1v:'Python, on your machine',
+	archStat2:'Foundry runs', archStat2v:'The agent and its tools',
+	archStat3:'Task 6 moves', archStat3v:'Your code into Foundry',
+
+	groundTitle:'Task 1 \u00b7 Give it something true to read',
+	groundCaption:'Task 1 \u00b7 Ground it',
+	groundDesc:'Add the File search tool, upload the store policy, and the same question is answered from the document.',
+	groundCallout:'This whole task happens in the Foundry portal \u2014 no code, no environment file, nothing to install.',
+	groundCite:'Store_Policy.txt',
+	portalTab:'Microsoft Foundry',
+	portalUrl:'ai.azure.com/agents/tailwind-agent',
+	portalBrand:'Microsoft Foundry',
+	portalCrumb:'Agent playground \u00b7 Tools',
+	groundA:'Tents can be returned within 30 days with proof of purchase, unused and in the original packaging.',
+	groundStat1:'Where', groundStat1v:'Foundry portal',
+	groundStat2:'Tool', groundStat2v:'File search',
+	groundStat3:'Source', groundStat3v:'Store_Policy.txt',
+
+	limitsTitle:'Grounding has a hard edge',
+	limitsCaption:'The gap',
+	limitsDesc:'The policy document knows Tailwind. It knows nothing about Azure \u2014 and nothing added after you uploaded it.',
+	limitsCallout:'Grounding is internal, and frozen at upload time. That is exactly the gap the next task closes.',
+	limitsQ:'How do we deploy the product catalog API to Azure Container Apps?',
+	limitsA:'That isn\u2019t covered in the store policy document.',
+	limitsVerdict:'Out of reach \u2014 internal sources only',
+	limitsStat1:'Knows', limitsStat1v:'Tailwind\u2019s own docs',
+	limitsStat2:'Blind to', limitsStat2v:'Anything external',
+	limitsStat3:'Frozen at', limitsStat3v:'Upload time',
+
+	mcpTitle:'Task 2 \u00b7 Let it reach outside',
+	mcpCaption:'Task 2 \u00b7 Add a tool',
+	mcpDesc:'MCP lets an agent call tools it never shipped with \u2014 here, the live Microsoft Learn documentation server.',
+	mcpCallout:'The agent is not downloading the docs. It calls the server at question time, so the answer is never stale.',
+	mcpStat1:'Protocol', mcpStat1v:'Model Context Protocol',
+	mcpStat2:'Server', mcpStat2v:'Microsoft Learn Docs',
+	mcpStat3:'Freshness', mcpStat3v:'Fetched per question',
+
+	apprTitle:'Task 2 \u00b7 It asks before it acts',
+	apprCaption:'Task 2 \u00b7 Approval',
+	apprDesc:'With require_approval set to always, the run pauses and waits for a yes. Your loop is what un-pauses it.',
+	apprCallout:'Miss this loop and the agent looks broken: it stops, returns no text, and never calls the tool.',
+	apprN1:'Agent', apprT1:'Wants the tool', apprS1:'Raises mcp_approval_request, then stops',
+	apprN2:'Your loop', apprT2:'Says yes', apprS2:'Returns McpApprovalResponse(approve=True)',
+	apprN3:'Agent', apprT3:'Resumes', apprS3:'Calls the tool and writes the answer',
+	apprStat1:'Trigger', apprStat1v:'require_approval="always"',
+	apprStat2:'You send', apprStat2v:'McpApprovalResponse',
+	apprStat3:'Loop ends', apprStat3v:'No approvals left',
+
+	clientTitle:'Task 3 \u00b7 Give it a face',
+	clientCaption:'Task 3 \u00b7 Call it from an app',
+	clientDesc:'Load the agent you already built by name, drive it from your own app, and charts render right in the chat.',
+	clientCallout:'Nothing new is created here. The agent already exists \u2014 the client just loads it and starts talking.',
+	clientP1:'Web chat window', clientP2:'Charts render inline', clientP3:'You only write respond()',
+	clientStat1:'Load', clientStat1v:'agents.get(agent_name=\u2026)',
+	clientStat2:'Point at it', clientStat2v:'agent_reference',
+	clientStat3:'You write', clientStat3v:'respond()',
+
+	fnTitle:'Task 4 \u00b7 Wire in your own Python',
+	fnCaption:'Task 4 \u00b7 Function tools',
+	fnDesc:'You describe each function with a JSON schema. The agent decides when to call it \u2014 your code is what actually runs it.',
+	fnCallout:'The model never runs your code. It only asks; the function-calling loop in your app does the work and hands the result back.',
+	fnN1:'Agent', fnT1:'Picks a tool', fnS1:'Emits a function_call with JSON arguments',
+	fnN2:'Your code', fnT2:'Runs it', fnS2:'next_available_trip("alps") returns real data',
+	fnN3:'Agent', fnT3:'Answers', fnS3:'Reads the FunctionCallOutput and writes the reply',
+	fnStat1:'You describe', fnStat1v:'A JSON schema per function',
+	fnStat2:'Agent sends', fnStat2v:'function_call',
+	fnStat3:'You send back', fnStat3v:'FunctionCallOutput',
+
+	msTitle:'Task 5 \u00b7 Host your own tools',
+	msCaption:'Task 5 \u00b7 Capstone',
+	msDesc:'A server registers tools; a client discovers and calls them. One agent can hold your local functions and your MCP tools at the same time.',
+	msCallout:'Diagnostics must go to stderr \u2014 MCP speaks JSON-RPC over stdout, so a stray banner corrupts the stream.',
+	msP1:'Trip tools run in-process', msP2:'Stock tools run over MCP', msP3:'respond() routes each call',
+	msStat1:'Server', msStat1v:'Registers tools with @mcp.tool()',
+	msStat2:'Client', msStat2v:'Discovers and calls them',
+	msStat3:'One agent', msStat3v:'Two kinds of tool',
+
+	hoTitle:'Task 6 \u00b7 Ship it as a hosted agent',
+	hoCaption:'Task 6 \u00b7 Hosted agent',
+	hoDesc:'A prompt agent is a definition Foundry runs. A hosted agent is your code, in a container Foundry runs \u2014 same reference, your logic.',
+	hoCallout:'Any app that called your prompt agent by agent_reference can point at the hosted agent instead. Nothing on the caller changes.',
+	hoN1:'azd ai agent init', hoT1:'Scaffold', hoS1:'Generates azure.yaml for an azure.ai.agent service',
+	hoN2:'azd ai agent run', hoT2:'Test locally', hoS2:'Runs your handler and opens the inspector',
+	hoN3:'azd deploy', hoT3:'Go live', hoS3:'Foundry builds the container and gives it an endpoint',
+	hoP1:'Responses protocol \u00b7 OpenAI-compatible', hoP2:'Its own endpoint and identity', hoP3:'azd down removes it all',
+	hoStat1:'Before', hoStat1v:'Prompt agent \u2014 a definition',
+	hoStat2:'After', hoStat2v:'Hosted agent \u2014 your code',
+	hoStat3:'Callers', hoStat3v:'Unchanged',
+
+	recapTitle:'One assistant, six tasks',
+	recapCaption:'All in one',
+	recapDesc:'Every component built \u2014 and you can see exactly which task built which piece.',
+	recapCallout:'Knowledge makes it accurate. Tools make it useful. A client makes it real. Hosting makes it yours to run.',
+	recapFoot:'Core tasks take about 35 minutes. The whole lab, about 2 hours 25 minutes.',
+	recapStat1:'Tasks 1\u20132', recapStat1v:'Grounded, and tool-using',
+	recapStat2:'Tasks 3\u20135', recapStat2v:'Your app, your tools',
+	recapStat3:'Task 6', recapStat3v:'Running in Foundry',
+
+	// Achievements — one per task, worded from the lab's "What you'll learn".
+	tagCore:'Core', tagOpt:'Optional',
+	ach1:'Your agent answers from Tailwind\u2019s own documents \u2014 no more guessing.',
+	ach2:'Your agent calls a live external tool, and asks permission before it acts.',
+	ach3:'Your agent answers inside your own chat app, charts and all.',
+	ach4:'The agent calls your own Python \u2014 trip planning, rental pricing.',
+	ach5:'One assistant routes across your functions and your own MCP server.',
+	ach6:'Your code runs in a Foundry-managed container, invoked by reference.',
+
+	// The lab's three routes — pick the one that fits the time you have.
+	path1:'Core only',            path1s:'Tasks 1\u20132',        path1t:'~35 min',
+	path2:'Core + recommended',   path2s:'add Tasks 3 &amp; 4',   path2t:'~1 h 20 m',
+	path3:'Everything',           path3s:'add Tasks 5 &amp; 6',   path3t:'~2 h 25 m',
+	ovNote5:'after Task 4',
+
+	oc1Tasks:'Tasks 1\u20132', oc1t:'A grounded, tool-using assistant', oc1v:'Accurate \u00b7 Useful',
+	oc2Tasks:'Tasks 3\u20136', oc2t:'Your app, your Python, your MCP server \u2014 running in Foundry', oc2v:'Real \u00b7 Yours to run',
+
+	slotInstr:'Instructions', slotInstrP:'Who it is, and how it should answer',
+	slotKnow:'Knowledge', slotKnowP:'Your documents, via File search',
+	slotTools:'Tools', slotToolsP:'Live sources, your functions, your server',
+	slotClient:'Client app', slotClientP:'Where people actually talk to it',
+	slotTaskInstr:'Task 1', slotTaskKnow:'Task 1', slotTaskTools:'Tasks 2, 4, 5', slotTaskClient:'Tasks 3, 6',
+	coreName:'Tailwind Traders assistant', coreSub:'one agent, built across six tasks',
+	tTask1:'1', tTask2:'2', tTask3:'3', tTask4:'4', tTask5:'5', tTask6:'6',
+	tTaskLong1:'Task 1', tTaskLong2:'Task 2', tTaskLong3:'Task 3',
+	tTaskLong4:'Task 4', tTaskLong5:'Task 5', tTaskLong6:'Task 6',
+	flagFrozen:'frozen at upload', flagLive:'live', flagYours:'your Python', flagYourMcp:'your MCP server', flagHosted:'hosted in Foundry'
+};
+function t(k){ return T[k] != null ? T[k] : k; }
+
+// ── STEPS ─────────────────────────────────
+const FOUNDRY_ICON = '../../../lib/icons/Azure_Public_Service_Icons/ai + machine learning/03513-icon-service-AI-Studio.svg';
+// Token refs, not hex — so every task hue lightens automatically in the dark theme.
+const TASK_COLORS = { 1:'var(--task-1)', 2:'var(--task-2)', 3:'var(--task-3)', 4:'var(--task-4)', 5:'var(--task-5)', 6:'var(--task-6)' };
+// Tasks 1-2 are the lab's Core path; 3-6 are Optional.
+const TASK_CORE = { 1:true, 2:true, 3:false, 4:false, 5:false, 6:false };
+const STEPS = [
+	{ id:'problem',  titleKey:'problemTitle', captionKey:'problemCaption', descKey:'problemDesc', calloutKey:'problemCallout',
+		stats:[['problemStat1','problemStat1v'],['problemStat2','problemStat2v'],['problemStat3','problemStat3v']] },
+	{ id:'overview', titleKey:'ovTitle', captionKey:'ovCaption', descKey:'ovDesc', calloutKey:'ovCallout',
+		stats:[['ovStat1','ovStat1v'],['ovStat2','ovStat2v'],['ovStat3','ovStat3v']] },
+	{ id:'blueprint',titleKey:'bpTitle', captionKey:'bpCaption', descKey:'bpDesc', calloutKey:'bpCallout',
+		stats:[['bpStat1','bpStat1v'],['bpStat2','bpStat2v'],['bpStat3','bpStat3v']] },
+	{ id:'arch',     titleKey:'archTitle', captionKey:'archCaption', descKey:'archDesc', calloutKey:'archCallout',
+		stats:[['archStat1','archStat1v'],['archStat2','archStat2v'],['archStat3','archStat3v']] },
+	{ id:'tasks',    titleKey:'tasksTitle', captionKey:'tasksCaption', descKey:'tasksDesc', calloutKey:'tasksCallout',
+		stats:[['tasksStat1','tasksStat1v'],['tasksStat2','tasksStat2v'],['tasksStat3','tasksStat3v']] },
+	{ id:'recap',    titleKey:'recapTitle', captionKey:'recapCaption', descKey:'recapDesc', calloutKey:'recapCallout',
+		stats:[['recapStat1','recapStat1v'],['recapStat2','recapStat2v'],['recapStat3','recapStat3v']] }
+];
+
+// ── DOM ───────────────────────────────────
+const stage=document.getElementById('stage-frame'),
+	counter=document.getElementById('step-counter'), breadcrumb=document.getElementById('breadcrumb'),
+	progress=document.getElementById('progress-fill'), announcer=document.getElementById('step-announcer'),
+	outlineBody=document.getElementById('outline-body'), outlinePanel=document.getElementById('step-outline'),
+	outlineBtn=document.getElementById('outline-toggle'), calloutBtn=document.getElementById('callout-toggle');
+
+let current=-1, animating=false, liveEls=[], liveTimelines=[], calloutEnabled=false;
+
+// ── Font size ─────────────────────────────
+const fontScales=[0.8,0.9,1,1.1,1.2,1.35]; let fontScaleIdx=2;
+const baseFontSize=parseFloat(getComputedStyle(document.documentElement).fontSize);
+function applyFontScale(){
+	document.documentElement.style.fontSize=(baseFontSize*fontScales[fontScaleIdx])+'px';
+	const c=document.getElementById('controls'); if(c) c.style.fontSize=baseFontSize+'px';
+	const s=stage.querySelector('.scene:not(.scene-out)');
+	// the rows relayout at a new font size, so measured wires and the task reserve must be redone
+	if(s && !animating){ drawAssemblyWires(s.querySelector('.asm')); reserveTaskBody(s); }
+	if(s) fitScene(s);
+}
+try{ const f=parseInt(localStorage.getItem('aw-lab-font'),10); if(!isNaN(f)&&f>=0&&f<fontScales.length){ fontScaleIdx=f; } }catch(_){}
+document.getElementById('font-decrease').addEventListener('click',()=>{ if(fontScaleIdx>0){fontScaleIdx--;applyFontScale();try{localStorage.setItem('aw-lab-font',String(fontScaleIdx));}catch(_){}} });
+document.getElementById('font-increase').addEventListener('click',()=>{ if(fontScaleIdx<fontScales.length-1){fontScaleIdx++;applyFontScale();try{localStorage.setItem('aw-lab-font',String(fontScaleIdx));}catch(_){}} });
+
+// ── Toggles ───────────────────────────────
+function syncCalloutBtn(){ calloutBtn.classList.toggle('toggle-active',calloutEnabled); calloutBtn.setAttribute('aria-pressed',calloutEnabled?'true':'false'); calloutBtn.setAttribute('data-tip',calloutEnabled?'Callouts: On':'Callouts: Off'); }
+calloutBtn.addEventListener('click',()=>{
+	calloutEnabled=!calloutEnabled; syncCalloutBtn();
+	if(current<0) return;
+	const existing=stage.querySelectorAll('.callout');
+	if(calloutEnabled){ if(!existing.length){ const c=maybeCallout(STEPS[current]); if(c) gsap.fromTo(c,{opacity:0,y:10},{opacity:1,y:0,duration:0.4,overwrite:true}); } }
+	else { existing.forEach(c=>{ const i=liveEls.indexOf(c); if(i>-1) liveEls.splice(i,1); gsap.killTweensOf(c); c.remove(); }); }
+}); syncCalloutBtn();
+function syncOutlineBtn(){ const on=!outlinePanel.hasAttribute('hidden'); outlineBtn.classList.toggle('toggle-active',on); outlineBtn.setAttribute('aria-expanded',on?'true':'false'); outlineBtn.setAttribute('data-tip',on?'Outline: On':'Outline: Off'); }
+outlineBtn.addEventListener('click',()=>{ if(outlinePanel.hasAttribute('hidden')) outlinePanel.removeAttribute('hidden'); else outlinePanel.setAttribute('hidden',''); syncOutlineBtn(); }); syncOutlineBtn();
+
+const motionMQ=window.matchMedia('(prefers-reduced-motion: reduce)'); let motionPaused=motionMQ.matches;
+motionMQ.addEventListener('change',e=>{ motionPaused=e.matches; if(current>=0) renderStep(current); });
+
+// ── Helpers ───────────────────────────────
+function clearStage(){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; liveEls.forEach(e=>e.remove()); liveEls=[]; }
+function el(cls,html){ const d=document.createElement('div'); if(cls) d.className=cls; if(html!=null) d.innerHTML=html; return d; }
+const ICONS={
+	robot:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a1 1 0 0 1 1 1v2h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h3V3a1 1 0 0 1 1-1zM9 10a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm6 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM3 10h1v5H3a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1zm17 0h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1z"/></svg>',
+	doc:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h7l5 5v15a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zm7 1.5V8h4.5zM8 12h8v1.6H8zm0 3.4h8V17H8z"/></svg>',
+	tool:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 6.5 17.5 10 14 6.5 17.5 3a5 5 0 0 0-6.4 6.4l-8 8a2 2 0 0 0 2.8 2.8l8-8A5 5 0 0 0 21 6.5z"/></svg>',
+	window:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M3 4h18a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zm1 4v10h16V8z"/></svg>',
+	list:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v2H4zm0 6h16v2H4zm0 6h10v2H4z"/></svg>',
+	search:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M10 3a7 7 0 1 1-4.2 12.6l-3.1 3.1-1.4-1.4 3.1-3.1A7 7 0 0 1 10 3zm0 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10z"/></svg>',
+	plus:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg>',
+	check:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.55 17.6 4.4 12.45l1.86-1.86 3.29 3.29 8.19-8.19 1.86 1.86z"/></svg>',
+	cross:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.3 5.7 12 12l6.3 6.3-1.4 1.4L10.6 13.4 5.7 18.3 4.3 16.9 10.6 12 4.3 7.1 5.7 5.7l4.9 4.9 6.3-6.3z"/></svg>',
+	chart:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10h4v10zm6 0V4h4v16zm6 0v-7h4v7z"/></svg>',
+	bolt:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>',
+	lock:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 10a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1zm3-1V7a4 4 0 1 1 8 0v2h-2V7a2 2 0 1 0-4 0v2z"/></svg>',
+	party:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5zm6 11l.9 2.6L21.5 16.5l-2.6.9L18 20l-.9-2.6L14.5 16.5l2.6-.9z"/></svg>',
+	server:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M4 3h16a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm2 2.5v2h2v-2zm-2 8h16a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-5a1 1 0 0 1 1-1zm2 2.5v2h2v-2z"/></svg>',
+	code:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.4 16.6 4.8 12l4.6-4.6L8 6l-6 6 6 6zm5.2 0 4.6-4.6-4.6-4.6L16 6l6 6-6 6z"/></svg>',
+	cloud:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 19a4.5 4.5 0 0 1-.6-8.96 6 6 0 0 1 11.64-1.02A4.25 4.25 0 0 1 18 19z"/></svg>',
+	cube:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 3 7v10l9 5 9-5V7zm0 2.3L17.7 7 12 10.2 6.3 7zM5 9.1l6 3.4v6.8l-6-3.3zm14 0v6.9l-6 3.3v-6.8z"/></svg>',
+	brain:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1 4 4 0 0 1-4-4 3 3 0 0 1-2.7-4.3A3 3 0 0 1 4 11a3 3 0 0 1 2-2.8A3.5 3.5 0 0 1 9 3.5 3.9 3.9 0 0 1 12 2zm3 0a3.9 3.9 0 0 1 3 1.5 3.5 3.5 0 0 1 3 4.7A3 3 0 0 1 23 11a3 3 0 0 1-1.3 2.7A3 3 0 0 1 19 18a4 4 0 0 1-4 4 1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/></svg>',
+	folder:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h6l2 2h10a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></svg>'
+};
+function icon(n){ return '<span class="ic">'+(ICONS[n]||'')+'</span>'; }
+function stepById(id){ return STEPS.find(s=>s.id===id); }
+function fitScene(scene){
+	if(!scene) return;
+	const topAnchored=scene.classList.contains('is-top');
+	const base=topAnchored ? 'translate(-50%,0)' : 'translate(-50%,-50%)';
+	scene.style.transform=base+' scale(1)';
+	const box=stage.getBoundingClientRect();
+	const availW=box.width-32, availH=box.height-(topAnchored?54:28);
+	const sw=scene.offsetWidth, sh=scene.offsetHeight;
+	if(!sw||!sh) return;
+	scene.style.transform=base+' scale('+Math.min(1, availW/sw, availH/sh)+')';
+}
+function headerEls(s){ return [s.querySelector('.scene-title'), s.querySelector('.scene-lead')]; }
+function buildScene(step){
+	const s=el('scene');
+	s.appendChild(el('scene-title', t(step.titleKey)));
+	s.appendChild(el('scene-lead', t(step.descKey)));
+	return s;
+}
+function maybeCallout(step){
+	if(!calloutEnabled) return null;
+	const c=el('callout', t(step.calloutKey));
+	c.style.left='1.5rem'; c.style.top='1.5rem';
+	stage.appendChild(c); liveEls.push(c); dragify(c,'aw-lab-callout-pos');
+	return c;
+}
+// Repeated on every task scene so a learner always knows which of the six tasks they're in.
+function taskRibbon(activeTask){
+	const r=el('task-ribbon');
+	for(let n=1;n<=6;n++){
+		const chip=el('task-chip', t('tTaskLong'+n));
+		chip.style.setProperty('--tc', TASK_COLORS[n]);
+		if(!TASK_CORE[n]) chip.classList.add('is-opt');
+		if(n===activeTask) chip.classList.add('is-now');
+		else if(activeTask>0 && n<activeTask) chip.classList.add('is-done');
+		r.appendChild(chip);
+	}
+	return r;
+}
+// Shown on the closing step of each task — the capability just unlocked, and whether it was core or optional.
+function achievement(task){
+	const core=TASK_CORE[task];
+	return el('achieve',
+		'<span class="ach-tag'+(core?'':' is-opt')+'">'+t(core?'tagCore':'tagOpt')+'</span>'+
+		'<span class="ach-lead">'+icon('check')+'</span>'+
+		'<span class="ach-t">'+t('ach'+task)+'</span>');
+}
+
+// ── The assembly diagram · shared by the task steps ──
+function buildAssembly(on, flags){
+	on = on || []; flags = flags || {};
+	const wrap=el('asm');
+	wrap.appendChild(el('asm-core',
+		'<span class="ac-ico">'+ICONS.robot+'</span>' +
+		'<span><span class="ac-name">'+t('coreName')+'</span><br><span class="ac-sub">'+t('coreSub')+'</span></span>'));
+	const row=el('asm-row');
+	[['instr','var(--task-1)','slotTaskInstr','slotInstr','slotInstrP','list'],
+	 ['know', 'var(--task-1)','slotTaskKnow','slotKnow','slotKnowP','doc'],
+	 ['tools','var(--task-2)','slotTaskTools','slotTools','slotToolsP','tool'],
+	 ['client','var(--task-3)','slotTaskClient','slotClient','slotClientP','window']].forEach(function(d){
+		const s=el('slot',
+			'<span class="slot-task">'+t(d[2])+'</span>' +
+			'<span class="slot-h">'+icon(d[5])+'<span>'+t(d[3])+'</span></span>' +
+			'<span class="slot-p">'+t(d[4])+'</span>');
+		s.style.setProperty('--sc', d[1]);
+		s.setAttribute('data-slot', d[0]);
+		s.classList.add(on.indexOf(d[0])>-1 ? 'is-on' : 'is-dim');
+		if(flags[d[0]]){
+			const f=el('slot-flag', t(flags[d[0]]));
+			if(flags[d[0]]!=='flagFrozen') f.classList.add('is-live');
+			s.appendChild(f);
+		}
+		row.appendChild(s);
+	});
+	wrap.appendChild(row);
+	return wrap;
+}
+// Wire tree core -> bus -> each slot. Measured after mount, in unscaled layout px
+// (divide by the live scene scale so it works whether or not fitScene has run yet).
+function drawAssemblyWires(asm){
+	if(!asm) return [];
+	const core=asm.querySelector('.asm-core'), slots=[...asm.querySelectorAll('.slot')];
+	const old=asm.querySelector('.asm-wires'); if(old) old.remove();
+	if(!core||!slots.length||!asm.offsetWidth) return [];
+	const aB=asm.getBoundingClientRect(), k=(aB.width/asm.offsetWidth)||1;
+	const rel=n=>{ const r=n.getBoundingClientRect();
+		return { l:(r.left-aB.left)/k, t:(r.top-aB.top)/k, w:r.width/k, h:r.height/k }; };
+	const c=rel(core), cx=c.l+c.w/2, y0=c.t+c.h;
+	const NS='http://www.w3.org/2000/svg';
+	const svg=document.createElementNS(NS,'svg');
+	svg.setAttribute('class','asm-wires');
+	svg.setAttribute('width', asm.offsetWidth); svg.setAttribute('height', asm.offsetHeight);
+	const paths=slots.map(function(s){
+		const b=rel(s), sx=b.l+b.w/2, y1=b.t, bus=y0+(y1-y0)/2;
+		const p=document.createElementNS(NS,'path');
+		p.setAttribute('d','M'+cx+','+y0+' V'+bus+' H'+sx+' V'+y1);
+		p.setAttribute('class','asm-wire');
+		const sc=s.style.getPropertyValue('--sc');
+		if(sc && s.classList.contains('is-on')) p.style.setProperty('--sc', sc);
+		svg.appendChild(p);
+		return p;
+	});
+	asm.insertBefore(svg, asm.firstChild);
+	return paths;
+}
+// Box by box: the wire draws from the core to a slot, then that slot lands.
+function animateAssembly(tl, asm, at){
+	const core=asm.querySelector('.asm-core'), slots=[...asm.querySelectorAll('.slot')];
+	const wires=drawAssemblyWires(asm);
+	wires.forEach(function(p){ const L=p.getTotalLength(); gsap.set(p,{strokeDasharray:L, strokeDashoffset:L}); });
+	tl.fromTo(core,{opacity:0,y:14,scale:0.97},{opacity:1,y:0,scale:1,duration:0.5,ease:'back.out(1.4)'}, at);
+	slots.forEach(function(s,i){
+		const p=wires[i], flag=s.querySelector('.slot-flag');
+		if(p) tl.to(p,{strokeDashoffset:0,duration:0.25,ease:'power1.inOut'}, i? '-=0.08' : '-=0.05');
+		tl.fromTo(s,{opacity:0,y:12},{opacity:s.classList.contains('is-dim')?0.42:1,y:0,duration:0.28,ease:'power2.out'},'-=0.06');
+		if(flag) tl.fromTo(flag,{opacity:0,scale:0.6},{opacity:1,scale:1,duration:0.28,ease:'back.out(2)'},'-=0.12');
+	});
+}
+function setAssemblyStatic(asm){
+	drawAssemblyWires(asm);
+	gsap.set(asm.querySelector('.asm-core'),{opacity:1});
+	gsap.set(asm.querySelectorAll('.slot.is-on'),{opacity:1});
+	gsap.set(asm.querySelectorAll('.slot.is-dim'),{opacity:0.42});
+	gsap.set(asm.querySelectorAll('.slot-flag'),{opacity:1});
+}
+
+// ── The application diagram · every component, where it runs, and the task that builds it ──
+// [key, nameKey, subKey, task (0 = setup), icon]
+const ARCH_TIERS = [
+	{ head:'archT1', icon:'code', cls:'', comps:[
+		['ui',  'archC1','archC1s',3,'window'],
+		['cli', 'archC2','archC2s',3,'code'],
+		['fn',  'archC3','archC3s',4,'tool'],
+		['srv', 'archC4','archC4s',5,'server'] ] },
+	{ head:'archT2', icon:'cloud', cls:'is-foundry', comps:[
+		['model','archC5','archC5s',0,'brain'],
+		['agent','archC6','archC6s',1,'robot'],
+		['know', 'archC7','archC7s',1,'doc'],
+		['tools','archC8','archC8s',2,'tool'],
+		['host', 'archC9','archC9s',6,'cube'] ] },
+	{ head:'archT3', icon:'cloud', cls:'', comps:[
+		['learn','archC10','archC10s',2,'server'],
+		['docs', 'archC11','archC11s',1,'folder'] ] }
+];
+const ARCH_LINKS = ['\u21c4','\u2192'];
+
+function buildArch(lit){
+	const wrap=el('arch');
+	ARCH_TIERS.forEach(function(tier,ti){
+		const col=el('tier '+tier.cls);
+		col.appendChild(el('tier-head',
+			(tier.cls==='is-foundry' ? '<img class="tier-mark" src="'+FOUNDRY_ICON+'" alt="" aria-hidden="true">' : icon(tier.icon))
+			+'<span>'+t(tier.head)+'</span>'));
+		tier.comps.forEach(function(c){
+			const node=el('comp',
+				'<span class="comp-task">'+(c[3] ? t('tTaskLong'+c[3]) : t('archSetup'))+'</span>'+
+				'<span class="comp-name">'+icon(c[4])+'<span>'+t(c[1])+'</span></span>'+
+				'<span class="comp-sub">'+t(c[2])+'</span>');
+			node.style.setProperty('--tc', c[3] ? TASK_COLORS[c[3]] : 'var(--ink-soft)');
+			node.setAttribute('data-task', c[3]);
+			if(lit) node.classList.add('is-lit');
+			col.appendChild(node);
+		});
+		wrap.appendChild(col);
+		if(ti<ARCH_TIERS.length-1){
+			wrap.appendChild(el('arch-link',
+				'<span class="al-a">'+ARCH_LINKS[ti]+'</span>'+
+				'<span class="al-t">'+t(ti===0?'archL1':'archL3')+'</span>'+
+				(ti===0 ? '<span class="al-t">'+t('archL2')+'</span>' : '')));
+		}
+	});
+	return wrap;
+}
+function archLegend(){
+	const l=el('arch-legend');
+	for(let n=1;n<=6;n++){
+		const item=el('leg','<i></i><span>'+t('tTaskLong'+n)+'</span>');
+		item.style.setProperty('--tc', TASK_COLORS[n]);
+		item.setAttribute('data-task', n);
+		l.appendChild(item);
+	}
+	return l;
+}
+// One beat per task, in lab order, so the diagram assembles the way the lab is taught.
+function animateArch(tl, arch, at, legend){
+	const links=[...arch.querySelectorAll('.arch-link')];
+	tl.fromTo(arch.querySelectorAll('.tier'),{opacity:0,y:16},{opacity:1,y:0,duration:0.45,stagger:0.1,ease:'power2.out'}, at);
+	if(legend) tl.set(legend.querySelectorAll('.leg'),{opacity:0.28},'<');
+	[0,1,2,3,4,5,6].forEach(function(task,i){
+		const comps=arch.querySelectorAll('.comp[data-task="'+task+'"]');
+		if(!comps.length) return;
+		tl.fromTo(comps,{opacity:0,y:10,scale:0.96},{opacity:1,y:0,scale:1,duration:0.3,stagger:0.06,ease:'power2.out'}, i? '+=0.16' : '-=0.1');
+		const chip=legend && legend.querySelector('.leg[data-task="'+task+'"]');
+		if(chip) tl.to(chip,{opacity:1,duration:0.25},'-=0.2');
+		// each connector lands with the task that first uses it
+		const link = task===2 ? links[1] : (task===3 ? links[0] : null);
+		if(link) tl.fromTo(link,{opacity:0},{opacity:1,duration:0.3},'-=0.05');
+	});
+}
+function setArchStatic(arch){
+	gsap.set(arch.querySelectorAll('.tier,.comp,.arch-link'),{opacity:1});
+}
+// Step 4 only: six buttons that add or remove the components each task builds.
+function toggleArchTask(arch, task, btn){
+	const comps=arch.querySelectorAll('.comp[data-task="'+task+'"]');
+	const links=[...arch.querySelectorAll('.arch-link')];
+	const on=btn.getAttribute('aria-pressed')!=='true';
+	btn.setAttribute('aria-pressed', on?'true':'false');
+	btn.classList.toggle('is-on', on);
+	comps.forEach(c=>c.classList.toggle('is-lit', on));
+	liveTimelines.push(on
+		? gsap.to(comps,{opacity:1,y:0,scale:1,duration:0.34,stagger:0.08,ease:'back.out(1.5)',overwrite:true})
+		: gsap.to(comps,{opacity:0,y:10,scale:0.96,duration:0.24,stagger:0.05,ease:'power2.in',overwrite:true}));
+	// each connector belongs to the task that first uses it
+	const link = task===2 ? links[1] : (task===3 ? links[0] : null);
+	if(link) liveTimelines.push(gsap.to(link,{opacity:on?1:0,duration:0.3,overwrite:true}));
+}
+function archControls(arch){
+	const bar=el('arch-controls');
+	bar.appendChild(el('arch-hint', t('archHint')));
+	const row=el('arch-btns');
+	for(let n=1;n<=6;n++){
+		const b=document.createElement('button');
+		b.type='button'; b.className='task-btn';
+		b.setAttribute('data-task', n); b.setAttribute('aria-pressed','false');
+		b.style.setProperty('--tc', TASK_COLORS[n]);
+		b.innerHTML='<i></i><span>'+t('tTaskLong'+n)+'</span>';
+		b.addEventListener('click', ()=>toggleArchTask(arch, n, b));
+		// Space/Enter are bound to "next step" on document, so keep them on the button
+		b.addEventListener('keydown', e=>{ if(e.code==='Space'||e.code==='Enter') e.stopPropagation(); });
+		row.appendChild(b);
+	}
+	bar.appendChild(row);
+	return bar;
+}
+
+function renderOutline(step,idx){
+	const rows=(step.stats||[]).map(function(p){ return '<div class="stat-row"><span>'+t(p[0])+'</span><span>'+t(p[1])+'</span></div>'; }).join('');
+	outlineBody.innerHTML='<div class="outline-section"><strong>Step '+(idx+1)+' of '+STEPS.length+': '+t(step.titleKey)+'</strong>'+
+		'<p>'+t(step.descKey)+'</p></div>'+(rows?'<div class="outline-section">'+rows+'</div>':'');
+}
+
+// ── RENDER DISPATCH ───────────────────────
+function renderStep(i){
+	if(i<0||i>=STEPS.length) return;
+	if(animating){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; animating=false; }
+	animating=true;
+	const step=STEPS[i];
+	const outgoing=stage.querySelector('.scene:not(.scene-out)');
+	if(outgoing) liveEls=liveEls.filter(x=>x!==outgoing);
+	clearStage();
+	if(outgoing){
+		outgoing.style.zIndex='5';
+		if(motionPaused) outgoing.remove();
+		else { outgoing.classList.remove('scene-in'); outgoing.classList.add('scene-out'); setTimeout(()=>outgoing.remove(),240); }
+	}
+	RENDERERS[step.id]();
+	const incoming=stage.querySelector('.scene:not(.scene-out)');
+	if(incoming && !motionPaused) incoming.classList.add('scene-in');
+	fitScene(incoming);
+	current=i;
+	try{ const u=new URL(location.href); u.searchParams.set('step',String(i+1)); history.replaceState(null,'',u); }catch(_){}
+	counter.textContent=(current+1)+' / '+STEPS.length;
+	breadcrumb.textContent=t(step.captionKey);
+	progress.style.width=((current+1)/STEPS.length*100)+'%';
+	renderOutline(step,i);
+	announcer.textContent='Step '+(i+1)+' of '+STEPS.length+': '+t(step.titleKey)+'. '+t(step.descKey);
+	if(typeof playStepAudio==='function') playStepAudio(i);
+}
+function baseTl(scene){
+	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene),{opacity:0,y:-14},{opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	return tl;
+}
+function mount(scene){ stage.appendChild(scene); liveEls.push(scene); }
+
+// ── 1 · PROBLEM ───────────────────────────
+function renderProblem(){
+	const step=stepById('problem'), scene=buildScene(step);
+	const chat=el('chat');
+	const q=el('bubble is-user','<span class="bub-who">Store staff</span>'+t('problemQ'));
+	const a=el('bubble is-bot is-bad','<span class="bub-who">Model, ungrounded</span>'+t('problemA'));
+	chat.appendChild(q); chat.appendChild(a);
+	const v=el('verdict is-bad', icon('cross')+'<span>'+t('problemVerdict')+'</span>');
+	scene.appendChild(chat); scene.appendChild(v);
+	mount(scene);
+	const c=maybeCallout(step);
+	if(motionPaused){ gsap.set([].concat(headerEls(scene),[q,a,v]),{opacity:1}); if(c) gsap.set(c,{opacity:1}); animating=false; return; }
+	const tl=baseTl(scene);
+	tl.fromTo(q,{opacity:0,x:-24},{opacity:1,x:0,duration:0.45,ease:'power2.out'},'-=0.1');
+	tl.fromTo(a,{opacity:0,x:24},{opacity:1,x:0,duration:0.45,ease:'power2.out'},'+=0.15');
+	tl.fromTo(v,{opacity:0,scale:0.85},{opacity:1,scale:1,duration:0.4,ease:'back.out(1.8)'},'+=0.1');
+	if(c) tl.fromTo(c,{opacity:0,y:10},{opacity:1,y:0,duration:0.5},'-=0.2');
+}
+
+// ── 3 · BLUEPRINT · the destination, shown before task one ──
+function renderBlueprint(){
+	const step=stepById('blueprint'), scene=buildScene(step);
+	const ribbon=taskRibbon(0), asm=buildAssembly([], {});
+	scene.appendChild(ribbon); scene.appendChild(asm);
+	mount(scene);
+	const c=maybeCallout(step);
+	if(motionPaused){ gsap.set([].concat(headerEls(scene),[ribbon]),{opacity:1}); setAssemblyStatic(asm); if(c) gsap.set(c,{opacity:1}); animating=false; return; }
+	const tl=baseTl(scene);
+	tl.fromTo(ribbon,{opacity:0,y:-8},{opacity:1,y:0,duration:0.35},'-=0.15');
+	animateAssembly(tl, asm, '-=0.05');
+	if(c) tl.fromTo(c,{opacity:0,y:10},{opacity:1,y:0,duration:0.5},'-=0.2');
+}
+
+// ── 2 · OVERVIEW · the six tasks at a glance ──
+function renderOverview(){
+	const step=stepById('overview'), scene=buildScene(step);
+	const grid=el('ov-grid');
+	[[1,true,'\u25b0\u25b0\u25b1\u25b1\u25b1','L200','~15 min'],
+	 [2,true,'\u25b0\u25b0\u25b0\u25b1\u25b1','L300','~20 min'],
+	 [3,false,'\u25b0\u25b0\u25b0\u25b1\u25b1','L300','~20 min'],
+	 [4,false,'\u25b0\u25b0\u25b0\u25b1\u25b1','L300','~25 min'],
+	 [5,false,'\u25b0\u25b0\u25b0\u25b0\u25b1','L400','~35 min','ovNote5'],
+	 [6,false,'\u25b0\u25b0\u25b0\u25b1\u25b1','L300','~30 min']].forEach(function(d){
+		const card=el('ov-card',
+			'<span class="ov-top"><span class="ov-n">'+t('tTaskLong'+d[0])+'</span>'+
+			'<span class="ov-kind'+(d[1]?' is-core':'')+'">'+t(d[1]?'ovCore':'ovOpt')+'</span></span>'+
+			'<span class="ov-h">'+t('ovH'+d[0])+'</span>'+
+			'<span class="ov-p">'+t('ovP'+d[0])+'</span>'+
+			'<span class="ov-meta"><span class="ov-bar">'+d[2]+'</span><span>'+d[3]+'</span><span>'+d[4]+'</span>'+
+			(d[5]?'<span class="ov-note">'+t(d[5])+'</span>':'')+'</span>');
+		card.style.setProperty('--tc', TASK_COLORS[d[0]]);
+		grid.appendChild(card);
+	});
+	const paths=el('pathways');
+	[[1,'var(--accent-green)'],[2,'var(--accent-blue)'],[3,'var(--accent-plum)']].forEach(function(p){
+		const row=el('pathway',
+			'<span class="pw-n">'+t('path'+p[0])+'</span>'+
+			'<span class="pw-t">'+t('path'+p[0]+'s')+'</span>'+
+			'<span class="pw-s">'+t('path'+p[0]+'t')+'</span>');
+		row.style.setProperty('--pc', p[1]);
+		paths.appendChild(row);
+	});
+	scene.appendChild(grid); scene.appendChild(paths);
+	mount(scene);
+	const c=maybeCallout(step);
+	const cards=grid.querySelectorAll('.ov-card'), pathEls=paths.querySelectorAll('.pathway');
+	if(motionPaused){ gsap.set(headerEls(scene),{opacity:1}); gsap.set(cards,{opacity:1}); gsap.set(pathEls,{opacity:1}); if(c) gsap.set(c,{opacity:1}); animating=false; return; }
+	const tl=baseTl(scene);
+	tl.fromTo(cards,{opacity:0,y:16,scale:0.95},{opacity:1,y:0,scale:1,duration:0.4,stagger:0.09,ease:'back.out(1.5)'},'-=0.1');
+	tl.fromTo(pathEls,{opacity:0,y:10},{opacity:1,y:0,duration:0.35,stagger:0.1,ease:'back.out(1.6)'},'+=0.05');
+	if(c) tl.fromTo(c,{opacity:0,y:10},{opacity:1,y:0,duration:0.5},'-=0.2');
+}
+
+// ── 4 · ARCHITECTURE · the application overview ──
+function renderArch(){
+	const step=stepById('arch'), scene=buildScene(step);
+	const arch=buildArch(false);
+	// the audience window can't be clicked, so it keeps the auto-sequenced build
+	const interactive = !motionPaused && !new URLSearchParams(location.search).has('present');
+	const legend = interactive ? null : archLegend();
+	const ctrl = interactive ? archControls(arch) : null;
+	scene.appendChild(arch); scene.appendChild(ctrl || legend);
+	mount(scene);
+	const c=maybeCallout(step);
+	if(motionPaused){ gsap.set(headerEls(scene),{opacity:1}); setArchStatic(arch); gsap.set(legend,{opacity:1}); if(c) gsap.set(c,{opacity:1}); animating=false; return; }
+	const tl=baseTl(scene);
+	if(interactive){
+		gsap.set(arch.querySelectorAll('.comp:not([data-task="0"])'),{opacity:0,y:10,scale:0.96});
+		tl.fromTo(arch.querySelectorAll('.tier'),{opacity:0,y:16},{opacity:1,y:0,duration:0.45,stagger:0.1,ease:'power2.out'},'-=0.15');
+		tl.fromTo(arch.querySelectorAll('.comp[data-task="0"]'),{opacity:0,y:10,scale:0.96},{opacity:1,y:0,scale:1,duration:0.35,ease:'power2.out'},'-=0.2');
+		tl.fromTo(ctrl,{opacity:0,y:10},{opacity:1,y:0,duration:0.4},'-=0.1');
+	} else {
+		tl.fromTo(legend,{opacity:0,y:8},{opacity:1,y:0,duration:0.35},'-=0.2');
+		animateArch(tl, arch, '-=0.15', legend);
+	}
+	if(c) tl.fromTo(c,{opacity:0,y:10},{opacity:1,y:0,duration:0.5},'-=0.2');
+}
+
+// ── 5 · TASKS · one step, six panels the learner picks between ──
+// Mirrors the lab, which is modular: "pick a single task and do just that one".
+function codeCard(file, body){
+	const c=el('code-card');
+	c.innerHTML='<div class="code-head"><span class="code-file">'+file+'</span>'+
+		'<span class="code-winctrls"><span class="code-wbtn">&#8211;</span><span class="code-wbtn">&#9633;</span><span class="code-wbtn is-close">&#10005;</span></span></div>'+
+		'<pre class="code-body">'+body+'</pre>';
+	return c;
+}
+function handshake(rows, cmd){
+	const hs=el('hs');
+	rows.forEach(function(d,i){
+		if(i) hs.appendChild(el('hs-arrow','\u279C'));
+		const n=el('hs-node'+(cmd?' is-cmd':''),
+			'<span class="hs-n">'+t(d[0])+'</span><span class="hs-t">'+t(d[1])+'</span><span class="hs-s">'+t(d[2])+'</span>');
+		n.style.setProperty('--hc', d[3]);
+		hs.appendChild(n);
+	});
+	return hs;
+}
+function pillRow(items){
+	return el('chip-row', items.map(p=>'<span class="pill">'+icon(p[0])+'<span>'+t(p[1])+'</span></span>').join(''));
+}
+
+function panelGround(){
+	const win=el('ui-win');
+	win.innerHTML=
+		'<div class="ui-chrome">'+
+			'<span class="ui-tab"><img src="'+FOUNDRY_ICON+'" alt="" aria-hidden="true"><span>'+t('portalTab')+'</span><span class="tab-x">&#10005;</span></span>'+
+			'<span class="ui-winbtns"><span>&#8211;</span><span>&#9633;</span><span class="win-close">&#10005;</span></span>'+
+		'</div>'+
+		'<div class="ui-addr">'+
+			'<span class="ui-nav"><span>&#8249;</span><span>&#8250;</span><span>&#8635;</span></span>'+
+			'<span class="ui-url">'+icon('lock')+'<span>'+t('portalUrl')+'</span></span>'+
+		'</div>'+
+		'<div class="ui-portal"><img src="'+FOUNDRY_ICON+'" alt="Microsoft Foundry">'+
+			'<span class="ui-brand">'+t('portalBrand')+'</span>'+
+			'<span class="ui-crumb">'+t('portalCrumb')+'</span></div>'+
+		'<div class="ui-body">'+
+			'<div class="ui-row is-add">'+icon('plus')+'<span>Add a tool</span></div>'+
+			'<div class="ui-row is-new">'+icon('search')+'<span>File search</span><span class="ui-tag">added</span></div>'+
+			'<div class="ui-row is-new">'+icon('doc')+'<span class="ui-file">Store_Policy.txt</span><span class="ui-tag">indexed</span></div>'+
+		'</div>';
+	const a=el('bubble is-bot is-good','<span class="bub-who">Agent, grounded</span>'+t('groundA')+
+		'<span class="cite">'+icon('doc')+'<span>'+t('groundCite')+'</span></span>');
+	a.style.alignSelf='center'; a.style.width='min(760px,96%)'; a.style.maxWidth='none';
+	return [win, a];
+}
+function panelMcp(){
+	return [
+		codeCard('remote_mcp_agent.py',
+			'mcp_tool = <span class="tok-fn">MCPTool</span>(\n'+
+			'    server_label=<span class="tok-str">"api-specs"</span>,\n'+
+			'    server_url=<span class="tok-str">"https://learn.microsoft.com/api/mcp"</span>,\n'+
+			'    require_approval=<span class="tok-str">"always"</span>,\n)'),
+		handshake([['apprN1','apprT1','apprS1','var(--accent-orange)'],
+		           ['apprN2','apprT2','apprS2','var(--accent-blue)'],
+		           ['apprN3','apprT3','apprS3','var(--accent-green)']])
+	];
+}
+function panelClient(){
+	return [
+		codeCard('tailwind_ui.py',
+			'<span class="tok-com"># load the agent you already built \u2014 by name</span>\n'+
+			'agent = project_client.agents.<span class="tok-fn">get</span>(agent_name=agent_name)\n\n'+
+			'<span class="tok-com"># point the Responses API at it</span>\n'+
+			'response = openai_client.responses.<span class="tok-fn">create</span>(\n'+
+			'    conversation=conversation.id,\n'+
+			'    extra_body={<span class="code-hl"><span class="tok-str">"agent_reference"</span>: {<span class="tok-str">"name"</span>: agent.name, \u2026}</span>},\n)'),
+		pillRow([['window','clientP1'],['chart','clientP2'],['bolt','clientP3']])
+	];
+}
+function panelFunctions(){
+	return [ handshake([['fnN1','fnT1','fnS1','var(--accent-blue)'],
+	                    ['fnN2','fnT2','fnS2','var(--accent-pink)'],
+	                    ['fnN3','fnT3','fnS3','var(--accent-green)']]) ];
+}
+function panelMcpServer(){
+	const duo=el('code-duo');
+	duo.appendChild(codeCard('server.py',
+		'mcp = <span class="tok-fn">FastMCP</span>(name=<span class="tok-str">"Inventory"</span>)\n\n'+
+		'<span class="code-hl">@mcp.<span class="tok-fn">tool</span>()</span>\n'+
+		'<span class="tok-kw">def</span> <span class="tok-fn">get_inventory_levels</span>() -&gt; <span class="tok-kw">dict</span>: ...\n\n'+
+		'<span class="tok-com"># stdout is the protocol \u2014 keep it clean</span>\n'+
+		'mcp.<span class="tok-fn">run</span>(show_banner=<span class="tok-kw">False</span>)'));
+	duo.appendChild(codeCard('client.py &middot; respond()',
+		'<span class="tok-com"># one agent, two kinds of tool</span>\n'+
+		'<span class="tok-kw">if</span> item.name <span class="tok-kw">in</span> local_functions:\n'+
+		'    result = <span class="code-hl">local_functions[item.name](**args)</span>\n'+
+		'<span class="tok-kw">else</span>:\n'+
+		'    result = <span class="tok-kw">await</span> <span class="code-hl">session.<span class="tok-fn">call_tool</span>(item.name, args)</span>'));
+	return [duo, pillRow([['tool','msP1'],['server','msP2'],['code','msP3']])];
+}
+function panelHosted(){
+	return [
+		handshake([['hoN1','hoT1','hoS1','var(--accent-plum)'],
+		           ['hoN2','hoT2','hoS2','var(--accent-blue)'],
+		           ['hoN3','hoT3','hoS3','var(--accent-green)']], true),
+		pillRow([['bolt','hoP1'],['cube','hoP2'],['lock','hoP3']])
+	];
+}
+
+const TASK_PANELS = {
+	1:{ titleKey:'groundTitle', descKey:'groundDesc', noteKey:'gapNote',       build:panelGround },
+	2:{ titleKey:'mcpTitle',    descKey:'mcpDesc',    noteKey:'apprCallout',   build:panelMcp },
+	3:{ titleKey:'clientTitle', descKey:'clientDesc', noteKey:'clientCallout', build:panelClient },
+	4:{ titleKey:'fnTitle',     descKey:'fnDesc',     noteKey:'fnCallout',     build:panelFunctions },
+	5:{ titleKey:'msTitle',     descKey:'msDesc',     noteKey:'msCallout',     build:panelMcpServer },
+	6:{ titleKey:'hoTitle',     descKey:'hoDesc',     noteKey:'hoCallout',     build:panelHosted }
+};
+let taskTl=null;
+
+function buildTaskPanel(n){
+	const cfg=TASK_PANELS[n], panel=el('task-panel');
+	cfg.build().forEach(e=>panel.appendChild(e));
+	panel.appendChild(achievement(n));
+	panel.appendChild(el('task-note', t(cfg.noteKey)));
+	return panel;
+}
+
+// The six panels differ in height (Task 1 is much the tallest), and fitScene scales the whole
+// scene to fit — so without a reserve the UI visibly resizes on every task switch. Measure all
+// six once and pin the body to the tallest, giving every task ONE scale.
+function reserveTaskBody(scene){
+	const body=scene&&scene.querySelector('.task-body'); if(!body) return;
+	const keep=body.firstChild;
+	body.style.minHeight='';
+	let max=0;
+	for(let n=1;n<=6;n++){
+		body.innerHTML='';
+		const p=buildTaskPanel(n); body.appendChild(p);
+		if(p.offsetHeight>max) max=p.offsetHeight;
+	}
+	body.innerHTML='';
+	if(keep) body.appendChild(keep);
+	body.style.minHeight=(max+1)+'px';   // +1: offsetHeight rounds, so the tallest panel must not exceed its own reserve
+}
+
+function selectTask(n, initial){
+	const scene=stage.querySelector('.scene:not(.scene-out)');
+	if(!scene) return;
+	const cfg=TASK_PANELS[n];
+	scene.querySelector('.scene-title').textContent=t(cfg.titleKey);
+	scene.querySelector('.scene-lead').textContent=t(cfg.descKey);
+	scene.querySelectorAll('.task-btn').forEach(function(b){
+		const on=+b.getAttribute('data-task')===n;
+		b.classList.toggle('is-on', on); b.setAttribute('aria-pressed', on?'true':'false');
+	});
+	const body=scene.querySelector('.task-body');
+	if(taskTl){ taskTl.kill(); taskTl=null; }
+	body.innerHTML='';
+	const panel=buildTaskPanel(n);
+	body.appendChild(panel);
+	fitScene(scene);
+	const parts=[...panel.querySelectorAll('.ui-win,.ui-row,.code-card,.bubble,.hs-node,.hs-arrow,.pill,.achieve,.task-note')];
+	if(motionPaused) gsap.set(parts,{opacity:1,x:0,y:0,scale:1});
+	else {
+		taskTl=gsap.timeline(); liveTimelines.push(taskTl);
+		taskTl.fromTo(parts,{opacity:0,y:12},{opacity:1,y:0,duration:0.36,stagger:0.08,ease:'power2.out'});
+	}
+	if(!initial){ try{ const u=new URL(location.href); u.searchParams.set('task',String(n)); history.replaceState(null,'',u); }catch(_){} }
+	announcer.textContent=t('tTaskLong'+n)+'. '+t(cfg.titleKey)+'. '+t(cfg.descKey);
+}
+
+function renderTasks(){
+	const step=stepById('tasks'), scene=buildScene(step);
+	scene.classList.add('is-top');
+	const picker=el('task-picker');
+	const row=el('task-picker-row');
+	for(let n=1;n<=6;n++){
+		const b=document.createElement('button');
+		b.type='button'; b.className='task-btn';
+		b.setAttribute('data-task', n); b.setAttribute('aria-pressed','false');
+		if(!TASK_CORE[n]) b.classList.add('is-opt');
+		b.style.setProperty('--tc', TASK_COLORS[n]);
+		b.innerHTML='<i></i><span>'+t('tTaskLong'+n)+'</span>';
+		b.addEventListener('click', ()=>selectTask(n));
+		// Space/Enter are bound to "next step" on document, so keep them on the button
+		b.addEventListener('keydown', e=>{ if(e.code==='Space'||e.code==='Enter') e.stopPropagation(); });
+		row.appendChild(b);
+	}
+	picker.appendChild(row);
+	picker.appendChild(el('task-picker-hint', t('tasksHint')));
+	// first child, so nothing above it can shift it as panels change height
+	scene.insertBefore(picker, scene.firstChild);
+	scene.appendChild(el('task-body'));
+	mount(scene);
+	const c=maybeCallout(step);
+	if(motionPaused){ gsap.set([].concat(headerEls(scene),[picker]),{opacity:1}); if(c) gsap.set(c,{opacity:1}); animating=false; }
+	else {
+		const tl=baseTl(scene);
+		tl.fromTo(picker,{opacity:0,y:-8},{opacity:1,y:0,duration:0.35},'-=0.15');
+		if(c) tl.fromTo(c,{opacity:0,y:10},{opacity:1,y:0,duration:0.5},'-=0.1');
+	}
+	const q=new URLSearchParams(location.search);
+	const wanted=parseInt(q.get('task'),10);
+	reserveTaskBody(scene);
+	selectTask(wanted>=1&&wanted<=6 ? wanted : 1, true);
+	// the audience window can't be clicked, so walk the tasks automatically
+	if(q.has('present')){
+		const walk=gsap.timeline({delay:1.4}); liveTimelines.push(walk);
+		for(let n=2;n<=6;n++) walk.call(()=>selectTask(n, true), null, '+=1.0');
+	}
+}
+
+// ── 6 · RECAP · the whole application, every component built ──
+function renderRecap(){
+	const step=stepById('recap'), scene=buildScene(step);
+	const arch=buildArch(true);
+	const outcomes=el('outcomes');
+	[['tagCore','oc1Tasks','oc1t','oc1v','var(--accent-green)'],
+	 ['tagOpt', 'oc2Tasks','oc2t','oc2v','var(--ink-soft)']].forEach(function(d){
+		const row=el('outcome',
+			'<span class="oc-tag">'+t(d[0])+'</span>'+
+			'<span class="oc-task">'+t(d[1])+'</span>'+
+			'<span class="oc-t">'+t(d[2])+'</span>'+
+			'<span class="oc-v">'+t(d[3])+'</span>');
+		row.style.setProperty('--oc', d[4]);
+		outcomes.appendChild(row);
+	});
+	const foot=el('recap-foot', t('recapFoot'));
+	scene.appendChild(arch); scene.appendChild(outcomes); scene.appendChild(foot);
+	mount(scene);
+	const c=maybeCallout(step);
+	const ocEls=outcomes.querySelectorAll('.outcome');
+	if(motionPaused){ gsap.set([].concat(headerEls(scene),[foot]),{opacity:1}); gsap.set(ocEls,{opacity:1}); setArchStatic(arch); if(c) gsap.set(c,{opacity:1}); animating=false; return; }
+	const tl=baseTl(scene);
+	animateArch(tl, arch, '-=0.1');
+	tl.fromTo(ocEls,{opacity:0,x:-16},{opacity:1,x:0,duration:0.42,stagger:0.14,ease:'power2.out'},'+=0.05');
+	tl.fromTo(foot,{opacity:0,y:10},{opacity:1,y:0,duration:0.45,ease:'power2.out'},'-=0.1');
+	if(c) tl.fromTo(c,{opacity:0,y:10},{opacity:1,y:0,duration:0.5},'-=0.2');
+}
+
+const RENDERERS={ problem:renderProblem, overview:renderOverview, blueprint:renderBlueprint, arch:renderArch,
+	tasks:renderTasks, recap:renderRecap };
+
+// ── NARRATION · one clip per step, captions from the same Markdown ──
+// Clips: AgentLab/audio/BuildAndExtendAgents/step-NN.mp3
+// Script: narration/AgentLab/BuildAndExtendAgents.md
+// Captions can run WITHOUT sound — with CC on and audio off the clip plays muted purely as the
+// timing source, so the caption still reveals at the narrator's pace.
+const AUDIO_BASE='audio/BuildAndExtendAgents/';
+const AUDIO_FILES=['step-01.mp3','step-02.mp3','step-03.mp3','step-04.mp3','step-05.mp3','step-06.mp3'];
+let audioEnabled=false, ccPref=false, currentAudio=null, audioTimeout=null;
+const audioBtn=document.getElementById('audio-toggle'), ccBtn=document.getElementById('cc-toggle');
+if(audioBtn) audioBtn.innerHTML='<span class="aw-audio-ico" aria-hidden="true">\uD83D\uDD07</span><span class="aw-audio-time" aria-hidden="true">--:--</span>';
+const audioIco=audioBtn&&audioBtn.querySelector('.aw-audio-ico'), audioTimeEl=audioBtn&&audioBtn.querySelector('.aw-audio-time');
+function playbackOn(){ return audioEnabled || ccPref; }
+function fmtDur(s){ s=Math.max(0,Math.ceil(s)); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
+function updateAudioTime(){ if(audioTimeEl&&currentAudio&&isFinite(currentAudio.duration)&&currentAudio.duration>0) audioTimeEl.textContent=fmtDur(currentAudio.duration-currentAudio.currentTime); }
+function syncAudioBtn(){
+	if(!audioBtn) return;
+	if(audioIco) audioIco.textContent=audioEnabled?'\uD83D\uDD0A':'\uD83D\uDD07';
+	if(audioTimeEl&&!playbackOn()) audioTimeEl.textContent='--:--';
+	audioBtn.classList.toggle('toggle-active',audioEnabled);
+	audioBtn.setAttribute('aria-pressed',audioEnabled?'true':'false');
+	audioBtn.setAttribute('data-tip','Narration: '+(audioEnabled?'On':'Off'));
+}
+function speakFallback(i){
+	if(!window.speechSynthesis) return;
+	const step=STEPS[i]; const u=new SpeechSynthesisUtterance(t(step.titleKey)+'. '+t(step.descKey));
+	u.lang='en'; try{ speechSynthesis.cancel(); speechSynthesis.speak(u); }catch(_){}
+}
+function stopAudio(){
+	if(currentAudio){ currentAudio.pause(); currentAudio.currentTime=0; currentAudio=null; }
+	if(audioTimeout){ clearTimeout(audioTimeout); audioTimeout=null; }
+	if(audioTimeEl) audioTimeEl.textContent='--:--';
+	try{ if(window.speechSynthesis) speechSynthesis.cancel(); }catch(_){}
+	if(window.AWCaptions) AWCaptions.clear();
+}
+function playStepAudio(i){
+	stopAudio();
+	if(document.body.classList.contains('aw-prestart')) return;   // the start gate holds audio too
+	if(!playbackOn() || i<0 || i>=STEPS.length) return;
+	audioTimeout=setTimeout(function(){
+		audioTimeout=null;
+		const file=AUDIO_FILES[i];
+		if(!file){ if(audioEnabled) speakFallback(i); return; }
+		currentAudio=new Audio(AUDIO_BASE+file);
+		currentAudio.volume=audioEnabled?1:0;
+		if(window.AWCaptions) AWCaptions.bind(currentAudio,i);
+		currentAudio.addEventListener('loadedmetadata',updateAudioTime);
+		currentAudio.addEventListener('timeupdate',updateAudioTime);
+		currentAudio.addEventListener('ended',function(){ if(audioTimeEl) audioTimeEl.textContent='0:00'; });
+		currentAudio.addEventListener('error',function(){ if(audioEnabled) speakFallback(i); });
+		currentAudio.play().catch(function(){});
+	},400);
+}
+function syncCcBtn(){
+	if(!ccBtn) return;
+	ccBtn.classList.toggle('toggle-active',ccPref);
+	ccBtn.setAttribute('aria-pressed',ccPref?'true':'false');
+	ccBtn.setAttribute('data-tip','Captions: '+(ccPref?'On':'Off'));
+	document.body.classList.toggle('cc-on',ccPref);
+}
+function applyCc(){
+	if(window.AWCaptions){ AWCaptions.setEnabled(ccPref); if(ccPref&&currentAudio) AWCaptions.bind(currentAudio,current); }
+	syncCcBtn();
+}
+if(window.AWCaptions){ AWCaptions.configure({ page:'BuildAndExtendAgents', base:'../../../narration/AgentLab/',
+	lang:()=>'en', fallback:(i)=>(STEPS[i]?t(STEPS[i].descKey):''), reserve:false }); }
+if(audioBtn) audioBtn.addEventListener('click',function(){
+	audioEnabled=!audioEnabled; try{localStorage.setItem('aw-lab-audio',audioEnabled?'1':'0');}catch(_){}
+	syncAudioBtn();
+	if(current>=0){
+		if(!playbackOn()) stopAudio();
+		else if(currentAudio) currentAudio.volume=audioEnabled?1:0;   // flip sound without restarting
+		else playStepAudio(current);
+	}
+	applyCc();
+});
+if(ccBtn) ccBtn.addEventListener('click',function(){
+	ccPref=!ccPref; try{localStorage.setItem('aw-lab-cc',ccPref?'1':'0');}catch(_){}
+	applyCc();
+	if(current>=0){
+		if(playbackOn()&&!currentAudio) playStepAudio(current);
+		else if(!playbackOn()&&currentAudio) stopAudio();
+	}
+});
+(function(){
+	let p=null; try{ p=new URLSearchParams(location.search).get('audio'); }catch(_){}
+	if(p==='on'){ audioEnabled=true; ccPref=true; }        // silent start unless the URL opts in
+	else if(p==='off'){ audioEnabled=false; ccPref=false; }
+	else { try{
+		const a=localStorage.getItem('aw-lab-audio'); if(a==='1') audioEnabled=true; else if(a==='0') audioEnabled=false;
+		const c=localStorage.getItem('aw-lab-cc');    if(c==='1') ccPref=true;      else if(c==='0') ccPref=false;
+	}catch(_){} }
+}());
+syncAudioBtn(); applyCc();
+
+// ── CONTROLS ──────────────────────────────
+function interruptAnimation(){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; animating=false; }
+function next(){ interruptAnimation(); if(current<STEPS.length-1) renderStep(current+1); }
+function prev(){ interruptAnimation(); if(current>0) renderStep(current-1); }
+function reset(){ interruptAnimation(); renderStep(0); }
+function replay(){ if(current<0) return; interruptAnimation(); renderStep(current); }
+document.getElementById('next-btn').addEventListener('click',next);
+document.getElementById('prev-btn').addEventListener('click',prev);
+document.getElementById('replay-btn').addEventListener('click',replay);
+document.getElementById('reset-btn').addEventListener('click',reset);
+
+// ── Drag (outline · callout · caption) ────
+// Panels snap to position:fixed on first grab, stay inside the viewport, and grow a
+// reset pin once moved or resized. The caption also persists its size.
+function dragify(elm, key){
+	if(!elm || elm.__awDrag) return; elm.__awDrag=true;
+	let dragging=false, sx=0, sy=0, bl=0, bt=0, moved=false;
+	const resizable=getComputedStyle(elm).resize!=='none';
+	const sizeKey=key?key+'-size':null;
+	const home={ position:elm.style.position, left:elm.style.left, top:elm.style.top, right:elm.style.right,
+		bottom:elm.style.bottom, margin:elm.style.margin, transform:elm.style.transform,
+		width:elm.style.width, height:elm.style.height };
+	const pin=document.createElement('button');
+	pin.type='button'; pin.className='aw-drag-reset';
+	pin.title='Reset to default position'; pin.setAttribute('aria-label','Reset to default position');
+	pin.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>';
+	const oy=getComputedStyle(elm).overflowY, clips=(oy==='auto'||oy==='scroll'||oy==='hidden');
+	pin.style.top=clips?'8px':'-10px'; pin.style.right=clips?'8px':'-10px';
+	elm.appendChild(pin);
+	function showPin(on){ pin.style.display=on?'flex':'none'; }
+	pin.addEventListener('pointerdown',e=>e.stopPropagation());
+	pin.addEventListener('click',e=>{
+		e.preventDefault(); e.stopPropagation();
+		Object.keys(home).forEach(k=>{ elm.style[k]=home[k]; });
+		if(key){ try{ localStorage.removeItem(key); }catch(_){} }
+		if(sizeKey){ try{ localStorage.removeItem(sizeKey); }catch(_){} }
+		showPin(false);
+	});
+	function fix(left,top){
+		const w=elm.offsetWidth, h=elm.offsetHeight;
+		left=Math.max(6, Math.min(left, window.innerWidth-w-6));
+		top =Math.max(6, Math.min(top,  window.innerHeight-h-6));
+		elm.style.position='fixed'; elm.style.left=left+'px'; elm.style.top=top+'px';
+		elm.style.right='auto'; elm.style.bottom='auto'; elm.style.margin='0'; elm.style.transform='none';
+	}
+	if(resizable && typeof ResizeObserver!=='undefined'){
+		let rt;
+		new ResizeObserver(()=>{
+			if(elm.style.width || elm.style.height){
+				showPin(true);
+				if(sizeKey){ clearTimeout(rt); rt=setTimeout(()=>{ try{ localStorage.setItem(sizeKey, JSON.stringify({w:elm.style.width,h:elm.style.height})); }catch(_){} },150); }
+			}
+		}).observe(elm);
+	}
+	elm.addEventListener('pointerdown',e=>{
+		if(e.button!==0 || (e.target.closest && e.target.closest('a,button,select,input,textarea'))) return;
+		if(resizable){ const r=elm.getBoundingClientRect(); if(e.clientX>r.right-18 && e.clientY>r.bottom-18) return; }  // let the resize grip win
+		dragging=true; moved=false;
+		const r=elm.getBoundingClientRect(); bl=r.left; bt=r.top; sx=e.clientX; sy=e.clientY;
+		fix(bl,bt);
+		try{ elm.setPointerCapture(e.pointerId); }catch(_){}
+		e.preventDefault();
+	});
+	elm.addEventListener('pointermove',e=>{
+		if(!dragging) return;
+		const dx=e.clientX-sx, dy=e.clientY-sy;
+		if(Math.abs(dx)>2||Math.abs(dy)>2) moved=true;
+		fix(bl+dx, bt+dy);
+	});
+	function end(e){ if(!dragging) return; dragging=false;
+		try{ elm.releasePointerCapture(e.pointerId); }catch(_){}
+		if(moved){ showPin(true); if(key){ try{ const r=elm.getBoundingClientRect(); localStorage.setItem(key, JSON.stringify({left:r.left,top:r.top})); }catch(_){} } } }
+	elm.addEventListener('pointerup',end); elm.addEventListener('pointercancel',end);
+	if(sizeKey){ try{ const z=JSON.parse(localStorage.getItem(sizeKey)||'null'); if(z&&(z.w||z.h)){ if(z.w) elm.style.width=z.w; if(z.h) elm.style.height=z.h; showPin(true); } }catch(_){} }
+	if(key){ try{ const s=JSON.parse(localStorage.getItem(key)||'null'); if(s&&isFinite(s.left)&&isFinite(s.top)){ fix(s.left,s.top); showPin(true); } }catch(_){} }
+}
+dragify(outlinePanel,'aw-lab-outline-pos');
+dragify(document.getElementById('aw-caption'),'aw-lab-caption-pos');
+
+// ── Movable / pinnable control dock ───────
+(function(){
+	const dock=document.getElementById('controls'), grip=document.getElementById('ctrl-grip'), pin=document.getElementById('ctrl-pin');
+	if(!dock||!grip) return;
+	const KEY='aw-lab-controls-pos';
+	let dragging=false, sx=0, sy=0, bl=0, bt=0, moved=false;
+	function place(left,top){
+		const w=dock.offsetWidth, h=dock.offsetHeight;
+		left=Math.max(6, Math.min(left, window.innerWidth-w-6));
+		top =Math.max(6, Math.min(top,  window.innerHeight-h-6));
+		dock.style.left=left+'px'; dock.style.top=top+'px';
+		dock.style.right='auto'; dock.style.bottom='auto'; dock.style.transform='none';
+		document.body.classList.add('controls-floating');
+	}
+	function recenter(){
+		dock.style.left=dock.style.top=dock.style.right=dock.style.bottom=dock.style.transform='';
+		document.body.classList.remove('controls-floating');
+		try{ localStorage.removeItem(KEY); }catch(_){}
+	}
+	grip.addEventListener('pointerdown',e=>{
+		e.preventDefault(); dragging=true; moved=false;
+		const r=dock.getBoundingClientRect(); bl=r.left; bt=r.top; sx=e.clientX; sy=e.clientY;
+		try{ grip.setPointerCapture(e.pointerId); }catch(_){}
+	});
+	grip.addEventListener('pointermove',e=>{
+		if(!dragging) return;
+		const dx=e.clientX-sx, dy=e.clientY-sy;
+		if(Math.abs(dx)>2||Math.abs(dy)>2) moved=true;
+		place(bl+dx, bt+dy);
+	});
+	function end(e){ if(!dragging) return; dragging=false;
+		try{ grip.releasePointerCapture(e.pointerId); }catch(_){}
+		if(moved){ try{ const r=dock.getBoundingClientRect(); localStorage.setItem(KEY, JSON.stringify({left:r.left,top:r.top})); }catch(_){} } }
+	grip.addEventListener('pointerup',end); grip.addEventListener('pointercancel',end);
+	grip.addEventListener('keydown',e=>{
+		const d=e.shiftKey?40:12, r=dock.getBoundingClientRect(); let ok=true;
+		if(e.key==='ArrowLeft') place(r.left-d, r.top);
+		else if(e.key==='ArrowRight') place(r.left+d, r.top);
+		else if(e.key==='ArrowUp') place(r.left, r.top-d);
+		else if(e.key==='ArrowDown') place(r.left, r.top+d);
+		else ok=false;
+		if(ok){ e.preventDefault(); e.stopPropagation(); }
+	});
+	if(pin) pin.addEventListener('click',e=>{ e.stopPropagation(); recenter(); });
+	window.addEventListener('resize',()=>{ if(document.body.classList.contains('controls-floating')){ const r=dock.getBoundingClientRect(); place(r.left,r.top); } });
+	try{ const s=JSON.parse(localStorage.getItem(KEY)||'null'); if(s&&typeof s.left==='number') place(s.left,s.top); }catch(_){}
+})();
+
+// ── Keyboard shortcut help overlay (? key / the ? button) ──
+(function(){
+	const overlay=document.getElementById('shortcut-overlay'), btn=document.getElementById('help-toggle'),
+		closeBtn=document.getElementById('sc-close'), list=document.getElementById('sc-list');
+	if(!overlay||!list) return;
+	const ROWS=[[['\u2192','Space'],'Next step'],[['\u2190'],'Previous step'],[['R'],'Restart'],
+		[['P'],'Replay this step'],[['H'],'Hide / show top bar'],[['F'],'Full screen'],[['?'],'Toggle this help']];
+	window.buildShortcuts=function(){
+		list.innerHTML=ROWS.map(([keys,label])=>`<li><span>${label}</span><span class="sc-keys">${keys.map(k=>`<kbd>${k}</kbd>`).join('')}</span></li>`).join('');
+	};
+	buildShortcuts();
+	function open(){ overlay.removeAttribute('hidden'); if(closeBtn) closeBtn.focus(); }
+	function close(){ overlay.setAttribute('hidden',''); if(btn) btn.focus(); }
+	function toggle(){ overlay.hasAttribute('hidden')?open():close(); }
+	if(btn) btn.addEventListener('click',e=>{ e.stopPropagation(); toggle(); });
+	if(closeBtn) closeBtn.addEventListener('click',e=>{ e.stopPropagation(); close(); });
+	const bd=overlay.querySelector('.sc-backdrop'); if(bd) bd.addEventListener('click',close);
+	document.addEventListener('keydown',e=>{
+		const tag=(e.target.tagName||'').toLowerCase();
+		if(tag==='input'||tag==='textarea'||tag==='select') return;
+		if(e.key==='?'){ e.preventDefault(); e.stopPropagation(); toggle(); }
+		else if(e.key==='Escape' && !overlay.hasAttribute('hidden')){ e.preventDefault(); close(); }
+	});
+})();
+
+// ── Speed ─────────────────────────────────
+const SPEED_STEPS=[0.5,0.75,1,1.25,1.5,2], BASE_TIMESCALE=0.25;
+let speedIndex=SPEED_STEPS.indexOf(1);
+try{ const sp=parseInt(localStorage.getItem('aw-lab-speed'),10); if(!isNaN(sp)&&sp>=0&&sp<SPEED_STEPS.length) speedIndex=sp; }catch(_){}
+const speedLabel=document.getElementById('speed-label'), speedDownBtn=document.getElementById('speed-down'), speedUpBtn=document.getElementById('speed-up');
+function syncSpeedUI(){
+	speedLabel.textContent=SPEED_STEPS[speedIndex]+'\u00d7';
+	speedDownBtn.disabled=speedIndex===0; speedUpBtn.disabled=speedIndex===SPEED_STEPS.length-1;
+	gsap.globalTimeline.timeScale(SPEED_STEPS[speedIndex]*BASE_TIMESCALE);
+}
+syncSpeedUI();
+speedDownBtn.addEventListener('click',()=>{ if(speedIndex>0){speedIndex--;syncSpeedUI();try{localStorage.setItem('aw-lab-speed',String(speedIndex));}catch(_){}} });
+speedUpBtn.addEventListener('click',()=>{ if(speedIndex<SPEED_STEPS.length-1){speedIndex++;syncSpeedUI();try{localStorage.setItem('aw-lab-speed',String(speedIndex));}catch(_){}} });
+
+// ── Hide / show the top bar (H) ───────────
+(function(){
+	const hideBtn=document.getElementById('header-hide'), revealBtn=document.getElementById('header-reveal');
+	if(!hideBtn||!revealBtn) return;
+	const topBtn=document.getElementById('header-hide-top');
+	if(topBtn) topBtn.addEventListener('click',e=>{ e.stopPropagation(); hideBtn.click(); });
+	const hidePath=hideBtn.querySelector('svg path');
+	const UP='M6 15l6-6 6 6', DOWN='M6 9l6 6 6-6';
+	function setHidden(h){
+		document.body.classList.toggle('chrome-hidden',h);
+		hideBtn.setAttribute('aria-expanded',String(!h));
+		hideBtn.setAttribute('aria-label',h?'Show top bar':'Hide top bar');
+		hideBtn.setAttribute('data-tip',(h?'Show top bar':'Hide top bar')+' (H)');
+		if(hidePath) hidePath.setAttribute('d',h?DOWN:UP);
+		try{ localStorage.setItem('aw-lab-chrome-hidden',h?'1':'0'); }catch(_){}
+		// the stage grows/shrinks, so re-fit the scene — never re-render it
+		if(current>=0) requestAnimationFrame(()=>{ const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s); });
+	}
+	hideBtn.addEventListener('click',e=>{ e.stopPropagation(); setHidden(!document.body.classList.contains('chrome-hidden')); });
+	revealBtn.addEventListener('click',e=>{ e.stopPropagation(); setHidden(false); });
+	try{ if(localStorage.getItem('aw-lab-chrome-hidden')==='1') setHidden(true); }catch(_){}
+	document.addEventListener('keydown',e=>{
+		if(e.code!=='KeyH'||e.metaKey||e.ctrlKey||e.altKey) return;
+		const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return;
+		e.preventDefault(); setHidden(!document.body.classList.contains('chrome-hidden'));
+	});
+})();
+
+// ── Full screen (F) ───────────────────────
+(function(){
+	const fsBtn=document.getElementById('fs-toggle'); if(!fsBtn) return;
+	function inFs(){ return !!(document.fullscreenElement||document.webkitFullscreenElement); }
+	function syncFs(){
+		document.body.classList.toggle('is-fs',inFs());
+		fsBtn.setAttribute('aria-pressed',inFs()?'true':'false');
+		fsBtn.setAttribute('data-tip',(inFs()?'Exit full screen':'Full screen')+' (F)');
+	}
+	function toggle(){
+		try{
+			if(inFs()) (document.exitFullscreen||document.webkitExitFullscreen).call(document);
+			else { const el=document.documentElement; (el.requestFullscreen||el.webkitRequestFullscreen).call(el); }
+		}catch(_){}
+	}
+	fsBtn.addEventListener('click',e=>{ e.stopPropagation(); toggle(); });
+	document.addEventListener('fullscreenchange',syncFs);
+	document.addEventListener('webkitfullscreenchange',syncFs);
+	document.addEventListener('keydown',e=>{
+		if(e.code!=='KeyF'||e.metaKey||e.ctrlKey||e.altKey) return;
+		const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return;
+		e.preventDefault(); toggle();
+	});
+	syncFs();
+})();
+
+// ── Keyboard + swipe ──────────────────────
+if (window.AW && AW.keyboard) { AW.keyboard.bind({ next, prev, reset, replay }); }
+else { document.addEventListener('keydown', e => {
+	const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='select'||tag==='textarea') return;
+	if(['Space','ArrowRight','Enter'].includes(e.code)){ e.preventDefault(); next(); }
+	else if(e.code==='ArrowLeft'){ e.preventDefault(); prev(); }
+	else if(e.code==='KeyR'){ e.preventDefault(); reset(); }
+	else if(e.code==='KeyP'){ e.preventDefault(); replay(); }
+}); }
+(function(){
+	const surf=document.getElementById('stage'); if(!surf) return;
+	let x0=null,y0=null,t0=0;
+	surf.addEventListener('touchstart',e=>{ if(e.touches.length!==1){x0=null;return;} x0=e.touches[0].clientX; y0=e.touches[0].clientY; t0=Date.now(); },{passive:true});
+	surf.addEventListener('touchend',e=>{
+		if(x0===null) return; const tc=e.changedTouches[0], dx=tc.clientX-x0, dy=tc.clientY-y0; x0=null;
+		if(Date.now()-t0>800) return;
+		if(Math.abs(dx)>50 && Math.abs(dx)>Math.abs(dy)*1.6){ if(dx<0) next(); else prev(); }
+	},{passive:true});
+})();
+
+// ── Resize (re-fit only — never rebuild or replay) ──
+let resizeTimer, lastW=0, lastH=0;
+window.addEventListener('resize',()=>{ clearTimeout(resizeTimer); resizeTimer=setTimeout(()=>{
+	if(current<0) return;
+	const box=stage.getBoundingClientRect();
+	if(Math.abs(box.width-lastW)<1 && Math.abs(box.height-lastH)<1) return;
+	lastW=box.width; lastH=box.height;
+	const s=stage.querySelector('.scene:not(.scene-out)');
+	if(s && !animating) reserveTaskBody(s);   // a narrower scene rewraps panel text
+	if(s) fitScene(s);
+},200); });
+
+// ── Init ──────────────────────────────────
+applyFontScale();
+const urlStep=parseInt(new URLSearchParams(location.search).get('step'),10);
+renderStep((!isNaN(urlStep)&&urlStep>=1&&urlStep<=STEPS.length) ? urlStep-1 : 0);
+</script>
+
+<script>
+// ── Start gate · hold the first animation until the viewer presses Play ──
+(function () {
+	if (new URLSearchParams(location.search).has('present')) return;
+	var stageEl = document.getElementById('stage');
+	if (!stageEl) return;
+	function freeze(){ try{ if(window.gsap && gsap.globalTimeline) gsap.globalTimeline.pause(); }catch(_){} }
+	freeze(); requestAnimationFrame(freeze);
+	document.body.classList.add('aw-prestart');
+	try{ if(typeof stopAudio==='function') stopAudio(); }catch(_){}
+	stageEl.style.transition='opacity .55s ease';
+	stageEl.style.opacity='0';
+
+	var style=document.createElement('style');
+	style.textContent =
+		'body.aw-prestart #controls{opacity:.4;pointer-events:none;transition:opacity .4s ease}' +
+		'#aw-play-card{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:50;box-sizing:border-box;width:min(90vw,23rem);padding:1.5rem;border-radius:20px;background:var(--card,#fff);color:var(--ink,#241f18);border:1px solid var(--card-border,rgba(0,0,0,.1));box-shadow:var(--shadow-strong,0 24px 60px rgba(0,0,0,.28));text-align:center;transition:opacity .3s ease,transform .3s ease}' +
+		'#aw-play-card.aw-hide{opacity:0;transform:translate(-50%,-50%) scale(.96);pointer-events:none}' +
+		'.aw-card-title{margin:0 0 .35rem;font-size:1.1rem;font-weight:700}' +
+		'.aw-card-sub{margin:0 0 .9rem;font-size:.9rem;opacity:.75;line-height:1.45}' +
+		'.aw-row{display:flex;align-items:center;gap:.65rem;padding:.6rem 0;text-align:left}' +
+		'.aw-row + .aw-row{border-top:1px solid var(--card-border,rgba(0,0,0,.08))}' +
+		'.aw-row-ico{flex:none;width:1.5rem;text-align:center;font-size:1.15rem;line-height:1}' +
+		'.aw-row-lbl{flex:1 1 auto;font-size:.9rem;font-weight:600}' +
+		'.aw-row-state{flex:none;min-width:2.5rem;text-align:right;font-size:.68rem;font-weight:700;letter-spacing:.05em;opacity:.5}' +
+		'.aw-row-state.on{color:var(--accent-blue,#1f6dff);opacity:1}' +
+		'.aw-switch{position:relative;flex:none;width:44px;height:24px;padding:0;border:none;border-radius:999px;cursor:pointer;background:var(--card-border,#c7c7d1);transition:background .18s ease}' +
+		'.aw-switch.on{background:var(--accent-blue,#1f6dff)}' +
+		'.aw-switch::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.4);transition:transform .18s ease}' +
+		'.aw-switch.on::after{transform:translateX(20px)}' +
+		'#aw-start{margin-top:1.2rem;width:100%;display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:.8rem 1rem;border:none;border-radius:999px;cursor:pointer;background:var(--accent-blue,#1f6dff);color:var(--on-accent,#fff);font-size:.95rem;font-weight:600;box-shadow:var(--shadow-strong,0 8px 22px rgba(0,0,0,.25));transition:transform .15s ease}' +
+		'#aw-start:hover{transform:translateY(-2px)}#aw-start svg{width:18px;height:18px}';
+	document.head.appendChild(style);
+
+	var card=document.createElement('div');
+	card.id='aw-play-card'; card.setAttribute('role','dialog'); card.setAttribute('aria-modal','true'); card.setAttribute('aria-label','Ready to begin?');
+	card.innerHTML='<p class="aw-card-title">Ready to begin?</p>'+
+		'<p class="aw-card-sub">An overview of what you\u2019ll build, then all six tasks of the lab.</p>'+
+		'<div class="aw-row" data-k="audio"><span class="aw-row-ico" aria-hidden="true">\uD83D\uDD0A</span><span class="aw-row-lbl">Sound</span><span class="aw-row-state"></span><button type="button" class="aw-switch" role="switch"></button></div>'+
+		'<div class="aw-row" data-k="cc"><span class="aw-row-ico" aria-hidden="true">\uD83D\uDCAC</span><span class="aw-row-lbl">Subtitles (CC)</span><span class="aw-row-state"></span><button type="button" class="aw-switch" role="switch"></button></div>'+
+		'<button type="button" id="aw-start"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 5v14l11-7z"/></svg><span>Start</span></button>';
+	document.body.appendChild(card);
+
+	// The rows mirror the real overlay buttons, so the gate never owns the state itself.
+	var ROWS=[
+		{ el:card.querySelector('.aw-row[data-k="audio"]'), lbl:'Sound',          toggle:'audio-toggle', read:function(){ return typeof audioEnabled!=='undefined' && audioEnabled; } },
+		{ el:card.querySelector('.aw-row[data-k="cc"]'),    lbl:'Subtitles (CC)', toggle:'cc-toggle',    read:function(){ return typeof ccPref!=='undefined' && ccPref; } }
+	];
+	function renderRows(){
+		ROWS.forEach(function(r){
+			var on=r.read();
+			var st=r.el.querySelector('.aw-row-state'); st.textContent=on?'ON':'OFF'; st.classList.toggle('on',on);
+			var sw=r.el.querySelector('.aw-switch'); sw.classList.toggle('on',on);
+			sw.setAttribute('aria-checked',on?'true':'false');
+			sw.setAttribute('aria-label',r.lbl+' \u2014 '+(on?'on':'off'));
+		});
+	}
+	ROWS.forEach(function(r){
+		r.el.querySelector('.aw-switch').addEventListener('click',function(e){
+			e.stopPropagation();
+			var b=document.getElementById(r.toggle); if(b) b.click();
+			renderRows();
+		});
+	});
+	renderRows();
+
+	var done=false;
+	function gateKeys(e){
+		if(done) return;
+		if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','PageUp','PageDown','Home','End',' '].indexOf(e.key)>=0){ e.preventDefault(); e.stopPropagation(); }
+	}
+	document.addEventListener('keydown', gateKeys, true);
+
+	document.getElementById('aw-start').addEventListener('click', function () {
+		if(done) return; done=true;
+		document.removeEventListener('keydown', gateKeys, true);
+		document.body.classList.remove('aw-prestart');
+		card.classList.add('aw-hide');
+		setTimeout(function(){ if(card.parentNode) card.parentNode.removeChild(card); if(style.parentNode) style.parentNode.removeChild(style); }, 420);
+		setTimeout(function(){
+			try{ if(window.gsap && gsap.globalTimeline) gsap.globalTimeline.play(); }catch(_){}
+			stageEl.style.opacity='1';
+			try{ interruptAnimation(); renderStep(typeof current==='number' && current>=0 ? current : 0); }catch(_){}
+		}, 380);
+	});
+}());
+</script>
+<script src="../../../lib/js/aw-present.js"></script>
+<script src="../../../lib/js/aw-declutter.js"></script>
+<script src="../../../lib/js/aw-url-state.js"></script>
+
+</body>
+</html>

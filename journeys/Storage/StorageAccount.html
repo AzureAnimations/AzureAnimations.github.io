@@ -1,0 +1,1784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<script src="/js/tracking.js"></script>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+	<meta name="description" content="Azure Storage Account explained — performance tiers (Standard vs Premium), the four data services (Blob, File, Queue, Table), the three blob types, and access tiers from Hot to Archive." />
+	<title>Azure Storage Account — Tiers, Services &amp; Types · Azure Animations</title>
+
+	<link rel="stylesheet" href="https://unpkg.com/@microsoft/atlas-css/dist/index.css" />
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+	<!-- AnimationWorks shared lib (one level under the site root → ../lib/) -->
+	<script src="../../lib/js/aw-easings.js"></script>
+	<script src="../../lib/js/aw-motion.js"></script>
+	<script src="../../lib/js/aw-theme.js"></script>
+	<script src="../../lib/js/aw-keyboard.js"></script>
+	<script src="../../lib/js/aw-captions.js?v=3"></script>
+
+<style>
+	/* ── SHELL ─────────────────────────────── */
+	:root {
+		--aw-purple:#5c2d91; --aw-blue:#0078d4; --aw-green:#10a37f; --aw-orange:#e97526; --aw-pink:#d24aa8;
+		--aw-cyan:#00b7c3;
+	}
+	html, body { height:100%; margin:0; }
+	html { font-size:100%; }
+	body {
+		display:flex; flex-direction:column; height:100vh;
+		overflow:hidden;
+		font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif;
+		color: var(--theme-text);
+		background:
+			radial-gradient(circle at 15% 20%, rgba(92,45,145,0.18) 0%, transparent 55%),
+			radial-gradient(circle at 85% 80%, rgba(0,120,212,0.18) 0%, transparent 55%),
+			var(--theme-body-background);
+	}
+	.app-header { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:1rem; flex-shrink:0; font-size:16px; }
+	.app-header > :last-child { justify-self:end; }
+
+	#stage {
+		position:relative; flex:1 1 auto; width:100%; min-height:0;
+		display:flex; align-items:center; justify-content:center;
+		overflow:hidden; container-type:size;
+		padding:1.75rem 2.75rem 5rem;
+	}
+	#stage:focus-visible, button:focus-visible, a:focus-visible, select:focus-visible {
+		outline:2px solid var(--theme-primary, #0078d4); outline-offset:3px; border-radius:4px;
+	}
+	#stage-frame {
+		position:relative; overflow:hidden;
+		width: min(100cqw, calc(100cqh * 16 / 9));
+		aspect-ratio: 16 / 9; max-width:100%; max-height:100%;
+		border-radius:16px;
+		background: rgba(0,0,0,0.015);
+		box-shadow: 0 12px 44px rgba(0,0,0,0.22);
+	}
+	body.theme-dark #stage-frame { background: rgba(255,255,255,0.025); }
+	#stage-frame::before {
+		content:""; position:absolute; inset:0; border-radius:inherit; padding:2.5px;
+		background: linear-gradient(135deg, var(--aw-purple) 0%, var(--aw-blue) 55%, var(--aw-pink) 100%);
+		-webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+		mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+		-webkit-mask-composite: xor; mask-composite: exclude;
+		pointer-events:none; z-index:20;
+	}
+	#fx-svg { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:6; overflow:visible; }
+
+	/* ── SCENE ─────────────────────────────── */
+	.scene {
+		position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+		transform-origin:center center;
+		width:min(1150px, 96%); z-index:10;
+		display:flex; flex-direction:column; align-items:center; gap:1.4rem;
+	}
+	@keyframes awSceneIn { from { opacity:0; } to { opacity:1; } }
+	@keyframes awSceneOut { from { opacity:1; } to { opacity:0; } }
+	.scene.scene-in { animation: awSceneIn 0.2s ease both; }
+	.scene.scene-out { animation: awSceneOut 0.2s ease both; }
+	.scene-title { font-size:2.5rem; font-weight:700; color:var(--theme-tertiary, #5c2d91); margin:0; text-align:center; opacity:0; }
+	body.theme-dark .scene-title { color:#c9a5e8; }
+	.scene-lead { margin:0; text-align:center; font-size:1.35rem; color:var(--theme-text); max-width:900px; line-height:1.5; opacity:0; }
+
+	/* ── CALLOUT ───────────────────────────── */
+	.callout {
+		position:absolute; max-width:340px; padding:1rem 1.2rem;
+		background:var(--theme-body-background);
+		background:color-mix(in srgb, var(--theme-body-background) 84%, transparent);
+		-webkit-backdrop-filter:blur(5px); backdrop-filter:blur(5px);
+		border:1px solid var(--theme-border);
+		border-left:4px solid var(--theme-tertiary, #5c2d91); border-radius:6px;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2));
+		font-size:1.05rem; line-height:1.45; z-index:14; opacity:0;
+		cursor:grab; touch-action:none;
+	}
+	.callout:active { cursor:grabbing; }
+
+	/* ── RESET "PIN" · appears on a panel once it has been dragged off its home spot ── */
+	.aw-drag-reset {
+		position:absolute; width:24px; height:24px; padding:0; display:none;
+		align-items:center; justify-content:center; border-radius:50%;
+		background:var(--theme-tertiary,#5c2d91); color:#fff;
+		border:2px solid var(--theme-body-background,#fff);
+		box-shadow:0 2px 7px rgba(0,0,0,0.4); cursor:pointer; z-index:6;
+		opacity:0.92; transition:opacity .14s ease, transform .14s ease;
+	}
+	.aw-drag-reset:hover { opacity:1; transform:scale(1.08); }
+	.aw-drag-reset:focus-visible { outline:2px solid #5cc8ff; outline-offset:2px; }
+	.aw-drag-reset svg { width:13px; height:13px; display:block; }
+
+	/* ══ REUSABLE BUILDING BLOCKS ══ */
+	.card {
+		width:min(680px, 96%); padding:1.6rem 1.8rem; border-radius:16px;
+		background:var(--theme-card-background, #fff); border:2px solid var(--theme-border);
+		box-shadow:0 8px 28px rgba(0,0,0,0.14); opacity:0;
+		display:flex; flex-direction:column; gap:0.6rem; align-items:center; text-align:center;
+	}
+	body.theme-dark .card { background:rgba(255,255,255,0.05); }
+	.card .card-icon { font-size:3rem; line-height:1; color:var(--theme-tertiary,#5c2d91); }
+	.card .card-h { font-size:1.4rem; font-weight:700; }
+	.card .card-p { font-size:1.05rem; color:var(--theme-text-subtle); line-height:1.5; }
+
+	.ta-card {
+		width:min(1000px, 98%); border:1.5px solid var(--theme-border); border-radius:14px;
+		background:var(--theme-card-background, #fff); box-shadow:0 8px 30px rgba(0,0,0,0.16);
+		padding:1.1rem 1.3rem; opacity:0;
+	}
+	body.theme-dark .ta-card { background:rgba(255,255,255,0.05); }
+	.ta-card-head {
+		display:flex; align-items:center; justify-content:center; gap:0.5rem;
+		font-size:1rem; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;
+		color:var(--theme-text-subtle); margin-bottom:0.6rem;
+	}
+	.ta-card-head .ic { color:var(--theme-tertiary,#5c2d91); }
+	.ta-card-text { font-size:1.22rem; line-height:1.55; color:var(--theme-text); text-align:center; }
+
+	.chip-row { display:flex; flex-wrap:wrap; gap:0.7rem; justify-content:center; }
+	.pill {
+		display:inline-flex; align-items:center; gap:0.5rem; padding:0.55rem 1.1rem;
+		border-radius:999px; font-size:1.05rem; font-weight:600;
+		border:2px solid var(--theme-tertiary, #5c2d91); background:rgba(92,45,145,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .pill { background:rgba(92,45,145,0.2); }
+	.pill .ic { color:var(--theme-tertiary,#5c2d91); }
+	.value-chip {
+		display:inline-flex; align-items:center; gap:0.4rem; padding:0.5rem 1rem;
+		border-radius:999px; font-size:1rem; font-weight:700;
+		border:2px solid #107c10; background:rgba(16,124,16,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .value-chip { background:rgba(16,124,16,0.16); }
+	.value-chip .ic { color:#10a37f; }
+	.recap-foot { font-size:1.05rem; color:var(--theme-text); text-align:center; max-width:860px; opacity:0; }
+	.recap-foot a { color:var(--aw-blue, #0078d4); font-weight:700; text-decoration:underline; }
+	body.theme-dark .recap-foot a { color:#5aa9ff; }
+
+	.agent-node {
+		display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.2rem;
+		width:160px; height:160px; border-radius:24px;
+		background: linear-gradient(135deg, rgba(92,45,145,0.12), rgba(0,120,212,0.12));
+		border:2.5px solid var(--theme-tertiary, #5c2d91);
+		box-shadow:0 8px 28px rgba(92,45,145,0.2); flex-shrink:0; text-align:center; padding:0.4rem;
+	}
+	.agent-node .an-icon { font-size:2.8rem; line-height:1; color:var(--theme-tertiary,#5c2d91); }
+	.agent-node .an-label { font-size:1.15rem; font-weight:700; color:var(--theme-text); }
+	.agent-node .an-sub { font-size:1rem; color:var(--theme-text-subtle); line-height:1.34; }
+	.ta-flow { display:flex; align-items:center; justify-content:center; gap:1.2rem; flex-wrap:wrap; width:100%; }
+	.ta-flow .agent-node { width:185px; height:182px; }
+	.ta-arrow { font-size:1.9rem; color:var(--theme-tertiary,#5c2d91); opacity:0; }
+	.ta-arrow.is-big { font-size:3rem; }
+	@media (max-width:760px) { .ta-flow .ta-arrow { transform:rotate(90deg); } }
+
+	.uc-grid { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:1.1rem; width:min(980px,96%); }
+	@media (max-width:720px) { .uc-grid { grid-template-columns:1fr; } }
+	.uc-card {
+		display:flex; flex-direction:column; gap:0.5rem; padding:1rem 1.15rem;
+		border:1.5px solid var(--theme-border); border-top:4px solid var(--theme-primary,#0078d4);
+		border-radius:14px; background:var(--theme-card-background, #fff);
+		box-shadow:0 6px 22px rgba(0,0,0,0.12); opacity:0;
+		transition:transform 0.2s ease, box-shadow 0.2s ease;
+	}
+	.uc-card:hover { transform:translateY(-4px); box-shadow:0 12px 30px rgba(0,0,0,0.18); }
+	body.theme-dark .uc-card { background:rgba(255,255,255,0.05); }
+	.uc-card[data-uc="a"] { border-top-color:#0078d4; }
+	.uc-card[data-uc="b"] { border-top-color:#10a37f; }
+	.uc-card[data-uc="c"] { border-top-color:#e97526; }
+	.uc-card[data-uc="d"] { border-top-color:#d24aa8; }
+	.uc-head { display:flex; align-items:center; gap:0.55rem; font-size:1.25rem; font-weight:700; color:var(--theme-text); }
+	.uc-head .uc-icon { font-size:1.7rem; display:inline-flex; }
+	.uc-card[data-uc="a"] .uc-icon { color:#0078d4; }
+	.uc-card[data-uc="b"] .uc-icon { color:#10a37f; }
+	.uc-card[data-uc="c"] .uc-icon { color:#e97526; }
+	.uc-card[data-uc="d"] .uc-icon { color:#d24aa8; }
+	.uc-desc { font-size:0.98rem; line-height:1.55; color:var(--theme-text-subtle); }
+	.uc-caps { display:flex; flex-wrap:wrap; gap:0.4rem; margin-top:0.2rem; }
+	.uc-cap {
+		display:inline-flex; align-items:center; gap:0.3rem; padding:0.25rem 0.7rem;
+		border-radius:999px; font-size:0.88rem; font-weight:700;
+		background:rgba(0,120,212,0.1); color:var(--theme-text);
+		border:1.5px solid rgba(0,120,212,0.4); opacity:0;
+	}
+
+	/* ── PERFORMANCE DUO (Standard vs Premium) ── */
+	.duo { display:flex; gap:1.4rem; justify-content:center; flex-wrap:wrap; width:100%; }
+	.duo-card {
+		flex:1 1 320px; max-width:430px;
+		border:1.5px solid var(--theme-border); border-top:5px solid var(--dc,#0078d4);
+		border-radius:16px; background:var(--theme-card-background, #fff);
+		box-shadow:0 8px 28px rgba(0,0,0,0.14); padding:1.3rem 1.4rem; opacity:0;
+		display:flex; flex-direction:column; gap:0.7rem;
+	}
+	body.theme-dark .duo-card { background:rgba(255,255,255,0.05); }
+	.duo-card .dc-head { display:flex; align-items:center; gap:0.6rem; font-size:1.45rem; font-weight:800; color:var(--theme-text); }
+	.duo-card .dc-head .ic { color:var(--dc); font-size:1.8rem; }
+	.duo-card .dc-sub { font-size:1.02rem; color:var(--theme-text-subtle); line-height:1.55; }
+	.duo-card .dc-list { display:flex; flex-wrap:wrap; gap:0.45rem; }
+	.duo-card .pill { border-color:var(--dc); background:color-mix(in srgb, var(--dc) 10%, transparent); font-size:0.95rem; }
+	.duo-card .pill .ic { color:var(--dc); }
+
+	/* ── ACCESS TIER ROW (Hot → Archive) ── */
+	.tier-row { display:flex; gap:1rem; justify-content:center; flex-wrap:wrap; width:100%; }
+	.tier-card {
+		flex:1 1 0; min-width:155px; max-width:230px;
+		border:1.5px solid var(--theme-border); border-top:5px solid var(--tc,#e97526);
+		border-radius:14px; background:var(--theme-card-background, #fff);
+		box-shadow:0 6px 22px rgba(0,0,0,0.12); padding:1rem 1rem 1.1rem; opacity:0;
+		display:flex; flex-direction:column; gap:0.5rem; align-items:center; text-align:center;
+	}
+	body.theme-dark .tier-card { background:rgba(255,255,255,0.05); }
+	.tier-card .tc-icon { font-size:2.1rem; line-height:1; color:var(--tc); }
+	.tier-card .tc-name { font-size:1.3rem; font-weight:800; color:var(--tc); }
+	.tier-card .tc-sub { font-size:0.9rem; color:var(--theme-text-subtle); line-height:1.4; min-height:2.5em; }
+	.tier-card .tc-ret { display:inline-flex; align-items:center; gap:0.35rem; font-size:0.9rem; font-weight:700; padding:0.28rem 0.75rem; border-radius:999px; background:rgba(0,0,0,0.05); color:var(--theme-text); }
+	body.theme-dark .tier-card .tc-ret { background:rgba(255,255,255,0.1); }
+	.tier-card .tc-ret .ic { color:var(--tc); }
+	.tier-card .tc-cost { display:flex; gap:4px; margin-top:0.1rem; }
+	.tier-card .tc-dot { width:9px; height:9px; border-radius:50%; background:var(--theme-border); }
+	.tier-card .tc-dot.on { background:var(--tc); }
+	.tier-scalewrap { display:flex; flex-direction:column; align-items:center; gap:0.4rem; width:100%; }
+	.tier-scale {
+		width:min(920px,96%); height:12px; border-radius:999px;
+		background:linear-gradient(90deg,#e97526,#0078d4,#00b7c3,#5c2d91);
+		box-shadow:inset 0 0 0 1px rgba(0,0,0,0.08); opacity:0;
+	}
+	.tier-scale-labels { display:flex; justify-content:space-between; width:min(920px,96%); font-size:0.92rem; font-weight:600; color:var(--theme-text-subtle); opacity:0; }
+
+	/* ── SMART TIER banner (auto-manages Hot/Cool/Cold) ── */
+	.smart-tier { width:min(960px,98%); display:flex; align-items:center; gap:0.7rem 1.1rem; flex-wrap:wrap; padding:0.65rem 1.05rem; border-radius:14px;
+		background:linear-gradient(var(--theme-card-background,#fff),var(--theme-card-background,#fff)) padding-box, linear-gradient(90deg,#e97526,#0078d4,#00b7c3) border-box;
+		border:2px solid transparent; box-shadow:0 6px 22px rgba(0,0,0,0.1); opacity:0; }
+	body.theme-dark .smart-tier { background:linear-gradient(#241b33,#241b33) padding-box, linear-gradient(90deg,#e97526,#0078d4,#00b7c3) border-box; }
+	.st-head { display:inline-flex; align-items:center; gap:0.45rem; }
+	.st-head .az-ic { width:1.55em; height:1.55em; }
+	.st-name { font-size:1.12rem; font-weight:800; color:var(--theme-text); }
+	.st-badge { font-size:0.68rem; font-weight:800; text-transform:uppercase; letter-spacing:0.05em; padding:0.15rem 0.5rem; border-radius:999px; background:var(--aw-purple,#5c2d91); color:#fff; }
+	.st-body { display:flex; flex-direction:column; gap:0.35rem; flex:1 1 320px; }
+	.st-desc { font-size:0.9rem; color:var(--theme-text-subtle); line-height:1.35; }
+	.st-flow { display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap; }
+	.st-node { display:inline-flex; align-items:center; gap:0.3rem; padding:0.2rem 0.55rem; border-radius:999px; font-size:0.9rem; font-weight:800; color:var(--theme-text); border:1.5px solid var(--nc,#e97526); background:color-mix(in srgb, var(--nc) 12%, transparent); }
+	.st-node .az-ic { width:1.05em; height:1.05em; }
+	.st-edge { display:inline-flex; flex-direction:column; align-items:center; font-size:0.74rem; font-weight:700; color:var(--theme-text-subtle); line-height:1.1; }
+	.st-edge b { font-size:1rem; color:var(--theme-text); }
+	.st-access { display:inline-flex; align-items:center; gap:0.25rem; font-size:0.84rem; font-weight:800; color:#107c10; }
+	body.theme-dark .st-access { color:#4ac26b; }
+	.st-note { font-size:0.8rem; font-weight:600; color:var(--theme-text-subtle); max-width:170px; line-height:1.3; }
+
+	/* recap key-feature chips (per service accent) */
+	.sa-feats { display:flex; flex-wrap:wrap; gap:0.3rem; margin-top:0.1rem; }
+	.sa-feat { padding:0.15rem 0.55rem; border-radius:999px; font-size:0.82rem; font-weight:700; color:var(--theme-text); background:color-mix(in srgb, var(--sc) 12%, transparent); border:1.5px solid color-mix(in srgb, var(--sc) 42%, transparent); }
+
+	/* ── CONTROLS · icon dock ──────────────── */
+	#controls {
+		position:fixed; bottom:14px; left:50%; transform:translateX(-50%); z-index:40;
+		display:flex; align-items:center; gap:5px; padding:5px 7px;
+		background:var(--theme-body-background-translucent, rgba(255,255,255,0.82));
+		backdrop-filter:blur(12px) saturate(1.4); -webkit-backdrop-filter:blur(12px) saturate(1.4);
+		border:1px solid var(--theme-border); border-radius:999px;
+		box-shadow: 0 8px 26px rgba(0,0,0,0.18); font-size:13px;
+	}
+	body.theme-dark #controls { background:var(--theme-body-background-translucent, rgba(32,32,36,0.82)); }
+	#controls .ctrl-icon {
+		width:2.15rem; height:2.15rem; min-width:0; padding:0;
+		display:inline-flex; align-items:center; justify-content:center;
+		border-radius:50%; font-size:0.95rem; line-height:1; font-weight:600;
+		transition:background 0.18s ease, color 0.18s ease, transform 0.12s ease, box-shadow 0.18s ease;
+	}
+	#controls .ctrl-icon:hover { transform:translateY(-1px); }
+	#controls .ctrl-icon:active { transform:scale(0.92); }
+	#controls .ctrl-icon-next {
+		width:2.55rem; height:2.55rem; font-size:1.1rem;
+		box-shadow:0 2px 8px var(--theme-primary-translucent, rgba(0,120,212,0.45));
+	}
+	.step-counter {
+		min-width:52px; text-align:center; font-variant-numeric:tabular-nums;
+		font-size:14px; font-weight:700; color:var(--theme-text);
+		padding:0 6px; white-space:nowrap; letter-spacing:0.02em;
+	}
+	.ctrl-sep { width:1px; align-self:stretch; margin:4px 2px; background:var(--theme-border); }
+	.ctrl-grip {
+		display:inline-flex; align-items:center; justify-content:center;
+		width:1.5rem; height:2.15rem; padding:0; border:none; background:transparent;
+		color:var(--theme-text-subtle); border-radius:8px; cursor:grab; touch-action:none;
+		transition:background 0.18s ease, color 0.18s ease;
+	}
+	.ctrl-grip:hover { color:var(--theme-text); background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); }
+	.ctrl-grip:active { cursor:grabbing; }
+	.ctrl-grip svg { width:13px; height:16px; pointer-events:none; }
+	body.controls-floating .ctrl-grip { color:var(--theme-primary,#0078d4); }
+	#controls .ctrl-pin { display:none; color:var(--theme-primary,#0078d4); }
+	#controls .ctrl-pin svg { width:15px; height:15px; pointer-events:none; }
+	body.controls-floating #controls .ctrl-pin { display:inline-flex; }
+	body.controls-floating #controls { box-shadow:0 10px 30px rgba(0,0,0,0.30), 0 0 0 1.5px var(--theme-primary,#0078d4); }
+	.speed-control { display:inline-flex; align-items:center; gap:1px; padding:2px 3px; border:1px solid var(--theme-border); border-radius:999px; }
+	.speed-control .speed-btn {
+		width:1.7rem; height:1.7rem; min-width:0; padding:0;
+		display:inline-flex; align-items:center; justify-content:center;
+		font-size:0.95rem; font-weight:700; border-radius:50%;
+	}
+	.speed-control .speed-btn[disabled] { opacity:0.4; cursor:not-allowed; }
+	.speed-label { min-width:2.4rem; text-align:center; font-variant-numeric:tabular-nums; font-size:0.82rem; font-weight:700; color:var(--theme-text); }
+
+	#callout-toggle, #outline-toggle, #audio-toggle { border:1px solid var(--theme-border); border-radius:4px; transition:background .2s,color .2s,border-color .2s,opacity .2s; }
+	#callout-toggle.toggle-active, #outline-toggle.toggle-active, #audio-toggle.toggle-active {
+		background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary,#0078d4); border-color:var(--theme-primary,#0078d4); font-weight:600;
+	}
+	#callout-toggle:not(.toggle-active), #outline-toggle:not(.toggle-active), #audio-toggle:not(.toggle-active) { opacity:0.6; }
+	#audio-toggle { display:inline-flex; align-items:center; gap:0.3rem; }
+	#audio-toggle .aw-audio-ico { line-height:1; }
+	#audio-toggle .aw-audio-time { font-variant-numeric:tabular-nums; font-weight:600; min-width:3.1em; text-align:center; letter-spacing:0.02em; }
+
+	/* ── HIDE/SHOW TOP BAR ─────────────────── */
+	#header-hide-top { display:inline-flex; align-items:center; justify-content:center; width:2rem; height:2rem; padding:0; border:1px solid var(--theme-border); border-radius:50%; color:var(--theme-text-subtle); background:transparent; cursor:pointer; transition:background .2s,color .2s,transform .18s; }
+	#header-hide-top:hover { color:var(--theme-text); transform:translateY(-1px); }
+	#header-hide-top svg { width:16px; height:16px; }
+	body.chrome-hidden .app-header, body.chrome-hidden .progress-track { display:none; }
+	#header-reveal {
+		position:fixed; top:0; left:50%; transform:translateX(-50%) translateY(-100%); z-index:45;
+		display:inline-flex; align-items:center; gap:0.35rem; padding:5px 14px 6px; font-size:12px; font-weight:600; line-height:1;
+		color:var(--theme-text-subtle); background:var(--theme-body-background-translucent, rgba(255,255,255,0.88));
+		backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border:1px solid var(--theme-border); border-top:none; border-radius:0 0 12px 12px;
+		box-shadow:0 4px 14px rgba(0,0,0,0.14); cursor:pointer; transition:transform .28s cubic-bezier(0.2,0.7,0.3,1), color .2s, background .2s;
+	}
+	body.theme-dark #header-reveal { background:var(--theme-body-background-translucent, rgba(32,32,36,0.88)); }
+	#header-reveal:hover { color:var(--theme-text); }
+	body.chrome-hidden #header-reveal { transform:translateX(-50%) translateY(0); }
+	#header-reveal svg { width:14px; height:14px; }
+
+	/* ── PLAYER OVERLAY · bottom-right of the stage frame (YouTube-style) ── */
+	.stage-overlay {
+		position:absolute; right:12px; bottom:10px; z-index:25;
+		display:flex; align-items:center; gap:2px;
+		padding:3px 6px; border-radius:999px;
+		background:rgba(16,18,24,0.58);
+		backdrop-filter:blur(9px) saturate(1.3); -webkit-backdrop-filter:blur(9px) saturate(1.3);
+		box-shadow:0 4px 16px rgba(0,0,0,0.32);
+	}
+	.ovl-btn {
+		-webkit-appearance:none; appearance:none; margin:0; font:inherit;
+		display:inline-flex; align-items:center; justify-content:center; gap:4px;
+		min-width:30px; height:30px; padding:0 8px;
+		border:none !important; border-radius:999px !important;
+		background:transparent !important; color:#fff !important;
+		box-shadow:none !important; cursor:pointer; line-height:1;
+		font-size:0.82rem; font-weight:700; opacity:0.92; transition:background .15s ease, opacity .15s ease;
+	}
+	.ovl-btn:hover { background:rgba(255,255,255,0.16) !important; opacity:1; }
+	.ovl-btn:disabled { opacity:0.4; cursor:not-allowed; }
+	.ovl-btn svg { width:18px; height:18px; fill:currentColor; display:block; }
+	.ovl-btn.on { color:#5cc8ff !important; }
+	.stage-overlay #audio-toggle { opacity:1 !important; }
+	.stage-overlay .aw-audio-ico { font-size:1rem; line-height:1; }
+	.stage-overlay .aw-audio-time { font-size:0.78rem; font-variant-numeric:tabular-nums; letter-spacing:0.02em; opacity:0.95; min-width:2.4em; text-align:left; }
+	#cc-toggle svg { width:20px; height:20px; }
+	.ovl-btn .fs-exit { display:none; }
+	body.is-fs .ovl-btn .fs-enter { display:none; }
+	body.is-fs .ovl-btn .fs-exit { display:block; }
+
+	/* ── LEFT VIEW-OPTIONS PILL · Callout / Outline / Shortcuts (icon + hover tip) ── */
+	.stage-overlay-left { right:auto; left:12px; }
+	#stage-overlay-left .ovl-btn:not(.toggle-active) { opacity:0.86; }
+	#stage-overlay-left .ovl-btn.toggle-active { color:#5cc8ff !important; opacity:1; }
+	#stage-overlay-left .ovl-btn:hover { opacity:1; }
+	/* Hover tooltip shown above the icon (left-anchored so it never clips the frame edge) */
+	.ovl-btn[data-tip] { position:relative; }
+	.ovl-btn[data-tip]::after { content:attr(data-tip); position:absolute; left:0; bottom:calc(100% + 9px); transform:translateY(4px); padding:4px 8px; border-radius:6px; background:rgba(16,18,24,0.96); color:#fff; font-size:0.72rem; font-weight:600; white-space:nowrap; letter-spacing:0.01em; opacity:0; pointer-events:none; box-shadow:0 3px 12px rgba(0,0,0,0.45); transition:opacity .14s ease, transform .14s ease; z-index:40; }
+	.ovl-btn[data-tip]::before { content:''; position:absolute; left:13px; bottom:calc(100% + 4px); border:5px solid transparent; border-top-color:rgba(16,18,24,0.96); opacity:0; pointer-events:none; transition:opacity .14s ease; z-index:40; }
+	.ovl-btn[data-tip]:hover::after { opacity:1; transform:translateY(0); }
+	.ovl-btn[data-tip]:hover::before { opacity:1; }
+
+	/* ── CAPTION · overlaid inside the frame ── */
+	#aw-caption {
+		position:absolute; left:50%; transform:translateX(-50%); bottom:56px; z-index:24;
+		max-width:92%; min-width:140px; min-height:38px; max-height:44%;
+		display:none; align-items:center; justify-content:center; text-align:center;
+		padding:0.42rem 0.95rem; border-radius:9px;
+		background:rgba(8,9,13,0.8); color:#fff;
+		font-size:1.1rem; line-height:1.36; font-weight:600;
+		box-shadow:0 3px 14px rgba(0,0,0,0.42); pointer-events:auto; cursor:grab; touch-action:none;
+		overflow:auto; resize:both;   /* user can reshape the caption; corner grip = resize */
+	}
+	#aw-caption:active { cursor:grabbing; }
+	#aw-caption::-webkit-resizer { background:linear-gradient(135deg, transparent 45%, rgba(255,255,255,0.55) 45%, rgba(255,255,255,0.55) 55%, transparent 55%); }
+	body.cc-on #aw-caption.has-text { display:flex; }
+	@media (max-width:640px){ #aw-caption { font-size:0.94rem; bottom:48px; max-width:90%; } }
+
+	/* ── OUTLINE PANEL ─────────────────────── */
+	#step-outline {
+		position:fixed; top:4.5rem; right:1rem; width:320px; max-height:calc(100vh - 8rem); overflow-y:auto;
+		padding:1.1rem; background:var(--theme-body-background);
+		background:color-mix(in srgb, var(--theme-body-background) 85%, transparent);
+		-webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
+		border:1px solid var(--theme-border);
+		border-radius:6px; box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2)); z-index:35; font-size:1rem; line-height:1.55;
+		cursor:grab; touch-action:none;
+	}
+	#step-outline:active { cursor:grabbing; }
+	#step-outline[hidden] { display:none; }
+	#step-outline h2 { font-size:0.85rem; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--theme-tertiary,#5c2d91); margin-bottom:0.5rem; }
+	#step-outline .outline-section { margin-top:0.6rem; padding-top:0.6rem; border-top:1px solid var(--theme-border); }
+	#step-outline .outline-section:first-child { margin-top:0; padding-top:0; border-top:0; }
+	#step-outline .stat-row { display:flex; justify-content:space-between; align-items:baseline; gap:0.75rem; padding:0.2rem 0; }
+	#step-outline .stat-row span:first-child { color:var(--theme-text-subtle); flex:0 0 auto; max-width:45%; }
+	#step-outline .stat-row span:last-child { text-align:right; font-weight:600; color:var(--theme-tertiary,#5c2d91); flex:1 1 auto; }
+
+	.progress-track { position:relative; height:6px; background:var(--theme-border, #e0e0e0); flex-shrink:0; cursor:pointer; }
+	.progress-fill { position:absolute; left:0; top:0; bottom:0; width:0%; background:var(--aw-purple, #5c2d91); transition:width .5s cubic-bezier(0.2,0.8,0.2,1); pointer-events:none; }
+	.progress-tick { position:absolute; top:0; bottom:0; width:2px; margin-left:-1px; background:var(--theme-body-background); opacity:0.6; pointer-events:none; }
+
+	/* ── THEME / LANG / FONT CONTROLS ──────── */
+	.theme-toggle { display:inline-flex; align-items:center; justify-content:center; width:2.25rem; height:2.25rem; padding:0; margin-inline-start:0.25rem; background:transparent; border:1px solid var(--theme-border); border-radius:999px; color:var(--theme-text); cursor:pointer; transition:background .15s,color .15s,border-color .15s; }
+	.theme-toggle:hover { background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary); border-color:var(--theme-primary); }
+	.theme-toggle .theme-icon { display:none; }
+	.theme-toggle[data-theme="dark"] .icon-sun { display:block; }
+	.theme-toggle[data-theme="light"] .icon-moon { display:block; }
+	.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+	.skip-link { position:absolute; top:-100px; left:0.5rem; z-index:100; padding:0.5rem 1rem; background:var(--theme-primary); color:var(--theme-primary-invert,#fff); border-radius:4px; text-decoration:none; font-weight:600; }
+	.skip-link:focus { top:0.5rem; }
+	.header-back-link { display:inline-flex; align-items:center; gap:0.25rem; padding:0.2rem 0.6rem; font-size:0.8rem; font-weight:600; color:var(--theme-text-subtle); border:1px solid var(--theme-border); border-radius:999px; text-decoration:none; white-space:nowrap; transition:background .15s,color .15s,border-color .15s; }
+	.header-back-link:hover { color:var(--theme-primary); border-color:var(--theme-primary); background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); }
+	.lang-select {
+		appearance:none; -webkit-appearance:none; background:var(--theme-card-background,#fff); color:var(--theme-body-text,#333);
+		border:1px solid var(--theme-border, rgba(0,0,0,0.2)); border-radius:4px; padding:4px 24px 4px 8px;
+		font-size:0.8rem; font-family:'Segoe UI', sans-serif; cursor:pointer;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+		background-repeat:no-repeat; background-position:right 6px center; min-width:80px;
+	}
+	.lang-select:hover { border-color:var(--theme-primary, #0078d4); }
+	.lang-select:focus { outline:2px solid var(--theme-primary, #0078d4); outline-offset:1px; }
+	body.theme-dark .lang-select {
+		background-color:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); border-color:rgba(255,255,255,0.15);
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23aaa' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+	}
+	body.theme-dark .lang-select option { background:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); }
+	.font-size-controls { display:flex; align-items:center; gap:2px; }
+	.font-size-btn { background:var(--theme-card-background,#fff); color:var(--theme-body-text,#333); border:1px solid var(--theme-border, rgba(0,0,0,0.2)); border-radius:4px; padding:3px 8px; font-size:0.8rem; font-weight:700; font-family:'Segoe UI', sans-serif; cursor:pointer; line-height:1.2; transition:background .15s,border-color .15s; }
+	.font-size-btn:hover { border-color:var(--theme-primary, #0078d4); }
+	body.theme-dark .font-size-btn { background:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); border-color:rgba(255,255,255,0.15); }
+
+	.ic { display:inline-flex; align-items:center; justify-content:center; vertical-align:-0.125em; }
+	.ic svg { width:1em; height:1em; fill:currentColor; display:block; }
+	.help-toggle svg { width:15px; height:15px; vertical-align:-2px; }
+
+	/* ── IMAGE ICONS (official Azure service icons + Fluent) ── */
+	.az-ic { width:1em; height:1em; object-fit:contain; display:inline-block; vertical-align:-0.15em; }
+	.agent-node .an-icon .az-ic { display:block; width:1em; height:1em; }
+	.uc-head .uc-icon .az-ic { display:block; width:1em; height:1em; }
+	.tier-card .tc-icon .az-ic { display:block; width:1em; height:1em; }
+	.pill .az-ic { width:1.15em; height:1.15em; }
+
+	/* ── RECAP · "ALL IN ONE" MAP (recaps every step in one view) ── */
+	.sa-summary { display:flex; flex-direction:column; align-items:center; gap:1.1rem; width:min(1120px, 99%); }
+	.sa-account {
+		width:100%; border:2.5px dashed var(--aw-purple, #5c2d91); border-radius:18px;
+		background:linear-gradient(135deg, rgba(92,45,145,0.06), rgba(0,120,212,0.05));
+		padding:1.05rem 1.4rem 1.15rem; display:flex; flex-direction:column; gap:0.95rem; opacity:0;
+	}
+	body.theme-dark .sa-account { background:linear-gradient(135deg, rgba(146,78,217,0.14), rgba(80,170,255,0.10)); border-color:#a67dd8; }
+	.sa-account-head { display:flex; align-items:center; gap:0.7rem; flex-wrap:wrap; }
+	.sa-account-head .sa-acct-ic .az-ic { width:1.9rem; height:1.9rem; }
+	.sa-acct-name { font-size:1.3rem; font-weight:800; color:var(--theme-text); }
+	body.theme-dark .sa-acct-name { color:#e6d8f5; }
+	.sa-perf { display:flex; gap:0.4rem; margin-left:auto; flex-wrap:wrap; }
+	.sa-perf-pill { display:inline-flex; align-items:center; gap:0.35rem; padding:0.3rem 0.8rem; border-radius:999px; font-size:0.92rem; font-weight:700; border:1.5px solid var(--pc,#0078d4); background:color-mix(in srgb, var(--pc) 12%, transparent); color:var(--theme-text); }
+	.sa-perf-pill .az-ic { width:1.15em; height:1.15em; }
+	.sa-strip { display:flex; flex-direction:column; gap:0.62rem; }
+	.sa-strip-label { font-size:0.82rem; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:var(--theme-text-subtle); }
+	.sa-svc-row { display:flex; gap:1.1rem; flex-wrap:wrap; }
+	.sa-svc { flex:1 1 0; min-width:150px; display:flex; flex-direction:column; gap:0.4rem; padding:0.82rem 1.02rem; border-radius:12px; border:1.5px solid var(--theme-border); border-top:4px solid var(--sc,#0078d4); background:var(--theme-card-background,#fff); box-shadow:0 4px 14px rgba(0,0,0,0.1); opacity:0; }
+	body.theme-dark .sa-svc { background:rgba(255,255,255,0.05); }
+	.sa-svc-head { display:flex; align-items:center; gap:0.45rem; font-size:1.05rem; font-weight:700; color:var(--theme-text); }
+	.sa-svc-head .az-ic { width:1.35em; height:1.35em; }
+	.sa-svc-sub { font-size:0.86rem; color:var(--theme-text-subtle); line-height:1.3; }
+	.sa-subchips { display:flex; flex-wrap:wrap; gap:0.3rem; margin-top:0.1rem; }
+	.sa-subchip { padding:0.15rem 0.55rem; border-radius:999px; font-size:0.82rem; font-weight:700; background:color-mix(in srgb, #e97526 14%, transparent); border:1.5px solid color-mix(in srgb, #e97526 45%, transparent); color:var(--theme-text); }
+	.sa-tier-row { display:flex; gap:1.0rem; flex-wrap:wrap; }
+	.sa-tier { flex:1 1 0; min-width:150px; display:flex; align-items:flex-start; gap:0.68rem; padding:0.74rem 0.95rem; border-radius:10px; border:1.5px solid var(--theme-border); border-left:4px solid var(--tc,#e97526); background:var(--theme-card-background,#fff); opacity:0; }
+	body.theme-dark .sa-tier { background:rgba(255,255,255,0.05); }
+	.sa-tier .az-ic { width:1.5em; height:1.5em; flex-shrink:0; margin-top:0.1rem; }
+	.sa-tier-tt { display:flex; flex-direction:column; line-height:1.2; gap:0.05rem; }
+	.sa-tier-name { font-size:0.98rem; font-weight:800; color:var(--tc); }
+	.sa-tier-ret { font-size:0.8rem; color:var(--theme-text-subtle); font-weight:700; }
+	.sa-tier-desc { font-size:0.82rem; color:var(--theme-text-subtle); line-height:1.28; margin-top:0.05rem; }
+	.sa-benefits { display:flex; gap:0.55rem; flex-wrap:wrap; justify-content:center; }
+	.sa-benefit { display:inline-flex; align-items:center; gap:0.4rem; padding:0.4rem 0.9rem; border-radius:999px; font-size:0.9rem; font-weight:700; border:2px solid #107c10; background:rgba(16,124,16,0.08); color:var(--theme-text); opacity:0; }
+	body.theme-dark .sa-benefit { background:rgba(16,124,16,0.16); }
+	.sa-benefit .sa-check { color:#10a37f; font-weight:900; }
+
+	#shortcut-overlay { position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center; }
+	#shortcut-overlay[hidden] { display:none; }
+	.sc-backdrop { position:absolute; inset:0; background:rgba(0,0,0,0.5); -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px); }
+	.sc-panel { position:relative; z-index:1; width:min(430px,92vw); max-height:82vh; overflow:auto; padding:1.5rem 1.6rem; background:var(--theme-body-background); border:1px solid var(--theme-border); border-radius:16px; box-shadow:0 24px 70px rgba(0,0,0,0.4); }
+	.sc-panel h2 { margin:0 0 1rem; font-size:1.25rem; color:var(--theme-tertiary,#5c2d91); }
+	body.theme-dark .sc-panel h2 { color:#c9a5e8; }
+	.sc-close { position:absolute; top:0.7rem; right:0.7rem; width:2rem; height:2rem; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--theme-border); border-radius:50%; background:transparent; color:var(--theme-text-subtle); cursor:pointer; }
+	.sc-close:hover { color:var(--theme-text); border-color:var(--theme-primary,#0078d4); }
+	.sc-close svg { width:15px; height:15px; }
+	.sc-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:0.55rem; }
+	.sc-list li { display:flex; align-items:center; justify-content:space-between; gap:1rem; font-size:1rem; color:var(--theme-text); }
+	.sc-keys { display:inline-flex; gap:0.3rem; flex:none; }
+	.sc-panel kbd, .sc-hint kbd { font-family:'Cascadia Code','Consolas',monospace; font-size:0.82rem; line-height:1; padding:0.28rem 0.5rem; border-radius:6px; border:1px solid var(--theme-border); border-bottom-width:2px; background:var(--theme-card-background,#fff); color:var(--theme-text); }
+	body.theme-dark .sc-panel kbd, body.theme-dark .sc-hint kbd { background:rgba(255,255,255,0.08); }
+	.sc-hint { margin:1.1rem 0 0; font-size:0.85rem; color:var(--theme-text-subtle); text-align:center; }
+
+	@media (max-width:640px) { .app-header { font-size:0.95rem; } .scene-title { font-size:1.9rem; } #stage { padding:0.9rem 1rem 4.5rem; } }
+	@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition:none !important; animation:none !important; } .progress-fill { transition:none !important; } }
+	/* ── "Up next" pill — docked bottom-right on the last step (chains to the next stop, doesn't cover the recap) ── */
+	#journey-next { position:fixed; z-index:60; right:1.4rem; bottom:1.1rem; max-width:min(32rem,52vw); opacity:0; visibility:hidden; transform:translateY(12px); transition:opacity .5s ease, transform .5s ease, visibility .5s ease; }
+	#journey-next.show { opacity:1; visibility:visible; transform:none; }
+	.jn-card { display:flex; align-items:center; gap:0.7rem; padding:0.5rem 0.55rem 0.5rem 0.8rem; border-radius:14px; background:var(--theme-card-background,#fff); border:1px solid color-mix(in srgb, var(--aw-purple) 30%, var(--theme-border)); box-shadow:0 14px 34px rgba(0,0,0,0.3); }
+	body.theme-dark .jn-card { background:#15151d; }
+	.jn-icon { flex:none; width:2.4rem; height:2.4rem; display:grid; place-items:center; }
+	.jn-icon img { width:100%; height:100%; object-fit:contain; }
+	.jn-text { display:flex; flex-direction:column; line-height:1.2; min-width:0; }
+	.jn-eyebrow { display:inline-flex; align-items:center; gap:0.35rem; font-size:0.62rem; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:var(--aw-purple); }
+	.jn-check { display:grid; place-items:center; width:0.95rem; height:0.95rem; border-radius:50%; background:var(--aw-green); color:#fff; font-size:0.6rem; }
+	.jn-title { font-size:0.98rem; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+	.jn-cta { flex:none; display:inline-flex; align-items:center; gap:0.4rem; padding:0.5rem 0.95rem; border-radius:10px; font-size:0.9rem; font-weight:700; text-decoration:none; color:#fff; background:linear-gradient(120deg, var(--aw-purple), var(--aw-blue)); box-shadow:0 8px 20px rgba(92,45,145,0.4); transition:transform .15s ease, box-shadow .15s ease; }
+	.jn-cta:hover { transform:translateY(-1px); box-shadow:0 12px 26px rgba(92,45,145,0.5); }
+	.jn-close { flex:none; width:1.7rem; height:1.7rem; display:grid; place-items:center; border:none; border-radius:8px; cursor:pointer; background:transparent; color:var(--theme-text); opacity:0.5; }
+	.jn-close:hover { opacity:1; background:color-mix(in srgb, var(--theme-text) 10%, transparent); }
+	.jn-close svg { width:15px; height:15px; }
+	@media (max-width:860px){ #journey-next { right:0.8rem; bottom:5.1rem; max-width:min(22rem,88vw); } }
+	@media (prefers-reduced-motion: reduce){ #journey-next { transition:none !important; transform:none !important; } }
+</style>
+</head>
+
+<body class="theme-dark" data-theme-preset="atlas">
+
+	<a href="#stage" class="skip-link">Skip to diagram</a>
+
+	<header class="app-header padding-block-xs padding-inline-md border-bottom" role="banner" style="justify-content:space-between;">
+		<div class="display-flex align-items-center gap-xs">
+			<a href="index.html" class="header-back-link" aria-label="Back to the Storage journey">&larr; Storage journey</a>
+			<span id="page-title" class="font-size-h6 font-weight-semibold">&#128190; Storage Account</span>
+		</div>
+		<nav class="display-flex gap-xs align-items-center" aria-label="Primary">
+			<span id="breadcrumb" class="font-size-sm color-text-subtle">Step 1</span>
+		</nav>
+		<div class="display-flex gap-xs align-items-center">
+			<select id="lang-select" class="lang-select" aria-label="Language">
+				<option value="en">English</option>
+				<option value="es">Español</option>
+				<option value="ja">日本語</option>
+				<option value="ko">한국어</option>
+				<option value="pt">Português</option>
+			</select>
+			<div class="font-size-controls">
+				<button id="font-decrease" type="button" class="font-size-btn" aria-label="Decrease font size" title="Smaller text">A&minus;</button>
+				<button id="font-increase" type="button" class="font-size-btn" aria-label="Increase font size" title="Larger text">A+</button>
+			</div>
+			<button id="theme-toggle" type="button" class="theme-toggle" aria-label="Switch theme" title="Switch theme">
+				<svg class="theme-icon icon-moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg>
+				<svg class="theme-icon icon-sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.5" y1="4.5" x2="6.5" y2="6.5"/><line x1="17.5" y1="17.5" x2="19.5" y2="19.5"/><line x1="4.5" y1="19.5" x2="6.5" y2="17.5"/><line x1="17.5" y1="6.5" x2="19.5" y2="4.5"/></g></svg>
+			</button>
+			<button id="header-hide-top" type="button" aria-label="Hide top bar" title="Hide top bar (H)">
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/></svg>
+			</button>
+		</div>
+	</header>
+
+	<button id="header-reveal" type="button" aria-label="Show top bar" title="Show top bar">
+		<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/></svg>
+		<span>Toolbar</span>
+	</button>
+
+	<div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
+
+	<main id="stage" tabindex="0" role="region" aria-labelledby="stage-heading" aria-describedby="stage-instructions">
+		<h1 id="stage-heading" class="sr-only" tabindex="-1">Azure Storage Account</h1>
+		<p id="stage-instructions" class="sr-only">Animated explainer of the Azure Storage Account. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.</p>
+		<div id="step-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+		<div id="stage-frame">
+			<svg id="fx-svg" aria-hidden="true" focusable="false">
+				<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L0,10 L10,5 Z" fill="currentColor"/></marker></defs>
+			</svg>
+			<div id="aw-caption" class="aw-caption" aria-hidden="true"></div>
+			<div id="stage-overlay-left" class="stage-overlay stage-overlay-left" role="group" aria-label="View options">
+				<button id="callout-toggle" type="button" class="ovl-btn" aria-label="Toggle callouts" aria-pressed="false" data-tip="Callouts: Off"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M4 5h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H10l-4 3v-3H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></svg></button>
+				<button id="outline-toggle" type="button" class="ovl-btn" aria-controls="step-outline" aria-expanded="false" aria-label="Toggle text outline" data-tip="Outline: Off"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" d="M4 6h16M4 12h16M4 18h10"/></svg></button>
+				<button id="help-toggle" class="ovl-btn help-toggle" type="button" aria-haspopup="dialog" aria-controls="shortcut-overlay" aria-label="Keyboard shortcuts (press ?)" data-tip="Shortcuts"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M11 18h2v-2h-2v2zm1.1-14C9.8 4 8 5.8 8 8h2a2 2 0 1 1 3.2 1.6c-.9.7-2.2 1.5-2.2 3.4h2c0-1 .8-1.5 1.7-2.2A4 4 0 0 0 12.1 4z"/></svg></button>
+			</div>
+			<div id="stage-overlay" class="stage-overlay" role="group" aria-label="Player controls">
+				<button id="audio-toggle" class="ovl-btn ovl-audio" type="button" aria-label="Toggle audio narration" aria-pressed="false" title="Narration audio"></button>
+				<button id="cc-toggle" class="ovl-btn" type="button" aria-label="Toggle captions" aria-pressed="false" title="Captions"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9.7 10.2a2.1 2.1 0 1 0 0 3.6M17 10.2a2.1 2.1 0 1 0 0 3.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+				<button id="header-hide" class="ovl-btn" type="button" aria-label="Hide top bar" title="Hide top bar (H)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/></svg></button>
+				<button id="fs-toggle" class="ovl-btn" type="button" aria-label="Toggle full screen" aria-pressed="false" title="Full screen (F)"><svg class="fs-enter" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg><svg class="fs-exit" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg></button>
+			</div>
+		</div>
+	</main>
+
+	<aside id="step-outline" hidden aria-label="Text outline of the current step">
+		<h2 id="outline-title">Step Details</h2>
+		<div id="outline-body"></div>
+	</aside>
+
+	<div id="controls" role="group" aria-label="Diagram navigation">
+		<button id="ctrl-grip" type="button" class="ctrl-grip" aria-label="Drag to move the controls" title="Drag to move">
+			<svg viewBox="0 0 16 16" aria-hidden="true"><g fill="currentColor"><circle cx="5" cy="3" r="1.4"/><circle cx="11" cy="3" r="1.4"/><circle cx="5" cy="8" r="1.4"/><circle cx="11" cy="8" r="1.4"/><circle cx="5" cy="13" r="1.4"/><circle cx="11" cy="13" r="1.4"/></g></svg>
+		</button>
+		<button id="ctrl-pin" type="button" class="button button-clear ctrl-icon ctrl-pin" aria-label="Pin the controls back to the center" title="Pin to center">
+			<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9 2h6a1 1 0 0 1 .8 1.6L14 6v4l3 3v2h-4v5l-1 2-1-2v-5H7v-2l3-3V6L8.2 3.6A1 1 0 0 1 9 2z"/></svg>
+		</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="prev-btn" type="button" class="button ctrl-icon" aria-label="Previous step (left arrow)">&#9664;</button>
+		<div class="step-counter" id="step-counter">0 / 0</div>
+		<button id="next-btn" type="button" class="button button-primary button-filled ctrl-icon ctrl-icon-next" aria-label="Next step (right arrow or space)">&#9654;</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="replay-btn" type="button" class="button ctrl-icon" aria-label="Replay this step's animation (P)">&#8635;</button>
+		<div class="speed-control" role="group" aria-label="Animation speed">
+			<button id="speed-down" type="button" class="button button-clear speed-btn" aria-label="Slower (-)" title="Slower">&minus;</button>
+			<span id="speed-label" class="speed-label" aria-live="polite" aria-label="Current speed">1&times;</span>
+			<button id="speed-up" type="button" class="button button-clear speed-btn" aria-label="Faster (+)" title="Faster">+</button>
+		</div>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="reset-btn" type="button" class="button button-clear ctrl-icon" aria-label="Restart from step 1 (R)">&#9198;</button>
+	</div>
+
+	<!-- "Up next" pill — docked bottom-right on the last step so learners chain to the next stop -->
+	<div id="journey-next" aria-hidden="true">
+		<div class="jn-card" role="group" aria-label="Continue to the next stop">
+			<span class="jn-icon"><img id="jn-icon-img" src="" alt="" decoding="async" /></span>
+			<span class="jn-text">
+				<span class="jn-eyebrow"><span class="jn-check" aria-hidden="true">✓</span><span id="jn-eyebrow-text">Up next</span></span>
+				<span class="jn-title" id="jn-title">Next stop</span>
+			</span>
+			<a id="jn-cta" class="jn-cta" href="#"><span id="jn-cta-text">Continue</span><span aria-hidden="true">→</span></a>
+			<button id="jn-close" class="jn-close" type="button" aria-label="Dismiss"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
+		</div>
+	</div>
+
+	<div id="shortcut-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="sc-title">
+		<div class="sc-backdrop"></div>
+		<div class="sc-panel">
+			<button id="sc-close" class="sc-close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
+			<h2 id="sc-title">Keyboard shortcuts</h2>
+			<ul id="sc-list" class="sc-list"></ul>
+			<p class="sc-hint">Press <kbd>?</kbd> anytime to toggle this panel.</p>
+		</div>
+	</div>
+
+<script>
+// ── THEME ─────────────────────────────────
+const themeToggleBtn = document.getElementById('theme-toggle');
+function syncThemeBtn(){
+	if (!themeToggleBtn) return;
+	const isDark = document.body.classList.contains('theme-dark');
+	themeToggleBtn.dataset.theme = isDark ? 'dark' : 'light';
+	const label = isDark ? 'Switch to light theme' : 'Switch to dark theme';
+	themeToggleBtn.setAttribute('aria-label', label);
+	themeToggleBtn.setAttribute('title', label);
+}
+if (window.AW && AW.theme) {
+	AW.theme.onChange(() => { syncThemeBtn(); });   // theme recolors via CSS vars — no re-render/replay
+	syncThemeBtn();
+} else {
+	syncThemeBtn();
+	if (themeToggleBtn) themeToggleBtn.addEventListener('click', () => {
+		const goingDark = !document.body.classList.contains('theme-dark');
+		document.body.classList.remove('theme-dark', 'theme-light');
+		document.body.classList.add(goingDark ? 'theme-dark' : 'theme-light');
+		try { localStorage.setItem('aw-theme', goingDark ? 'theme-dark' : 'theme-light'); } catch(_){}
+		syncThemeBtn();
+	});
+	try { const saved = localStorage.getItem('aw-theme'); if (saved === 'theme-light' || saved === 'theme-dark') { document.body.classList.remove('theme-dark','theme-light'); document.body.classList.add(saved); syncThemeBtn(); } } catch(_){}
+}
+
+// ── i18n ──────────────────────────────────
+// English is the source language (English-first). Add sibling objects
+// (es/ja/ko/pt) with the SAME keys + matching <option>s once translations are
+// reviewed. Brand/product/code/proper-noun sample data stays untranslated.
+let currentLang = 'en';
+const I18N = {
+	en: {
+		skipToMain: 'Skip to diagram',
+		pageTitle: 'Storage Account',
+		stageHeading: 'Azure Storage Account',
+		stageInstructions: 'Animated explainer of the Azure Storage Account. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.',
+		prev: '\u25C0 Prev', next: 'Next \u25B6', replay: '\u21BB Replay', restart: '\u21BB Restart',
+		slower: 'Slower', faster: 'Faster',
+		calloutOn: '\uD83D\uDCAC Callout: On', calloutOff: '\uD83D\uDCAC Callout: Off',
+		outlineOn: '\uD83D\uDCDD Outline: On', outlineOff: '\uD83D\uDCDD Outline: Off',
+		audioOn: '\uD83D\uDD0A Audio: On', audioOff: '\uD83D\uDD07 Audio: Off',
+		stepDetails: 'Step Details', stepOf: 'Step',
+		resetPos: 'Reset to default position',
+		scTitle: 'Keyboard shortcuts',
+		scNext: 'Next step', scPrev: 'Previous step', scRestart: 'Restart', scReplay: 'Replay this step', scHide: 'Hide / show top bar', scHelp: 'Toggle this help',
+
+		// ── Step 1 · OVERVIEW ──
+		ovTitle: 'One Account, Many Jobs',
+		ovCaption: 'What a Storage Account is',
+		ovDesc: 'An Azure Storage Account is a single, durable home for all of Contoso\u2019s cloud data \u2014 blobs, files, queues, and tables \u2014 under one namespace and one bill.',
+		ovCallout: 'Everything sits behind one account endpoint (for example <strong>contoso.blob.core.windows.net</strong>) \u2014 one account, one bill, many services.',
+		ovInLabel: 'Your data', ovInSub: 'Files, logs, backups\u2026',
+		ovAcctLabel: 'Storage Account', ovAcctSub: 'One durable namespace',
+		ovSvcLabel: 'Any service', ovSvcSub: 'Blob \u00b7 File \u00b7 Queue \u00b7 Table',
+		ovPill1: 'Blob', ovPill2: 'File', ovPill3: 'Queue', ovPill4: 'Table',
+		ovNoteHead: 'Key idea', ovNoteText: 'Pick a performance tier once, then store data through whichever services the workload needs.',
+		ovStat1: 'Scope', ovStat1v: 'One account, one bill',
+		ovStat2: 'Holds', ovStat2v: 'Blobs, files, queues, tables',
+		ovStat3: 'Access', ovStat3v: 'HTTPS endpoint per service',
+
+		// ── Step 2 · PERFORMANCE (Standard vs Premium) ──
+		pfTitle: 'Standard vs Premium',
+		pfCaption: 'Pick a performance tier',
+		pfDesc: 'First choose how fast the account should be. Standard runs on HDD for cost-effective, general-purpose storage; Premium runs on SSD for low-latency, high-throughput workloads.',
+		pfCallout: 'Premium comes as a specialized account \u2014 Block blob, Page blob, or File shares \u2014 chosen for latency, not raw capacity.',
+		pfStdHead: 'Standard',
+		pfStdSub: 'HDD-backed, cost-effective, general purpose. Supports every service and all access tiers.',
+		pfStdTag1: 'HDD', pfStdTag2: 'Lowest cost', pfStdTag3: 'All services',
+		pfPremHead: 'Premium',
+		pfPremSub: 'SSD-backed, single-digit-millisecond latency for demanding apps. Offered per account type.',
+		pfPremTag1: 'SSD', pfPremTag2: 'Low latency', pfPremTag3: 'Block \u00b7 Page \u00b7 Files',
+		pfStat1: 'Standard', pfStat1v: 'HDD \u00b7 low cost \u00b7 all services',
+		pfStat2: 'Premium', pfStat2v: 'SSD \u00b7 low latency',
+		pfStat3: 'Choose by', pfStat3v: 'Latency vs cost',
+
+		// ── Step 3 · SERVICES ──
+		svTitle: 'Four Data Services',
+		svCaption: 'Blob \u00b7 File \u00b7 Queue \u00b7 Table',
+		svDesc: 'A Standard account offers four ways to store data \u2014 choose the shape that fits the job.',
+		svCallout: 'Blob is the workhorse for unstructured data; the other three cover file shares, messaging, and NoSQL.',
+		svBlobHead: 'Blob', svBlobDesc: 'Massive unstructured data \u2014 images, video, backups, and documents.', svBlobCap1: 'Unstructured', svBlobCap2: 'Containers',
+		svFileHead: 'File', svFileDesc: 'Fully managed SMB / NFS file shares for lift-and-shift apps.', svFileCap1: 'SMB / NFS', svFileCap2: 'Shares',
+		svQueueHead: 'Queue', svQueueDesc: 'Asynchronous messages between app components, up to 64 KB each.', svQueueCap1: 'Messaging', svQueueCap2: '\u2264 64 KB',
+		svTableHead: 'Table', svTableDesc: 'Schemaless NoSQL key-value store for rapid, low-cost development.', svTableCap1: 'NoSQL', svTableCap2: 'Key-value',
+		svStat1: 'Services', svStat1v: 'Blob, File, Queue, Table',
+		svStat2: 'Workhorse', svStat2v: 'Blob (unstructured)',
+		svStat3: 'Also', svStat3v: 'Shares, messaging, NoSQL',
+
+		// ── Step 4 · BLOB TYPES ──
+		btTitle: 'Three Kinds of Blob',
+		btCaption: 'Block \u00b7 Append \u00b7 Page',
+		btDesc: 'Blob storage itself comes in three types, each tuned for a different write pattern.',
+		btCallout: 'Most apps use Block blobs; Append blobs suit logging, and Page blobs back Azure VM disks.',
+		btBlockLabel: 'Block blob', btBlockSub: 'Text & binary \u2014 the most common',
+		btAppendLabel: 'Append blob', btAppendSub: 'Optimized for appends \u2014 logs',
+		btPageLabel: 'Page blob', btPageSub: 'Random read/write \u2014 VM disks',
+		btNoteHead: 'Rule of thumb', btNoteText: 'Uploading a file or image? Block. Streaming log lines? Append. Backing a virtual disk? Page.',
+		btStat1: 'Block', btStat1v: 'Text & binary (default)',
+		btStat2: 'Append', btStat2v: 'Append-only \u2014 logging',
+		btStat3: 'Page', btStat3v: 'Random R/W \u2014 VM disks',
+
+		// ── Step 5 · ACCESS TIERS ──
+		atTitle: 'From Hot to Archive \u2014 plus Smart',
+		atCaption: 'Access tiers for Block blobs',
+		atDesc: 'For Block blobs, an access tier trades storage cost against read cost and a minimum retention \u2014 colder tiers store cheaper but read pricier and slower. Or let the new Smart tier move data across them automatically.',
+		atCallout: 'Deleting or moving data before its minimum retention (or rehydrating from Archive) triggers an early-deletion / retrieval charge \u2014 match the tier to real access patterns.',
+		atHotName: 'Hot', atHotSub: 'Frequent access', atHotRet: 'No minimum',
+		atCoolName: 'Cool', atCoolSub: 'Infrequent access', atCoolRet: '\u2265 30 days',
+		atColdName: 'Cold', atColdSub: 'Rarely accessed', atColdRet: '\u2265 90 days',
+		atArchiveName: 'Archive', atArchiveSub: 'Offline \u00b7 rehydrate to read', atArchiveRet: '\u2265 180 days',
+		atScaleLeft: 'Frequent access \u00b7 higher storage cost',
+		atScaleRight: 'Rare access \u00b7 lower storage cost',
+		atCostLabel: 'relative storage cost',
+		atStat1: 'Hot', atStat1v: 'Frequent \u00b7 no minimum',
+		atStat2: 'Cool / Cold', atStat2v: '\u2265 30 / \u2265 90 days',
+		atStat3: 'Archive', atStat3v: '\u2265 180 days \u00b7 offline',
+		atStat4: 'Smart', atStat4v: 'Auto Hot\u2194Cool\u2194Cold \u00b7 block blobs',
+		stName: 'Smart tier', stBadge: 'New',
+		stDesc: 'Automatically moves blobs across Hot, Cool and Cold by real usage \u2014 no lifecycle rules to manage.',
+		stEdge1: '30d idle', stEdge2: '90d idle',
+		stAccess: 'any access \u2192 Hot',
+		stNote: 'Block blobs \u00b7 ZRS \u00b7 no Archive',
+
+		// ── Step 6 · RECAP ──
+		rcTitle: 'Azure Storage Account \u2014 All in One',
+		rcCaption: 'The whole picture at a glance',
+		rcDesc: 'The whole account in one view \u2014 performance, four services, three blob types, and five access tiers with what each one is for.',
+		rcCallout: 'Start with the workload: how fast, what shape of data, and how often you\u2019ll read it.',
+		rcCardH: 'The whole idea',
+		rcCardP: 'A Storage Account is one durable home \u2014 tune performance, service, and access tier to the workload and the bill follows.',
+		rcAcctName: 'Azure Storage Account',
+		rcBen1: 'One durable account', rcBen2: 'Tier by latency vs cost', rcBen3: 'Right service per data shape', rcBen4: 'Smart tier auto-optimizes cost',
+		rcSmartName: 'Smart', rcSmartRet: 'Auto Hot\u2194Cool\u2194Cold',
+		rcHotDesc: 'Frequently accessed \u2014 lowest read cost.',
+		rcCoolDesc: 'Infrequent access \u2014 cheaper to store.',
+		rcColdDesc: 'Rarely accessed, still fast to read.',
+		rcArchiveDesc: 'Offline & cheapest \u2014 rehydrate to read.',
+		rcSmartDesc: 'Auto-tiers by usage \u2014 no rules to manage.',
+		rcBlobFeat: 'Hot \u2192 Archive tiers',
+		rcPerfHead: 'Performance', rcSvcHead: 'Services', rcBlobHead: 'Blob types', rcTierHead: 'Access tiers',
+		rcVal1: 'One account', rcVal2: 'Right service', rcVal3: 'Right tier',
+		rcFoot: 'Go deeper on the free Microsoft Learn path <a href="https://learn.microsoft.com/training/paths/store-data-in-azure/" target="_blank" rel="noopener">Store data in Azure</a>.',
+		rcStat1: 'Recap', rcStat1v: 'Account \u2192 tier \u2192 service \u2192 access tier',
+		rcStat2: 'Next', rcStat2v: 'Match tiers to your data',
+		rcStat3: 'Where', rcStat3v: 'Microsoft Learn'
+	},
+
+	// ── Español (es) — teaching text; brand/code/product names stay English ──
+	es: {
+		pageTitle: 'Cuenta de almacenamiento',
+		stageHeading: 'Cuenta de Azure Storage',
+		stageInstructions: 'Explicación animada de la cuenta de Azure Storage. Usa los botones Siguiente/Anterior o las teclas de flecha para navegar. Pulsa R para reiniciar.',
+		ovTitle: 'Una cuenta, muchas tareas',
+		ovCaption: 'Qué es una cuenta de almacenamiento',
+		ovDesc: 'Una cuenta de Azure Storage es un hogar único y duradero para todos los datos en la nube de Contoso —blobs, archivos, colas y tablas— bajo un solo espacio de nombres y una sola factura.',
+		ovCallout: 'Todo está detrás de un único punto de conexión de la cuenta (por ejemplo <strong>contoso.blob.core.windows.net</strong>) — una cuenta, una factura, muchos servicios.',
+		pfTitle: 'Standard vs Premium',
+		pfCaption: 'Elige un nivel de rendimiento',
+		pfDesc: 'Primero elige qué tan rápida debe ser la cuenta. Standard funciona sobre HDD para un almacenamiento económico y de uso general; Premium funciona sobre SSD para cargas de trabajo de baja latencia y alto rendimiento.',
+		pfCallout: 'Premium viene como una cuenta especializada —Block blob, Page blob o recursos compartidos de archivos— elegida por latencia, no por capacidad bruta.',
+		svTitle: 'Cuatro servicios de datos',
+		svCaption: 'Blob · File · Queue · Table',
+		svDesc: 'Una cuenta Standard ofrece cuatro formas de almacenar datos — elige la forma que se ajuste al trabajo.',
+		svCallout: 'Blob es el caballo de batalla para datos no estructurados; los otros tres cubren recursos compartidos, mensajería y NoSQL.',
+		btTitle: 'Tres tipos de blob',
+		btCaption: 'Block · Append · Page',
+		btDesc: 'El propio almacenamiento de blobs viene en tres tipos, cada uno ajustado a un patrón de escritura diferente.',
+		btCallout: 'La mayoría de las apps usan Block blobs; los Append blobs sirven para registros y los Page blobs respaldan discos de máquinas virtuales de Azure.',
+		atTitle: 'De Hot a Archive — más Smart',
+		atCaption: 'Niveles de acceso para Block blobs',
+		atDesc: 'Para los Block blobs, un nivel de acceso equilibra el costo de almacenamiento frente al costo de lectura y una retención mínima — los niveles más fríos almacenan más barato pero leen más caro y más lento. O deja que el nuevo nivel Smart mueva los datos entre ellos automáticamente.',
+		atCallout: 'Eliminar o mover datos antes de su retención mínima (o rehidratar desde Archive) genera un cargo por eliminación anticipada o recuperación — ajusta el nivel a los patrones de acceso reales.',
+		rcTitle: 'Cuenta de Azure Storage — todo en uno',
+		rcCaption: 'Todo el panorama de un vistazo',
+		rcDesc: 'Toda la cuenta en una vista — rendimiento, cuatro servicios, tres tipos de blob y cinco niveles de acceso, con para qué sirve cada uno.',
+		rcCallout: 'Empieza por la carga de trabajo: qué tan rápida, qué forma de datos y con qué frecuencia leerás.'
+	},
+
+	// ── 日本語 (ja) — teaching text; brand/code/product names stay English ──
+	ja: {
+		pageTitle: 'ストレージアカウント',
+		stageHeading: 'Azure ストレージアカウント',
+		stageInstructions: 'Azure ストレージアカウントのアニメーション解説。次へ／前へボタンまたは矢印キーで移動します。R キーで最初からやり直します。',
+		ovTitle: '一つのアカウント、多くの役割',
+		ovCaption: 'ストレージアカウントとは',
+		ovDesc: 'Azure ストレージアカウントは、Contoso のクラウドデータすべて —blob、ファイル、キュー、テーブル— を、単一の名前空間と単一の請求のもとに収める、耐久性のある一つの家です。',
+		ovCallout: 'すべては一つのアカウントエンドポイント（例：<strong>contoso.blob.core.windows.net</strong>）の背後にあります — 一つのアカウント、一つの請求、多くのサービス。',
+		pfTitle: 'Standard と Premium',
+		pfCaption: 'パフォーマンス層を選ぶ',
+		pfDesc: 'まずアカウントの速さを選びます。Standard は HDD 上で動作し、コスト効率の良い汎用ストレージを提供します。Premium は SSD 上で動作し、低遅延・高スループットのワークロード向けです。',
+		pfCallout: 'Premium は専用アカウント —Block blob、Page blob、またはファイル共有— として提供され、生の容量ではなく遅延のために選びます。',
+		svTitle: '四つのデータサービス',
+		svCaption: 'Blob · File · Queue · Table',
+		svDesc: 'Standard アカウントはデータを保存する四つの方法を提供します — 仕事に合う形を選びましょう。',
+		svCallout: 'Blob は非構造化データの主役です。残りの三つがファイル共有、メッセージング、NoSQL をカバーします。',
+		btTitle: '三種類の blob',
+		btCaption: 'Block · Append · Page',
+		btDesc: 'Blob ストレージ自体は三つの型があり、それぞれ異なる書き込みパターンに合わせて調整されています。',
+		btCallout: 'ほとんどのアプリは Block blob を使います。Append blob はログに向き、Page blob は Azure VM のディスクを支えます。',
+		atTitle: 'Hot から Archive へ — さらに Smart',
+		atCaption: 'Block blob のアクセス層',
+		atDesc: 'Block blob では、アクセス層がストレージコストと読み取りコスト、そして最小保持期間のバランスを取ります — 冷たい層ほど保存は安く、読み取りは高く遅くなります。あるいは新しい Smart 層に、それらの間でデータを自動的に移動させられます。',
+		atCallout: '最小保持期間より前にデータを削除または移動する（あるいは Archive からリハイドレートする）と、早期削除・取得料金が発生します — 層を実際のアクセスパターンに合わせましょう。',
+		rcTitle: 'Azure ストレージアカウント — オールインワン',
+		rcCaption: '全体像を一目で',
+		rcDesc: 'アカウント全体を一つのビューで — パフォーマンス、四つのサービス、三つの blob 型、そして五つのアクセス層とそれぞれの用途。',
+		rcCallout: 'ワークロードから始めましょう：どれだけ速く、どんな形のデータで、どれくらいの頻度で読むのか。'
+	},
+
+	// ── 한국어 (ko) — teaching text; brand/code/product names stay English ──
+	ko: {
+		pageTitle: '스토리지 계정',
+		stageHeading: 'Azure 스토리지 계정',
+		stageInstructions: 'Azure 스토리지 계정의 애니메이션 설명. 다음/이전 버튼이나 화살표 키로 이동하세요. R 키로 다시 시작합니다.',
+		ovTitle: '하나의 계정, 여러 역할',
+		ovCaption: '스토리지 계정이란',
+		ovDesc: 'Azure 스토리지 계정은 Contoso의 모든 클라우드 데이터 —blob, 파일, 큐, 테이블— 을 단일 네임스페이스와 단일 청구서 아래 담는, 내구성 있는 하나의 집입니다.',
+		ovCallout: '모든 것은 하나의 계정 엔드포인트(예: <strong>contoso.blob.core.windows.net</strong>) 뒤에 있습니다 — 하나의 계정, 하나의 청구서, 여러 서비스.',
+		pfTitle: 'Standard vs Premium',
+		pfCaption: '성능 계층 선택',
+		pfDesc: '먼저 계정이 얼마나 빨라야 하는지 선택하세요. Standard는 HDD에서 실행되어 비용 효율적인 범용 스토리지를 제공하고, Premium은 SSD에서 실행되어 낮은 지연·높은 처리량 워크로드에 적합합니다.',
+		pfCallout: 'Premium은 전용 계정 —Block blob, Page blob 또는 파일 공유— 으로 제공되며, 원시 용량이 아니라 지연 시간을 위해 선택합니다.',
+		svTitle: '네 가지 데이터 서비스',
+		svCaption: 'Blob · File · Queue · Table',
+		svDesc: 'Standard 계정은 데이터를 저장하는 네 가지 방법을 제공합니다 — 작업에 맞는 형태를 선택하세요.',
+		svCallout: 'Blob은 비정형 데이터의 주력입니다. 나머지 셋이 파일 공유, 메시징, NoSQL을 담당합니다.',
+		btTitle: '세 가지 blob 유형',
+		btCaption: 'Block · Append · Page',
+		btDesc: 'Blob 스토리지 자체는 세 가지 유형이 있으며, 각각 다른 쓰기 패턴에 맞게 조정되어 있습니다.',
+		btCallout: '대부분의 앱은 Block blob을 사용합니다. Append blob은 로깅에 적합하고, Page blob은 Azure VM 디스크를 받칩니다.',
+		atTitle: 'Hot에서 Archive까지 — 여기에 Smart',
+		atCaption: 'Block blob의 액세스 계층',
+		atDesc: 'Block blob의 경우, 액세스 계층은 스토리지 비용을 읽기 비용 및 최소 보존 기간과 맞바꿉니다 — 더 차가운 계층은 저장은 더 싸지만 읽기는 더 비싸고 느립니다. 아니면 새로운 Smart 계층이 그 사이에서 데이터를 자동으로 이동하도록 둘 수 있습니다.',
+		atCallout: '최소 보존 기간 전에 데이터를 삭제하거나 이동하면(또는 Archive에서 리하이드레이션하면) 조기 삭제·검색 요금이 부과됩니다 — 계층을 실제 액세스 패턴에 맞추세요.',
+		rcTitle: 'Azure 스토리지 계정 — 올인원',
+		rcCaption: '전체 그림을 한눈에',
+		rcDesc: '계정 전체를 한 화면에 — 성능, 네 가지 서비스, 세 가지 blob 유형, 그리고 다섯 가지 액세스 계층과 각각의 용도.',
+		rcCallout: '워크로드에서 시작하세요: 얼마나 빠르게, 어떤 형태의 데이터를, 얼마나 자주 읽을지.'
+	},
+
+	// ── Português (pt) — teaching text; brand/code/product names stay English ──
+	pt: {
+		pageTitle: 'Conta de armazenamento',
+		stageHeading: 'Conta do Azure Storage',
+		stageInstructions: 'Explicação animada da conta do Azure Storage. Use os botões Próximo/Anterior ou as setas do teclado para navegar. Pressione R para reiniciar.',
+		ovTitle: 'Uma conta, muitas tarefas',
+		ovCaption: 'O que é uma conta de armazenamento',
+		ovDesc: 'Uma conta do Azure Storage é um lar único e durável para todos os dados na nuvem da Contoso —blobs, arquivos, filas e tabelas— sob um único namespace e uma única fatura.',
+		ovCallout: 'Tudo fica atrás de um único ponto de conexão da conta (por exemplo <strong>contoso.blob.core.windows.net</strong>) — uma conta, uma fatura, muitos serviços.',
+		pfTitle: 'Standard vs Premium',
+		pfCaption: 'Escolha uma camada de desempenho',
+		pfDesc: 'Primeiro escolha quão rápida a conta deve ser. Standard roda em HDD para armazenamento econômico e de uso geral; Premium roda em SSD para cargas de trabalho de baixa latência e alta taxa de transferência.',
+		pfCallout: 'Premium vem como uma conta especializada —Block blob, Page blob ou compartilhamentos de arquivos— escolhida por latência, não por capacidade bruta.',
+		svTitle: 'Quatro serviços de dados',
+		svCaption: 'Blob · File · Queue · Table',
+		svDesc: 'Uma conta Standard oferece quatro formas de armazenar dados — escolha o formato que se ajusta ao trabalho.',
+		svCallout: 'Blob é o carro-chefe para dados não estruturados; os outros três cobrem compartilhamentos de arquivos, mensageria e NoSQL.',
+		btTitle: 'Três tipos de blob',
+		btCaption: 'Block · Append · Page',
+		btDesc: 'O próprio blob storage vem em três tipos, cada um ajustado a um padrão de gravação diferente.',
+		btCallout: 'A maioria dos apps usa Block blobs; os Append blobs servem para logs e os Page blobs sustentam discos de VMs do Azure.',
+		atTitle: 'De Hot a Archive — mais Smart',
+		atCaption: 'Camadas de acesso para Block blobs',
+		atDesc: 'Para Block blobs, uma camada de acesso equilibra o custo de armazenamento com o custo de leitura e uma retenção mínima — camadas mais frias armazenam mais barato, mas leem mais caro e mais devagar. Ou deixe a nova camada Smart mover os dados entre elas automaticamente.',
+		atCallout: 'Excluir ou mover dados antes da retenção mínima (ou reidratar do Archive) gera uma cobrança de exclusão antecipada / recuperação — ajuste a camada aos padrões de acesso reais.',
+		rcTitle: 'Conta do Azure Storage — tudo em um',
+		rcCaption: 'Todo o panorama de relance',
+		rcDesc: 'A conta inteira em uma visão — desempenho, quatro serviços, três tipos de blob e cinco camadas de acesso, com para que serve cada uma.',
+		rcCallout: 'Comece pela carga de trabalho: quão rápida, que formato de dados e com que frequência você vai ler.'
+	}
+};
+function t(key) { return (I18N[currentLang] && I18N[currentLang][key]) || I18N.en[key] || key; }
+
+function setLanguage(lang) {
+	currentLang = lang;
+	document.documentElement.lang = lang;
+	try { const u=new URL(location.href); u.searchParams.set('lang', lang); history.replaceState(null,'',u); } catch(_){}
+	document.getElementById('page-title').textContent = '\uD83D\uDCBE ' + t('pageTitle');
+	document.getElementById('prev-btn').title = t('prev');
+	document.getElementById('next-btn').title = t('next');
+	document.getElementById('replay-btn').title = t('replay');
+	document.getElementById('reset-btn').title = t('restart');
+	document.getElementById('speed-down').title = t('slower');
+	document.getElementById('speed-up').title = t('faster');
+	document.getElementById('outline-title').textContent = t('stepDetails');
+	document.querySelector('.skip-link').textContent = t('skipToMain');
+	document.getElementById('stage-heading').textContent = t('stageHeading');
+	document.getElementById('stage-instructions').textContent = t('stageInstructions');
+	syncCalloutBtn(); syncOutlineBtn();
+	if (typeof syncAudioBtn === 'function') syncAudioBtn();
+	if (typeof buildShortcuts === 'function') buildShortcuts();
+	document.querySelectorAll('.aw-drag-reset').forEach(b=>{ b.title=t('resetPos'); b.setAttribute('aria-label', t('resetPos')); });
+	try { localStorage.setItem('aw-sa-lang', lang); } catch(_){}
+	if (typeof refreshJourneyNext === 'function') refreshJourneyNext();
+	if (current >= 0) renderStep(current);
+}
+
+// ── STEPS (journey order) ─────────────────
+const STEPS = [
+	{ id:'overview', short:'Overview', titleKey:'ovTitle', captionKey:'ovCaption', descKey:'ovDesc', calloutKey:'ovCallout',
+		stats:[['ovStat1','ovStat1v'],['ovStat2','ovStat2v'],['ovStat3','ovStat3v']] },
+	{ id:'performance', short:'Tiers', titleKey:'pfTitle', captionKey:'pfCaption', descKey:'pfDesc', calloutKey:'pfCallout',
+		stats:[['pfStat1','pfStat1v'],['pfStat2','pfStat2v'],['pfStat3','pfStat3v']] },
+	{ id:'services', short:'Services', titleKey:'svTitle', captionKey:'svCaption', descKey:'svDesc', calloutKey:'svCallout',
+		stats:[['svStat1','svStat1v'],['svStat2','svStat2v'],['svStat3','svStat3v']] },
+	{ id:'blobtypes', short:'Blob types', titleKey:'btTitle', captionKey:'btCaption', descKey:'btDesc', calloutKey:'btCallout',
+		stats:[['btStat1','btStat1v'],['btStat2','btStat2v'],['btStat3','btStat3v']] },
+	{ id:'accesstiers', short:'Access tiers', titleKey:'atTitle', captionKey:'atCaption', descKey:'atDesc', calloutKey:'atCallout',
+		stats:[['atStat1','atStat1v'],['atStat2','atStat2v'],['atStat3','atStat3v'],['atStat4','atStat4v']] },
+	{ id:'recap', short:'Recap', titleKey:'rcTitle', captionKey:'rcCaption', descKey:'rcDesc', calloutKey:'rcCallout',
+		stats:[['rcStat1','rcStat1v'],['rcStat2','rcStat2v'],['rcStat3','rcStat3v']] }
+];
+
+// ── DOM REFS ──────────────────────────────
+const stage=document.getElementById('stage-frame'), svg=document.getElementById('fx-svg'),
+	counter=document.getElementById('step-counter'), breadcrumb=document.getElementById('breadcrumb'),
+	progress=document.getElementById('progress-fill'), announcer=document.getElementById('step-announcer'),
+	outlineBody=document.getElementById('outline-body'), outlinePanel=document.getElementById('step-outline'),
+	outlineBtn=document.getElementById('outline-toggle'), calloutBtn=document.getElementById('callout-toggle'),
+	langSelect=document.getElementById('lang-select');
+
+langSelect.addEventListener('change', e => setLanguage(e.target.value));
+const urlLang = new URLSearchParams(location.search).get('lang');
+let savedLang=null; try{ savedLang=localStorage.getItem('aw-sa-lang'); }catch(_){}
+if (urlLang && I18N[urlLang]) { currentLang = urlLang; langSelect.value = urlLang; }
+else if (savedLang && I18N[savedLang]) { currentLang = savedLang; langSelect.value = savedLang; }
+
+// ── Font size ─────────────────────────────
+const fontScales=[0.8,0.9,1,1.1,1.2,1.35]; let fontScaleIdx=2;
+const baseFontSize=parseFloat(getComputedStyle(document.documentElement).fontSize);
+function applyFontScale(){ document.documentElement.style.fontSize=(baseFontSize*fontScales[fontScaleIdx])+'px'; const c=document.getElementById('controls'); if(c) c.style.fontSize=baseFontSize+'px'; if(typeof current!=='undefined'&&current>=0){ const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s); } }
+function saveFont(){ try{ localStorage.setItem('aw-sa-font', String(fontScaleIdx)); }catch(_){} }
+try{ const f=parseInt(localStorage.getItem('aw-sa-font'),10); if(!isNaN(f)&&f>=0&&f<fontScales.length){ fontScaleIdx=f; applyFontScale(); } }catch(_){}
+document.getElementById('font-decrease').addEventListener('click',()=>{ if(fontScaleIdx>0){fontScaleIdx--;applyFontScale();saveFont();} });
+document.getElementById('font-increase').addEventListener('click',()=>{ if(fontScaleIdx<fontScales.length-1){fontScaleIdx++;applyFontScale();saveFont();} });
+
+let current=-1, animating=false, liveEls=[], liveTimelines=[], calloutEnabled=false;
+
+function syncCalloutBtn(){ calloutBtn.classList.toggle('toggle-active',calloutEnabled); calloutBtn.setAttribute('aria-pressed',calloutEnabled?'true':'false'); calloutBtn.setAttribute('data-tip',calloutEnabled?'Callouts: On':'Callouts: Off'); }
+calloutBtn.addEventListener('click',()=>{
+	calloutEnabled=!calloutEnabled; syncCalloutBtn();
+	if(current<0) return;
+	// Toggle just the callout box in place — don't re-render (no animation replay).
+	const existing=stage.querySelectorAll('.callout');
+	if(calloutEnabled){ if(!existing.length){ const c=maybeCallout(STEPS[current]); if(c) gsap.fromTo(c,{opacity:0,y:10},{opacity:1,y:0,duration:0.4,overwrite:true}); } }
+	else { existing.forEach(c=>{ const idx=liveEls.indexOf(c); if(idx>-1) liveEls.splice(idx,1); gsap.killTweensOf(c); c.remove(); }); }
+}); syncCalloutBtn();
+function syncOutlineBtn(){ const on=!outlinePanel.hasAttribute('hidden'); outlineBtn.classList.toggle('toggle-active',on); outlineBtn.setAttribute('aria-expanded',on?'true':'false'); outlineBtn.setAttribute('data-tip',on?'Outline: On':'Outline: Off'); }
+outlineBtn.addEventListener('click',()=>{ const showing=!outlinePanel.hasAttribute('hidden'); if(showing){outlinePanel.setAttribute('hidden','');} else {outlinePanel.removeAttribute('hidden');} syncOutlineBtn(); }); syncOutlineBtn();
+
+// ── Audio narration ──────────────────
+const AUDIO_BASE = 'audio/StorageAccount/';
+const AUDIO_FILES = ['step-01.mp3','step-02.mp3','step-03.mp3','step-04.mp3','step-05.mp3','step-06.mp3'];
+let audioEnabled=false, currentAudio=null, audioTimeout=null, ccPref=false;
+const audioBtn=document.getElementById('audio-toggle');
+if(audioBtn){ audioBtn.innerHTML='<span class="aw-audio-ico" aria-hidden="true">\uD83D\uDD07</span><span class="aw-audio-time" aria-hidden="true">--:--</span>'; }
+const audioIco=audioBtn&&audioBtn.querySelector('.aw-audio-ico'), audioTimeEl=audioBtn&&audioBtn.querySelector('.aw-audio-time');
+// Captions can play WITHOUT sound: when CC is on but audio is off we still play the clip MUTED, so the
+// caption reveals at the same pace — speaker shows 🔇 and the remaining-time countdown keeps running.
+function playbackOn(){ return audioEnabled || ccPref; }
+function audioDir(){ return (currentLang && currentLang!=='en') ? currentLang+'/' : ''; }
+function fmtDur(s){ s=Math.max(0,Math.ceil(s)); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
+function updateAudioTime(){ if(audioTimeEl && currentAudio && isFinite(currentAudio.duration) && currentAudio.duration>0) audioTimeEl.textContent=fmtDur(currentAudio.duration-currentAudio.currentTime); }
+function syncAudioBtn(){ if(!audioBtn) return; if(audioIco) audioIco.textContent=audioEnabled?'\uD83D\uDD0A':'\uD83D\uDD07'; if(audioTimeEl && !playbackOn()) audioTimeEl.textContent='--:--'; audioBtn.classList.toggle('toggle-active',audioEnabled); audioBtn.setAttribute('aria-pressed',audioEnabled?'true':'false'); }
+function speakFallback(i){ if(!window.speechSynthesis) return; const step=STEPS[i]; const u=new SpeechSynthesisUtterance(`${t(step.titleKey)}. ${t(step.descKey)}`); u.lang=currentLang||'en'; try{ speechSynthesis.cancel(); speechSynthesis.speak(u); }catch(_){} }
+function stopAudio(){
+	if(currentAudio){ currentAudio.pause(); currentAudio.currentTime=0; currentAudio=null; }
+	if(audioTimeout){ clearTimeout(audioTimeout); audioTimeout=null; }
+	if(audioTimeEl) audioTimeEl.textContent='--:--';
+	try{ if(window.speechSynthesis) speechSynthesis.cancel(); }catch(_){}
+	if(window.AWCaptions) AWCaptions.clear();
+}
+function playStepAudio(i){
+	stopAudio();
+	if(document.body.classList.contains('aw-prestart')) return;
+	if(!playbackOn() || i<0 || i>=STEPS.length) return;
+	audioTimeout=setTimeout(()=>{
+		audioTimeout=null;
+		const file=AUDIO_FILES[i];
+		if(!file){ if(audioEnabled) speakFallback(i); return; }   // no clip = no timing source for caption-only
+		currentAudio=new Audio(AUDIO_BASE+audioDir()+file);
+		currentAudio.volume = audioEnabled ? 1 : 0;              // caption-only = silent (volume 0) timing source
+		if(window.AWCaptions) AWCaptions.bind(currentAudio,i);
+		currentAudio.addEventListener('loadedmetadata',updateAudioTime);
+		currentAudio.addEventListener('timeupdate',updateAudioTime);
+		currentAudio.addEventListener('ended',()=>{ if(audioTimeEl) audioTimeEl.textContent='0:00'; });
+		currentAudio.addEventListener('error',()=>{ if(audioEnabled) speakFallback(i); });
+		currentAudio.play().catch(()=>{});
+	}, 400);
+}
+if(audioBtn){ audioBtn.addEventListener('click',()=>{
+	audioEnabled=!audioEnabled; try{localStorage.setItem('aw-sa-audio',audioEnabled?'1':'0');}catch(_){} syncAudioBtn();
+	if(current>=0){
+		if(!playbackOn()) stopAudio();
+		else if(currentAudio) currentAudio.volume = audioEnabled ? 1 : 0;   // flip sound without restarting the clip
+		else playStepAudio(current);
+	}
+	applyCc();
+}); }
+// Initial audio + CC from the ?audio parameter:
+//   on -> audio ON + captions ON  ·  off -> both OFF  ·  (absent) -> audio ON, captions OFF (a prior stored choice still wins).
+(function(){
+	var p=null; try{ p=new URLSearchParams(location.search).get('audio'); }catch(_){}
+	if(p==='on'){ audioEnabled=true; ccPref=true; }
+	else if(p==='off'){ audioEnabled=false; ccPref=false; }
+	else {
+		audioEnabled=true; ccPref=false;
+		try{ var a=localStorage.getItem('aw-sa-audio'); if(a==='1') audioEnabled=true; else if(a==='0') audioEnabled=false; }catch(_){}
+		try{ var c=localStorage.getItem('aw-sa-cc'); if(c==='1') ccPref=true; else if(c==='0') ccPref=false; }catch(_){}
+	}
+	try{ localStorage.setItem('aw-sa-audio',audioEnabled?'1':'0'); localStorage.setItem('aw-sa-cc',ccPref?'1':'0'); }catch(_){}
+})();
+syncAudioBtn();
+
+// ── Captions (CC) — overlaid in the frame; play WITH or WITHOUT audio ──
+const ccBtn=document.getElementById('cc-toggle');
+function ccEffective(){ return ccPref; }                          // captions show whenever CC is on (audio not required)
+function syncCcBtn(){ if(!ccBtn) return; ccBtn.classList.toggle('on',ccPref); ccBtn.setAttribute('aria-pressed',ccPref?'true':'false'); }
+function applyCc(){ if(window.AWCaptions) AWCaptions.setEnabled(ccEffective()); if(ccEffective()&&currentAudio&&window.AWCaptions) AWCaptions.bind(currentAudio,current); syncCcBtn(); }
+if(window.AWCaptions){ AWCaptions.configure({ page:'StorageAccount', base:'../../narration/Storage/', lang:()=>currentLang, fallback:(i)=>(STEPS[i]?t(STEPS[i].descKey):''), reserve:false }); }
+if(ccBtn){ ccBtn.addEventListener('click',()=>{
+	ccPref=!ccPref; try{localStorage.setItem('aw-sa-cc',ccPref?'1':'0');}catch(_){} applyCc();
+	if(current>=0){
+		if(playbackOn() && !currentAudio) playStepAudio(current);   // caption-only: start the muted timing clip
+		else if(!playbackOn() && currentAudio) stopAudio();          // CC off + audio off: nothing left to play
+	}
+}); }
+applyCc();
+
+// ── Full screen ──
+(function(){
+	const fsBtn=document.getElementById('fs-toggle'); if(!fsBtn) return;
+	function inFs(){ return !!(document.fullscreenElement||document.webkitFullscreenElement); }
+	function syncFs(){ document.body.classList.toggle('is-fs',inFs()); fsBtn.setAttribute('aria-pressed',inFs()?'true':'false'); fsBtn.title=inFs()?'Exit full screen (F)':'Full screen (F)'; }
+	function toggle(){ try{ if(inFs()){ (document.exitFullscreen||document.webkitExitFullscreen).call(document); } else { const el=document.documentElement; (el.requestFullscreen||el.webkitRequestFullscreen).call(el); } }catch(_){} }
+	fsBtn.addEventListener('click',e=>{ e.stopPropagation(); toggle(); });
+	document.addEventListener('fullscreenchange',syncFs); document.addEventListener('webkitfullscreenchange',syncFs);
+	document.addEventListener('keydown',e=>{ if(e.code==='KeyF'&&!e.metaKey&&!e.ctrlKey&&!e.altKey){ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return; e.preventDefault(); toggle(); } });
+	syncFs();
+})();
+
+// ── Reduced motion ────────────────────────
+const motionMQ=window.matchMedia('(prefers-reduced-motion: reduce)'); let motionPaused=motionMQ.matches;
+motionMQ.addEventListener('change',e=>{ motionPaused=e.matches; renderStep(current); });
+
+// ── Helpers ───────────────────────────────
+function clearStage(){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; liveEls.forEach(el=>el.remove()); liveEls=[]; Array.from(svg.children).forEach(c=>{ if(c.tagName.toLowerCase()!=='defs') c.remove(); }); }
+function el(cls,html){ const d=document.createElement('div'); if(cls) d.className=cls; if(html!=null) d.innerHTML=html; return d; }
+const ICONS = {
+	inbox:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 3h2v5h3l-4 4-4-4h3zM5 14h14v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1z"/></svg>',
+	box:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 3 7v10l9 5 9-5V7zm0 2.3L17.7 7 12 10.2 6.3 7zM5 9.1l6 3.4v6.8l-6-3.3zm14 0v6.9l-6 3.3v-6.8z"/></svg>',
+	layers:'<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3 3 8l9 5 9-5z"/><path d="M3 12l9 5 9-5"/><path d="M3 16l9 5 9-5"/></g></svg>',
+	file:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h8l4 4v16H6z"/><path fill="var(--theme-card-background,#fff)" d="M13 3v4h4"/></svg>',
+	chat:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-4 4v-4H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/></svg>',
+	table:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M3 4h18v16H3V4zm2 2v3h6V6H5zm8 0v3h6V6h-6zM5 11v3h6v-3H5zm8 0v3h6v-3h-6zM5 16v2h6v-2H5zm8 0v2h6v-2h-6z"/></svg>',
+	disk:'<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor"/></g></svg>',
+	bolt:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>',
+	append:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v2H4zm0 4h16v2H4zm0 4h10v2H4zm13 0h2v3h3v2h-3v3h-2v-3h-3v-2h3z"/></svg>',
+	fire:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c1 3-1 4-1 6a2.5 2.5 0 0 0 5 0c0-1-.2-1.8-.6-2.6C17.6 7 19 9.7 19 13a7 7 0 1 1-14 0c0-3.6 2.6-6.4 4-8.6.6 1 1.3 1.7 2.4 2.3.5-1.4.3-3-.4-4.7z"/></svg>',
+	snow:'<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 2v20M4 6l16 12M20 6L4 18"/><path d="M12 6l-2.5-2M12 6l2.5-2M12 18l-2.5 2M12 18l2.5 2"/></g></svg>',
+	ice:'<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 2 4 6.5v9L12 20l8-4.5v-9z"/><path d="M4 6.5 12 11l8-4.5M12 11v9"/></g></svg>',
+	archive:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18v4H3zM4.5 9h15l-.9 10.1a1 1 0 0 1-1 .9H6.4a1 1 0 0 1-1-.9zM9 12v2h6v-2z"/></svg>',
+	clock:'<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2" stroke-linecap="round"/></g></svg>',
+	bulb:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-4 12.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26A7 7 0 0 0 12 2zM9 20h6v1a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1z"/></svg>',
+	party:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5zm6 11l.9 2.6L21.5 16.5l-2.6.9L18 20l-.9-2.6L14.5 16.5l2.6-.9zM6 14l.7 2 2 .7-2 .7L6 19.4l-.7-2-2-.7 2-.7z"/></svg>',
+	globe:'<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></g></svg>'
+};
+function icon(name){ return `<span class="ic">${ICONS[name]||''}</span>`; }
+// ICON POLICY (in priority order):
+//  1) Official Microsoft Azure service icons — local set, colored badges via <img>.  az('<category>/<file>.svg')
+//  2) Fluent icons — animated first, static fallback (wired via data-fallback in renderStep).  fluent('<Folder>','<file>')
+//  3) OS / GitHub icons approved by Microsoft/GitHub.   4) Open-source icons.   (inline ICONS map = small UI glyphs only)
+const AZ_BASE='../../lib/icons/Azure_Public_Service_Icons/';
+function az(rel, alt){ return `<img class="az-ic" src="${AZ_BASE}${rel}" alt="${alt||''}" decoding="async">`; }
+// Microsoft Fluent Emoji (official) ships static Color/Flat/3D — there is no official animated Fluent CDN —
+// so we use the static color SVG. If an approved animated source is added later, point src at it and keep
+// this static URL as data-fallback (renderStep already wires img[data-fallback] onerror → fallback).
+const FLUENT_STAT='https://cdn.jsdelivr.net/gh/microsoft/fluentui-emoji@main/assets/';
+function fluent(folder, file, alt){
+	return `<img class="az-ic fluent-ic" src="${FLUENT_STAT}${encodeURI(folder)}/Color/${file}_color.svg" alt="${alt||''}" decoding="async">`;
+}
+function stepById(id){ return STEPS.find(s=>s.id===id); }
+function fitScene(scene){
+	if(!scene) return;
+	scene.style.transform='translate(-50%,-50%) scale(1)';
+	const box=stage.getBoundingClientRect();
+	const availW=box.width-32, availH=box.height-28;
+	const sw=scene.offsetWidth, sh=scene.offsetHeight;
+	if(!sw||!sh) return;
+	const k=Math.min(1, availW/sw, availH/sh);
+	scene.style.transform='translate(-50%,-50%) scale('+k+')';
+}
+function headerEls(scene){ return [scene.querySelector('.scene-title'), scene.querySelector('.scene-lead')]; }
+function buildScene(step){ const s=el('scene'); s.appendChild(el('scene-title', t(step.titleKey))); s.appendChild(el('scene-lead', t(step.descKey))); return s; }
+function maybeCallout(step){ if(!calloutEnabled) return null; const c=el('callout', t(step.calloutKey)); c.style.left='1.5rem'; c.style.top='1.5rem'; stage.appendChild(c); liveEls.push(c); dragify(c, 'aw-sa-callout-pos'); return c; }
+function renderOutline(step,idx){
+	const rows=(step.stats||[]).map(([k,v])=>`<div class="stat-row"><span>${t(k)}</span><span>${t(v)}</span></div>`).join('');
+	outlineBody.innerHTML=`<div class="outline-section"><strong>${t('stepOf')} ${idx+1} / ${STEPS.length}: ${t(step.titleKey)}</strong><p style="margin-top:0.4rem;">${t(step.descKey)}</p></div>${rows?`<div class="outline-section">${rows}</div>`:''}`;
+}
+function announceStep(step,idx){ announcer.textContent=`${t('stepOf')} ${idx+1} / ${STEPS.length}: ${t(step.titleKey)}. ${t(step.descKey)}`; }
+
+// ── RENDER DISPATCH ───────────────────────
+function renderStep(i){
+	if(i<0||i>=STEPS.length) return;
+	if(animating){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; animating=false; }
+	animating=true;
+	const step=STEPS[i];
+	const outgoing=stage.querySelector('.scene:not(.scene-out)');
+	if(outgoing) liveEls=liveEls.filter(x=>x!==outgoing);
+	clearStage();
+	if(outgoing){ outgoing.style.zIndex='5';
+		if(motionPaused){ outgoing.remove(); }
+		else { outgoing.classList.remove('scene-in'); outgoing.classList.add('scene-out'); setTimeout(()=>outgoing.remove(), 240); } }
+	if(step.id==='overview') renderOverviewStep();
+	else if(step.id==='performance') renderPerformanceStep();
+	else if(step.id==='services') renderServicesStep();
+	else if(step.id==='blobtypes') renderBlobTypesStep();
+	else if(step.id==='accesstiers') renderAccessTiersStep();
+	else if(step.id==='recap') renderRecapStep();
+	const incoming=stage.querySelector('.scene:not(.scene-out)');
+	// Fluent icons load an animated APNG first; if it 404s, fall back to the static color SVG.
+	if(incoming){ incoming.querySelectorAll('img[data-fallback]').forEach(im=>{ im.addEventListener('error', function h(){ im.removeEventListener('error',h); const fb=im.getAttribute('data-fallback'); if(fb) im.src=fb; }); }); }
+	if(incoming && !motionPaused) incoming.classList.add('scene-in');
+	fitScene(incoming);
+	current=i;
+	try{ const u=new URL(location.href); u.searchParams.set('step', String(i+1)); history.replaceState(null,'',u); }catch(_){}
+	counter.textContent=`${t('stepOf')} ${current+1} / ${STEPS.length}`;
+	breadcrumb.textContent=t(step.captionKey);
+	progress.style.width=((current+1)/STEPS.length*100)+'%';
+	renderOutline(step,i); announceStep(step,i);
+	if(typeof playStepAudio==='function') playStepAudio(i);
+	if(typeof armJourneyNext==='function') armJourneyNext(i);
+}
+
+// ── STEP 1 · OVERVIEW (flow + service chips + note) ──
+function renderOverviewStep(){
+	const step=stepById('overview'); const scene=buildScene(step);
+	const flow=el('ta-flow');
+	const inNode=el('agent-node', `<span class="an-icon">${az('general/10795-icon-service-Cubes.svg')}</span><span class="an-label">${t('ovInLabel')}</span><span class="an-sub">${t('ovInSub')}</span>`);
+	const a1=el('ta-arrow is-big','\u279C');
+	const acct=el('agent-node', `<span class="an-icon">${az('storage/10086-icon-service-Storage-Accounts.svg')}</span><span class="an-label">${t('ovAcctLabel')}</span><span class="an-sub">${t('ovAcctSub')}</span>`);
+	const a2=el('ta-arrow is-big','\u279C');
+	const svc=el('agent-node', `<span class="an-icon">${az('general/10001-icon-service-All-Resources.svg')}</span><span class="an-label">${t('ovSvcLabel')}</span><span class="an-sub">${t('ovSvcSub')}</span>`);
+	[inNode,a1,acct,a2,svc].forEach(n=>flow.appendChild(n));
+	const pills=el('chip-row', `<span class="pill">${az('general/10839-icon-service-Storage-Container.svg')}<span>${t('ovPill1')}</span></span><span class="pill">${az('general/10838-icon-service-Storage-Azure-Files.svg')}<span>${t('ovPill2')}</span></span><span class="pill">${az('general/10840-icon-service-Storage-Queue.svg')}<span>${t('ovPill3')}</span></span><span class="pill">${az('general/10841-icon-service-Table.svg')}<span>${t('ovPill4')}</span></span>`);
+	const note=el('ta-card', `<div class="ta-card-head">${fluent('Light bulb','light_bulb')}<span>${t('ovNoteHead')}</span></div><div class="ta-card-text">${t('ovNoteText')}</div>`);
+	scene.appendChild(flow); scene.appendChild(pills); scene.appendChild(note); stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	const nodes=[inNode,acct,svc], arrows=[a1,a2], pillEls=pills.querySelectorAll('.pill');
+	if(motionPaused){ gsap.set([...headerEls(scene), ...nodes, ...arrows, ...pillEls, note], {opacity:1}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
+	const tl=gsap.timeline({onComplete:()=>{ animating=false; startOverviewIdle(); }}); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	tl.fromTo(nodes, {opacity:0,y:20,scale:0.85}, {opacity:1,y:0,scale:1,duration:0.5,stagger:0.16,ease:'back.out(1.5)'}, '-=0.05');
+	tl.fromTo(arrows, {opacity:0,scaleX:0.3}, {opacity:1,scaleX:1,duration:0.35,stagger:0.16,ease:'power2.out',transformOrigin:'left center'}, '-=0.5');
+	tl.fromTo(pillEls, {opacity:0,y:12,scale:0.85}, {opacity:1,y:0,scale:1,duration:0.4,stagger:0.1,ease:'back.out(1.8)'}, '-=0.1');
+	tl.fromTo(note, {opacity:0,y:14}, {opacity:1,y:0,duration:0.5,ease:'power2.out'}, '-=0.1');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.3');
+	function startOverviewIdle(){
+		// the account hub keeps a gentle "always-on" pulse
+		liveTimelines.push(gsap.to(acct, {scale:1.035, duration:1.4, repeat:-1, yoyo:true, ease:'sine.inOut'}));
+		// arrows march to imply the direction of flow
+		liveTimelines.push(gsap.to(arrows, {x:7, opacity:0.55, duration:0.75, repeat:-1, yoyo:true, ease:'sine.inOut', stagger:0.2}));
+	}
+}
+
+// ── STEP 2 · PERFORMANCE (Standard vs Premium duo) ──
+function renderPerformanceStep(){
+	const step=stepById('performance'); const scene=buildScene(step);
+	const duo=el('duo');
+	const std=el('duo-card', `<span class="dc-head">${az('compute/10032-icon-service-Disks.svg')}<span>${t('pfStdHead')}</span></span><span class="dc-sub">${t('pfStdSub')}</span><span class="dc-list"><span class="pill">${t('pfStdTag1')}</span><span class="pill">${t('pfStdTag2')}</span><span class="pill">${t('pfStdTag3')}</span></span>`);
+	std.style.setProperty('--dc','#0078d4');
+	const prem=el('duo-card', `<span class="dc-head">${az('general/10837-icon-service-SSD.svg')}<span>${t('pfPremHead')}</span></span><span class="dc-sub">${t('pfPremSub')}</span><span class="dc-list"><span class="pill">${t('pfPremTag1')}</span><span class="pill">${t('pfPremTag2')}</span><span class="pill">${t('pfPremTag3')}</span></span>`);
+	prem.style.setProperty('--dc','#5c2d91');
+	duo.appendChild(std); duo.appendChild(prem);
+	scene.appendChild(duo); stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	const cards=[std,prem], pills=duo.querySelectorAll('.pill');
+	if(motionPaused){ gsap.set([...headerEls(scene), ...cards, ...pills], {opacity:1}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
+	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	tl.fromTo(cards, {opacity:0,y:22,scale:0.96}, {opacity:1,y:0,scale:1,duration:0.55,stagger:0.16,ease:'back.out(1.4)'}, '-=0.05');
+	tl.fromTo(pills, {opacity:0,y:10,scale:0.85}, {opacity:1,y:0,scale:1,duration:0.35,stagger:0.06,ease:'back.out(1.8)'}, '-=0.15');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.3');
+}
+
+// ── STEP 3 · SERVICES (uc-grid) ──
+function renderServicesStep(){
+	const step=stepById('services'); const scene=buildScene(step);
+	const grid=el('uc-grid');
+	[['a', az('general/10839-icon-service-Storage-Container.svg'),'svBlobHead','svBlobDesc','svBlobCap1','svBlobCap2'],
+	 ['b', az('general/10838-icon-service-Storage-Azure-Files.svg'),'svFileHead','svFileDesc','svFileCap1','svFileCap2'],
+	 ['c', az('general/10840-icon-service-Storage-Queue.svg'),'svQueueHead','svQueueDesc','svQueueCap1','svQueueCap2'],
+	 ['d', az('general/10841-icon-service-Table.svg'),'svTableHead','svTableDesc','svTableCap1','svTableCap2']].forEach(([k,ico,h,d,c1,c2])=>{
+		const card=el('uc-card', `<span class="uc-head"><span class="uc-icon">${ico}</span><span>${t(h)}</span></span><span class="uc-desc">${t(d)}</span><span class="uc-caps"><span class="uc-cap">${t(c1)}</span><span class="uc-cap">${t(c2)}</span></span>`);
+		card.setAttribute('data-uc', k); grid.appendChild(card);
+	});
+	scene.appendChild(grid); stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	const cards=grid.querySelectorAll('.uc-card'), caps=grid.querySelectorAll('.uc-cap');
+	if(motionPaused){ gsap.set([...headerEls(scene), ...cards, ...caps], {opacity:1}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
+	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	tl.fromTo(cards, {opacity:0,y:22,scale:0.94}, {opacity:1,y:0,scale:1,duration:0.5,stagger:0.12,ease:'back.out(1.4)'}, '-=0.05');
+	tl.fromTo(caps, {opacity:0,scale:0.7}, {opacity:1,scale:1,duration:0.3,stagger:0.04,ease:'back.out(1.8)'}, '-=0.2');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.3');
+}
+
+// ── STEP 4 · BLOB TYPES (3 nodes + note) ──
+function renderBlobTypesStep(){
+	const step=stepById('blobtypes'); const scene=buildScene(step);
+	const flow=el('ta-flow');
+	const block=el('agent-node', `<span class="an-icon">${az('general/10780-icon-service-Blob-Block.svg')}</span><span class="an-label">${t('btBlockLabel')}</span><span class="an-sub">${t('btBlockSub')}</span>`);
+	const append=el('agent-node', `<span class="an-icon">${az('general/10819-icon-service-Log-Streaming.svg')}</span><span class="an-label">${t('btAppendLabel')}</span><span class="an-sub">${t('btAppendSub')}</span>`);
+	const page=el('agent-node', `<span class="an-icon">${az('general/10781-icon-service-Blob-Page.svg')}</span><span class="an-label">${t('btPageLabel')}</span><span class="an-sub">${t('btPageSub')}</span>`);
+	[block,append,page].forEach(n=>flow.appendChild(n));
+	const note=el('ta-card', `<div class="ta-card-head">${fluent('Light bulb','light_bulb')}<span>${t('btNoteHead')}</span></div><div class="ta-card-text">${t('btNoteText')}</div>`);
+	scene.appendChild(flow); scene.appendChild(note); stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	const nodes=[block,append,page];
+	if(motionPaused){ gsap.set([...headerEls(scene), ...nodes, note], {opacity:1}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
+	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	tl.fromTo(nodes, {opacity:0,y:20,scale:0.85}, {opacity:1,y:0,scale:1,duration:0.5,stagger:0.16,ease:'back.out(1.5)'}, '-=0.05');
+	tl.fromTo(note, {opacity:0,y:14}, {opacity:1,y:0,duration:0.5,ease:'power2.out'}, '-=0.1');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.3');
+}
+
+// ── STEP 5 · ACCESS TIERS (Hot → Archive spectrum) ──
+function renderAccessTiersStep(){
+	const step=stepById('accesstiers'); const scene=buildScene(step);
+	const row=el('tier-row');
+	const tiers=[
+		[fluent('Fire','fire'),'atHotName','atHotSub','atHotRet','#e97526',4],
+		[fluent('Snowflake','snowflake'),'atCoolName','atCoolSub','atCoolRet','#0078d4',3],
+		[fluent('Ice','ice'),'atColdName','atColdSub','atColdRet','#00b7c3',2],
+		[fluent('Package','package'),'atArchiveName','atArchiveSub','atArchiveRet','#5c2d91',1]
+	];
+	tiers.forEach(([ico,n,s,r,color,cost])=>{
+		const dots=[0,1,2,3].map(idx=>`<span class="tc-dot${idx<cost?' on':''}"></span>`).join('');
+		const card=el('tier-card', `<span class="tc-icon">${ico}</span><span class="tc-name">${t(n)}</span><span class="tc-sub">${t(s)}</span><span class="tc-ret">${icon('clock')}<span>${t(r)}</span></span><span class="tc-cost" title="${t('atCostLabel')}" aria-label="${t('atCostLabel')}">${dots}</span>`);
+		card.style.setProperty('--tc',color);
+		row.appendChild(card);
+	});
+	const scaleWrap=el('tier-scalewrap');
+	const scaleEl=el('tier-scale');
+	const labels=el('tier-scale-labels', `<span>${t('atScaleLeft')}</span><span>${t('atScaleRight')}</span>`);
+	scaleWrap.appendChild(scaleEl); scaleWrap.appendChild(labels);
+	// Smart tier — auto-manages Hot/Cool/Cold by usage (learn.microsoft.com/azure/storage/blobs/access-tiers-smart)
+	const smart=el('smart-tier',
+		`<span class="st-head">${fluent('Sparkles','sparkles')}<span class="st-name">${t('stName')}</span><span class="st-badge">${t('stBadge')}</span></span>`+
+		`<span class="st-body"><span class="st-desc">${t('stDesc')}</span><span class="st-flow">`+
+			`<span class="st-node" style="--nc:#e97526">${fluent('Fire','fire')}<span>${t('atHotName')}</span></span>`+
+			`<span class="st-edge"><b>\u2192</b>${t('stEdge1')}</span>`+
+			`<span class="st-node" style="--nc:#0078d4">${fluent('Snowflake','snowflake')}<span>${t('atCoolName')}</span></span>`+
+			`<span class="st-edge"><b>\u2192</b>${t('stEdge2')}</span>`+
+			`<span class="st-node" style="--nc:#00b7c3">${fluent('Ice','ice')}<span>${t('atColdName')}</span></span>`+
+			`<span class="st-access">\u21BA ${t('stAccess')}</span>`+
+		`</span></span>`+
+		`<span class="st-note">${t('stNote')}</span>`);
+	scene.appendChild(row); scene.appendChild(scaleWrap); scene.appendChild(smart); stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	const cards=row.querySelectorAll('.tier-card');
+	if(motionPaused){ gsap.set([...headerEls(scene), ...cards, scaleEl, labels, smart], {opacity:1}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
+	const tl=gsap.timeline({onComplete:()=>{ animating=false; startTierIdle(); }}); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	tl.fromTo(cards, {opacity:0,y:22,scale:0.92}, {opacity:1,y:0,scale:1,duration:0.5,stagger:0.14,ease:'back.out(1.4)'}, '-=0.05');
+	tl.fromTo(scaleEl, {opacity:0,scaleX:0.4}, {opacity:1,scaleX:1,duration:0.5,ease:'power2.out',transformOrigin:'left center'}, '-=0.1');
+	tl.fromTo(labels, {opacity:0}, {opacity:1,duration:0.4}, '-=0.2');
+	tl.fromTo(smart, {opacity:0,y:14}, {opacity:1,y:0,duration:0.5,ease:'power2.out'}, '-=0.05');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.3');
+	function startTierIdle(){
+		// Smart tier visibly demonstrates auto-tiering: Hot \u2192 Cool \u2192 Cold light up in turn
+		const stNodes=smart.querySelectorAll('.st-node'), badge=smart.querySelector('.st-badge');
+		const glow=['233,117,38','0,120,212','0,183,195'];
+		const seq=gsap.timeline({repeat:-1, repeatDelay:0.5});
+		stNodes.forEach((n,idx)=>{ seq.to(n,{scale:1.14, boxShadow:`0 0 0 3px rgba(${glow[idx]||'0,120,212'},0.7)`, duration:0.4, ease:'power2.out'}, idx*0.6)
+			.to(n,{scale:1, boxShadow:'0 0 0 0 rgba(0,0,0,0)', duration:0.4, ease:'power2.in'}, idx*0.6+0.55); });
+		liveTimelines.push(seq);
+		// the "New" badge keeps a subtle pulse
+		if(badge) liveTimelines.push(gsap.to(badge,{scale:1.12, duration:0.75, repeat:-1, yoyo:true, ease:'sine.inOut'}));
+	}
+}
+
+// ── STEP 6 · RECAP ("All in One" architecture map — recaps every step) ──
+function renderRecapStep(){
+	const step=stepById('recap'); const scene=buildScene(step);
+	const wrap=el('sa-summary');
+	const acct=el('sa-account');
+	// Header: the account + performance tiers (recaps steps 1-2)
+	const head=el('sa-account-head',
+		`<span class="sa-acct-ic">${az('storage/10086-icon-service-Storage-Accounts.svg')}</span>`+
+		`<span class="sa-acct-name">${t('rcAcctName')}</span>`+
+		`<span class="sa-perf">`+
+			`<span class="sa-perf-pill" style="--pc:#0078d4">${az('compute/10032-icon-service-Disks.svg')}<span>${t('pfStdHead')}</span></span>`+
+			`<span class="sa-perf-pill" style="--pc:#5c2d91">${az('general/10837-icon-service-SSD.svg')}<span>${t('pfPremHead')}</span></span>`+
+		`</span>`);
+	acct.appendChild(head);
+	// Services strip (recaps step 3), with Blob expanded to its blob types (recaps step 4)
+	const svcStrip=el('sa-strip'); svcStrip.appendChild(el('sa-strip-label', t('rcSvcHead')));
+	const svcRow=el('sa-svc-row');
+	const blob=el('sa-svc', `<span class="sa-svc-head">${az('general/10839-icon-service-Storage-Container.svg')}<span>${t('ovPill1')}</span></span><span class="sa-svc-sub">${t('svBlobDesc')}</span><span class="sa-subchips"><span class="sa-subchip">${t('btStat1')}</span><span class="sa-subchip">${t('btStat2')}</span><span class="sa-subchip">${t('btStat3')}</span></span><span class="sa-feats"><span class="sa-feat">${t('rcBlobFeat')}</span></span>`);
+	blob.style.setProperty('--sc','#0078d4');
+	const file=el('sa-svc', `<span class="sa-svc-head">${az('general/10838-icon-service-Storage-Azure-Files.svg')}<span>${t('ovPill2')}</span></span><span class="sa-svc-sub">${t('svFileDesc')}</span><span class="sa-feats"><span class="sa-feat">${t('svFileCap1')}</span><span class="sa-feat">${t('svFileCap2')}</span></span>`);
+	file.style.setProperty('--sc','#10a37f');
+	const queue=el('sa-svc', `<span class="sa-svc-head">${az('general/10840-icon-service-Storage-Queue.svg')}<span>${t('ovPill3')}</span></span><span class="sa-svc-sub">${t('svQueueDesc')}</span><span class="sa-feats"><span class="sa-feat">${t('svQueueCap1')}</span><span class="sa-feat">${t('svQueueCap2')}</span></span>`);
+	queue.style.setProperty('--sc','#e97526');
+	const table=el('sa-svc', `<span class="sa-svc-head">${az('general/10841-icon-service-Table.svg')}<span>${t('ovPill4')}</span></span><span class="sa-svc-sub">${t('svTableDesc')}</span><span class="sa-feats"><span class="sa-feat">${t('svTableCap1')}</span><span class="sa-feat">${t('svTableCap2')}</span></span>`);
+	table.style.setProperty('--sc','#d24aa8');
+	[blob,file,queue,table].forEach(n=>svcRow.appendChild(n));
+	svcStrip.appendChild(svcRow); acct.appendChild(svcStrip);
+	// Access-tier strip (recaps step 5)
+	const tierStrip=el('sa-strip'); tierStrip.appendChild(el('sa-strip-label', t('atCaption')));
+	const tierRow=el('sa-tier-row');
+	[['Fire','fire','atHotName','atHotRet','rcHotDesc','#e97526'],
+	 ['Snowflake','snowflake','atCoolName','atCoolRet','rcCoolDesc','#0078d4'],
+	 ['Ice','ice','atColdName','atColdRet','rcColdDesc','#00b7c3'],
+	 ['Package','package','atArchiveName','atArchiveRet','rcArchiveDesc','#5c2d91'],
+	 ['Sparkles','sparkles','rcSmartName','rcSmartRet','rcSmartDesc','#8661c5']].forEach(([folder,fileName,n,r,d,color])=>{
+		const tile=el('sa-tier', `${fluent(folder,fileName)}<span class="sa-tier-tt"><span class="sa-tier-name">${t(n)}</span><span class="sa-tier-ret">${t(r)}</span><span class="sa-tier-desc">${t(d)}</span></span>`);
+		tile.style.setProperty('--tc',color); tierRow.appendChild(tile);
+	});
+	tierStrip.appendChild(tierRow); acct.appendChild(tierStrip);
+	wrap.appendChild(acct);
+	// Benefit takeaways
+	const benefits=el('sa-benefits');
+	['rcBen1','rcBen2','rcBen3','rcBen4'].forEach(k=>benefits.appendChild(el('sa-benefit', `<span class="sa-check">\u2713</span><span>${t(k)}</span>`)));
+	wrap.appendChild(benefits);
+	const foot=el('recap-foot', t('rcFoot'));
+	scene.appendChild(wrap); scene.appendChild(foot); stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	const svcCards=svcRow.querySelectorAll('.sa-svc'), tierTiles=tierRow.querySelectorAll('.sa-tier'), benefitEls=benefits.querySelectorAll('.sa-benefit');
+	if(motionPaused){ gsap.set([...headerEls(scene), acct, ...svcCards, ...tierTiles, ...benefitEls, foot], {opacity:1}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
+	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	tl.fromTo(acct, {opacity:0,y:18,scale:0.98}, {opacity:1,y:0,scale:1,duration:0.55,ease:'power2.out'}, '-=0.1');
+	tl.fromTo(svcCards, {opacity:0,y:14,scale:0.92}, {opacity:1,y:0,scale:1,duration:0.4,stagger:0.08,ease:'back.out(1.5)'}, '-=0.15');
+	tl.fromTo(tierTiles, {opacity:0,y:12,scale:0.9}, {opacity:1,y:0,scale:1,duration:0.4,stagger:0.08,ease:'back.out(1.5)'}, '-=0.1');
+	tl.fromTo(benefitEls, {opacity:0,y:10,scale:0.85}, {opacity:1,y:0,scale:1,duration:0.35,stagger:0.08,ease:'back.out(1.8)'}, '-=0.05');
+	tl.fromTo(foot, {opacity:0,y:10}, {opacity:1,y:0,duration:0.45,ease:'power2.out'}, '-=0.05');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.3');
+}
+
+// ── CONTROLS ──────────────────────────────
+function focusHeading(){ const h=document.getElementById('stage-heading'); if(h){ try{ h.focus({preventScroll:true}); }catch(_){ h.focus(); } } }
+function interruptAnimation(){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; animating=false; }
+function next(){ interruptAnimation(); if(current<STEPS.length-1){ renderStep(current+1); focusHeading(); } }
+function prev(){ interruptAnimation(); if(current>0){ renderStep(current-1); focusHeading(); } }
+function reset(){ interruptAnimation(); renderStep(0); focusHeading(); }
+function replay(){ if(current<0) return; interruptAnimation(); renderStep(current); focusHeading(); }
+
+// ── Hide / show top bar ──────────────────
+(function(){
+	const hideBtn=document.getElementById('header-hide'), revealBtn=document.getElementById('header-reveal');
+	if(!hideBtn||!revealBtn) return;
+	var hideBtnTop=document.getElementById('header-hide-top'); if(hideBtnTop) hideBtnTop.addEventListener('click',function(e){ e.stopPropagation(); hideBtn.click(); });
+	const hidePath=hideBtn.querySelector('svg path');
+	const UP='M6 15l6-6 6 6', DOWN='M6 9l6 6 6-6';   // ^ points up to hide the bar; flips to v to show it again
+	function setHidden(h){
+		document.body.classList.toggle('chrome-hidden',h);
+		hideBtn.setAttribute('aria-expanded',String(!h));
+		hideBtn.setAttribute('aria-label',h?'Show top bar':'Hide top bar');
+		hideBtn.title=(h?'Show top bar':'Hide top bar')+' (H)';
+		if(hidePath) hidePath.setAttribute('d',h?DOWN:UP);
+		try{localStorage.setItem('aw-sa-chrome-hidden',h?'1':'0');}catch(_){}
+		if(current>=0) requestAnimationFrame(()=>{ const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s); });
+	}
+	hideBtn.addEventListener('click',e=>{e.stopPropagation();setHidden(!document.body.classList.contains('chrome-hidden'));});
+	revealBtn.addEventListener('click',e=>{e.stopPropagation();setHidden(false);});
+	try{ if(localStorage.getItem('aw-sa-chrome-hidden')==='1') setHidden(true); }catch(_){}
+	document.addEventListener('keydown',e=>{ if(e.code==='KeyH'&&!e.metaKey&&!e.ctrlKey&&!e.altKey){ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return; e.preventDefault(); setHidden(!document.body.classList.contains('chrome-hidden')); } });
+})();
+
+document.getElementById('next-btn').addEventListener('click',e=>{e.stopPropagation();next();});
+document.getElementById('prev-btn').addEventListener('click',e=>{e.stopPropagation();prev();});
+document.getElementById('reset-btn').addEventListener('click',e=>{e.stopPropagation();reset();});
+document.getElementById('replay-btn').addEventListener('click',e=>{e.stopPropagation();replay();});
+
+// ── Clickable progress bar + step ticks ──
+(function(){
+	const track=document.querySelector('.progress-track'); if(!track) return;
+	for(let s=1; s<STEPS.length; s++){ const tk=document.createElement('div'); tk.className='progress-tick'; tk.style.left=(s/STEPS.length*100)+'%'; track.appendChild(tk); }
+	track.setAttribute('title','Jump to a step');
+	track.addEventListener('click', e=>{
+		const r=track.getBoundingClientRect(); const frac=(e.clientX-r.left)/r.width;
+		const target=Math.max(0, Math.min(STEPS.length-1, Math.floor(frac*STEPS.length)));
+		if(target!==current){ interruptAnimation(); renderStep(target); focusHeading(); }
+	});
+})();
+
+// ── Movable / pinnable control dock ───────
+(function(){
+	const dock=document.getElementById('controls'), grip=document.getElementById('ctrl-grip'), pin=document.getElementById('ctrl-pin');
+	if(!dock||!grip) return;
+	const KEY='aw-sa-controls-pos';
+	let dragging=false, sx=0, sy=0, bl=0, bt=0, moved=false;
+	function place(left,top){
+		const w=dock.offsetWidth, h=dock.offsetHeight;
+		left=Math.max(6, Math.min(left, window.innerWidth - w - 6));
+		top =Math.max(6, Math.min(top,  window.innerHeight - h - 6));
+		dock.style.left=left+'px'; dock.style.top=top+'px'; dock.style.right='auto'; dock.style.bottom='auto'; dock.style.transform='none';
+		document.body.classList.add('controls-floating');
+	}
+	function recenter(){
+		dock.style.left=dock.style.top=dock.style.right=dock.style.bottom=dock.style.transform='';
+		document.body.classList.remove('controls-floating');
+		try{ localStorage.removeItem(KEY); }catch(_){}
+	}
+	grip.addEventListener('pointerdown', e=>{
+		e.preventDefault(); dragging=true; moved=false;
+		const r=dock.getBoundingClientRect(); bl=r.left; bt=r.top; sx=e.clientX; sy=e.clientY;
+		try{ grip.setPointerCapture(e.pointerId); }catch(_){}
+	});
+	grip.addEventListener('pointermove', e=>{
+		if(!dragging) return;
+		const dx=e.clientX-sx, dy=e.clientY-sy;
+		if(Math.abs(dx)>2||Math.abs(dy)>2) moved=true;
+		place(bl+dx, bt+dy);
+	});
+	function end(e){ if(!dragging) return; dragging=false; try{ grip.releasePointerCapture(e.pointerId); }catch(_){}
+		if(moved){ try{ const r=dock.getBoundingClientRect(); localStorage.setItem(KEY, JSON.stringify({left:r.left, top:r.top})); }catch(_){} } }
+	grip.addEventListener('pointerup', end); grip.addEventListener('pointercancel', end);
+	grip.addEventListener('keydown', e=>{
+		const d=e.shiftKey?40:12; const r=dock.getBoundingClientRect(); let ok=true;
+		if(e.key==='ArrowLeft') place(r.left-d, r.top);
+		else if(e.key==='ArrowRight') place(r.left+d, r.top);
+		else if(e.key==='ArrowUp') place(r.left, r.top-d);
+		else if(e.key==='ArrowDown') place(r.left, r.top+d);
+		else ok=false;
+		if(ok){ e.preventDefault(); e.stopPropagation(); }
+	});
+	if(pin) pin.addEventListener('click', e=>{ e.stopPropagation(); recenter(); });
+	window.addEventListener('resize', ()=>{ if(document.body.classList.contains('controls-floating')){ const r=dock.getBoundingClientRect(); place(r.left, r.top); } });
+	try{ const s=JSON.parse(localStorage.getItem(KEY)||'null'); if(s && typeof s.left==='number') place(s.left, s.top); }catch(_){}
+})();
+
+// ── Make callout / outline / caption draggable (same pointer-drag as the control dock) ──
+function dragify(el, key){
+	if(!el || el.__awDrag) return; el.__awDrag=true;
+	let dragging=false, sx=0, sy=0, bl=0, bt=0, moved=false;
+	const resizable = getComputedStyle(el).resize !== 'none';
+	const sizeKey = key ? key + '-size' : null;
+	// snapshot the home position + size so the reset pin can restore it exactly
+	const home={ position:el.style.position, left:el.style.left, top:el.style.top,
+		right:el.style.right, bottom:el.style.bottom, margin:el.style.margin, transform:el.style.transform,
+		width:el.style.width, height:el.style.height };
+	// reset "pin" — hidden until the panel is dragged or resized off its home spot
+	const pin=document.createElement('button');
+	pin.type='button'; pin.className='aw-drag-reset';
+	pin.title=t('resetPos'); pin.setAttribute('aria-label', t('resetPos'));
+	pin.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>';
+	// keep the pin inside scrollable / resizable panels so it isn't clipped
+	const oy=getComputedStyle(el).overflowY; const clips=(oy==='auto'||oy==='scroll'||oy==='hidden');
+	pin.style.top=clips?'8px':'-10px'; pin.style.right=clips?'8px':'-10px';
+	el.appendChild(pin);
+	function showPin(on){ pin.style.display=on?'flex':'none'; }
+	pin.addEventListener('pointerdown', e=>{ e.stopPropagation(); });
+	pin.addEventListener('click', e=>{
+		e.preventDefault(); e.stopPropagation();
+		el.style.position=home.position; el.style.left=home.left; el.style.top=home.top;
+		el.style.right=home.right; el.style.bottom=home.bottom; el.style.margin=home.margin; el.style.transform=home.transform;
+		el.style.width=home.width; el.style.height=home.height;
+		if(key){ try{ localStorage.removeItem(key); }catch(_){} }
+		if(sizeKey){ try{ localStorage.removeItem(sizeKey); }catch(_){} }
+		showPin(false);
+	});
+	function fix(left,top){
+		const w=el.offsetWidth, h=el.offsetHeight;
+		left=Math.max(6, Math.min(left, window.innerWidth  - w - 6));
+		top =Math.max(6, Math.min(top,  window.innerHeight - h - 6));
+		el.style.position='fixed'; el.style.left=left+'px'; el.style.top=top+'px';
+		el.style.right='auto'; el.style.bottom='auto'; el.style.margin='0'; el.style.transform='none';
+	}
+	// persist user resizes (the CSS resize grip writes inline width/height; content changes don't)
+	if(resizable && typeof ResizeObserver!=='undefined'){
+		let rt;
+		new ResizeObserver(()=>{
+			if(el.style.width || el.style.height){
+				showPin(true);
+				if(sizeKey){ clearTimeout(rt); rt=setTimeout(()=>{ try{ localStorage.setItem(sizeKey, JSON.stringify({w:el.style.width, h:el.style.height})); }catch(_){} }, 150); }
+			}
+		}).observe(el);
+	}
+	el.addEventListener('pointerdown', e=>{
+		if(e.button!==0 || (e.target.closest && e.target.closest('a,button,select,input,textarea'))) return;
+		if(resizable){ const r=el.getBoundingClientRect(); if(e.clientX>r.right-18 && e.clientY>r.bottom-18) return; } // let the resize grip win
+		dragging=true; moved=false;
+		const r=el.getBoundingClientRect(); bl=r.left; bt=r.top; sx=e.clientX; sy=e.clientY;
+		fix(bl, bt);   // pin at the current spot first, so there's no jump
+		try{ el.setPointerCapture(e.pointerId); }catch(_){}
+		e.preventDefault();
+	});
+	el.addEventListener('pointermove', e=>{
+		if(!dragging) return;
+		const dx=e.clientX-sx, dy=e.clientY-sy;
+		if(Math.abs(dx)>2||Math.abs(dy)>2) moved=true;
+		fix(bl+dx, bt+dy);
+	});
+	function end(e){
+		if(!dragging) return; dragging=false;
+		try{ el.releasePointerCapture(e.pointerId); }catch(_){}
+		if(moved){ showPin(true); if(key){ try{ const r=el.getBoundingClientRect(); localStorage.setItem(key, JSON.stringify({left:r.left, top:r.top})); }catch(_){} } }
+	}
+	el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+	if(sizeKey){ try{ const z=JSON.parse(localStorage.getItem(sizeKey)||'null'); if(z && (z.w||z.h)){ if(z.w) el.style.width=z.w; if(z.h) el.style.height=z.h; showPin(true); } }catch(_){} }
+	if(key){ try{ const s=JSON.parse(localStorage.getItem(key)||'null'); if(s && isFinite(s.left) && isFinite(s.top)){ fix(s.left, s.top); showPin(true); } }catch(_){} }
+}
+dragify(document.getElementById('step-outline'), 'aw-sa-outline-pos');
+dragify(document.getElementById('aw-caption'), 'aw-sa-caption-pos');
+
+// ── Speed ─────────────────────────────────
+const SPEED_STEPS=[0.5,0.75,1,1.25,1.5,2]; const BASE_TIMESCALE=0.25;
+let speedIndex=SPEED_STEPS.indexOf(1);
+try{ const sp=parseInt(localStorage.getItem('aw-sa-speed'),10); if(!isNaN(sp)&&sp>=0&&sp<SPEED_STEPS.length) speedIndex=sp; }catch(_){}
+const speedLabel=document.getElementById('speed-label'), speedDownBtn=document.getElementById('speed-down'), speedUpBtn=document.getElementById('speed-up');
+function saveSpeed(){ try{ localStorage.setItem('aw-sa-speed', String(speedIndex)); }catch(_){} }
+function syncSpeedUI(){ const spd=SPEED_STEPS[speedIndex]; speedLabel.textContent=spd+'\u00d7'; speedDownBtn.disabled=speedIndex===0; speedUpBtn.disabled=speedIndex===SPEED_STEPS.length-1; gsap.globalTimeline.timeScale(spd*BASE_TIMESCALE); }
+syncSpeedUI();
+speedDownBtn.addEventListener('click',e=>{e.stopPropagation(); if(speedIndex>0){speedIndex--;syncSpeedUI();saveSpeed();}});
+speedUpBtn.addEventListener('click',e=>{e.stopPropagation(); if(speedIndex<SPEED_STEPS.length-1){speedIndex++;syncSpeedUI();saveSpeed();}});
+
+// ── Keyboard ──────────────────────────────
+if (window.AW && AW.keyboard) { AW.keyboard.bind({ next, prev, reset, replay }); }
+else { document.addEventListener('keydown', e => {
+	if (['Space','ArrowRight','Enter'].includes(e.code)) { e.preventDefault(); next(); }
+	else if (e.code==='ArrowLeft') { e.preventDefault(); prev(); }
+	else if (e.code==='KeyR') { e.preventDefault(); reset(); }
+	else if (e.code==='KeyP') { e.preventDefault(); replay(); }
+}); }
+
+// ── Touch swipe (tablets) ─────────────────
+(function(){
+	const surf=document.getElementById('stage'); if(!surf) return;
+	let x0=null,y0=null,t0=0;
+	surf.addEventListener('touchstart',e=>{ if(e.touches.length!==1){x0=null;return;} x0=e.touches[0].clientX; y0=e.touches[0].clientY; t0=Date.now(); },{passive:true});
+	surf.addEventListener('touchend',e=>{
+		if(x0===null) return; const tch=e.changedTouches[0]; const dx=tch.clientX-x0, dy=tch.clientY-y0; x0=null;
+		if(Date.now()-t0>800) return;
+		if(Math.abs(dx)>50 && Math.abs(dx)>Math.abs(dy)*1.6){ if(dx<0) next(); else prev(); }
+	},{passive:true});
+})();
+
+// ── Keyboard shortcut help overlay ────────
+(function(){
+	const overlay=document.getElementById('shortcut-overlay'), btn=document.getElementById('help-toggle'), closeBtn=document.getElementById('sc-close'), list=document.getElementById('sc-list');
+	if(!overlay||!list) return;
+	const ROWS=[[['\u2192','Space'],'scNext'],[['\u2190'],'scPrev'],[['R'],'scRestart'],[['P'],'scReplay'],[['H'],'scHide'],[['?'],'scHelp']];
+	window.buildShortcuts=function(){ const title=document.getElementById('sc-title'); if(title) title.textContent=t('scTitle');
+		list.innerHTML=ROWS.map(([keys,k])=>`<li><span>${t(k)}</span><span class="sc-keys">${keys.map(x=>`<kbd>${x}</kbd>`).join('')}</span></li>`).join(''); };
+	buildShortcuts();
+	function open(){ overlay.removeAttribute('hidden'); if(closeBtn) closeBtn.focus(); }
+	function close(){ overlay.setAttribute('hidden',''); if(btn) btn.focus(); }
+	function toggle(){ overlay.hasAttribute('hidden')?open():close(); }
+	if(btn) btn.addEventListener('click',e=>{e.stopPropagation();toggle();});
+	if(closeBtn) closeBtn.addEventListener('click',e=>{e.stopPropagation();close();});
+	const bd=overlay.querySelector('.sc-backdrop'); if(bd) bd.addEventListener('click',close);
+	document.addEventListener('keydown',e=>{ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return;
+		if(e.key==='?'){ e.preventDefault(); toggle(); }
+		else if(e.key==='Escape' && !overlay.hasAttribute('hidden')){ e.preventDefault(); close(); } });
+})();
+
+// ── Resize (re-fit only — never rebuild or replay the animation) ──
+let resizeTimer, lastStageW=0, lastStageH=0;
+window.addEventListener('resize',()=>{ clearTimeout(resizeTimer); resizeTimer=setTimeout(()=>{
+	if(current<0) return;
+	const box=stage.getBoundingClientRect();
+	// Ignore no-op resizes (focus/click reflow, mobile URL-bar show/hide) so the animation never restarts.
+	if(Math.abs(box.width-lastStageW)<1 && Math.abs(box.height-lastStageH)<1) return;
+	lastStageW=box.width; lastStageH=box.height;
+	const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s);
+},200); });
+
+// ── Init ──────────────────────────────────
+var NEXT_STOP = { href:'StorageRedundancy.html', iconSrc:'../../lib/icons/Azure_Public_Service_Icons/storage/10086-icon-service-Storage-Accounts.svg',
+	i18n:{ en:{ eyebrow:'Up next', title:'Redundancy & Replication', cta:'Continue' }, es:{ eyebrow:'A continuación', title:'Redundancy & Replication', cta:'Continuar' }, ja:{ eyebrow:'次のステップ', title:'Redundancy & Replication', cta:'続ける' }, ko:{ eyebrow:'다음 단계', title:'Redundancy & Replication', cta:'계속하기' }, pt:{ eyebrow:'A seguir', title:'Redundancy & Replication', cta:'Continuar' } } };
+
+// ── "Up next" pill (last step → next journey stop) ──
+var jnEl = document.getElementById('journey-next');
+var jnTimer = null, jnDismissed = false;
+function refreshJourneyNext(){
+	if(!jnEl || !NEXT_STOP || !NEXT_STOP.href) return;
+	var d = (NEXT_STOP.i18n && (NEXT_STOP.i18n[currentLang] || NEXT_STOP.i18n.en)) || {};
+	var q = '?lang=' + encodeURIComponent(currentLang || 'en');
+	var set = function(id,val){ var e=document.getElementById(id); if(e && val!=null) e.textContent=val; };
+	set('jn-eyebrow-text', d.eyebrow);
+	set('jn-title', d.title);
+	set('jn-cta-text', d.cta);
+	var img=document.getElementById('jn-icon-img'); if(img && NEXT_STOP.iconSrc) img.src=NEXT_STOP.iconSrc;
+	var cta=document.getElementById('jn-cta'); if(cta) cta.setAttribute('href', NEXT_STOP.href + q);
+}
+function hideJourneyNext(){ if(jnEl){ jnEl.classList.remove('show'); jnEl.setAttribute('aria-hidden','true'); } }
+function showJourneyNext(){ if(document.body.classList.contains('aw-prestart')) return; if(jnEl && !jnDismissed){ jnEl.classList.add('show'); jnEl.setAttribute('aria-hidden','false'); } }
+function armJourneyNext(i){
+	if(jnTimer){ clearTimeout(jnTimer); jnTimer=null; }
+	var isLast = (i === STEPS.length-1) && NEXT_STOP && NEXT_STOP.href;
+	if(!isLast){ jnDismissed=false; hideJourneyNext(); return; }
+	jnDismissed=false;
+	jnTimer=setTimeout(function(){ jnTimer=null; showJourneyNext(); }, motionPaused ? 0 : 1100);
+}
+if(jnEl){
+	var jnCloseBtn=document.getElementById('jn-close');
+	if(jnCloseBtn) jnCloseBtn.addEventListener('click', function(e){ e.stopPropagation(); jnDismissed=true; hideJourneyNext(); });
+	document.addEventListener('keydown', function(e){ if(e.key==='Escape' && jnEl.classList.contains('show')){ jnDismissed=true; hideJourneyNext(); } });
+}
+
+setLanguage(currentLang);
+counter.textContent = `1 / ${STEPS.length}`;
+const urlStep = parseInt(new URLSearchParams(location.search).get('step'), 10);
+renderStep((!isNaN(urlStep) && urlStep>=1 && urlStep<=STEPS.length) ? urlStep-1 : 0);
+</script>
+<script>
+// ── Start gate · hold autoplay until the viewer clicks Play (empty stage + centered Play) ──
+(function () {
+	if (new URLSearchParams(location.search).has('present')) return;
+	var stage = document.getElementById('stage');
+	if (!stage) return;
+	function freeze() { try { if (window.gsap && gsap.globalTimeline) gsap.globalTimeline.pause(); } catch (_) {} }
+	freeze(); requestAnimationFrame(freeze);
+	document.body.classList.add('aw-prestart');
+	try { if (typeof stopAudio === 'function') stopAudio(); } catch (_) {}
+	stage.style.transition = 'opacity .55s ease';
+	stage.style.opacity = '0';
+
+	var T = {
+		title: { en:'Ready to begin?', es:'\u00BFTodo listo?', ja:'\u6E96\u5099\u306F\u3044\u3044\u3067\u3059\u304B\uFF1F', ko:'\uC2DC\uC791\uD560 \uC900\uBE44\uAC00 \uB418\uC168\uB098\uC694?', pt:'Tudo pronto?' },
+		sound: { en:'Sound', es:'Sonido', ja:'\u97F3\u58F0', ko:'\uC18C\uB9AC', pt:'Som' },
+		cc:    { en:'Subtitles (CC)', es:'Subt\u00EDtulos (CC)', ja:'\u5B57\u5E55\uFF08CC\uFF09', ko:'\uC790\uB9C9 (CC)', pt:'Legendas (CC)' },
+		start: { en:'Start presentation', es:'Iniciar presentaci\u00F3n', ja:'\u30D7\u30EC\u30BC\u30F3\u3092\u958B\u59CB', ko:'\uD504\uB808\uC820\uD14C\uC774\uC158 \uC2DC\uC791', pt:'Iniciar apresenta\u00E7\u00E3o' }
+	};
+	function L(){ return (typeof currentLang === 'string' && currentLang) || (typeof CURRENT_LANG === 'string' && CURRENT_LANG) || 'en'; }
+	function t(k){ var m = T[k], l = L(); return m[m[l] ? l : 'en']; }
+	function awAudioState(){ try{ if(typeof window.__awAudioOn==='function') return !!window.__awAudioOn(); }catch(_){} return (typeof audioEnabled!=='undefined') && !!audioEnabled; }
+	function awCcState(){ try{ if(typeof window.__awCcOn!=='undefined' && window.__awCcOn!==null) return !!window.__awCcOn; }catch(_){} return (typeof ccPref!=='undefined') && !!ccPref; }
+
+	var style = document.createElement('style');
+	style.textContent =
+		'body.aw-prestart #controls{opacity:.4;pointer-events:none;transition:opacity .4s ease}' +
+		'#aw-play-card{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:50;box-sizing:border-box;width:min(90vw,22rem);padding:1.35rem 1.5rem 1.5rem;border-radius:16px;background:var(--theme-card-background,#fff);color:var(--theme-text,#222);border:1px solid var(--theme-border,rgba(0,0,0,.1));box-shadow:0 24px 60px rgba(0,0,0,.28);transition:opacity .3s ease,transform .3s ease}' +
+		'#aw-play-card.aw-hide{opacity:0;transform:translate(-50%,-50%) scale(.96);pointer-events:none}' +
+		'body.theme-dark #aw-play-card{border-color:rgba(255,255,255,.12);box-shadow:0 24px 60px rgba(0,0,0,.55)}' +
+		'body.present-mode #aw-play-card{display:none!important}' +
+		'.aw-card-title{margin:0 0 1rem;text-align:center;font-size:1.02rem;font-weight:800;letter-spacing:.03em;text-transform:uppercase;opacity:.85}' +
+		'.aw-row{display:flex;align-items:center;gap:.65rem;padding:.6rem 0}' +
+		'.aw-row + .aw-row{border-top:1px solid var(--theme-border,rgba(0,0,0,.08))}' +
+		'.aw-row-ico{flex:none;width:1.5rem;text-align:center;font-size:1.15rem;line-height:1}' +
+		'.aw-row-lbl{flex:1 1 auto;font-size:.9rem;font-weight:600}' +
+		'.aw-row-state{flex:none;min-width:2.5rem;text-align:right;font-size:.68rem;font-weight:800;letter-spacing:.05em;opacity:.5}' +
+		'.aw-row-state.on{color:var(--theme-primary,#0078d4);opacity:1}' +
+		'.aw-switch{position:relative;flex:none;width:44px;height:24px;padding:0;border:none;border-radius:999px;cursor:pointer;background:var(--theme-border,#c7c7d1);transition:background .18s ease}' +
+		'.aw-switch.on{background:var(--theme-primary,#0078d4)}' +
+		'.aw-switch::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.4);transition:transform .18s ease}' +
+		'.aw-switch.on::after{transform:translateX(20px)}' +
+		'#aw-start{margin-top:1.2rem;width:100%;display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:.8rem 1rem;border:none;border-radius:11px;cursor:pointer;background:var(--theme-primary,#0078d4);color:#fff;font-size:.96rem;font-weight:700;letter-spacing:.01em;box-shadow:0 8px 22px var(--theme-primary-translucent,rgba(0,120,212,.45));transition:transform .15s ease}' +
+		'#aw-start:hover{transform:translateY(-2px)}#aw-start:active{transform:scale(.98)}' +
+		'#aw-start svg{width:18px;height:18px;flex:none}';
+	document.head.appendChild(style);
+
+	var card = document.createElement('div');
+	card.id = 'aw-play-card'; card.setAttribute('role', 'dialog'); card.setAttribute('aria-modal', 'true');
+	card.innerHTML =
+		'<div class="aw-card-title"></div>' +
+		'<div class="aw-row" data-k="audio"><span class="aw-row-ico" aria-hidden="true">\uD83D\uDD0A</span><span class="aw-row-lbl"></span><span class="aw-row-state"></span><button type="button" class="aw-switch" role="switch"></button></div>' +
+		'<div class="aw-row" data-k="cc"><span class="aw-row-ico" aria-hidden="true">\uD83D\uDCAC</span><span class="aw-row-lbl"></span><span class="aw-row-state"></span><button type="button" class="aw-switch" role="switch"></button></div>' +
+		'<button type="button" id="aw-start"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 5v14l11-7z"/></svg><span class="aw-start-lbl"></span></button>';
+	document.body.appendChild(card);
+
+	var titleEl = card.querySelector('.aw-card-title');
+	var startBtn = card.querySelector('#aw-start');
+	var ROWS = [ { k:'audio', lbl:'sound', el:card.querySelector('.aw-row[data-k="audio"]'), read:awAudioState, toggle:'audio-toggle' },
+	             { k:'cc',    lbl:'cc',    el:card.querySelector('.aw-row[data-k="cc"]'),    read:awCcState,    toggle:'cc-toggle' } ];
+
+	function render(){
+		titleEl.textContent = t('title'); card.setAttribute('aria-label', t('title'));
+		startBtn.querySelector('.aw-start-lbl').textContent = t('start');
+		ROWS.forEach(function(r){
+			var on = r.read();
+			r.el.querySelector('.aw-row-lbl').textContent = t(r.lbl);
+			var st = r.el.querySelector('.aw-row-state'); st.textContent = on ? 'ON' : 'OFF'; st.classList.toggle('on', on);
+			var sw = r.el.querySelector('.aw-switch'); sw.classList.toggle('on', on); sw.setAttribute('aria-checked', on ? 'true' : 'false');
+			sw.setAttribute('aria-label', t(r.lbl) + ' \u2014 ' + (on ? 'on' : 'off'));
+		});
+	}
+	ROWS.forEach(function(r){
+		r.el.querySelector('.aw-switch').addEventListener('click', function(e){ e.stopPropagation(); var b = document.getElementById(r.toggle); if(b) b.click(); render(); });
+	});
+	render();
+
+	var sel = document.getElementById('lang-select');
+	// Only re-freeze while the gate is still up — after Play, freezing would pause the
+	// global timeline for good and every later scene would stay at opacity 0 (blank stage).
+	if (sel) sel.addEventListener('change', function () { if (done) return; render(); freeze(); });
+
+	function gateKeys(e) {
+		if (done) return;
+		var tag = (e.target && e.target.tagName || '').toLowerCase();
+		if (tag === 'select' || tag === 'input' || tag === 'textarea') return;
+		if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'].indexOf(e.key) >= 0) { e.preventDefault(); e.stopPropagation(); }
+	}
+	document.addEventListener('keydown', gateKeys, true);
+
+	var done = false;
+	function start() {
+		if (done) return; done = true;
+		document.removeEventListener('keydown', gateKeys, true);
+		document.body.classList.remove('aw-prestart');
+		card.classList.add('aw-hide');
+		setTimeout(function () { if (card.parentNode) card.parentNode.removeChild(card); if (style.parentNode) style.parentNode.removeChild(style); }, 420);
+		setTimeout(function () {
+			try { if (window.gsap && gsap.globalTimeline) gsap.globalTimeline.play(); } catch (_) {}
+			stage.style.opacity = '1';
+			try { if (typeof interruptAnimation === 'function') interruptAnimation(); } catch (_) {}
+			try { if (typeof renderStep === 'function') renderStep(typeof current === 'number' && current >= 0 ? current : 0); } catch (_) {}
+		}, 380);
+	}
+	startBtn.addEventListener('click', start);
+}());
+</script>
+<script src="../../lib/js/aw-present.js"></script>
+<script src="../../lib/js/aw-declutter.js"></script>
+<script src="../../lib/js/aw-url-state.js"></script>
+
+</body>
+</html>

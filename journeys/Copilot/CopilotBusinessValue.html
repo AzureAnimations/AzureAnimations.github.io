@@ -1,0 +1,2717 @@
+<!DOCTYPE html>
+<!-- Narration script: /narration/Copilot/CopilotBusinessValue.md -->
+<!--
+	Azure Animations — STARTER TEMPLATE
+	====================================
+	Copy this file to <Area>/<Sub>/YourTopic.html (e.g. AI/Foundry/MyTopic.html) and:
+	  1. Set <title>, #page-title, and the back-link href.
+	  2. Rename/expand the sample steps. Each STEPS[] entry pairs with one
+	     render<Xxx>Step(). The samples demonstrate the reusable building blocks —
+	     delete the ones you don't need, they are all optional:
+	       • PROBLEM   — a centered hero .card
+	       • FLOW      — a .ta-flow of .agent-node boxes joined by .ta-arrow (input → process → output)
+	       • CODE      — a VS Code-style .code-card (use .code-duo for a request/response pair)
+	       • USE CASES — a .uc-grid of .uc-card tiles
+	       • RECAP     — a .card + .value-chip row + closing line
+	  3. Fill the English I18N block, then add es/ja/ko/pt (full objects OR the
+	     { ...I18N.en, overrides } spread) and matching <option>s in #lang-select.
+	  4. Prefer Microsoft Fluent icons/emoji over raw OS emoji for anything shown
+	     on a projector. Source priority: Azure service icons (local lib
+	     ../lib/icons/…) → Fluent System Icons → Fluent UI Emoji → Fluent Emoji
+	     Animated → Twemoji (last resort, CC-BY).
+	  5. Run the Definition-of-Done checklist before publishing.
+
+	DESIGN NOTES
+	  • Accent colour is --theme-tertiary (Microsoft purple #5c2d91); primary blue
+	    and green (#10a37f) act as secondary / positive accents.
+	  • The bottom #controls is a compact translucent "icon dock" of glyph-only
+	    buttons; their localized labels live in the tooltip (title), set in setLanguage().
+	  • Audio narration is optional: list one clip per step (in order) in AUDIO_FILES[]
+	    and an Audio toggle appears automatically. Present mode (dual-window) ships via
+	    aw-present.js at the bottom — it self-installs a "Present" button in the header.
+
+	NOTE: the ../lib/ and ../../img/ paths assume this file lives two levels
+	under the site root (e.g. AI/Foundry/). Adjust depth if you move it.
+-->
+<html lang="en">
+<head>
+	<script src="/js/tracking.js"></script>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+	<meta name="description" content="The real business value of Microsoft 365 Copilot, shown as five before-and-after scenarios from Alex's first month at Contoso — documents, presentations, data analysis, email and meetings — ending with one Copilot across every Microsoft 365 app." />
+	<title>Why Microsoft 365 Copilot · Azure Animations</title>
+	<link rel="icon" type="image/svg+xml" href="../../lib/icons/brands/Microsoft365Copilot.svg" />
+
+	<link rel="stylesheet" href="https://unpkg.com/@microsoft/atlas-css/dist/index.css" />
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+	<!-- AnimationWorks shared lib -->
+	<script src="../../lib/js/aw-easings.js"></script>
+	<script src="../../lib/js/aw-motion.js"></script>
+	<script src="../../lib/js/aw-theme.js"></script>
+	<script src="../../lib/js/aw-keyboard.js"></script>
+	<script src="../../lib/js/aw-captions.js"></script>
+
+<style>
+	/* ── SHELL ─────────────────────────────── */
+	/* Brand palette — reference these tokens; don't hardcode hex */
+	:root {
+		--aw-purple:#5c2d91;   /* primary accent — titles, callouts, arrows, progress, agents */
+		--aw-blue:#0078d4;     /* secondary — inputs, links, "the model", primary button */
+		--aw-green:#10a37f;    /* positive — success, grounded/correct results, value chips */
+		--aw-orange:#e97526;   /* tools / actions — tool calls, function calling, side-effects */
+		--aw-pink:#d24aa8;     /* highlight — a fourth category / emphasis */
+	}
+	html, body { height:100%; margin:0; }
+	html { font-size:100%; }
+	body {
+		display:flex; flex-direction:column; height:100vh;
+		overflow:hidden;
+		font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif;
+		color: var(--theme-text);
+		background:
+			radial-gradient(circle at 15% 20%, rgba(92,45,145,0.18) 0%, transparent 55%),
+			radial-gradient(circle at 85% 80%, rgba(0,120,212,0.18) 0%, transparent 55%),
+			var(--theme-body-background);
+	}
+	.app-header { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:1rem; flex-shrink:0; font-size:16px; }
+	.app-header > :last-child { justify-self:end; }
+
+	/* #stage fills the space between the top bar and the control dock, and centers the fixed 16:9 frame. */
+	#stage {
+		position:relative; flex:1 1 auto; width:100%; min-height:0;
+		display:flex; align-items:center; justify-content:center;
+		overflow:hidden; container-type:size;
+		padding:1.75rem 2.75rem 5rem;   /* breathing room around the frame; bottom clears the fixed #controls dock */
+	}
+	#stage:focus-visible, button:focus-visible, a:focus-visible, select:focus-visible {
+		outline:2px solid var(--theme-primary, #0078d4); outline-offset:3px; border-radius:4px;
+	}
+	/* The visible rectangle: the largest 16:9 box that fits the stage. All scenes are drawn inside it. */
+	#stage-frame {
+		position:relative; overflow:hidden;
+		width: min(100cqw, calc(100cqh * 16 / 9));
+		aspect-ratio: 16 / 9; max-width:100%; max-height:100%;
+		border-radius:16px;
+		background: rgba(0,0,0,0.015);
+		box-shadow: 0 12px 44px rgba(0,0,0,0.22);
+	}
+	body.theme-dark #stage-frame { background: rgba(255,255,255,0.025); }
+	/* Coloured gradient border (brand purple → blue → pink) drawn as a masked ring — no interior tint. */
+	#stage-frame::before {
+		content:""; position:absolute; inset:0; border-radius:inherit; padding:2.5px;
+		background: linear-gradient(135deg, var(--aw-purple) 0%, var(--aw-blue) 55%, var(--aw-pink) 100%);
+		-webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+		mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+		-webkit-mask-composite: xor; mask-composite: exclude;
+		pointer-events:none; z-index:20;
+	}
+	#fx-svg { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:6; overflow:visible; }
+
+	/* ── SCENE ─────────────────────────────── */
+	.scene {
+		position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+		transform-origin:center center;
+		width:min(1150px, 96%); z-index:10;
+		display:flex; flex-direction:column; align-items:center; gap:1.4rem;
+	}
+	/* 200ms fade in / out between every step */
+	@keyframes awSceneIn { from { opacity:0; } to { opacity:1; } }
+	@keyframes awSceneOut { from { opacity:1; } to { opacity:0; } }
+	.scene.scene-in { animation: awSceneIn 0.2s ease both; }
+	.scene.scene-out { animation: awSceneOut 0.2s ease both; }
+	.scene-title { font-size:2.5rem; font-weight:700; color:var(--theme-tertiary, #5c2d91); margin:0; text-align:center; opacity:0; }
+	body.theme-dark .scene-title { color:#c9a5e8; }
+	/* lead spans wide (near the scene width) to use the side gutters and stay within 2 lines — trim copy if it wraps to 3 */
+	.scene-lead { margin:0; text-align:center; font-size:1.35rem; color:var(--theme-text); max-width:min(1180px,96%); line-height:1.5; opacity:0; }
+
+	/* ── CALLOUT · draggable, slightly see-through so it never fully blocks the diagram ── */
+	.callout {
+		position:absolute; max-width:340px; padding:1rem 1.2rem;
+		background:var(--theme-body-background);
+		background:color-mix(in srgb, var(--theme-body-background) 84%, transparent);
+		-webkit-backdrop-filter:blur(5px); backdrop-filter:blur(5px);
+		border:1px solid var(--theme-border);
+		border-left:4px solid var(--theme-tertiary, #5c2d91); border-radius:6px;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2));
+		font-size:1.05rem; line-height:1.45; z-index:14; opacity:0;
+		cursor:grab; touch-action:none;
+	}
+	.callout:active { cursor:grabbing; }
+
+	/* ── RESET "PIN" · appears on a draggable panel once it has been moved off its home spot ── */
+	.aw-drag-reset {
+		position:absolute; width:24px; height:24px; padding:0; display:none;
+		align-items:center; justify-content:center; border-radius:50%;
+		background:var(--theme-tertiary,#5c2d91); color:#fff;
+		border:2px solid var(--theme-body-background,#fff);
+		box-shadow:0 2px 7px rgba(0,0,0,0.4); cursor:pointer; z-index:6;
+		opacity:0.92; transition:opacity .14s ease, transform .14s ease;
+	}
+	.aw-drag-reset:hover { opacity:1; transform:scale(1.08); }
+	.aw-drag-reset:focus-visible { outline:2px solid #5cc8ff; outline-offset:2px; }
+	.aw-drag-reset svg { width:13px; height:13px; display:block; }
+
+	/* ══════════════════════════════════════════════════════════ */
+	/* ── REUSABLE BUILDING BLOCKS · keep what you use, drop rest ─ */
+	/* ══════════════════════════════════════════════════════════ */
+
+	/* Centered hero card */
+	.card {
+		width:min(680px, 96%); padding:1.6rem 1.8rem; border-radius:16px;
+		background:var(--theme-card-background, #fff); border:2px solid var(--theme-border);
+		box-shadow:0 8px 28px rgba(0,0,0,0.14); opacity:0;
+		display:flex; flex-direction:column; gap:0.6rem; align-items:center; text-align:center;
+	}
+	body.theme-dark .card { background:rgba(255,255,255,0.05); }
+	.card .card-icon { font-size:3rem; line-height:1; }
+	.card .card-h { font-size:1.4rem; font-weight:700; }
+	.card .card-p { font-size:1.05rem; color:var(--theme-text-subtle); line-height:1.5; }
+
+	/* Wide info panel */
+	.ta-card {
+		width:min(1080px, 98%); border:1.5px solid var(--theme-border); border-radius:14px;
+		background:var(--theme-card-background, #fff); box-shadow:0 8px 30px rgba(0,0,0,0.16);
+		padding:1.1rem 1.3rem; opacity:0;
+	}
+	body.theme-dark .ta-card { background:rgba(255,255,255,0.05); }
+	.ta-card-head {
+		display:flex; align-items:center; gap:0.5rem;
+		font-size:1rem; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;
+		color:var(--theme-text-subtle); margin-bottom:0.6rem;
+	}
+	.ta-card-text { font-size:1.22rem; line-height:1.55; color:var(--theme-text); }
+
+	/* Pills / chips */
+	.chip-row { display:flex; flex-wrap:wrap; gap:0.7rem; justify-content:center; }
+	.pill {
+		display:inline-flex; align-items:center; gap:0.5rem; padding:0.55rem 1.1rem;
+		border-radius:999px; font-size:1.05rem; font-weight:600;
+		border:2px solid var(--theme-tertiary, #5c2d91); background:rgba(92,45,145,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .pill { background:rgba(92,45,145,0.2); }
+	.value-chip {
+		display:inline-flex; align-items:center; gap:0.4rem; padding:0.5rem 1rem;
+		border-radius:999px; font-size:1rem; font-weight:700;
+		border:2px solid #107c10; background:rgba(16,124,16,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .value-chip { background:rgba(16,124,16,0.16); }
+	.recap-foot { font-size:1.05rem; color:var(--theme-text); text-align:center; max-width:760px; opacity:0; }
+
+	/* Flow row: input → process → output */
+	.agent-node {
+		display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.2rem;
+		width:160px; height:160px; border-radius:24px;
+		background: linear-gradient(135deg, rgba(92,45,145,0.12), rgba(0,120,212,0.12));
+		border:2.5px solid var(--theme-tertiary, #5c2d91);
+		box-shadow:0 8px 28px rgba(92,45,145,0.2); flex-shrink:0; text-align:center;
+	}
+	.agent-node .an-icon { font-size:3rem; line-height:1; }
+	.agent-node .an-icon img { width:64px; height:64px; display:block; }
+	.agent-node .an-label { font-size:1.05rem; font-weight:700; color:var(--theme-text); }
+	.agent-node .an-sub { font-size:0.85rem; color:var(--theme-text-subtle); }
+	.ta-flow { display:flex; align-items:center; justify-content:center; gap:1.2rem; flex-wrap:wrap; width:100%; }
+	.ta-flow .agent-node { width:140px; height:140px; }
+	.ta-flow .agent-node .an-icon { font-size:2.6rem; }
+	.ta-flow .agent-node .an-icon img { width:54px; height:54px; }
+	.ta-arrow { font-size:1.9rem; color:var(--theme-tertiary,#5c2d91); opacity:0; }
+	.ta-arrow.is-big { font-size:3.2rem; }
+	.ta-arrow.is-down, .ta-arrow.is-up { font-size:2.9rem; line-height:1; }
+	@media (max-width:760px) { .ta-flow .ta-arrow { transform:rotate(90deg); } }
+
+	/* Code card (VS Code style) */
+	.code-card {
+		width:min(560px,96%); border:1px solid #30363d; border-radius:8px;
+		background:#1e1e1e; overflow:hidden; opacity:0;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.25));
+	}
+	.code-head {
+		display:flex; align-items:center; justify-content:space-between; gap:0.5rem;
+		padding:0 0 0 0.85rem; background:#323233; border-bottom:1px solid #1e1e1e;
+	}
+	.code-file { font-size:0.9rem; color:#cccccc; font-weight:500; padding:0.6rem 0; }
+	.code-winctrls { display:flex; align-items:stretch; height:100%; }
+	.code-wbtn {
+		display:flex; align-items:center; justify-content:center; width:2.6rem; padding:0.55rem 0;
+		color:#cccccc; font-family:'Segoe UI Symbol','Segoe MDL2 Assets',sans-serif; font-size:0.7rem;
+	}
+	.code-wbtn.is-close:hover { background:#e81123; color:#fff; }
+	.code-wbtn:hover { background:rgba(255,255,255,0.1); }
+	.code-body {
+		margin:0; padding:0.8rem 1rem;
+		font-family:'Cascadia Code', 'Consolas', 'SFMono-Regular', monospace;
+		font-size:0.86rem; line-height:1.5; color:#d4d4d4;
+		white-space:pre-wrap; overflow-wrap:break-word; word-break:break-word; tab-size:4;
+	}
+	.code-body .tok-com { color:#6a9955; }
+	.code-body .tok-kw  { color:#569cd6; }
+	.code-body .tok-str { color:#ce9178; }
+	.code-body .tok-fn  { color:#dcdcaa; }
+	.code-body .tok-mod { color:#4ec9b0; }
+	.code-body .tok-prop{ color:#9cdcfe; }
+	.code-body .tok-num { color:#b5cea8; }
+	.code-body .tok-punct { color:#d4d4d4; }
+	.code-body .code-hl { border-radius:4px; padding:0 0.15em; box-shadow:0 0 0 1px rgba(96,165,250,0.55); background:rgba(96,165,250,0.22); }
+	.code-duo { display:flex; gap:1.1rem; flex-wrap:wrap; align-items:flex-start; justify-content:center; width:100%; }
+	.code-duo .code-card { flex:1 1 380px; max-width:480px; }
+	.code-duo .code-body { font-size:0.8rem; line-height:1.45; }
+	.code-arrow { align-self:center; font-size:1.8rem; line-height:1; color:var(--theme-tertiary,#5c2d91); opacity:0; flex:none; }
+	.code-arrow.is-big { font-size:2.9rem; }
+	@media (max-width:760px) { .code-arrow { transform:rotate(90deg); } }
+
+	/* Use-case grid */
+	.uc-grid { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:1.1rem; width:min(980px,96%); }
+	@media (max-width:720px) { .uc-grid { grid-template-columns:1fr; } }
+	.uc-card {
+		display:flex; flex-direction:column; gap:0.5rem; padding:1rem 1.15rem;
+		border:1.5px solid var(--theme-border); border-top:4px solid var(--theme-primary,#0078d4);
+		border-radius:14px; background:var(--theme-card-background, #fff);
+		box-shadow:0 6px 22px rgba(0,0,0,0.12); opacity:0;
+		transition:transform 0.2s ease, box-shadow 0.2s ease;
+	}
+	.uc-card:hover { transform:translateY(-4px); box-shadow:0 12px 30px rgba(0,0,0,0.18); }
+	body.theme-dark .uc-card { background:rgba(255,255,255,0.05); }
+	.uc-card[data-uc="a"] { border-top-color:#0078d4; }
+	.uc-card[data-uc="b"] { border-top-color:#10a37f; }
+	.uc-card[data-uc="c"] { border-top-color:#e97526; }
+	.uc-card[data-uc="d"] { border-top-color:#d24aa8; }
+	.uc-head { display:flex; align-items:center; gap:0.55rem; font-size:1.25rem; font-weight:700; color:var(--theme-text); }
+	.uc-head .uc-icon { font-size:1.7rem; display:inline-block; }
+	.uc-desc { font-size:0.98rem; line-height:1.55; color:var(--theme-text-subtle); }
+	.uc-caps { display:flex; flex-wrap:wrap; gap:0.4rem; margin-top:0.2rem; }
+	.uc-cap {
+		display:inline-flex; align-items:center; gap:0.3rem; padding:0.25rem 0.7rem;
+		border-radius:999px; font-size:0.88rem; font-weight:700;
+		background:rgba(0,120,212,0.1); color:var(--theme-text);
+		border:1.5px solid rgba(0,120,212,0.4); opacity:0;
+	}
+
+	/* ── CONTROLS · icon dock ──────────────── */
+	#controls {
+		position:fixed; bottom:14px; left:50%; transform:translateX(-50%); z-index:40;
+		display:flex; align-items:center; gap:5px; padding:5px 7px;
+		background:var(--theme-body-background-translucent, rgba(255,255,255,0.82));
+		backdrop-filter:blur(12px) saturate(1.4); -webkit-backdrop-filter:blur(12px) saturate(1.4);
+		border:1px solid var(--theme-border); border-radius:999px;
+		box-shadow: 0 8px 26px rgba(0,0,0,0.18); font-size:13px;
+	}
+	body.theme-dark #controls { background:var(--theme-body-background-translucent, rgba(32,32,36,0.82)); }
+	#controls .ctrl-icon {
+		width:2.15rem; height:2.15rem; min-width:0; padding:0;
+		display:inline-flex; align-items:center; justify-content:center;
+		border-radius:50%; font-size:0.95rem; line-height:1; font-weight:600;
+		transition:background 0.18s ease, color 0.18s ease, transform 0.12s ease, box-shadow 0.18s ease;
+	}
+	#controls .ctrl-icon:hover { transform:translateY(-1px); }
+	#controls .ctrl-icon:active { transform:scale(0.92); }
+	#controls .ctrl-icon-next {
+		width:2.55rem; height:2.55rem; font-size:1.1rem;
+		box-shadow:0 2px 8px var(--theme-primary-translucent, rgba(0,120,212,0.45));
+	}
+	.step-counter {
+		min-width:52px; text-align:center; font-variant-numeric:tabular-nums;
+		font-size:14px; font-weight:700; color:var(--theme-text);
+		padding:0 6px; white-space:nowrap; letter-spacing:0.02em;
+	}
+	.ctrl-sep { width:1px; align-self:stretch; margin:4px 2px; background:var(--theme-border); }
+	/* Movable dock: drag handle + pin-to-center button */
+	.ctrl-grip {
+		display:inline-flex; align-items:center; justify-content:center;
+		width:1.5rem; height:2.15rem; padding:0; border:none; background:transparent;
+		color:var(--theme-text-subtle); border-radius:8px; cursor:grab; touch-action:none;
+		transition:background 0.18s ease, color 0.18s ease;
+	}
+	.ctrl-grip:hover { color:var(--theme-text); background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); }
+	.ctrl-grip:active { cursor:grabbing; }
+	.ctrl-grip svg { width:13px; height:16px; pointer-events:none; }
+	body.controls-floating .ctrl-grip { color:var(--theme-primary,#0078d4); }
+	#controls .ctrl-pin { display:none; color:var(--theme-primary,#0078d4); }
+	#controls .ctrl-pin svg { width:15px; height:15px; pointer-events:none; }
+	body.controls-floating #controls .ctrl-pin { display:inline-flex; }
+	body.controls-floating #controls { box-shadow:0 10px 30px rgba(0,0,0,0.30), 0 0 0 1.5px var(--theme-primary,#0078d4); }
+	.speed-control { display:inline-flex; align-items:center; gap:1px; padding:2px 3px; border:1px solid var(--theme-border); border-radius:999px; }
+	.speed-control .speed-btn {
+		width:1.7rem; height:1.7rem; min-width:0; padding:0;
+		display:inline-flex; align-items:center; justify-content:center;
+		font-size:0.95rem; font-weight:700; border-radius:50%;
+	}
+	.speed-control .speed-btn[disabled] { opacity:0.4; cursor:not-allowed; }
+	.speed-label { min-width:2.4rem; text-align:center; font-variant-numeric:tabular-nums; font-size:0.82rem; font-weight:700; color:var(--theme-text); }
+
+	#callout-toggle, #outline-toggle, #audio-toggle { border:1px solid var(--theme-border); border-radius:4px; transition:background .2s,color .2s,border-color .2s,opacity .2s; }
+	#callout-toggle.toggle-active, #outline-toggle.toggle-active, #audio-toggle.toggle-active {
+		background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary,#0078d4); border-color:var(--theme-primary,#0078d4); font-weight:600;
+	}
+	#callout-toggle:not(.toggle-active), #outline-toggle:not(.toggle-active), #audio-toggle:not(.toggle-active) { opacity:0.6; }
+
+	/* ── HIDE/SHOW TOP BAR ─────────────────── */
+	#header-hide { display:inline-flex; align-items:center; justify-content:center; width:2rem; height:2rem; padding:0; border:1px solid var(--theme-border); border-radius:50%; color:var(--theme-text-subtle); transition:background .2s,color .2s,transform .18s; }
+	#header-hide:hover { color:var(--theme-text); transform:translateY(-1px); }
+	#header-hide svg { width:16px; height:16px; }
+	#header-hide-top { display:inline-flex; align-items:center; justify-content:center; width:2rem; height:2rem; padding:0; border:1px solid var(--theme-border); border-radius:50%; color:var(--theme-text-subtle); background:transparent; cursor:pointer; transition:background .2s,color .2s,transform .18s; }
+	#header-hide-top:hover { color:var(--theme-text); transform:translateY(-1px); }
+	#header-hide-top svg { width:16px; height:16px; }
+	body.chrome-hidden .app-header, body.chrome-hidden .progress-track { display:none; }
+	#header-reveal {
+		position:fixed; top:0; left:50%; transform:translateX(-50%) translateY(-100%); z-index:45;
+		display:inline-flex; align-items:center; gap:0.35rem; padding:5px 14px 6px; font-size:12px; font-weight:600; line-height:1;
+		color:var(--theme-text-subtle); background:var(--theme-body-background-translucent, rgba(255,255,255,0.88));
+		backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border:1px solid var(--theme-border); border-top:none; border-radius:0 0 12px 12px;
+		box-shadow:0 4px 14px rgba(0,0,0,0.14); cursor:pointer; transition:transform .28s cubic-bezier(0.2,0.7,0.3,1), color .2s, background .2s;
+	}
+	body.theme-dark #header-reveal { background:var(--theme-body-background-translucent, rgba(32,32,36,0.88)); }
+	#header-reveal:hover { color:var(--theme-text); }
+	body.chrome-hidden #header-reveal { transform:translateX(-50%) translateY(0); }
+	#header-reveal svg { width:14px; height:14px; }
+
+	/* ── PLAYER OVERLAY · pills inside the stage frame (YouTube-style) ──
+	   Two translucent pills float over the 16:9 frame: LEFT = "view options"
+	   (callout / outline / shortcuts), RIGHT = "player" (audio / captions / hide-bar / fullscreen). */
+	.stage-overlay {
+		position:absolute; right:12px; bottom:10px; z-index:25;
+		display:flex; align-items:center; gap:2px;
+		padding:3px 6px; border-radius:999px;
+		background:rgba(16,18,24,0.58);
+		backdrop-filter:blur(9px) saturate(1.3); -webkit-backdrop-filter:blur(9px) saturate(1.3);
+		box-shadow:0 4px 16px rgba(0,0,0,0.32);
+	}
+	.ovl-btn {
+		-webkit-appearance:none; appearance:none; margin:0; font:inherit;
+		display:inline-flex; align-items:center; justify-content:center; gap:4px;
+		min-width:30px; height:30px; padding:0 8px;
+		border:none !important; border-radius:999px !important;
+		background:transparent !important; color:#fff !important;
+		box-shadow:none !important; cursor:pointer; line-height:1;
+		font-size:0.82rem; font-weight:700; opacity:0.92; transition:background .15s ease, opacity .15s ease;
+	}
+	.ovl-btn:hover { background:rgba(255,255,255,0.16) !important; opacity:1; }
+	.ovl-btn:disabled { opacity:0.4; cursor:not-allowed; }
+	.ovl-btn svg { width:18px; height:18px; fill:currentColor; display:block; }
+	.ovl-btn.on { color:#5cc8ff !important; }
+	.stage-overlay #audio-toggle { opacity:1 !important; }
+	.stage-overlay .aw-audio-ico { font-size:1rem; line-height:1; }
+	.stage-overlay .aw-audio-time { font-size:0.78rem; font-variant-numeric:tabular-nums; letter-spacing:0.02em; opacity:0.95; min-width:2.4em; text-align:left; }
+	#cc-toggle svg { width:20px; height:20px; }
+	.ovl-btn .fs-exit { display:none; }
+	body.is-fs .ovl-btn .fs-enter { display:none; }
+	body.is-fs .ovl-btn .fs-exit { display:block; }
+
+	/* ── LEFT VIEW-OPTIONS PILL · Callout / Outline / Shortcuts (icon + hover tip) ── */
+	.stage-overlay-left { right:auto; left:12px; }
+	#stage-overlay-left .ovl-btn:not(.toggle-active) { opacity:0.86; }
+	#stage-overlay-left .ovl-btn.toggle-active { color:#5cc8ff !important; opacity:1; }
+	#stage-overlay-left .ovl-btn:hover { opacity:1; }
+	/* Hover tooltip shown above the icon (left-anchored so it never clips the frame edge) */
+	.ovl-btn[data-tip] { position:relative; }
+	.ovl-btn[data-tip]::after { content:attr(data-tip); position:absolute; left:0; bottom:calc(100% + 9px); transform:translateY(4px); padding:4px 8px; border-radius:6px; background:rgba(16,18,24,0.96); color:#fff; font-size:0.72rem; font-weight:600; white-space:nowrap; letter-spacing:0.01em; opacity:0; pointer-events:none; box-shadow:0 3px 12px rgba(0,0,0,0.45); transition:opacity .14s ease, transform .14s ease; z-index:40; }
+	.ovl-btn[data-tip]::before { content:''; position:absolute; left:13px; bottom:calc(100% + 4px); border:5px solid transparent; border-top-color:rgba(16,18,24,0.96); opacity:0; pointer-events:none; transition:opacity .14s ease; z-index:40; }
+	.ovl-btn[data-tip]:hover::after { opacity:1; transform:translateY(0); }
+	.ovl-btn[data-tip]:hover::before { opacity:1; }
+
+	/* ── CAPTION · overlaid inside the frame, draggable + resizable, stays solid (not see-through) ── */
+	#aw-caption {
+		position:absolute; left:50%; transform:translateX(-50%); bottom:56px; z-index:24;
+		max-width:92%; min-width:140px; min-height:38px; max-height:44%;
+		display:none; align-items:center; justify-content:center; text-align:center;
+		padding:0.42rem 0.95rem; border-radius:9px;
+		background:rgba(8,9,13,0.8); color:#fff;
+		font-size:1.1rem; line-height:1.36; font-weight:600;
+		box-shadow:0 3px 14px rgba(0,0,0,0.42); pointer-events:auto; cursor:grab; touch-action:none;
+		overflow:auto; resize:both;   /* user can reshape the caption; corner grip = resize */
+	}
+	#aw-caption:active { cursor:grabbing; }
+	#aw-caption::-webkit-resizer { background:linear-gradient(135deg, transparent 45%, rgba(255,255,255,0.55) 45%, rgba(255,255,255,0.55) 55%, transparent 55%); }
+	body.cc-on #aw-caption.has-text { display:flex; }
+	@media (max-width:640px){ #aw-caption { font-size:0.94rem; bottom:48px; max-width:90%; } }
+
+	/* ── OUTLINE PANEL · draggable + slightly see-through ── */
+	#step-outline {
+		position:fixed; top:4.5rem; right:1rem; width:320px; max-height:calc(100vh - 8rem); overflow-y:auto;
+		padding:1.1rem; background:var(--theme-body-background);
+		background:color-mix(in srgb, var(--theme-body-background) 85%, transparent);
+		-webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
+		border:1px solid var(--theme-border);
+		border-radius:6px; box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2)); z-index:35; font-size:1rem; line-height:1.55;
+		cursor:grab; touch-action:none;
+	}
+	#step-outline:active { cursor:grabbing; }
+	#step-outline[hidden] { display:none; }
+	#step-outline h2 { font-size:0.85rem; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--theme-tertiary,#5c2d91); margin-bottom:0.5rem; }
+	#step-outline .outline-section { margin-top:0.6rem; padding-top:0.6rem; border-top:1px solid var(--theme-border); }
+	#step-outline .outline-section:first-child { margin-top:0; padding-top:0; border-top:0; }
+	#step-outline .stat-row { display:flex; justify-content:space-between; align-items:baseline; gap:0.75rem; padding:0.2rem 0; }
+	#step-outline .stat-row span:first-child { color:var(--theme-text-subtle); flex:0 0 auto; max-width:45%; }
+	#step-outline .stat-row span:last-child { text-align:right; font-weight:600; color:var(--theme-tertiary,#5c2d91); flex:1 1 auto; }
+
+	.progress-track { position:relative; height:6px; background:var(--theme-border, #e0e0e0); flex-shrink:0; cursor:pointer; }
+	.progress-fill { position:absolute; left:0; top:0; bottom:0; width:0%; background:var(--aw-purple, #5c2d91); transition:width .5s cubic-bezier(0.2,0.8,0.2,1); pointer-events:none; }
+	.progress-tick { position:absolute; top:0; bottom:0; width:2px; margin-left:-1px; background:var(--theme-body-background); opacity:0.6; pointer-events:none; }
+
+	/* ── THEME / LANG / FONT CONTROLS ──────── */
+	.theme-toggle { display:inline-flex; align-items:center; justify-content:center; width:2.25rem; height:2.25rem; padding:0; margin-inline-start:0.25rem; background:transparent; border:1px solid var(--theme-border); border-radius:999px; color:var(--theme-text); cursor:pointer; transition:background .15s,color .15s,border-color .15s; }
+	.theme-toggle:hover { background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary); border-color:var(--theme-primary); }
+	.theme-toggle .theme-icon { display:none; }
+	.theme-toggle[data-theme="dark"] .icon-sun { display:block; }
+	.theme-toggle[data-theme="light"] .icon-moon { display:block; }
+	.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+	.skip-link { position:absolute; top:-100px; left:0.5rem; z-index:100; padding:0.5rem 1rem; background:var(--theme-primary); color:var(--theme-primary-invert,#fff); border-radius:4px; text-decoration:none; font-weight:600; }
+	.skip-link:focus { top:0.5rem; }
+	.header-back-link { display:inline-flex; align-items:center; gap:0.25rem; padding:0.2rem 0.6rem; font-size:0.8rem; font-weight:600; color:var(--theme-text-subtle); border:1px solid var(--theme-border); border-radius:999px; text-decoration:none; white-space:nowrap; transition:background .15s,color .15s,border-color .15s; }
+	.header-back-link:hover { color:var(--theme-primary); border-color:var(--theme-primary); background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); }
+	.lang-select {
+		appearance:none; -webkit-appearance:none; background:var(--theme-card-background,#fff); color:var(--theme-body-text,#333);
+		border:1px solid var(--theme-border, rgba(0,0,0,0.2)); border-radius:4px; padding:4px 24px 4px 8px;
+		font-size:0.8rem; font-family:'Segoe UI', sans-serif; cursor:pointer;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+		background-repeat:no-repeat; background-position:right 6px center; min-width:80px;
+	}
+	.lang-select:hover { border-color:var(--theme-primary, #0078d4); }
+	.lang-select:focus { outline:2px solid var(--theme-primary, #0078d4); outline-offset:1px; }
+	body.theme-dark .lang-select {
+		background-color:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); border-color:rgba(255,255,255,0.15);
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23aaa' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+	}
+	body.theme-dark .lang-select option { background:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); }
+	.font-size-controls { display:flex; align-items:center; gap:2px; }
+	.font-size-btn { background:var(--theme-card-background,#fff); color:var(--theme-body-text,#333); border:1px solid var(--theme-border, rgba(0,0,0,0.2)); border-radius:4px; padding:3px 8px; font-size:0.8rem; font-weight:700; font-family:'Segoe UI', sans-serif; cursor:pointer; line-height:1.2; transition:background .15s,border-color .15s; }
+	.font-size-btn:hover { border-color:var(--theme-primary, #0078d4); }
+	body.theme-dark .font-size-btn { background:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); border-color:rgba(255,255,255,0.15); }
+
+	/* Inline icons (crisp on any OS/projector — replaces raw emoji on stage) */
+	.ic { display:inline-flex; align-items:center; justify-content:center; vertical-align:-0.125em; }
+	.ic svg { width:1em; height:1em; fill:currentColor; display:block; }
+	.help-toggle svg { width:15px; height:15px; vertical-align:-2px; }
+
+	/* Keyboard shortcut overlay */
+	#shortcut-overlay { position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center; }
+	#shortcut-overlay[hidden] { display:none; }
+	.sc-backdrop { position:absolute; inset:0; background:rgba(0,0,0,0.5); -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px); }
+	.sc-panel { position:relative; z-index:1; width:min(430px,92vw); max-height:82vh; overflow:auto; padding:1.5rem 1.6rem; background:var(--theme-body-background); border:1px solid var(--theme-border); border-radius:16px; box-shadow:0 24px 70px rgba(0,0,0,0.4); }
+	.sc-panel h2 { margin:0 0 1rem; font-size:1.25rem; color:var(--theme-tertiary,#5c2d91); }
+	body.theme-dark .sc-panel h2 { color:#c9a5e8; }
+	.sc-close { position:absolute; top:0.7rem; right:0.7rem; width:2rem; height:2rem; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--theme-border); border-radius:50%; background:transparent; color:var(--theme-text-subtle); cursor:pointer; }
+	.sc-close:hover { color:var(--theme-text); border-color:var(--theme-primary,#0078d4); }
+	.sc-close svg { width:15px; height:15px; }
+	.sc-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:0.55rem; }
+	.sc-list li { display:flex; align-items:center; justify-content:space-between; gap:1rem; font-size:1rem; color:var(--theme-text); }
+	.sc-keys { display:inline-flex; gap:0.3rem; flex:none; }
+	.sc-panel kbd, .sc-hint kbd { font-family:'Cascadia Code','Consolas',monospace; font-size:0.82rem; line-height:1; padding:0.28rem 0.5rem; border-radius:6px; border:1px solid var(--theme-border); border-bottom-width:2px; background:var(--theme-card-background,#fff); color:var(--theme-text); }
+	body.theme-dark .sc-panel kbd, body.theme-dark .sc-hint kbd { background:rgba(255,255,255,0.08); }
+	.sc-hint { margin:1.1rem 0 0; font-size:0.85rem; color:var(--theme-text-subtle); text-align:center; }
+
+	@media (max-width:640px) { .app-header { font-size:0.95rem; } .scene-title { font-size:1.9rem; } #stage { padding:0.9rem 1rem 4.5rem; } }
+	/* ── "Up next" pill · appears on the last step so learners chain to the next stop ── */
+	#journey-next { position:fixed; z-index:60; right:1.4rem; bottom:1.1rem; max-width:min(32rem,52vw); opacity:0; visibility:hidden; transform:translateY(12px); transition:opacity .5s ease, transform .5s ease, visibility .5s ease; }
+	#journey-next.show { opacity:1; visibility:visible; transform:none; }
+	.jn-card { display:flex; align-items:center; gap:0.7rem; padding:0.5rem 0.55rem 0.5rem 0.8rem; border-radius:14px; background:var(--theme-card-background,#fff); border:1px solid color-mix(in srgb, var(--aw-purple) 30%, var(--theme-border)); box-shadow:0 14px 34px rgba(0,0,0,0.3); }
+	body.theme-dark .jn-card { background:#15151d; }
+	.jn-icon { flex:none; width:2.4rem; height:2.4rem; display:grid; place-items:center; }
+	.jn-icon img { width:100%; height:100%; object-fit:contain; }
+	.jn-text { display:flex; flex-direction:column; line-height:1.2; min-width:0; }
+	.jn-eyebrow { display:inline-flex; align-items:center; gap:0.35rem; font-size:0.7rem; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:var(--aw-purple); }
+	.jn-check { display:grid; place-items:center; width:0.95rem; height:0.95rem; border-radius:50%; background:var(--aw-green); color:#fff; font-size:0.68rem; }
+	.jn-title { font-size:1.11rem; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+	.jn-cta { flex:none; display:inline-flex; align-items:center; gap:0.4rem; padding:0.5rem 0.95rem; border-radius:10px; font-size:1.02rem; font-weight:700; text-decoration:none; color:#fff; background:linear-gradient(120deg, var(--aw-purple), var(--aw-blue)); box-shadow:0 8px 20px rgba(92,45,145,0.4); transition:transform .15s ease, box-shadow .15s ease; }
+	.jn-cta:hover { transform:translateY(-1px); box-shadow:0 12px 26px rgba(92,45,145,0.5); }
+	.jn-close { flex:none; width:1.7rem; height:1.7rem; display:grid; place-items:center; border:none; border-radius:8px; cursor:pointer; background:transparent; color:var(--theme-text); opacity:0.5; }
+	.jn-close:hover { opacity:1; background:color-mix(in srgb, var(--theme-text) 10%, transparent); }
+	.jn-close svg { width:15px; height:15px; }
+	@media (max-width:860px){ #journey-next { right:0.8rem; bottom:5.1rem; max-width:min(22rem,88vw); } }
+	@media (prefers-reduced-motion: reduce){ #journey-next { transition:none !important; transform:none !important; } }
+
+	@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition:none !important; animation:none !important; } .progress-fill { transition:none !important; } }
+
+	/* ══ MICROSOFT 365 SCENES ══ */
+	.m3-logo { display:inline-block; vertical-align:middle; flex:0 0 auto; }
+	.m3-ic { display:block; flex:0 0 auto; }
+	.m3-typing::after { content:''; display:inline-block; width:2px; height:1.05em; background:#5c2d91; margin-left:2px; vertical-align:-2px; animation:m3Blink 0.9s steps(1,end) infinite; }
+	@keyframes m3Blink { 50% { opacity:0; } }
+	/* shared surfaces — always light, so the scenes read like product surfaces on a projector */
+	.m3-card { background:#fff; border:1px solid #e6e3ef; border-radius:14px; box-shadow:0 3px 12px rgba(60,30,90,0.08); }
+
+	/* Step 1 · the platform box + the apps that come out of it */
+	.m3-box { display:inline-flex; align-items:center; gap:15px; padding:16px 24px; border-radius:16px; opacity:0;
+		background:linear-gradient(135deg,#eef3fd,#f6effb); border:1px solid #dcd8ea; box-shadow:0 6px 20px rgba(60,30,90,0.10); }
+	.m3-box-tx { display:flex; flex-direction:column; gap:2px; text-align:left; }
+	.m3-box-tx b { font-size:1.31rem; font-weight:600; color:#241f2e; }
+	.m3-box-tx span { font-size:0.98rem; color:#5f5a6b; }
+	.m3-approw { display:flex; gap:14px; flex-wrap:wrap; justify-content:center; }
+	.m3-app { position:relative; display:flex; flex-direction:column; align-items:center; gap:7px; width:104px; padding:14px 8px; opacity:0;
+		background:#fff; border:1px solid #e6e3ef; border-radius:14px; box-shadow:0 3px 12px rgba(60,30,90,0.08); }
+	.m3-app span { font-size:0.95rem; font-weight:500; color:#2f2b39; }
+	.m3-app.is-locked { filter:grayscale(1); opacity:0.55; }
+	.m3-lock { position:absolute; top:6px; right:8px; font-size:0.91rem; }
+	.m3-app:not(.is-locked) .m3-lock { display:none; }
+
+	/* Step 2 · subscription → licence → account */
+	.m3-flow { display:flex; align-items:stretch; justify-content:center; gap:12px; flex-wrap:wrap; }
+	.m3-stage { flex:0 0 236px; display:flex; flex-direction:column; gap:5px; padding:15px 16px; opacity:0; text-align:left;
+		background:#fff; border:1px solid #e6e3ef; border-top:3px solid #5c2d91; border-radius:13px; box-shadow:0 3px 12px rgba(60,30,90,0.08); }
+	.m3-stage:nth-child(3){ border-top-color:#0067d6; } .m3-stage:nth-child(5){ border-top-color:#107c41; }
+	.m3-stage-ic { font-size:1.7rem; line-height:1; }
+	.m3-stage b { font-size:1.11rem; font-weight:600; color:#241f2e; }
+	.m3-stage span:last-child { font-size:0.93rem; color:#5f5a6b; line-height:1.4; }
+	.m3-arrow { align-self:center; font-size:3.1rem; font-weight:700; line-height:1; color:#7a49b8; opacity:0; padding:0 2px; }
+	.m3-lockrow .m3-app { width:92px; padding:11px 7px; }
+	.m3-state { font-size:1.02rem; font-weight:600; color:#8a6d1f; background:#fdf6e3; border:1px solid #f0dfae; border-radius:999px; padding:6px 16px; opacity:0; }
+	.m3-state.is-on { color:#0f6d43; background:#eafaf1; border-color:#b7e6c9; }
+
+	/* Step 3 · sign-in → tenant */
+	.m3-tenantrow { display:flex; align-items:center; justify-content:center; gap:20px; flex-wrap:wrap; }
+	.m3-signin { flex:0 0 268px; display:flex; flex-direction:column; gap:9px; padding:17px 18px; opacity:0; text-align:left;
+		background:#fff; border:1px solid #e6e3ef; border-radius:14px; box-shadow:0 6px 18px rgba(60,30,90,0.10); }
+	.m3-si-h { font-size:1.14rem; font-weight:600; color:#241f2e; }
+	.m3-si-f { display:flex; flex-direction:column; gap:3px; }
+	.m3-si-lbl { font-size:0.84rem; color:#7b7688; }
+	.m3-si-in { min-height:1.4em; font-size:1.02rem; color:#241f2e; background:#f7f6fb; border:1px solid #e3e0ec; border-radius:7px; padding:6px 10px; }
+	.m3-si-btn { align-self:flex-start; margin-top:3px; font-size:0.98rem; font-weight:600; color:#fff; background:#5c2d91; border-radius:8px; padding:7px 18px; }
+	.m3-tenant { flex:0 0 auto; max-width:560px; padding:15px 17px 17px; opacity:0;
+		background:linear-gradient(180deg,#fbfaff,#f5f2fb); border:2px dashed #b79fe0; border-radius:16px; }
+	.m3-tn-h { display:flex; align-items:center; gap:8px; font-size:1.14rem; font-weight:600; color:#4b2a7b; margin-bottom:11px; }
+	.m3-tn-ic { font-size:1.42rem; }
+	.m3-tn-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:9px; }
+	.m3-tchip { display:flex; align-items:center; gap:8px; padding:9px 11px; opacity:0; font-size:0.96rem; font-weight:500; color:#2f2b39;
+		background:#fff; border:1px solid #e6e3ef; border-radius:10px; box-shadow:0 2px 6px rgba(60,30,90,0.06); }
+	.m3-tc-emoji { font-size:1.25rem; line-height:1; }
+
+	/* Step 4 · a day of work */
+	.m3-daylist { display:flex; flex-direction:column; gap:9px; width:min(660px,96%); }
+	.m3-day { display:flex; align-items:center; gap:13px; padding:11px 15px; opacity:0;
+		background:#fff; border:1px solid #e6e3ef; border-left:4px solid #0067d6; border-radius:12px; box-shadow:0 2px 8px rgba(60,30,90,0.07); }
+	.m3-day:nth-child(2){ border-left-color:#5059C9; } .m3-day:nth-child(3){ border-left-color:#185ABD; }
+	.m3-day:nth-child(4){ border-left-color:#C43E1C; } .m3-day:nth-child(5){ border-left-color:#107C41; }
+	.m3-day-tx { display:flex; flex-direction:column; gap:1px; text-align:left; }
+	.m3-day-tx b { font-size:1.08rem; font-weight:600; color:#241f2e; }
+	.m3-day-tx span { font-size:0.91rem; color:#6a6570; }
+	.m3-dayout { display:inline-flex; align-items:center; gap:10px; padding:12px 22px; opacity:0; font-size:1.11rem; font-weight:600; color:#4b2a7b;
+		background:linear-gradient(135deg,#f3eefb,#eef3fd); border:1.5px solid #d9c9f0; border-radius:13px; }
+	.m3-dayout-ic { font-size:1.48rem; }
+
+	/* Step 5 · where the work lands */
+	.m3-srcrow { display:flex; gap:14px; justify-content:center; flex-wrap:wrap; }
+	.m3-src { position:relative; flex:0 0 196px; display:flex; flex-direction:column; align-items:center; gap:4px; padding:14px 13px 24px; opacity:0; text-align:center;
+		background:#fff; border:1px solid #e6e3ef; border-radius:13px; box-shadow:0 3px 12px rgba(60,30,90,0.08); }
+	.m3-src b { font-size:1.08rem; font-weight:600; color:#241f2e; }
+	.m3-src span:not(.m3-drop) { font-size:0.8rem; color:#6a6570; }
+	.m3-drop { position:absolute; bottom:-19px; left:50%; transform:translateX(-50%); font-size:3rem; font-weight:700; line-height:1; color:#7a49b8; opacity:0; }
+	.m3-hub { margin-top:16px; display:flex; flex-direction:column; align-items:center; gap:4px; width:min(760px,96%); padding:16px 20px; opacity:0;
+		background:linear-gradient(135deg,#efeafc,#e9f2fd); border:2px solid #c9b6ea; border-radius:16px; }
+	.m3-hub b { font-size:1.25rem; font-weight:600; color:#3f2470; }
+	.m3-hub span { font-size:0.99rem; color:#5f5a6b; }
+
+	/* Step 6 · labels, policy, enforcement */
+	.m3-labels { display:inline-flex; align-items:center; gap:9px; flex-wrap:wrap; justify-content:center; opacity:0; }
+	.m3-lbl-h { font-size:0.91rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--theme-text-subtle); }
+	.m3-lbl { font-size:0.96rem; font-weight:500; padding:5px 14px; border-radius:999px; opacity:0; border:1.5px solid transparent; }
+	.m3-lbl.l-pub { color:#0f6d43; background:#eafaf1; border-color:#b7e6c9; }
+	.m3-lbl.l-int { color:#8a6d1f; background:#fdf6e3; border-color:#f0dfae; }
+	.m3-lbl.l-conf { color:#a4262c; background:#fdeceb; border-color:#f3b8b4; }
+	.m3-lbl.is-on { box-shadow:0 0 0 3px rgba(164,38,44,0.18); font-weight:600; }
+	.m3-doc { display:inline-flex; align-items:center; gap:12px; padding:12px 18px; opacity:0;
+		background:#fff; border:1px solid #e6e3ef; border-radius:12px; box-shadow:0 3px 12px rgba(60,30,90,0.08); }
+	.m3-doc-tx { display:flex; flex-direction:column; gap:3px; text-align:left; }
+	.m3-doc-tx b { font-size:1.08rem; font-weight:600; color:#241f2e; }
+	.m3-doc-badge { align-self:flex-start; font-size:0.85rem; font-weight:600; color:#a4262c; background:#fdeceb; border:1px solid #f3b8b4; border-radius:999px; padding:2px 10px; opacity:0; }
+	.m3-share { display:inline-flex; align-items:center; gap:8px; font-size:1rem; color:#3f3a4a; background:#f7f6fb; border:1px dashed #ccc6dd; border-radius:10px; padding:8px 16px; opacity:0; }
+	.m3-engine { display:inline-flex; align-items:center; gap:9px; font-size:1.08rem; font-weight:600; color:#4b2a7b; background:#f3eefb; border:1.5px solid #d9c9f0; border-radius:12px; padding:9px 20px; opacity:0; }
+	.m3-eng-ic { font-size:1.36rem; }
+	.m3-outs { display:flex; gap:11px; justify-content:center; flex-wrap:wrap; }
+	.m3-out { flex:0 0 178px; display:flex; flex-direction:column; align-items:center; gap:2px; padding:11px 13px; opacity:0; text-align:center;
+		background:#fff; border:1.5px solid #e6e3ef; border-radius:12px; }
+	.m3-out-g { font-size:1.25rem; font-weight:700; line-height:1; }
+	.m3-out b { font-size:1.04rem; font-weight:600; color:#241f2e; }
+	.m3-out span:last-child { font-size:0.89rem; color:#6a6570; }
+	.m3-out.o-allow .m3-out-g { color:#107c41; } .m3-out.o-warn .m3-out-g { color:#c98a12; } .m3-out.o-block .m3-out-g { color:#a4262c; }
+	.m3-out.is-hit { border-color:#f3b8b4; background:#fdeceb; box-shadow:0 0 0 3px rgba(164,38,44,0.14); }
+
+	/* Step 7 · desktop or browser */
+	.m3-split { display:flex; gap:20px; align-items:stretch; justify-content:center; width:100%; flex-wrap:wrap; }
+	.m3-side { flex:1 1 300px; max-width:520px; display:flex; flex-direction:column; gap:11px; opacity:0; }
+	/* these two headings sit on the stage (not on a white card), so they follow the theme */
+	.m3-side-h { display:flex; flex-direction:column; gap:1px; font-size:1.11rem; font-weight:600; color:var(--theme-text); }
+	.m3-side-h span { font-size:0.91rem; font-weight:400; color:var(--theme-text-subtle); }
+	.m3-desk { display:flex; gap:11px; justify-content:center; flex-wrap:wrap; }
+	.m3-deskwin { position:relative; display:flex; flex-direction:column; align-items:center; gap:7px; width:118px; padding:22px 8px 14px; opacity:0;
+		background:#fff; border:1px solid #dfdbe9; border-radius:11px; box-shadow:0 4px 14px rgba(60,30,90,0.12); }
+	.m3-deskwin span:last-child { font-size:0.93rem; font-weight:500; color:#2f2b39; }
+	.m3-deskbar { position:absolute; top:0; left:0; right:0; height:13px; background:#efedf5; border-radius:10px 10px 0 0; border-bottom:1px solid #e3e0ec; }
+	.m3-win { border-radius:11px; overflow:hidden; background:#faf9fc; border:1px solid rgba(0,0,0,0.14); box-shadow:0 12px 30px rgba(0,0,0,0.20); text-align:left; }
+	.m3-winbar { display:flex; align-items:center; gap:10px; padding:7px 11px; background:#e9e7f0; }
+	.m3-dots { display:inline-flex; gap:4px; } .m3-dots i { width:8px; height:8px; border-radius:50%; background:#c9c5d6; }
+	.m3-url { font-size:0.89rem; color:#55505f; background:#fff; border-radius:999px; padding:3px 12px; }
+	.m3-winbody { padding:13px 15px 15px; background:#faf9fc; }
+	.m3-webhead { display:flex; align-items:center; gap:8px; font-size:1.04rem; color:#241f2e; margin-bottom:11px; }
+	.m3-webgreet { margin-left:auto; font-size:0.91rem; color:#6a6570; }
+	.m3-webgrid { display:grid; grid-template-columns:repeat(3,1fr); gap:9px; }
+	.m3-webcard { display:flex; align-items:center; gap:8px; padding:9px 11px; opacity:0; font-size:0.94rem; font-weight:500; color:#2f2b39;
+		background:#fff; border:1px solid #e6e3ef; border-radius:10px; }
+	.m3-webcard.is-open { border-color:#185ABD; box-shadow:0 0 0 2.5px rgba(24,90,189,0.20); }
+	.m3-webtoast { margin-top:11px; font-size:0.93rem; font-weight:600; color:#0f4c81; background:#eef4fb; border:1px solid #cfe0f2; border-radius:9px; padding:7px 13px; opacity:0; text-align:center; }
+	.m3-webtoast.is-saved { color:#0f6d43; background:#eafaf1; border-color:#b7e6c9; }
+
+	/* Step 8 · Microsoft 365 Copilot */
+	.m3-cpwrap { display:flex; flex-direction:column; align-items:center; gap:11px; width:100%; }
+	.m3-cpsrc { display:flex; gap:9px; justify-content:center; flex-wrap:wrap; }
+	.m3-cpchip { display:inline-flex; align-items:center; justify-content:center; padding:7px; opacity:0;
+		background:#fff; border:1px solid #e6e3ef; border-radius:11px; box-shadow:0 2px 8px rgba(60,30,90,0.08); }
+	.m3-chat { width:min(760px,97%); display:flex; flex-direction:column; gap:9px; padding:14px 16px 16px; text-align:left;
+		background:#fff; border:1px solid #e2dcf0; border-radius:16px; box-shadow:0 10px 28px rgba(60,30,90,0.14); }
+	.m3-chat-h { display:flex; align-items:center; gap:8px; font-size:1.04rem; color:#3f2470; }
+	.m3-chat-tag { margin-left:auto; font-size:0.84rem; font-weight:600; color:#0f4c81; background:#eef4fb; border:1px solid #cfe0f2; border-radius:999px; padding:2px 10px; }
+	.m3-bub { font-size:1.02rem; line-height:1.5; padding:11px 14px; border-radius:13px; }
+	.m3-bub-user { align-self:flex-end; max-width:88%; background:linear-gradient(135deg,#7a5cf0,#c05bd1); color:#fff; border-bottom-right-radius:5px; }
+	.m3-bub-bot { display:flex; flex-direction:column; gap:8px; background:#f7f6fb; color:#26242b; border:1px solid #e6e3ef; border-bottom-left-radius:5px; }
+	.m3-srcs { display:flex; gap:7px; flex-wrap:wrap; }
+	.m3-srcchip { display:inline-flex; align-items:center; gap:5px; opacity:0; font-size:0.86rem; font-weight:600; color:#0067b8; background:#eef4fb; border-radius:999px; padding:3px 10px; }
+	.m3-compare { display:flex; align-items:center; justify-content:center; gap:14px; flex-wrap:wrap; }
+	.m3-cmp { flex:0 0 250px; display:flex; flex-direction:column; gap:2px; padding:11px 16px; opacity:0; text-align:center; border-radius:12px; border:1.5px solid; }
+	.m3-cmp b { font-size:1rem; font-weight:600; } .m3-cmp span { font-size:0.96rem; }
+	.m3-cmp-before { color:#6a6570; background:#f6f5f8; border-color:#e2dfe8; }
+	.m3-cmp-after { color:#0f6d43; background:#eafaf1; border-color:#b7e6c9; }
+	.m3-cmp-arrow { font-size:3.1rem; font-weight:700; line-height:1; color:#7a49b8; opacity:0; padding:0 4px; }
+	.m3-cpfoot { font-size:1rem; color:var(--theme-text); text-align:center; max-width:820px; opacity:0; line-height:1.5; }
+	.m3-cpfoot a { color:var(--aw-purple,#5c2d91); font-weight:600; text-decoration:none; border-bottom:2px solid rgba(92,45,145,0.35); }
+	body.theme-dark .m3-cpfoot a { color:#c9a5e8; border-bottom-color:rgba(201,165,232,0.4); }
+
+	/* ── DARK THEME · concept surfaces follow the theme (the browser mock in step 7 stays light on purpose — it is a product screenshot) ── */
+	body.theme-dark .m3-box { background:linear-gradient(135deg,#241f33,#2a2036); border-color:#3d3650; }
+	body.theme-dark .m3-box-tx b { color:#ece9f2; }
+	body.theme-dark .m3-box-tx span { color:#b4afc2; }
+	body.theme-dark .m3-app,
+	body.theme-dark .m3-stage,
+	body.theme-dark .m3-signin,
+	body.theme-dark .m3-day,
+	body.theme-dark .m3-src,
+	body.theme-dark .m3-doc,
+	body.theme-dark .m3-out,
+	body.theme-dark .m3-tchip,
+	body.theme-dark .m3-cpchip,
+	body.theme-dark .m3-chat { background:#221f2b; border-color:#3a3547; box-shadow:0 4px 16px rgba(0,0,0,0.34); }
+	body.theme-dark .m3-app span,
+	body.theme-dark .m3-stage b, body.theme-dark .m3-day-tx b, body.theme-dark .m3-src b,
+	body.theme-dark .m3-doc-tx b, body.theme-dark .m3-out b, body.theme-dark .m3-tchip,
+	body.theme-dark .m3-si-h, body.theme-dark .m3-si-in { color:#ece9f2; }
+	body.theme-dark .m3-stage span:last-child, body.theme-dark .m3-day-tx span,
+	body.theme-dark .m3-src span:not(.m3-drop), body.theme-dark .m3-out span:last-child,
+	body.theme-dark .m3-si-lbl { color:#b4afc2; }
+	body.theme-dark .m3-si-in { background:#2b2736; border-color:#3f3950; }
+	body.theme-dark .m3-tenant { background:linear-gradient(180deg,#241f33,#1f1b2b); border-color:#8661c5; }
+	body.theme-dark .m3-tn-h { color:#d3bdf2; }
+	body.theme-dark .m3-dayout { background:linear-gradient(135deg,#2a2038,#1f2436); border-color:#4a3a6b; color:#d9c6f5; }
+	body.theme-dark .m3-hub { background:linear-gradient(135deg,#2a2144,#1e2740); border-color:#6b53a8; }
+	body.theme-dark .m3-hub b { color:#d9c6f5; } body.theme-dark .m3-hub span { color:#b4afc2; }
+	body.theme-dark .m3-share { background:#262231; border-color:#413a52; color:#c8c3d4; }
+	body.theme-dark .m3-engine { background:#2b2140; border-color:#5c4590; color:#d9c6f5; }
+	body.theme-dark .m3-lbl.l-pub { background:rgba(16,124,65,0.22); border-color:#2f7d55; color:#7fe0aa; }
+	body.theme-dark .m3-lbl.l-int { background:rgba(201,138,18,0.20); border-color:#8a6d1f; color:#f0cf7d; }
+	body.theme-dark .m3-lbl.l-conf { background:rgba(164,38,44,0.22); border-color:#8f3238; color:#f2a3a0; }
+	body.theme-dark .m3-doc-badge { background:rgba(164,38,44,0.22); border-color:#8f3238; color:#f2a3a0; }
+	body.theme-dark .m3-out.is-hit { background:rgba(164,38,44,0.20); border-color:#8f3238; }
+	body.theme-dark .m3-state { background:rgba(201,138,18,0.18); border-color:#8a6d1f; color:#f0cf7d; }
+	body.theme-dark .m3-state.is-on { background:rgba(16,124,65,0.22); border-color:#2f7d55; color:#7fe0aa; }
+	body.theme-dark .m3-chat-h { color:#d3bdf2; }
+	body.theme-dark .m3-chat-tag { background:rgba(0,120,212,0.18); border-color:#2f5f8f; color:#8ec5f5; }
+	body.theme-dark .m3-bub-bot { background:#2b2736; border-color:#3f3950; color:#ece9f2; }
+	body.theme-dark .m3-srcchip { background:rgba(0,120,212,0.18); color:#8ec5f5; }
+	body.theme-dark .m3-cmp-before { background:#262231; border-color:#3f3950; color:#b4afc2; }
+	body.theme-dark .m3-cmp-after { background:rgba(16,124,65,0.22); border-color:#2f7d55; color:#7fe0aa; }
+	body.theme-dark .m3-deskwin { background:#221f2b; border-color:#3a3547; }
+	body.theme-dark .m3-deskwin span:last-child { color:#ece9f2; }
+	body.theme-dark .m3-deskbar { background:#2f2a3d; border-bottom-color:#3f3950; }
+	body.theme-dark .m3-arrow, body.theme-dark .m3-drop, body.theme-dark .m3-cmp-arrow { color:#c9a5e8; }
+
+	/* ══ COPILOT SCENES (this page) ══ */
+	/* Step 1 · the Copilot layer on top of Microsoft 365 */
+	.m3-layers { display:flex; flex-direction:column; align-items:center; gap:12px; width:min(760px,96%); }
+	.m3-layer { width:100%; display:flex; align-items:center; gap:17px; padding:20px 26px; opacity:0; text-align:left; border-radius:16px; }
+	.m3-layer-tx { display:flex; flex-direction:column; gap:3px; }
+	.m3-layer-tx b { font-size:1.31rem; font-weight:600; color:#241f2e; }
+	.m3-layer-tx span { font-size:1.08rem; color:#5f5a6b; }
+	.m3-layer.is-top { background:linear-gradient(135deg,#f3eefb,#fbeef6); border:2px solid #c9b6ea; box-shadow:0 8px 22px rgba(92,45,145,0.16); }
+	.m3-layer.is-base { background:linear-gradient(135deg,#eef3fd,#f6effb); border:1.5px solid #dcd8ea; }
+	.m3-aha { font-size:1.11rem; font-weight:500; color:#4b2a7b; background:#f3eefb; border:1.5px solid #d9c9f0; border-radius:13px; padding:12px 24px; opacity:0; max-width:min(880px,96%); line-height:1.5; }
+	.m3-app.is-glow { width:96px; padding:15px 8px; }
+
+	/* Step 2 · Copilot Chat in the browser */
+	.m3-win-wide { width:min(880px,97%); }
+	.m3-win-wide .m3-winbody { display:flex; flex-direction:column; gap:9px; }
+	.m3-chq { align-self:flex-end; max-width:88%; background:linear-gradient(135deg,#7a5cf0,#c05bd1); color:#fff; border-bottom-right-radius:5px; }
+	.m3-composer { display:flex; align-items:center; gap:10px; margin-top:3px; padding:9px 14px; background:#fff; border:1px solid #e0dcec; border-radius:999px; }
+	.m3-composer-in { flex:1; font-size:0.98rem; color:#8d879a; }
+	.m3-send { font-size:1.02rem; color:#5c2d91; }
+	.m3-note { font-size:1rem; color:var(--theme-text-subtle); opacity:0; }
+
+	/* Step 3 · the signals that the add-on is assigned */
+	.m3-toggle { display:inline-flex; gap:4px; padding:4px; opacity:0; background:#f0edf7; border:1px solid #ddd8ea; border-radius:999px; }
+	.m3-tog { font-size:1.02rem; font-weight:500; color:#5f5a6b; border-radius:999px; padding:6px 26px; }
+	.m3-tog.is-on { font-weight:600; color:#fff; background:linear-gradient(135deg,#7a5cf0,#c05bd1); }
+	.m3-siglist { display:flex; flex-direction:column; gap:11px; width:min(780px,96%); }
+	.m3-sig { display:flex; align-items:center; gap:15px; padding:16px 20px; opacity:0;
+		background:#fff; border:1px solid #e6e3ef; border-left:4px solid #5c2d91; border-radius:13px; box-shadow:0 2px 8px rgba(60,30,90,0.07); }
+	.m3-sig-ic { font-size:1.82rem; line-height:1; }
+	.m3-sig .m3-day-tx b { font-size:1.19rem; } .m3-sig .m3-day-tx span { font-size:1.02rem; }
+
+	/* Step 4 · Web vs Work · Step 8 · Researcher & Analyst */
+	.m3-sidecard { flex:0 1 470px; gap:16px; padding:26px; border-radius:16px;
+		background:#fff; border:1px solid #e6e3ef; border-top:3px solid #0067d6; box-shadow:0 4px 16px rgba(60,30,90,0.09); }
+	.m3-sidecard.is-work { border-top-color:#5c2d91; }
+	.m3-sidecard .m3-side-h { font-size:1.31rem; color:#241f2e; } .m3-sidecard .m3-side-h span { font-size:1.02rem; color:#6a6570; }
+	.m3-globe { font-size:3.2rem; line-height:1; }
+	.m3-worksrc { display:flex; gap:9px; flex-wrap:wrap; }
+	.m3-worksrc .m3-cpchip { padding:9px; }
+	.m3-qa { display:flex; flex-direction:column; gap:6px; padding:18px 20px; opacity:0; text-align:left; background:#f7f6fb; border:1px solid #e6e3ef; border-radius:12px; }
+	.m3-qa b { font-size:1.14rem; font-weight:600; color:#241f2e; }
+	.m3-qa span { font-size:1.04rem; color:#6a6570; line-height:1.45; }
+	.m3-inrow { display:flex; gap:8px; flex-wrap:wrap; }
+	.m3-in { display:inline-flex; align-items:center; gap:6px; opacity:0; font-size:1rem; font-weight:500; color:#3f3a4a; background:#f2f0f8; border:1px solid #e2dfe8; border-radius:999px; padding:7px 16px; }
+	.m3-arrow-down { align-self:center; font-size:2.9rem; }
+	.m3-outcard { margin-top:auto; padding:14px 18px; opacity:0; font-size:1.11rem; font-weight:600; text-align:left; color:#0f6d43; background:#eafaf1; border:1.5px solid #b7e6c9; border-radius:12px; }
+	.m3-chart { display:flex; align-items:flex-end; justify-content:center; gap:13px; height:92px; }
+	.m3-bar { width:38px; border-radius:6px 6px 2px 2px; background:linear-gradient(180deg,#7a5cf0,#c05bd1); }
+
+	/* Step 5 · permissions */
+	.m3-permrow { display:flex; gap:20px; justify-content:center; flex-wrap:wrap; width:100%; }
+	.m3-perm { flex:0 1 460px; display:flex; flex-direction:column; gap:18px; padding:26px; opacity:0; text-align:left;
+		background:#fff; border:1px solid #e6e3ef; border-radius:16px; box-shadow:0 4px 16px rgba(60,30,90,0.09); }
+	.m3-perm-q { font-size:1.14rem; color:#fff; background:linear-gradient(135deg,#7a5cf0,#c05bd1); border-radius:13px; border-bottom-right-radius:5px; padding:15px 19px; }
+	.m3-perm-r { display:flex; align-items:center; gap:14px; padding:18px 20px; opacity:0; border-radius:13px; border:1.5px solid; }
+	.m3-perm-ic { font-size:1.93rem; line-height:1; }
+	.m3-perm .m3-day-tx b { font-size:1.19rem; } .m3-perm .m3-day-tx span { font-size:1.02rem; }
+	.m3-perm.is-denied .m3-perm-r { background:#fdeceb; border-color:#f3b8b4; }
+	.m3-perm.is-denied .m3-day-tx b { color:#a4262c; }
+	.m3-perm.is-allowed .m3-perm-r { background:#eafaf1; border-color:#b7e6c9; }
+	.m3-perm.is-allowed .m3-day-tx b { color:#0f6d43; }
+	.m3-guards { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+	.m3-guard { font-size:1.04rem; font-weight:500; color:#0f6d43; background:#eafaf1; border:1px solid #b7e6c9; border-radius:999px; padding:9px 22px; opacity:0; }
+
+	/* Step 6 · the model picker */
+	.m3-picker { display:inline-flex; align-items:center; gap:13px; padding:13px 26px; opacity:0; font-size:1.19rem; font-weight:600; color:#241f2e;
+		background:#fff; border:1px solid #ddd8ea; border-radius:12px; box-shadow:0 3px 12px rgba(60,30,90,0.08); }
+	.m3-caret { font-size:0.9rem; color:#7a49b8; }
+	.m3-modelist { display:flex; flex-direction:column; gap:10px; width:min(700px,96%); padding:0; border-radius:0; }
+	.m3-modelist.is-open { padding:13px; background:#fff; border:1px solid #e6e3ef; border-radius:15px; box-shadow:0 10px 28px rgba(60,30,90,0.14); }
+	.m3-model { display:flex; align-items:center; gap:15px; padding:15px 18px; opacity:0; text-align:left; background:#f7f6fb; border:1px solid #e6e3ef; border-radius:12px; }
+	.m3-model-ic { font-size:1.76rem; line-height:1; }
+	.m3-model .m3-day-tx b { font-size:1.19rem; } .m3-model .m3-day-tx span { font-size:1.02rem; }
+
+	/* Step 7 · agents */
+	.m3-agentrow { display:flex; gap:18px; justify-content:center; flex-wrap:wrap; }
+	.m3-agent { flex:0 0 252px; display:flex; flex-direction:column; align-items:center; gap:6px; padding:30px 18px; opacity:0; text-align:center;
+		background:#fff; border:1px solid #e6e3ef; border-top:3px solid #5c2d91; border-radius:15px; box-shadow:0 4px 16px rgba(60,30,90,0.09); }
+	.m3-agent-ic { font-size:2.4rem; line-height:1; }
+	.m3-agent b { font-size:1.31rem; font-weight:600; color:#241f2e; }
+	.m3-agent span:last-child { font-size:1.04rem; color:#6a6570; }
+	.m3-cmp { flex:0 0 290px; padding:16px 20px; }
+	.m3-cmp b { font-size:1.14rem; } .m3-cmp span { font-size:1.08rem; }
+
+	/* Step 9 · Pages & export */
+	.m3-pagecard { flex:0 0 340px; border-top-color:#107c41; }
+	.m3-pagelist { display:flex; flex-direction:column; gap:7px; align-items:flex-start; margin-top:5px; }
+	.m3-exporth { font-size:1.11rem; font-weight:600; color:var(--theme-text-subtle); opacity:0; }
+	.m3-exports { display:flex; gap:14px; justify-content:center; flex-wrap:wrap; }
+	.m3-export { display:flex; flex-direction:column; align-items:center; gap:9px; width:132px; padding:17px 12px; opacity:0; font-size:1.04rem; font-weight:500; color:#2f2b39;
+		background:#fff; border:1px solid #e6e3ef; border-radius:14px; box-shadow:0 3px 12px rgba(60,30,90,0.08); }
+	.m3-pdf { display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; font-size:0.75rem; font-weight:700; color:#fff; background:#c43e1c; border-radius:6px; }
+
+	/* Step 10 · all in one */
+	.m3-orbit { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+	.m3-orb { display:inline-flex; align-items:center; gap:8px; padding:9px 17px; opacity:0; font-size:1.04rem; font-weight:500; color:#2f2b39;
+		background:#fff; border:1px solid #e6e3ef; border-radius:999px; box-shadow:0 2px 8px rgba(60,30,90,0.08); }
+	.m3-orb-ic { font-size:1.25rem; line-height:1; }
+	.m3-wowlines { display:flex; flex-direction:column; gap:4px; opacity:0; max-width:min(920px,96%); }
+	.m3-wowlines b { font-size:1.31rem; font-weight:600; color:var(--theme-text); }
+	.m3-wowlines span { font-size:1.31rem; color:var(--theme-text); }
+
+	/* ── DARK THEME · the Copilot scenes ── */
+	body.theme-dark .m3-layer.is-top { background:linear-gradient(135deg,#2b2140,#33203a); border-color:#6b53a8; }
+	body.theme-dark .m3-layer.is-base { background:linear-gradient(135deg,#241f33,#2a2036); border-color:#3d3650; }
+	body.theme-dark .m3-layer-tx b { color:#ece9f2; } body.theme-dark .m3-layer-tx span { color:#b4afc2; }
+	body.theme-dark .m3-aha { background:#2b2140; border-color:#5c4590; color:#d9c6f5; }
+	body.theme-dark .m3-toggle { background:#262231; border-color:#3f3950; }
+	body.theme-dark .m3-tog { color:#b4afc2; }
+	body.theme-dark .m3-sig,
+	body.theme-dark .m3-sidecard,
+	body.theme-dark .m3-perm,
+	body.theme-dark .m3-picker,
+	body.theme-dark .m3-modelist.is-open,
+	body.theme-dark .m3-agent,
+	body.theme-dark .m3-export,
+	body.theme-dark .m3-orb { background:#221f2b; border-color:#3a3547; box-shadow:0 4px 16px rgba(0,0,0,0.34); }
+	body.theme-dark .m3-picker,
+	body.theme-dark .m3-agent b,
+	body.theme-dark .m3-export,
+	body.theme-dark .m3-orb,
+	body.theme-dark .m3-sidecard .m3-side-h,
+	body.theme-dark .m3-qa b { color:#ece9f2; }
+	body.theme-dark .m3-agent span:last-child,
+	body.theme-dark .m3-sidecard .m3-side-h span,
+	body.theme-dark .m3-qa span { color:#b4afc2; }
+	body.theme-dark .m3-qa,
+	body.theme-dark .m3-model { background:#2b2736; border-color:#3f3950; }
+	body.theme-dark .m3-in { background:#2b2736; border-color:#3f3950; color:#c8c3d4; }
+	body.theme-dark .m3-outcard,
+	body.theme-dark .m3-guard,
+	body.theme-dark .m3-perm.is-allowed .m3-perm-r { background:rgba(16,124,65,0.22); border-color:#2f7d55; color:#7fe0aa; }
+	body.theme-dark .m3-perm.is-allowed .m3-day-tx b { color:#7fe0aa; }
+	body.theme-dark .m3-perm.is-denied .m3-perm-r { background:rgba(164,38,44,0.22); border-color:#8f3238; }
+	body.theme-dark .m3-perm.is-denied .m3-day-tx b { color:#f2a3a0; }
+	body.theme-dark .m3-composer { background:#fff; }
+	body.theme-dark .m3-arrow-down { color:#c9a5e8; }
+
+	/* ══ REAL BUSINESS VALUE (this page) ══ */
+	/* Shared before/after grammar across all five scenarios:
+	     "without" = the honest status quo — muted greys, MORE beats, never red, never broken.
+	     "with"    = green accent, FEWER beats.
+	   Each step uses a different arrangement of that grammar so five scenarios never read as one
+	   repeated grid: stacked chain -> horizontal race -> file + Q&A -> pile + fork -> shared timeline. */
+
+	/* the prompt pill and option chips — kept from the shared Office/Copilot design system */
+	.wd-promptbar { display:inline-flex; align-items:center; gap:12px; padding:14px 26px; font-size:1.25rem; font-weight:500; color:#4b2a7b;
+		background:#f3eefb; border:1.5px solid #d9c9f0; border-radius:999px; }
+	.wd-opts { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+	.wd-opt { font-size:1.08rem; color:#4b2a7b; background:#f7f4fc; border:1px solid #e0d5f2; border-radius:999px; padding:10px 20px; }
+	.wd-opt.is-on { font-weight:600; color:#fff; background:linear-gradient(135deg,#7a5cf0,#c05bd1); border-color:transparent; }
+
+	/* the callback pill — every scenario ties back to something Alex actually did earlier in the journey */
+	.bv-cb { display:inline-flex; align-items:center; gap:11px; padding:11px 22px; opacity:0; text-align:left;
+		font-size:1.04rem; line-height:1.45; color:#4b2a7b; background:#f3eefb; border:1.5px solid #d9c9f0; border-radius:999px; }
+	.bv-note { font-size:1.02rem; line-height:1.45; color:#6a6570; }
+	.bv-note.is-wi { color:#0f6d43; }
+	.bv-h { font-size:0.98rem; font-weight:600; letter-spacing:0.05em; text-transform:uppercase; color:#797775; }
+	.bv-h.is-wi { color:#0f6d43; }
+
+	/* step 1 · docs — two stacked chains; the passes Copilot removes get struck through, not deleted */
+	.bv-cols { display:flex; align-items:stretch; justify-content:center; gap:16px; width:100%; }
+	.bv-side { flex:0 1 448px; display:flex; flex-direction:column; gap:12px; padding:20px 24px; opacity:0; text-align:left; border-radius:16px;
+		background:#fff; border:1px solid #e6e3ef; border-top:3px solid #a19f9d; box-shadow:0 4px 16px rgba(60,30,90,0.09); }
+	.bv-side.is-wi { border-top-color:#107c41; }
+	.bv-steps { display:flex; flex-direction:column; gap:9px; }
+	.bv-step { display:flex; align-items:center; gap:12px; padding:10px 15px; opacity:0; border-radius:11px;
+		background:#f7f6fb; border:1px solid #e6e3ef; }
+	.bv-n { flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; width:25px; height:25px;
+		font-size:0.96rem; font-weight:600; color:#605e5c; background:#eceaf3; border-radius:50%; }
+	.bv-t { font-size:1.19rem; color:#241f2e; }
+	.bv-side.is-wi .bv-n { color:#0f6d43; background:#eafaf1; }
+	.bv-steps.is-struck .bv-t { color:#8a8886; text-decoration:line-through; text-decoration-color:#bdb9c9; text-decoration-thickness:1.5px; }
+	.bv-side .bv-note { margin-top:auto; }
+
+	/* step 2 · decks — two horizontal tracks sharing a left label gutter; the slow one visibly runs longer */
+	.bv-tracks { display:flex; flex-direction:column; gap:13px; width:100%; }
+	.bv-track { display:flex; align-items:center; gap:16px; padding:14px 20px; opacity:0; border-radius:14px;
+		background:#fff; border:1px solid #e6e3ef; border-left:4px solid #a19f9d; box-shadow:0 3px 12px rgba(60,30,90,0.08); }
+	.bv-track.is-wi { border-left-color:#107c41; }
+	.bv-tlabel { flex:0 0 176px; display:flex; flex-direction:column; gap:2px; text-align:right; }
+	.bv-tlabel b { font-size:1.19rem; font-weight:600; color:#241f2e; }
+	.bv-tlabel span { font-size:1.02rem; color:#6a6570; }
+	.bv-beats { flex:1; min-width:0; display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
+	.bv-beat { opacity:0; font-size:1.04rem; font-weight:500; color:#3f3a4a; background:#f2f0f8; border:1px solid #e2dfe8; border-radius:999px; padding:9px 18px; }
+	.bv-track.is-wi .bv-beat { color:#0f6d43; background:#eafaf1; border-color:#b7e6c9; }
+	.bv-beat.is-again { color:#8a8886; background:transparent; border-style:dashed; }
+	.bv-barrow { opacity:0; font-size:1.55rem; font-weight:700; color:#a19f9d; }
+	.bv-track.is-wi .bv-barrow { color:#4a9e6f; }
+
+	/* step 3 · data — one file at the top, the old way as a muted pill row, the new way as a real question */
+	.bv-file { display:inline-flex; align-items:center; gap:13px; padding:13px 22px; opacity:0; text-align:left; border-radius:14px;
+		background:#fff; border:1px solid #e6e3ef; border-top:3px solid #107c41; box-shadow:0 3px 12px rgba(60,30,90,0.08); }
+	.bv-file-tx { display:flex; flex-direction:column; gap:2px; }
+	.bv-file-tx b { font-size:1.19rem; font-weight:600; color:#241f2e; }
+	.bv-file-tx span { font-size:1.02rem; color:#6a6570; }
+	.bv-old { display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:center; }
+	.bv-oldh { font-size:0.98rem; font-weight:600; letter-spacing:0.05em; text-transform:uppercase; color:#797775; }
+	.bv-oldpill { opacity:0; font-size:1.04rem; font-weight:500; color:#605e5c; background:#f2f0f8; border:1px solid #e2dfe8; border-radius:999px; padding:8px 17px; }
+	.bv-ins { display:flex; align-items:flex-start; gap:10px; opacity:0; font-size:1.04rem; line-height:1.5; color:#26242b; }
+	.bv-ins::before { content:''; flex:0 0 auto; width:6px; height:6px; margin-top:7px; border-radius:50%; background:#107c41; }
+	.bv-inrow { display:flex; align-items:flex-start; justify-content:center; gap:26px; flex-wrap:wrap; width:min(960px,96%); }
+	.bv-inrow .bv-ins { flex:0 1 428px; }
+
+	/* step 4 · email — one shared object (the pile) forking into two paths */
+	.bv-pile { position:relative; display:inline-flex; flex-direction:column; gap:5px; padding:15px 22px; opacity:0; text-align:left;
+		background:#fff; border:1px solid #e6e3ef; border-radius:14px; box-shadow:0 4px 16px rgba(60,30,90,0.10); }
+	.bv-stack { position:absolute; inset:0; z-index:-1; }
+	.bv-stack i { position:absolute; inset:0; background:#fff; border:1px solid #e6e3ef; border-radius:14px; }
+	.bv-stack i:nth-child(1) { transform:translate(6px,6px); }
+	.bv-stack i:nth-child(2) { transform:translate(12px,12px); }
+	.bv-pile-h { display:flex; align-items:center; gap:11px; font-size:1.19rem; font-weight:600; color:#241f2e; }
+	.bv-count { font-size:0.96rem; font-weight:600; color:#8a6d1f; background:#fdf6e3; border:1px solid #f0dfae; border-radius:999px; padding:3px 12px; }
+	.bv-pile > span:last-child { font-size:1.02rem; color:#6a6570; }
+	.bv-fork { display:flex; align-items:flex-start; justify-content:center; gap:20px; width:100%; }
+	.bv-path { flex:0 1 446px; display:flex; flex-direction:column; gap:11px; padding:15px 6px 0; opacity:0; text-align:left; border-top:3px solid #a19f9d; }
+	.bv-path.is-wi { border-top-color:#107c41; }
+	.bv-row { display:flex; align-items:center; gap:12px; opacity:0; font-size:1.19rem; color:#241f2e; }
+	.bv-tick { flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; width:25px; height:25px;
+		font-size:0.93rem; font-weight:600; color:#605e5c; background:#eceaf3; border-radius:50%; }
+	.bv-path.is-wi .bv-tick { color:#0f6d43; background:#eafaf1; }
+	.bv-path .bv-note { margin-top:3px; }
+
+	/* step 5 · meetings — one shared axis: the meeting in the middle, the two ways of working it above and below */
+	.bv-tl { display:flex; flex-direction:column; gap:11px; width:100%; }
+	.bv-lane { display:flex; align-items:stretch; gap:16px; }
+	.bv-lane-h { flex:0 0 176px; align-self:center; text-align:right; }
+	.bv-lane-b { flex:1; min-width:0; display:flex; align-items:stretch; gap:11px; }
+	.bv-tlitem { flex:1 1 0; display:flex; flex-direction:column; gap:3px; padding:12px 16px; opacity:0; text-align:left; border-radius:12px;
+		background:#f7f6fb; border:1px solid #e6e3ef; }
+	.bv-tlitem b { font-size:1.19rem; font-weight:600; color:#241f2e; }
+	.bv-tlitem span { font-size:1.02rem; line-height:1.4; color:#6a6570; }
+	.bv-lane.is-wi .bv-tlitem { background:#eafaf1; border-color:#b7e6c9; }
+	.bv-lane.is-wi .bv-tlitem b { color:#0f6d43; }
+	.bv-axis { display:flex; align-items:center; gap:16px; }
+	.bv-axis-sp { flex:0 0 176px; }
+	.bv-axis-b { position:relative; flex:1; min-width:0; display:flex; align-items:center; justify-content:center; height:58px; }
+	/* a static connector line that draws in once — no travelling dots */
+	.bv-rule { position:absolute; left:0; right:0; top:50%; height:3px; margin-top:-1.5px; border-radius:2px; transform:scaleX(0);
+		background:linear-gradient(90deg,#e4d8f5,#7a49b8,#e4d8f5); }
+	.bv-meet { position:relative; display:inline-flex; align-items:center; gap:11px; padding:11px 22px; opacity:0;
+		font-size:1.19rem; font-weight:600; color:#241f2e; background:#fff; border:1.5px solid #d9c9f0; border-radius:999px; box-shadow:0 3px 12px rgba(60,30,90,0.10); }
+	.bv-meet span:last-child { font-size:1.02rem; font-weight:400; color:#6a6570; }
+
+	/* step 6 · the finale — six apps in one calm static row above one Copilot; nothing orbits, nothing flies */
+	.bv-apps { display:flex; gap:13px; justify-content:center; flex-wrap:wrap; width:100%; }
+	.bv-app { flex:0 0 168px; display:flex; flex-direction:column; align-items:center; gap:7px; padding:16px 10px; opacity:0; text-align:center;
+		background:#fff; border:1px solid #e6e3ef; border-radius:14px; box-shadow:0 3px 12px rgba(60,30,90,0.08); }
+	.bv-app b { font-size:1.19rem; font-weight:600; color:#241f2e; }
+	.bv-app span:last-child { font-size:1.02rem; color:#6a6570; }
+	.bv-hero { display:flex; align-items:center; justify-content:center; gap:16px; width:min(900px,96%); padding:17px 28px; opacity:0;
+		background:linear-gradient(135deg,#efeafc,#e9f2fd); border:2px solid #c9b6ea; border-radius:17px; }
+	.bv-hero-tx { display:flex; flex-direction:column; gap:3px; text-align:left; }
+	.bv-hero-tx b { font-size:1.31rem; font-weight:600; color:#3f2470; }
+	.bv-hero-tx span { font-size:1.02rem; color:#5f5a6b; }
+
+	/* ── DARK THEME · every concept surface introduced above ── */
+	body.theme-dark .bv-side,
+	body.theme-dark .bv-track,
+	body.theme-dark .bv-file,
+	body.theme-dark .bv-pile,
+	body.theme-dark .bv-meet,
+	body.theme-dark .bv-app { background:#221f2b; border-color:#3a3547; box-shadow:0 4px 16px rgba(0,0,0,0.34); }
+	body.theme-dark .bv-side { border-top-color:#5a5563; }
+	body.theme-dark .bv-side.is-wi { border-top-color:#2f7d55; }
+	body.theme-dark .bv-file { border-top-color:#2f7d55; }
+	body.theme-dark .bv-track { border-left-color:#5a5563; }
+	body.theme-dark .bv-track.is-wi { border-left-color:#2f7d55; }
+	body.theme-dark .bv-path { border-top-color:#5a5563; }
+	body.theme-dark .bv-path.is-wi { border-top-color:#2f7d55; }
+	body.theme-dark .bv-meet { border-color:#5c4590; }
+	body.theme-dark .bv-stack i { background:#1d1a26; border-color:#3a3547; }
+	body.theme-dark .bv-step,
+	body.theme-dark .bv-tlitem { background:#2b2736; border-color:#3f3950; }
+	body.theme-dark .bv-t,
+	body.theme-dark .bv-row,
+	body.theme-dark .bv-ins,
+	body.theme-dark .bv-tlabel b,
+	body.theme-dark .bv-file-tx b,
+	body.theme-dark .bv-pile-h,
+	body.theme-dark .bv-meet,
+	body.theme-dark .bv-tlitem b,
+	body.theme-dark .bv-app b { color:#ece9f2; }
+	body.theme-dark .bv-note,
+	body.theme-dark .bv-h,
+	body.theme-dark .bv-oldh,
+	body.theme-dark .bv-tlabel span,
+	body.theme-dark .bv-file-tx span,
+	body.theme-dark .bv-pile > span:last-child,
+	body.theme-dark .bv-tlitem span,
+	body.theme-dark .bv-meet span:last-child,
+	body.theme-dark .bv-app span:last-child { color:#b4afc2; }
+	body.theme-dark .bv-n,
+	body.theme-dark .bv-tick { color:#c8c3d4; background:#332f40; }
+	body.theme-dark .bv-beat,
+	body.theme-dark .bv-oldpill { background:#2b2736; border-color:#3f3950; color:#c8c3d4; }
+	body.theme-dark .bv-beat.is-again { background:transparent; color:#9a95a8; }
+	body.theme-dark .bv-track.is-wi .bv-beat,
+	body.theme-dark .bv-lane.is-wi .bv-tlitem { background:rgba(16,124,65,0.22); border-color:#2f7d55; color:#7fe0aa; }
+	body.theme-dark .bv-side.is-wi .bv-n,
+	body.theme-dark .bv-path.is-wi .bv-tick { color:#7fe0aa; background:rgba(16,124,65,0.22); }
+	body.theme-dark .bv-lane.is-wi .bv-tlitem b,
+	body.theme-dark .bv-h.is-wi,
+	body.theme-dark .bv-note.is-wi,
+	body.theme-dark .bv-track.is-wi .bv-barrow { color:#7fe0aa; }
+	body.theme-dark .bv-steps.is-struck .bv-t { color:#8f8a9c; text-decoration-color:#544e63; }
+	body.theme-dark .bv-ins::before { background:#7fe0aa; }
+	body.theme-dark .bv-count { background:rgba(201,138,18,0.20); border-color:#8a6d1f; color:#f0cf7d; }
+	body.theme-dark .bv-rule { background:linear-gradient(90deg,#2f2a3d,#a97fe0,#2f2a3d); }
+	body.theme-dark .bv-hero { background:linear-gradient(135deg,#2a2144,#1e2740); border-color:#6b53a8; }
+	body.theme-dark .bv-hero-tx b { color:#d9c6f5; }
+	body.theme-dark .bv-hero-tx span { color:#b4afc2; }
+	body.theme-dark .bv-cb { background:rgba(92,45,145,0.28); border-color:#5c4590; color:#d9c6f5; }
+	body.theme-dark .wd-promptbar { background:#2b2140; border-color:#5c4590; color:#d9c6f5; }
+	body.theme-dark .wd-opt { background:#2b2736; border-color:#3f3950; color:#d9c6f5; }
+	body.theme-dark .wd-opt.is-on { color:#fff; background:linear-gradient(135deg,#7a5cf0,#c05bd1); border-color:transparent; }
+</style>
+</head>
+
+<body class="theme-dark" data-theme-preset="atlas">
+
+	<a href="#stage" class="skip-link">Skip to diagram</a>
+
+	<header class="app-header padding-block-xs padding-inline-md border-bottom" role="banner" style="justify-content:space-between;">
+		<div class="display-flex align-items-center gap-xs">
+			<!-- Set href to the previous animation in the journey, or the hub index.html -->
+			<a href="index.html" class="header-back-link" aria-label="Back to the Microsoft 365 Copilot journey">&larr; Copilot journey</a>
+			<span id="page-title" class="font-size-h6 font-weight-semibold"><img class="m3-logo" src="../../lib/icons/brands/Microsoft365Copilot.svg" alt="" width="22" height="22" decoding="async"> Why Copilot</span>
+		</div>
+		<nav class="display-flex gap-xs align-items-center" aria-label="Primary">
+			<span id="breadcrumb" class="font-size-sm color-text-subtle">Step 1</span>
+		</nav>
+		<div class="display-flex gap-xs align-items-center">
+			<select id="lang-select" class="lang-select" aria-label="Language">
+				<option value="en">English</option>
+				<option value="es">Español</option>
+				<option value="ja">日本語</option>
+				<option value="ko">한국어</option>
+				<option value="pt">Português</option>
+			</select>
+			<div class="font-size-controls">
+				<button id="font-decrease" type="button" class="font-size-btn" aria-label="Decrease font size" title="Smaller text">A&minus;</button>
+				<button id="font-increase" type="button" class="font-size-btn" aria-label="Increase font size" title="Larger text">A+</button>
+			</div>
+			<button id="theme-toggle" type="button" class="theme-toggle" aria-label="Switch theme" title="Switch theme">
+				<svg class="theme-icon icon-moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg>
+				<svg class="theme-icon icon-sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.5" y1="4.5" x2="6.5" y2="6.5"/><line x1="17.5" y1="17.5" x2="19.5" y2="19.5"/><line x1="4.5" y1="19.5" x2="6.5" y2="17.5"/><line x1="17.5" y1="6.5" x2="19.5" y2="4.5"/></g></svg>
+			</button>
+			<button id="header-hide-top" type="button" aria-label="Hide top bar" title="Hide top bar (H)">
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/></svg>
+			</button>
+		</div>
+	</header>
+
+	<button id="header-reveal" type="button" aria-label="Show top bar" title="Show top bar">
+		<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/></svg>
+		<span>Toolbar</span>
+	</button>
+
+	<div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
+
+	<main id="stage" tabindex="0" role="region" aria-labelledby="stage-heading" aria-describedby="stage-instructions">
+		<h1 id="stage-heading" class="sr-only" tabindex="-1">Title Here</h1>
+		<p id="stage-instructions" class="sr-only">Animated explainer. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.</p>
+		<div id="step-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+		<!-- Fixed 16:9 stage. Every scene is drawn INSIDE this box; it always fits the viewport (no scrollbars). -->
+		<div id="stage-frame">
+			<svg id="fx-svg" aria-hidden="true" focusable="false">
+				<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L0,10 L10,5 Z" fill="currentColor"/></marker></defs>
+			</svg>
+			<!-- Caption bar (synced to the step's audio clip by aw-captions.js) -->
+			<div id="aw-caption" class="aw-caption" aria-hidden="true"></div>
+			<!-- LEFT pill · view options: callout / outline / shortcuts (icons; label shows as a hover tooltip) -->
+			<div id="stage-overlay-left" class="stage-overlay stage-overlay-left" role="group" aria-label="View options">
+				<button id="callout-toggle" type="button" class="ovl-btn" aria-label="Toggle callouts" aria-pressed="false" data-tip="Callouts: Off"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M4 5h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H10l-4 3v-3H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></svg></button>
+				<button id="outline-toggle" type="button" class="ovl-btn" aria-controls="step-outline" aria-expanded="false" aria-label="Toggle text outline" data-tip="Outline: Off"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" d="M4 6h16M4 12h16M4 18h10"/></svg></button>
+				<button id="help-toggle" class="ovl-btn help-toggle" type="button" aria-haspopup="dialog" aria-controls="shortcut-overlay" aria-label="Keyboard shortcuts (press ?)" data-tip="Shortcuts"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M11 18h2v-2h-2v2zm1.1-14C9.8 4 8 5.8 8 8h2a2 2 0 1 1 3.2 1.6c-.9.7-2.2 1.5-2.2 3.4h2c0-1 .8-1.5 1.7-2.2A4 4 0 0 0 12.1 4z"/></svg></button>
+			</div>
+			<!-- RIGHT pill · player: audio / captions / hide-top-bar / fullscreen -->
+			<div id="stage-overlay" class="stage-overlay" role="group" aria-label="Player controls">
+				<button id="audio-toggle" class="ovl-btn ovl-audio" type="button" aria-label="Toggle audio narration" aria-pressed="false" title="Narration audio"></button>
+				<button id="cc-toggle" class="ovl-btn" type="button" aria-label="Toggle captions" aria-pressed="false" title="Captions"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9.7 10.2a2.1 2.1 0 1 0 0 3.6M17 10.2a2.1 2.1 0 1 0 0 3.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+				<button id="header-hide" class="ovl-btn" type="button" aria-label="Hide top bar" title="Hide top bar (H)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/></svg></button>
+				<button id="fs-toggle" class="ovl-btn" type="button" aria-label="Toggle full screen" aria-pressed="false" title="Full screen (F)"><svg class="fs-enter" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg><svg class="fs-exit" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg></button>
+			</div>
+		</div>
+	</main>
+
+	<aside id="step-outline" hidden aria-label="Text outline of the current step">
+		<h2 id="outline-title">Step Details</h2>
+		<div id="outline-body"></div>
+	</aside>
+
+	<div id="controls" role="group" aria-label="Diagram navigation">
+		<button id="ctrl-grip" type="button" class="ctrl-grip" aria-label="Drag to move the controls" title="Drag to move">
+			<svg viewBox="0 0 16 16" aria-hidden="true"><g fill="currentColor"><circle cx="5" cy="3" r="1.4"/><circle cx="11" cy="3" r="1.4"/><circle cx="5" cy="8" r="1.4"/><circle cx="11" cy="8" r="1.4"/><circle cx="5" cy="13" r="1.4"/><circle cx="11" cy="13" r="1.4"/></g></svg>
+		</button>
+		<button id="ctrl-pin" type="button" class="button button-clear ctrl-icon ctrl-pin" aria-label="Pin the controls back to the center" title="Pin to center">
+			<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9 2h6a1 1 0 0 1 .8 1.6L14 6v4l3 3v2h-4v5l-1 2-1-2v-5H7v-2l3-3V6L8.2 3.6A1 1 0 0 1 9 2z"/></svg>
+		</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="prev-btn" type="button" class="button ctrl-icon" aria-label="Previous step (left arrow)">&#9664;</button>
+		<div class="step-counter" id="step-counter">0 / 0</div>
+		<button id="next-btn" type="button" class="button button-primary button-filled ctrl-icon ctrl-icon-next" aria-label="Next step (right arrow or space)">&#9654;</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="replay-btn" type="button" class="button ctrl-icon" aria-label="Replay this step's animation (P)">&#8635;</button>
+		<div class="speed-control" role="group" aria-label="Animation speed">
+			<button id="speed-down" type="button" class="button button-clear speed-btn" aria-label="Slower (-)" title="Slower">&minus;</button>
+			<span id="speed-label" class="speed-label" aria-live="polite" aria-label="Current speed">1&times;</span>
+			<button id="speed-up" type="button" class="button button-clear speed-btn" aria-label="Faster (+)" title="Faster">+</button>
+		</div>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="reset-btn" type="button" class="button button-clear ctrl-icon" aria-label="Restart from step 1 (R)">&#9198;</button>
+	</div>
+
+	<!-- "Up next" pill — docked bottom-right on the last step so learners chain to the next stop -->
+	<div id="journey-next" aria-hidden="true">
+		<div class="jn-card" role="group" aria-label="Continue to the next stop">
+			<span class="jn-icon"><img id="jn-icon-img" src="" alt="" decoding="async" /></span>
+			<span class="jn-text">
+				<span class="jn-eyebrow"><span class="jn-check" aria-hidden="true">✓</span><span id="jn-eyebrow-text">Up next</span></span>
+				<span class="jn-title" id="jn-title">Next stop</span>
+			</span>
+			<a id="jn-cta" class="jn-cta" href="#"><span id="jn-cta-text">Continue</span><span aria-hidden="true">→</span></a>
+			<button id="jn-close" class="jn-close" type="button" aria-label="Dismiss"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
+		</div>
+	</div>
+
+	<div id="shortcut-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="sc-title">
+		<div class="sc-backdrop"></div>
+		<div class="sc-panel">
+			<button id="sc-close" class="sc-close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
+			<h2 id="sc-title">Keyboard shortcuts</h2>
+			<ul id="sc-list" class="sc-list"></ul>
+			<p class="sc-hint">Press <kbd>?</kbd> anytime to toggle this panel.</p>
+		</div>
+	</div>
+
+<script>
+// ── THEME ─────────────────────────────────
+const themeToggleBtn = document.getElementById('theme-toggle');
+function syncThemeBtn(){
+	if (!themeToggleBtn) return;
+	const isDark = document.body.classList.contains('theme-dark');
+	themeToggleBtn.dataset.theme = isDark ? 'dark' : 'light';   // drives which glyph (sun/moon) shows
+	const label = isDark ? 'Switch to light theme' : 'Switch to dark theme';
+	themeToggleBtn.setAttribute('aria-label', label);
+	themeToggleBtn.setAttribute('title', label);
+}
+if (window.AW && AW.theme) {
+	// aw-theme.js owns click handling + persistence; theme recolors via CSS variables, so no re-render/replay.
+	AW.theme.onChange(() => { syncThemeBtn(); });
+	syncThemeBtn();
+} else {
+	// Standalone fallback: toggle .theme-dark / .theme-light on <body> ourselves.
+	syncThemeBtn();
+	if (themeToggleBtn) themeToggleBtn.addEventListener('click', () => {
+		const goingDark = !document.body.classList.contains('theme-dark');
+		document.body.classList.remove('theme-dark', 'theme-light');
+		document.body.classList.add(goingDark ? 'theme-dark' : 'theme-light');
+		try { localStorage.setItem('aw-theme', goingDark ? 'theme-dark' : 'theme-light'); } catch(_){}
+		syncThemeBtn();
+	});
+	// restore a previously chosen theme (standalone only)
+	try { const saved = localStorage.getItem('aw-theme'); if (saved === 'theme-light' || saved === 'theme-dark') { document.body.classList.remove('theme-dark','theme-light'); document.body.classList.add(saved); syncThemeBtn(); } } catch(_){}
+}
+
+// ── i18n ──────────────────────────────────
+// English is the source language. Add sibling objects (es/ja/ko/pt) with the
+// SAME keys + matching <option>s in #lang-select. Keep brand/code/proper-noun
+// sample data untranslated.
+let currentLang = 'en';
+const I18N = {
+	en: {
+		skipToMain: 'Skip to diagram',
+		pageTitle: 'Why Copilot',
+		stageHeading: 'The real business value of Microsoft 365 Copilot',
+		stageInstructions: 'Alex has finished the project. This animated finale steps back and asks what actually changed \u2014 five before-and-after scenarios drawn from Alex\u2019s own first month at Contoso (writing the proposal, building the steering deck, reading the support metrics, clearing the inbox and catching up on the committee meeting), and then the one Copilot behind all of them. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.',
+		prev: '\u25C0 Prev', next: 'Next \u25B6', replay: '\u21BB Replay', restart: '\u21BB Restart',
+		slower: 'Slower', faster: 'Faster',
+		calloutOn: 'Callouts: On', calloutOff: 'Callouts: Off',
+		outlineOn: 'Outline: On', outlineOff: 'Outline: Off',
+		audioTip: 'Narration audio', ccTip: 'Captions', shortcutsTip: 'Shortcuts',
+		stepDetails: 'Step Details', stepOf: 'Step',
+		resetPos: 'Reset to default position',
+		scTitle: 'Keyboard shortcuts',
+		scNext: 'Next step', scPrev: 'Previous step', scRestart: 'Restart', scReplay: 'Replay this step', scHide: 'Hide / show top bar', scHelp: 'Toggle this help',
+
+		// Grounded in Microsoft Learn — every capability claimed on this page is a documented one.
+		// WHAT THE DOCS SUPPORT, per scenario:
+		//  • DOCUMENTS   — Copilot in Word: "Draft — generate text with and without formatting in new or existing
+		//    documents; Word files can also be used for grounding data" and "Chat — create content, summarize, ask
+		//    questions about your document". Rewrite with Copilot is a separately shipped Word feature.
+		//  • PRESENTATIONS — Copilot in PowerPoint: "Draft — create a new presentation from a prompt or Word file
+		//    using enterprise templates", plus light commanding to add slides and change deck-wide formatting.
+		//  • DATA        — Copilot in Excel: "Draft — get suggestions for formulas, chart types, and insights about
+		//    data in your spreadsheet"; at GA it was described as working "to analyze and explore your data,
+		//    answering questions in natural language and revealing insights without the need for complex formulas".
+		//  • EMAIL       — Copilot in Outlook: "Summarize — summarize an email thread to quickly understand the
+		//    discussion" and "Draft — pull from other emails or content across Microsoft 365 that the user already
+		//    has access to", plus coaching tips on an existing draft.
+		//  • MEETINGS    — Copilot in Teams meetings uses the meeting transcript, and the user "can access Copilot
+		//    after the meeting ends"; the shipped capability is described as "get summaries, action items, and more
+		//    after meetings and calls", and for calls "capturing key points, task owners, and next steps".
+		// NO PRODUCTIVITY STATISTICS ARE CLAIMED ON THIS PAGE. There are no invented "saves X hours" or "% faster"
+		// numbers; the contrast is expressed only as the SHAPE of the work (how many passes, and where the first
+		// draft comes from) inside Alex's own story.
+		// https://learn.microsoft.com/microsoft-365/copilot/microsoft-365-copilot-overview
+		// https://learn.microsoft.com/microsoft-365/copilot/release-notes-archive
+		// https://learn.microsoft.com/copilot/microsoft-365/
+		// https://support.microsoft.com/office/create-a-new-presentation-with-copilot-in-powerpoint-3222ee03-f5a4-4d27-8642-9c387ab4854d
+
+		// ── Step 1 · CREATING DOCUMENTS ──
+		dcTitle: 'Writing used to begin with a blank page',
+		dcCaption: 'Documents',
+		dcDesc: 'Alex\u2019s first task at Contoso was an executive proposal for the AI Customer Support Platform. Without Copilot that is four passes. With Copilot it is three \u2014 and the first one already has words in it.',
+		dcCallout: 'Copilot removes the blank page. It does not remove the judgement.',
+		dcPrompt: 'Draft an executive proposal for the AI Customer Support Platform',
+		dcWoH: 'Without Copilot', dcWiH: 'With Copilot',
+		dcW1: 'Research', dcW2: 'Write', dcW3: 'Rewrite', dcW4: 'Review',
+		dcC1: 'Prompt', dcC2: 'Refine', dcC3: 'Approve',
+		dcWoN: 'Four passes \u2014 and the first one starts from nothing.',
+		dcWiN: 'Three passes \u2014 and the first one starts from a draft.',
+		dcCb: 'Stop 2: Proposal.docx \u2014 the proposal Alex drafted in Word.',
+		dcS1: 'What changed', dcS1v: 'Where the first draft comes from',
+		dcS2: 'What Copilot did', dcS2v: 'Draft and Rewrite, grounded in files Alex can already open',
+		dcS3: 'What Alex still does', dcS3v: 'Decides what the proposal actually says',
+
+		// ── Step 2 · PRESENTATIONS ──
+		dkTitle: 'The deck came out of the document Alex had already written',
+		dkCaption: 'Presentations',
+		dkDesc: 'The executive steering committee needed slides. The proposal was already finished \u2014 so the slow path is the one that starts from an empty deck instead of from the work that exists.',
+		dkCallout: 'Copilot does not invent the story. It reuses the one Alex already wrote.',
+		dkPrompt: 'Create a presentation from Proposal.docx',
+		dkWoH: 'Without Copilot', dkWoS: 'Starts from an empty deck',
+		dkW1: 'Create from scratch', dkW2: 'Format slides', dkW3: 'Build visuals', dkW4: 'Format again',
+		dkWiH: 'With Copilot', dkWiS: 'Starts from the proposal',
+		dkC1: 'Generate', dkC2: 'Customise', dkC3: 'Present',
+		dkNote: 'Copilot in PowerPoint creates a presentation from a prompt or a Word file using the organisation\u2019s own templates \u2014 so the deck arrives already on brand.',
+		dkCb: 'Stop 3: the executive steering committee deck.',
+		dkS1: 'The input', dkS1v: 'A document Alex had already approved',
+		dkS2: 'The output', dkS2v: 'A first-pass deck on the Contoso template',
+		dkS3: 'The work left', dkS3v: 'Editing a real deck instead of starting one',
+
+		// ── Step 3 · DATA ANALYSIS ──
+		dtTitle: 'Alex asked the spreadsheet a question',
+		dtCaption: 'Data analysis',
+		dtDesc: 'Eighteen months of support tickets across six regions. The old route is to build the model first and ask afterwards. With Copilot the question comes first, in plain English.',
+		dtCallout: 'You no longer have to know the formula to reach the insight.',
+		dtFile: 'Support-Metrics-FY26.xlsx', dtFileS: '18 months of ticket volume \u00b7 6 regions',
+		dtOldH: 'Without Copilot',
+		dtO1: 'Pivot tables', dtO2: 'Complex formulas', dtO3: 'Manual analysis',
+		dtChatH: 'Copilot in Excel',
+		dtQ: 'Which region drove the September spike?',
+		dtA: 'EMEA. Tickets there climbed faster than any other region in September, and password resets are the biggest single category behind the rise.',
+		dtI1: 'EMEA is the outlier \u2014 not a company-wide trend',
+		dtI2: 'Password resets are the category to automate first',
+		dtCb: 'Stop 4: the same workbook, asked a different way.',
+		dtS1: 'The old order', dtS1v: 'Build the model, then ask the question',
+		dtS2: 'The new order', dtS2v: 'Ask the question, and see the working',
+		dtS3: 'What Alex checks', dtS3v: 'The numbers \u2014 the answer is a starting point',
+
+		// ── Step 4 · EMAIL ──
+		emTitle: 'Three hundred unread, and a decision buried in them',
+		emCaption: 'Email',
+		emDesc: 'Alex came back to an inbox that had kept going without them. Without Copilot the only route through is to read all of it. With Copilot the thread is read once, in summary, and answered from there.',
+		emCallout: 'Reading the inbox is not the job. Deciding is.',
+		emPileH: 'Inbox', emCount: '300 unread', emPileS: 'One project thread, somewhere in the middle of it',
+		emWoH: 'Without Copilot',
+		emW1: 'Read everything', emW2: 'Write manually',
+		emWoN: 'Every message is read before any of them is answered.',
+		emWiH: 'With Copilot',
+		emC1: 'Summarise', emC2: 'Respond', emC3: 'Move forward',
+		emWiN: 'The thread is read once, in summary \u2014 the reply is drafted from it.',
+		emCb: 'Stop 5: the 300 unread emails Alex cleared.',
+		emS1: 'What Copilot reads', emS1v: 'The thread \u2014 and the mail Alex already has access to',
+		emS2: 'What Alex reads', emS2v: 'A summary, then the messages that matter',
+		emS3: 'What gets sent', emS3v: 'Nothing until Alex has read and approved it',
+
+		// ── Step 5 · MEETINGS ──
+		mtTitle: 'The meeting was worked once, not twice',
+		mtCaption: 'Meetings',
+		mtDesc: 'The steering committee ran for an hour. Without Copilot that hour is spent twice \u2014 live, and then again on the recording. With Copilot the recap arrives with the meeting.',
+		mtCallout: 'Nobody has to be the note-taker instead of a participant.',
+		mtMeet: 'Executive steering committee', mtMeetS: '60 minutes \u00b7 recorded and transcribed',
+		mtWiH: 'With Copilot',
+		mtA1: 'Meeting recap', mtA1s: 'The discussion, summarised from the transcript',
+		mtA2: 'Action items', mtA2s: 'Owners and next steps, captured as they were said',
+		mtA3: 'Next steps', mtA3s: 'Alex leaves the call already able to act',
+		mtWoH: 'Without Copilot',
+		mtB1: 'Take notes', mtB1s: 'Typing instead of contributing',
+		mtB2: 'Review the recording', mtB2s: 'The same hour, listened to a second time',
+		mtB3: 'Hunt for actions', mtB3s: 'Scrubbing back for who agreed to what',
+		mtCb: 'Stop 6: the steering committee meeting Alex joined.',
+		mtS1: 'The source', mtS1v: 'The meeting transcript, not a separate recording',
+		mtS2: 'What arrives', mtS2v: 'Summary, action items and next steps',
+		mtS3: 'When it arrives', mtS3v: 'When the meeting ends \u2014 not the day after',
+
+		// ── Step 6 · THE FINALE (the WOW) ──
+		fiTitle: 'This is the difference Copilot actually makes',
+		fiCaption: 'The real value',
+		fiDesc: 'Six apps, one project, one month at Contoso \u2014 and one assistant behind all of it. Microsoft 365 is where Alex creates the work. Copilot is what lets Alex use the work that is already there.',
+		fiCallout: 'The value is not the AI. It is what the AI does with the work you already have.',
+		fiA1: 'Word', fiA1s: 'Proposal.docx',
+		fiA2: 'PowerPoint', fiA2s: 'The steering deck',
+		fiA3: 'Excel', fiA3s: 'Support-Metrics-FY26',
+		fiA4: 'Outlook', fiA4s: 'The inbox, cleared',
+		fiA5: 'Teams', fiA5s: 'The committee recap',
+		fiA6: 'Copilot Chat', fiA6s: 'The thread through it all',
+		fiHeroH: 'Microsoft 365 Copilot',
+		fiHeroS: 'One experience across every app Alex already had open',
+		fiLine1: 'Microsoft 365 helps people create work.',
+		fiLine2: 'Microsoft 365 Copilot helps people understand, create, analyse, communicate and act faster using the work they already have.',
+		fiFoot: 'Learn more in the official <a href="https://learn.microsoft.com/copilot/microsoft-365/" target="_blank" rel="noopener">Microsoft 365 Copilot documentation</a>.',
+		fiS1: 'What Microsoft 365 gives', fiS1v: 'The place the work is created',
+		fiS2: 'What Copilot adds', fiS2v: 'Understand, create, analyse, communicate, act',
+		fiS3: 'Where the value comes from', fiS3v: 'The work Alex already had \u2014 finally usable'
+	},
+
+	es: {
+		skipToMain: 'Ir al diagrama',
+		pageTitle: 'Por qué Copilot',
+		stageHeading: 'El valor real de Microsoft 365 Copilot para el negocio',
+		stageInstructions: 'Alex ha terminado el proyecto. Este final animado toma distancia y pregunta qué cambió de verdad \u2014 cinco escenarios de antes y después sacados del primer mes de Alex en Contoso (escribir la propuesta, montar la presentación del comité, leer las métricas de soporte, vaciar la bandeja de entrada y ponerse al día con la reunión del comité) y, detrás de todos ellos, un mismo Copilot. Usa los botones Siguiente/Anterior o las flechas para navegar. Pulsa R para reiniciar.',
+		prev: '\u25C0 Anterior', next: 'Siguiente \u25B6', replay: '\u21BB Repetir', restart: '\u21BB Reiniciar',
+		slower: 'Más lento', faster: 'Más rápido',
+		calloutOn: 'Notas: activadas', calloutOff: 'Notas: desactivadas',
+		outlineOn: 'Esquema: activado', outlineOff: 'Esquema: desactivado',
+		audioTip: 'Audio de narración', ccTip: 'Subtítulos', shortcutsTip: 'Atajos',
+		stepDetails: 'Detalles del paso', stepOf: 'Paso',
+		resetPos: 'Restablecer la posición predeterminada',
+		scTitle: 'Atajos de teclado',
+		scNext: 'Paso siguiente', scPrev: 'Paso anterior', scRestart: 'Reiniciar', scReplay: 'Repetir este paso', scHide: 'Ocultar / mostrar la barra superior', scHelp: 'Mostrar u ocultar esta ayuda',
+
+		dcTitle: 'Escribir empezaba siempre con una página en blanco',
+		dcCaption: 'Documentos',
+		dcDesc: 'La primera tarea de Alex en Contoso fue una propuesta ejecutiva para la plataforma de soporte al cliente con IA. Sin Copilot son cuatro pasadas. Con Copilot son tres \u2014 y la primera ya viene con palabras dentro.',
+		dcCallout: 'Copilot elimina la página en blanco. No elimina el criterio.',
+		dcPrompt: 'Redacta una propuesta ejecutiva para la plataforma de soporte al cliente con IA',
+		dcWoH: 'Sin Copilot', dcWiH: 'Con Copilot',
+		dcW1: 'Investigar', dcW2: 'Escribir', dcW3: 'Reescribir', dcW4: 'Revisar',
+		dcC1: 'Pedir', dcC2: 'Afinar', dcC3: 'Aprobar',
+		dcWoN: 'Cuatro pasadas \u2014 y la primera parte de cero.',
+		dcWiN: 'Tres pasadas \u2014 y la primera parte de un borrador.',
+		dcCb: 'Parada 2: Proposal.docx \u2014 la propuesta que Alex redactó en Word.',
+		dcS1: 'Qué cambió', dcS1v: 'De dónde sale el primer borrador',
+		dcS2: 'Qué hizo Copilot', dcS2v: 'Redactar y reescribir apoyándose en archivos que Alex ya puede abrir',
+		dcS3: 'Qué sigue haciendo Alex', dcS3v: 'Decidir qué dice realmente la propuesta',
+
+		dkTitle: 'La presentación salió del documento que Alex ya había escrito',
+		dkCaption: 'Presentaciones',
+		dkDesc: 'El comité ejecutivo de dirección necesitaba diapositivas. La propuesta ya estaba terminada \u2014 así que el camino lento es el que arranca con una presentación vacía en lugar del trabajo que ya existe.',
+		dkCallout: 'Copilot no inventa la historia. Reutiliza la que Alex ya escribió.',
+		dkPrompt: 'Crea una presentación a partir de Proposal.docx',
+		dkWoH: 'Sin Copilot', dkWoS: 'Empieza con una presentación vacía',
+		dkW1: 'Crear desde cero', dkW2: 'Dar formato', dkW3: 'Crear los visuales', dkW4: 'Volver a dar formato',
+		dkWiH: 'Con Copilot', dkWiS: 'Empieza desde la propuesta',
+		dkC1: 'Generar', dkC2: 'Personalizar', dkC3: 'Presentar',
+		dkNote: 'Copilot en PowerPoint crea una presentación a partir de una indicación o de un archivo de Word usando las plantillas de la propia organización \u2014 así la presentación llega ya con la imagen de marca.',
+		dkCb: 'Parada 3: la presentación del comité ejecutivo de dirección.',
+		dkS1: 'La entrada', dkS1v: 'Un documento que Alex ya había aprobado',
+		dkS2: 'La salida', dkS2v: 'Una primera versión con la plantilla de Contoso',
+		dkS3: 'El trabajo que queda', dkS3v: 'Editar una presentación real en vez de empezar una',
+
+		dtTitle: 'Alex le hizo una pregunta a la hoja de cálculo',
+		dtCaption: 'Análisis de datos',
+		dtDesc: 'Dieciocho meses de tickets de soporte en seis regiones. La ruta antigua es construir el modelo primero y preguntar después. Con Copilot la pregunta va primero, en lenguaje corriente.',
+		dtCallout: 'Ya no hace falta conocer la fórmula para llegar a la conclusión.',
+		dtFile: 'Support-Metrics-FY26.xlsx', dtFileS: '18 meses de volumen de tickets \u00b7 6 regiones',
+		dtOldH: 'Sin Copilot',
+		dtO1: 'Tablas dinámicas', dtO2: 'Fórmulas complejas', dtO3: 'Análisis manual',
+		dtChatH: 'Copilot en Excel',
+		dtQ: '¿Qué región provocó el pico de septiembre?',
+		dtA: 'EMEA. Allí los tickets crecieron más rápido que en ninguna otra región en septiembre, y los restablecimientos de contraseña son la mayor categoría detrás de esa subida.',
+		dtI1: 'EMEA es el caso atípico \u2014 no una tendencia de toda la empresa',
+		dtI2: 'Los restablecimientos de contraseña son lo primero que conviene automatizar',
+		dtCb: 'Parada 4: el mismo libro, preguntado de otra manera.',
+		dtS1: 'El orden antiguo', dtS1v: 'Construir el modelo y después preguntar',
+		dtS2: 'El orden nuevo', dtS2v: 'Preguntar y ver el razonamiento',
+		dtS3: 'Qué comprueba Alex', dtS3v: 'Los números \u2014 la respuesta es un punto de partida',
+
+		emTitle: 'Trescientos sin leer y una decisión enterrada entre ellos',
+		emCaption: 'Correo',
+		emDesc: 'Alex volvió a una bandeja de entrada que había seguido avanzando sin Alex. Sin Copilot la única salida es leerlo todo. Con Copilot el hilo se lee una vez, en resumen, y se responde desde ahí.',
+		emCallout: 'Leer la bandeja de entrada no es el trabajo. Decidir, sí.',
+		emPileH: 'Bandeja de entrada', emCount: '300 sin leer', emPileS: 'Un hilo del proyecto, en algún punto del montón',
+		emWoH: 'Sin Copilot',
+		emW1: 'Leerlo todo', emW2: 'Escribir a mano',
+		emWoN: 'Se leen todos los mensajes antes de responder a ninguno.',
+		emWiH: 'Con Copilot',
+		emC1: 'Resumir', emC2: 'Responder', emC3: 'Avanzar',
+		emWiN: 'El hilo se lee una vez, en resumen \u2014 y la respuesta se redacta a partir de él.',
+		emCb: 'Parada 5: los 300 correos sin leer que Alex vació.',
+		emS1: 'Qué lee Copilot', emS1v: 'El hilo \u2014 y el correo al que Alex ya tiene acceso',
+		emS2: 'Qué lee Alex', emS2v: 'Un resumen y después los mensajes que importan',
+		emS3: 'Qué se envía', emS3v: 'Nada hasta que Alex lo ha leído y aprobado',
+
+		mtTitle: 'La reunión se trabajó una vez, no dos',
+		mtCaption: 'Reuniones',
+		mtDesc: 'El comité de dirección duró una hora. Sin Copilot esa hora se gasta dos veces \u2014 en directo y luego otra vez sobre la grabación. Con Copilot el resumen llega con la reunión.',
+		mtCallout: 'Nadie tiene que hacer de secretario en lugar de participar.',
+		mtMeet: 'Comité ejecutivo de dirección', mtMeetS: '60 minutos \u00b7 grabada y transcrita',
+		mtWiH: 'Con Copilot',
+		mtA1: 'Resumen de la reunión', mtA1s: 'La conversación, resumida a partir de la transcripción',
+		mtA2: 'Tareas pendientes', mtA2s: 'Responsables y próximos pasos, tal como se dijeron',
+		mtA3: 'Próximos pasos', mtA3s: 'Alex sale de la llamada ya en condiciones de actuar',
+		mtWoH: 'Sin Copilot',
+		mtB1: 'Tomar notas', mtB1s: 'Teclear en lugar de aportar',
+		mtB2: 'Revisar la grabación', mtB2s: 'La misma hora, escuchada por segunda vez',
+		mtB3: 'Buscar las acciones', mtB3s: 'Rebobinar para ver quién se comprometió a qué',
+		mtCb: 'Parada 6: la reunión del comité de dirección a la que asistió Alex.',
+		mtS1: 'La fuente', mtS1v: 'La transcripción de la reunión, no una grabación aparte',
+		mtS2: 'Qué llega', mtS2v: 'Resumen, tareas pendientes y próximos pasos',
+		mtS3: 'Cuándo llega', mtS3v: 'Al terminar la reunión \u2014 no al día siguiente',
+
+		fiTitle: 'Esta es la diferencia que Copilot marca de verdad',
+		fiCaption: 'El valor real',
+		fiDesc: 'Seis aplicaciones, un proyecto, un mes en Contoso \u2014 y un mismo asistente detrás de todo. Microsoft 365 es donde Alex crea el trabajo. Copilot es lo que le permite usar el trabajo que ya existe.',
+		fiCallout: 'El valor no es la IA. Es lo que la IA hace con el trabajo que ya tienes.',
+		fiA1: 'Word', fiA1s: 'Proposal.docx',
+		fiA2: 'PowerPoint', fiA2s: 'La presentación del comité',
+		fiA3: 'Excel', fiA3s: 'Support-Metrics-FY26',
+		fiA4: 'Outlook', fiA4s: 'La bandeja de entrada, vaciada',
+		fiA5: 'Teams', fiA5s: 'El resumen del comité',
+		fiA6: 'Copilot Chat', fiA6s: 'El hilo que atraviesa todo',
+		fiHeroH: 'Microsoft 365 Copilot',
+		fiHeroS: 'Una sola experiencia en todas las aplicaciones que Alex ya tenía abiertas',
+		fiLine1: 'Microsoft 365 ayuda a las personas a crear su trabajo.',
+		fiLine2: 'Microsoft 365 Copilot ayuda a las personas a entender, crear, analizar, comunicar y actuar más rápido usando el trabajo que ya tienen.',
+		fiFoot: 'Más información en la <a href="https://learn.microsoft.com/copilot/microsoft-365/" target="_blank" rel="noopener">documentación oficial de Microsoft 365 Copilot</a>.',
+		fiS1: 'Qué aporta Microsoft 365', fiS1v: 'El lugar donde se crea el trabajo',
+		fiS2: 'Qué añade Copilot', fiS2v: 'Entender, crear, analizar, comunicar, actuar',
+		fiS3: 'De dónde viene el valor', fiS3v: 'El trabajo que Alex ya tenía \u2014 por fin utilizable'
+	},
+
+	ja: {
+		skipToMain: '図にスキップ',
+		pageTitle: 'Copilot の価値',
+		stageHeading: 'Microsoft 365 Copilot がもたらす本当のビジネス価値',
+		stageInstructions: 'Alex はプロジェクトをやり遂げました。この最終章では一歩引いて、実際に何が変わったのかを見ていきます \u2014 Contoso での最初の 1 か月から選んだ 5 つのビフォー・アフター (提案書を書く、運営委員会の資料をつくる、サポート指標を読む、受信トレイを片づける、委員会の会議に追いつく)、そしてそのすべての背後にある 1 つの Copilot です。「次へ」「前へ」ボタンまたは矢印キーで移動します。R キーで最初から再生します。',
+		prev: '\u25C0 前へ', next: '次へ \u25B6', replay: '\u21BB 再生', restart: '\u21BB 最初から',
+		slower: '遅く', faster: '速く',
+		calloutOn: '注釈: オン', calloutOff: '注釈: オフ',
+		outlineOn: 'アウトライン: オン', outlineOff: 'アウトライン: オフ',
+		audioTip: 'ナレーション音声', ccTip: '字幕', shortcutsTip: 'ショートカット',
+		stepDetails: 'ステップの詳細', stepOf: 'ステップ',
+		resetPos: '既定の位置に戻す',
+		scTitle: 'キーボード ショートカット',
+		scNext: '次のステップ', scPrev: '前のステップ', scRestart: '最初から', scReplay: 'このステップを再生', scHide: '上部バーの表示 / 非表示', scHelp: 'このヘルプの表示切り替え',
+
+		dcTitle: '文書づくりは、いつも白紙から始まっていた',
+		dcCaption: 'ドキュメント',
+		dcDesc: 'Contoso での Alex の最初の仕事は、AI カスタマー サポート プラットフォームの経営層向け提案書でした。Copilot がなければ 4 周。Copilot があれば 3 周 \u2014 しかも最初の 1 周にはすでに文章が入っています。',
+		dcCallout: 'Copilot がなくすのは白紙です。判断をなくすわけではありません。',
+		dcPrompt: 'AI カスタマー サポート プラットフォームの経営層向け提案書を作成して',
+		dcWoH: 'Copilot なし', dcWiH: 'Copilot あり',
+		dcW1: '調べる', dcW2: '書く', dcW3: '書き直す', dcW4: '確認する',
+		dcC1: '指示する', dcC2: '手直しする', dcC3: '承認する',
+		dcWoN: '4 周 \u2014 しかも最初の 1 周は何もないところから。',
+		dcWiN: '3 周 \u2014 しかも最初の 1 周は下書きから。',
+		dcCb: '第 2 章: Proposal.docx \u2014 Alex が Word で書いた提案書。',
+		dcS1: '変わったこと', dcS1v: '最初の下書きがどこから来るか',
+		dcS2: 'Copilot がしたこと', dcS2v: 'Alex がすでに開けるファイルをもとに下書きと書き直し',
+		dcS3: 'Alex が今もすること', dcS3v: '提案書が何を語るかを決める',
+
+		dkTitle: '資料は、Alex がすでに書いた文書から生まれた',
+		dkCaption: 'プレゼンテーション',
+		dkDesc: '経営運営委員会にはスライドが必要でした。提案書はもうできています \u2014 だから遅い道とは、すでにある成果物ではなく空のスライドから始める道のことです。',
+		dkCallout: 'Copilot はストーリーを創作しません。Alex がすでに書いたものを使い回します。',
+		dkPrompt: 'Proposal.docx からプレゼンテーションを作成して',
+		dkWoH: 'Copilot なし', dkWoS: '空のスライドから始まる',
+		dkW1: 'ゼロから作る', dkW2: 'スライドを整える', dkW3: '図をつくる', dkW4: 'もう一度整える',
+		dkWiH: 'Copilot あり', dkWiS: '提案書から始まる',
+		dkC1: '生成する', dkC2: '手を入れる', dkC3: '発表する',
+		dkNote: 'PowerPoint の Copilot は、プロンプトや Word ファイルから組織自身のテンプレートを使ってプレゼンテーションを作成します \u2014 だから資料は最初からブランドに沿った形で届きます。',
+		dkCb: '第 3 章: 経営運営委員会向けの資料。',
+		dkS1: '入力', dkS1v: 'Alex がすでに承認していた文書',
+		dkS2: '出力', dkS2v: 'Contoso のテンプレートに沿った第一稿',
+		dkS3: '残る作業', dkS3v: '資料をゼロから作るのではなく、実物に手を入れること',
+
+		dtTitle: 'Alex はスプレッドシートに質問した',
+		dtCaption: 'データ分析',
+		dtDesc: '6 地域・18 か月分のサポート チケット。従来のやり方は、先にモデルを組んでから問いを立てるものでした。Copilot なら、普段のことばで問いが先に来ます。',
+		dtCallout: '答えにたどり着くのに、もう数式を知っている必要はありません。',
+		dtFile: 'Support-Metrics-FY26.xlsx', dtFileS: '18 か月分のチケット件数 \u00b7 6 地域',
+		dtOldH: 'Copilot なし',
+		dtO1: 'ピボットテーブル', dtO2: '複雑な数式', dtO3: '手作業の分析',
+		dtChatH: 'Excel の Copilot',
+		dtQ: '9 月の急増はどの地域が原因ですか?',
+		dtA: 'EMEA です。9 月はどの地域よりもチケットの伸びが大きく、その増加の背景で最も多い分類はパスワードのリセットです。',
+		dtI1: 'EMEA が外れ値 \u2014 全社的な傾向ではない',
+		dtI2: 'まず自動化すべき分類はパスワードのリセット',
+		dtCb: '第 4 章: 同じブックに、違う聞き方をする。',
+		dtS1: '従来の順番', dtS1v: 'モデルを組んでから問いを立てる',
+		dtS2: '新しい順番', dtS2v: '問いを立て、その過程も見る',
+		dtS3: 'Alex が確かめること', dtS3v: '数字 \u2014 答えはあくまで出発点',
+
+		emTitle: '未読 300 件、その中に埋もれた 1 つの決定',
+		emCaption: 'メール',
+		emDesc: 'Alex が戻ると、受信トレイは自分抜きで進んでいました。Copilot がなければ、進む道は全部読むことだけ。Copilot があれば、スレッドは要約で一度読み、そこから返信します。',
+		emCallout: '受信トレイを読むことが仕事ではありません。決めることが仕事です。',
+		emPileH: '受信トレイ', emCount: '未読 300 件', emPileS: 'その真ん中あたりに、プロジェクトのスレッドが 1 つ',
+		emWoH: 'Copilot なし',
+		emW1: 'すべて読む', emW2: '手で書く',
+		emWoN: '1 通も返信しないうちに、すべてのメールを読むことになる。',
+		emWiH: 'Copilot あり',
+		emC1: '要約する', emC2: '返信する', emC3: '前に進む',
+		emWiN: 'スレッドは要約で一度だけ読む \u2014 返信はそこから下書きされる。',
+		emCb: '第 5 章: Alex が片づけた未読 300 件のメール。',
+		emS1: 'Copilot が読むもの', emS1v: 'スレッド \u2014 そして Alex がすでにアクセスできるメール',
+		emS2: 'Alex が読むもの', emS2v: 'まず要約、次に本当に大事なメール',
+		emS3: '送られるもの', emS3v: 'Alex が読んで承認するまでは何も送られない',
+
+		mtTitle: '会議は 2 回ではなく 1 回で終わった',
+		mtCaption: '会議',
+		mtDesc: '運営委員会は 1 時間続きました。Copilot がなければ、その 1 時間は 2 回使うことになります \u2014 その場で 1 回、録画でもう 1 回。Copilot があれば、まとめは会議と同時に届きます。',
+		mtCallout: '参加者でいる代わりに議事録係になる人は、もう必要ありません。',
+		mtMeet: '経営運営委員会', mtMeetS: '60 分 \u00b7 録画と文字起こしあり',
+		mtWiH: 'Copilot あり',
+		mtA1: '会議のまとめ', mtA1s: '文字起こしから要約された議論',
+		mtA2: 'アクション アイテム', mtA2s: '発言どおりに拾われた担当者と次の一手',
+		mtA3: '次のステップ', mtA3s: 'Alex は通話を出た時点で動ける状態',
+		mtWoH: 'Copilot なし',
+		mtB1: 'メモを取る', mtB1s: '発言する代わりに入力する',
+		mtB2: '録画を見直す', mtB2s: '同じ 1 時間を、もう一度聞く',
+		mtB3: 'アクションを探す', mtB3s: '誰が何に合意したかを巻き戻して探す',
+		mtCb: '第 6 章: Alex が参加した運営委員会の会議。',
+		mtS1: '元になるもの', mtS1v: '別撮りの録画ではなく、会議の文字起こし',
+		mtS2: '届くもの', mtS2v: '要約・アクション アイテム・次のステップ',
+		mtS3: '届くタイミング', mtS3v: '会議が終わったとき \u2014 翌日ではなく',
+
+		fiTitle: 'これが Copilot の本当の違いです',
+		fiCaption: '本当の価値',
+		fiDesc: '6 つのアプリ、1 つのプロジェクト、Contoso での 1 か月 \u2014 そのすべての背後に 1 つのアシスタント。Microsoft 365 は Alex が成果物をつくる場所です。Copilot は、すでにある成果物を Alex が使えるようにするものです。',
+		fiCallout: '価値は AI そのものではありません。AI がすでにある成果物に対して何をするかです。',
+		fiA1: 'Word', fiA1s: 'Proposal.docx',
+		fiA2: 'PowerPoint', fiA2s: '運営委員会の資料',
+		fiA3: 'Excel', fiA3s: 'Support-Metrics-FY26',
+		fiA4: 'Outlook', fiA4s: '片づいた受信トレイ',
+		fiA5: 'Teams', fiA5s: '委員会のまとめ',
+		fiA6: 'Copilot Chat', fiA6s: 'すべてを貫く 1 本の糸',
+		fiHeroH: 'Microsoft 365 Copilot',
+		fiHeroS: 'Alex がすでに開いていたすべてのアプリで、ひとつづきの体験',
+		fiLine1: 'Microsoft 365 は、人が成果物をつくるのを助けます。',
+		fiLine2: 'Microsoft 365 Copilot は、すでにある成果物を使って、理解し、つくり、分析し、伝え、動くことをより速くします。',
+		fiFoot: '詳しくは公式の <a href="https://learn.microsoft.com/copilot/microsoft-365/" target="_blank" rel="noopener">Microsoft 365 Copilot ドキュメント</a>をご覧ください。',
+		fiS1: 'Microsoft 365 が与えるもの', fiS1v: '成果物が生まれる場所',
+		fiS2: 'Copilot が加えるもの', fiS2v: '理解する・つくる・分析する・伝える・動く',
+		fiS3: '価値の源', fiS3v: 'Alex がすでに持っていた成果物 \u2014 ようやく使えるものに'
+	},
+
+	ko: {
+		skipToMain: '다이어그램으로 이동',
+		pageTitle: 'Copilot의 가치',
+		stageHeading: 'Microsoft 365 Copilot이 만드는 진짜 비즈니스 가치',
+		stageInstructions: 'Alex는 프로젝트를 끝냈습니다. 이 마지막 편은 한 걸음 물러나 무엇이 실제로 달라졌는지 묻습니다 \u2014 Contoso에서 보낸 첫 한 달에서 뽑은 다섯 가지 전후 비교(제안서 쓰기, 운영위원회 자료 만들기, 지원 지표 읽기, 받은 편지함 비우기, 위원회 회의 따라잡기), 그리고 그 모두의 뒤에 있는 하나의 Copilot입니다. 다음/이전 버튼이나 화살표 키로 이동하세요. R 키를 누르면 처음부터 다시 재생합니다.',
+		prev: '\u25C0 이전', next: '다음 \u25B6', replay: '\u21BB 다시 재생', restart: '\u21BB 처음부터',
+		slower: '느리게', faster: '빠르게',
+		calloutOn: '설명: 켜짐', calloutOff: '설명: 꺼짐',
+		outlineOn: '개요: 켜짐', outlineOff: '개요: 꺼짐',
+		audioTip: '내레이션 오디오', ccTip: '자막', shortcutsTip: '단축키',
+		stepDetails: '단계 세부 정보', stepOf: '단계',
+		resetPos: '기본 위치로 되돌리기',
+		scTitle: '키보드 단축키',
+		scNext: '다음 단계', scPrev: '이전 단계', scRestart: '처음부터', scReplay: '이 단계 다시 재생', scHide: '상단 바 숨기기 / 표시', scHelp: '이 도움말 켜고 끄기',
+
+		dcTitle: '글쓰기는 늘 빈 페이지에서 시작됐습니다',
+		dcCaption: '문서',
+		dcDesc: 'Contoso에서 Alex가 맡은 첫 일은 AI 고객 지원 플랫폼에 대한 경영진용 제안서였습니다. Copilot이 없으면 네 번을 거칩니다. Copilot이 있으면 세 번 \u2014 게다가 첫 번째에는 이미 글이 들어 있습니다.',
+		dcCallout: 'Copilot이 없애는 것은 빈 페이지입니다. 판단까지 없애지는 않습니다.',
+		dcPrompt: 'AI 고객 지원 플랫폼에 대한 경영진용 제안서를 작성해 줘',
+		dcWoH: 'Copilot 없이', dcWiH: 'Copilot과 함께',
+		dcW1: '조사', dcW2: '작성', dcW3: '다시 쓰기', dcW4: '검토',
+		dcC1: '요청', dcC2: '다듬기', dcC3: '승인',
+		dcWoN: '네 번을 거치고 \u2014 그 첫 번째는 아무것도 없는 데서 시작합니다.',
+		dcWiN: '세 번을 거치고 \u2014 그 첫 번째는 초안에서 시작합니다.',
+		dcCb: '2편: Proposal.docx \u2014 Alex가 Word에서 쓴 제안서.',
+		dcS1: '달라진 점', dcS1v: '첫 초안이 어디에서 오는가',
+		dcS2: 'Copilot이 한 일', dcS2v: 'Alex가 이미 열 수 있는 파일을 근거로 초안 작성과 다시 쓰기',
+		dcS3: 'Alex가 여전히 하는 일', dcS3v: '제안서가 실제로 무엇을 말할지 결정하기',
+
+		dkTitle: '자료는 Alex가 이미 쓴 문서에서 나왔습니다',
+		dkCaption: '프레젠테이션',
+		dkDesc: '경영 운영위원회에는 슬라이드가 필요했습니다. 제안서는 이미 끝나 있었죠 \u2014 그러니 느린 길이란, 이미 있는 결과물이 아니라 빈 슬라이드에서 시작하는 길입니다.',
+		dkCallout: 'Copilot은 이야기를 지어내지 않습니다. Alex가 이미 쓴 이야기를 다시 씁니다.',
+		dkPrompt: 'Proposal.docx로 프레젠테이션을 만들어 줘',
+		dkWoH: 'Copilot 없이', dkWoS: '빈 슬라이드에서 시작',
+		dkW1: '처음부터 만들기', dkW2: '슬라이드 서식', dkW3: '시각 자료 만들기', dkW4: '서식 다시 잡기',
+		dkWiH: 'Copilot과 함께', dkWiS: '제안서에서 시작',
+		dkC1: '생성', dkC2: '다듬기', dkC3: '발표',
+		dkNote: 'PowerPoint의 Copilot은 프롬프트나 Word 파일에서 조직의 템플릿을 사용해 프레젠테이션을 만듭니다 \u2014 그래서 자료가 처음부터 브랜드에 맞게 도착합니다.',
+		dkCb: '3편: 경영 운영위원회용 자료.',
+		dkS1: '입력', dkS1v: 'Alex가 이미 승인한 문서',
+		dkS2: '출력', dkS2v: 'Contoso 템플릿을 입은 초안 자료',
+		dkS3: '남은 일', dkS3v: '자료를 새로 시작하는 대신 실제 자료를 다듬기',
+
+		dtTitle: 'Alex는 스프레드시트에 질문을 던졌습니다',
+		dtCaption: '데이터 분석',
+		dtDesc: '6개 지역, 18개월치 지원 티켓. 예전 방식은 모델을 먼저 만들고 질문은 나중에 하는 것이었습니다. Copilot에서는 질문이 먼저, 그것도 일상적인 말로 옵니다.',
+		dtCallout: '이제 결론에 닿기 위해 수식을 알아야 할 필요는 없습니다.',
+		dtFile: 'Support-Metrics-FY26.xlsx', dtFileS: '18개월치 티켓 건수 \u00b7 6개 지역',
+		dtOldH: 'Copilot 없이',
+		dtO1: '피벗 테이블', dtO2: '복잡한 수식', dtO3: '수작업 분석',
+		dtChatH: 'Excel의 Copilot',
+		dtQ: '9월 급증은 어느 지역 때문인가요?',
+		dtA: 'EMEA입니다. 9월에 그곳 티켓이 다른 어느 지역보다 빠르게 늘었고, 그 증가의 배경에서 가장 큰 단일 항목은 암호 재설정입니다.',
+		dtI1: 'EMEA가 이상치 \u2014 전사적인 추세가 아님',
+		dtI2: '가장 먼저 자동화할 항목은 암호 재설정',
+		dtCb: '4편: 같은 통합 문서, 다른 방식의 질문.',
+		dtS1: '예전 순서', dtS1v: '모델을 만든 다음 질문하기',
+		dtS2: '새로운 순서', dtS2v: '질문하고, 그 과정을 함께 보기',
+		dtS3: 'Alex가 확인하는 것', dtS3v: '숫자 \u2014 답은 출발점일 뿐',
+
+		emTitle: '읽지 않은 300통, 그 안에 묻힌 결정 하나',
+		emCaption: '메일',
+		emDesc: 'Alex가 돌아왔을 때 받은 편지함은 Alex 없이도 계속 굴러가고 있었습니다. Copilot이 없으면 뚫고 나가는 길은 전부 읽는 것뿐입니다. Copilot이 있으면 스레드를 요약으로 한 번 읽고, 거기서 답장합니다.',
+		emCallout: '받은 편지함을 읽는 것이 일이 아닙니다. 결정하는 것이 일입니다.',
+		emPileH: '받은 편지함', emCount: '읽지 않음 300통', emPileS: '그 한가운데 어딘가에 있는 프로젝트 스레드 하나',
+		emWoH: 'Copilot 없이',
+		emW1: '전부 읽기', emW2: '직접 쓰기',
+		emWoN: '한 통도 답장하기 전에 모든 메일을 읽게 됩니다.',
+		emWiH: 'Copilot과 함께',
+		emC1: '요약', emC2: '답장', emC3: '앞으로 나아가기',
+		emWiN: '스레드는 요약으로 한 번만 읽고 \u2014 답장은 거기에서 초안이 나옵니다.',
+		emCb: '5편: Alex가 비운 읽지 않은 메일 300통.',
+		emS1: 'Copilot이 읽는 것', emS1v: '스레드 \u2014 그리고 Alex가 이미 접근할 수 있는 메일',
+		emS2: 'Alex가 읽는 것', emS2v: '먼저 요약, 그다음 정말 중요한 메일',
+		emS3: '보내지는 것', emS3v: 'Alex가 읽고 승인하기 전에는 아무것도 나가지 않음',
+
+		mtTitle: '회의는 두 번이 아니라 한 번으로 끝났습니다',
+		mtCaption: '회의',
+		mtDesc: '운영위원회는 한 시간 동안 이어졌습니다. Copilot이 없으면 그 한 시간을 두 번 씁니다 \u2014 실시간으로 한 번, 녹화로 다시 한 번. Copilot이 있으면 요약이 회의와 함께 도착합니다.',
+		mtCallout: '이제 아무도 참여자 대신 기록자가 될 필요가 없습니다.',
+		mtMeet: '경영 운영위원회', mtMeetS: '60분 \u00b7 녹화 및 전사됨',
+		mtWiH: 'Copilot과 함께',
+		mtA1: '회의 요약', mtA1s: '전사본에서 요약된 논의 내용',
+		mtA2: '작업 항목', mtA2s: '말한 그대로 담긴 담당자와 다음 할 일',
+		mtA3: '다음 단계', mtA3s: 'Alex는 통화를 나서는 순간 이미 움직일 수 있습니다',
+		mtWoH: 'Copilot 없이',
+		mtB1: '메모하기', mtB1s: '의견을 내는 대신 타이핑하기',
+		mtB2: '녹화 다시 보기', mtB2s: '같은 한 시간을 두 번째로 듣기',
+		mtB3: '할 일 찾기', mtB3s: '누가 무엇에 동의했는지 되감아 찾기',
+		mtCb: '6편: Alex가 참석한 운영위원회 회의.',
+		mtS1: '출처', mtS1v: '별도의 녹화가 아니라 회의 전사본',
+		mtS2: '도착하는 것', mtS2v: '요약, 작업 항목, 다음 단계',
+		mtS3: '도착하는 시점', mtS3v: '회의가 끝날 때 \u2014 다음 날이 아니라',
+
+		fiTitle: '이것이 Copilot이 실제로 만드는 차이입니다',
+		fiCaption: '진짜 가치',
+		fiDesc: '여섯 개의 앱, 하나의 프로젝트, Contoso에서의 한 달 \u2014 그리고 그 모두의 뒤에 있는 하나의 어시스턴트. Microsoft 365는 Alex가 결과물을 만드는 곳입니다. Copilot은 이미 있는 결과물을 Alex가 쓸 수 있게 해 주는 것입니다.',
+		fiCallout: '가치는 AI가 아닙니다. AI가 이미 가진 결과물로 무엇을 하느냐입니다.',
+		fiA1: 'Word', fiA1s: 'Proposal.docx',
+		fiA2: 'PowerPoint', fiA2s: '운영위원회 자료',
+		fiA3: 'Excel', fiA3s: 'Support-Metrics-FY26',
+		fiA4: 'Outlook', fiA4s: '비워진 받은 편지함',
+		fiA5: 'Teams', fiA5s: '위원회 회의 요약',
+		fiA6: 'Copilot Chat', fiA6s: '그 모든 것을 관통한 하나의 흐름',
+		fiHeroH: 'Microsoft 365 Copilot',
+		fiHeroS: 'Alex가 이미 열어 둔 모든 앱을 가로지르는 하나의 경험',
+		fiLine1: 'Microsoft 365는 사람들이 결과물을 만들도록 돕습니다.',
+		fiLine2: 'Microsoft 365 Copilot은 이미 가진 결과물을 활용해 더 빠르게 이해하고, 만들고, 분석하고, 소통하고, 실행하도록 돕습니다.',
+		fiFoot: '자세한 내용은 공식 <a href="https://learn.microsoft.com/copilot/microsoft-365/" target="_blank" rel="noopener">Microsoft 365 Copilot 문서</a>를 참고하세요.',
+		fiS1: 'Microsoft 365가 주는 것', fiS1v: '결과물이 만들어지는 자리',
+		fiS2: 'Copilot이 더하는 것', fiS2v: '이해하고, 만들고, 분석하고, 소통하고, 실행하기',
+		fiS3: '가치가 나오는 곳', fiS3v: 'Alex가 이미 갖고 있던 결과물 \u2014 마침내 쓸 수 있게'
+	},
+
+	pt: {
+		skipToMain: 'Ir para o diagrama',
+		pageTitle: 'Por que Copilot',
+		stageHeading: 'O verdadeiro valor de negócio do Microsoft 365 Copilot',
+		stageInstructions: 'Alex terminou o projeto. Este final animado dá um passo atrás e pergunta o que realmente mudou \u2014 cinco comparações de antes e depois tiradas do primeiro mês de Alex na Contoso (escrever a proposta, montar a apresentação do comitê, ler as métricas de suporte, esvaziar a caixa de entrada e colocar a reunião do comitê em dia) e, por trás de todas elas, um mesmo Copilot. Use os botões Avançar/Voltar ou as setas para navegar. Pressione R para reiniciar.',
+		prev: '\u25C0 Voltar', next: 'Avançar \u25B6', replay: '\u21BB Repetir', restart: '\u21BB Reiniciar',
+		slower: 'Mais lento', faster: 'Mais rápido',
+		calloutOn: 'Notas: ativadas', calloutOff: 'Notas: desativadas',
+		outlineOn: 'Estrutura: ativada', outlineOff: 'Estrutura: desativada',
+		audioTip: 'Áudio da narração', ccTip: 'Legendas', shortcutsTip: 'Atalhos',
+		stepDetails: 'Detalhes da etapa', stepOf: 'Etapa',
+		resetPos: 'Restaurar a posição padrão',
+		scTitle: 'Atalhos de teclado',
+		scNext: 'Próxima etapa', scPrev: 'Etapa anterior', scRestart: 'Reiniciar', scReplay: 'Repetir esta etapa', scHide: 'Ocultar / mostrar a barra superior', scHelp: 'Mostrar ou ocultar esta ajuda',
+
+		dcTitle: 'Escrever sempre começava com uma página em branco',
+		dcCaption: 'Documentos',
+		dcDesc: 'A primeira tarefa de Alex na Contoso foi uma proposta executiva para a plataforma de suporte ao cliente com IA. Sem Copilot são quatro passagens. Com Copilot são três \u2014 e a primeira já vem com texto dentro.',
+		dcCallout: 'O Copilot elimina a página em branco. Não elimina o critério.',
+		dcPrompt: 'Escreva uma proposta executiva para a plataforma de suporte ao cliente com IA',
+		dcWoH: 'Sem Copilot', dcWiH: 'Com Copilot',
+		dcW1: 'Pesquisar', dcW2: 'Escrever', dcW3: 'Reescrever', dcW4: 'Revisar',
+		dcC1: 'Pedir', dcC2: 'Refinar', dcC3: 'Aprovar',
+		dcWoN: 'Quatro passagens \u2014 e a primeira começa do zero.',
+		dcWiN: 'Três passagens \u2014 e a primeira começa de um rascunho.',
+		dcCb: 'Parada 2: Proposal.docx \u2014 a proposta que Alex escreveu no Word.',
+		dcS1: 'O que mudou', dcS1v: 'De onde vem o primeiro rascunho',
+		dcS2: 'O que o Copilot fez', dcS2v: 'Escrever e reescrever com base em arquivos que Alex já pode abrir',
+		dcS3: 'O que Alex continua fazendo', dcS3v: 'Decidir o que a proposta realmente diz',
+
+		dkTitle: 'A apresentação saiu do documento que Alex já tinha escrito',
+		dkCaption: 'Apresentações',
+		dkDesc: 'O comitê executivo precisava de slides. A proposta já estava pronta \u2014 então o caminho lento é o que começa com uma apresentação vazia em vez do trabalho que já existe.',
+		dkCallout: 'O Copilot não inventa a história. Ele reaproveita a que Alex já escreveu.',
+		dkPrompt: 'Crie uma apresentação a partir de Proposal.docx',
+		dkWoH: 'Sem Copilot', dkWoS: 'Começa com uma apresentação vazia',
+		dkW1: 'Criar do zero', dkW2: 'Formatar os slides', dkW3: 'Montar os visuais', dkW4: 'Formatar de novo',
+		dkWiH: 'Com Copilot', dkWiS: 'Começa pela proposta',
+		dkC1: 'Gerar', dkC2: 'Personalizar', dkC3: 'Apresentar',
+		dkNote: 'O Copilot no PowerPoint cria uma apresentação a partir de um prompt ou de um arquivo do Word usando os modelos da própria organização \u2014 então a apresentação já chega dentro da marca.',
+		dkCb: 'Parada 3: a apresentação do comitê executivo.',
+		dkS1: 'A entrada', dkS1v: 'Um documento que Alex já tinha aprovado',
+		dkS2: 'A saída', dkS2v: 'Uma primeira versão no modelo da Contoso',
+		dkS3: 'O trabalho que sobra', dkS3v: 'Editar uma apresentação real em vez de começar uma',
+
+		dtTitle: 'Alex fez uma pergunta à planilha',
+		dtCaption: 'Análise de dados',
+		dtDesc: 'Dezoito meses de chamados de suporte em seis regiões. O caminho antigo é montar o modelo primeiro e perguntar depois. Com o Copilot a pergunta vem primeiro, em linguagem natural.',
+		dtCallout: 'Você não precisa mais conhecer a fórmula para chegar à conclusão.',
+		dtFile: 'Support-Metrics-FY26.xlsx', dtFileS: '18 meses de volume de chamados \u00b7 6 regiões',
+		dtOldH: 'Sem Copilot',
+		dtO1: 'Tabelas dinâmicas', dtO2: 'Fórmulas complexas', dtO3: 'Análise manual',
+		dtChatH: 'Copilot no Excel',
+		dtQ: 'Qual região causou o pico de setembro?',
+		dtA: 'EMEA. Os chamados lá cresceram mais rápido do que em qualquer outra região em setembro, e as redefinições de senha são a maior categoria por trás dessa alta.',
+		dtI1: 'EMEA é o ponto fora da curva \u2014 não uma tendência de toda a empresa',
+		dtI2: 'As redefinições de senha são a primeira categoria a automatizar',
+		dtCb: 'Parada 4: a mesma pasta de trabalho, perguntada de outro jeito.',
+		dtS1: 'A ordem antiga', dtS1v: 'Montar o modelo e só então perguntar',
+		dtS2: 'A ordem nova', dtS2v: 'Perguntar e ver o raciocínio',
+		dtS3: 'O que Alex confere', dtS3v: 'Os números \u2014 a resposta é um ponto de partida',
+
+		emTitle: 'Trezentos não lidos e uma decisão enterrada neles',
+		emCaption: 'E-mail',
+		emDesc: 'Alex voltou para uma caixa de entrada que seguiu andando sem Alex. Sem Copilot, o único caminho é ler tudo. Com Copilot, a conversa é lida uma vez, em resumo, e respondida a partir dali.',
+		emCallout: 'Ler a caixa de entrada não é o trabalho. Decidir é.',
+		emPileH: 'Caixa de entrada', emCount: '300 não lidos', emPileS: 'Uma conversa do projeto, em algum lugar no meio disso',
+		emWoH: 'Sem Copilot',
+		emW1: 'Ler tudo', emW2: 'Escrever na mão',
+		emWoN: 'Todas as mensagens são lidas antes que qualquer uma seja respondida.',
+		emWiH: 'Com Copilot',
+		emC1: 'Resumir', emC2: 'Responder', emC3: 'Seguir em frente',
+		emWiN: 'A conversa é lida uma vez, em resumo \u2014 e a resposta nasce dela.',
+		emCb: 'Parada 5: os 300 e-mails não lidos que Alex esvaziou.',
+		emS1: 'O que o Copilot lê', emS1v: 'A conversa \u2014 e os e-mails a que Alex já tem acesso',
+		emS2: 'O que Alex lê', emS2v: 'Um resumo e depois as mensagens que importam',
+		emS3: 'O que é enviado', emS3v: 'Nada até que Alex tenha lido e aprovado',
+
+		mtTitle: 'A reunião foi trabalhada uma vez, não duas',
+		mtCaption: 'Reuniões',
+		mtDesc: 'O comitê executivo durou uma hora. Sem Copilot, essa hora é gasta duas vezes \u2014 ao vivo e depois de novo na gravação. Com Copilot, o resumo chega junto com a reunião.',
+		mtCallout: 'Ninguém precisa virar o anotador em vez de participar.',
+		mtMeet: 'Comitê executivo', mtMeetS: '60 minutos \u00b7 gravada e transcrita',
+		mtWiH: 'Com Copilot',
+		mtA1: 'Resumo da reunião', mtA1s: 'A discussão, resumida a partir da transcrição',
+		mtA2: 'Itens de ação', mtA2s: 'Responsáveis e próximos passos, capturados como foram ditos',
+		mtA3: 'Próximos passos', mtA3s: 'Alex sai da chamada já em condições de agir',
+		mtWoH: 'Sem Copilot',
+		mtB1: 'Anotar', mtB1s: 'Digitando em vez de contribuir',
+		mtB2: 'Rever a gravação', mtB2s: 'A mesma hora, ouvida uma segunda vez',
+		mtB3: 'Caçar as ações', mtB3s: 'Voltando a gravação para ver quem concordou com o quê',
+		mtCb: 'Parada 6: a reunião do comitê executivo de que Alex participou.',
+		mtS1: 'A origem', mtS1v: 'A transcrição da reunião, não uma gravação separada',
+		mtS2: 'O que chega', mtS2v: 'Resumo, itens de ação e próximos passos',
+		mtS3: 'Quando chega', mtS3v: 'Quando a reunião termina \u2014 não no dia seguinte',
+
+		fiTitle: 'Esta é a diferença que o Copilot realmente faz',
+		fiCaption: 'O valor real',
+		fiDesc: 'Seis aplicativos, um projeto, um mês na Contoso \u2014 e um mesmo assistente por trás de tudo. O Microsoft 365 é onde Alex cria o trabalho. O Copilot é o que permite usar o trabalho que já está lá.',
+		fiCallout: 'O valor não é a IA. É o que a IA faz com o trabalho que você já tem.',
+		fiA1: 'Word', fiA1s: 'Proposal.docx',
+		fiA2: 'PowerPoint', fiA2s: 'A apresentação do comitê',
+		fiA3: 'Excel', fiA3s: 'Support-Metrics-FY26',
+		fiA4: 'Outlook', fiA4s: 'A caixa de entrada, esvaziada',
+		fiA5: 'Teams', fiA5s: 'O resumo do comitê',
+		fiA6: 'Copilot Chat', fiA6s: 'O fio que atravessa tudo',
+		fiHeroH: 'Microsoft 365 Copilot',
+		fiHeroS: 'Uma experiência só em todos os aplicativos que Alex já tinha abertos',
+		fiLine1: 'O Microsoft 365 ajuda as pessoas a criar o trabalho.',
+		fiLine2: 'O Microsoft 365 Copilot ajuda as pessoas a entender, criar, analisar, comunicar e agir mais rápido usando o trabalho que já têm.',
+		fiFoot: 'Saiba mais na <a href="https://learn.microsoft.com/copilot/microsoft-365/" target="_blank" rel="noopener">documentação oficial do Microsoft 365 Copilot</a>.',
+		fiS1: 'O que o Microsoft 365 dá', fiS1v: 'O lugar onde o trabalho é criado',
+		fiS2: 'O que o Copilot acrescenta', fiS2v: 'Entender, criar, analisar, comunicar, agir',
+		fiS3: 'De onde vem o valor', fiS3v: 'O trabalho que Alex já tinha \u2014 finalmente utilizável'
+	}
+};
+function t(key) { return (I18N[currentLang] && I18N[currentLang][key]) || I18N.en[key] || key; }
+
+function setLanguage(lang) {
+	currentLang = lang;
+	document.documentElement.lang = lang;
+	try { const u=new URL(location.href); u.searchParams.set('lang', lang); history.replaceState(null,'',u); } catch(_){}
+	document.getElementById('page-title').innerHTML = '<img class="m3-logo" src="../../lib/icons/brands/Microsoft365Copilot.svg" alt="" width="22" height="22" decoding="async"> ' + t('pageTitle');
+	// icon-only nav buttons: the localized label lives in the tooltip (title)
+	document.getElementById('prev-btn').title = t('prev');
+	document.getElementById('next-btn').title = t('next');
+	document.getElementById('replay-btn').title = t('replay');
+	document.getElementById('reset-btn').title = t('restart');
+	document.getElementById('speed-down').title = t('slower');
+	document.getElementById('speed-up').title = t('faster');
+	document.getElementById('outline-title').textContent = t('stepDetails');
+	document.querySelector('.skip-link').textContent = t('skipToMain');
+	document.getElementById('stage-heading').textContent = t('stageHeading');
+	document.getElementById('stage-instructions').textContent = t('stageInstructions');
+	// localize overlay tooltips (icon buttons show their label on hover / as native title)
+	const _hlp=document.getElementById('help-toggle'); if(_hlp) _hlp.setAttribute('data-tip', t('shortcutsTip'));
+	const _aud=document.getElementById('audio-toggle'); if(_aud) _aud.title=t('audioTip');
+	const _ccb=document.getElementById('cc-toggle'); if(_ccb) _ccb.title=t('ccTip');
+	syncCalloutBtn(); syncOutlineBtn();
+	if (typeof syncAudioBtn === 'function') syncAudioBtn();
+	if (typeof buildShortcuts === 'function') buildShortcuts();
+	if (typeof refreshJourneyNext === 'function') refreshJourneyNext();
+	document.querySelectorAll('.aw-drag-reset').forEach(b=>{ b.title=t('resetPos'); b.setAttribute('aria-label', t('resetPos')); });
+	try { localStorage.setItem('aw-cpbv-lang', lang); } catch(_){}
+	if (current >= 0) renderStep(current);
+}
+
+// ── STEPS (journey order) ─────────────────
+const STEPS = [
+	{ id:'docs', short:'Documents', titleKey:'dcTitle', captionKey:'dcCaption', descKey:'dcDesc', calloutKey:'dcCallout',
+		stats:[['dcS1','dcS1v'],['dcS2','dcS2v'],['dcS3','dcS3v']] },
+	{ id:'decks', short:'Presentations', titleKey:'dkTitle', captionKey:'dkCaption', descKey:'dkDesc', calloutKey:'dkCallout',
+		stats:[['dkS1','dkS1v'],['dkS2','dkS2v'],['dkS3','dkS3v']] },
+	{ id:'data', short:'Data analysis', titleKey:'dtTitle', captionKey:'dtCaption', descKey:'dtDesc', calloutKey:'dtCallout',
+		stats:[['dtS1','dtS1v'],['dtS2','dtS2v'],['dtS3','dtS3v']] },
+	{ id:'email', short:'Email', titleKey:'emTitle', captionKey:'emCaption', descKey:'emDesc', calloutKey:'emCallout',
+		stats:[['emS1','emS1v'],['emS2','emS2v'],['emS3','emS3v']] },
+	{ id:'meetings', short:'Meetings', titleKey:'mtTitle', captionKey:'mtCaption', descKey:'mtDesc', calloutKey:'mtCallout',
+		stats:[['mtS1','mtS1v'],['mtS2','mtS2v'],['mtS3','mtS3v']] },
+	{ id:'wow', short:'The real value', titleKey:'fiTitle', captionKey:'fiCaption', descKey:'fiDesc', calloutKey:'fiCallout',
+		stats:[['fiS1','fiS1v'],['fiS2','fiS2v'],['fiS3','fiS3v']] }
+];
+
+// ── DOM REFS ──────────────────────────────
+const stage=document.getElementById('stage-frame'), svg=document.getElementById('fx-svg'),
+	counter=document.getElementById('step-counter'), breadcrumb=document.getElementById('breadcrumb'),
+	progress=document.getElementById('progress-fill'), announcer=document.getElementById('step-announcer'),
+	outlineBody=document.getElementById('outline-body'), outlinePanel=document.getElementById('step-outline'),
+	outlineBtn=document.getElementById('outline-toggle'), calloutBtn=document.getElementById('callout-toggle'),
+	langSelect=document.getElementById('lang-select');
+
+langSelect.addEventListener('change', e => setLanguage(e.target.value));
+const urlLang = new URLSearchParams(location.search).get('lang');
+let savedLang=null; try{ savedLang=localStorage.getItem('aw-cpbv-lang'); }catch(_){}
+if (urlLang && I18N[urlLang]) { currentLang = urlLang; langSelect.value = urlLang; }
+else if (savedLang && I18N[savedLang]) { currentLang = savedLang; langSelect.value = savedLang; }
+
+// ── Font size ─────────────────────────────
+const fontScales=[0.8,0.9,1,1.1,1.2,1.35]; let fontScaleIdx=2;
+const baseFontSize=parseFloat(getComputedStyle(document.documentElement).fontSize);
+function applyFontScale(){ document.documentElement.style.fontSize=(baseFontSize*fontScales[fontScaleIdx])+'px'; const c=document.getElementById('controls'); if(c) c.style.fontSize=baseFontSize+'px'; if(typeof current!=='undefined'&&current>=0){ const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s); } }
+function saveFont(){ try{ localStorage.setItem('aw-cpbv-font', String(fontScaleIdx)); }catch(_){} }
+try{ const f=parseInt(localStorage.getItem('aw-cpbv-font'),10); if(!isNaN(f)&&f>=0&&f<fontScales.length){ fontScaleIdx=f; applyFontScale(); } }catch(_){}
+document.getElementById('font-decrease').addEventListener('click',()=>{ if(fontScaleIdx>0){fontScaleIdx--;applyFontScale();saveFont();} });
+document.getElementById('font-increase').addEventListener('click',()=>{ if(fontScaleIdx<fontScales.length-1){fontScaleIdx++;applyFontScale();saveFont();} });
+
+let current=-1, animating=false, liveEls=[], liveTimelines=[], calloutEnabled=false;
+
+function syncCalloutBtn(){ calloutBtn.classList.toggle('toggle-active',calloutEnabled); calloutBtn.setAttribute('aria-pressed',calloutEnabled?'true':'false'); calloutBtn.setAttribute('data-tip',calloutEnabled?t('calloutOn'):t('calloutOff')); }
+calloutBtn.addEventListener('click',()=>{
+	calloutEnabled=!calloutEnabled; syncCalloutBtn();
+	if(current<0) return;
+	// Toggle just the callout box in place — don't re-render (no animation replay).
+	const existing=stage.querySelectorAll('.callout');
+	if(calloutEnabled){ if(!existing.length){ const c=maybeCallout(STEPS[current]); if(c) gsap.fromTo(c,{opacity:0,y:10},{opacity:1,y:0,duration:0.4,overwrite:true}); } }
+	else { existing.forEach(c=>{ const idx=liveEls.indexOf(c); if(idx>-1) liveEls.splice(idx,1); gsap.killTweensOf(c); c.remove(); }); }
+}); syncCalloutBtn();
+function syncOutlineBtn(){ const on=!outlinePanel.hasAttribute('hidden'); outlineBtn.classList.toggle('toggle-active',on); outlineBtn.setAttribute('aria-expanded',on?'true':'false'); outlineBtn.setAttribute('data-tip',on?t('outlineOn'):t('outlineOff')); }
+outlineBtn.addEventListener('click',()=>{ const showing=!outlinePanel.hasAttribute('hidden'); if(showing){outlinePanel.setAttribute('hidden','');} else {outlinePanel.removeAttribute('hidden');} syncOutlineBtn(); }); syncOutlineBtn();
+
+// ── Audio narration (overlay button · speaker + remaining-time countdown) ──
+// Drop one recorded clip per step (in STEPS order) into AUDIO_FILES for real narration;
+// localized clips live under AUDIO_BASE/<lang>/. With no files, the browser reads each
+// step's title + description aloud (speech synthesis), so the button works with zero assets.
+const AUDIO_BASE = 'audio/CopilotBusinessValue/';
+const AUDIO_FILES = [
+	'step-01.mp3','step-02.mp3','step-03.mp3','step-04.mp3','step-05.mp3','step-06.mp3'
+];
+let audioEnabled=false, currentAudio=null, audioTimeout=null, ccPref=false;
+const audioBtn=document.getElementById('audio-toggle');
+if(audioBtn){ audioBtn.innerHTML='<span class="aw-audio-ico" aria-hidden="true">\uD83D\uDD07</span><span class="aw-audio-time" aria-hidden="true">--:--</span>'; }
+const audioIco=audioBtn&&audioBtn.querySelector('.aw-audio-ico'), audioTimeEl=audioBtn&&audioBtn.querySelector('.aw-audio-time');
+// Captions can play WITHOUT sound: when CC is on but audio is off we still play the clip MUTED, so the
+// caption reveals at the same pace — speaker shows 🔇 and the remaining-time countdown keeps running.
+function playbackOn(){ return audioEnabled || ccPref; }
+function audioDir(){ return (currentLang && currentLang!=='en') ? currentLang+'/' : ''; }
+function fmtDur(s){ s=Math.max(0,Math.ceil(s)); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
+function updateAudioTime(){ if(audioTimeEl && currentAudio && isFinite(currentAudio.duration) && currentAudio.duration>0) audioTimeEl.textContent=fmtDur(currentAudio.duration-currentAudio.currentTime); }
+function syncAudioBtn(){ if(!audioBtn) return; if(audioIco) audioIco.textContent=audioEnabled?'\uD83D\uDD0A':'\uD83D\uDD07'; if(audioTimeEl && !playbackOn()) audioTimeEl.textContent='--:--'; audioBtn.classList.toggle('toggle-active',audioEnabled); audioBtn.setAttribute('aria-pressed',audioEnabled?'true':'false'); }
+function speakFallback(i){ if(!window.speechSynthesis) return; const step=STEPS[i]; const u=new SpeechSynthesisUtterance(`${t(step.titleKey)}. ${t(step.descKey)}`); u.lang=currentLang||'en'; try{ speechSynthesis.cancel(); speechSynthesis.speak(u); }catch(_){} }
+function stopAudio(){
+	if(currentAudio){ currentAudio.pause(); currentAudio.currentTime=0; currentAudio=null; }
+	if(audioTimeout){ clearTimeout(audioTimeout); audioTimeout=null; }
+	if(audioTimeEl) audioTimeEl.textContent='--:--';
+	try{ if(window.speechSynthesis) speechSynthesis.cancel(); }catch(_){}
+	if(window.AWCaptions) AWCaptions.clear();
+}
+function playStepAudio(i){
+	stopAudio();
+	if(document.body.classList.contains('aw-prestart')) return;   // start gate holds audio too
+	if(!playbackOn() || i<0 || i>=STEPS.length) return;
+	audioTimeout=setTimeout(()=>{
+		audioTimeout=null;
+		const file=AUDIO_FILES[i];
+		if(!file){ if(audioEnabled) speakFallback(i); return; }   // no clip = no timing source for caption-only
+		currentAudio=new Audio(AUDIO_BASE+audioDir()+file);
+		currentAudio.volume = audioEnabled ? 1 : 0;              // caption-only = silent (volume 0) timing source
+		if(window.AWCaptions) AWCaptions.bind(currentAudio,i);
+		currentAudio.addEventListener('loadedmetadata',updateAudioTime);
+		currentAudio.addEventListener('timeupdate',updateAudioTime);
+		currentAudio.addEventListener('ended',()=>{ if(audioTimeEl) audioTimeEl.textContent='0:00'; });
+		currentAudio.addEventListener('error',()=>{ if(audioEnabled) speakFallback(i); });
+		currentAudio.play().catch(()=>{});
+	}, 400);
+}
+if(audioBtn){ audioBtn.addEventListener('click',()=>{
+	audioEnabled=!audioEnabled; try{localStorage.setItem('aw-cpbv-audio',audioEnabled?'1':'0');}catch(_){} syncAudioBtn();
+	if(current>=0){
+		if(!playbackOn()) stopAudio();
+		else if(currentAudio) currentAudio.volume = audioEnabled ? 1 : 0;   // flip sound without restarting the clip
+		else playStepAudio(current);
+	}
+	if(typeof applyCc==='function') applyCc();
+}); }
+// Initial audio + CC from the ?audio parameter:
+//   on -> audio ON + captions ON  ·  off -> both OFF  ·  (absent) -> audio ON, captions OFF (a prior stored choice still wins).
+(function(){
+	var p=null; try{ p=new URLSearchParams(location.search).get('audio'); }catch(_){}
+	if(p==='on'){ audioEnabled=true; ccPref=true; }
+	else if(p==='off'){ audioEnabled=false; ccPref=false; }
+	else {
+		audioEnabled=true; ccPref=false;
+		try{ var a=localStorage.getItem('aw-cpbv-audio'); if(a==='1') audioEnabled=true; else if(a==='0') audioEnabled=false; }catch(_){}
+		try{ var c=localStorage.getItem('aw-cpbv-cc'); if(c==='1') ccPref=true; else if(c==='0') ccPref=false; }catch(_){}
+	}
+	try{ localStorage.setItem('aw-cpbv-audio',audioEnabled?'1':'0'); localStorage.setItem('aw-cpbv-cc',ccPref?'1':'0'); }catch(_){}
+})();
+syncAudioBtn();
+
+// ── Captions (CC) — overlaid in the frame; play WITH or WITHOUT audio ──
+// Reads the SAME narration Markdown used to synthesize the audio. Set page to THIS file's
+// stem and base to its narration folder (see the path note near the top of the file).
+const ccBtn=document.getElementById('cc-toggle');
+function ccEffective(){ return ccPref; }                          // captions show whenever CC is on (audio not required)
+function syncCcBtn(){ if(!ccBtn) return; ccBtn.classList.toggle('on',ccPref); ccBtn.setAttribute('aria-pressed',ccPref?'true':'false'); }
+function applyCc(){ if(window.AWCaptions) AWCaptions.setEnabled(ccEffective()); if(ccEffective()&&currentAudio&&window.AWCaptions) AWCaptions.bind(currentAudio,current); syncCcBtn(); }
+if(window.AWCaptions){ AWCaptions.configure({ page:'CopilotBusinessValue', base:'../../narration/Copilot/', lang:()=>currentLang, fallback:(i)=>(STEPS[i]?t(STEPS[i].descKey):''), reserve:false }); }
+if(ccBtn){ ccBtn.addEventListener('click',()=>{
+	ccPref=!ccPref; try{localStorage.setItem('aw-cpbv-cc',ccPref?'1':'0');}catch(_){} applyCc();
+	if(current>=0){
+		if(playbackOn() && !currentAudio) playStepAudio(current);   // caption-only: start the muted timing clip
+		else if(!playbackOn() && currentAudio) stopAudio();          // CC off + audio off: nothing left to play
+	}
+}); }
+applyCc();
+
+// ── Full screen ──
+(function(){
+	const fsBtn=document.getElementById('fs-toggle'); if(!fsBtn) return;
+	function inFs(){ return !!(document.fullscreenElement||document.webkitFullscreenElement); }
+	function syncFs(){ document.body.classList.toggle('is-fs',inFs()); fsBtn.setAttribute('aria-pressed',inFs()?'true':'false'); fsBtn.title=inFs()?'Exit full screen (F)':'Full screen (F)'; }
+	function toggle(){ try{ if(inFs()){ (document.exitFullscreen||document.webkitExitFullscreen).call(document); } else { const el=document.documentElement; (el.requestFullscreen||el.webkitRequestFullscreen).call(el); } }catch(_){} }
+	fsBtn.addEventListener('click',e=>{ e.stopPropagation(); toggle(); });
+	document.addEventListener('fullscreenchange',syncFs); document.addEventListener('webkitfullscreenchange',syncFs);
+	document.addEventListener('keydown',e=>{ if(e.code==='KeyF'&&!e.metaKey&&!e.ctrlKey&&!e.altKey){ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return; e.preventDefault(); toggle(); } });
+	syncFs();
+})();
+
+// ── Reduced motion ────────────────────────
+const motionMQ=window.matchMedia('(prefers-reduced-motion: reduce)'); let motionPaused=motionMQ.matches;
+motionMQ.addEventListener('change',e=>{ motionPaused=e.matches; renderStep(current); });
+
+// ── Helpers ───────────────────────────────
+function clearStage(){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; liveEls.forEach(el=>el.remove()); liveEls=[]; Array.from(svg.children).forEach(c=>{ if(c.tagName.toLowerCase()!=='defs') c.remove(); }); }
+// Product URLs are written as plain text in the i18n strings (so speech + aria read them cleanly);
+// they become real links only here, at render time. Text already inside an <a> is left alone.
+const AW_URL_RE=/\b((?:aka\.ms|copilot\.microsoft\.com|m365\.cloud\.microsoft|microsoft365\.com|office\.com)(?:\/[A-Za-z0-9._~:\/?#@!$&'()*+,;=%-]*)?)/g;
+function linkifyUrls(html){
+	let depth=0;
+	return String(html).split(/(<[^>]+>)/).map(part=>{
+		if(part.startsWith('<')){ if(/^<a\b/i.test(part)) depth++; else if(/^<\/a>/i.test(part)) depth--; return part; }
+		if(depth>0) return part;
+		return part.replace(AW_URL_RE, m=>{ const clean=m.replace(/[.,;:]+$/,''), tail=m.slice(clean.length);
+			return `<a href="https://${clean}" target="_blank" rel="noopener">${clean}</a>${tail}`; });
+	}).join('');
+}
+function el(cls,html){ const d=document.createElement('div'); if(cls) d.className=cls; if(html!=null) d.innerHTML=linkifyUrls(html); return d; }
+// Inline SVG icons (monochrome, currentColor) — crisp on any OS/projector. Add your own here.
+const ICONS = {
+	puzzle:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h8v8H3zm10 0h8v8h-8zM3 13h8v8H3zm10 0h8v8h-8z"/></svg>',
+	inbox:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 3h2v5h3l-4 4-4-4h3zM5 14h14v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1z"/></svg>',
+	gear:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M19.14 12.94a7.9 7.9 0 0 0 0-1.88l2-1.56-2-3.46-2.36.96a7.7 7.7 0 0 0-1.62-.94L14.8 2.5h-4l-.36 2.56c-.58.24-1.12.56-1.62.94L6.46 6.04l-2 3.46 2 1.56a7.9 7.9 0 0 0 0 1.88l-2 1.56 2 3.46 2.36-.96c.5.38 1.04.7 1.62.94l.36 2.56h4l.36-2.56c.58-.24 1.12-.56 1.62-.94l2.36.96 2-3.46-2-1.56zM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg>',
+	sparkle:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg>',
+	bulb:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-4 12.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26A7 7 0 0 0 12 2zM9 20h6v1a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1z"/></svg>',
+	check:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.55 17.6 4.4 12.45l1.86-1.86 3.29 3.29 8.19-8.19 1.86 1.86z"/></svg>',
+	bolt:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>',
+	lock:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 10a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1zm3-1V7a4 4 0 1 1 8 0v2h-2V7a2 2 0 1 0-4 0v2z"/></svg>',
+	box:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 3 7v10l9 5 9-5V7zm0 2.3L17.7 7 12 10.2 6.3 7zM5 9.1l6 3.4v6.8l-6-3.3zm14 0v6.9l-6 3.3v-6.8z"/></svg>',
+	key:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M14 2a6 6 0 0 0-5.66 8L2 16.34V22h5.66l.34-.34V20h2v-2h2l.34-.34A6 6 0 1 0 14 2zm2 3a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z"/></svg>',
+	rocket:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2c3 3 4 6 4 9l3 3-4 1-1 4-2-3-2 3-1-4-4-1 3-3c0-3 1-6 4-9zm0 5a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>',
+	health:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 2h6v5h5v6h-5v5H9v-5H4V7h5z"/></svg>',
+	headset:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a8 8 0 0 0-8 8v5a3 3 0 0 0 3 3h1v-7H6v-1a6 6 0 1 1 12 0v1h-2v7h1a3 3 0 0 0 3-3v-5a8 8 0 0 0-8-8z"/></svg>',
+	media:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M4 4h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zm5 4v8l7-4z"/></svg>',
+	book:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v16H6a2 2 0 0 1-2-2zm9 0h7v14a2 2 0 0 1-2 2h-5z"/></svg>',
+	party:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5zm6 11l.9 2.6L21.5 16.5l-2.6.9L18 20l-.9-2.6L14.5 16.5l2.6-.9zM6 14l.7 2 2 .7-2 .7L6 19.4l-.7-2-2-.7 2-.7z"/></svg>',
+	chat:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-4 4v-4H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/></svg>',
+	access:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a2.2 2.2 0 1 1 0 4.4A2.2 2.2 0 0 1 12 2zM4 8h16v2h-5.4l1 12h-2.3l-.7-6h-1.2l-.7 6H8.4l1-12H4z"/></svg>',
+	globe:'<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></g></svg>'
+};
+function icon(name){ return `<span class="ic">${ICONS[name]||''}</span>`; }
+function stepById(id){ return STEPS.find(s=>s.id===id); }
+// Scale the current scene down (never up) so it always fits inside the 16:9 frame — no clipping, no scroll.
+function fitScene(scene){
+	if(!scene) return;
+	scene.style.transform='translate(-50%,-50%) scale(1)';
+	const box=stage.getBoundingClientRect();
+	const availW=box.width-32, availH=box.height-28;
+	const sw=scene.offsetWidth, sh=scene.offsetHeight;
+	if(!sw||!sh) return;
+	const k=Math.min(1, availW/sw, availH/sh);
+	scene.style.transform='translate(-50%,-50%) scale('+k+')';
+}
+function headerEls(scene){ return [scene.querySelector('.scene-title'), scene.querySelector('.scene-lead')]; }
+function buildScene(step){ const s=el('scene'); s.appendChild(el('scene-title', t(step.titleKey))); s.appendChild(el('scene-lead', t(step.descKey))); return s; }
+function maybeCallout(step){ if(!calloutEnabled) return null; const c=el('callout', t(step.calloutKey)); c.style.left='1.5rem'; c.style.top='1.5rem'; stage.appendChild(c); liveEls.push(c); dragify(c, 'aw-cpbv-callout-pos'); return c; }
+function renderOutline(step,idx){
+	const rows=(step.stats||[]).map(([k,v])=>`<div class="stat-row"><span>${t(k)}</span><span>${t(v)}</span></div>`).join('');
+	outlineBody.innerHTML=`<div class="outline-section"><strong>${t('stepOf')} ${idx+1} / ${STEPS.length}: ${t(step.titleKey)}</strong><p style="margin-top:0.4rem;">${t(step.descKey)}</p></div>${rows?`<div class="outline-section">${rows}</div>`:''}`;
+}
+function announceStep(step,idx){ announcer.textContent=`${t('stepOf')} ${idx+1} / ${STEPS.length}: ${t(step.titleKey)}. ${t(step.descKey)}`; }
+
+// ── RENDER DISPATCH ───────────────────────
+function renderStep(i){
+	if(i<0||i>=STEPS.length) return;
+	if(animating){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; animating=false; }
+	animating=true;
+	const step=STEPS[i];
+	// cross-fade (200ms, CSS keyframes so it's independent of the speed control) — outgoing fades out, incoming fades in, on every step
+	const outgoing=stage.querySelector('.scene:not(.scene-out)');
+	if(outgoing) liveEls=liveEls.filter(x=>x!==outgoing);
+	clearStage();
+	if(outgoing){ outgoing.style.zIndex='5';
+		if(motionPaused){ outgoing.remove(); }
+		else { outgoing.classList.remove('scene-in'); outgoing.classList.add('scene-out'); setTimeout(()=>outgoing.remove(), 240); } }
+	// Measure the scene at its FINISHED state first and reserve that height: the scene is
+	// vertically centred, so a box that fills in later would otherwise shift everything up.
+	const build=()=>{
+		if(step.id==='docs') renderDocsStep();
+		else if(step.id==='decks') renderDecksStep();
+		else if(step.id==='data') renderDataStep();
+		else if(step.id==='email') renderEmailStep();
+		else if(step.id==='meetings') renderMeetingsStep();
+		else if(step.id==='wow') renderWowStep();
+	};
+	const reservedH=(()=>{
+		const wasPaused=motionPaused, keptEls=liveEls, keptTls=liveTimelines;
+		motionPaused=true; liveEls=[]; liveTimelines=[];
+		build();
+		const probe=stage.querySelector('.scene:not(.scene-out)');
+		const h=probe?probe.offsetHeight:0;
+		liveTimelines.forEach(tl=>tl.kill()); liveEls.forEach(e=>e.remove());
+		motionPaused=wasPaused; liveEls=keptEls; liveTimelines=keptTls;
+		return h;
+	})();
+	animating=true;
+	build();
+	const incoming=stage.querySelector('.scene:not(.scene-out)');
+	if(incoming && reservedH) incoming.style.minHeight=reservedH+'px';
+	if(incoming && !motionPaused) incoming.classList.add('scene-in');
+	fitScene(incoming);
+	current=i;
+	try{ const u=new URL(location.href); u.searchParams.set('step', String(i+1)); history.replaceState(null,'',u); }catch(_){}
+	counter.textContent=`${t('stepOf')} ${current+1} / ${STEPS.length}`;
+	breadcrumb.textContent=t(step.captionKey);
+	progress.style.width=((current+1)/STEPS.length*100)+'%';
+	renderOutline(step,i); announceStep(step,i);
+	if(typeof playStepAudio==='function') playStepAudio(i);
+	if(typeof armJourneyNext==='function') armJourneyNext(i);
+}
+
+// ── Microsoft 365 app marks + shared scene helpers ──
+const M3_ICONS='../../lib/icons/brands/m365/';
+function m3ic(name, px){ return `<img class="m3-ic" src="${M3_ICONS}${name}.svg" alt="" width="${px||28}" height="${px||28}" decoding="async">`; }
+function m3Timeline(){ const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl); return tl; }
+function m3Header(tl, scene){ tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.5,stagger:0.1,ease:'power2.out'}); }
+// type text into an element (proxy tween — geometry is never measured here)
+function m3Type(tl, elem, text, dur, pos){
+	const o={n:0};
+	tl.to(o, {n:text.length, duration:dur, ease:'none',
+		onStart:()=>{ elem.textContent=''; elem.classList.add('m3-typing'); },
+		onUpdate:()=>{ elem.textContent=text.slice(0, Math.ceil(o.n)); },
+		onComplete:()=>{ elem.classList.remove('m3-typing'); elem.textContent=text; }
+	}, pos);
+}
+
+// ── Microsoft Copilot mark ──
+const CP_ICON='../../lib/icons/brands/Microsoft365Copilot.svg';
+function cpImg(px){ return `<img src="${CP_ICON}" alt="" width="${px}" height="${px}" decoding="async">`; }
+// a numbered pass in a "without / with" chain
+function bvStep(n, key){ return el('bv-step', `<span class="bv-n">${n}</span><span class="bv-t">${t(key)}</span>`); }
+// the pill that ties each scenario back to the stop Alex actually did it in
+function bvCallback(key){ return el('bv-cb', `${cpImg(16)}<span>${t(key)}</span>`); }
+
+// ── STEP 1 · DOCUMENTS ──
+function renderDocsStep(){
+	const step=stepById('docs'); const scene=buildScene(step);
+	const bar=el('wd-promptbar', `${cpImg(16)}<span>${t('dcPrompt')}</span>`);
+	const cols=el('bv-cols');
+	const woSide=el('bv-side', `<div class="bv-h">${t('dcWoH')}</div>`);
+	const woSteps=el('bv-steps');
+	const woRows=['dcW1','dcW2','dcW3','dcW4'].map((k,i)=>{ const r=bvStep(i+1,k); woSteps.appendChild(r); return r; });
+	woSide.appendChild(woSteps); woSide.appendChild(el('bv-note', t('dcWoN')));
+	const wiSide=el('bv-side is-wi', `<div class="bv-h is-wi">${t('dcWiH')}</div>`);
+	const wiSteps=el('bv-steps');
+	const wiRows=['dcC1','dcC2','dcC3'].map((k,i)=>{ const r=bvStep(i+1,k); wiSteps.appendChild(r); return r; });
+	wiSide.appendChild(wiSteps); wiSide.appendChild(el('bv-note is-wi', t('dcWiN')));
+	cols.appendChild(woSide); cols.appendChild(wiSide);
+	const cb=bvCallback('dcCb');
+	scene.appendChild(bar); scene.appendChild(cols); scene.appendChild(cb);
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	if(motionPaused){
+		gsap.set([...headerEls(scene), woSide, wiSide, ...woRows, ...wiRows, cb], {opacity:1, x:0, y:0, scale:1});
+		woSteps.classList.add('is-struck');
+		if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return;
+	}
+	gsap.set([woSide, wiSide, ...woRows, ...wiRows, cb], {opacity:0});
+	const tl=m3Timeline(); m3Header(tl, scene);
+	tl.fromTo(bar, {opacity:0,y:-12}, {opacity:1,y:0,duration:0.4,ease:'power2.out'}, '-=0.05');
+	tl.to(woSide, {opacity:1, duration:0.35}, '+=0.1');
+	tl.to(woRows, {opacity:1, duration:0.28, stagger:0.11, ease:'power2.out'}, '>-0.1');
+	tl.to(wiSide, {opacity:1, duration:0.35}, '+=0.2');
+	tl.to(wiRows, {opacity:1, duration:0.28, stagger:0.13, ease:'power2.out'}, '>-0.1');
+	// the passes Copilot takes over are struck through, not deleted — the work still happened
+	tl.call(()=>woSteps.classList.add('is-struck'), null, '+=0.25');
+	tl.to(cb, {opacity:1, duration:0.4}, '+=0.15');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.1');
+}
+
+// ── STEP 2 · PRESENTATIONS ──
+function renderDecksStep(){
+	const step=stepById('decks'); const scene=buildScene(step);
+	const bar=el('wd-promptbar', `${cpImg(16)}<span>${t('dkPrompt')}</span>`);
+	const tracks=el('bv-tracks');
+	const mk=(cls, hKey, sKey, beatKeys, againIdx)=>{
+		const tr=el('bv-track'+cls, `<div class="bv-tlabel"><b>${t(hKey)}</b><span>${t(sKey)}</span></div>`);
+		const beats=el('bv-beats'); const parts=[];
+		beatKeys.forEach((k,i)=>{
+			if(i){ const a=el('bv-barrow','\u203A'); beats.appendChild(a); parts.push(a); }
+			const b=el('bv-beat'+(i===againIdx?' is-again':''), t(k)); beats.appendChild(b); parts.push(b);
+		});
+		tr.appendChild(beats); tracks.appendChild(tr); return {tr, parts};
+	};
+	const wo=mk('', 'dkWoH', 'dkWoS', ['dkW1','dkW2','dkW3','dkW4'], 3);
+	const wi=mk(' is-wi', 'dkWiH', 'dkWiS', ['dkC1','dkC2','dkC3'], -1);
+	const note=el('bv-note', t('dkNote'));
+	const cb=bvCallback('dkCb');
+	scene.appendChild(bar); scene.appendChild(tracks); scene.appendChild(note); scene.appendChild(cb);
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	if(motionPaused){
+		gsap.set([...headerEls(scene), wo.tr, wi.tr, ...wo.parts, ...wi.parts, note, cb], {opacity:1, x:0, y:0, scale:1});
+		if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return;
+	}
+	gsap.set([wo.tr, wi.tr, ...wo.parts, ...wi.parts, note, cb], {opacity:0});
+	const tl=m3Timeline(); m3Header(tl, scene);
+	tl.fromTo(bar, {opacity:0,y:-12}, {opacity:1,y:0,duration:0.4,ease:'power2.out'}, '-=0.05');
+	tl.to(wo.tr, {opacity:1, duration:0.35}, '+=0.1');
+	// the slow track visibly runs longer than the fast one
+	tl.to(wo.parts, {opacity:1, duration:0.24, stagger:0.09, ease:'power2.out'}, '>-0.1');
+	tl.to(wi.tr, {opacity:1, duration:0.35}, '+=0.2');
+	tl.to(wi.parts, {opacity:1, duration:0.24, stagger:0.09, ease:'power2.out'}, '>-0.1');
+	tl.to(note, {opacity:1, duration:0.4}, '+=0.15');
+	tl.to(cb, {opacity:1, duration:0.4}, '-=0.15');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.1');
+}
+
+// ── STEP 3 · DATA ANALYSIS ──
+function renderDataStep(){
+	const step=stepById('data'); const scene=buildScene(step);
+	const file=el('bv-file', `${m3ic('Excel',30)}<span class="bv-file-tx"><b>${t('dtFile')}</b><span>${t('dtFileS')}</span></span>`);
+	const old=el('bv-old', `<span class="bv-oldh">${t('dtOldH')}</span>`);
+	const pills=['dtO1','dtO2','dtO3'].map(k=>{ const p=el('bv-oldpill', t(k)); old.appendChild(p); return p; });
+	const q=el('wd-promptbar', `${cpImg(16)}<span></span>`);
+	const qTx=q.querySelector('span');
+	const a=el('m3-aha', t('dtA'));
+	const inrow=el('bv-inrow');
+	const ins=['dtI1','dtI2'].map(k=>{ const i=el('bv-ins', `<span>${t(k)}</span>`); inrow.appendChild(i); return i; });
+	const cb=bvCallback('dtCb');
+	scene.appendChild(file); scene.appendChild(old); scene.appendChild(q); scene.appendChild(a);
+	scene.appendChild(inrow); scene.appendChild(cb);
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	if(motionPaused){
+		gsap.set([...headerEls(scene), file, ...pills, q, a, ...ins, cb], {opacity:1, x:0, y:0, scale:1});
+		qTx.textContent=t('dtQ');
+		if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return;
+	}
+	gsap.set([file, ...pills, q, a, ...ins, cb], {opacity:0}); qTx.textContent='';
+	const tl=m3Timeline(); m3Header(tl, scene);
+	tl.fromTo(file, {opacity:0,y:14}, {opacity:1,y:0,duration:0.42,ease:'power2.out'}, '-=0.05');
+	// the old route first — build the model, then ask
+	tl.to(pills, {opacity:1, duration:0.26, stagger:0.1}, '+=0.12');
+	tl.to(q, {opacity:1, duration:0.3}, '+=0.2');
+	m3Type(tl, qTx, t('dtQ'), 0.8, '>');
+	tl.to(a, {opacity:1, duration:0.45, ease:'power2.out'}, '+=0.15');
+	tl.to(ins, {opacity:1, duration:0.32, stagger:0.14}, '+=0.1');
+	tl.to(cb, {opacity:1, duration:0.4}, '+=0.15');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.1');
+}
+
+// ── STEP 4 · EMAIL ──
+function renderEmailStep(){
+	const step=stepById('email'); const scene=buildScene(step);
+	const pile=el('bv-pile',
+		`<span class="bv-stack"><i></i><i></i></span>`+
+		`<span class="bv-pile-h">${m3ic('Outlook',22)}<span>${t('emPileH')}</span><span class="bv-count">${t('emCount')}</span></span>`+
+		`<span>${t('emPileS')}</span>`);
+	const fork=el('bv-fork');
+	const mk=(cls, hCls, hKey, rowKeys, noteCls, noteKey)=>{
+		const p=el('bv-path'+cls, `<div class="bv-h${hCls}">${t(hKey)}</div>`);
+		const rows=rowKeys.map((k,i)=>{ const r=el('bv-row', `<span class="bv-tick">${i+1}</span><span>${t(k)}</span>`); p.appendChild(r); return r; });
+		p.appendChild(el('bv-note'+noteCls, t(noteKey)));
+		fork.appendChild(p); return {p, rows};
+	};
+	const wo=mk('', '', 'emWoH', ['emW1','emW2'], '', 'emWoN');
+	const wi=mk(' is-wi', ' is-wi', 'emWiH', ['emC1','emC2','emC3'], ' is-wi', 'emWiN');
+	const cb=bvCallback('emCb');
+	scene.appendChild(pile); scene.appendChild(fork); scene.appendChild(cb);
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	if(motionPaused){
+		gsap.set([...headerEls(scene), pile, wo.p, wi.p, ...wo.rows, ...wi.rows, cb], {opacity:1, x:0, y:0, scale:1});
+		if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return;
+	}
+	gsap.set([pile, wo.p, wi.p, ...wo.rows, ...wi.rows, cb], {opacity:0});
+	const tl=m3Timeline(); m3Header(tl, scene);
+	tl.fromTo(pile, {opacity:0,y:-14,scale:0.97}, {opacity:1,y:0,scale:1,duration:0.5,ease:'back.out(1.3)'}, '-=0.05');
+	// one inbox, two ways out of it
+	tl.to([wo.p, wi.p], {opacity:1, duration:0.35, stagger:0.14}, '+=0.2');
+	tl.to(wo.rows, {opacity:1, duration:0.28, stagger:0.12}, '>-0.05');
+	tl.to(wi.rows, {opacity:1, duration:0.28, stagger:0.12}, '+=0.1');
+	tl.to(cb, {opacity:1, duration:0.4}, '+=0.15');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.1');
+}
+
+// ── STEP 5 · MEETINGS ──
+function renderMeetingsStep(){
+	const step=stepById('meetings'); const scene=buildScene(step);
+	const tl_=el('bv-tl');
+	const mkLane=(cls, hCls, hKey, items)=>{
+		const lane=el('bv-lane'+cls, `<div class="bv-lane-h"><div class="bv-h${hCls}">${t(hKey)}</div></div>`);
+		const body=el('bv-lane-b');
+		const cards=items.map(([h,s])=>{ const c=el('bv-tlitem', `<b>${t(h)}</b><span>${t(s)}</span>`); body.appendChild(c); return c; });
+		lane.appendChild(body); tl_.appendChild(lane); return {lane, cards};
+	};
+	const wi=mkLane(' is-wi', ' is-wi', 'mtWiH', [['mtA1','mtA1s'],['mtA2','mtA2s'],['mtA3','mtA3s']]);
+	const axis=el('bv-axis', `<div class="bv-axis-sp"></div>`);
+	const axisB=el('bv-axis-b', `<span class="bv-rule"></span>`);
+	const meet=el('bv-meet', `${m3ic('Teams',22)}<span>${t('mtMeet')}</span><span>${t('mtMeetS')}</span>`);
+	axisB.appendChild(meet); axis.appendChild(axisB); tl_.appendChild(axis);
+	const wo=mkLane('', '', 'mtWoH', [['mtB1','mtB1s'],['mtB2','mtB2s'],['mtB3','mtB3s']]);
+	const rule=axisB.querySelector('.bv-rule');
+	const cb=bvCallback('mtCb');
+	scene.appendChild(tl_); scene.appendChild(cb);
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	if(motionPaused){
+		gsap.set([...headerEls(scene), meet, ...wi.cards, ...wo.cards, cb], {opacity:1, x:0, y:0, scale:1});
+		gsap.set(rule, {scaleX:1});
+		if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return;
+	}
+	gsap.set([meet, ...wi.cards, ...wo.cards, cb], {opacity:0});
+	gsap.set(rule, {scaleX:0, transformOrigin:'left center'});
+	const tl=m3Timeline(); m3Header(tl, scene);
+	// the meeting is the shared spine — it draws in once, then each way of working it fills in
+	tl.fromTo(meet, {opacity:0,scale:0.94}, {opacity:1,scale:1,duration:0.45,ease:'back.out(1.4)'}, '-=0.05');
+	tl.to(rule, {scaleX:1, duration:0.6, ease:'power2.inOut'}, '>-0.2');
+	tl.to(wi.cards, {opacity:1, duration:0.3, stagger:0.12}, '+=0.1');
+	tl.to(wo.cards, {opacity:1, duration:0.3, stagger:0.12}, '+=0.2');
+	tl.to(cb, {opacity:1, duration:0.4}, '+=0.15');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.1');
+}
+
+// ── STEP 6 · THE REAL VALUE (the WOW) ──
+function renderWowStep(){
+	const step=stepById('wow'); const scene=buildScene(step);
+	// everything the journey produced, in one calm row above the Copilot that produced it
+	const apps=el('bv-apps');
+	const cards=[[m3ic('Word',30),'fiA1','fiA1s'],[m3ic('PowerPoint',30),'fiA2','fiA2s'],[m3ic('Excel',30),'fiA3','fiA3s'],
+		[m3ic('Outlook',30),'fiA4','fiA4s'],[m3ic('Teams',30),'fiA5','fiA5s'],[cpImg(30),'fiA6','fiA6s']]
+		.map(([ic,n,s])=>{ const c=el('bv-app', `${ic}<b>${t(n)}</b><span>${t(s)}</span>`); apps.appendChild(c); return c; });
+	const hero=el('bv-hero', `${cpImg(40)}<span class="bv-hero-tx"><b>${t('fiHeroH')}</b><span>${t('fiHeroS')}</span></span>`);
+	const lines=el('m3-wowlines', `<b>${t('fiLine1')}</b><span>${t('fiLine2')}</span>`);
+	const foot=el('m3-cpfoot', t('fiFoot'));
+	scene.appendChild(apps); scene.appendChild(hero); scene.appendChild(lines); scene.appendChild(foot);
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	if(motionPaused){
+		gsap.set([...headerEls(scene), ...cards, hero, lines, foot], {opacity:1, x:0, y:0, scale:1});
+		if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return;
+	}
+	gsap.set([...cards, hero, lines, foot], {opacity:0});
+	const tl=m3Timeline(); m3Header(tl, scene);
+	// the six artefacts fade up in place — nothing orbits, nothing flies
+	tl.fromTo(cards, {opacity:0,y:16,scale:0.95}, {opacity:1,y:0,scale:1,duration:0.4,stagger:0.1,ease:'back.out(1.4)'}, '-=0.05');
+	tl.fromTo(hero, {opacity:0,scale:0.95}, {opacity:1,scale:1,duration:0.45,ease:'back.out(1.3)'}, '+=0.15');
+	tl.to(lines, {opacity:1, duration:0.5, ease:'power2.out'}, '+=0.15');
+	tl.to(foot, {opacity:1, duration:0.4}, '-=0.1');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.2');
+}
+
+// ── CONTROLS ──────────────────────────────
+function focusHeading(){ const h=document.getElementById('stage-heading'); if(h){ try{ h.focus({preventScroll:true}); }catch(_){ h.focus(); } } }
+function interruptAnimation(){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; animating=false; }
+function next(){ interruptAnimation(); if(current<STEPS.length-1){ renderStep(current+1); focusHeading(); } }
+function prev(){ interruptAnimation(); if(current>0){ renderStep(current-1); focusHeading(); } }
+function reset(){ interruptAnimation(); renderStep(0); focusHeading(); }
+function replay(){ if(current<0) return; interruptAnimation(); renderStep(current); focusHeading(); }
+
+// ── Hide / show top bar (toggle; the ^ chevron flips to v when hidden) ──
+(function(){
+	const hideBtn=document.getElementById('header-hide'), revealBtn=document.getElementById('header-reveal');
+	if(!hideBtn||!revealBtn) return;
+	var hideBtnTop=document.getElementById('header-hide-top'); if(hideBtnTop) hideBtnTop.addEventListener('click',function(e){ e.stopPropagation(); hideBtn.click(); });
+	const hidePath=hideBtn.querySelector('svg path');
+	const UP='M6 15l6-6 6 6', DOWN='M6 9l6 6 6-6';   // ^ points up to hide the bar; flips to v to show it again
+	function setHidden(h){
+		document.body.classList.toggle('chrome-hidden',h);
+		hideBtn.setAttribute('aria-expanded',String(!h));
+		hideBtn.setAttribute('aria-label',h?'Show top bar':'Hide top bar');
+		hideBtn.title=(h?'Show top bar':'Hide top bar')+' (H)';
+		if(hidePath) hidePath.setAttribute('d',h?DOWN:UP);
+		try{localStorage.setItem('aw-cpbv-chrome-hidden',h?'1':'0');}catch(_){}
+		if(current>=0) requestAnimationFrame(()=>{ const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s); });
+	}
+	hideBtn.addEventListener('click',e=>{e.stopPropagation();setHidden(!document.body.classList.contains('chrome-hidden'));});
+	revealBtn.addEventListener('click',e=>{e.stopPropagation();setHidden(false);});
+	try{ if(localStorage.getItem('aw-cpbv-chrome-hidden')==='1') setHidden(true); }catch(_){}
+	document.addEventListener('keydown',e=>{ if(e.code==='KeyH'&&!e.metaKey&&!e.ctrlKey&&!e.altKey){ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return; e.preventDefault(); setHidden(!document.body.classList.contains('chrome-hidden')); } });
+})();
+
+document.getElementById('next-btn').addEventListener('click',e=>{e.stopPropagation();next();});
+document.getElementById('prev-btn').addEventListener('click',e=>{e.stopPropagation();prev();});
+document.getElementById('reset-btn').addEventListener('click',e=>{e.stopPropagation();reset();});
+document.getElementById('replay-btn').addEventListener('click',e=>{e.stopPropagation();replay();});
+
+// ── Clickable progress bar + step ticks ──
+(function(){
+	const track=document.querySelector('.progress-track'); if(!track) return;
+	for(let s=1; s<STEPS.length; s++){ const tk=document.createElement('div'); tk.className='progress-tick'; tk.style.left=(s/STEPS.length*100)+'%'; track.appendChild(tk); }
+	track.setAttribute('title','Jump to a step');
+	track.addEventListener('click', e=>{
+		const r=track.getBoundingClientRect(); const frac=(e.clientX-r.left)/r.width;
+		const target=Math.max(0, Math.min(STEPS.length-1, Math.floor(frac*STEPS.length)));
+		if(target!==current){ interruptAnimation(); renderStep(target); focusHeading(); }
+	});
+})();
+
+// ── Movable / pinnable control dock ───────
+(function(){
+	const dock=document.getElementById('controls'), grip=document.getElementById('ctrl-grip'), pin=document.getElementById('ctrl-pin');
+	if(!dock||!grip) return;
+	const KEY='aw-cpbv-controls-pos';
+	let dragging=false, sx=0, sy=0, bl=0, bt=0, moved=false;
+	function place(left,top){
+		const w=dock.offsetWidth, h=dock.offsetHeight;
+		left=Math.max(6, Math.min(left, window.innerWidth - w - 6));
+		top =Math.max(6, Math.min(top,  window.innerHeight - h - 6));
+		dock.style.left=left+'px'; dock.style.top=top+'px'; dock.style.right='auto'; dock.style.bottom='auto'; dock.style.transform='none';
+		document.body.classList.add('controls-floating');
+	}
+	function recenter(){
+		dock.style.left=dock.style.top=dock.style.right=dock.style.bottom=dock.style.transform='';
+		document.body.classList.remove('controls-floating');
+		try{ localStorage.removeItem(KEY); }catch(_){}
+	}
+	grip.addEventListener('pointerdown', e=>{
+		e.preventDefault(); dragging=true; moved=false;
+		const r=dock.getBoundingClientRect(); bl=r.left; bt=r.top; sx=e.clientX; sy=e.clientY;
+		try{ grip.setPointerCapture(e.pointerId); }catch(_){}
+	});
+	grip.addEventListener('pointermove', e=>{
+		if(!dragging) return;
+		const dx=e.clientX-sx, dy=e.clientY-sy;
+		if(Math.abs(dx)>2||Math.abs(dy)>2) moved=true;
+		place(bl+dx, bt+dy);
+	});
+	function end(e){ if(!dragging) return; dragging=false; try{ grip.releasePointerCapture(e.pointerId); }catch(_){}
+		if(moved){ try{ const r=dock.getBoundingClientRect(); localStorage.setItem(KEY, JSON.stringify({left:r.left, top:r.top})); }catch(_){} } }
+	grip.addEventListener('pointerup', end); grip.addEventListener('pointercancel', end);
+	// keyboard-nudge the dock when the grip is focused (arrow keys; Shift = larger step)
+	grip.addEventListener('keydown', e=>{
+		const d=e.shiftKey?40:12; const r=dock.getBoundingClientRect(); let ok=true;
+		if(e.key==='ArrowLeft') place(r.left-d, r.top);
+		else if(e.key==='ArrowRight') place(r.left+d, r.top);
+		else if(e.key==='ArrowUp') place(r.left, r.top-d);
+		else if(e.key==='ArrowDown') place(r.left, r.top+d);
+		else ok=false;
+		if(ok){ e.preventDefault(); e.stopPropagation(); }
+	});
+	if(pin) pin.addEventListener('click', e=>{ e.stopPropagation(); recenter(); });
+	window.addEventListener('resize', ()=>{ if(document.body.classList.contains('controls-floating')){ const r=dock.getBoundingClientRect(); place(r.left, r.top); } });
+	try{ const s=JSON.parse(localStorage.getItem(KEY)||'null'); if(s && typeof s.left==='number') place(s.left, s.top); }catch(_){}
+})();
+
+// ── Make callout / outline / caption draggable (same pointer-drag as the control dock) ──
+function dragify(el, key){
+	if(!el || el.__awDrag) return; el.__awDrag=true;
+	let dragging=false, sx=0, sy=0, bl=0, bt=0, moved=false;
+	const resizable = getComputedStyle(el).resize !== 'none';
+	const sizeKey = key ? key + '-size' : null;
+	// snapshot the home position + size so the reset pin can restore it exactly
+	const home={ position:el.style.position, left:el.style.left, top:el.style.top,
+		right:el.style.right, bottom:el.style.bottom, margin:el.style.margin, transform:el.style.transform,
+		width:el.style.width, height:el.style.height };
+	// reset "pin" — hidden until the panel is dragged or resized off its home spot
+	const pin=document.createElement('button');
+	pin.type='button'; pin.className='aw-drag-reset';
+	pin.title=t('resetPos'); pin.setAttribute('aria-label', t('resetPos'));
+	pin.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>';
+	// keep the pin inside scrollable / resizable panels so it isn't clipped
+	const oy=getComputedStyle(el).overflowY; const clips=(oy==='auto'||oy==='scroll'||oy==='hidden');
+	pin.style.top=clips?'8px':'-10px'; pin.style.right=clips?'8px':'-10px';
+	el.appendChild(pin);
+	function showPin(on){ pin.style.display=on?'flex':'none'; }
+	pin.addEventListener('pointerdown', e=>{ e.stopPropagation(); });
+	pin.addEventListener('click', e=>{
+		e.preventDefault(); e.stopPropagation();
+		el.style.position=home.position; el.style.left=home.left; el.style.top=home.top;
+		el.style.right=home.right; el.style.bottom=home.bottom; el.style.margin=home.margin; el.style.transform=home.transform;
+		el.style.width=home.width; el.style.height=home.height;
+		if(key){ try{ localStorage.removeItem(key); }catch(_){} }
+		if(sizeKey){ try{ localStorage.removeItem(sizeKey); }catch(_){} }
+		showPin(false);
+	});
+	function fix(left,top){
+		const w=el.offsetWidth, h=el.offsetHeight;
+		left=Math.max(6, Math.min(left, window.innerWidth  - w - 6));
+		top =Math.max(6, Math.min(top,  window.innerHeight - h - 6));
+		el.style.position='fixed'; el.style.left=left+'px'; el.style.top=top+'px';
+		el.style.right='auto'; el.style.bottom='auto'; el.style.margin='0'; el.style.transform='none';
+	}
+	// persist user resizes (the CSS resize grip writes inline width/height; content changes don't)
+	if(resizable && typeof ResizeObserver!=='undefined'){
+		let rt;
+		new ResizeObserver(()=>{
+			if(el.style.width || el.style.height){
+				showPin(true);
+				if(sizeKey){ clearTimeout(rt); rt=setTimeout(()=>{ try{ localStorage.setItem(sizeKey, JSON.stringify({w:el.style.width, h:el.style.height})); }catch(_){} }, 150); }
+			}
+		}).observe(el);
+	}
+	el.addEventListener('pointerdown', e=>{
+		if(e.button!==0 || (e.target.closest && e.target.closest('a,button,select,input,textarea'))) return;
+		if(resizable){ const r=el.getBoundingClientRect(); if(e.clientX>r.right-18 && e.clientY>r.bottom-18) return; } // let the resize grip win
+		dragging=true; moved=false;
+		const r=el.getBoundingClientRect(); bl=r.left; bt=r.top; sx=e.clientX; sy=e.clientY;
+		fix(bl, bt);   // pin at the current spot first, so there's no jump
+		try{ el.setPointerCapture(e.pointerId); }catch(_){}
+		e.preventDefault();
+	});
+	el.addEventListener('pointermove', e=>{
+		if(!dragging) return;
+		const dx=e.clientX-sx, dy=e.clientY-sy;
+		if(Math.abs(dx)>2||Math.abs(dy)>2) moved=true;
+		fix(bl+dx, bt+dy);
+	});
+	function end(e){
+		if(!dragging) return; dragging=false;
+		try{ el.releasePointerCapture(e.pointerId); }catch(_){}
+		if(moved){ showPin(true); if(key){ try{ const r=el.getBoundingClientRect(); localStorage.setItem(key, JSON.stringify({left:r.left, top:r.top})); }catch(_){} } }
+	}
+	el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+	if(sizeKey){ try{ const z=JSON.parse(localStorage.getItem(sizeKey)||'null'); if(z && (z.w||z.h)){ if(z.w) el.style.width=z.w; if(z.h) el.style.height=z.h; showPin(true); } }catch(_){} }
+	if(key){ try{ const s=JSON.parse(localStorage.getItem(key)||'null'); if(s && isFinite(s.left) && isFinite(s.top)){ fix(s.left, s.top); showPin(true); } }catch(_){} }
+}
+dragify(document.getElementById('step-outline'), 'aw-cpbv-outline-pos');
+dragify(document.getElementById('aw-caption'), 'aw-cpbv-caption-pos');
+
+// ── Speed ─────────────────────────────────
+const SPEED_STEPS=[0.5,0.75,1,1.25,1.5,2]; const BASE_TIMESCALE=0.25;
+let speedIndex=SPEED_STEPS.indexOf(1);
+try{ const sp=parseInt(localStorage.getItem('aw-cpbv-speed'),10); if(!isNaN(sp)&&sp>=0&&sp<SPEED_STEPS.length) speedIndex=sp; }catch(_){}
+const speedLabel=document.getElementById('speed-label'), speedDownBtn=document.getElementById('speed-down'), speedUpBtn=document.getElementById('speed-up');
+function saveSpeed(){ try{ localStorage.setItem('aw-cpbv-speed', String(speedIndex)); }catch(_){} }
+function syncSpeedUI(){ const spd=SPEED_STEPS[speedIndex]; speedLabel.textContent=spd+'\u00d7'; speedDownBtn.disabled=speedIndex===0; speedUpBtn.disabled=speedIndex===SPEED_STEPS.length-1; gsap.globalTimeline.timeScale(spd*BASE_TIMESCALE); }
+syncSpeedUI();
+speedDownBtn.addEventListener('click',e=>{e.stopPropagation(); if(speedIndex>0){speedIndex--;syncSpeedUI();saveSpeed();}});
+speedUpBtn.addEventListener('click',e=>{e.stopPropagation(); if(speedIndex<SPEED_STEPS.length-1){speedIndex++;syncSpeedUI();saveSpeed();}});
+
+// ── Keyboard ──────────────────────────────
+if (window.AW && AW.keyboard) { AW.keyboard.bind({ next, prev, reset, replay }); }
+else { document.addEventListener('keydown', e => {
+	if (['Space','ArrowRight','Enter'].includes(e.code)) { e.preventDefault(); next(); }
+	else if (e.code==='ArrowLeft') { e.preventDefault(); prev(); }
+	else if (e.code==='KeyR') { e.preventDefault(); reset(); }
+	else if (e.code==='KeyP') { e.preventDefault(); replay(); }
+}); }
+
+// ── Touch swipe (tablets) ─────────────────
+(function(){
+	const surf=document.getElementById('stage'); if(!surf) return;
+	let x0=null,y0=null,t0=0;
+	surf.addEventListener('touchstart',e=>{ if(e.touches.length!==1){x0=null;return;} x0=e.touches[0].clientX; y0=e.touches[0].clientY; t0=Date.now(); },{passive:true});
+	surf.addEventListener('touchend',e=>{
+		if(x0===null) return; const tch=e.changedTouches[0]; const dx=tch.clientX-x0, dy=tch.clientY-y0; x0=null;
+		if(Date.now()-t0>800) return;
+		if(Math.abs(dx)>50 && Math.abs(dx)>Math.abs(dy)*1.6){ if(dx<0) next(); else prev(); }
+	},{passive:true});
+})();
+
+// ── Keyboard shortcut help overlay ────────
+(function(){
+	const overlay=document.getElementById('shortcut-overlay'), btn=document.getElementById('help-toggle'), closeBtn=document.getElementById('sc-close'), list=document.getElementById('sc-list');
+	if(!overlay||!list) return;
+	const ROWS=[[['\u2192','Space'],'scNext'],[['\u2190'],'scPrev'],[['R'],'scRestart'],[['P'],'scReplay'],[['H'],'scHide'],[['?'],'scHelp']];
+	window.buildShortcuts=function(){ const title=document.getElementById('sc-title'); if(title) title.textContent=t('scTitle');
+		list.innerHTML=ROWS.map(([keys,k])=>`<li><span>${t(k)}</span><span class="sc-keys">${keys.map(x=>`<kbd>${x}</kbd>`).join('')}</span></li>`).join(''); };
+	buildShortcuts();
+	function open(){ overlay.removeAttribute('hidden'); if(closeBtn) closeBtn.focus(); }
+	function close(){ overlay.setAttribute('hidden',''); if(btn) btn.focus(); }
+	function toggle(){ overlay.hasAttribute('hidden')?open():close(); }
+	if(btn) btn.addEventListener('click',e=>{e.stopPropagation();toggle();});
+	if(closeBtn) closeBtn.addEventListener('click',e=>{e.stopPropagation();close();});
+	const bd=overlay.querySelector('.sc-backdrop'); if(bd) bd.addEventListener('click',close);
+	document.addEventListener('keydown',e=>{ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return;
+		if(e.key==='?'){ e.preventDefault(); toggle(); }
+		else if(e.key==='Escape' && !overlay.hasAttribute('hidden')){ e.preventDefault(); close(); } });
+})();
+
+// ── Resize (re-fit only — never rebuild or replay the animation) ──
+let resizeTimer, lastStageW=0, lastStageH=0;
+window.addEventListener('resize',()=>{ clearTimeout(resizeTimer); resizeTimer=setTimeout(()=>{
+	if(current<0) return;
+	const box=stage.getBoundingClientRect();
+	if(Math.abs(box.width-lastStageW)<1 && Math.abs(box.height-lastStageH)<1) return;   // ignore no-op reflows (focus/URL-bar) so the animation never restarts
+	lastStageW=box.width; lastStageH=box.height;
+	const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s);
+},200); });
+
+// ── "Up next" destination — the next stop in the Copilot journey ──
+var NEXT_STOP = {
+	href: '../../index.html',
+	iconSrc: '../../img/AzureAnimations-Logo.svg',
+	i18n: { en: { eyebrow: 'Journey complete', title: 'Explore more journeys', cta: 'Explore' } }
+};
+
+// ── "Up next" pill (last step → next journey stop) ──
+var jnEl = document.getElementById('journey-next');
+var jnTimer = null, jnDismissed = false;
+function refreshJourneyNext(){
+	if(!jnEl || !NEXT_STOP || !NEXT_STOP.href) return;
+	var d = (NEXT_STOP.i18n && (NEXT_STOP.i18n[currentLang] || NEXT_STOP.i18n.en)) || {};
+	var q = '?lang=' + encodeURIComponent(currentLang || 'en');
+	var set = function(id,val){ var e=document.getElementById(id); if(e && val!=null) e.textContent=val; };
+	set('jn-eyebrow-text', d.eyebrow);
+	set('jn-title', d.title);
+	set('jn-cta-text', d.cta);
+	var img=document.getElementById('jn-icon-img'); if(img && NEXT_STOP.iconSrc) img.src=NEXT_STOP.iconSrc;
+	var cta=document.getElementById('jn-cta'); if(cta) cta.setAttribute('href', NEXT_STOP.href + q);
+}
+function hideJourneyNext(){ if(jnEl){ jnEl.classList.remove('show'); jnEl.setAttribute('aria-hidden','true'); } }
+function showJourneyNext(){ if(document.body.classList.contains('aw-prestart')) return; if(jnEl && !jnDismissed){ jnEl.classList.add('show'); jnEl.setAttribute('aria-hidden','false'); } }
+function armJourneyNext(i){
+	if(jnTimer){ clearTimeout(jnTimer); jnTimer=null; }
+	var isLast = (i === STEPS.length-1) && NEXT_STOP && NEXT_STOP.href;
+	if(!isLast){ jnDismissed=false; hideJourneyNext(); return; }
+	jnDismissed=false;
+	jnTimer=setTimeout(function(){ jnTimer=null; showJourneyNext(); }, motionPaused ? 0 : 1100);
+}
+if(jnEl){
+	var jnCloseBtn=document.getElementById('jn-close');
+	if(jnCloseBtn) jnCloseBtn.addEventListener('click', function(e){ e.stopPropagation(); jnDismissed=true; hideJourneyNext(); });
+	document.addEventListener('keydown', function(e){ if(e.key==='Escape' && jnEl.classList.contains('show')){ jnDismissed=true; hideJourneyNext(); } });
+}
+
+// ── Init ──────────────────────────────────
+setLanguage(currentLang);
+counter.textContent = `1 / ${STEPS.length}`;
+const urlStep = parseInt(new URLSearchParams(location.search).get('step'), 10);   // ?step=N opens on step N
+renderStep((!isNaN(urlStep) && urlStep>=1 && urlStep<=STEPS.length) ? urlStep-1 : 0);
+</script>
+<script>
+// ── Start gate · hold autoplay until the viewer clicks Play (empty stage + centered Play) ──
+(function () {
+	if (new URLSearchParams(location.search).has('present')) return;
+	var stage = document.getElementById('stage');
+	if (!stage) return;
+	function freeze() { try { if (window.gsap && gsap.globalTimeline) gsap.globalTimeline.pause(); } catch (_) {} }
+	freeze(); requestAnimationFrame(freeze);
+	document.body.classList.add('aw-prestart');
+	try { if (typeof stopAudio === 'function') stopAudio(); } catch (_) {}
+	stage.style.transition = 'opacity .55s ease';
+	stage.style.opacity = '0';
+
+	var T = {
+		title: { en:'Ready to begin?', es:'\u00BFTodo listo?', ja:'\u6E96\u5099\u306F\u3044\u3044\u3067\u3059\u304B\uFF1F', ko:'\uC2DC\uC791\uD560 \uC900\uBE44\uAC00 \uB418\uC168\uB098\uC694?', pt:'Tudo pronto?' },
+		sound: { en:'Sound', es:'Sonido', ja:'\u97F3\u58F0', ko:'\uC18C\uB9AC', pt:'Som' },
+		cc:    { en:'Subtitles (CC)', es:'Subt\u00EDtulos (CC)', ja:'\u5B57\u5E55\uFF08CC\uFF09', ko:'\uC790\uB9C9 (CC)', pt:'Legendas (CC)' },
+		start: { en:'Start presentation', es:'Iniciar presentaci\u00F3n', ja:'\u30D7\u30EC\u30BC\u30F3\u3092\u958B\u59CB', ko:'\uD504\uB808\uC820\uD14C\uC774\uC158 \uC2DC\uC791', pt:'Iniciar apresenta\u00E7\u00E3o' }
+	};
+	function L(){ return (typeof currentLang === 'string' && currentLang) || (typeof CURRENT_LANG === 'string' && CURRENT_LANG) || 'en'; }
+	function t(k){ var m = T[k], l = L(); return m[m[l] ? l : 'en']; }
+	function awAudioState(){ try{ if(typeof window.__awAudioOn==='function') return !!window.__awAudioOn(); }catch(_){} return (typeof audioEnabled!=='undefined') && !!audioEnabled; }
+	function awCcState(){ try{ if(typeof window.__awCcOn!=='undefined' && window.__awCcOn!==null) return !!window.__awCcOn; }catch(_){} return (typeof ccPref!=='undefined') && !!ccPref; }
+
+	var style = document.createElement('style');
+	style.textContent =
+		'body.aw-prestart #controls{opacity:.4;pointer-events:none;transition:opacity .4s ease}' +
+		'#aw-play-card{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:50;box-sizing:border-box;width:min(90vw,22rem);padding:1.35rem 1.5rem 1.5rem;border-radius:16px;background:var(--theme-card-background,#fff);color:var(--theme-text,#222);border:1px solid var(--theme-border,rgba(0,0,0,.1));box-shadow:0 24px 60px rgba(0,0,0,.28);transition:opacity .3s ease,transform .3s ease}' +
+		'#aw-play-card.aw-hide{opacity:0;transform:translate(-50%,-50%) scale(.96);pointer-events:none}' +
+		'body.theme-dark #aw-play-card{border-color:rgba(255,255,255,.12);box-shadow:0 24px 60px rgba(0,0,0,.55)}' +
+		'body.present-mode #aw-play-card{display:none!important}' +
+		'.aw-card-title{margin:0 0 1rem;text-align:center;font-size:1.02rem;font-weight:800;letter-spacing:.03em;text-transform:uppercase;opacity:.85}' +
+		'.aw-row{display:flex;align-items:center;gap:.65rem;padding:.6rem 0}' +
+		'.aw-row + .aw-row{border-top:1px solid var(--theme-border,rgba(0,0,0,.08))}' +
+		'.aw-row-ico{flex:none;width:1.5rem;text-align:center;font-size:1.15rem;line-height:1}' +
+		'.aw-row-lbl{flex:1 1 auto;font-size:.9rem;font-weight:600}' +
+		'.aw-row-state{flex:none;min-width:2.5rem;text-align:right;font-size:.68rem;font-weight:800;letter-spacing:.05em;opacity:.5}' +
+		'.aw-row-state.on{color:var(--theme-primary,#0078d4);opacity:1}' +
+		'.aw-switch{position:relative;flex:none;width:44px;height:24px;padding:0;border:none;border-radius:999px;cursor:pointer;background:var(--theme-border,#c7c7d1);transition:background .18s ease}' +
+		'.aw-switch.on{background:var(--theme-primary,#0078d4)}' +
+		'.aw-switch::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.4);transition:transform .18s ease}' +
+		'.aw-switch.on::after{transform:translateX(20px)}' +
+		'#aw-start{margin-top:1.2rem;width:100%;display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:.8rem 1rem;border:none;border-radius:11px;cursor:pointer;background:var(--theme-primary,#0078d4);color:#fff;font-size:.96rem;font-weight:700;letter-spacing:.01em;box-shadow:0 8px 22px var(--theme-primary-translucent,rgba(0,120,212,.45));transition:transform .15s ease}' +
+		'#aw-start:hover{transform:translateY(-2px)}#aw-start:active{transform:scale(.98)}' +
+		'#aw-start svg{width:18px;height:18px;flex:none}';
+	document.head.appendChild(style);
+
+	var card = document.createElement('div');
+	card.id = 'aw-play-card'; card.setAttribute('role', 'dialog'); card.setAttribute('aria-modal', 'true');
+	card.innerHTML =
+		'<div class="aw-card-title"></div>' +
+		'<div class="aw-row" data-k="audio"><span class="aw-row-ico" aria-hidden="true">\uD83D\uDD0A</span><span class="aw-row-lbl"></span><span class="aw-row-state"></span><button type="button" class="aw-switch" role="switch"></button></div>' +
+		'<div class="aw-row" data-k="cc"><span class="aw-row-ico" aria-hidden="true">\uD83D\uDCAC</span><span class="aw-row-lbl"></span><span class="aw-row-state"></span><button type="button" class="aw-switch" role="switch"></button></div>' +
+		'<button type="button" id="aw-start"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 5v14l11-7z"/></svg><span class="aw-start-lbl"></span></button>';
+	document.body.appendChild(card);
+
+	var titleEl = card.querySelector('.aw-card-title');
+	var startBtn = card.querySelector('#aw-start');
+	var ROWS = [ { k:'audio', lbl:'sound', el:card.querySelector('.aw-row[data-k="audio"]'), read:awAudioState, toggle:'audio-toggle' },
+	             { k:'cc',    lbl:'cc',    el:card.querySelector('.aw-row[data-k="cc"]'),    read:awCcState,    toggle:'cc-toggle' } ];
+
+	function render(){
+		titleEl.textContent = t('title'); card.setAttribute('aria-label', t('title'));
+		startBtn.querySelector('.aw-start-lbl').textContent = t('start');
+		ROWS.forEach(function(r){
+			var on = r.read();
+			r.el.querySelector('.aw-row-lbl').textContent = t(r.lbl);
+			var st = r.el.querySelector('.aw-row-state'); st.textContent = on ? 'ON' : 'OFF'; st.classList.toggle('on', on);
+			var sw = r.el.querySelector('.aw-switch'); sw.classList.toggle('on', on); sw.setAttribute('aria-checked', on ? 'true' : 'false');
+			sw.setAttribute('aria-label', t(r.lbl) + ' \u2014 ' + (on ? 'on' : 'off'));
+		});
+	}
+	ROWS.forEach(function(r){
+		r.el.querySelector('.aw-switch').addEventListener('click', function(e){ e.stopPropagation(); var b = document.getElementById(r.toggle); if(b) b.click(); render(); });
+	});
+	render();
+
+	var sel = document.getElementById('lang-select');
+	// Only re-freeze while the gate is still up — after Play, freezing would pause the
+	// global timeline for good and every later scene would stay at opacity 0 (blank stage).
+	if (sel) sel.addEventListener('change', function () { if (done) return; render(); freeze(); });
+
+	function gateKeys(e) {
+		if (done) return;
+		var tag = (e.target && e.target.tagName || '').toLowerCase();
+		if (tag === 'select' || tag === 'input' || tag === 'textarea') return;
+		if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'].indexOf(e.key) >= 0) { e.preventDefault(); e.stopPropagation(); }
+	}
+	document.addEventListener('keydown', gateKeys, true);
+
+	var done = false;
+	function start() {
+		if (done) return; done = true;
+		document.removeEventListener('keydown', gateKeys, true);
+		document.body.classList.remove('aw-prestart');
+		card.classList.add('aw-hide');
+		setTimeout(function () { if (card.parentNode) card.parentNode.removeChild(card); if (style.parentNode) style.parentNode.removeChild(style); }, 420);
+		setTimeout(function () {
+			try { if (window.gsap && gsap.globalTimeline) gsap.globalTimeline.play(); } catch (_) {}
+			stage.style.opacity = '1';
+			try { if (typeof interruptAnimation === 'function') interruptAnimation(); } catch (_) {}
+			try { if (typeof renderStep === 'function') renderStep(typeof current === 'number' && current >= 0 ? current : 0); } catch (_) {}
+		}, 380);
+	}
+	startBtn.addEventListener('click', start);
+}());
+</script>
+<script src="../../lib/js/aw-present.js"></script>
+<script src="../../lib/js/aw-declutter.js"></script>
+<script src="../../lib/js/aw-url-state.js"></script>
+
+</body>
+</html>

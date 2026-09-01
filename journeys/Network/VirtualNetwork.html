@@ -1,0 +1,2259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<script src="/js/tracking.js"></script>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+	<meta name="description" content="Azure Virtual Network explained — CIDR address space and RFC 1918 best practice, subnets for segmentation, virtual machines, network interfaces (NICs) that hold the IPs, and network security groups (NSGs) attached to a NIC or a whole subnet." />
+	<title>Azure Virtual Network — VNet, Subnets, NICs &amp; NSGs · Azure Animations</title>
+
+	<link rel="stylesheet" href="https://unpkg.com/@microsoft/atlas-css/dist/index.css" />
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+	<!-- AnimationWorks shared lib (one level under the site root → ../lib/) -->
+	<script src="../../lib/js/aw-easings.js"></script>
+	<script src="../../lib/js/aw-motion.js"></script>
+	<script src="../../lib/js/aw-theme.js"></script>
+	<script src="../../lib/js/aw-keyboard.js"></script>
+	<script src="../../lib/js/aw-captions.js?v=3"></script>
+
+<style>
+	/* ── SHELL ─────────────────────────────── */
+	:root {
+		--aw-purple:#5c2d91; --aw-blue:#0078d4; --aw-green:#10a37f; --aw-orange:#e97526; --aw-pink:#d24aa8;
+		--aw-cyan:#00b7c3;
+	}
+	body.theme-dark {
+		/* --aw-dark-accents: the :root values are light-theme hues and read 1.8-3.1:1 on this background. */
+		--aw-purple:#c9a5e8;
+		--aw-blue:#6cb8ff;
+		--aw-green:#3ecf9a;
+		--aw-orange:#ffa257;
+		--aw-pink:#f57fc6;
+		--aw-red:#ff8a80;
+	}
+	html, body { height:100%; margin:0; }
+	html { font-size:100%; }
+	body {
+		display:flex; flex-direction:column; height:100vh;
+		overflow:hidden;
+		font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif;
+		color: var(--theme-text);
+		background:
+			radial-gradient(circle at 15% 20%, rgba(92,45,145,0.18) 0%, transparent 55%),
+			radial-gradient(circle at 85% 80%, rgba(0,120,212,0.18) 0%, transparent 55%),
+			var(--theme-body-background);
+	}
+	.app-header { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:1rem; flex-shrink:0; font-size:16px; }
+	.app-header > :last-child { justify-self:end; }
+
+	#stage {
+		position:relative; flex:1 1 auto; width:100%; min-height:0;
+		display:flex; align-items:center; justify-content:center;
+		overflow:hidden; container-type:size;
+		padding:1.75rem 2.75rem 5rem;
+	}
+	#stage:focus-visible, button:focus-visible, a:focus-visible, select:focus-visible {
+		outline:2px solid var(--theme-primary, #0078d4); outline-offset:3px; border-radius:4px;
+	}
+	#stage-frame {
+		position:relative; overflow:hidden;
+		width: min(100cqw, calc(100cqh * 16 / 9));
+		aspect-ratio: 16 / 9; max-width:100%; max-height:100%;
+		border-radius:16px;
+		background: rgba(0,0,0,0.015);
+		box-shadow: 0 12px 44px rgba(0,0,0,0.22);
+	}
+	body.theme-dark #stage-frame { background: rgba(255,255,255,0.025); }
+	#stage-frame::before {
+		content:""; position:absolute; inset:0; border-radius:inherit; padding:2.5px;
+		background: linear-gradient(135deg, var(--aw-purple) 0%, var(--aw-blue) 55%, var(--aw-pink) 100%);
+		-webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+		mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+		-webkit-mask-composite: xor; mask-composite: exclude;
+		pointer-events:none; z-index:20;
+	}
+	#fx-svg { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:6; overflow:visible; }
+
+	/* ── SCENE ─────────────────────────────── */
+	.scene {
+		position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+		transform-origin:center center;
+		width:min(1340px, 99%); z-index:10;
+		display:flex; flex-direction:column; align-items:center; gap:1.4rem;
+	}
+	@keyframes awSceneIn { from { opacity:0; } to { opacity:1; } }
+	@keyframes awSceneOut { from { opacity:1; } to { opacity:0; } }
+	.scene.scene-in { animation: awSceneIn 0.2s ease both; }
+	.scene.scene-out { animation: awSceneOut 0.2s ease both; }
+	.scene-title { font-size:2.5rem; font-weight:700; color:var(--theme-tertiary, #5c2d91); margin:0; text-align:center; opacity:0; }
+	body.theme-dark .scene-title { color:#c9a5e8; }
+	.scene-lead { margin:0; text-align:center; font-size:1.35rem; color:var(--theme-text); max-width:900px; line-height:1.5; opacity:0; }
+
+	/* ── CALLOUT ───────────────────────────── */
+	.callout {
+		position:absolute; max-width:340px; padding:1rem 1.2rem;
+		background:var(--theme-body-background);
+		background:color-mix(in srgb, var(--theme-body-background) 84%, transparent);
+		-webkit-backdrop-filter:blur(5px); backdrop-filter:blur(5px);
+		border:1px solid var(--theme-border);
+		border-left:4px solid var(--theme-tertiary, #5c2d91); border-radius:6px;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2));
+		font-size:1.05rem; line-height:1.45; z-index:14; opacity:0;
+		cursor:grab; touch-action:none;
+	}
+	.callout:active { cursor:grabbing; }
+
+	/* ── RESET "PIN" · appears on a draggable panel once moved/resized ── */
+	.aw-drag-reset {
+		position:absolute; width:24px; height:24px; padding:0; display:none;
+		align-items:center; justify-content:center; border-radius:50%;
+		background:var(--theme-tertiary,#5c2d91); color:#fff;
+		border:2px solid var(--theme-body-background,#fff);
+		box-shadow:0 2px 7px rgba(0,0,0,0.4); cursor:pointer; z-index:6;
+		opacity:0.92; transition:opacity .14s ease, transform .14s ease;
+	}
+	.aw-drag-reset:hover { opacity:1; transform:scale(1.08); }
+	.aw-drag-reset:focus-visible { outline:2px solid #5cc8ff; outline-offset:2px; }
+	.aw-drag-reset svg { width:13px; height:13px; display:block; }
+
+	/* ── PLAYER OVERLAY · bottom-right of the stage frame (YouTube-style) ── */
+	.stage-overlay {
+		position:absolute; right:12px; bottom:10px; z-index:25;
+		display:flex; align-items:center; gap:2px;
+		padding:3px 6px; border-radius:999px;
+		background:rgba(16,18,24,0.58);
+		backdrop-filter:blur(9px) saturate(1.3); -webkit-backdrop-filter:blur(9px) saturate(1.3);
+		box-shadow:0 4px 16px rgba(0,0,0,0.32);
+	}
+	.ovl-btn {
+		-webkit-appearance:none; appearance:none; margin:0; font:inherit;
+		display:inline-flex; align-items:center; justify-content:center; gap:4px;
+		min-width:30px; height:30px; padding:0 8px;
+		border:none !important; border-radius:999px !important;
+		background:transparent !important; color:#fff !important;
+		box-shadow:none !important; cursor:pointer; line-height:1;
+		font-size:0.82rem; font-weight:700; opacity:0.92; transition:background .15s ease, opacity .15s ease;
+	}
+	.ovl-btn:hover { background:rgba(255,255,255,0.16) !important; opacity:1; }
+	.ovl-btn:disabled { opacity:0.4; cursor:not-allowed; }
+	.ovl-btn svg { width:18px; height:18px; fill:currentColor; display:block; }
+	.ovl-btn.on { color:#5cc8ff !important; }
+	.stage-overlay #audio-toggle { opacity:1 !important; }
+	.stage-overlay .aw-audio-ico { font-size:1rem; line-height:1; }
+	.stage-overlay .aw-audio-time { font-size:0.78rem; font-variant-numeric:tabular-nums; letter-spacing:0.02em; opacity:0.95; min-width:2.4em; text-align:left; }
+	#cc-toggle svg { width:20px; height:20px; }
+	.ovl-btn .fs-exit { display:none; }
+	body.is-fs .ovl-btn .fs-enter { display:none; }
+	body.is-fs .ovl-btn .fs-exit { display:block; }
+
+	/* ── LEFT VIEW-OPTIONS PILL · Callout / Outline / Shortcuts (icon + hover tip) ── */
+	.stage-overlay-left { right:auto; left:12px; }
+	#stage-overlay-left .ovl-btn:not(.toggle-active) { opacity:0.86; }
+	#stage-overlay-left .ovl-btn.toggle-active { color:#5cc8ff !important; opacity:1; }
+	#stage-overlay-left .ovl-btn:hover { opacity:1; }
+	.ovl-btn[data-tip] { position:relative; }
+	.ovl-btn[data-tip]::after { content:attr(data-tip); position:absolute; left:0; bottom:calc(100% + 9px); transform:translateY(4px); padding:4px 8px; border-radius:6px; background:rgba(16,18,24,0.96); color:#fff; font-size:0.72rem; font-weight:600; white-space:nowrap; letter-spacing:0.01em; opacity:0; pointer-events:none; box-shadow:0 3px 12px rgba(0,0,0,0.45); transition:opacity .14s ease, transform .14s ease; z-index:40; }
+	.ovl-btn[data-tip]::before { content:''; position:absolute; left:13px; bottom:calc(100% + 4px); border:5px solid transparent; border-top-color:rgba(16,18,24,0.96); opacity:0; pointer-events:none; transition:opacity .14s ease; z-index:40; }
+	.ovl-btn[data-tip]:hover::after { opacity:1; transform:translateY(0); }
+	.ovl-btn[data-tip]:hover::before { opacity:1; }
+
+	/* ── CAPTION · overlaid in the frame, draggable + resizable, stays solid ── */
+	#aw-caption {
+		position:absolute; left:50%; transform:translateX(-50%); bottom:56px; z-index:24;
+		max-width:92%; min-width:140px; min-height:38px; max-height:44%;
+		display:none; align-items:center; justify-content:center; text-align:center;
+		padding:0.42rem 0.95rem; border-radius:9px;
+		background:rgba(8,9,13,0.8); color:#fff;
+		font-size:1.1rem; line-height:1.36; font-weight:600;
+		box-shadow:0 3px 14px rgba(0,0,0,0.42); pointer-events:auto; cursor:grab; touch-action:none;
+		overflow:auto; resize:both;
+	}
+	#aw-caption:active { cursor:grabbing; }
+	#aw-caption::-webkit-resizer { background:linear-gradient(135deg, transparent 45%, rgba(255,255,255,0.55) 45%, rgba(255,255,255,0.55) 55%, transparent 55%); }
+	body.cc-on #aw-caption.has-text { display:flex; }
+	@media (max-width:640px){ #aw-caption { font-size:0.94rem; bottom:48px; max-width:90%; } }
+	#cc-toggle.toggle-active { color:var(--theme-primary,#0078d4); background:var(--theme-primary-translucent, rgba(0,120,212,0.14)); }
+
+	/* ══ REUSABLE BUILDING BLOCKS ══ */
+	.card {
+		width:min(680px, 96%); padding:1.6rem 1.8rem; border-radius:16px;
+		background:var(--theme-card-background, #fff); border:2px solid var(--theme-border);
+		box-shadow:0 8px 28px rgba(0,0,0,0.14); opacity:0;
+		display:flex; flex-direction:column; gap:0.6rem; align-items:center; text-align:center;
+	}
+	body.theme-dark .card { background:rgba(255,255,255,0.05); }
+	.card .card-icon { font-size:3rem; line-height:1; color:var(--theme-tertiary,#5c2d91); }
+	.card .card-h { font-size:1.4rem; font-weight:700; }
+	.card .card-p { font-size:1.05rem; color:var(--theme-text-subtle); line-height:1.5; }
+
+	.ta-card {
+		width:min(1000px, 98%); border:1.5px solid var(--theme-border); border-radius:14px;
+		background:var(--theme-card-background, #fff); box-shadow:0 8px 30px rgba(0,0,0,0.16);
+		padding:1.1rem 1.3rem; opacity:0;
+	}
+	body.theme-dark .ta-card { background:rgba(255,255,255,0.05); }
+	.ta-card-head {
+		display:flex; align-items:center; justify-content:center; gap:0.5rem;
+		font-size:1rem; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;
+		color:var(--theme-text-subtle); margin-bottom:0.6rem;
+	}
+	.ta-card-head .ic { color:var(--theme-tertiary,#5c2d91); }
+	.ta-card-text { font-size:1.22rem; line-height:1.55; color:var(--theme-text); text-align:center; }
+
+	.chip-row { display:flex; flex-wrap:wrap; gap:0.7rem; justify-content:center; }
+	.pill {
+		display:inline-flex; align-items:center; gap:0.5rem; padding:0.55rem 1.1rem;
+		border-radius:999px; font-size:1.05rem; font-weight:600;
+		border:2px solid var(--theme-tertiary, #5c2d91); background:rgba(92,45,145,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .pill { background:rgba(92,45,145,0.2); }
+	.pill .ic { color:var(--theme-tertiary,#5c2d91); }
+	.value-chip {
+		display:inline-flex; align-items:center; gap:0.4rem; padding:0.5rem 1rem;
+		border-radius:999px; font-size:1rem; font-weight:700;
+		border:2px solid #107c10; background:rgba(16,124,16,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .value-chip { background:rgba(16,124,16,0.16); }
+	.value-chip .ic { color:#10a37f; }
+	.recap-foot { font-size:1.05rem; color:var(--theme-text); text-align:center; max-width:860px; opacity:0; }
+	.recap-foot a { color:var(--aw-blue, #0078d4); font-weight:700; text-decoration:underline; }
+	body.theme-dark .recap-foot a { color:#5aa9ff; }
+
+	.agent-node {
+		display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.2rem;
+		width:160px; height:160px; border-radius:24px;
+		background: linear-gradient(135deg, rgba(92,45,145,0.12), rgba(0,120,212,0.12));
+		border:2.5px solid var(--theme-tertiary, #5c2d91);
+		box-shadow:0 8px 28px rgba(92,45,145,0.2); flex-shrink:0; text-align:center; padding:0.4rem;
+	}
+	.agent-node .an-icon { font-size:2.8rem; line-height:1; color:var(--theme-tertiary,#5c2d91); }
+	.agent-node .an-label { font-size:1.15rem; font-weight:700; color:var(--theme-text); }
+	.agent-node .an-sub { font-size:1rem; color:var(--theme-text-subtle); line-height:1.34; }
+	.ta-flow { display:flex; align-items:center; justify-content:center; gap:1.2rem; flex-wrap:wrap; width:100%; }
+	.ta-flow .agent-node { width:185px; height:182px; }
+	.ta-arrow { font-size:1.9rem; color:var(--theme-tertiary,#5c2d91); opacity:0; }
+	.ta-arrow.is-big { font-size:3rem; }
+	@media (max-width:760px) { .ta-flow .ta-arrow { transform:rotate(90deg); } }
+
+	.uc-grid { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:1.1rem; width:min(980px,96%); }
+	@media (max-width:720px) { .uc-grid { grid-template-columns:1fr; } }
+	.uc-card {
+		display:flex; flex-direction:column; gap:0.5rem; padding:1rem 1.15rem;
+		border:1.5px solid var(--theme-border); border-top:4px solid var(--theme-primary,#0078d4);
+		border-radius:14px; background:var(--theme-card-background, #fff);
+		box-shadow:0 6px 22px rgba(0,0,0,0.12); opacity:0;
+		transition:transform 0.2s ease, box-shadow 0.2s ease;
+	}
+	.uc-card:hover { transform:translateY(-4px); box-shadow:0 12px 30px rgba(0,0,0,0.18); }
+	body.theme-dark .uc-card { background:rgba(255,255,255,0.05); }
+	.uc-card[data-uc="a"] { border-top-color:#0078d4; }
+	.uc-card[data-uc="b"] { border-top-color:#10a37f; }
+	.uc-card[data-uc="c"] { border-top-color:#e97526; }
+	.uc-card[data-uc="d"] { border-top-color:#d24aa8; }
+	.uc-head { display:flex; align-items:center; gap:0.55rem; font-size:1.25rem; font-weight:700; color:var(--theme-text); }
+	.uc-head .uc-icon { font-size:1.7rem; display:inline-flex; }
+	.uc-card[data-uc="a"] .uc-icon { color:#0078d4; }
+	.uc-card[data-uc="b"] .uc-icon { color:#10a37f; }
+	.uc-card[data-uc="c"] .uc-icon { color:#e97526; }
+	.uc-card[data-uc="d"] .uc-icon { color:#d24aa8; }
+	.uc-desc { font-size:0.98rem; line-height:1.55; color:var(--theme-text-subtle); }
+	.uc-caps { display:flex; flex-wrap:wrap; gap:0.4rem; margin-top:0.2rem; }
+	.uc-cap {
+		display:inline-flex; align-items:center; gap:0.3rem; padding:0.25rem 0.7rem;
+		border-radius:999px; font-size:0.88rem; font-weight:700;
+		background:rgba(0,120,212,0.1); color:var(--theme-text);
+		border:1.5px solid rgba(0,120,212,0.4); opacity:0;
+	}
+
+	/* ── PERFORMANCE DUO (Standard vs Premium) ── */
+	.duo { display:flex; gap:1.4rem; justify-content:center; flex-wrap:wrap; width:100%; }
+	.duo-card {
+		flex:1 1 320px; max-width:430px;
+		border:1.5px solid var(--theme-border); border-top:5px solid var(--dc,#0078d4);
+		border-radius:16px; background:var(--theme-card-background, #fff);
+		box-shadow:0 8px 28px rgba(0,0,0,0.14); padding:1.3rem 1.4rem; opacity:0;
+		display:flex; flex-direction:column; gap:0.7rem;
+	}
+	body.theme-dark .duo-card { background:rgba(255,255,255,0.05); }
+	.duo-card .dc-head { display:flex; align-items:center; gap:0.6rem; font-size:1.45rem; font-weight:800; color:var(--theme-text); }
+	.duo-card .dc-head .ic { color:var(--dc); font-size:1.8rem; }
+	.duo-card .dc-sub { font-size:1.02rem; color:var(--theme-text-subtle); line-height:1.55; }
+	.duo-card .dc-list { display:flex; flex-wrap:wrap; gap:0.45rem; }
+	.duo-card .pill { border-color:var(--dc); background:color-mix(in srgb, var(--dc) 10%, transparent); font-size:0.95rem; }
+	.duo-card .pill .ic { color:var(--dc); }
+
+	/* ── SAS explainer scene bits ── */
+	.trio { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:1.1rem; width:min(1040px,97%); }
+	@media (max-width:760px){ .trio { grid-template-columns:1fr; } }
+	.duo-card .dc-head .dc-emoji { font-size:1.9rem; line-height:1; }
+	.sas-url { font-family:'Cascadia Code','Consolas',monospace; font-size:0.98rem; line-height:1.8; text-align:center; word-break:break-all; background:var(--theme-card-background,#fff); border:1.5px solid var(--theme-border); border-radius:14px; padding:0.95rem 1.2rem; box-shadow:0 8px 30px rgba(0,0,0,0.14); width:min(880px,96%); opacity:0; }
+	body.theme-dark .sas-url { background:rgba(255,255,255,0.05); }
+	.sas-url .u-base { color:var(--theme-text-subtle); }
+	.sas-url .u-perm { color:#107c41; font-weight:800; }
+	.sas-url .u-time { color:#e97526; font-weight:800; }
+	.sas-url .u-key  { color:#0078d4; font-weight:800; }
+	.sas-url .u-sig  { color:#5c2d91; font-weight:800; }
+	.rec-badge { display:inline-block; margin-left:0.45rem; font-size:0.62rem; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; color:#fff; background:linear-gradient(90deg,#107c41,#0b6a37); border-radius:999px; padding:2px 9px; vertical-align:middle; }
+	.uc-action { display:block; font-weight:800; font-size:1.02rem; color:var(--tc,#0078d4); margin-top:0.1rem; }
+
+	/* ── SAS RELATIONSHIP MAP (persistent canvas — assembles step-by-step) ── */
+	/* no auto side margins — they collapse to 0 when the map is wider than the scene and shove it left;
+	   the scene's align-items:center keeps it centred either way. */
+	.sas-map { position:relative; width:1320px; height:510px; margin:0.1rem 0 0; flex:0 0 auto; }
+	.sas-map .map-svg { position:absolute; inset:0; width:1320px; height:510px; overflow:visible; pointer-events:none; z-index:1; }
+	.map-svg path { fill:none; stroke:var(--theme-text-subtle,#8a8a9a); stroke-width:3; stroke-linecap:round; opacity:0; }
+	.map-svg marker path { fill:var(--theme-text,#3a3a44); stroke:none; opacity:1; }
+	.map-node { position:absolute; box-sizing:border-box; z-index:2; border-radius:15px;
+		background:var(--theme-card-background,#fff); border:1.6px solid var(--theme-border); border-top:5px solid var(--nc,#0078d4);
+		box-shadow:0 10px 26px rgba(0,0,0,0.14); padding:0.55rem 0.8rem; display:flex; flex-direction:column; gap:0.32rem; opacity:0; }
+	body.theme-dark .map-node { background:rgba(255,255,255,0.06); }
+	.map-node .mn-head { display:flex; align-items:center; gap:0.5rem; font-weight:600; color:var(--theme-text); line-height:1.1; }
+	.map-node .mn-emoji { font-size:1.92rem; line-height:1; flex:0 0 auto; display:flex; align-items:center; }
+	.map-node .mn-emoji .az-ic { display:block; width:1em; height:1em; }
+	.map-node .mn-title { font-size:1.3rem; white-space:nowrap; }
+	.map-node .mn-sub { font-size:0.95rem; color:var(--theme-text-subtle); line-height:1.3; }
+	/* Nested boundaries: the VNet contains the Subnet; the NSG sits in the VNet beside the subnet */
+	.map-zone { position:absolute; z-index:0; border-radius:22px; opacity:0; }
+	.map-zone .zone-label { position:absolute; left:20px; top:-19px; display:inline-flex; align-items:center; gap:0.42rem;
+		padding:0.28rem 0.82rem; border-radius:999px; background:var(--theme-card-background,#fff);
+		font-size:1.12rem; font-weight:600; color:var(--theme-text); box-shadow:0 4px 14px rgba(0,0,0,0.1); white-space:nowrap; }
+	.map-zone .zone-label .az-ic { width:1.4em; height:1.4em; }
+	.map-zone .zl-cidr { font-family:ui-monospace,Consolas,monospace; font-size:0.9rem; font-weight:600; color:var(--theme-text-subtle); }
+	body.theme-dark .map-zone .zone-label { background:#241b33; }
+	.z-vnet { left:24px; top:46px; width:1272px; height:396px;
+		border:2.6px dashed color-mix(in srgb,#0078d4 55%,transparent); background:color-mix(in srgb,#0078d4 5%,transparent); }
+	.z-vnet .zone-label { border:1.8px solid color-mix(in srgb,#0078d4 55%,transparent); }
+	body.theme-dark .z-vnet { background:color-mix(in srgb,#4aa9ff 8%,transparent); border-color:color-mix(in srgb,#4aa9ff 50%,transparent); }
+	.z-subnet { left:56px; top:130px; width:740px; height:300px;
+		border:2.4px dashed color-mix(in srgb,#10a37f 62%,transparent); background:color-mix(in srgb,#10a37f 6%,transparent); }
+	.z-subnet .zone-label { border:1.8px solid color-mix(in srgb,#10a37f 62%,transparent); }
+	body.theme-dark .z-subnet { background:color-mix(in srgb,#2fd6a8 8%,transparent); border-color:color-mix(in srgb,#2fd6a8 48%,transparent); }
+	/* VNet address-space chips (top band) */
+	.vnet-chips { position:absolute; left:440px; top:62px; display:flex; gap:0.5rem; z-index:1; opacity:0; }
+	.vnet-chips .vchip { display:inline-flex; align-items:center; gap:0.35rem; font-size:0.95rem; font-weight:600; color:var(--theme-text);
+		background:var(--theme-card-background,#fff); border:1.5px solid color-mix(in srgb,#0078d4 40%,transparent); border-radius:999px; padding:0.24rem 0.72rem; box-shadow:0 3px 10px rgba(0,0,0,0.08); white-space:nowrap; }
+	body.theme-dark .vnet-chips .vchip { background:rgba(255,255,255,0.06); }
+	.vnet-chips .vchip.mono { font-family:ui-monospace,Consolas,monospace; }
+	/* Subnet coverage badge — NSG associated to the subnet (appears on step 6) */
+	.zone-badge { position:absolute; z-index:2; display:inline-flex; align-items:center; gap:0.35rem; font-size:0.92rem; font-weight:600; color:#fff;
+		background:linear-gradient(135deg,#e97526,#c0392b); border-radius:999px; padding:0.24rem 0.72rem; box-shadow:0 6px 16px rgba(0,0,0,0.2); white-space:nowrap; opacity:0; }
+	.zb-subnet { left:300px; top:118px; }
+	/* node positions + accents */
+	.n-vm1  { left:88px;  top:182px; width:240px; height:94px;  --nc:#0078d4; }
+	.n-nic1 { left:428px; top:168px; width:300px; height:122px; --nc:#5c2d91; }
+	.n-vm2  { left:88px;  top:314px; width:240px; height:94px;  --nc:#0078d4; }
+	.n-nic2 { left:428px; top:300px; width:300px; height:122px; --nc:#5c2d91; }
+	.n-nsg  { left:930px; top:150px; width:320px; height:214px; --nc:#e97526; }
+	.mn-keyrow { display:flex; gap:0.4rem; }
+	.mn-key { flex:1 1 0; display:flex; align-items:center; justify-content:center; gap:0.3rem; font-size:1.0rem; font-weight:600; color:var(--theme-text);
+		padding:0.28rem 0.45rem; border-radius:9px; border:1.5px solid color-mix(in srgb,#e97526 45%,transparent); background:color-mix(in srgb,#e97526 12%,transparent); }
+	.mn-note { font-size:0.88rem; font-weight:500; color:#b5651d; }
+	body.theme-dark .mn-note { color:#e8a463; }
+	.tok-rows { display:flex; flex-direction:column; gap:0.32rem; margin-top:0.1rem; }
+	.tok-row { display:flex; align-items:center; gap:0.5rem; padding:0.28rem 0.55rem; border-radius:9px;
+		background:color-mix(in srgb,var(--rc,#5c2d91) 9%,transparent); border-left:5px solid var(--rc,#5c2d91); opacity:0; }
+	.n-nic1 .tok-row, .n-nic2 .tok-row { --rc:#5c2d91; }
+	.n-nsg .tok-row { --rc:#e97526; }
+	.n-nsg .tok-row.deny { --rc:#c0392b; }
+	.tok-row .tr-em { font-size:1.18rem; line-height:1; }
+	.tok-row .tr-k { font-weight:600; font-size:0.98rem; color:var(--theme-text); white-space:nowrap; }
+	.tok-row .tr-v { font-size:0.9rem; color:var(--theme-text-subtle); margin-left:auto; white-space:nowrap; }
+	.user-bubble { position:absolute; left:936px; top:132px; width:210px; padding:0.6rem 0.82rem; border-radius:15px 15px 15px 4px;
+		background:linear-gradient(135deg,#0078d4,#5c2d91); color:#fff; font-size:1.0rem; font-weight:500; line-height:1.3;
+		box-shadow:0 10px 24px rgba(0,0,0,0.22); z-index:3; opacity:0; }
+	.user-bubble::after { content:''; position:absolute; left:108px; bottom:-9px; border-width:10px 10px 0; border-style:solid; border-color:#5c2d91 transparent transparent; }
+	.tw-caret { display:inline-block; width:2px; height:1.05em; margin-left:1px; background:currentColor; vertical-align:-0.15em; animation:twBlink 0.7s step-end infinite; }
+	@keyframes twBlink { 0%,100%{opacity:1;} 50%{opacity:0;} }
+	.edge-label { position:absolute; z-index:2; font-size:0.88rem; font-weight:600; color:var(--theme-text);
+		background:var(--theme-body-background,#fff); border:1.2px solid var(--theme-border); border-radius:999px; padding:0.14rem 0.7rem; white-space:nowrap; opacity:0; box-shadow:0 3px 10px rgba(0,0,0,0.1); }
+	body.theme-dark .edge-label { background:#241b33; }
+	.el-1to1   { left:352px; top:203px; }
+	.el-filter { left:790px; top:214px; }
+	.el-subnet { left:788px; top:314px; }
+	.map-badge { position:absolute; z-index:3; font-size:0.88rem; font-weight:400; color:#fff; border-radius:11px; padding:0.34rem 0.7rem; line-height:1.25; white-space:nowrap; text-align:center; box-shadow:0 8px 20px rgba(0,0,0,0.25); opacity:0; }
+	.badge-keys { left:272px; top:452px; width:262px; background:linear-gradient(135deg,#e97526,#c0392b); }
+	.badge-policy { left:546px; top:452px; width:262px; background:linear-gradient(135deg,#0b6a37,#0078d4); }
+	.map-ribbon { position:absolute; left:0; top:456px; width:1320px; display:flex; justify-content:center; gap:0.5rem; flex-wrap:wrap; z-index:3; opacity:0; }
+	.map-ribbon .bp { font-size:0.96rem; font-weight:500; color:var(--theme-text); background:var(--theme-card-background,#fff); border:1.5px solid var(--theme-border); border-radius:999px; padding:0.3rem 0.78rem; box-shadow:0 4px 14px rgba(0,0,0,0.1); }
+	body.theme-dark .map-ribbon .bp { background:rgba(255,255,255,0.06); }
+
+	/* ── STEP 9 · TECHNICAL SUMMARY (SAS types & per-service scope) ── */
+	.spec-wrap { display:flex; flex-direction:column; align-items:center; gap:0.85rem; width:min(1120px,99%); }
+	.spec-types { display:grid; grid-template-columns:repeat(3,1fr); gap:0.85rem; width:100%; }
+	.spec-card { border:1.6px solid var(--theme-border); border-top:5px solid var(--sc,#0078d4); border-radius:15px;
+		background:var(--theme-card-background,#fff); box-shadow:0 10px 26px rgba(0,0,0,0.12); padding:0.8rem 0.95rem;
+		display:flex; flex-direction:column; gap:0.42rem; opacity:0; }
+	body.theme-dark .spec-card { background:rgba(255,255,255,0.06); }
+	.spec-card .sc-head { display:flex; align-items:center; gap:0.55rem; }
+	.spec-card .sc-head .az-ic { width:2.1rem; height:2.1rem; flex:0 0 auto; }
+	.spec-card .sc-name { font-size:1.16rem; font-weight:600; color:var(--theme-text); line-height:1.15; }
+	.spec-card .sc-row { display:flex; flex-direction:column; gap:0.02rem; }
+	.spec-card .sc-k { font-size:0.72rem; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; color:var(--theme-text-subtle); }
+	.spec-card .sc-v { font-size:0.96rem; color:var(--theme-text); line-height:1.3; }
+	.spec-card .sc-pol { align-self:flex-start; display:inline-flex; align-items:center; gap:0.3rem; font-size:0.84rem; font-weight:600; padding:0.2rem 0.6rem; border-radius:999px; margin-top:0.05rem; }
+	.sc-pol.ok { background:color-mix(in srgb,#107c41 15%,transparent); color:#0b6a37; border:1.5px solid color-mix(in srgb,#107c41 45%,transparent); }
+	.sc-pol.no { background:color-mix(in srgb,#8a8a9a 14%,transparent); color:var(--theme-text-subtle); border:1.5px solid var(--theme-border); }
+	body.theme-dark .sc-pol.ok { color:#4ac26b; }
+	.spec-matrix { width:100%; border-collapse:collapse; font-size:0.95rem; opacity:0;
+		background:var(--theme-card-background,#fff); border-radius:14px; overflow:hidden; box-shadow:0 8px 22px rgba(0,0,0,0.1); }
+	body.theme-dark .spec-matrix { background:rgba(255,255,255,0.05); }
+	.spec-matrix th, .spec-matrix td { padding:0.48rem 0.8rem; text-align:left; border-bottom:1.5px solid var(--theme-border); }
+	.spec-matrix thead th { font-weight:600; color:var(--theme-text); background:color-mix(in srgb,#5c2d91 9%,transparent); font-size:0.9rem; }
+	body.theme-dark .spec-matrix thead th { background:rgba(255,255,255,0.07); }
+	.spec-matrix tbody tr:last-child td { border-bottom:none; }
+	.spec-matrix .mx-svc { display:flex; align-items:center; gap:0.5rem; font-weight:600; color:var(--theme-text); }
+	.spec-matrix .mx-svc .az-ic { width:1.5rem; height:1.5rem; flex:0 0 auto; }
+	.spec-matrix .mx-scope { color:var(--theme-text); }
+	.spec-matrix .mx-pol { color:#0b6a37; font-weight:600; white-space:nowrap; }
+	body.theme-dark .spec-matrix .mx-pol { color:#4ac26b; }
+	.spec-note { font-size:0.85rem; color:var(--theme-text-subtle); line-height:1.4; text-align:center; max-width:1000px; opacity:0; }
+	.spec-foot { font-size:0.9rem; color:var(--theme-text-subtle); text-align:center; opacity:0; }
+	.spec-foot a { color:var(--aw-blue,#0078d4); font-weight:600; text-decoration:underline; }
+
+	/* ── ACCESS TIER ROW (Hot → Archive) ── */
+	.tier-row { display:flex; gap:1rem; justify-content:center; flex-wrap:wrap; width:100%; }
+	.tier-card {
+		flex:1 1 0; min-width:155px; max-width:230px;
+		border:1.5px solid var(--theme-border); border-top:5px solid var(--tc,#e97526);
+		border-radius:14px; background:var(--theme-card-background, #fff);
+		box-shadow:0 6px 22px rgba(0,0,0,0.12); padding:1rem 1rem 1.1rem; opacity:0;
+		display:flex; flex-direction:column; gap:0.5rem; align-items:center; text-align:center;
+	}
+	body.theme-dark .tier-card { background:rgba(255,255,255,0.05); }
+	.tier-card .tc-icon { font-size:2.1rem; line-height:1; color:var(--tc); }
+	.tier-card .tc-name { font-size:1.3rem; font-weight:800; color:var(--tc); }
+	.tier-card .tc-sub { font-size:0.9rem; color:var(--theme-text-subtle); line-height:1.4; min-height:2.5em; }
+	.tier-card .tc-ret { display:inline-flex; align-items:center; gap:0.35rem; font-size:0.9rem; font-weight:700; padding:0.28rem 0.75rem; border-radius:999px; background:rgba(0,0,0,0.05); color:var(--theme-text); }
+	body.theme-dark .tier-card .tc-ret { background:rgba(255,255,255,0.1); }
+	.tier-card .tc-ret .ic { color:var(--tc); }
+	.tier-card .tc-cost { display:flex; gap:4px; margin-top:0.1rem; }
+	.tier-card .tc-dot { width:9px; height:9px; border-radius:50%; background:var(--theme-border); }
+	.tier-card .tc-dot.on { background:var(--tc); }
+	.tier-scalewrap { display:flex; flex-direction:column; align-items:center; gap:0.4rem; width:100%; }
+	.tier-scale {
+		width:min(920px,96%); height:12px; border-radius:999px;
+		background:linear-gradient(90deg,#e97526,#0078d4,#00b7c3,#5c2d91);
+		box-shadow:inset 0 0 0 1px rgba(0,0,0,0.08); opacity:0;
+	}
+	.tier-scale-labels { display:flex; justify-content:space-between; width:min(920px,96%); font-size:0.92rem; font-weight:600; color:var(--theme-text-subtle); opacity:0; }
+
+	/* ── SMART TIER banner (auto-manages Hot/Cool/Cold) ── */
+	.smart-tier { width:min(960px,98%); display:flex; align-items:center; gap:0.7rem 1.1rem; flex-wrap:wrap; padding:0.65rem 1.05rem; border-radius:14px;
+		background:linear-gradient(var(--theme-card-background,#fff),var(--theme-card-background,#fff)) padding-box, linear-gradient(90deg,#e97526,#0078d4,#00b7c3) border-box;
+		border:2px solid transparent; box-shadow:0 6px 22px rgba(0,0,0,0.1); opacity:0; }
+	body.theme-dark .smart-tier { background:linear-gradient(#241b33,#241b33) padding-box, linear-gradient(90deg,#e97526,#0078d4,#00b7c3) border-box; }
+	.st-head { display:inline-flex; align-items:center; gap:0.45rem; }
+	.st-head .az-ic { width:1.55em; height:1.55em; }
+	.st-name { font-size:1.12rem; font-weight:800; color:var(--theme-text); }
+	.st-badge { font-size:0.68rem; font-weight:800; text-transform:uppercase; letter-spacing:0.05em; padding:0.15rem 0.5rem; border-radius:999px; background:var(--aw-purple,#5c2d91); color:#fff; }
+	.st-body { display:flex; flex-direction:column; gap:0.35rem; flex:1 1 320px; }
+	.st-desc { font-size:0.9rem; color:var(--theme-text-subtle); line-height:1.35; }
+	.st-flow { display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap; }
+	.st-node { display:inline-flex; align-items:center; gap:0.3rem; padding:0.2rem 0.55rem; border-radius:999px; font-size:0.9rem; font-weight:800; color:var(--theme-text); border:1.5px solid var(--nc,#e97526); background:color-mix(in srgb, var(--nc) 12%, transparent); }
+	.st-node .az-ic { width:1.05em; height:1.05em; }
+	.st-edge { display:inline-flex; flex-direction:column; align-items:center; font-size:0.74rem; font-weight:700; color:var(--theme-text-subtle); line-height:1.1; }
+	.st-edge b { font-size:1rem; color:var(--theme-text); }
+	.st-access { display:inline-flex; align-items:center; gap:0.25rem; font-size:0.84rem; font-weight:800; color:#107c10; }
+	body.theme-dark .st-access { color:#4ac26b; }
+	.st-note { font-size:0.8rem; font-weight:600; color:var(--theme-text-subtle); max-width:170px; line-height:1.3; }
+
+	/* recap key-feature chips (per service accent) */
+	.sa-feats { display:flex; flex-wrap:wrap; gap:0.3rem; margin-top:0.1rem; }
+	.sa-feat { padding:0.15rem 0.55rem; border-radius:999px; font-size:0.82rem; font-weight:700; color:var(--theme-text); background:color-mix(in srgb, var(--sc) 12%, transparent); border:1.5px solid color-mix(in srgb, var(--sc) 42%, transparent); }
+
+	/* ── CONTROLS · icon dock ──────────────── */
+	#controls {
+		position:fixed; bottom:14px; left:50%; transform:translateX(-50%); z-index:40;
+		display:flex; align-items:center; gap:5px; padding:5px 7px;
+		background:var(--theme-body-background-translucent, rgba(255,255,255,0.82));
+		backdrop-filter:blur(12px) saturate(1.4); -webkit-backdrop-filter:blur(12px) saturate(1.4);
+		border:1px solid var(--theme-border); border-radius:999px;
+		box-shadow: 0 8px 26px rgba(0,0,0,0.18); font-size:13px;
+	}
+	body.theme-dark #controls { background:var(--theme-body-background-translucent, rgba(32,32,36,0.82)); }
+	#controls .ctrl-icon {
+		width:2.15rem; height:2.15rem; min-width:0; padding:0;
+		display:inline-flex; align-items:center; justify-content:center;
+		border-radius:50%; font-size:0.95rem; line-height:1; font-weight:600;
+		transition:background 0.18s ease, color 0.18s ease, transform 0.12s ease, box-shadow 0.18s ease;
+	}
+	#controls .ctrl-icon:hover { transform:translateY(-1px); }
+	#controls .ctrl-icon:active { transform:scale(0.92); }
+	#controls .ctrl-icon-next {
+		width:2.55rem; height:2.55rem; font-size:1.1rem;
+		box-shadow:0 2px 8px var(--theme-primary-translucent, rgba(0,120,212,0.45));
+	}
+	.step-counter {
+		min-width:52px; text-align:center; font-variant-numeric:tabular-nums;
+		font-size:14px; font-weight:700; color:var(--theme-text);
+		padding:0 6px; white-space:nowrap; letter-spacing:0.02em;
+	}
+	.ctrl-sep { width:1px; align-self:stretch; margin:4px 2px; background:var(--theme-border); }
+	.ctrl-grip {
+		display:inline-flex; align-items:center; justify-content:center;
+		width:1.5rem; height:2.15rem; padding:0; border:none; background:transparent;
+		color:var(--theme-text-subtle); border-radius:8px; cursor:grab; touch-action:none;
+		transition:background 0.18s ease, color 0.18s ease;
+	}
+	.ctrl-grip:hover { color:var(--theme-text); background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); }
+	.ctrl-grip:active { cursor:grabbing; }
+	.ctrl-grip svg { width:13px; height:16px; pointer-events:none; }
+	body.controls-floating .ctrl-grip { color:var(--theme-primary,#0078d4); }
+	#controls .ctrl-pin { display:none; color:var(--theme-primary,#0078d4); }
+	#controls .ctrl-pin svg { width:15px; height:15px; pointer-events:none; }
+	body.controls-floating #controls .ctrl-pin { display:inline-flex; }
+	body.controls-floating #controls { box-shadow:0 10px 30px rgba(0,0,0,0.30), 0 0 0 1.5px var(--theme-primary,#0078d4); }
+	.speed-control { display:inline-flex; align-items:center; gap:1px; padding:2px 3px; border:1px solid var(--theme-border); border-radius:999px; }
+	.speed-control .speed-btn {
+		width:1.7rem; height:1.7rem; min-width:0; padding:0;
+		display:inline-flex; align-items:center; justify-content:center;
+		font-size:0.95rem; font-weight:700; border-radius:50%;
+	}
+	.speed-control .speed-btn[disabled] { opacity:0.4; cursor:not-allowed; }
+	.speed-label { min-width:2.4rem; text-align:center; font-variant-numeric:tabular-nums; font-size:0.82rem; font-weight:700; color:var(--theme-text); }
+
+	#callout-toggle, #outline-toggle, #audio-toggle { border:1px solid var(--theme-border); border-radius:4px; transition:background .2s,color .2s,border-color .2s,opacity .2s; }
+	#callout-toggle.toggle-active, #outline-toggle.toggle-active, #audio-toggle.toggle-active {
+		background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary,#0078d4); border-color:var(--theme-primary,#0078d4); font-weight:600;
+	}
+	#callout-toggle:not(.toggle-active), #outline-toggle:not(.toggle-active), #audio-toggle:not(.toggle-active) { opacity:0.6; }
+	#audio-toggle { display:inline-flex; align-items:center; gap:0.3rem; }
+	#audio-toggle .aw-audio-ico { line-height:1; }
+	#audio-toggle .aw-audio-time { font-variant-numeric:tabular-nums; font-weight:600; min-width:3.1em; text-align:center; letter-spacing:0.02em; }
+
+	/* ── HIDE/SHOW TOP BAR ─────────────────── */
+	#header-hide-top { display:inline-flex; align-items:center; justify-content:center; width:2rem; height:2rem; padding:0; border:1px solid var(--theme-border); border-radius:50%; color:var(--theme-text-subtle); background:transparent; cursor:pointer; transition:background .2s,color .2s,transform .18s; }
+	#header-hide-top:hover { color:var(--theme-text); transform:translateY(-1px); }
+	#header-hide-top svg { width:16px; height:16px; }
+	body.chrome-hidden .app-header, body.chrome-hidden .progress-track { display:none; }
+	#header-reveal {
+		position:fixed; top:0; left:50%; transform:translateX(-50%) translateY(-100%); z-index:45;
+		display:inline-flex; align-items:center; gap:0.35rem; padding:5px 14px 6px; font-size:12px; font-weight:600; line-height:1;
+		color:var(--theme-text-subtle); background:var(--theme-body-background-translucent, rgba(255,255,255,0.88));
+		backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border:1px solid var(--theme-border); border-top:none; border-radius:0 0 12px 12px;
+		box-shadow:0 4px 14px rgba(0,0,0,0.14); cursor:pointer; transition:transform .28s cubic-bezier(0.2,0.7,0.3,1), color .2s, background .2s;
+	}
+	body.theme-dark #header-reveal { background:var(--theme-body-background-translucent, rgba(32,32,36,0.88)); }
+	#header-reveal:hover { color:var(--theme-text); }
+	body.chrome-hidden #header-reveal { transform:translateX(-50%) translateY(0); }
+	#header-reveal svg { width:14px; height:14px; }
+
+	/* ── OUTLINE PANEL ─────────────────────── */
+	#step-outline {
+		position:fixed; top:4.5rem; right:1rem; width:320px; max-height:calc(100vh - 8rem); overflow-y:auto;
+		padding:1.1rem; background:var(--theme-body-background);
+		background:color-mix(in srgb, var(--theme-body-background) 85%, transparent);
+		-webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
+		border:1px solid var(--theme-border);
+		border-radius:6px; box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2)); z-index:35; font-size:1rem; line-height:1.55;
+		cursor:grab; touch-action:none;
+	}
+	#step-outline:active { cursor:grabbing; }
+	#step-outline[hidden] { display:none; }
+	#step-outline h2 { font-size:0.85rem; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--theme-tertiary,#5c2d91); margin-bottom:0.5rem; }
+	#step-outline .outline-section { margin-top:0.6rem; padding-top:0.6rem; border-top:1px solid var(--theme-border); }
+	#step-outline .outline-section:first-child { margin-top:0; padding-top:0; border-top:0; }
+	#step-outline .stat-row { display:flex; justify-content:space-between; align-items:baseline; gap:0.75rem; padding:0.2rem 0; }
+	#step-outline .stat-row span:first-child { color:var(--theme-text-subtle); flex:0 0 auto; max-width:45%; }
+	#step-outline .stat-row span:last-child { text-align:right; font-weight:600; color:var(--theme-tertiary,#5c2d91); flex:1 1 auto; }
+
+	.progress-track { position:relative; height:6px; background:var(--theme-border, #e0e0e0); flex-shrink:0; cursor:pointer; }
+	.progress-fill { position:absolute; left:0; top:0; bottom:0; width:0%; background:var(--aw-purple, #5c2d91); transition:width .5s cubic-bezier(0.2,0.8,0.2,1); pointer-events:none; }
+	.progress-tick { position:absolute; top:0; bottom:0; width:2px; margin-left:-1px; background:var(--theme-body-background); opacity:0.6; pointer-events:none; }
+
+	/* ── THEME / LANG / FONT CONTROLS ──────── */
+	.theme-toggle { display:inline-flex; align-items:center; justify-content:center; width:2.25rem; height:2.25rem; padding:0; margin-inline-start:0.25rem; background:transparent; border:1px solid var(--theme-border); border-radius:999px; color:var(--theme-text); cursor:pointer; transition:background .15s,color .15s,border-color .15s; }
+	.theme-toggle:hover { background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary); border-color:var(--theme-primary); }
+	.theme-toggle .theme-icon { display:none; }
+	.theme-toggle[data-theme="dark"] .icon-sun { display:block; }
+	.theme-toggle[data-theme="light"] .icon-moon { display:block; }
+	.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+	.skip-link { position:absolute; top:-100px; left:0.5rem; z-index:100; padding:0.5rem 1rem; background:var(--theme-primary); color:var(--theme-primary-invert,#fff); border-radius:4px; text-decoration:none; font-weight:600; }
+	.skip-link:focus { top:0.5rem; }
+	/* Focus-visible skip link: atlas resolves --theme-primary-invert to black in the dark theme,
+	   which lands on a dark primary at 1.3:1. Pin both ends instead of inheriting. */
+	.skip-link { background:#0b5cd5; color:#ffffff; }
+	body.theme-dark .skip-link { background:#cfe4ff; color:#0a1a33; }
+	.header-back-link { display:inline-flex; align-items:center; gap:0.25rem; padding:0.2rem 0.6rem; font-size:0.8rem; font-weight:600; color:var(--theme-text-subtle); border:1px solid var(--theme-border); border-radius:999px; text-decoration:none; white-space:nowrap; transition:background .15s,color .15s,border-color .15s; }
+	.header-back-link:hover { color:var(--theme-primary); border-color:var(--theme-primary); background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); }
+	.lang-select {
+		appearance:none; -webkit-appearance:none; background:var(--theme-card-background,#fff); color:var(--theme-body-text,#333);
+		border:1px solid var(--theme-border, rgba(0,0,0,0.2)); border-radius:4px; padding:4px 24px 4px 8px;
+		font-size:0.8rem; font-family:'Segoe UI', sans-serif; cursor:pointer;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+		background-repeat:no-repeat; background-position:right 6px center; min-width:80px;
+	}
+	.lang-select:hover { border-color:var(--theme-primary, #0078d4); }
+	.lang-select:focus { outline:2px solid var(--theme-primary, #0078d4); outline-offset:1px; }
+	body.theme-dark .lang-select {
+		background-color:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); border-color:rgba(255,255,255,0.15);
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23aaa' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+	}
+	body.theme-dark .lang-select option { background:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); }
+	.font-size-controls { display:flex; align-items:center; gap:2px; }
+	.font-size-btn { background:var(--theme-card-background,#fff); color:var(--theme-body-text,#333); border:1px solid var(--theme-border, rgba(0,0,0,0.2)); border-radius:4px; padding:3px 8px; font-size:0.8rem; font-weight:700; font-family:'Segoe UI', sans-serif; cursor:pointer; line-height:1.2; transition:background .15s,border-color .15s; }
+	.font-size-btn:hover { border-color:var(--theme-primary, #0078d4); }
+	body.theme-dark .font-size-btn { background:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); border-color:rgba(255,255,255,0.15); }
+
+	.ic { display:inline-flex; align-items:center; justify-content:center; vertical-align:-0.125em; }
+	.ic svg { width:1em; height:1em; fill:currentColor; display:block; }
+	.help-toggle svg { width:15px; height:15px; vertical-align:-2px; }
+
+	/* ── IMAGE ICONS (official Azure service icons + Fluent) ── */
+	.az-ic { width:1em; height:1em; object-fit:contain; display:inline-block; vertical-align:-0.15em; }
+	.agent-node .an-icon .az-ic { display:block; width:1em; height:1em; }
+	.uc-head .uc-icon .az-ic { display:block; width:1em; height:1em; }
+	.tier-card .tc-icon .az-ic { display:block; width:1em; height:1em; }
+	.pill .az-ic { width:1.15em; height:1.15em; }
+
+	/* ── RECAP · "ALL IN ONE" MAP (recaps every step in one view) ── */
+	.sa-summary { display:flex; flex-direction:column; align-items:center; gap:0.9rem; width:min(1120px, 99%); }
+	.sa-account {
+		width:100%; border:2.5px dashed var(--aw-purple, #5c2d91); border-radius:18px;
+		background:linear-gradient(135deg, rgba(92,45,145,0.06), rgba(0,120,212,0.05));
+		padding:0.85rem 1.15rem 0.95rem; display:flex; flex-direction:column; gap:0.6rem; opacity:0;
+	}
+	body.theme-dark .sa-account { background:linear-gradient(135deg, rgba(146,78,217,0.14), rgba(80,170,255,0.10)); border-color:#a67dd8; }
+	.sa-account-head { display:flex; align-items:center; gap:0.7rem; flex-wrap:wrap; }
+	.sa-account-head .sa-acct-ic .az-ic { width:1.9rem; height:1.9rem; }
+	.sa-acct-name { font-size:1.3rem; font-weight:800; color:var(--theme-text); }
+	body.theme-dark .sa-acct-name { color:#e6d8f5; }
+	.sa-perf { display:flex; gap:0.4rem; margin-left:auto; flex-wrap:wrap; }
+	.sa-perf-pill { display:inline-flex; align-items:center; gap:0.35rem; padding:0.3rem 0.8rem; border-radius:999px; font-size:0.92rem; font-weight:700; border:1.5px solid var(--pc,#0078d4); background:color-mix(in srgb, var(--pc) 12%, transparent); color:var(--theme-text); }
+	.sa-perf-pill .az-ic { width:1.15em; height:1.15em; }
+	.sa-strip { display:flex; flex-direction:column; gap:0.35rem; }
+	.sa-strip-label { font-size:0.82rem; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:var(--theme-text-subtle); }
+	.sa-svc-row { display:flex; gap:0.6rem; flex-wrap:wrap; }
+	.sa-svc { flex:1 1 0; min-width:150px; display:flex; flex-direction:column; gap:0.28rem; padding:0.55rem 0.72rem; border-radius:12px; border:1.5px solid var(--theme-border); border-top:4px solid var(--sc,#0078d4); background:var(--theme-card-background,#fff); box-shadow:0 4px 14px rgba(0,0,0,0.1); opacity:0; }
+	body.theme-dark .sa-svc { background:rgba(255,255,255,0.05); }
+	.sa-svc-head { display:flex; align-items:center; gap:0.45rem; font-size:1.05rem; font-weight:700; color:var(--theme-text); }
+	.sa-svc-head .az-ic { width:1.35em; height:1.35em; }
+	.sa-svc-sub { font-size:0.86rem; color:var(--theme-text-subtle); line-height:1.3; }
+	.sa-subchips { display:flex; flex-wrap:wrap; gap:0.3rem; margin-top:0.1rem; }
+	.sa-subchip { padding:0.15rem 0.55rem; border-radius:999px; font-size:0.82rem; font-weight:700; background:color-mix(in srgb, #e97526 14%, transparent); border:1.5px solid color-mix(in srgb, #e97526 45%, transparent); color:var(--theme-text); }
+	.sa-tier-row { display:flex; gap:0.55rem; flex-wrap:wrap; }
+	.sa-tier { flex:1 1 0; min-width:150px; display:flex; align-items:flex-start; gap:0.5rem; padding:0.5rem 0.65rem; border-radius:10px; border:1.5px solid var(--theme-border); border-left:4px solid var(--tc,#e97526); background:var(--theme-card-background,#fff); opacity:0; }
+	body.theme-dark .sa-tier { background:rgba(255,255,255,0.05); }
+	.sa-tier .az-ic { width:1.5em; height:1.5em; flex-shrink:0; margin-top:0.1rem; }
+	.sa-tier-tt { display:flex; flex-direction:column; line-height:1.2; gap:0.05rem; }
+	.sa-tier-name { font-size:0.98rem; font-weight:800; color:var(--tc); }
+	.sa-tier-ret { font-size:0.8rem; color:var(--theme-text-subtle); font-weight:700; }
+	.sa-tier-desc { font-size:0.82rem; color:var(--theme-text-subtle); line-height:1.28; margin-top:0.05rem; }
+	.sa-benefits { display:flex; gap:0.55rem; flex-wrap:wrap; justify-content:center; }
+	.sa-benefit { display:inline-flex; align-items:center; gap:0.4rem; padding:0.4rem 0.9rem; border-radius:999px; font-size:0.9rem; font-weight:700; border:2px solid #107c10; background:rgba(16,124,16,0.08); color:var(--theme-text); opacity:0; }
+	body.theme-dark .sa-benefit { background:rgba(16,124,16,0.16); }
+	.sa-benefit .sa-check { color:#10a37f; font-weight:900; }
+
+	#shortcut-overlay { position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center; }
+	#shortcut-overlay[hidden] { display:none; }
+	.sc-backdrop { position:absolute; inset:0; background:rgba(0,0,0,0.5); -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px); }
+	.sc-panel { position:relative; z-index:1; width:min(430px,92vw); max-height:82vh; overflow:auto; padding:1.5rem 1.6rem; background:var(--theme-body-background); border:1px solid var(--theme-border); border-radius:16px; box-shadow:0 24px 70px rgba(0,0,0,0.4); }
+	.sc-panel h2 { margin:0 0 1rem; font-size:1.25rem; color:var(--theme-tertiary,#5c2d91); }
+	body.theme-dark .sc-panel h2 { color:#c9a5e8; }
+	.sc-close { position:absolute; top:0.7rem; right:0.7rem; width:2rem; height:2rem; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--theme-border); border-radius:50%; background:transparent; color:var(--theme-text-subtle); cursor:pointer; }
+	.sc-close:hover { color:var(--theme-text); border-color:var(--theme-primary,#0078d4); }
+	.sc-close svg { width:15px; height:15px; }
+	.sc-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:0.55rem; }
+	.sc-list li { display:flex; align-items:center; justify-content:space-between; gap:1rem; font-size:1rem; color:var(--theme-text); }
+	.sc-keys { display:inline-flex; gap:0.3rem; flex:none; }
+	.sc-panel kbd, .sc-hint kbd { font-family:'Cascadia Code','Consolas',monospace; font-size:0.82rem; line-height:1; padding:0.28rem 0.5rem; border-radius:6px; border:1px solid var(--theme-border); border-bottom-width:2px; background:var(--theme-card-background,#fff); color:var(--theme-text); }
+	body.theme-dark .sc-panel kbd, body.theme-dark .sc-hint kbd { background:rgba(255,255,255,0.08); }
+	.sc-hint { margin:1.1rem 0 0; font-size:0.85rem; color:var(--theme-text-subtle); text-align:center; }
+
+	@media (max-width:640px) { .app-header { font-size:0.95rem; } .scene-title { font-size:1.9rem; } #stage { padding:0.9rem 1rem 4.5rem; } }
+	@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition:none !important; animation:none !important; } .progress-fill { transition:none !important; } }
+	/* ── "Up next" pill — docked bottom-right on the last step (chains to the next stop, doesn't cover the recap) ── */
+	#journey-next { position:fixed; z-index:60; right:1.4rem; bottom:1.1rem; max-width:min(30rem, calc(50vw - 18rem)); opacity:0; visibility:hidden; transform:translateY(12px); transition:opacity .5s ease, transform .5s ease, visibility .5s ease; }
+	#journey-next.show { opacity:1; visibility:visible; transform:none; }
+	.jn-card { display:flex; align-items:center; gap:0.7rem; padding:0.5rem 0.55rem 0.5rem 0.8rem; border-radius:14px; background:var(--theme-card-background,#fff); border:1.5px solid color-mix(in srgb, var(--aw-blue) 34%, var(--theme-border)); box-shadow:0 14px 34px rgba(0,0,0,0.28); }
+	body.theme-dark .jn-card { background:#2a2b34; }
+	.jn-icon { flex:none; width:2.4rem; height:2.4rem; display:grid; place-items:center; }
+	.jn-icon img { width:100%; height:100%; object-fit:contain; }
+	.jn-text { display:flex; flex-direction:column; line-height:1.2; min-width:0; }
+	.jn-eyebrow { display:inline-flex; align-items:center; gap:0.35rem; font-size:0.68rem; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:var(--theme-text-subtle); }
+	.jn-check { display:grid; place-items:center; width:0.95rem; height:0.95rem; border-radius:50%; background:var(--aw-green); color:#fff; font-size:0.6rem; }
+	.jn-title { font-size:1rem; font-weight:600; line-height:1.25; overflow-wrap:anywhere; }
+	.jn-cta { flex:none; display:inline-flex; align-items:center; gap:0.4rem; padding:0.5rem 0.95rem; border-radius:10px; font-size:0.92rem; font-weight:600; text-decoration:none; color:#fff; background:var(--aw-blue); transition:transform .15s ease, filter .15s ease; }
+	.jn-cta:hover { transform:translateY(-1px); filter:brightness(1.08); }
+	.jn-close { flex:none; width:1.7rem; height:1.7rem; display:grid; place-items:center; border:none; border-radius:8px; cursor:pointer; background:transparent; color:var(--theme-text); opacity:0.5; }
+	.jn-close:hover { opacity:1; background:color-mix(in srgb, var(--theme-text) 10%, transparent); }
+	.jn-close svg { width:15px; height:15px; }
+	@media (max-width:1100px){ #journey-next { right:0.8rem; bottom:5.4rem; max-width:min(26rem,92vw); } }
+	@media (prefers-reduced-motion: reduce){ #journey-next { transition:none !important; transform:none !important; } }
+</style>
+</head>
+
+<body class="theme-dark" data-theme-preset="atlas">
+
+	<a href="#stage" class="skip-link">Skip to diagram</a>
+
+	<header class="app-header padding-block-xs padding-inline-md border-bottom" role="banner" style="justify-content:space-between;">
+		<div class="display-flex align-items-center gap-xs">
+			<a href="index.html" class="header-back-link" aria-label="Back to the Networking journey">&larr; Networking</a>
+			<span id="page-title" class="font-size-h6 font-weight-semibold">&#127760; Virtual Network</span>
+		</div>
+		<nav class="display-flex gap-xs align-items-center" aria-label="Primary">
+			<span id="breadcrumb" class="font-size-sm color-text-subtle">Step 1</span>
+		</nav>
+		<div class="display-flex gap-xs align-items-center">
+			<select id="lang-select" class="lang-select" aria-label="Language">
+				<option value="en">English</option>
+				<option value="es">Español</option>
+				<option value="ja">日本語</option>
+				<option value="ko">한국어</option>
+				<option value="pt">Português</option>
+			</select>
+			<div class="font-size-controls">
+				<button id="font-decrease" type="button" class="font-size-btn" aria-label="Decrease font size" title="Smaller text">A&minus;</button>
+				<button id="font-increase" type="button" class="font-size-btn" aria-label="Increase font size" title="Larger text">A+</button>
+			</div>
+			<button id="theme-toggle" type="button" class="theme-toggle" aria-label="Switch theme" title="Switch theme">
+				<svg class="theme-icon icon-moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg>
+				<svg class="theme-icon icon-sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.5" y1="4.5" x2="6.5" y2="6.5"/><line x1="17.5" y1="17.5" x2="19.5" y2="19.5"/><line x1="4.5" y1="19.5" x2="6.5" y2="17.5"/><line x1="17.5" y1="6.5" x2="19.5" y2="4.5"/></g></svg>
+			</button>
+			<button id="header-hide-top" type="button" aria-label="Hide top bar" title="Hide top bar (H)">
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/></svg>
+			</button>
+		</div>
+	</header>
+
+	<button id="header-reveal" type="button" aria-label="Show top bar" title="Show top bar">
+		<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/></svg>
+		<span>Toolbar</span>
+	</button>
+
+	<div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
+
+	<main id="stage" tabindex="0" role="region" aria-labelledby="stage-heading" aria-describedby="stage-instructions">
+		<h1 id="stage-heading" class="sr-only" tabindex="-1">Azure Virtual Network</h1>
+		<p id="stage-instructions" class="sr-only">Animated explainer of Azure Virtual Networks. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.</p>
+		<div id="step-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+		<div id="stage-frame">
+			<svg id="fx-svg" aria-hidden="true" focusable="false">
+				<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L0,10 L10,5 Z" fill="currentColor"/></marker></defs>
+			</svg>
+			<div id="aw-caption" class="aw-caption" aria-hidden="true"></div>
+			<div id="stage-overlay-left" class="stage-overlay stage-overlay-left" role="group" aria-label="View options">
+				<button id="callout-toggle" type="button" class="ovl-btn" aria-label="Toggle callouts" aria-pressed="false" data-tip="Callouts: Off"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M4 5h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H10l-4 3v-3H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></svg></button>
+				<button id="outline-toggle" type="button" class="ovl-btn" aria-controls="step-outline" aria-expanded="false" aria-label="Toggle text outline" data-tip="Outline: Off"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" d="M4 6h16M4 12h16M4 18h10"/></svg></button>
+				<button id="help-toggle" class="ovl-btn help-toggle" type="button" aria-haspopup="dialog" aria-controls="shortcut-overlay" aria-label="Keyboard shortcuts (press ?)" data-tip="Shortcuts"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M11 18h2v-2h-2v2zm1.1-14C9.8 4 8 5.8 8 8h2a2 2 0 1 1 3.2 1.6c-.9.7-2.2 1.5-2.2 3.4h2c0-1 .8-1.5 1.7-2.2A4 4 0 0 0 12.1 4z"/></svg></button>
+			</div>
+			<div id="stage-overlay" class="stage-overlay" role="group" aria-label="Player controls">
+				<button id="audio-toggle" class="ovl-btn ovl-audio" type="button" aria-label="Toggle audio narration" aria-pressed="false" title="Narration audio"></button>
+				<button id="cc-toggle" class="ovl-btn" type="button" aria-label="Toggle captions" aria-pressed="false" title="Captions"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9.7 10.2a2.1 2.1 0 1 0 0 3.6M17 10.2a2.1 2.1 0 1 0 0 3.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+				<button id="header-hide" class="ovl-btn" type="button" aria-label="Hide top bar" title="Hide top bar (H)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/></svg></button>
+				<button id="fs-toggle" class="ovl-btn" type="button" aria-label="Toggle full screen" aria-pressed="false" title="Full screen (F)"><svg class="fs-enter" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg><svg class="fs-exit" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg></button>
+			</div>
+		</div>
+	</main>
+
+	<aside id="step-outline" hidden aria-label="Text outline of the current step">
+		<h2 id="outline-title">Step Details</h2>
+		<div id="outline-body"></div>
+	</aside>
+
+	<div id="controls" role="group" aria-label="Diagram navigation">
+		<button id="ctrl-grip" type="button" class="ctrl-grip" aria-label="Drag to move the controls" title="Drag to move">
+			<svg viewBox="0 0 16 16" aria-hidden="true"><g fill="currentColor"><circle cx="5" cy="3" r="1.4"/><circle cx="11" cy="3" r="1.4"/><circle cx="5" cy="8" r="1.4"/><circle cx="11" cy="8" r="1.4"/><circle cx="5" cy="13" r="1.4"/><circle cx="11" cy="13" r="1.4"/></g></svg>
+		</button>
+		<button id="ctrl-pin" type="button" class="button button-clear ctrl-icon ctrl-pin" aria-label="Pin the controls back to the center" title="Pin to center">
+			<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9 2h6a1 1 0 0 1 .8 1.6L14 6v4l3 3v2h-4v5l-1 2-1-2v-5H7v-2l3-3V6L8.2 3.6A1 1 0 0 1 9 2z"/></svg>
+		</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="prev-btn" type="button" class="button ctrl-icon" aria-label="Previous step (left arrow)">&#9664;</button>
+		<div class="step-counter" id="step-counter">0 / 0</div>
+		<button id="next-btn" type="button" class="button button-primary button-filled ctrl-icon ctrl-icon-next" aria-label="Next step (right arrow or space)">&#9654;</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="replay-btn" type="button" class="button ctrl-icon" aria-label="Replay this step's animation (P)">&#8635;</button>
+		<div class="speed-control" role="group" aria-label="Animation speed">
+			<button id="speed-down" type="button" class="button button-clear speed-btn" aria-label="Slower (-)" title="Slower">&minus;</button>
+			<span id="speed-label" class="speed-label" aria-live="polite" aria-label="Current speed">1&times;</span>
+			<button id="speed-up" type="button" class="button button-clear speed-btn" aria-label="Faster (+)" title="Faster">+</button>
+		</div>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="reset-btn" type="button" class="button button-clear ctrl-icon" aria-label="Restart from step 1 (R)">&#9198;</button>
+	</div>
+
+	<!-- "Up next" pill — docked bottom-right on the last step so learners chain to the next stop -->
+	<div id="journey-next" aria-hidden="true">
+		<div class="jn-card" role="group" aria-label="Continue to the next stop">
+			<span class="jn-icon"><img id="jn-icon-img" src="" alt="" decoding="async" /></span>
+			<span class="jn-text">
+				<span class="jn-eyebrow"><span class="jn-check" aria-hidden="true">✓</span><span id="jn-eyebrow-text">Up next</span></span>
+				<span class="jn-title" id="jn-title">Next stop</span>
+			</span>
+			<a id="jn-cta" class="jn-cta" href="#"><span id="jn-cta-text">Continue</span><span aria-hidden="true">→</span></a>
+			<button id="jn-close" class="jn-close" type="button" aria-label="Dismiss"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
+		</div>
+	</div>
+
+	<div id="shortcut-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="sc-title">
+		<div class="sc-backdrop"></div>
+		<div class="sc-panel">
+			<button id="sc-close" class="sc-close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
+			<h2 id="sc-title">Keyboard shortcuts</h2>
+			<ul id="sc-list" class="sc-list"></ul>
+			<p class="sc-hint">Press <kbd>?</kbd> anytime to toggle this panel.</p>
+		</div>
+	</div>
+
+<script>
+// ── THEME ─────────────────────────────────
+const themeToggleBtn = document.getElementById('theme-toggle');
+function syncThemeBtn(){
+	if (!themeToggleBtn) return;
+	const isDark = document.body.classList.contains('theme-dark');
+	themeToggleBtn.dataset.theme = isDark ? 'dark' : 'light';
+	const label = isDark ? 'Switch to light theme' : 'Switch to dark theme';
+	themeToggleBtn.setAttribute('aria-label', label);
+	themeToggleBtn.setAttribute('title', label);
+}
+if (window.AW && AW.theme) {
+	AW.theme.onChange(() => { syncThemeBtn(); if (typeof rerenderInstant === 'function' && current >= 0) rerenderInstant(); });
+	syncThemeBtn();
+} else {
+	syncThemeBtn();
+	if (themeToggleBtn) themeToggleBtn.addEventListener('click', () => {
+		const goingDark = !document.body.classList.contains('theme-dark');
+		document.body.classList.remove('theme-dark', 'theme-light');
+		document.body.classList.add(goingDark ? 'theme-dark' : 'theme-light');
+		try { localStorage.setItem('aw-theme', goingDark ? 'theme-dark' : 'theme-light'); } catch(_){}
+		syncThemeBtn();
+		if (current >= 0) renderStep(current);
+	});
+	try { const saved = localStorage.getItem('aw-theme'); if (saved === 'theme-light' || saved === 'theme-dark') { document.body.classList.remove('theme-dark','theme-light'); document.body.classList.add(saved); syncThemeBtn(); } } catch(_){}
+}
+
+// ── i18n ──────────────────────────────────
+// English is the source language (English-first). Add sibling objects
+// (es/ja/ko/pt) with the SAME keys + matching <option>s once translations are
+// reviewed. Brand/product/code/proper-noun sample data stays untranslated.
+let currentLang = 'en';
+const I18N = {
+	en: {
+		skipToMain: 'Skip to diagram',
+		pageTitle: 'Virtual Network',
+		stageHeading: 'Azure Virtual Network \u2014 VNet, Subnets, NICs & NSGs',
+		stageInstructions: 'Animated explainer of Azure Virtual Networks: CIDR address space, subnets, virtual machines, network interfaces, and network security groups. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.',
+		prev: '\u25C0 Prev', next: 'Next \u25B6', replay: '\u21BB Replay', restart: '\u21BB Restart',
+		slower: 'Slower', faster: 'Faster',
+		calloutOn: '\uD83D\uDCAC Callout: On', calloutOff: '\uD83D\uDCAC Callout: Off',
+		outlineOn: '\uD83D\uDCDD Outline: On', outlineOff: '\uD83D\uDCDD Outline: Off',
+		audioOn: '\uD83D\uDD0A Audio: On', audioOff: '\uD83D\uDD07 Audio: Off',
+		stepDetails: 'Step Details', stepOf: 'Step',
+		resetPos: 'Reset to default position',
+		scTitle: 'Keyboard shortcuts',
+		scNext: 'Next step', scPrev: 'Previous step', scRestart: 'Restart', scReplay: 'Replay this step', scHide: 'Hide / show top bar', scHelp: 'Toggle this help',
+
+		// ── SHARED MAP LABELS (constant across steps) ──
+		zVnet: 'Virtual Network (VNet)',
+		zSubnet: 'Subnet', zSubnetCidr: '10.0.1.0/24',
+		chipCidr: '10.0.0.0/16', chipRfc: 'RFC 1918 private', chipDual: 'IPv4 + IPv6',
+		nVm: 'Virtual Machine', nVmSub: 'needs network access', nVm2Sub: 'same subnet \u2014 same rules',
+		nNic: 'Network Interface', rowPriv: 'Private IP', rowPriv1V: '10.0.1.4 \u00b7 required', rowPriv2V: '10.0.1.5 \u00b7 required', rowPub: 'Public IP', rowPubV: 'optional',
+		nNsg: 'Network Security Group', nNsgSub: 'filter by port \u00b7 protocol \u00b7 direction',
+		nsgIn: 'Inbound', nsgInV: 'Allow 443/TCP', nsgIn2V: 'Allow 22/TCP', nsgOut: 'Outbound', nsgOutV: 'Allow 80,443', nsgDeny: 'Default', nsgDenyV: 'Deny all',
+		subnetNsgBadge: '\uD83D\uDEE1 NSG on the subnet \u2192 every VM covered',
+		elOneToOne: '1 : 1', elFilter: 'filters in / out', elSubnet: '\u2192 whole subnet',
+		bp1: '\uD83E\uDDED CIDR = the address space', bp2: '\uD83E\uDDE9 Subnets segment the VNet', bp3: '\uD83D\uDD0C NIC = the VM\u2019s network identity', bp4: '\uD83D\uDEE1 NSG filters port & protocol', bp5: '\uD83D\uDCCE NSG on the subnet scales',
+
+		// ── Step 1 · VNET ──
+		vnTitle: 'Start With a Virtual Network',
+		vnCaption: 'Your private network in Azure',
+		vnDesc: 'A VNet is your own isolated private network in Azure. You give it an address space in CIDR notation \u2014 here 10.0.0.0/16. Best practice: use the private RFC 1918 ranges (10.x, 172.16\u201331.x, 192.168.x), and Azure can run dual-stack IPv4 + IPv6.',
+		vnCallout: 'Pick a CIDR big enough for every subnet you\u2019ll carve out \u2014 and one that won\u2019t overlap networks you may peer with later.',
+		vnStat1: 'What', vnStat1v: 'An isolated private network',
+		vnStat2: 'Address space', vnStat2v: 'CIDR \u2014 e.g. 10.0.0.0/16',
+		vnStat3: 'Best practice', vnStat3v: 'RFC 1918 \u00b7 dual-stack IPv4/IPv6',
+
+		// ── Step 2 · SUBNET ──
+		sbTitle: 'Segment It Into Subnets',
+		sbCaption: 'Divide the address space',
+		sbDesc: 'Carve the VNet into subnets \u2014 smaller ranges like 10.0.1.0/24. Subnets segment your network so you can group resources, route traffic, and apply security at the boundary. Every resource you place lives inside a subnet.',
+		sbCallout: 'Subnets are how you separate tiers \u2014 web, app, data \u2014 and control what talks to what.',
+		sbStat1: 'What', sbStat1v: 'A slice of the VNet',
+		sbStat2: 'Why', sbStat2v: 'Segmentation & routing',
+		sbStat3: 'Example', sbStat3v: '10.0.1.0/24',
+
+		// ── Step 3 · VM ──
+		vmTitle: 'Place a Virtual Machine',
+		vmCaption: 'It lives inside a subnet',
+		vmDesc: 'Drop a virtual machine into the subnet. To talk on the network it needs at least one private IP; a public IP is optional. But here\u2019s the catch \u2014 an IP address is never assigned to the VM directly.',
+		vmCallout: 'A VM by itself has no network identity \u2014 something else has to hold its IP addresses.',
+		vmStat1: 'Where', vmStat1v: 'Inside a subnet',
+		vmStat2: 'Needs', vmStat2v: 'A private IP (public optional)',
+		vmStat3: 'Catch', vmStat3v: 'IP isn\u2019t on the VM directly',
+
+		// ── Step 4 · NIC ──
+		niTitle: 'The NIC Holds the IPs',
+		niCaption: 'The VM\u2019s network identity',
+		niDesc: 'That\u2019s what a network interface (NIC) is for. The NIC carries the private IP and an optional public IP \u2014 and it can hold more than one IP configuration. A NIC attaches to exactly one VM (1:1), giving that VM its place on the subnet.',
+		niCallout: 'Want multiple IPs, or a static private IP? It\u2019s all configured on the NIC, not the VM.',
+		niStat1: 'Holds', niStat1v: 'Private + optional public IP',
+		niStat2: 'Can have', niStat2v: 'Multiple IP configurations',
+		niStat3: 'Binding', niStat3v: 'One NIC \u2194 one VM (1:1)',
+
+		// ── Step 5 · NSG ──
+		nsTitle: 'Filter Traffic With an NSG',
+		nsCaption: 'Inbound & outbound rules',
+		nsDesc: 'How do you control what reaches the VM? Attach a Network Security Group. An NSG is a flexible list of allow/deny rules by port, protocol and direction \u2014 inbound and outbound \u2014 evaluated by priority. Attach it to the NIC to filter that VM\u2019s traffic.',
+		nsCallout: 'Rules match on source / destination, port and protocol \u2014 e.g. allow 443/TCP in, deny everything else.',
+		nsStat1: 'What', nsStat1v: 'Allow / deny rule list',
+		nsStat2: 'Matches on', nsStat2v: 'Port \u00b7 protocol \u00b7 direction',
+		nsStat3: 'Here', nsStat3v: 'Attached to the NIC',
+
+		// ── Step 6 · NSG ON THE SUBNET ──
+		sgTitle: 'One NSG for the Whole Subnet',
+		sgCaption: 'Don\u2019t repeat yourself',
+		sgDesc: 'Add a second VM and you\u2019d have to attach the same NSG to every NIC by hand. Instead, associate the NSG with the subnet \u2014 now every NIC in that subnet inherits the same rules automatically. It scales to as many VMs as you add.',
+		sgCallout: 'You can use both: a subnet-level NSG for the baseline, and NIC-level rules for per-VM exceptions.',
+		sgStat1: 'Problem', sgStat1v: 'Duplicating NSGs per VM',
+		sgStat2: 'Fix', sgStat2v: 'Associate the NSG to the subnet',
+		sgStat3: 'Result', sgStat3v: 'Every VM inherits the rules',
+
+		// ── Step 7 · RECAP ──
+		rcTitle: 'The Whole Picture',
+		rcCaption: 'VNet, end to end',
+		rcDesc: 'VNet (a CIDR address space) \u2192 subnets that segment it \u2192 VMs whose IPs live on a NIC \u2192 NSGs that filter traffic, attached to a NIC or, to scale, to the whole subnet. That\u2019s the core of Azure networking.',
+		rcCallout: 'CIDR sizing, subnet segmentation, a NIC per VM, and NSGs on the subnet \u2014 the foundations every Azure network builds on.',
+		rcFoot: 'Go deeper on the free Microsoft Learn module <a href="https://learn.microsoft.com/training/modules/introduction-to-azure-virtual-networks/" target="_blank" rel="noopener">Introduction to Azure Virtual Networks</a>.',
+		rcStat1: 'Build order', rcStat1v: 'VNet \u2192 subnet \u2192 VM \u2192 NIC \u2192 NSG',
+		rcStat2: 'IPs', rcStat2v: 'Live on the NIC, not the VM',
+		rcStat3: 'Scale', rcStat3v: 'Put the NSG on the subnet'
+	},
+
+	// ── Español (es) — teaching text; brand/code/product names stay English ──
+	es: {
+		skipToMain: "Ir al diagrama",
+		pageTitle: "Red virtual",
+		stageHeading: "Azure Virtual Network \u2014 VNet, subredes, NIC y NSG",
+		stageInstructions: "Explicaci\u00f3n animada de las redes virtuales de Azure: espacio de direcciones CIDR, subredes, m\u00e1quinas virtuales, interfaces de red y grupos de seguridad de red. Usa los botones Siguiente/Anterior o las flechas para navegar. Pulsa R para reiniciar.",
+		prev: "\u25c0 Anterior",
+		next: "Siguiente \u25b6",
+		replay: "\u21bb Repetir",
+		restart: "\u21bb Reiniciar",
+		slower: "M\u00e1s lento",
+		faster: "M\u00e1s r\u00e1pido",
+		calloutOn: "\ud83d\udcac Nota: activada",
+		calloutOff: "\ud83d\udcac Nota: desactivada",
+		outlineOn: "\ud83d\udcdd Esquema: activado",
+		outlineOff: "\ud83d\udcdd Esquema: desactivado",
+		audioOn: "\ud83d\udd0a Audio: activado",
+		audioOff: "\ud83d\udd07 Audio: desactivado",
+		stepDetails: "Detalles del paso",
+		stepOf: "Paso",
+		resetPos: "Restablecer la posici\u00f3n",
+		scTitle: "Atajos de teclado",
+		scNext: "Paso siguiente",
+		scPrev: "Paso anterior",
+		scRestart: "Reiniciar",
+		scReplay: "Repetir este paso",
+		scHide: "Mostrar u ocultar la barra superior",
+		scHelp: "Mostrar u ocultar esta ayuda",
+		zVnet: "Red virtual (VNet)",
+		zSubnet: "Subred",
+		zSubnetCidr: "10.0.1.0/24",
+		chipCidr: "10.0.0.0/16",
+		chipRfc: "Privado RFC 1918",
+		chipDual: "IPv4 + IPv6",
+		nVm: "M\u00e1quina virtual",
+		nVmSub: "necesita acceso a la red",
+		nVm2Sub: "misma subred, mismas reglas",
+		nNic: "Interfaz de red",
+		rowPriv: "IP privada",
+		rowPriv1V: "10.0.1.4 \u00b7 obligatoria",
+		rowPriv2V: "10.0.1.5 \u00b7 obligatoria",
+		rowPub: "IP p\u00fablica",
+		rowPubV: "opcional",
+		nNsg: "Grupo de seguridad de red",
+		nNsgSub: "filtra por puerto \u00b7 protocolo \u00b7 direcci\u00f3n",
+		nsgIn: "Entrada",
+		nsgInV: "Permitir 443/TCP",
+		nsgIn2V: "Permitir 22/TCP",
+		nsgOut: "Salida",
+		nsgOutV: "Permitir 80,443",
+		nsgDeny: "Predeterminada",
+		nsgDenyV: "Denegar todo",
+		subnetNsgBadge: "\ud83d\udee1 NSG en la subred \u2192 todas las VM protegidas",
+		elOneToOne: "1 : 1",
+		elFilter: "filtra entrada / salida",
+		elSubnet: "\u2192 toda la subred",
+		bp1: "\ud83e\udded CIDR = el espacio de direcciones",
+		bp2: "\ud83e\udde9 Las subredes segmentan la VNet",
+		bp3: "\ud83d\udd0c La NIC = la identidad de red de la VM",
+		bp4: "\ud83d\udee1 El NSG filtra puerto y protocolo",
+		bp5: "\ud83d\udcce El NSG en la subred escala",
+		vnTitle: "Empieza por una red virtual",
+		vnCaption: "Tu red privada en Azure",
+		vnDesc: "Una VNet es tu propia red privada y aislada en Azure. Le asignas un espacio de direcciones en notaci\u00f3n CIDR: aqu\u00ed 10.0.0.0/16. Pr\u00e1ctica recomendada: usa los rangos privados RFC 1918 (10.x, 172.16\u201331.x, 192.168.x); Azure admite doble pila IPv4 + IPv6.",
+		vnCallout: "Elige un CIDR lo bastante grande para todas las subredes que vayas a crear y que no se solape con redes con las que quiz\u00e1 emparejes m\u00e1s adelante.",
+		vnStat1: "Qu\u00e9 es",
+		vnStat1v: "Una red privada aislada",
+		vnStat2: "Espacio de direcciones",
+		vnStat2v: "CIDR, p. ej. 10.0.0.0/16",
+		vnStat3: "Pr\u00e1ctica recomendada",
+		vnStat3v: "RFC 1918 \u00b7 doble pila IPv4/IPv6",
+		sbTitle: "Div\u00eddela en subredes",
+		sbCaption: "Reparte el espacio de direcciones",
+		sbDesc: "Divide la VNet en subredes: rangos m\u00e1s peque\u00f1os como 10.0.1.0/24. Las subredes segmentan la red para agrupar recursos, enrutar el tr\u00e1fico y aplicar seguridad en el l\u00edmite. Todo recurso que crees vive dentro de una subred.",
+		sbCallout: "Las subredes son la forma de separar capas \u2014web, aplicaci\u00f3n, datos\u2014 y controlar qu\u00e9 habla con qu\u00e9.",
+		sbStat1: "Qu\u00e9 es",
+		sbStat1v: "Una porci\u00f3n de la VNet",
+		sbStat2: "Para qu\u00e9",
+		sbStat2v: "Segmentaci\u00f3n y enrutamiento",
+		sbStat3: "Ejemplo",
+		sbStat3v: "10.0.1.0/24",
+		vmTitle: "Coloca una m\u00e1quina virtual",
+		vmCaption: "Vive dentro de una subred",
+		vmDesc: "Coloca una m\u00e1quina virtual en la subred. Para comunicarse en la red necesita al menos una IP privada; la IP p\u00fablica es opcional. Pero aqu\u00ed est\u00e1 el truco: la direcci\u00f3n IP nunca se asigna directamente a la VM.",
+		vmCallout: "Una VM por s\u00ed sola no tiene identidad de red: algo tiene que sostener sus direcciones IP.",
+		vmStat1: "D\u00f3nde",
+		vmStat1v: "Dentro de una subred",
+		vmStat2: "Necesita",
+		vmStat2v: "Una IP privada (p\u00fablica opcional)",
+		vmStat3: "El truco",
+		vmStat3v: "La IP no est\u00e1 en la VM",
+		niTitle: "La NIC sostiene las IP",
+		niCaption: "La identidad de red de la VM",
+		niDesc: "Para eso est\u00e1 la interfaz de red (NIC). La NIC lleva la IP privada y una IP p\u00fablica opcional, y puede tener m\u00e1s de una configuraci\u00f3n de IP. Una NIC se conecta exactamente a una VM (1:1) y le da su lugar en la subred.",
+		niCallout: "\u00bfQuieres varias IP o una IP privada est\u00e1tica? Todo se configura en la NIC, no en la VM.",
+		niStat1: "Contiene",
+		niStat1v: "IP privada + p\u00fablica opcional",
+		niStat2: "Puede tener",
+		niStat2v: "Varias configuraciones de IP",
+		niStat3: "V\u00ednculo",
+		niStat3v: "Una NIC \u2194 una VM (1:1)",
+		nsTitle: "Filtra el tr\u00e1fico con un NSG",
+		nsCaption: "Reglas de entrada y salida",
+		nsDesc: "\u00bfC\u00f3mo controlas lo que llega a la VM? Asocia un grupo de seguridad de red. Un NSG es una lista flexible de reglas de permitir o denegar por puerto, protocolo y direcci\u00f3n \u2014entrada y salida\u2014 evaluadas por prioridad. As\u00f3cialo a la NIC para filtrar el tr\u00e1fico de esa VM.",
+		nsCallout: "Las reglas coinciden por origen/destino, puerto y protocolo; por ejemplo, permitir 443/TCP de entrada y denegar el resto.",
+		nsStat1: "Qu\u00e9 es",
+		nsStat1v: "Lista de reglas permitir/denegar",
+		nsStat2: "Coincide por",
+		nsStat2v: "Puerto \u00b7 protocolo \u00b7 direcci\u00f3n",
+		nsStat3: "Aqu\u00ed",
+		nsStat3v: "Asociado a la NIC",
+		sgTitle: "Un solo NSG para toda la subred",
+		sgCaption: "No te repitas",
+		sgDesc: "A\u00f1ade una segunda VM y tendr\u00edas que asociar el mismo NSG a cada NIC a mano. En su lugar, asocia el NSG a la subred: ahora cada NIC de esa subred hereda las mismas reglas autom\u00e1ticamente. Escala a tantas VM como a\u00f1adas.",
+		sgCallout: "Puedes usar ambos: un NSG en la subred como base y reglas en la NIC para las excepciones de cada VM.",
+		sgStat1: "Problema",
+		sgStat1v: "Duplicar el NSG en cada VM",
+		sgStat2: "Soluci\u00f3n",
+		sgStat2v: "Asociar el NSG a la subred",
+		sgStat3: "Resultado",
+		sgStat3v: "Cada VM hereda las reglas",
+		rcTitle: "La imagen completa",
+		rcCaption: "La VNet, de principio a fin",
+		rcDesc: "VNet (un espacio de direcciones CIDR) \u2192 subredes que la segmentan \u2192 VM cuyas IP viven en una NIC \u2192 NSG que filtran el tr\u00e1fico, asociados a una NIC o, para escalar, a toda la subred. Ese es el n\u00facleo de las redes de Azure.",
+		rcCallout: "Dimensionar el CIDR, segmentar en subredes, una NIC por VM y los NSG en la subred: los cimientos sobre los que se construye toda red de Azure.",
+		rcFoot: "Profundiza con el m\u00f3dulo gratuito de Microsoft Learn <a href=\"https://learn.microsoft.com/training/modules/introduction-to-azure-virtual-networks/\" target=\"_blank\" rel=\"noopener\">Introduction to Azure Virtual Networks</a>.",
+		rcStat1: "Orden de construcci\u00f3n",
+		rcStat1v: "VNet \u2192 subred \u2192 VM \u2192 NIC \u2192 NSG",
+		rcStat2: "Las IP",
+		rcStat2v: "Viven en la NIC, no en la VM",
+		rcStat3: "Escalar",
+		rcStat3v: "Pon el NSG en la subred"
+	},
+
+	// ── 日本語 (ja) — teaching text; brand/code/product names stay English ──
+	ja: {
+		skipToMain: "\u56f3\u3078\u30b9\u30ad\u30c3\u30d7",
+		pageTitle: "\u4eee\u60f3\u30cd\u30c3\u30c8\u30ef\u30fc\u30af",
+		stageHeading: "Azure Virtual Network \u2014 VNet\u3001\u30b5\u30d6\u30cd\u30c3\u30c8\u3001NIC\u3001NSG",
+		stageInstructions: "Azure \u4eee\u60f3\u30cd\u30c3\u30c8\u30ef\u30fc\u30af\u306e\u30a2\u30cb\u30e1\u30fc\u30b7\u30e7\u30f3\u89e3\u8aac\uff1aCIDR \u30a2\u30c9\u30ec\u30b9\u7a7a\u9593\u3001\u30b5\u30d6\u30cd\u30c3\u30c8\u3001\u4eee\u60f3\u30de\u30b7\u30f3\u3001\u30cd\u30c3\u30c8\u30ef\u30fc\u30af \u30a4\u30f3\u30bf\u30fc\u30d5\u30a7\u30a4\u30b9\u3001\u30cd\u30c3\u30c8\u30ef\u30fc\u30af \u30bb\u30ad\u30e5\u30ea\u30c6\u30a3 \u30b0\u30eb\u30fc\u30d7\u3002\u300c\u6b21\u3078\u300d\u300c\u524d\u3078\u300d\u30dc\u30bf\u30f3\u307e\u305f\u306f\u77e2\u5370\u30ad\u30fc\u3067\u79fb\u52d5\u3057\u307e\u3059\u3002R \u30ad\u30fc\u3067\u6700\u521d\u304b\u3089\u518d\u751f\u3057\u307e\u3059\u3002",
+		prev: "\u25c0 \u524d\u3078",
+		next: "\u6b21\u3078 \u25b6",
+		replay: "\u21bb \u518d\u751f",
+		restart: "\u21bb \u6700\u521d\u304b\u3089",
+		slower: "\u3086\u3063\u304f\u308a",
+		faster: "\u901f\u304f",
+		calloutOn: "\ud83d\udcac \u5439\u304d\u51fa\u3057\uff1a\u30aa\u30f3",
+		calloutOff: "\ud83d\udcac \u5439\u304d\u51fa\u3057\uff1a\u30aa\u30d5",
+		outlineOn: "\ud83d\udcdd \u30a2\u30a6\u30c8\u30e9\u30a4\u30f3\uff1a\u30aa\u30f3",
+		outlineOff: "\ud83d\udcdd \u30a2\u30a6\u30c8\u30e9\u30a4\u30f3\uff1a\u30aa\u30d5",
+		audioOn: "\ud83d\udd0a \u97f3\u58f0\uff1a\u30aa\u30f3",
+		audioOff: "\ud83d\udd07 \u97f3\u58f0\uff1a\u30aa\u30d5",
+		stepDetails: "\u30b9\u30c6\u30c3\u30d7\u306e\u8a73\u7d30",
+		stepOf: "\u30b9\u30c6\u30c3\u30d7",
+		resetPos: "\u4f4d\u7f6e\u3092\u65e2\u5b9a\u306b\u623b\u3059",
+		scTitle: "\u30ad\u30fc\u30dc\u30fc\u30c9 \u30b7\u30e7\u30fc\u30c8\u30ab\u30c3\u30c8",
+		scNext: "\u6b21\u306e\u30b9\u30c6\u30c3\u30d7",
+		scPrev: "\u524d\u306e\u30b9\u30c6\u30c3\u30d7",
+		scRestart: "\u6700\u521d\u304b\u3089",
+		scReplay: "\u3053\u306e\u30b9\u30c6\u30c3\u30d7\u3092\u518d\u751f",
+		scHide: "\u4e0a\u90e8\u30d0\u30fc\u306e\u8868\u793a / \u975e\u8868\u793a",
+		scHelp: "\u3053\u306e\u30d8\u30eb\u30d7\u306e\u8868\u793a\u5207\u308a\u66ff\u3048",
+		zVnet: "\u4eee\u60f3\u30cd\u30c3\u30c8\u30ef\u30fc\u30af (VNet)",
+		zSubnet: "\u30b5\u30d6\u30cd\u30c3\u30c8",
+		zSubnetCidr: "10.0.1.0/24",
+		chipCidr: "10.0.0.0/16",
+		chipRfc: "RFC 1918 \u30d7\u30e9\u30a4\u30d9\u30fc\u30c8",
+		chipDual: "IPv4 + IPv6",
+		nVm: "\u4eee\u60f3\u30de\u30b7\u30f3",
+		nVmSub: "\u30cd\u30c3\u30c8\u30ef\u30fc\u30af\u63a5\u7d9a\u304c\u5fc5\u8981",
+		nVm2Sub: "\u540c\u3058\u30b5\u30d6\u30cd\u30c3\u30c8\u3001\u540c\u3058\u30eb\u30fc\u30eb",
+		nNic: "\u30cd\u30c3\u30c8\u30ef\u30fc\u30af \u30a4\u30f3\u30bf\u30fc\u30d5\u30a7\u30a4\u30b9",
+		rowPriv: "\u30d7\u30e9\u30a4\u30d9\u30fc\u30c8 IP",
+		rowPriv1V: "10.0.1.4 \u00b7 \u5fc5\u9808",
+		rowPriv2V: "10.0.1.5 \u00b7 \u5fc5\u9808",
+		rowPub: "\u30d1\u30d6\u30ea\u30c3\u30af IP",
+		rowPubV: "\u4efb\u610f",
+		nNsg: "\u30cd\u30c3\u30c8\u30ef\u30fc\u30af \u30bb\u30ad\u30e5\u30ea\u30c6\u30a3 \u30b0\u30eb\u30fc\u30d7",
+		nNsgSub: "\u30dd\u30fc\u30c8 \u00b7 \u30d7\u30ed\u30c8\u30b3\u30eb \u00b7 \u65b9\u5411\u3067\u30d5\u30a3\u30eb\u30bf\u30fc",
+		nsgIn: "\u53d7\u4fe1",
+		nsgInV: "443/TCP \u3092\u8a31\u53ef",
+		nsgIn2V: "22/TCP \u3092\u8a31\u53ef",
+		nsgOut: "\u9001\u4fe1",
+		nsgOutV: "80,443 \u3092\u8a31\u53ef",
+		nsgDeny: "\u65e2\u5b9a",
+		nsgDenyV: "\u3059\u3079\u3066\u62d2\u5426",
+		subnetNsgBadge: "\ud83d\udee1 \u30b5\u30d6\u30cd\u30c3\u30c8\u306b NSG \u2192 \u3059\u3079\u3066\u306e VM \u3092\u4fdd\u8b77",
+		elOneToOne: "1 : 1",
+		elFilter: "\u53d7\u4fe1 / \u9001\u4fe1\u3092\u30d5\u30a3\u30eb\u30bf\u30fc",
+		elSubnet: "\u2192 \u30b5\u30d6\u30cd\u30c3\u30c8\u5168\u4f53",
+		bp1: "\ud83e\udded CIDR = \u30a2\u30c9\u30ec\u30b9\u7a7a\u9593",
+		bp2: "\ud83e\udde9 \u30b5\u30d6\u30cd\u30c3\u30c8\u304c VNet \u3092\u5206\u5272",
+		bp3: "\ud83d\udd0c NIC = VM \u306e\u30cd\u30c3\u30c8\u30ef\u30fc\u30af ID",
+		bp4: "\ud83d\udee1 NSG \u304c\u30dd\u30fc\u30c8\u3068\u30d7\u30ed\u30c8\u30b3\u30eb\u3092\u30d5\u30a3\u30eb\u30bf\u30fc",
+		bp5: "\ud83d\udcce \u30b5\u30d6\u30cd\u30c3\u30c8\u306e NSG \u306f\u30b9\u30b1\u30fc\u30eb\u3059\u308b",
+		vnTitle: "\u307e\u305a\u4eee\u60f3\u30cd\u30c3\u30c8\u30ef\u30fc\u30af\u304b\u3089",
+		vnCaption: "Azure \u306e\u4e2d\u306e\u3042\u306a\u305f\u5c02\u7528\u306e\u30d7\u30e9\u30a4\u30d9\u30fc\u30c8 \u30cd\u30c3\u30c8\u30ef\u30fc\u30af",
+		vnDesc: "VNet \u306f Azure \u306e\u4e2d\u306b\u3042\u308b\u3042\u306a\u305f\u5c02\u7528\u306e\u9694\u96e2\u3055\u308c\u305f\u30d7\u30e9\u30a4\u30d9\u30fc\u30c8 \u30cd\u30c3\u30c8\u30ef\u30fc\u30af\u3067\u3059\u3002CIDR \u8868\u8a18\u3067\u30a2\u30c9\u30ec\u30b9\u7a7a\u9593\u3092\u4e0e\u3048\u307e\u3059\u3002\u3053\u3053\u3067\u306f 10.0.0.0/16 \u3067\u3059\u3002\u63a8\u5968\u4e8b\u9805\u3068\u3057\u3066 RFC 1918 \u306e\u30d7\u30e9\u30a4\u30d9\u30fc\u30c8\u7bc4\u56f2 (10.x\u3001172.16\u201331.x\u3001192.168.x) \u3092\u4f7f\u3044\u3001Azure \u306f IPv4 + IPv6 \u306e\u30c7\u30e5\u30a2\u30eb \u30b9\u30bf\u30c3\u30af\u306b\u3082\u5bfe\u5fdc\u3057\u307e\u3059\u3002",
+		vnCallout: "\u5207\u308a\u51fa\u3059\u3059\u3079\u3066\u306e\u30b5\u30d6\u30cd\u30c3\u30c8\u306b\u8db3\u308a\u308b\u5927\u304d\u3055\u3067\u3001\u5f8c\u3067\u30d4\u30a2\u30ea\u30f3\u30b0\u3059\u308b\u304b\u3082\u3057\u308c\u306a\u3044\u30cd\u30c3\u30c8\u30ef\u30fc\u30af\u3068\u91cd\u306a\u3089\u306a\u3044 CIDR \u3092\u9078\u3073\u307e\u3057\u3087\u3046\u3002",
+		vnStat1: "\u4f55\u304b",
+		vnStat1v: "\u9694\u96e2\u3055\u308c\u305f\u30d7\u30e9\u30a4\u30d9\u30fc\u30c8 \u30cd\u30c3\u30c8\u30ef\u30fc\u30af",
+		vnStat2: "\u30a2\u30c9\u30ec\u30b9\u7a7a\u9593",
+		vnStat2v: "CIDR \u2014 \u4f8b\uff1a10.0.0.0/16",
+		vnStat3: "\u63a8\u5968\u4e8b\u9805",
+		vnStat3v: "RFC 1918 \u00b7 IPv4/IPv6 \u30c7\u30e5\u30a2\u30eb \u30b9\u30bf\u30c3\u30af",
+		sbTitle: "\u30b5\u30d6\u30cd\u30c3\u30c8\u306b\u5206\u5272\u3059\u308b",
+		sbCaption: "\u30a2\u30c9\u30ec\u30b9\u7a7a\u9593\u3092\u5206\u3051\u308b",
+		sbDesc: "VNet \u3092 10.0.1.0/24 \u306e\u3088\u3046\u306a\u5c0f\u3055\u306a\u7bc4\u56f2\u3001\u3064\u307e\u308a\u30b5\u30d6\u30cd\u30c3\u30c8\u306b\u5207\u308a\u5206\u3051\u307e\u3059\u3002\u30b5\u30d6\u30cd\u30c3\u30c8\u306f\u30cd\u30c3\u30c8\u30ef\u30fc\u30af\u3092\u5206\u5272\u3057\u3001\u30ea\u30bd\u30fc\u30b9\u3092\u307e\u3068\u3081\u3001\u30c8\u30e9\u30d5\u30a3\u30c3\u30af\u3092\u30eb\u30fc\u30c6\u30a3\u30f3\u30b0\u3057\u3001\u5883\u754c\u3067\u30bb\u30ad\u30e5\u30ea\u30c6\u30a3\u3092\u9069\u7528\u3067\u304d\u308b\u3088\u3046\u306b\u3057\u307e\u3059\u3002\u914d\u7f6e\u3059\u308b\u3059\u3079\u3066\u306e\u30ea\u30bd\u30fc\u30b9\u306f\u30b5\u30d6\u30cd\u30c3\u30c8\u306e\u4e2d\u306b\u5b58\u5728\u3057\u307e\u3059\u3002",
+		sbCallout: "\u30b5\u30d6\u30cd\u30c3\u30c8\u306f Web\u3001\u30a2\u30d7\u30ea\u3001\u30c7\u30fc\u30bf\u3068\u3044\u3063\u305f\u5c64\u3092\u5206\u3051\u3001\u4f55\u3068\u4f55\u304c\u901a\u4fe1\u3067\u304d\u308b\u304b\u3092\u5236\u5fa1\u3059\u308b\u65b9\u6cd5\u3067\u3059\u3002",
+		sbStat1: "\u4f55\u304b",
+		sbStat1v: "VNet \u306e\u4e00\u90e8\u5206",
+		sbStat2: "\u306a\u305c",
+		sbStat2v: "\u5206\u5272\u3068\u30eb\u30fc\u30c6\u30a3\u30f3\u30b0",
+		sbStat3: "\u4f8b",
+		sbStat3v: "10.0.1.0/24",
+		vmTitle: "\u4eee\u60f3\u30de\u30b7\u30f3\u3092\u7f6e\u304f",
+		vmCaption: "\u30b5\u30d6\u30cd\u30c3\u30c8\u306e\u4e2d\u306b\u5b58\u5728\u3059\u308b",
+		vmDesc: "\u30b5\u30d6\u30cd\u30c3\u30c8\u306b\u4eee\u60f3\u30de\u30b7\u30f3\u3092\u914d\u7f6e\u3057\u307e\u3059\u3002\u30cd\u30c3\u30c8\u30ef\u30fc\u30af\u3067\u901a\u4fe1\u3059\u308b\u306b\u306f\u5c11\u306a\u304f\u3068\u3082 1 \u3064\u306e\u30d7\u30e9\u30a4\u30d9\u30fc\u30c8 IP \u304c\u5fc5\u8981\u3067\u3001\u30d1\u30d6\u30ea\u30c3\u30af IP \u306f\u4efb\u610f\u3067\u3059\u3002\u305f\u3060\u3057\u843d\u3068\u3057\u7a74\u304c\u3042\u308a\u307e\u3059\u3002IP \u30a2\u30c9\u30ec\u30b9\u304c VM \u306b\u76f4\u63a5\u5272\u308a\u5f53\u3066\u3089\u308c\u308b\u3053\u3068\u306f\u6c7a\u3057\u3066\u3042\u308a\u307e\u305b\u3093\u3002",
+		vmCallout: "VM \u5358\u4f53\u3067\u306f\u30cd\u30c3\u30c8\u30ef\u30fc\u30af ID \u3092\u6301\u3061\u307e\u305b\u3093\u3002IP \u30a2\u30c9\u30ec\u30b9\u3092\u4fdd\u6301\u3059\u308b\u4f55\u304b\u304c\u5fc5\u8981\u3067\u3059\u3002",
+		vmStat1: "\u3069\u3053\u306b",
+		vmStat1v: "\u30b5\u30d6\u30cd\u30c3\u30c8\u306e\u4e2d",
+		vmStat2: "\u5fc5\u8981\u306a\u3082\u306e",
+		vmStat2v: "\u30d7\u30e9\u30a4\u30d9\u30fc\u30c8 IP (\u30d1\u30d6\u30ea\u30c3\u30af\u306f\u4efb\u610f)",
+		vmStat3: "\u843d\u3068\u3057\u7a74",
+		vmStat3v: "IP \u306f VM \u4e0a\u306b\u306f\u306a\u3044",
+		niTitle: "IP \u3092\u4fdd\u6301\u3059\u308b\u306e\u306f NIC",
+		niCaption: "VM \u306e\u30cd\u30c3\u30c8\u30ef\u30fc\u30af ID",
+		niDesc: "\u305d\u306e\u305f\u3081\u306b\u30cd\u30c3\u30c8\u30ef\u30fc\u30af \u30a4\u30f3\u30bf\u30fc\u30d5\u30a7\u30a4\u30b9 (NIC) \u304c\u3042\u308a\u307e\u3059\u3002NIC \u306f\u30d7\u30e9\u30a4\u30d9\u30fc\u30c8 IP \u3068\u4efb\u610f\u306e\u30d1\u30d6\u30ea\u30c3\u30af IP \u3092\u4fdd\u6301\u3057\u3001\u8907\u6570\u306e IP \u69cb\u6210\u3092\u6301\u3064\u3053\u3068\u3082\u3067\u304d\u307e\u3059\u3002NIC \u306f\u3061\u3087\u3046\u3069 1 \u53f0\u306e VM \u306b\u63a5\u7d9a\u3055\u308c (1:1)\u3001\u305d\u306e VM \u306b\u30b5\u30d6\u30cd\u30c3\u30c8\u4e0a\u306e\u5c45\u5834\u6240\u3092\u4e0e\u3048\u307e\u3059\u3002",
+		niCallout: "\u8907\u6570\u306e IP \u3084\u9759\u7684\u306a\u30d7\u30e9\u30a4\u30d9\u30fc\u30c8 IP \u304c\u5fc5\u8981\u3067\u3059\u304b\u3002\u3059\u3079\u3066 VM \u3067\u306f\u306a\u304f NIC \u3067\u69cb\u6210\u3057\u307e\u3059\u3002",
+		niStat1: "\u4fdd\u6301\u3059\u308b\u3082\u306e",
+		niStat1v: "\u30d7\u30e9\u30a4\u30d9\u30fc\u30c8 IP + \u4efb\u610f\u306e\u30d1\u30d6\u30ea\u30c3\u30af IP",
+		niStat2: "\u6301\u3066\u308b\u3082\u306e",
+		niStat2v: "\u8907\u6570\u306e IP \u69cb\u6210",
+		niStat3: "\u7d50\u3073\u4ed8\u304d",
+		niStat3v: "1 \u3064\u306e NIC \u2194 1 \u53f0\u306e VM (1:1)",
+		nsTitle: "NSG \u3067\u30c8\u30e9\u30d5\u30a3\u30c3\u30af\u3092\u30d5\u30a3\u30eb\u30bf\u30fc\u3059\u308b",
+		nsCaption: "\u53d7\u4fe1\u3068\u9001\u4fe1\u306e\u30eb\u30fc\u30eb",
+		nsDesc: "VM \u306b\u5c4a\u304f\u3082\u306e\u3092\u3069\u3046\u5236\u5fa1\u3057\u307e\u3059\u304b\u3002\u30cd\u30c3\u30c8\u30ef\u30fc\u30af \u30bb\u30ad\u30e5\u30ea\u30c6\u30a3 \u30b0\u30eb\u30fc\u30d7\u3092\u95a2\u9023\u4ed8\u3051\u307e\u3059\u3002NSG \u306f\u30dd\u30fc\u30c8\u3001\u30d7\u30ed\u30c8\u30b3\u30eb\u3001\u65b9\u5411 (\u53d7\u4fe1\u3068\u9001\u4fe1) \u306b\u3088\u308b\u8a31\u53ef / \u62d2\u5426\u30eb\u30fc\u30eb\u306e\u67d4\u8edf\u306a\u4e00\u89a7\u3067\u3001\u512a\u5148\u5ea6\u9806\u306b\u8a55\u4fa1\u3055\u308c\u307e\u3059\u3002NIC \u306b\u95a2\u9023\u4ed8\u3051\u308c\u3070\u3001\u305d\u306e VM \u306e\u30c8\u30e9\u30d5\u30a3\u30c3\u30af\u3092\u30d5\u30a3\u30eb\u30bf\u30fc\u3067\u304d\u307e\u3059\u3002",
+		nsCallout: "\u30eb\u30fc\u30eb\u306f\u9001\u4fe1\u5143 / \u5b9b\u5148\u3001\u30dd\u30fc\u30c8\u3001\u30d7\u30ed\u30c8\u30b3\u30eb\u3067\u4e00\u81f4\u3057\u307e\u3059\u3002\u305f\u3068\u3048\u3070 443/TCP \u306e\u53d7\u4fe1\u3092\u8a31\u53ef\u3057\u3001\u305d\u308c\u4ee5\u5916\u3092\u3059\u3079\u3066\u62d2\u5426\u3057\u307e\u3059\u3002",
+		nsStat1: "\u4f55\u304b",
+		nsStat1v: "\u8a31\u53ef / \u62d2\u5426\u30eb\u30fc\u30eb\u306e\u4e00\u89a7",
+		nsStat2: "\u4e00\u81f4\u6761\u4ef6",
+		nsStat2v: "\u30dd\u30fc\u30c8 \u00b7 \u30d7\u30ed\u30c8\u30b3\u30eb \u00b7 \u65b9\u5411",
+		nsStat3: "\u3053\u3053\u3067\u306f",
+		nsStat3v: "NIC \u306b\u95a2\u9023\u4ed8\u3051",
+		sgTitle: "\u30b5\u30d6\u30cd\u30c3\u30c8\u5168\u4f53\u306b 1 \u3064\u306e NSG",
+		sgCaption: "\u540c\u3058\u3053\u3068\u3092\u7e70\u308a\u8fd4\u3055\u306a\u3044",
+		sgDesc: "2 \u53f0\u76ee\u306e VM \u3092\u8ffd\u52a0\u3059\u308b\u3068\u3001\u540c\u3058 NSG \u3092\u3059\u3079\u3066\u306e NIC \u306b\u624b\u4f5c\u696d\u3067\u95a2\u9023\u4ed8\u3051\u308b\u3053\u3068\u306b\u306a\u308a\u307e\u3059\u3002\u4ee3\u308f\u308a\u306b NSG \u3092\u30b5\u30d6\u30cd\u30c3\u30c8\u306b\u95a2\u9023\u4ed8\u3051\u307e\u3057\u3087\u3046\u3002\u3053\u308c\u3067\u305d\u306e\u30b5\u30d6\u30cd\u30c3\u30c8\u5185\u306e\u3059\u3079\u3066\u306e NIC \u304c\u540c\u3058\u30eb\u30fc\u30eb\u3092\u81ea\u52d5\u7684\u306b\u7d99\u627f\u3057\u307e\u3059\u3002VM \u3092\u3044\u304f\u3064\u8ffd\u52a0\u3057\u3066\u3082\u30b9\u30b1\u30fc\u30eb\u3057\u307e\u3059\u3002",
+		sgCallout: "\u4e21\u65b9\u4f7f\u3048\u307e\u3059\u3002\u57fa\u6e96\u306f\u30b5\u30d6\u30cd\u30c3\u30c8\u306e NSG \u3067\u3001VM \u3054\u3068\u306e\u4f8b\u5916\u306f NIC \u306e\u30eb\u30fc\u30eb\u3067\u5bfe\u5fdc\u3057\u307e\u3059\u3002",
+		sgStat1: "\u8ab2\u984c",
+		sgStat1v: "VM \u3054\u3068\u306b NSG \u3092\u91cd\u8907\u3055\u305b\u308b",
+		sgStat2: "\u89e3\u6c7a",
+		sgStat2v: "NSG \u3092\u30b5\u30d6\u30cd\u30c3\u30c8\u306b\u95a2\u9023\u4ed8\u3051\u308b",
+		sgStat3: "\u7d50\u679c",
+		sgStat3v: "\u3059\u3079\u3066\u306e VM \u304c\u30eb\u30fc\u30eb\u3092\u7d99\u627f",
+		rcTitle: "\u5168\u4f53\u50cf",
+		rcCaption: "VNet \u3092\u7aef\u304b\u3089\u7aef\u307e\u3067",
+		rcDesc: "VNet (CIDR \u30a2\u30c9\u30ec\u30b9\u7a7a\u9593) \u2192 \u305d\u308c\u3092\u5206\u5272\u3059\u308b\u30b5\u30d6\u30cd\u30c3\u30c8 \u2192 IP \u304c NIC \u4e0a\u306b\u3042\u308b VM \u2192 \u30c8\u30e9\u30d5\u30a3\u30c3\u30af\u3092\u30d5\u30a3\u30eb\u30bf\u30fc\u3059\u308b NSG\u3002NSG \u306f NIC \u306b\u3001\u307e\u305f\u30b9\u30b1\u30fc\u30eb\u3055\u305b\u308b\u306a\u3089\u30b5\u30d6\u30cd\u30c3\u30c8\u5168\u4f53\u306b\u95a2\u9023\u4ed8\u3051\u307e\u3059\u3002\u3053\u308c\u304c Azure \u30cd\u30c3\u30c8\u30ef\u30fc\u30af\u306e\u4e2d\u6838\u3067\u3059\u3002",
+		rcCallout: "CIDR \u306e\u30b5\u30a4\u30ba\u8a2d\u5b9a\u3001\u30b5\u30d6\u30cd\u30c3\u30c8\u306b\u3088\u308b\u5206\u5272\u3001VM \u3054\u3068\u306e NIC\u3001\u305d\u3057\u3066\u30b5\u30d6\u30cd\u30c3\u30c8\u4e0a\u306e NSG\u3002\u3059\u3079\u3066\u306e Azure \u30cd\u30c3\u30c8\u30ef\u30fc\u30af\u306f\u3053\u306e\u571f\u53f0\u306e\u4e0a\u306b\u7bc9\u304b\u308c\u307e\u3059\u3002",
+		rcFoot: "\u7121\u6599\u306e Microsoft Learn \u30e2\u30b8\u30e5\u30fc\u30eb <a href=\"https://learn.microsoft.com/training/modules/introduction-to-azure-virtual-networks/\" target=\"_blank\" rel=\"noopener\">Introduction to Azure Virtual Networks</a> \u3067\u3055\u3089\u306b\u5b66\u3079\u307e\u3059\u3002",
+		rcStat1: "\u69cb\u7bc9\u306e\u9806\u5e8f",
+		rcStat1v: "VNet \u2192 \u30b5\u30d6\u30cd\u30c3\u30c8 \u2192 VM \u2192 NIC \u2192 NSG",
+		rcStat2: "IP",
+		rcStat2v: "VM \u3067\u306f\u306a\u304f NIC \u4e0a\u306b\u3042\u308b",
+		rcStat3: "\u30b9\u30b1\u30fc\u30eb",
+		rcStat3v: "NSG \u3092\u30b5\u30d6\u30cd\u30c3\u30c8\u306b\u7f6e\u304f"
+	},
+
+	// ── 한국어 (ko) — teaching text; brand/code/product names stay English ──
+	ko: {
+		skipToMain: "\ub2e4\uc774\uc5b4\uadf8\ub7a8\uc73c\ub85c \uac74\ub108\ub6f0\uae30",
+		pageTitle: "\uac00\uc0c1 \ub124\ud2b8\uc6cc\ud06c",
+		stageHeading: "Azure Virtual Network \u2014 VNet, \uc11c\ube0c\ub137, NIC, NSG",
+		stageInstructions: "Azure \uac00\uc0c1 \ub124\ud2b8\uc6cc\ud06c \uc560\ub2c8\uba54\uc774\uc158 \uc124\uba85: CIDR \uc8fc\uc18c \uacf5\uac04, \uc11c\ube0c\ub137, \uac00\uc0c1 \uba38\uc2e0, \ub124\ud2b8\uc6cc\ud06c \uc778\ud130\ud398\uc774\uc2a4, \ub124\ud2b8\uc6cc\ud06c \ubcf4\uc548 \uadf8\ub8f9. \ub2e4\uc74c/\uc774\uc804 \ubc84\ud2bc\uc774\ub098 \ud654\uc0b4\ud45c \ud0a4\ub85c \uc774\ub3d9\ud558\uc138\uc694. R \ud0a4\ub97c \ub204\ub974\uba74 \ucc98\uc74c\ubd80\ud130 \ub2e4\uc2dc \uc2dc\uc791\ud569\ub2c8\ub2e4.",
+		prev: "\u25c0 \uc774\uc804",
+		next: "\ub2e4\uc74c \u25b6",
+		replay: "\u21bb \ub2e4\uc2dc \uc7ac\uc0dd",
+		restart: "\u21bb \ucc98\uc74c\ubd80\ud130",
+		slower: "\ub290\ub9ac\uac8c",
+		faster: "\ube60\ub974\uac8c",
+		calloutOn: "\ud83d\udcac \uc124\uba85\uc120: \ucf1c\uc9d0",
+		calloutOff: "\ud83d\udcac \uc124\uba85\uc120: \uaebc\uc9d0",
+		outlineOn: "\ud83d\udcdd \uac1c\uc694: \ucf1c\uc9d0",
+		outlineOff: "\ud83d\udcdd \uac1c\uc694: \uaebc\uc9d0",
+		audioOn: "\ud83d\udd0a \uc624\ub514\uc624: \ucf1c\uc9d0",
+		audioOff: "\ud83d\udd07 \uc624\ub514\uc624: \uaebc\uc9d0",
+		stepDetails: "\ub2e8\uacc4 \uc0c1\uc138",
+		stepOf: "\ub2e8\uacc4",
+		resetPos: "\uae30\ubcf8 \uc704\uce58\ub85c \ub418\ub3cc\ub9ac\uae30",
+		scTitle: "\ud0a4\ubcf4\ub4dc \ub2e8\ucd95\ud0a4",
+		scNext: "\ub2e4\uc74c \ub2e8\uacc4",
+		scPrev: "\uc774\uc804 \ub2e8\uacc4",
+		scRestart: "\ucc98\uc74c\ubd80\ud130",
+		scReplay: "\uc774 \ub2e8\uacc4 \ub2e4\uc2dc \uc7ac\uc0dd",
+		scHide: "\uc0c1\ub2e8 \ubc14 \ud45c\uc2dc / \uc228\uae30\uae30",
+		scHelp: "\uc774 \ub3c4\uc6c0\ub9d0 \uc804\ud658",
+		zVnet: "\uac00\uc0c1 \ub124\ud2b8\uc6cc\ud06c (VNet)",
+		zSubnet: "\uc11c\ube0c\ub137",
+		zSubnetCidr: "10.0.1.0/24",
+		chipCidr: "10.0.0.0/16",
+		chipRfc: "RFC 1918 \uc0ac\uc124",
+		chipDual: "IPv4 + IPv6",
+		nVm: "\uac00\uc0c1 \uba38\uc2e0",
+		nVmSub: "\ub124\ud2b8\uc6cc\ud06c \uc5f0\uacb0\uc774 \ud544\uc694\ud568",
+		nVm2Sub: "\uac19\uc740 \uc11c\ube0c\ub137, \uac19\uc740 \uaddc\uce59",
+		nNic: "\ub124\ud2b8\uc6cc\ud06c \uc778\ud130\ud398\uc774\uc2a4",
+		rowPriv: "\uc0ac\uc124 IP",
+		rowPriv1V: "10.0.1.4 \u00b7 \ud544\uc218",
+		rowPriv2V: "10.0.1.5 \u00b7 \ud544\uc218",
+		rowPub: "\uacf5\uc6a9 IP",
+		rowPubV: "\uc120\ud0dd \uc0ac\ud56d",
+		nNsg: "\ub124\ud2b8\uc6cc\ud06c \ubcf4\uc548 \uadf8\ub8f9",
+		nNsgSub: "\ud3ec\ud2b8 \u00b7 \ud504\ub85c\ud1a0\ucf5c \u00b7 \ubc29\ud5a5\uc73c\ub85c \ud544\ud130\ub9c1",
+		nsgIn: "\uc778\ubc14\uc6b4\ub4dc",
+		nsgInV: "443/TCP \ud5c8\uc6a9",
+		nsgIn2V: "22/TCP \ud5c8\uc6a9",
+		nsgOut: "\uc544\uc6c3\ubc14\uc6b4\ub4dc",
+		nsgOutV: "80,443 \ud5c8\uc6a9",
+		nsgDeny: "\uae30\ubcf8",
+		nsgDenyV: "\ubaa8\ub450 \uac70\ubd80",
+		subnetNsgBadge: "\ud83d\udee1 \uc11c\ube0c\ub137\uc5d0 NSG \u2192 \ubaa8\ub4e0 VM \ubcf4\ud638",
+		elOneToOne: "1 : 1",
+		elFilter: "\uc778\ubc14\uc6b4\ub4dc / \uc544\uc6c3\ubc14\uc6b4\ub4dc \ud544\ud130\ub9c1",
+		elSubnet: "\u2192 \uc11c\ube0c\ub137 \uc804\uccb4",
+		bp1: "\ud83e\udded CIDR = \uc8fc\uc18c \uacf5\uac04",
+		bp2: "\ud83e\udde9 \uc11c\ube0c\ub137\uc774 VNet\uc744 \ubd84\ud560",
+		bp3: "\ud83d\udd0c NIC = VM\uc758 \ub124\ud2b8\uc6cc\ud06c ID",
+		bp4: "\ud83d\udee1 NSG\uac00 \ud3ec\ud2b8\uc640 \ud504\ub85c\ud1a0\ucf5c\uc744 \ud544\ud130\ub9c1",
+		bp5: "\ud83d\udcce \uc11c\ube0c\ub137\uc758 NSG\ub294 \ud655\uc7a5\ub41c\ub2e4",
+		vnTitle: "\uac00\uc0c1 \ub124\ud2b8\uc6cc\ud06c\ubd80\ud130 \uc2dc\uc791\ud558\uae30",
+		vnCaption: "Azure \uc548\uc758 \ub0b4 \uc0ac\uc124 \ub124\ud2b8\uc6cc\ud06c",
+		vnDesc: "VNet\uc740 Azure \uc548\uc5d0 \uc788\ub294 \uaca9\ub9ac\ub41c \ub098\ub9cc\uc758 \uc0ac\uc124 \ub124\ud2b8\uc6cc\ud06c\uc785\ub2c8\ub2e4. CIDR \ud45c\uae30\ubc95\uc73c\ub85c \uc8fc\uc18c \uacf5\uac04\uc744 \uc9c0\uc815\ud569\ub2c8\ub2e4. \uc5ec\uae30\uc11c\ub294 10.0.0.0/16\uc785\ub2c8\ub2e4. \uad8c\uc7a5 \uc0ac\ud56d\uc740 RFC 1918 \uc0ac\uc124 \ubc94\uc704(10.x, 172.16\u201331.x, 192.168.x)\ub97c \uc0ac\uc6a9\ud558\ub294 \uac83\uc774\uba70, Azure\ub294 IPv4 + IPv6 \ub4c0\uc5bc \uc2a4\ud0dd\ub3c4 \uc9c0\uc6d0\ud569\ub2c8\ub2e4.",
+		vnCallout: "\uc55e\uc73c\ub85c \ub098\ub20c \ubaa8\ub4e0 \uc11c\ube0c\ub137\uc744 \ub2f4\uc744 \ub9cc\ud07c \ud06c\uace0, \ub098\uc911\uc5d0 \ud53c\uc5b4\ub9c1\ud560 \ub124\ud2b8\uc6cc\ud06c\uc640 \uacb9\uce58\uc9c0 \uc54a\ub294 CIDR\uc744 \uace0\ub974\uc138\uc694.",
+		vnStat1: "\ubb34\uc5c7\uc778\uac00",
+		vnStat1v: "\uaca9\ub9ac\ub41c \uc0ac\uc124 \ub124\ud2b8\uc6cc\ud06c",
+		vnStat2: "\uc8fc\uc18c \uacf5\uac04",
+		vnStat2v: "CIDR \u2014 \uc608: 10.0.0.0/16",
+		vnStat3: "\uad8c\uc7a5 \uc0ac\ud56d",
+		vnStat3v: "RFC 1918 \u00b7 IPv4/IPv6 \ub4c0\uc5bc \uc2a4\ud0dd",
+		sbTitle: "\uc11c\ube0c\ub137\uc73c\ub85c \ub098\ub204\uae30",
+		sbCaption: "\uc8fc\uc18c \uacf5\uac04\uc744 \ubd84\ud560\ud55c\ub2e4",
+		sbDesc: "VNet\uc744 10.0.1.0/24 \uac19\uc740 \ub354 \uc791\uc740 \ubc94\uc704, \uc989 \uc11c\ube0c\ub137\uc73c\ub85c \ub098\ub215\ub2c8\ub2e4. \uc11c\ube0c\ub137\uc740 \ub124\ud2b8\uc6cc\ud06c\ub97c \ubd84\ud560\ud574 \ub9ac\uc18c\uc2a4\ub97c \ubb36\uace0, \ud2b8\ub798\ud53d\uc744 \ub77c\uc6b0\ud305\ud558\uace0, \uacbd\uacc4\uc5d0\uc11c \ubcf4\uc548\uc744 \uc801\uc6a9\ud560 \uc218 \uc788\uac8c \ud569\ub2c8\ub2e4. \ubc30\uce58\ud558\ub294 \ubaa8\ub4e0 \ub9ac\uc18c\uc2a4\ub294 \uc11c\ube0c\ub137 \uc548\uc5d0 \uc874\uc7ac\ud569\ub2c8\ub2e4.",
+		sbCallout: "\uc11c\ube0c\ub137\uc740 \uc6f9, \uc571, \ub370\uc774\ud130 \uac19\uc740 \uacc4\uce35\uc744 \ub098\ub204\uace0 \ubb34\uc5c7\uc774 \ubb34\uc5c7\uacfc \ud1b5\uc2e0\ud560\uc9c0 \uc81c\uc5b4\ud558\ub294 \ubc29\ubc95\uc785\ub2c8\ub2e4.",
+		sbStat1: "\ubb34\uc5c7\uc778\uac00",
+		sbStat1v: "VNet\uc758 \ud55c \uc870\uac01",
+		sbStat2: "\uc65c",
+		sbStat2v: "\ubd84\ud560\uacfc \ub77c\uc6b0\ud305",
+		sbStat3: "\uc608",
+		sbStat3v: "10.0.1.0/24",
+		vmTitle: "\uac00\uc0c1 \uba38\uc2e0 \ubc30\uce58\ud558\uae30",
+		vmCaption: "\uc11c\ube0c\ub137 \uc548\uc5d0 \uc874\uc7ac\ud55c\ub2e4",
+		vmDesc: "\uc11c\ube0c\ub137\uc5d0 \uac00\uc0c1 \uba38\uc2e0\uc744 \ubc30\uce58\ud569\ub2c8\ub2e4. \ub124\ud2b8\uc6cc\ud06c\uc5d0\uc11c \ud1b5\uc2e0\ud558\ub824\uba74 \ucd5c\uc18c\ud55c \ud558\ub098\uc758 \uc0ac\uc124 IP\uac00 \ud544\uc694\ud558\uace0 \uacf5\uc6a9 IP\ub294 \uc120\ud0dd \uc0ac\ud56d\uc785\ub2c8\ub2e4. \uadf8\ub7f0\ub370 \ud568\uc815\uc774 \uc788\uc2b5\ub2c8\ub2e4. IP \uc8fc\uc18c\ub294 \uacb0\ucf54 VM\uc5d0 \uc9c1\uc811 \ud560\ub2f9\ub418\uc9c0 \uc54a\uc2b5\ub2c8\ub2e4.",
+		vmCallout: "VM \uc790\uccb4\uc5d0\ub294 \ub124\ud2b8\uc6cc\ud06c ID\uac00 \uc5c6\uc2b5\ub2c8\ub2e4. IP \uc8fc\uc18c\ub97c \ub2f4\uc544 \uc904 \ubb34\uc5b8\uac00\uac00 \ud544\uc694\ud569\ub2c8\ub2e4.",
+		vmStat1: "\uc5b4\ub514\uc5d0",
+		vmStat1v: "\uc11c\ube0c\ub137 \uc548",
+		vmStat2: "\ud544\uc694\ud55c \uac83",
+		vmStat2v: "\uc0ac\uc124 IP (\uacf5\uc6a9\uc740 \uc120\ud0dd)",
+		vmStat3: "\ud568\uc815",
+		vmStat3v: "IP\ub294 VM\uc5d0 \uc788\uc9c0 \uc54a\ub2e4",
+		niTitle: "IP\ub97c \ub2f4\ub294 \uac83\uc740 NIC",
+		niCaption: "VM\uc758 \ub124\ud2b8\uc6cc\ud06c ID",
+		niDesc: "\uadf8\uac83\uc774 \ubc14\ub85c \ub124\ud2b8\uc6cc\ud06c \uc778\ud130\ud398\uc774\uc2a4(NIC)\uc758 \uc5ed\ud560\uc785\ub2c8\ub2e4. NIC\ub294 \uc0ac\uc124 IP\uc640 \uc120\ud0dd\uc801\uc778 \uacf5\uc6a9 IP\ub97c \ub2f4\uc73c\uba70, IP \uad6c\uc131\uc744 \uc5ec\ub7ec \uac1c \uac00\uc9c8 \uc218\ub3c4 \uc788\uc2b5\ub2c8\ub2e4. NIC\ub294 \uc815\ud655\ud788 \ud55c \ub300\uc758 VM\uc5d0 \uc5f0\uacb0\ub418\uc5b4(1:1) \uadf8 VM\uc5d0 \uc11c\ube0c\ub137 \uc704\uc758 \uc790\ub9ac\ub97c \ubd80\uc5ec\ud569\ub2c8\ub2e4.",
+		niCallout: "IP\ub97c \uc5ec\ub7ec \uac1c \uc4f0\uac70\ub098 \uace0\uc815 \uc0ac\uc124 IP\uac00 \ud544\uc694\ud55c\uac00\uc694? \ubaa8\ub450 VM\uc774 \uc544\ub2c8\ub77c NIC\uc5d0\uc11c \uad6c\uc131\ud569\ub2c8\ub2e4.",
+		niStat1: "\ub2f4\ub294 \uac83",
+		niStat1v: "\uc0ac\uc124 IP + \uc120\ud0dd\uc801 \uacf5\uc6a9 IP",
+		niStat2: "\uac00\uc9c8 \uc218 \uc788\ub294 \uac83",
+		niStat2v: "\uc5ec\ub7ec IP \uad6c\uc131",
+		niStat3: "\uc5f0\uacb0",
+		niStat3v: "NIC \ud558\ub098 \u2194 VM \ud558\ub098 (1:1)",
+		nsTitle: "NSG\ub85c \ud2b8\ub798\ud53d \ud544\ud130\ub9c1\ud558\uae30",
+		nsCaption: "\uc778\ubc14\uc6b4\ub4dc\uc640 \uc544\uc6c3\ubc14\uc6b4\ub4dc \uaddc\uce59",
+		nsDesc: "VM\uc5d0 \ub3c4\ub2ec\ud558\ub294 \uac83\uc744 \uc5b4\ub5bb\uac8c \uc81c\uc5b4\ud560\uae4c\uc694? \ub124\ud2b8\uc6cc\ud06c \ubcf4\uc548 \uadf8\ub8f9\uc744 \uc5f0\uacb0\ud569\ub2c8\ub2e4. NSG\ub294 \ud3ec\ud2b8, \ud504\ub85c\ud1a0\ucf5c, \ubc29\ud5a5(\uc778\ubc14\uc6b4\ub4dc\uc640 \uc544\uc6c3\ubc14\uc6b4\ub4dc)\uc5d0 \ub530\ub978 \ud5c8\uc6a9 / \uac70\ubd80 \uaddc\uce59\uc758 \uc720\uc5f0\ud55c \ubaa9\ub85d\uc774\uba70 \uc6b0\uc120\uc21c\uc704\uc5d0 \ub530\ub77c \ud3c9\uac00\ub429\ub2c8\ub2e4. NIC\uc5d0 \uc5f0\uacb0\ud558\uba74 \uadf8 VM\uc758 \ud2b8\ub798\ud53d\uc744 \ud544\ud130\ub9c1\ud569\ub2c8\ub2e4.",
+		nsCallout: "\uaddc\uce59\uc740 \uc6d0\ubcf8 / \ub300\uc0c1, \ud3ec\ud2b8, \ud504\ub85c\ud1a0\ucf5c\ub85c \uc77c\uce58\ud569\ub2c8\ub2e4. \uc608\ub97c \ub4e4\uc5b4 443/TCP \uc778\ubc14\uc6b4\ub4dc\ub97c \ud5c8\uc6a9\ud558\uace0 \ub098\uba38\uc9c0\ub294 \ubaa8\ub450 \uac70\ubd80\ud569\ub2c8\ub2e4.",
+		nsStat1: "\ubb34\uc5c7\uc778\uac00",
+		nsStat1v: "\ud5c8\uc6a9 / \uac70\ubd80 \uaddc\uce59 \ubaa9\ub85d",
+		nsStat2: "\uc77c\uce58 \uae30\uc900",
+		nsStat2v: "\ud3ec\ud2b8 \u00b7 \ud504\ub85c\ud1a0\ucf5c \u00b7 \ubc29\ud5a5",
+		nsStat3: "\uc5ec\uae30\uc11c\ub294",
+		nsStat3v: "NIC\uc5d0 \uc5f0\uacb0\ub428",
+		sgTitle: "\uc11c\ube0c\ub137 \uc804\uccb4\uc5d0 NSG \ud558\ub098",
+		sgCaption: "\uac19\uc740 \uc77c\uc744 \ubc18\ubcf5\ud558\uc9c0 \uc54a\uae30",
+		sgDesc: "\ub450 \ubc88\uc9f8 VM\uc744 \ucd94\uac00\ud558\uba74 \uac19\uc740 NSG\ub97c \ubaa8\ub4e0 NIC\uc5d0 \uc77c\uc77c\uc774 \uc5f0\uacb0\ud574\uc57c \ud569\ub2c8\ub2e4. \ub300\uc2e0 NSG\ub97c \uc11c\ube0c\ub137\uc5d0 \uc5f0\uacb0\ud558\uc138\uc694. \uc774\uc81c \uadf8 \uc11c\ube0c\ub137\uc758 \ubaa8\ub4e0 NIC\uac00 \uac19\uc740 \uaddc\uce59\uc744 \uc790\ub3d9\uc73c\ub85c \uc0c1\uc18d\ud569\ub2c8\ub2e4. VM\uc744 \uc544\ubb34\ub9ac \ucd94\uac00\ud574\ub3c4 \uadf8\ub300\ub85c \ud655\uc7a5\ub429\ub2c8\ub2e4.",
+		sgCallout: "\ub458 \ub2e4 \uc4f8 \uc218 \uc788\uc2b5\ub2c8\ub2e4. \uae30\uc900\uc120\uc740 \uc11c\ube0c\ub137 \uc218\uc900 NSG\ub85c, VM\ubcc4 \uc608\uc678\ub294 NIC \uc218\uc900 \uaddc\uce59\uc73c\ub85c \ucc98\ub9ac\ud558\uc138\uc694.",
+		sgStat1: "\ubb38\uc81c",
+		sgStat1v: "VM\ub9c8\ub2e4 NSG\ub97c \uc911\ubcf5 \uc5f0\uacb0",
+		sgStat2: "\ud574\uacb0",
+		sgStat2v: "NSG\ub97c \uc11c\ube0c\ub137\uc5d0 \uc5f0\uacb0",
+		sgStat3: "\uacb0\uacfc",
+		sgStat3v: "\ubaa8\ub4e0 VM\uc774 \uaddc\uce59\uc744 \uc0c1\uc18d",
+		rcTitle: "\uc804\uccb4 \uadf8\ub9bc",
+		rcCaption: "VNet, \ucc98\uc74c\ubd80\ud130 \ub05d\uae4c\uc9c0",
+		rcDesc: "VNet(CIDR \uc8fc\uc18c \uacf5\uac04) \u2192 \uc774\ub97c \ub098\ub204\ub294 \uc11c\ube0c\ub137 \u2192 IP\uac00 NIC\uc5d0 \uc788\ub294 VM \u2192 \ud2b8\ub798\ud53d\uc744 \ud544\ud130\ub9c1\ud558\ub294 NSG. NSG\ub294 NIC\uc5d0, \ub610\ub294 \ud655\uc7a5\ud558\ub824\uba74 \uc11c\ube0c\ub137 \uc804\uccb4\uc5d0 \uc5f0\uacb0\ud569\ub2c8\ub2e4. \uc774\uac83\uc774 Azure \ub124\ud2b8\uc6cc\ud0b9\uc758 \ud575\uc2ec\uc785\ub2c8\ub2e4.",
+		rcCallout: "CIDR \ud06c\uae30 \uc0b0\uc815, \uc11c\ube0c\ub137 \ubd84\ud560, VM\ub9c8\ub2e4 \ud558\ub098\uc758 NIC, \uadf8\ub9ac\uace0 \uc11c\ube0c\ub137\uc758 NSG. \ubaa8\ub4e0 Azure \ub124\ud2b8\uc6cc\ud06c\uac00 \uc774 \ud1a0\ub300 \uc704\uc5d0 \uc138\uc6cc\uc9d1\ub2c8\ub2e4.",
+		rcFoot: "\ubb34\ub8cc Microsoft Learn \ubaa8\ub4c8 <a href=\"https://learn.microsoft.com/training/modules/introduction-to-azure-virtual-networks/\" target=\"_blank\" rel=\"noopener\">Introduction to Azure Virtual Networks</a>\uc5d0\uc11c \ub354 \uae4a\uc774 \ubc30\uc6cc \ubcf4\uc138\uc694.",
+		rcStat1: "\uad6c\ucd95 \uc21c\uc11c",
+		rcStat1v: "VNet \u2192 \uc11c\ube0c\ub137 \u2192 VM \u2192 NIC \u2192 NSG",
+		rcStat2: "IP",
+		rcStat2v: "VM\uc774 \uc544\ub2c8\ub77c NIC\uc5d0 \uc788\ub2e4",
+		rcStat3: "\ud655\uc7a5",
+		rcStat3v: "NSG\ub97c \uc11c\ube0c\ub137\uc5d0 \ub450\uae30"
+	},
+
+	// ── Português (pt) — teaching text; brand/code/product names stay English ──
+	pt: {
+		skipToMain: "Ir para o diagrama",
+		pageTitle: "Rede virtual",
+		stageHeading: "Azure Virtual Network \u2014 VNet, sub-redes, NICs e NSGs",
+		stageInstructions: "Explica\u00e7\u00e3o animada das redes virtuais do Azure: espa\u00e7o de endere\u00e7os CIDR, sub-redes, m\u00e1quinas virtuais, interfaces de rede e grupos de seguran\u00e7a de rede. Use os bot\u00f5es Avan\u00e7ar/Voltar ou as setas para navegar. Pressione R para reiniciar.",
+		prev: "\u25c0 Voltar",
+		next: "Avan\u00e7ar \u25b6",
+		replay: "\u21bb Repetir",
+		restart: "\u21bb Reiniciar",
+		slower: "Mais devagar",
+		faster: "Mais r\u00e1pido",
+		calloutOn: "\ud83d\udcac Bal\u00e3o: ligado",
+		calloutOff: "\ud83d\udcac Bal\u00e3o: desligado",
+		outlineOn: "\ud83d\udcdd Resumo: ligado",
+		outlineOff: "\ud83d\udcdd Resumo: desligado",
+		audioOn: "\ud83d\udd0a \u00c1udio: ligado",
+		audioOff: "\ud83d\udd07 \u00c1udio: desligado",
+		stepDetails: "Detalhes da etapa",
+		stepOf: "Etapa",
+		resetPos: "Restaurar a posi\u00e7\u00e3o padr\u00e3o",
+		scTitle: "Atalhos de teclado",
+		scNext: "Pr\u00f3xima etapa",
+		scPrev: "Etapa anterior",
+		scRestart: "Reiniciar",
+		scReplay: "Repetir esta etapa",
+		scHide: "Mostrar / ocultar a barra superior",
+		scHelp: "Alternar esta ajuda",
+		zVnet: "Rede virtual (VNet)",
+		zSubnet: "Sub-rede",
+		zSubnetCidr: "10.0.1.0/24",
+		chipCidr: "10.0.0.0/16",
+		chipRfc: "Privado RFC 1918",
+		chipDual: "IPv4 + IPv6",
+		nVm: "M\u00e1quina virtual",
+		nVmSub: "precisa de acesso \u00e0 rede",
+		nVm2Sub: "mesma sub-rede, mesmas regras",
+		nNic: "Interface de rede",
+		rowPriv: "IP privado",
+		rowPriv1V: "10.0.1.4 \u00b7 obrigat\u00f3rio",
+		rowPriv2V: "10.0.1.5 \u00b7 obrigat\u00f3rio",
+		rowPub: "IP p\u00fablico",
+		rowPubV: "opcional",
+		nNsg: "Grupo de seguran\u00e7a de rede",
+		nNsgSub: "filtra por porta \u00b7 protocolo \u00b7 dire\u00e7\u00e3o",
+		nsgIn: "Entrada",
+		nsgInV: "Permitir 443/TCP",
+		nsgIn2V: "Permitir 22/TCP",
+		nsgOut: "Sa\u00edda",
+		nsgOutV: "Permitir 80,443",
+		nsgDeny: "Padr\u00e3o",
+		nsgDenyV: "Negar tudo",
+		subnetNsgBadge: "\ud83d\udee1 NSG na sub-rede \u2192 todas as VMs cobertas",
+		elOneToOne: "1 : 1",
+		elFilter: "filtra entrada / sa\u00edda",
+		elSubnet: "\u2192 toda a sub-rede",
+		bp1: "\ud83e\udded CIDR = o espa\u00e7o de endere\u00e7os",
+		bp2: "\ud83e\udde9 Sub-redes segmentam a VNet",
+		bp3: "\ud83d\udd0c NIC = a identidade de rede da VM",
+		bp4: "\ud83d\udee1 O NSG filtra porta e protocolo",
+		bp5: "\ud83d\udcce O NSG na sub-rede escala",
+		vnTitle: "Comece por uma rede virtual",
+		vnCaption: "Sua rede privada no Azure",
+		vnDesc: "Uma VNet \u00e9 a sua pr\u00f3pria rede privada e isolada no Azure. Voc\u00ea lhe d\u00e1 um espa\u00e7o de endere\u00e7os em nota\u00e7\u00e3o CIDR \u2014 aqui, 10.0.0.0/16. Boa pr\u00e1tica: use os intervalos privados RFC 1918 (10.x, 172.16\u201331.x, 192.168.x); o Azure tamb\u00e9m roda pilha dupla IPv4 + IPv6.",
+		vnCallout: "Escolha um CIDR grande o bastante para todas as sub-redes que voc\u00ea vai criar \u2014 e que n\u00e3o se sobreponha a redes com as quais talvez fa\u00e7a emparelhamento depois.",
+		vnStat1: "O que \u00e9",
+		vnStat1v: "Uma rede privada isolada",
+		vnStat2: "Espa\u00e7o de endere\u00e7os",
+		vnStat2v: "CIDR \u2014 ex.: 10.0.0.0/16",
+		vnStat3: "Boa pr\u00e1tica",
+		vnStat3v: "RFC 1918 \u00b7 pilha dupla IPv4/IPv6",
+		sbTitle: "Segmente em sub-redes",
+		sbCaption: "Divida o espa\u00e7o de endere\u00e7os",
+		sbDesc: "Divida a VNet em sub-redes \u2014 intervalos menores como 10.0.1.0/24. As sub-redes segmentam a rede para voc\u00ea agrupar recursos, rotear tr\u00e1fego e aplicar seguran\u00e7a na fronteira. Todo recurso que voc\u00ea cria vive dentro de uma sub-rede.",
+		sbCallout: "Sub-redes s\u00e3o como voc\u00ea separa camadas \u2014 web, aplica\u00e7\u00e3o, dados \u2014 e controla o que fala com o qu\u00ea.",
+		sbStat1: "O que \u00e9",
+		sbStat1v: "Uma fatia da VNet",
+		sbStat2: "Por qu\u00ea",
+		sbStat2v: "Segmenta\u00e7\u00e3o e roteamento",
+		sbStat3: "Exemplo",
+		sbStat3v: "10.0.1.0/24",
+		vmTitle: "Coloque uma m\u00e1quina virtual",
+		vmCaption: "Ela vive dentro de uma sub-rede",
+		vmDesc: "Coloque uma m\u00e1quina virtual na sub-rede. Para se comunicar na rede ela precisa de pelo menos um IP privado; o IP p\u00fablico \u00e9 opcional. Mas aqui est\u00e1 a pegadinha: o endere\u00e7o IP nunca \u00e9 atribu\u00eddo diretamente \u00e0 VM.",
+		vmCallout: "Uma VM sozinha n\u00e3o tem identidade de rede \u2014 algo precisa segurar os endere\u00e7os IP dela.",
+		vmStat1: "Onde",
+		vmStat1v: "Dentro de uma sub-rede",
+		vmStat2: "Precisa de",
+		vmStat2v: "Um IP privado (p\u00fablico opcional)",
+		vmStat3: "Pegadinha",
+		vmStat3v: "O IP n\u00e3o fica na VM",
+		niTitle: "A NIC segura os IPs",
+		niCaption: "A identidade de rede da VM",
+		niDesc: "\u00c9 para isso que existe a interface de rede (NIC). A NIC carrega o IP privado e um IP p\u00fablico opcional \u2014 e pode ter mais de uma configura\u00e7\u00e3o de IP. Uma NIC se conecta a exatamente uma VM (1:1), dando a ela seu lugar na sub-rede.",
+		niCallout: "Quer v\u00e1rios IPs ou um IP privado est\u00e1tico? Tudo se configura na NIC, n\u00e3o na VM.",
+		niStat1: "Carrega",
+		niStat1v: "IP privado + p\u00fablico opcional",
+		niStat2: "Pode ter",
+		niStat2v: "V\u00e1rias configura\u00e7\u00f5es de IP",
+		niStat3: "V\u00ednculo",
+		niStat3v: "Uma NIC \u2194 uma VM (1:1)",
+		nsTitle: "Filtre o tr\u00e1fego com um NSG",
+		nsCaption: "Regras de entrada e sa\u00edda",
+		nsDesc: "Como controlar o que chega \u00e0 VM? Associe um grupo de seguran\u00e7a de rede. Um NSG \u00e9 uma lista flex\u00edvel de regras de permitir/negar por porta, protocolo e dire\u00e7\u00e3o \u2014 entrada e sa\u00edda \u2014 avaliadas por prioridade. Associe-o \u00e0 NIC para filtrar o tr\u00e1fego daquela VM.",
+		nsCallout: "As regras casam por origem / destino, porta e protocolo \u2014 por exemplo, permitir 443/TCP na entrada e negar todo o resto.",
+		nsStat1: "O que \u00e9",
+		nsStat1v: "Lista de regras permitir / negar",
+		nsStat2: "Casa por",
+		nsStat2v: "Porta \u00b7 protocolo \u00b7 dire\u00e7\u00e3o",
+		nsStat3: "Aqui",
+		nsStat3v: "Associado \u00e0 NIC",
+		sgTitle: "Um NSG para toda a sub-rede",
+		sgCaption: "N\u00e3o se repita",
+		sgDesc: "Adicione uma segunda VM e voc\u00ea teria de associar o mesmo NSG a cada NIC na m\u00e3o. Em vez disso, associe o NSG \u00e0 sub-rede \u2014 agora cada NIC dessa sub-rede herda as mesmas regras automaticamente. Escala para quantas VMs voc\u00ea adicionar.",
+		sgCallout: "D\u00e1 para usar os dois: um NSG na sub-rede como base e regras na NIC para as exce\u00e7\u00f5es de cada VM.",
+		sgStat1: "Problema",
+		sgStat1v: "Duplicar o NSG por VM",
+		sgStat2: "Solu\u00e7\u00e3o",
+		sgStat2v: "Associar o NSG \u00e0 sub-rede",
+		sgStat3: "Resultado",
+		sgStat3v: "Toda VM herda as regras",
+		rcTitle: "O quadro completo",
+		rcCaption: "VNet, de ponta a ponta",
+		rcDesc: "VNet (um espa\u00e7o de endere\u00e7os CIDR) \u2192 sub-redes que a segmentam \u2192 VMs cujos IPs vivem numa NIC \u2192 NSGs que filtram o tr\u00e1fego, associados a uma NIC ou, para escalar, \u00e0 sub-rede inteira. Esse \u00e9 o n\u00facleo das redes do Azure.",
+		rcCallout: "Dimensionar o CIDR, segmentar em sub-redes, uma NIC por VM e NSGs na sub-rede \u2014 os alicerces sobre os quais toda rede do Azure \u00e9 constru\u00edda.",
+		rcFoot: "Aprofunde-se no m\u00f3dulo gratuito do Microsoft Learn <a href=\"https://learn.microsoft.com/training/modules/introduction-to-azure-virtual-networks/\" target=\"_blank\" rel=\"noopener\">Introduction to Azure Virtual Networks</a>.",
+		rcStat1: "Ordem de constru\u00e7\u00e3o",
+		rcStat1v: "VNet \u2192 sub-rede \u2192 VM \u2192 NIC \u2192 NSG",
+		rcStat2: "IPs",
+		rcStat2v: "Vivem na NIC, n\u00e3o na VM",
+		rcStat3: "Escala",
+		rcStat3v: "Ponha o NSG na sub-rede"
+	},
+};
+function t(key) { return (I18N[currentLang] && I18N[currentLang][key]) || I18N.en[key] || key; }
+
+function setLanguage(lang) {
+	currentLang = lang;
+	document.documentElement.lang = lang;
+	try { const u=new URL(location.href); u.searchParams.set('lang', lang); history.replaceState(null,'',u); } catch(_){}
+	document.getElementById('page-title').textContent = '\uD83C\uDF10 ' + t('pageTitle');
+	document.getElementById('prev-btn').title = t('prev');
+	document.getElementById('next-btn').title = t('next');
+	document.getElementById('replay-btn').title = t('replay');
+	document.getElementById('reset-btn').title = t('restart');
+	document.getElementById('speed-down').title = t('slower');
+	document.getElementById('speed-up').title = t('faster');
+	document.getElementById('outline-title').textContent = t('stepDetails');
+	document.querySelector('.skip-link').textContent = t('skipToMain');
+	document.getElementById('stage-heading').textContent = t('stageHeading');
+	document.getElementById('stage-instructions').textContent = t('stageInstructions');
+	syncCalloutBtn(); syncOutlineBtn();
+	if (typeof syncAudioBtn === 'function') syncAudioBtn();
+	if (typeof syncCcBtn === 'function') syncCcBtn();
+	if (typeof buildShortcuts === 'function') buildShortcuts();
+	document.querySelectorAll('.aw-drag-reset').forEach(b=>{ b.title=t('resetPos'); b.setAttribute('aria-label', t('resetPos')); });
+	try { localStorage.setItem('aw-sa-lang', lang); } catch(_){}
+	if (typeof refreshJourneyNext === 'function') refreshJourneyNext();
+	if (current >= 0) renderStep(current);
+}
+
+// ── STEPS (journey order — every step assembles the same relationship map) ──
+const STEPS = [
+	{ id:'vnet',   short:'VNet',   level:1, titleKey:'vnTitle', captionKey:'vnCaption', descKey:'vnDesc', calloutKey:'vnCallout',
+		stats:[['vnStat1','vnStat1v'],['vnStat2','vnStat2v'],['vnStat3','vnStat3v']] },
+	{ id:'subnet', short:'Subnet', level:2, titleKey:'sbTitle', captionKey:'sbCaption', descKey:'sbDesc', calloutKey:'sbCallout',
+		stats:[['sbStat1','sbStat1v'],['sbStat2','sbStat2v'],['sbStat3','sbStat3v']] },
+	{ id:'vm',     short:'VM',     level:3, titleKey:'vmTitle', captionKey:'vmCaption', descKey:'vmDesc', calloutKey:'vmCallout',
+		stats:[['vmStat1','vmStat1v'],['vmStat2','vmStat2v'],['vmStat3','vmStat3v']] },
+	{ id:'nic',    short:'NIC',    level:4, titleKey:'niTitle', captionKey:'niCaption', descKey:'niDesc', calloutKey:'niCallout',
+		stats:[['niStat1','niStat1v'],['niStat2','niStat2v'],['niStat3','niStat3v']] },
+	{ id:'nsg',    short:'NSG',    level:5, titleKey:'nsTitle', captionKey:'nsCaption', descKey:'nsDesc', calloutKey:'nsCallout',
+		stats:[['nsStat1','nsStat1v'],['nsStat2','nsStat2v'],['nsStat3','nsStat3v']] },
+	{ id:'nsgsub', short:'Scale',  level:6, titleKey:'sgTitle', captionKey:'sgCaption', descKey:'sgDesc', calloutKey:'sgCallout',
+		stats:[['sgStat1','sgStat1v'],['sgStat2','sgStat2v'],['sgStat3','sgStat3v']] },
+	{ id:'recap',  short:'Recap',  level:7, titleKey:'rcTitle', captionKey:'rcCaption', descKey:'rcDesc', calloutKey:'rcCallout',
+		stats:[['rcStat1','rcStat1v'],['rcStat2','rcStat2v'],['rcStat3','rcStat3v']] }
+];
+
+// ── DOM REFS ──────────────────────────────
+const stage=document.getElementById('stage-frame'), svg=document.getElementById('fx-svg'),
+	counter=document.getElementById('step-counter'), breadcrumb=document.getElementById('breadcrumb'),
+	progress=document.getElementById('progress-fill'), announcer=document.getElementById('step-announcer'),
+	outlineBody=document.getElementById('outline-body'), outlinePanel=document.getElementById('step-outline'),
+	outlineBtn=document.getElementById('outline-toggle'), calloutBtn=document.getElementById('callout-toggle'),
+	langSelect=document.getElementById('lang-select');
+
+langSelect.addEventListener('change', e => setLanguage(e.target.value));
+const urlLang = new URLSearchParams(location.search).get('lang');
+let savedLang=null; try{ savedLang=localStorage.getItem('aw-sa-lang'); }catch(_){}
+if (urlLang && I18N[urlLang]) { currentLang = urlLang; langSelect.value = urlLang; }
+else if (savedLang && I18N[savedLang]) { currentLang = savedLang; langSelect.value = savedLang; }
+
+// ── Font size ─────────────────────────────
+const fontScales=[0.8,0.9,1,1.1,1.2,1.35]; let fontScaleIdx=2;
+const baseFontSize=parseFloat(getComputedStyle(document.documentElement).fontSize);
+function applyFontScale(){ document.documentElement.style.fontSize=(baseFontSize*fontScales[fontScaleIdx])+'px'; const c=document.getElementById('controls'); if(c) c.style.fontSize=baseFontSize+'px'; if(typeof current!=='undefined'&&current>=0){ const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s); } }
+function saveFont(){ try{ localStorage.setItem('aw-sa-font', String(fontScaleIdx)); }catch(_){} }
+try{ const f=parseInt(localStorage.getItem('aw-sa-font'),10); if(!isNaN(f)&&f>=0&&f<fontScales.length){ fontScaleIdx=f; applyFontScale(); } }catch(_){}
+document.getElementById('font-decrease').addEventListener('click',()=>{ if(fontScaleIdx>0){fontScaleIdx--;applyFontScale();saveFont();} });
+document.getElementById('font-increase').addEventListener('click',()=>{ if(fontScaleIdx<fontScales.length-1){fontScaleIdx++;applyFontScale();saveFont();} });
+
+let current=-1, animating=false, liveEls=[], liveTimelines=[], calloutEnabled=false;
+
+function syncCalloutBtn(){ calloutBtn.classList.toggle('toggle-active',calloutEnabled); calloutBtn.setAttribute('aria-pressed',calloutEnabled?'true':'false'); calloutBtn.setAttribute('data-tip', calloutEnabled?'Callouts: On':'Callouts: Off'); }
+calloutBtn.addEventListener('click',()=>{
+	calloutEnabled=!calloutEnabled; syncCalloutBtn();
+	if(current<0) return;
+	const existing=stage.querySelectorAll('.callout');
+	if(calloutEnabled){ if(!existing.length){ const c=maybeCallout(STEPS[current]); if(c) gsap.fromTo(c,{opacity:0,y:10},{opacity:1,y:0,duration:0.4,overwrite:true}); } }
+	else { existing.forEach(c=>{ const idx=liveEls.indexOf(c); if(idx>-1) liveEls.splice(idx,1); gsap.killTweensOf(c); c.remove(); }); }
+}); syncCalloutBtn();
+function syncOutlineBtn(){ const on=!outlinePanel.hasAttribute('hidden'); outlineBtn.classList.toggle('toggle-active',on); outlineBtn.setAttribute('aria-expanded',on?'true':'false'); outlineBtn.setAttribute('data-tip', on?'Outline: On':'Outline: Off'); }
+outlineBtn.addEventListener('click',()=>{ const showing=!outlinePanel.hasAttribute('hidden'); if(showing){outlinePanel.setAttribute('hidden','');outlineBtn.setAttribute('aria-expanded','false');} else {outlinePanel.removeAttribute('hidden');outlineBtn.setAttribute('aria-expanded','true');} syncOutlineBtn(); }); syncOutlineBtn();
+
+// ── Audio narration ──────────────────
+const AUDIO_BASE = 'audio/VirtualNetwork/';
+const AUDIO_FILES = ['step-01.mp3','step-02.mp3','step-03.mp3','step-04.mp3','step-05.mp3','step-06.mp3','step-07.mp3'];
+let audioEnabled=false, currentAudio=null, audioTimeout=null, ccPref=false;
+const audioBtn=document.getElementById('audio-toggle');
+if(audioBtn){ audioBtn.innerHTML='<span class="aw-audio-ico" aria-hidden="true">\uD83D\uDD07</span><span class="aw-audio-time" aria-hidden="true">--:--</span>'; }
+const audioIco=audioBtn&&audioBtn.querySelector('.aw-audio-ico'), audioTimeEl=audioBtn&&audioBtn.querySelector('.aw-audio-time');
+// Captions can play WITHOUT sound: CC on + audio off plays the clip at volume 0 so captions still reveal in time.
+function playbackOn(){ return audioEnabled || ccPref; }
+function audioDir(){ return (currentLang && currentLang!=='en') ? currentLang+'/' : ''; }
+function fmtDur(s){ s=Math.max(0,Math.ceil(s)); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
+function updateAudioTime(){ if(audioTimeEl && currentAudio && isFinite(currentAudio.duration) && currentAudio.duration>0) audioTimeEl.textContent=fmtDur(currentAudio.duration-currentAudio.currentTime); }
+function syncAudioBtn(){ if(!audioBtn) return; if(audioIco) audioIco.textContent=audioEnabled?'\uD83D\uDD0A':'\uD83D\uDD07'; if(audioTimeEl && !playbackOn()) audioTimeEl.textContent='--:--'; audioBtn.classList.toggle('toggle-active',audioEnabled); audioBtn.setAttribute('aria-pressed',audioEnabled?'true':'false'); }
+function speakFallback(i){ if(!window.speechSynthesis) return; const step=STEPS[i]; const u=new SpeechSynthesisUtterance(`${t(step.titleKey)}. ${t(step.descKey)}`); u.lang=currentLang||'en'; try{ speechSynthesis.cancel(); speechSynthesis.speak(u); }catch(_){} }
+function stopAudio(){
+	if(currentAudio){ currentAudio.pause(); currentAudio.currentTime=0; currentAudio=null; }
+	if(audioTimeout){ clearTimeout(audioTimeout); audioTimeout=null; }
+	if(audioTimeEl) audioTimeEl.textContent='--:--';
+	try{ if(window.speechSynthesis) speechSynthesis.cancel(); }catch(_){}
+	if(window.AWCaptions) AWCaptions.clear();
+}
+function playStepAudio(i){
+	if(window.__awSkipAudioOnce) return;
+	stopAudio();
+	if(document.body.classList.contains('aw-prestart')) return;
+	if(!playbackOn() || i<0 || i>=STEPS.length) return;
+	audioTimeout=setTimeout(()=>{
+		audioTimeout=null;
+		const file=AUDIO_FILES[i];
+		if(!file){ if(audioEnabled) speakFallback(i); return; }   // no clip = no timing source for caption-only
+		currentAudio=new Audio(AUDIO_BASE+audioDir()+file);
+		currentAudio.volume = audioEnabled ? 1 : 0;              // caption-only = silent (volume 0) timing source
+		if(window.AWCaptions) AWCaptions.bind(currentAudio,i);
+		currentAudio.addEventListener('loadedmetadata',updateAudioTime);
+		currentAudio.addEventListener('timeupdate',updateAudioTime);
+		currentAudio.addEventListener('ended',()=>{ if(audioTimeEl) audioTimeEl.textContent='0:00'; });
+		currentAudio.addEventListener('error',()=>{ if(audioEnabled) speakFallback(i); });
+		currentAudio.play().catch(()=>{});
+	}, 400);
+}
+if(audioBtn){ audioBtn.addEventListener('click',()=>{
+	audioEnabled=!audioEnabled; try{localStorage.setItem('aw-sa-audio',audioEnabled?'1':'0');}catch(_){} syncAudioBtn();
+	if(current>=0){
+		if(!playbackOn()) stopAudio();
+		else if(currentAudio) currentAudio.volume = audioEnabled ? 1 : 0;   // flip sound without restarting the clip
+		else playStepAudio(current);
+	}
+	applyCc();
+}); }
+// Initial audio + CC from the ?audio parameter:
+//   on -> audio ON + captions ON  ·  off -> both OFF  ·  (absent) -> audio ON, captions OFF (a prior stored choice still wins).
+(function(){
+	var p=null; try{ p=new URLSearchParams(location.search).get('audio'); }catch(_){}
+	if(p==='on'){ audioEnabled=true; ccPref=true; }
+	else if(p==='off'){ audioEnabled=false; ccPref=false; }
+	else {
+		audioEnabled=true; ccPref=false;
+		try{ var a=localStorage.getItem('aw-sa-audio'); if(a==='1') audioEnabled=true; else if(a==='0') audioEnabled=false; }catch(_){}
+		try{ var c=localStorage.getItem('aw-sa-cc'); if(c==='1') ccPref=true; else if(c==='0') ccPref=false; }catch(_){}
+	}
+	try{ localStorage.setItem('aw-sa-audio',audioEnabled?'1':'0'); localStorage.setItem('aw-sa-cc',ccPref?'1':'0'); }catch(_){}
+})();
+syncAudioBtn();
+
+// ── Captions (CC) — overlaid in the frame; play WITH or WITHOUT audio ──
+const ccBtn=document.getElementById('cc-toggle');
+function ccEffective(){ return ccPref; }
+function syncCcBtn(){ if(!ccBtn) return; ccBtn.classList.toggle('toggle-active',ccPref); ccBtn.setAttribute('aria-pressed',ccPref?'true':'false'); }
+function applyCc(){ if(window.AWCaptions) AWCaptions.setEnabled(ccEffective()); if(ccEffective()&&currentAudio&&window.AWCaptions) AWCaptions.bind(currentAudio,current); syncCcBtn(); }
+if(window.AWCaptions){ AWCaptions.configure({ page:'VirtualNetwork', base:'../../narration/Network/', lang:()=>currentLang, fallback:(i)=>(STEPS[i]?t(STEPS[i].descKey):''), reserve:false }); }
+if(ccBtn){ ccBtn.addEventListener('click',()=>{
+	ccPref=!ccPref; try{localStorage.setItem('aw-sa-cc',ccPref?'1':'0');}catch(_){} applyCc();
+	if(current>=0){
+		if(playbackOn() && !currentAudio) playStepAudio(current);   // caption-only: start the muted timing clip
+		else if(!playbackOn() && currentAudio) stopAudio();          // CC off + audio off: nothing left to play
+	}
+}); }
+applyCc();
+
+// ── Full screen ──
+(function(){
+	const fsBtn=document.getElementById('fs-toggle'); if(!fsBtn) return;
+	function inFs(){ return !!(document.fullscreenElement||document.webkitFullscreenElement); }
+	function syncFs(){ document.body.classList.toggle('is-fs',inFs()); fsBtn.setAttribute('aria-pressed',inFs()?'true':'false'); fsBtn.title=inFs()?'Exit full screen (F)':'Full screen (F)'; }
+	function toggle(){ try{ if(inFs()){ (document.exitFullscreen||document.webkitExitFullscreen).call(document); } else { const el=document.documentElement; (el.requestFullscreen||el.webkitRequestFullscreen).call(el); } }catch(_){} }
+	fsBtn.addEventListener('click',e=>{ e.stopPropagation(); toggle(); });
+	document.addEventListener('fullscreenchange',syncFs); document.addEventListener('webkitfullscreenchange',syncFs);
+	document.addEventListener('keydown',e=>{ if(e.code==='KeyF'&&!e.metaKey&&!e.ctrlKey&&!e.altKey){ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return; e.preventDefault(); toggle(); } });
+	syncFs();
+})();
+
+// ── Make callout / outline / caption draggable + the caption resizable, with a reset pin ──
+function dragify(el, key){
+	if(!el || el.__awDrag) return; el.__awDrag=true;
+	let dragging=false, sx=0, sy=0, bl=0, bt=0, moved=false;
+	const resizable = getComputedStyle(el).resize !== 'none';
+	const sizeKey = key ? key + '-size' : null;
+	const home={ position:el.style.position, left:el.style.left, top:el.style.top,
+		right:el.style.right, bottom:el.style.bottom, margin:el.style.margin, transform:el.style.transform,
+		width:el.style.width, height:el.style.height };
+	const pin=document.createElement('button');
+	pin.type='button'; pin.className='aw-drag-reset';
+	pin.title=t('resetPos'); pin.setAttribute('aria-label', t('resetPos'));
+	pin.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>';
+	const oy=getComputedStyle(el).overflowY; const clips=(oy==='auto'||oy==='scroll'||oy==='hidden');
+	pin.style.top=clips?'8px':'-10px'; pin.style.right=clips?'8px':'-10px';
+	el.appendChild(pin);
+	function showPin(on){ pin.style.display=on?'flex':'none'; }
+	pin.addEventListener('pointerdown', e=>{ e.stopPropagation(); });
+	pin.addEventListener('click', e=>{
+		e.preventDefault(); e.stopPropagation();
+		el.style.position=home.position; el.style.left=home.left; el.style.top=home.top;
+		el.style.right=home.right; el.style.bottom=home.bottom; el.style.margin=home.margin; el.style.transform=home.transform;
+		el.style.width=home.width; el.style.height=home.height;
+		if(key){ try{ localStorage.removeItem(key); }catch(_){} }
+		if(sizeKey){ try{ localStorage.removeItem(sizeKey); }catch(_){} }
+		showPin(false);
+	});
+	function fix(left,top){
+		const w=el.offsetWidth, h=el.offsetHeight;
+		left=Math.max(6, Math.min(left, window.innerWidth  - w - 6));
+		top =Math.max(6, Math.min(top,  window.innerHeight - h - 6));
+		el.style.position='fixed'; el.style.left=left+'px'; el.style.top=top+'px';
+		el.style.right='auto'; el.style.bottom='auto'; el.style.margin='0'; el.style.transform='none';
+	}
+	if(resizable && typeof ResizeObserver!=='undefined'){
+		let rt;
+		new ResizeObserver(()=>{
+			if(el.style.width || el.style.height){
+				showPin(true);
+				if(sizeKey){ clearTimeout(rt); rt=setTimeout(()=>{ try{ localStorage.setItem(sizeKey, JSON.stringify({w:el.style.width, h:el.style.height})); }catch(_){} }, 150); }
+			}
+		}).observe(el);
+	}
+	el.addEventListener('pointerdown', e=>{
+		if(e.button!==0 || (e.target.closest && e.target.closest('a,button,select,input,textarea'))) return;
+		if(resizable){ const r=el.getBoundingClientRect(); if(e.clientX>r.right-18 && e.clientY>r.bottom-18) return; }
+		dragging=true; moved=false;
+		const r=el.getBoundingClientRect(); bl=r.left; bt=r.top; sx=e.clientX; sy=e.clientY;
+		fix(bl, bt);
+		try{ el.setPointerCapture(e.pointerId); }catch(_){}
+		e.preventDefault();
+	});
+	el.addEventListener('pointermove', e=>{
+		if(!dragging) return;
+		const dx=e.clientX-sx, dy=e.clientY-sy;
+		if(Math.abs(dx)>2||Math.abs(dy)>2) moved=true;
+		fix(bl+dx, bt+dy);
+	});
+	function end(e){
+		if(!dragging) return; dragging=false;
+		try{ el.releasePointerCapture(e.pointerId); }catch(_){}
+		if(moved){ showPin(true); if(key){ try{ const r=el.getBoundingClientRect(); localStorage.setItem(key, JSON.stringify({left:r.left, top:r.top})); }catch(_){} } }
+	}
+	el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+	if(sizeKey){ try{ const z=JSON.parse(localStorage.getItem(sizeKey)||'null'); if(z && (z.w||z.h)){ if(z.w) el.style.width=z.w; if(z.h) el.style.height=z.h; showPin(true); } }catch(_){} }
+	if(key){ try{ const s=JSON.parse(localStorage.getItem(key)||'null'); if(s && isFinite(s.left) && isFinite(s.top)){ fix(s.left, s.top); showPin(true); } }catch(_){} }
+}
+dragify(document.getElementById('step-outline'), 'aw-sa-outline-pos');
+dragify(document.getElementById('aw-caption'), 'aw-sa-caption-pos');
+
+// ── Reduced motion ────────────────────────
+const motionMQ=window.matchMedia('(prefers-reduced-motion: reduce)'); let motionPaused=motionMQ.matches;
+motionMQ.addEventListener('change',e=>{ motionPaused=e.matches; renderStep(current); });
+
+// ── Helpers ───────────────────────────────
+function clearStage(){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; liveEls.forEach(el=>el.remove()); liveEls=[]; Array.from(svg.children).forEach(c=>{ if(c.tagName.toLowerCase()!=='defs') c.remove(); }); }
+function el(cls,html){ const d=document.createElement('div'); if(cls) d.className=cls; if(html!=null) d.innerHTML=html; return d; }
+const ICONS = {
+	inbox:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 3h2v5h3l-4 4-4-4h3zM5 14h14v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1z"/></svg>',
+	box:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 3 7v10l9 5 9-5V7zm0 2.3L17.7 7 12 10.2 6.3 7zM5 9.1l6 3.4v6.8l-6-3.3zm14 0v6.9l-6 3.3v-6.8z"/></svg>',
+	layers:'<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3 3 8l9 5 9-5z"/><path d="M3 12l9 5 9-5"/><path d="M3 16l9 5 9-5"/></g></svg>',
+	file:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h8l4 4v16H6z"/><path fill="var(--theme-card-background,#fff)" d="M13 3v4h4"/></svg>',
+	chat:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-4 4v-4H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/></svg>',
+	table:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M3 4h18v16H3V4zm2 2v3h6V6H5zm8 0v3h6V6h-6zM5 11v3h6v-3H5zm8 0v3h6v-3h-6zM5 16v2h6v-2H5zm8 0v2h6v-2h-6z"/></svg>',
+	disk:'<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor"/></g></svg>',
+	bolt:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>',
+	append:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v2H4zm0 4h16v2H4zm0 4h10v2H4zm13 0h2v3h3v2h-3v3h-2v-3h-3v-2h3z"/></svg>',
+	fire:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c1 3-1 4-1 6a2.5 2.5 0 0 0 5 0c0-1-.2-1.8-.6-2.6C17.6 7 19 9.7 19 13a7 7 0 1 1-14 0c0-3.6 2.6-6.4 4-8.6.6 1 1.3 1.7 2.4 2.3.5-1.4.3-3-.4-4.7z"/></svg>',
+	snow:'<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 2v20M4 6l16 12M20 6L4 18"/><path d="M12 6l-2.5-2M12 6l2.5-2M12 18l-2.5 2M12 18l2.5 2"/></g></svg>',
+	ice:'<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 2 4 6.5v9L12 20l8-4.5v-9z"/><path d="M4 6.5 12 11l8-4.5M12 11v9"/></g></svg>',
+	archive:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18v4H3zM4.5 9h15l-.9 10.1a1 1 0 0 1-1 .9H6.4a1 1 0 0 1-1-.9zM9 12v2h6v-2z"/></svg>',
+	clock:'<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2" stroke-linecap="round"/></g></svg>',
+	bulb:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-4 12.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26A7 7 0 0 0 12 2zM9 20h6v1a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1z"/></svg>',
+	party:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5zm6 11l.9 2.6L21.5 16.5l-2.6.9L18 20l-.9-2.6L14.5 16.5l2.6-.9zM6 14l.7 2 2 .7-2 .7L6 19.4l-.7-2-2-.7 2-.7z"/></svg>',
+	globe:'<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></g></svg>'
+};
+function icon(name){ return `<span class="ic">${ICONS[name]||''}</span>`; }
+// ICON POLICY (in priority order):
+//  1) Official Microsoft Azure service icons — local set, colored badges via <img>.  az('<category>/<file>.svg')
+//  2) Fluent icons — animated first, static fallback (wired via data-fallback in renderStep).  fluent('<Folder>','<file>')
+//  3) OS / GitHub icons approved by Microsoft/GitHub.   4) Open-source icons.   (inline ICONS map = small UI glyphs only)
+const AZ_BASE='../../lib/icons/Azure_Public_Service_Icons/';
+function az(rel, alt){ return `<img class="az-ic" src="${AZ_BASE}${rel}" alt="${alt||''}" decoding="async">`; }
+// Microsoft Fluent Emoji (official) ships static Color/Flat/3D — there is no official animated Fluent CDN —
+// so we use the static color SVG. If an approved animated source is added later, point src at it and keep
+// this static URL as data-fallback (renderStep already wires img[data-fallback] onerror → fallback).
+const FLUENT_STAT='https://cdn.jsdelivr.net/gh/microsoft/fluentui-emoji@main/assets/';
+function fluent(folder, file, alt){
+	return `<img class="az-ic fluent-ic" src="${FLUENT_STAT}${encodeURI(folder)}/Color/${file}_color.svg" alt="${alt||''}" decoding="async">`;
+}
+function stepById(id){ return STEPS.find(s=>s.id===id); }
+function fitScene(scene){
+	if(!scene) return;
+	scene.style.transform='translate(-50%,-50%) scale(1)';
+	const box=stage.getBoundingClientRect();
+	const availW=box.width-32, availH=box.height-28;
+	const sw=scene.offsetWidth, sh=scene.offsetHeight;
+	if(!sw||!sh) return;
+	const k=Math.min(1, availW/sw, availH/sh);
+	scene.style.transform='translate(-50%,-50%) scale('+k+')';
+}
+function headerEls(scene){ return [scene.querySelector('.scene-title'), scene.querySelector('.scene-lead')]; }
+function buildScene(step){ const s=el('scene'); s.appendChild(el('scene-title', t(step.titleKey))); s.appendChild(el('scene-lead', t(step.descKey))); return s; }
+function maybeCallout(step){ if(!calloutEnabled) return null; const c=el('callout', t(step.calloutKey)); c.style.left='1.5rem'; c.style.top='1.5rem'; stage.appendChild(c); liveEls.push(c); dragify(c, 'aw-sa-callout-pos'); return c; }
+function renderOutline(step,idx){
+	const rows=(step.stats||[]).map(([k,v])=>`<div class="stat-row"><span>${t(k)}</span><span>${t(v)}</span></div>`).join('');
+	outlineBody.innerHTML=`<div class="outline-section"><strong>${t('stepOf')} ${idx+1} / ${STEPS.length}: ${t(step.titleKey)}</strong><p style="margin-top:0.4rem;">${t(step.descKey)}</p></div>${rows?`<div class="outline-section">${rows}</div>`:''}`;
+}
+function announceStep(step,idx){ announcer.textContent=`${t('stepOf')} ${idx+1} / ${STEPS.length}: ${t(step.titleKey)}. ${t(step.descKey)}`; }
+
+// ── RENDER DISPATCH ───────────────────────
+function renderStep(i){
+	if(i<0||i>=STEPS.length) return;
+	if(animating){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; animating=false; }
+	animating=true;
+	const step=STEPS[i];
+	const outgoing=stage.querySelector('.scene:not(.scene-out)');
+	if(outgoing) liveEls=liveEls.filter(x=>x!==outgoing);
+	clearStage();
+	if(outgoing){ outgoing.style.zIndex='5';
+		if(motionPaused){ outgoing.remove(); }
+		else { outgoing.classList.remove('scene-in'); outgoing.classList.add('scene-out'); setTimeout(()=>outgoing.remove(), 240); } }
+	if(step.id==='spec') renderSpecStep(); else renderMapStep(step.level);
+	// (spec step removed for this page — every step is a map level)
+	const incoming=stage.querySelector('.scene:not(.scene-out)');
+	// Fluent icons load an animated APNG first; if it 404s, fall back to the static color SVG.
+	if(incoming){ incoming.querySelectorAll('img[data-fallback]').forEach(im=>{ im.addEventListener('error', function h(){ im.removeEventListener('error',h); const fb=im.getAttribute('data-fallback'); if(fb) im.src=fb; }); }); }
+	if(incoming && !motionPaused) incoming.classList.add('scene-in');
+	fitScene(incoming);
+	current=i;
+	try{ const u=new URL(location.href); u.searchParams.set('step', String(i+1)); history.replaceState(null,'',u); }catch(_){}
+	counter.textContent=`${t('stepOf')} ${current+1} / ${STEPS.length}`;
+	breadcrumb.textContent=t(step.captionKey);
+	progress.style.width=((current+1)/STEPS.length*100)+'%';
+	renderOutline(step,i); announceStep(step,i);
+	if(typeof playStepAudio==='function') playStepAudio(i);
+	if(typeof armJourneyNext==='function') armJourneyNext(i);
+}
+
+// ── PERSISTENT RELATIONSHIP MAP (assembles across every step) ──
+function buildVnetMap(){
+	const map=el('sas-map');
+	map.innerHTML =
+		`<svg class="map-svg" viewBox="0 0 1320 510" preserveAspectRatio="xMidYMid meet" aria-hidden="true">`+
+			`<defs><marker id="sasArrow" markerUnits="userSpaceOnUse" markerWidth="18" markerHeight="18" refX="14" refY="9" orient="auto"><path d="M2,2 L16,9 L2,16 Z"></path></marker></defs>`+
+			`<path data-rev="4" data-flow="1" d="M332,229 L424,229" marker-end="url(#sasArrow)"></path>`+
+			`<path data-rev="5" data-flow="1" d="M926,252 L734,238" marker-end="url(#sasArrow)"></path>`+
+			`<path data-rev="6" data-flow="1" d="M332,361 L424,361" marker-end="url(#sasArrow)"></path>`+
+			`<path data-rev="6" data-flow="1" d="M926,300 L802,352" marker-end="url(#sasArrow)"></path>`+
+		`</svg>`+
+		// nested boundaries
+		`<div class="map-zone z-vnet" data-rev="1"><div class="zone-label">${az('networking/10061-icon-service-Virtual-Networks.svg', t('zVnet'))}<span>${t('zVnet')}</span></div></div>`+
+		`<div class="map-zone z-subnet" data-rev="2"><div class="zone-label">${az('networking/02742-icon-service-Subnet.svg', t('zSubnet'))}<span>${t('zSubnet')}</span> <span class="zl-cidr">${t('zSubnetCidr')}</span></div></div>`+
+		// VNet address-space chips
+		`<div class="vnet-chips" data-rev="1"><span class="vchip mono">${t('chipCidr')}</span><span class="vchip">${t('chipRfc')}</span><span class="vchip">${t('chipDual')}</span></div>`+
+		// VM 1
+		`<div class="map-node n-vm1" data-rev="3"><div class="mn-head"><span class="mn-emoji">${az('compute/10021-icon-service-Virtual-Machine.svg', t('nVm'))}</span><span class="mn-title">${t('nVm')}</span></div><div class="mn-sub">${t('nVmSub')}</div></div>`+
+		// NIC 1
+		`<div class="map-node n-nic1" data-rev="4"><div class="mn-head"><span class="mn-emoji">${az('networking/10080-icon-service-Network-Interfaces.svg', t('nNic'))}</span><span class="mn-title">${t('nNic')}</span></div>`+
+			`<div class="tok-rows">`+
+				`<div class="tok-row" data-rev="4"><span class="tr-em">\uD83D\uDD12</span><span class="tr-k">${t('rowPriv')}</span><span class="tr-v">${t('rowPriv1V')}</span></div>`+
+				`<div class="tok-row" data-rev="4"><span class="tr-em">\uD83C\uDF10</span><span class="tr-k">${t('rowPub')}</span><span class="tr-v">${t('rowPubV')}</span></div>`+
+			`</div></div>`+
+		// VM 2 (step 6)
+		`<div class="map-node n-vm2" data-rev="6"><div class="mn-head"><span class="mn-emoji">${az('compute/10021-icon-service-Virtual-Machine.svg', t('nVm'))}</span><span class="mn-title">${t('nVm')}</span></div><div class="mn-sub">${t('nVm2Sub')}</div></div>`+
+		// NIC 2 (step 6)
+		`<div class="map-node n-nic2" data-rev="6"><div class="mn-head"><span class="mn-emoji">${az('networking/10080-icon-service-Network-Interfaces.svg', t('nNic'))}</span><span class="mn-title">${t('nNic')}</span></div>`+
+			`<div class="tok-rows">`+
+				`<div class="tok-row" data-rev="6"><span class="tr-em">\uD83D\uDD12</span><span class="tr-k">${t('rowPriv')}</span><span class="tr-v">${t('rowPriv2V')}</span></div>`+
+				`<div class="tok-row" data-rev="6"><span class="tr-em">\uD83C\uDF10</span><span class="tr-k">${t('rowPub')}</span><span class="tr-v">${t('rowPubV')}</span></div>`+
+			`</div></div>`+
+		// NSG (step 5)
+		`<div class="map-node n-nsg" data-rev="5"><div class="mn-head"><span class="mn-emoji">${az('networking/10067-icon-service-Network-Security-Groups.svg', t('nNsg'))}</span><span class="mn-title">${t('nNsg')}</span></div><div class="mn-sub">${t('nNsgSub')}</div>`+
+			`<div class="tok-rows">`+
+				`<div class="tok-row" data-rev="5"><span class="tr-em">\u2B07\uFE0F</span><span class="tr-k">${t('nsgIn')}</span><span class="tr-v">${t('nsgInV')}</span></div>`+
+				`<div class="tok-row" data-rev="5"><span class="tr-em">\u2B07\uFE0F</span><span class="tr-k">${t('nsgIn')}</span><span class="tr-v">${t('nsgIn2V')}</span></div>`+
+				`<div class="tok-row" data-rev="5"><span class="tr-em">\u2B06\uFE0F</span><span class="tr-k">${t('nsgOut')}</span><span class="tr-v">${t('nsgOutV')}</span></div>`+
+				`<div class="tok-row deny" data-rev="5"><span class="tr-em">\u26D4</span><span class="tr-k">${t('nsgDeny')}</span><span class="tr-v">${t('nsgDenyV')}</span></div>`+
+			`</div></div>`+
+		// subnet coverage badge (step 6)
+		`<div class="zone-badge zb-subnet" data-rev="6">${t('subnetNsgBadge')}</div>`+
+		// edge labels
+		`<div class="edge-label el-1to1" data-rev="4">${t('elOneToOne')}</div>`+
+		`<div class="edge-label el-filter" data-rev="5">${t('elFilter')}</div>`+
+		`<div class="edge-label el-subnet" data-rev="6">${t('elSubnet')}</div>`+
+		// recap ribbon (step 7)
+		`<div class="map-ribbon" data-rev="7">`+['bp1','bp2','bp3','bp4','bp5'].map(k=>`<span class="bp">${t(k)}</span>`).join('')+`</div>`;
+	return map;
+}
+
+// ── RENDER ONE MAP STEP · reveal everything up to this step's level ──
+function renderMapStep(level){
+	const step=STEPS[level-1]; const scene=buildScene(step);
+	const map=buildVnetMap(); scene.appendChild(map);
+	let foot=null;
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	const items=[...map.querySelectorAll('[data-rev]')];
+	const isPath=e=>e.tagName.toLowerCase()==='path';
+	const isFlow=e=>e.hasAttribute('data-flow');
+	const lvl=e=>parseInt(e.getAttribute('data-rev'),10);
+	const past=items.filter(e=>lvl(e)<level), now=items.filter(e=>lvl(e)===level), future=items.filter(e=>lvl(e)>level);
+	// a directional connector: once it exists, its dashes keep FLOWING toward the arrowhead (shows order/direction)
+	const startFlow=(p)=>{ p.style.strokeDasharray='9 7'; liveTimelines.push(gsap.fromTo(p,{strokeDashoffset:0},{strokeDashoffset:-16,duration:0.7,ease:'none',repeat:-1})); };
+	const bubble=map.querySelector('.user-bubble'); const zones=[...map.querySelectorAll('.map-zone')];
+	const hdr=headerEls(scene);
+	future.forEach(e=>{ e.style.opacity='0'; });
+	past.forEach(e=>{
+		if(isPath(e)){ e.style.opacity='0.85'; if(isFlow(e)){ if(motionPaused){ e.style.strokeDasharray='9 7'; } else { startFlow(e); } } }
+		else { gsap.set(e,{opacity:1,x:0,y:0,scale:1}); }
+	});
+	if(motionPaused){
+		now.forEach(e=>{ if(isPath(e)){ e.style.opacity='0.85'; if(isFlow(e)) e.style.strokeDasharray='9 7'; } else gsap.set(e,{opacity:1,x:0,y:0,scale:1}); });
+		gsap.set(hdr,{opacity:1}); if(foot) gsap.set(foot,{opacity:1}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return;
+	}
+	const typeBubble = bubble && lvl(bubble)===level;
+	const nowZones = zones.filter(z=>lvl(z)===level);
+	const nowNodes=now.filter(e=>!isPath(e) && !(typeBubble && e===bubble) && !nowZones.includes(e));
+	const nowPaths=now.filter(isPath), flowNow=nowPaths.filter(isFlow);
+	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
+	if(nowZones.length) nowZones.forEach(z=>tl.fromTo(z, {opacity:0,scale:0.985}, {opacity:1,scale:1,duration:0.55,ease:'power2.out',transformOrigin:'center center'}, 0));
+	tl.fromTo(hdr, {opacity:0,y:-14}, {opacity:1,y:0,duration:0.5,stagger:0.1,ease:'power2.out'}, nowZones.length?'-=0.35':0);
+	if(nowNodes.length) tl.fromTo(nowNodes, {opacity:0,y:16,scale:0.9}, {opacity:1,y:0,scale:1,duration:0.5,stagger:0.1,ease:'back.out(1.5)'}, '-=0.15');
+	// connector lines DRAW in — then flow lines keep their dashes moving toward the arrowhead
+	if(nowPaths.length){
+		nowPaths.forEach(p=>{ const len=p.getTotalLength(); p.style.strokeDasharray=len; p.style.strokeDashoffset=len; });
+		tl.fromTo(nowPaths, {opacity:0}, {opacity:0.85,duration:0.3,stagger:0.14,ease:'power1.out'}, '-=0.1');
+		tl.to(nowPaths, {strokeDashoffset:0,duration:0.6,stagger:0.14,ease:'power1.inOut', onComplete:()=>{ flowNow.forEach(startFlow); }}, '<');
+	}
+	// the user's speech bubble pops, then TYPES its text with a blinking caret
+	if(typeBubble){
+		const full=bubble.textContent; bubble.textContent='';
+		gsap.set(bubble,{opacity:0,scale:0.9});
+		tl.to(bubble, {opacity:1,scale:1,duration:0.32,ease:'back.out(1.6)'}, '-=0.05');
+		const st={n:0};
+		tl.to(st, {n:full.length, duration:Math.min(1.5, Math.max(0.6, full.length*0.032)), ease:'none',
+			onUpdate:()=>{ bubble.innerHTML=full.slice(0,Math.ceil(st.n))+'<span class="tw-caret"></span>'; },
+			onComplete:()=>{ bubble.textContent=full; }}, '>-0.02');
+	}
+	if(foot) tl.fromTo(foot, {opacity:0,y:10}, {opacity:1,y:0,duration:0.5,ease:'power2.out'}, '-=0.2');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.5}, '-=0.2');
+}
+
+// ── STEP 9 · TECHNICAL SUMMARY (a spec sheet — SAS types + per-service scope, NOT the map) ──
+// Facts verified via Microsoft Learn: https://learn.microsoft.com/azure/storage/common/storage-sas-overview
+function renderSpecStep(){
+	const step=stepById('spec');
+	const scene=buildScene(step);
+	const wrap=el('spec-wrap');
+	// three SAS-type cards
+	const types=el('spec-types');
+	const typeCard=(sc,icon,name,sign,scope,best,polTxt,polOk)=>{
+		const c=el('spec-card'); c.style.setProperty('--sc',sc);
+		c.innerHTML=`<div class="sc-head">${icon}<span class="sc-name">${name}</span></div>`+
+			`<div class="sc-row"><span class="sc-k">${t('spScKey')}</span><span class="sc-v">${sign}</span></div>`+
+			`<div class="sc-row"><span class="sc-k">${t('spScScope')}</span><span class="sc-v">${scope}</span></div>`+
+			`<div class="sc-row"><span class="sc-k">${t('spScBest')}</span><span class="sc-v">${best}</span></div>`+
+			`<span class="sc-pol ${polOk?'ok':'no'}">${polOk?'\u2713':'\u2014'} ${polTxt}</span>`;
+		types.appendChild(c); return c;
+	};
+	const c1=typeCard('#0b6a37', az('identity/10227-icon-service-Entra-Managed-Identities.svg', t('spT1Name')), t('spT1Name'), t('spT1Sign'), t('spT1Scope'), t('spT1Best'), t('spT1Pol'), false);
+	const c2=typeCard('#5c2d91', az('blockchain/10367-icon-service-Azure-Token-Service.svg', t('spT2Name')), t('spT2Name'), t('spT2Sign'), t('spT2Scope'), t('spT2Best'), t('spT2Pol'), true);
+	const c3=typeCard('#e97526', az('storage/10086-icon-service-Storage-Accounts.svg', t('spT3Name')), t('spT3Name'), t('spT3Sign'), t('spT3Scope'), t('spT3Best'), t('spT3Pol'), false);
+	wrap.appendChild(types);
+	// per-service scope matrix (all four services — not just blob containers)
+	const mrow=(icon,name,scope,pol)=>`<tr>`+
+		`<td><span class="mx-svc">${icon}<span>${name}</span></span></td>`+
+		`<td class="mx-scope">${scope}</td>`+
+		`<td class="mx-pol">${pol}</td></tr>`;
+	const table=document.createElement('table'); table.className='spec-matrix';
+	table.innerHTML=`<thead><tr><th>${t('spMxHeadSvc')}</th><th>${t('spMxHeadScope')}</th><th>${t('spMxHeadPol')}</th></tr></thead><tbody>`+
+		mrow(az('general/10839-icon-service-Storage-Container.svg', t('spRowBlob')), t('spRowBlob'), t('spRowBlobScope'), t('spRowBlobPol'))+
+		mrow(az('storage/10400-icon-service-Azure-Fileshares.svg', t('spRowFiles')), t('spRowFiles'), t('spRowFilesScope'), t('spRowFilesPol'))+
+		mrow(az('general/10840-icon-service-Storage-Queue.svg', t('spRowQueue')), t('spRowQueue'), t('spRowQueueScope'), t('spRowQueuePol'))+
+		mrow(az('general/10841-icon-service-Table.svg', t('spRowTable')), t('spRowTable'), t('spRowTableScope'), t('spRowTablePol'))+
+		`</tbody>`;
+	wrap.appendChild(table);
+	const note=el('spec-note', t('spNote')); wrap.appendChild(note);
+	const foot=el('spec-foot', t('spFoot')); wrap.appendChild(foot);
+	scene.appendChild(wrap);
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	const cards=[c1,c2,c3], hdr=headerEls(scene);
+	if(motionPaused){
+		gsap.set([...hdr,...cards,table,note,foot],{opacity:1});
+		if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return;
+	}
+	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
+	tl.fromTo(hdr, {opacity:0,y:-14}, {opacity:1,y:0,duration:0.5,stagger:0.1,ease:'power2.out'});
+	tl.fromTo(cards, {opacity:0,y:18,scale:0.94}, {opacity:1,y:0,scale:1,duration:0.5,stagger:0.12,ease:'back.out(1.4)'}, '-=0.1');
+	tl.fromTo(table, {opacity:0,y:14}, {opacity:1,y:0,duration:0.5,ease:'power2.out'}, '-=0.15');
+	tl.fromTo([note,foot], {opacity:0}, {opacity:1,duration:0.45,stagger:0.1}, '-=0.2');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.5}, '-=0.2');
+}
+
+// ── CONTROLS ──────────────────────────────
+function focusHeading(){ const h=document.getElementById('stage-heading'); if(h){ try{ h.focus({preventScroll:true}); }catch(_){ h.focus(); } } }
+function interruptAnimation(){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; animating=false; }
+function next(){ interruptAnimation(); if(current<STEPS.length-1){ renderStep(current+1); focusHeading(); } }
+function prev(){ interruptAnimation(); if(current>0){ renderStep(current-1); focusHeading(); } }
+function reset(){ interruptAnimation(); renderStep(0); focusHeading(); }
+function replay(){ if(current<0) return; interruptAnimation(); renderStep(current); focusHeading(); }
+// Re-render the current step in its FINAL state (no animation, no audio restart) — for theme/callout toggles.
+function rerenderInstant(){ if(current<0) return; const _mp=motionPaused; motionPaused=true; window.__awSkipAudioOnce=true; renderStep(current); window.__awSkipAudioOnce=false; requestAnimationFrame(()=>requestAnimationFrame(()=>{ motionPaused=_mp; })); }
+
+// ── Hide / show top bar ──────────────────
+(function(){
+	const hideBtn=document.getElementById('header-hide'), revealBtn=document.getElementById('header-reveal');
+	if(!hideBtn||!revealBtn) return;
+	var hideBtnTop=document.getElementById('header-hide-top'); if(hideBtnTop) hideBtnTop.addEventListener('click',function(e){ e.stopPropagation(); hideBtn.click(); });
+	const hidePath=hideBtn.querySelector('svg path');
+	const UP='M6 15l6-6 6 6', DOWN='M6 9l6 6 6-6';   // ^ points up to hide the bar; flips to v to show it again
+	function setHidden(h){ document.body.classList.toggle('chrome-hidden',h); hideBtn.setAttribute('aria-expanded',String(!h)); hideBtn.setAttribute('aria-label',h?'Show top bar':'Hide top bar'); hideBtn.title=(h?'Show top bar':'Hide top bar')+' (H)'; if(hidePath) hidePath.setAttribute('d',h?DOWN:UP); try{localStorage.setItem('aw-sa-chrome-hidden',h?'1':'0');}catch(_){}
+		if(current>=0) requestAnimationFrame(()=>{ const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s); }); }
+	hideBtn.addEventListener('click',e=>{e.stopPropagation();setHidden(!document.body.classList.contains('chrome-hidden'));});
+	revealBtn.addEventListener('click',e=>{e.stopPropagation();setHidden(false);});
+	try{ if(localStorage.getItem('aw-sa-chrome-hidden')==='1') setHidden(true); }catch(_){}
+	document.addEventListener('keydown',e=>{ if(e.code==='KeyH'&&!e.metaKey&&!e.ctrlKey&&!e.altKey){ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return; e.preventDefault(); setHidden(!document.body.classList.contains('chrome-hidden')); } });
+})();
+
+document.getElementById('next-btn').addEventListener('click',e=>{e.stopPropagation();next();});
+document.getElementById('prev-btn').addEventListener('click',e=>{e.stopPropagation();prev();});
+document.getElementById('reset-btn').addEventListener('click',e=>{e.stopPropagation();reset();});
+document.getElementById('replay-btn').addEventListener('click',e=>{e.stopPropagation();replay();});
+
+// ── Clickable progress bar + step ticks ──
+(function(){
+	const track=document.querySelector('.progress-track'); if(!track) return;
+	for(let s=1; s<STEPS.length; s++){ const tk=document.createElement('div'); tk.className='progress-tick'; tk.style.left=(s/STEPS.length*100)+'%'; track.appendChild(tk); }
+	track.setAttribute('title','Jump to a step');
+	track.addEventListener('click', e=>{
+		const r=track.getBoundingClientRect(); const frac=(e.clientX-r.left)/r.width;
+		const target=Math.max(0, Math.min(STEPS.length-1, Math.floor(frac*STEPS.length)));
+		if(target!==current){ interruptAnimation(); renderStep(target); focusHeading(); }
+	});
+})();
+
+// ── Movable / pinnable control dock ───────
+(function(){
+	const dock=document.getElementById('controls'), grip=document.getElementById('ctrl-grip'), pin=document.getElementById('ctrl-pin');
+	if(!dock||!grip) return;
+	const KEY='aw-sa-controls-pos';
+	let dragging=false, sx=0, sy=0, bl=0, bt=0, moved=false;
+	function place(left,top){
+		const w=dock.offsetWidth, h=dock.offsetHeight;
+		left=Math.max(6, Math.min(left, window.innerWidth - w - 6));
+		top =Math.max(6, Math.min(top,  window.innerHeight - h - 6));
+		dock.style.left=left+'px'; dock.style.top=top+'px'; dock.style.right='auto'; dock.style.bottom='auto'; dock.style.transform='none';
+		document.body.classList.add('controls-floating');
+	}
+	function recenter(){
+		dock.style.left=dock.style.top=dock.style.right=dock.style.bottom=dock.style.transform='';
+		document.body.classList.remove('controls-floating');
+		try{ localStorage.removeItem(KEY); }catch(_){}
+	}
+	grip.addEventListener('pointerdown', e=>{
+		e.preventDefault(); dragging=true; moved=false;
+		const r=dock.getBoundingClientRect(); bl=r.left; bt=r.top; sx=e.clientX; sy=e.clientY;
+		try{ grip.setPointerCapture(e.pointerId); }catch(_){}
+	});
+	grip.addEventListener('pointermove', e=>{
+		if(!dragging) return;
+		const dx=e.clientX-sx, dy=e.clientY-sy;
+		if(Math.abs(dx)>2||Math.abs(dy)>2) moved=true;
+		place(bl+dx, bt+dy);
+	});
+	function end(e){ if(!dragging) return; dragging=false; try{ grip.releasePointerCapture(e.pointerId); }catch(_){}
+		if(moved){ try{ const r=dock.getBoundingClientRect(); localStorage.setItem(KEY, JSON.stringify({left:r.left, top:r.top})); }catch(_){} } }
+	grip.addEventListener('pointerup', end); grip.addEventListener('pointercancel', end);
+	grip.addEventListener('keydown', e=>{
+		const d=e.shiftKey?40:12; const r=dock.getBoundingClientRect(); let ok=true;
+		if(e.key==='ArrowLeft') place(r.left-d, r.top);
+		else if(e.key==='ArrowRight') place(r.left+d, r.top);
+		else if(e.key==='ArrowUp') place(r.left, r.top-d);
+		else if(e.key==='ArrowDown') place(r.left, r.top+d);
+		else ok=false;
+		if(ok){ e.preventDefault(); e.stopPropagation(); }
+	});
+	if(pin) pin.addEventListener('click', e=>{ e.stopPropagation(); recenter(); });
+	window.addEventListener('resize', ()=>{ if(document.body.classList.contains('controls-floating')){ const r=dock.getBoundingClientRect(); place(r.left, r.top); } });
+	try{ const s=JSON.parse(localStorage.getItem(KEY)||'null'); if(s && typeof s.left==='number') place(s.left, s.top); }catch(_){}
+})();
+
+// ── Speed ─────────────────────────────────
+const SPEED_STEPS=[0.5,0.75,1,1.25,1.5,2]; const BASE_TIMESCALE=0.25;
+let speedIndex=SPEED_STEPS.indexOf(1);
+try{ const sp=parseInt(localStorage.getItem('aw-sa-speed'),10); if(!isNaN(sp)&&sp>=0&&sp<SPEED_STEPS.length) speedIndex=sp; }catch(_){}
+const speedLabel=document.getElementById('speed-label'), speedDownBtn=document.getElementById('speed-down'), speedUpBtn=document.getElementById('speed-up');
+function saveSpeed(){ try{ localStorage.setItem('aw-sa-speed', String(speedIndex)); }catch(_){} }
+function syncSpeedUI(){ const spd=SPEED_STEPS[speedIndex]; speedLabel.textContent=spd+'\u00d7'; speedDownBtn.disabled=speedIndex===0; speedUpBtn.disabled=speedIndex===SPEED_STEPS.length-1; gsap.globalTimeline.timeScale(spd*BASE_TIMESCALE); }
+syncSpeedUI();
+speedDownBtn.addEventListener('click',e=>{e.stopPropagation(); if(speedIndex>0){speedIndex--;syncSpeedUI();saveSpeed();}});
+speedUpBtn.addEventListener('click',e=>{e.stopPropagation(); if(speedIndex<SPEED_STEPS.length-1){speedIndex++;syncSpeedUI();saveSpeed();}});
+
+// ── Keyboard ──────────────────────────────
+if (window.AW && AW.keyboard) { AW.keyboard.bind({ next, prev, reset, replay }); }
+else { document.addEventListener('keydown', e => {
+	if (['Space','ArrowRight','Enter'].includes(e.code)) { e.preventDefault(); next(); }
+	else if (e.code==='ArrowLeft') { e.preventDefault(); prev(); }
+	else if (e.code==='KeyR') { e.preventDefault(); reset(); }
+	else if (e.code==='KeyP') { e.preventDefault(); replay(); }
+}); }
+
+// ── Touch swipe (tablets) ─────────────────
+(function(){
+	const surf=document.getElementById('stage'); if(!surf) return;
+	let x0=null,y0=null,t0=0;
+	surf.addEventListener('touchstart',e=>{ if(e.touches.length!==1){x0=null;return;} x0=e.touches[0].clientX; y0=e.touches[0].clientY; t0=Date.now(); },{passive:true});
+	surf.addEventListener('touchend',e=>{
+		if(x0===null) return; const tch=e.changedTouches[0]; const dx=tch.clientX-x0, dy=tch.clientY-y0; x0=null;
+		if(Date.now()-t0>800) return;
+		if(Math.abs(dx)>50 && Math.abs(dx)>Math.abs(dy)*1.6){ if(dx<0) next(); else prev(); }
+	},{passive:true});
+})();
+
+// ── Keyboard shortcut help overlay ────────
+(function(){
+	const overlay=document.getElementById('shortcut-overlay'), btn=document.getElementById('help-toggle'), closeBtn=document.getElementById('sc-close'), list=document.getElementById('sc-list');
+	if(!overlay||!list) return;
+	const ROWS=[[['\u2192','Space'],'scNext'],[['\u2190'],'scPrev'],[['R'],'scRestart'],[['P'],'scReplay'],[['H'],'scHide'],[['?'],'scHelp']];
+	window.buildShortcuts=function(){ const title=document.getElementById('sc-title'); if(title) title.textContent=t('scTitle');
+		list.innerHTML=ROWS.map(([keys,k])=>`<li><span>${t(k)}</span><span class="sc-keys">${keys.map(x=>`<kbd>${x}</kbd>`).join('')}</span></li>`).join(''); };
+	buildShortcuts();
+	function open(){ overlay.removeAttribute('hidden'); if(closeBtn) closeBtn.focus(); }
+	function close(){ overlay.setAttribute('hidden',''); if(btn) btn.focus(); }
+	function toggle(){ overlay.hasAttribute('hidden')?open():close(); }
+	if(btn) btn.addEventListener('click',e=>{e.stopPropagation();toggle();});
+	if(closeBtn) closeBtn.addEventListener('click',e=>{e.stopPropagation();close();});
+	const bd=overlay.querySelector('.sc-backdrop'); if(bd) bd.addEventListener('click',close);
+	document.addEventListener('keydown',e=>{ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return;
+		if(e.key==='?'){ e.preventDefault(); toggle(); }
+		else if(e.key==='Escape' && !overlay.hasAttribute('hidden')){ e.preventDefault(); close(); } });
+})();
+
+// ── Resize (re-fit only — never rebuild or replay the animation) ──
+let resizeTimer, lastStageW=0, lastStageH=0;
+window.addEventListener('resize',()=>{ clearTimeout(resizeTimer); resizeTimer=setTimeout(()=>{
+	if(current<0) return;
+	const box=stage.getBoundingClientRect();
+	// Ignore no-op resizes (focus/click reflow, mobile URL-bar show/hide) so the animation never restarts.
+	if(Math.abs(box.width-lastStageW)<1 && Math.abs(box.height-lastStageH)<1) return;
+	lastStageW=box.width; lastStageH=box.height;
+	const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s);
+},200); });
+
+// ── Init ──────────────────────────────────
+// Stop 01 of the Network journey — hand off to NSG & ASG.
+var NEXT_STOP = {
+	href: 'NsgAsg.html',
+	iconSrc: '../../lib/icons/Azure_Public_Service_Icons/networking/10067-icon-service-Network-Security-Groups.svg',
+	i18n: {
+		en: { eyebrow:'Up next', title:'NSG & ASG', cta:'Continue' },
+		es: { eyebrow:'A continuación', title:'NSG y ASG', cta:'Continuar' },
+		ja: { eyebrow:'次の内容', title:'NSG と ASG', cta:'続ける' }
+	}
+};
+
+// ── "Up next" pill (last step → next journey stop) ──
+var jnEl = document.getElementById('journey-next');
+var jnTimer = null, jnDismissed = false;
+function refreshJourneyNext(){
+	if(!jnEl || !NEXT_STOP || !NEXT_STOP.href) return;
+	var d = (NEXT_STOP.i18n && (NEXT_STOP.i18n[currentLang] || NEXT_STOP.i18n.en)) || {};
+	var q = '?lang=' + encodeURIComponent(currentLang || 'en');
+	var set = function(id,val){ var e=document.getElementById(id); if(e && val!=null) e.textContent=val; };
+	set('jn-eyebrow-text', d.eyebrow);
+	set('jn-title', d.title);
+	set('jn-cta-text', d.cta);
+	var img=document.getElementById('jn-icon-img'); if(img && NEXT_STOP.iconSrc) img.src=NEXT_STOP.iconSrc;
+	var cta=document.getElementById('jn-cta'); if(cta) cta.setAttribute('href', NEXT_STOP.href + q);
+}
+function hideJourneyNext(){ if(jnEl){ jnEl.classList.remove('show'); jnEl.setAttribute('aria-hidden','true'); } }
+function showJourneyNext(){ if(document.body.classList.contains('aw-prestart')) return; if(jnEl && !jnDismissed){ jnEl.classList.add('show'); jnEl.setAttribute('aria-hidden','false'); } }
+function armJourneyNext(i){
+	if(jnTimer){ clearTimeout(jnTimer); jnTimer=null; }
+	var isLast = (i === STEPS.length-1) && NEXT_STOP && NEXT_STOP.href;
+	if(!isLast){ jnDismissed=false; hideJourneyNext(); return; }
+	jnDismissed=false;
+	jnTimer=setTimeout(function(){ jnTimer=null; showJourneyNext(); }, motionPaused ? 0 : 1100);
+}
+if(jnEl){
+	var jnCloseBtn=document.getElementById('jn-close');
+	if(jnCloseBtn) jnCloseBtn.addEventListener('click', function(e){ e.stopPropagation(); jnDismissed=true; hideJourneyNext(); });
+	document.addEventListener('keydown', function(e){ if(e.key==='Escape' && jnEl.classList.contains('show')){ jnDismissed=true; hideJourneyNext(); } });
+}
+
+setLanguage(currentLang);
+counter.textContent = `1 / ${STEPS.length}`;
+const urlStep = parseInt(new URLSearchParams(location.search).get('step'), 10);
+renderStep((!isNaN(urlStep) && urlStep>=1 && urlStep<=STEPS.length) ? urlStep-1 : 0);
+</script>
+<script>
+// ── Start gate · hold autoplay until the viewer clicks Play (empty stage + centered Play) ──
+(function () {
+	if (new URLSearchParams(location.search).has('present')) return;
+	var stage = document.getElementById('stage');
+	if (!stage) return;
+	function freeze() { try { if (window.gsap && gsap.globalTimeline) gsap.globalTimeline.pause(); } catch (_) {} }
+	freeze(); requestAnimationFrame(freeze);
+	document.body.classList.add('aw-prestart');
+	try { if (typeof stopAudio === 'function') stopAudio(); } catch (_) {}
+	stage.style.transition = 'opacity .55s ease';
+	stage.style.opacity = '0';
+
+	var T = {
+		title: { en:'Ready to begin?', es:'\u00BFTodo listo?', ja:'\u6E96\u5099\u306F\u3044\u3044\u3067\u3059\u304B\uFF1F', ko:'\uC2DC\uC791\uD560 \uC900\uBE44\uAC00 \uB418\uC168\uB098\uC694?', pt:'Tudo pronto?' },
+		sound: { en:'Sound', es:'Sonido', ja:'\u97F3\u58F0', ko:'\uC18C\uB9AC', pt:'Som' },
+		cc:    { en:'Subtitles (CC)', es:'Subt\u00EDtulos (CC)', ja:'\u5B57\u5E55\uFF08CC\uFF09', ko:'\uC790\uB9C9 (CC)', pt:'Legendas (CC)' },
+		start: { en:'Start presentation', es:'Iniciar presentaci\u00F3n', ja:'\u30D7\u30EC\u30BC\u30F3\u3092\u958B\u59CB', ko:'\uD504\uB808\uC820\uD14C\uC774\uC158 \uC2DC\uC791', pt:'Iniciar apresenta\u00E7\u00E3o' }
+	};
+	function L(){ return (typeof currentLang === 'string' && currentLang) || (typeof CURRENT_LANG === 'string' && CURRENT_LANG) || 'en'; }
+	function t(k){ var m = T[k], l = L(); return m[m[l] ? l : 'en']; }
+	function awAudioState(){ try{ if(typeof window.__awAudioOn==='function') return !!window.__awAudioOn(); }catch(_){} return (typeof audioEnabled!=='undefined') && !!audioEnabled; }
+	function awCcState(){ try{ if(typeof window.__awCcOn!=='undefined' && window.__awCcOn!==null) return !!window.__awCcOn; }catch(_){} return (typeof ccPref!=='undefined') && !!ccPref; }
+
+	var style = document.createElement('style');
+	style.textContent =
+		'body.aw-prestart #controls{opacity:.4;pointer-events:none;transition:opacity .4s ease}' +
+		'#aw-play-card{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:50;box-sizing:border-box;width:min(90vw,22rem);padding:1.35rem 1.5rem 1.5rem;border-radius:16px;background:var(--theme-card-background,#fff);color:var(--theme-text,#222);border:1px solid var(--theme-border,rgba(0,0,0,.1));box-shadow:0 24px 60px rgba(0,0,0,.28);transition:opacity .3s ease,transform .3s ease}' +
+		'#aw-play-card.aw-hide{opacity:0;transform:translate(-50%,-50%) scale(.96);pointer-events:none}' +
+		'body.theme-dark #aw-play-card{border-color:rgba(255,255,255,.12);box-shadow:0 24px 60px rgba(0,0,0,.55)}' +
+		'body.present-mode #aw-play-card{display:none!important}' +
+		'.aw-card-title{margin:0 0 1rem;text-align:center;font-size:1.02rem;font-weight:800;letter-spacing:.03em;text-transform:uppercase;opacity:.85}' +
+		'.aw-row{display:flex;align-items:center;gap:.65rem;padding:.6rem 0}' +
+		'.aw-row + .aw-row{border-top:1px solid var(--theme-border,rgba(0,0,0,.08))}' +
+		'.aw-row-ico{flex:none;width:1.5rem;text-align:center;font-size:1.15rem;line-height:1}' +
+		'.aw-row-lbl{flex:1 1 auto;font-size:.9rem;font-weight:600}' +
+		'.aw-row-state{flex:none;min-width:2.5rem;text-align:right;font-size:.68rem;font-weight:800;letter-spacing:.05em;opacity:.5}' +
+		'.aw-row-state.on{color:var(--theme-primary,#0078d4);opacity:1}' +
+		'.aw-switch{position:relative;flex:none;width:44px;height:24px;padding:0;border:none;border-radius:999px;cursor:pointer;background:var(--theme-border,#c7c7d1);transition:background .18s ease}' +
+		'.aw-switch.on{background:var(--theme-primary,#0078d4)}' +
+		'.aw-switch::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.4);transition:transform .18s ease}' +
+		'.aw-switch.on::after{transform:translateX(20px)}' +
+		'#aw-start{margin-top:1.2rem;width:100%;display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:.8rem 1rem;border:none;border-radius:11px;cursor:pointer;background:var(--theme-primary,#0078d4);color:#fff;font-size:.96rem;font-weight:700;letter-spacing:.01em;box-shadow:0 8px 22px var(--theme-primary-translucent,rgba(0,120,212,.45));transition:transform .15s ease}' +
+		'#aw-start:hover{transform:translateY(-2px)}#aw-start:active{transform:scale(.98)}' +
+		'#aw-start svg{width:18px;height:18px;flex:none}';
+	document.head.appendChild(style);
+
+	var card = document.createElement('div');
+	card.id = 'aw-play-card'; card.setAttribute('role', 'dialog'); card.setAttribute('aria-modal', 'true');
+	card.innerHTML =
+		'<div class="aw-card-title"></div>' +
+		'<div class="aw-row" data-k="audio"><span class="aw-row-ico" aria-hidden="true">\uD83D\uDD0A</span><span class="aw-row-lbl"></span><span class="aw-row-state"></span><button type="button" class="aw-switch" role="switch"></button></div>' +
+		'<div class="aw-row" data-k="cc"><span class="aw-row-ico" aria-hidden="true">\uD83D\uDCAC</span><span class="aw-row-lbl"></span><span class="aw-row-state"></span><button type="button" class="aw-switch" role="switch"></button></div>' +
+		'<button type="button" id="aw-start"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 5v14l11-7z"/></svg><span class="aw-start-lbl"></span></button>';
+	document.body.appendChild(card);
+
+	var titleEl = card.querySelector('.aw-card-title');
+	var startBtn = card.querySelector('#aw-start');
+	var ROWS = [ { k:'audio', lbl:'sound', el:card.querySelector('.aw-row[data-k="audio"]'), read:awAudioState, toggle:'audio-toggle' },
+	             { k:'cc',    lbl:'cc',    el:card.querySelector('.aw-row[data-k="cc"]'),    read:awCcState,    toggle:'cc-toggle' } ];
+
+	function render(){
+		titleEl.textContent = t('title'); card.setAttribute('aria-label', t('title'));
+		startBtn.querySelector('.aw-start-lbl').textContent = t('start');
+		ROWS.forEach(function(r){
+			var on = r.read();
+			r.el.querySelector('.aw-row-lbl').textContent = t(r.lbl);
+			var st = r.el.querySelector('.aw-row-state'); st.textContent = on ? 'ON' : 'OFF'; st.classList.toggle('on', on);
+			var sw = r.el.querySelector('.aw-switch'); sw.classList.toggle('on', on); sw.setAttribute('aria-checked', on ? 'true' : 'false');
+			sw.setAttribute('aria-label', t(r.lbl) + ' \u2014 ' + (on ? 'on' : 'off'));
+		});
+	}
+	ROWS.forEach(function(r){
+		r.el.querySelector('.aw-switch').addEventListener('click', function(e){ e.stopPropagation(); var b = document.getElementById(r.toggle); if(b) b.click(); render(); });
+	});
+	render();
+
+	var sel = document.getElementById('lang-select');
+	// Only re-freeze while the gate is still up — after Play, freezing would pause the
+	// global timeline for good and every later scene would stay at opacity 0 (blank stage).
+	if (sel) sel.addEventListener('change', function () { if (done) return; render(); freeze(); });
+
+	function gateKeys(e) {
+		if (done) return;
+		var tag = (e.target && e.target.tagName || '').toLowerCase();
+		if (tag === 'select' || tag === 'input' || tag === 'textarea') return;
+		if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'].indexOf(e.key) >= 0) { e.preventDefault(); e.stopPropagation(); }
+	}
+	document.addEventListener('keydown', gateKeys, true);
+
+	var done = false;
+	function start() {
+		if (done) return; done = true;
+		document.removeEventListener('keydown', gateKeys, true);
+		document.body.classList.remove('aw-prestart');
+		card.classList.add('aw-hide');
+		setTimeout(function () { if (card.parentNode) card.parentNode.removeChild(card); if (style.parentNode) style.parentNode.removeChild(style); }, 420);
+		setTimeout(function () {
+			try { if (window.gsap && gsap.globalTimeline) gsap.globalTimeline.play(); } catch (_) {}
+			stage.style.opacity = '1';
+			try { if (typeof interruptAnimation === 'function') interruptAnimation(); } catch (_) {}
+			try { if (typeof renderStep === 'function') renderStep(typeof current === 'number' && current >= 0 ? current : 0); } catch (_) {}
+		}, 380);
+	}
+	startBtn.addEventListener('click', start);
+}());
+</script>
+<script src="../../lib/js/aw-present.js"></script>
+<script src="../../lib/js/aw-declutter.js"></script>
+<script src="../../lib/js/aw-url-state.js"></script>
+
+</body>
+</html>

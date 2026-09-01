@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<!--
+	Build and extend an AI agent — LAB OVERVIEW, design variants (single page, English only).
+
+	Each variant is a STATIC single-screen overview: one visual, <=3 sentences, no steps,
+	no prev/next, no click-through. The variant chooser bar is REVIEW-ONLY scaffolding —
+	once a design is picked, delete the .chooser <nav>, the trailing <script>, and the
+	unused <section data-variant> blocks, and the page is brief-compliant.
+
+	  A · Pipeline       — you write -> you build -> it reads  (component-centric)
+	  B · Before/after   — the guess vs the grounded answer    (value-centric)
+	  C · Build-up       — four layers stacked into one agent  (object-centric)
+	  D · How far        — pick your stopping point            (decision-centric)
+
+	Three levels under the site root → shared assets resolve as ../../../lib/ and ../../../img/.
+	Facts are taken from the lab, not invented:
+	  https://ivorb.github.io/mslearn-ai-agents/Instructions/Exercises/A-build-and-extend-ai-agents.html
+-->
+<html lang="en">
+
+<head>
+	<script src="/js/tracking.js"></script>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+	<meta name="description"
+		content="Lab overview — ground an AI agent in your own documents, give it tools it can call, and put your own app in front of it, in Microsoft Foundry." />
+	<title>Build &amp; extend an AI agent &mdash; Lab overview</title>
+	<link rel="icon" type="image/png" href="../../../img/favicon.png" />
+	<script src="../../../lib/js/aw-theme.js"></script>
+
+	<style>
+		/* Warm "parchment" palette — same family as the rest of the AgentLab pages.
+		   Flat surfaces, no gradients; accents lighten in the dark theme. */
+		:root {
+			--bg: #f4ead6;
+			--ink: #241f18;
+			--ink-soft: #5b5245;
+			--card: #ffffff;
+			--card-border: #ddd2bb;
+			--shadow: 0 6px 18px rgba(60, 48, 30, 0.10);
+
+			--accent-blue: #1f6dff;
+			--accent-green: #2ea043;
+			--accent-orange: #ff7a1a;
+			--accent-teal: #0e7490;
+			--accent-plum: #7b4ddc;
+			--accent-red: #d13438;
+		}
+
+		body.theme-dark {
+			--bg: #2e2823;
+			--ink: #f6f0e2;
+			--ink-soft: #cdc4b2;
+			--card: #423a31;
+			--card-border: #635948;
+			--shadow: 0 6px 18px rgba(0, 0, 0, 0.34);
+
+			--accent-blue: #6fa5ff;
+			--accent-green: #5ac96f;
+			--accent-orange: #ff9d4d;
+			--accent-teal: #4fc2d8;
+			--accent-plum: #b39aff;
+			--accent-red: #ff8a80;
+		}
+
+		* { box-sizing: border-box; }
+		html, body { height: 100%; }
+
+		body {
+			margin: 0;
+			background: var(--bg);
+			color: var(--ink);
+			font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+			font-size: 16px;
+			line-height: 1.5;
+			display: flex;
+			flex-direction: column;
+		}
+
+		/* ── top bar ───────────────────────────────────────────── */
+		.topbar {
+			flex: none;
+			display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+			padding: 0.6rem 1.6rem;
+			border-bottom: 1px solid var(--card-border);
+		}
+		.back { color: var(--ink-soft); text-decoration: none; font-size: 0.9rem; padding: 0.3rem 0.6rem; border-radius: 8px; }
+		.back:hover { color: var(--ink); background: var(--card); }
+		.topbar-name { font-size: 0.9rem; color: var(--ink-soft); }
+
+		.theme-toggle {
+			display: inline-flex; align-items: center; justify-content: center;
+			width: 34px; height: 34px; border-radius: 10px;
+			border: 1px solid var(--card-border); background: var(--card);
+			color: var(--ink); cursor: pointer; font-size: 1rem;
+		}
+		.theme-toggle .moon { display: none; }
+		body.theme-dark .theme-toggle .sun { display: none; }
+		body.theme-dark .theme-toggle .moon { display: inline; }
+
+		/* ── REVIEW-ONLY design chooser (delete to ship) ───────── */
+		.chooser {
+			flex: none;
+			display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem;
+			padding: 0.45rem 1.6rem;
+			border-bottom: 1px dashed var(--card-border);
+		}
+		.chooser-label {
+			font-size: 0.72rem; letter-spacing: 0.07em; text-transform: uppercase;
+			color: var(--ink-soft); margin-right: 0.2rem;
+		}
+		.chooser button {
+			padding: 0.3rem 0.75rem; border-radius: 999px;
+			border: 1px solid var(--card-border); background: var(--card);
+			color: var(--ink-soft); font: inherit; font-size: 0.85rem; cursor: pointer;
+		}
+		.chooser button[aria-pressed="true"] { border-color: var(--accent-blue); color: var(--accent-blue); font-weight: 600; }
+
+		/* ── shared page shell ─────────────────────────────────── */
+		main { flex: 1 1 auto; display: flex; }
+
+		section[data-variant] {
+			display: none;
+			flex: 1 1 auto; flex-direction: column; justify-content: center; gap: 0.8rem;
+			max-width: 1180px; width: 100%; margin: 0 auto;
+			padding: 1.1rem 1.6rem 1.4rem;
+		}
+		section[data-variant].is-on { display: flex; }
+
+		.eyebrow { font-size: 0.78rem; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-orange); }
+		h1 { margin: 0.2rem 0 0.4rem; font-size: 1.7rem; font-weight: 700; line-height: 1.2; }
+		.lead { margin: 0; max-width: 78ch; font-size: 0.98rem; color: var(--ink-soft); }
+		.lead strong { font-weight: 600; color: var(--ink); }
+
+		.footer-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; }
+		.meta { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+		.meta span {
+			padding: 0.26rem 0.68rem; border: 1px solid var(--card-border); border-radius: 999px;
+			background: var(--card); font-size: 0.84rem; color: var(--ink-soft);
+		}
+		.cta {
+			display: inline-flex; align-items: center; gap: 0.45rem;
+			padding: 0.58rem 1.15rem; border-radius: 10px;
+			border: 2px solid var(--accent-blue); background: var(--accent-blue);
+			color: #fff; font-size: 0.96rem; font-weight: 600; text-decoration: none;
+		}
+		.cta:hover { filter: brightness(1.08); }
+		body.theme-dark .cta { color: #1b1712; }
+
+		.card { background: var(--card); border: 2px solid var(--card-border); border-radius: 14px; box-shadow: var(--shadow); }
+
+		.tag {
+			display: inline-block; margin-left: 0.35rem; padding: 0.02rem 0.4rem; border-radius: 999px;
+			border: 1px solid var(--ic, var(--accent-blue)); color: var(--ic, var(--accent-blue));
+			font-size: 0.71rem; font-weight: 500; white-space: nowrap;
+		}
+
+		/* ═══ A · PIPELINE ═════════════════════════════════════ */
+		.pipe { display: grid; grid-template-columns: minmax(190px,0.85fr) 52px minmax(300px,1.35fr) 52px minmax(190px,0.85fr); align-items: center; }
+		.pipe-zone { padding: 0.75rem 0.85rem 0.85rem; display: flex; flex-direction: column; gap: 0.4rem; }
+		.pipe-zone.is-core { border-color: var(--accent-blue); }
+		.pipe-head { font-size: 0.76rem; font-weight: 500; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-soft); }
+		.pipe-zone.is-core .pipe-head { color: var(--accent-blue); }
+		.pipe-title { font-size: 1.05rem; font-weight: 600; }
+		.pipe-sub { font-size: 0.84rem; color: var(--ink-soft); }
+		.pipe-item { display: flex; gap: 0.55rem; align-items: flex-start; padding: 0.28rem 0.5rem; border: 1px solid var(--card-border); border-radius: 10px; }
+		.pipe-item .dot { flex: none; width: 9px; height: 9px; border-radius: 50%; margin-top: 0.4rem; background: var(--ic, var(--accent-blue)); }
+		.pipe-name { font-size: 0.94rem; font-weight: 600; }
+		.pipe-note { font-size: 0.82rem; color: var(--ink-soft); line-height: 1.3; }
+		.link { display: flex; align-items: center; justify-content: center; color: var(--card-border); }
+		.link svg { width: 100%; height: 22px; }
+		.outcomes { display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem; font-size: 0.9rem; color: var(--ink-soft); }
+		.outcomes b { font-weight: 600; color: var(--ink); }
+
+		/* ═══ B · BEFORE / AFTER ═══════════════════════════════ */
+		.ba { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; align-items: stretch; }
+		.ba-panel { padding: 0.95rem 1.05rem 1.05rem; display: flex; flex-direction: column; gap: 0.55rem; }
+		.ba-panel.is-before { border-color: var(--accent-red); }
+		.ba-panel.is-after { border-color: var(--accent-green); }
+		.ba-head { font-size: 0.76rem; font-weight: 500; letter-spacing: 0.07em; text-transform: uppercase; }
+		.ba-panel.is-before .ba-head { color: var(--accent-red); }
+		.ba-panel.is-after .ba-head { color: var(--accent-green); }
+		.ba-q { font-size: 0.92rem; color: var(--ink-soft); font-style: italic; }
+		.ba-a { font-size: 0.97rem; padding: 0.6rem 0.75rem; border: 1px solid var(--card-border); border-radius: 10px; }
+		.ba-verdict { font-size: 0.86rem; font-weight: 600; }
+		.ba-panel.is-before .ba-verdict { color: var(--accent-red); }
+		.ba-panel.is-after .ba-verdict { color: var(--accent-green); }
+		.ba-cite { font-size: 0.82rem; color: var(--ink-soft); margin-top: auto; }
+		.ba-bridge { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0.45rem; }
+		.ba-bridge .lbl { font-size: 0.84rem; color: var(--ink-soft); margin-right: 0.2rem; }
+		.ba-chip {
+			padding: 0.3rem 0.75rem; border-radius: 999px; background: var(--card);
+			border: 2px solid var(--ic, var(--accent-blue)); color: var(--ic, var(--accent-blue));
+			font-size: 0.86rem; font-weight: 600;
+		}
+		.ba-chip small { font-weight: 400; color: var(--ink-soft); margin-left: 0.3rem; }
+
+		/* ═══ C · BUILD-UP LAYERS ══════════════════════════════ */
+		.bu { display: flex; flex-direction: column; gap: 0.5rem; }
+		.bu-row {
+			display: grid; grid-template-columns: 40px 1fr 210px; align-items: center; gap: 0.9rem;
+			padding: 0.68rem 1rem; border: 2px solid var(--ic, var(--accent-blue)); border-radius: 12px;
+			background: var(--card); box-shadow: var(--shadow);
+		}
+		.bu-num {
+			width: 32px; height: 32px; border-radius: 9px; display: flex; align-items: center; justify-content: center;
+			border: 2px solid var(--ic); color: var(--ic); font-size: 0.85rem; font-weight: 600;
+		}
+		.bu-name { font-size: 1.01rem; font-weight: 600; }
+		.bu-note { font-size: 0.85rem; color: var(--ink-soft); }
+		.bu-unlock { font-size: 0.9rem; color: var(--ic); font-weight: 600; text-align: right; }
+		.bu-unlock small { display: block; font-weight: 400; color: var(--ink-soft); }
+		.bu-cap { text-align: center; font-size: 0.86rem; color: var(--ink-soft); }
+
+		/* ═══ D · HOW FAR (outcome ladder) ═════════════════════ */
+		.ld { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; align-items: end; }
+		.ld-step {
+			display: flex; flex-direction: column; gap: 0.35rem; justify-content: flex-end;
+			padding: 0.8rem 0.9rem 0.9rem; border: 2px solid var(--ic, var(--accent-blue));
+			border-radius: 12px; background: var(--card); box-shadow: var(--shadow);
+		}
+		.ld-1 { min-height: 158px; } .ld-2 { min-height: 194px; }
+		.ld-3 { min-height: 230px; } .ld-4 { min-height: 266px; }
+		.ld-flag {
+			align-self: flex-start; padding: 0.1rem 0.5rem; border-radius: 999px;
+			border: 1px solid var(--ic); color: var(--ic); font-size: 0.72rem; font-weight: 500;
+		}
+		.ld-tasks { font-size: 0.75rem; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-soft); }
+		.ld-name { font-size: 1.05rem; font-weight: 600; }
+		.ld-note { font-size: 0.85rem; color: var(--ink-soft); }
+		.ld-time { font-size: 0.82rem; color: var(--ink-soft); border-top: 1px solid var(--card-border); padding-top: 0.38rem; margin-top: 0.15rem; }
+
+		/* ═══ E · APPLICATION ARCHITECTURE ═════════════════════ */
+		.ax { display: grid; grid-template-columns: 1fr 132px 1.06fr 132px 0.92fr; align-items: stretch; }
+		.ax-tier {
+			display: flex; flex-direction: column; gap: 0.28rem;
+			padding: 0.55rem 0.65rem 0.65rem; border: 2px solid var(--card-border);
+			border-radius: 14px; background: var(--card); box-shadow: var(--shadow);
+		}
+		.ax-tier.is-short { justify-content: center; }
+		.ax-tier.is-cloud { border-color: var(--accent-blue); }
+		.ax-tier-head {
+			display: flex; align-items: center; gap: 0.4rem;
+			font-size: 0.74rem; font-weight: 500; letter-spacing: 0.07em;
+			text-transform: uppercase; color: var(--ink-soft);
+		}
+		.ax-tier.is-cloud .ax-tier-head { color: var(--accent-blue); }
+		.ax-tier-head img { width: 16px; height: 16px; }
+
+		.ax-node {
+			display: grid; grid-template-columns: 24px 1fr; gap: 0.5rem; align-items: start;
+			padding: 0.24rem 0.45rem; border: 1px solid var(--card-border); border-radius: 9px;
+		}
+		.ax-node.is-built { border-color: var(--ic); border-width: 2px; }
+		.ax-node img { width: 22px; height: 22px; margin-top: 0.1rem; }
+		.ax-name { font-size: 0.89rem; font-weight: 600; }
+		.ax-sub { font-size: 0.76rem; color: var(--ink-soft); line-height: 1.28; }
+		.ax-badge {
+			display: inline-block; margin-left: 0.3rem; padding: 0 0.36rem; border-radius: 999px;
+			border: 1px solid var(--ic, var(--accent-blue)); color: var(--ic, var(--accent-blue));
+			font-size: 0.68rem; font-weight: 500; white-space: nowrap;
+		}
+		.ax-given { color: var(--ink-soft); border-color: var(--card-border); }
+
+		/* labelled relationship wires between tiers */
+		.ax-wires { display: flex; flex-direction: column; justify-content: center; gap: 1.1rem; padding: 0 0.25rem; }
+		.ax-wire { display: flex; flex-direction: column; align-items: center; gap: 0.15rem; }
+		.ax-wire-lbl { font-size: 0.7rem; color: var(--ink-soft); text-align: center; line-height: 1.25; }
+		.ax-wire svg { width: 100%; height: 14px; color: var(--wc, var(--card-border)); }
+
+		.ax-legend { display: flex; flex-wrap: wrap; gap: 0.4rem 1.1rem; font-size: 0.82rem; color: var(--ink-soft); }
+		.ax-legend b { font-weight: 600; }
+
+		/* ═══ F · TASK → COMPONENT MATRIX ══════════════════════ */
+		.mx { width: 100%; border-collapse: separate; border-spacing: 0 0.26rem; }
+		.mx th {
+			text-align: left; font-size: 0.72rem; font-weight: 500; letter-spacing: 0.07em;
+			text-transform: uppercase; color: var(--ink-soft); padding: 0 0.7rem 0.15rem;
+		}
+		.mx td { padding: 0.38rem 0.7rem; background: var(--card); border-top: 2px solid var(--ic); border-bottom: 2px solid var(--ic); vertical-align: middle; }
+		.mx td:first-child { border-left: 2px solid var(--ic); border-radius: 10px 0 0 10px; }
+		.mx td:last-child { border-right: 2px solid var(--ic); border-radius: 0 10px 10px 0; }
+		.mx-task { font-size: 0.88rem; font-weight: 600; color: var(--ic); white-space: nowrap; }
+		.mx-task small { display: block; font-weight: 400; color: var(--ink-soft); }
+		.mx-where { font-size: 0.8rem; color: var(--ink-soft); white-space: nowrap; }
+		.mx-comp { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+		.mx-chip {
+			display: inline-flex; align-items: center; gap: 0.3rem;
+			padding: 0.18rem 0.5rem; border: 1px solid var(--card-border); border-radius: 8px;
+			font-size: 0.81rem;
+		}
+		.mx-chip img { width: 16px; height: 16px; }
+		.mx-ach { font-size: 0.88rem; font-weight: 600; color: var(--ic); white-space: nowrap; }
+
+		/* ═══ G · REQUEST TRACE ════════════════════════════════ */
+		.tr { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.5rem; align-items: stretch; }
+		.tr-hop {
+			position: relative; display: flex; flex-direction: column; gap: 0.35rem;
+			padding: 0.7rem 0.75rem 0.75rem; border: 2px solid var(--ic, var(--accent-blue));
+			border-radius: 12px; background: var(--card); box-shadow: var(--shadow);
+		}
+		.tr-n {
+			width: 24px; height: 24px; border-radius: 7px; display: flex; align-items: center; justify-content: center;
+			background: var(--ic); color: #fff; font-size: 0.76rem; font-weight: 600;
+		}
+		body.theme-dark .tr-n { color: #1b1712; }
+		.tr-logo { display: flex; align-items: center; gap: 0.4rem; }
+		.tr-logo img { width: 24px; height: 24px; }
+		.tr-name { font-size: 0.92rem; font-weight: 600; }
+		.tr-sub { font-size: 0.78rem; color: var(--ink-soft); line-height: 1.35; }
+		.tr-wire { font-size: 0.72rem; color: var(--ink-soft); border-top: 1px solid var(--card-border); padding-top: 0.32rem; margin-top: auto; }
+		.tr-foot { display: flex; flex-wrap: wrap; gap: 0.4rem 1.2rem; font-size: 0.84rem; color: var(--ink-soft); }
+		.tr-foot b { font-weight: 600; }
+
+		@media (max-width: 900px) {
+			.pipe { grid-template-columns: 1fr; }
+			.link { transform: rotate(90deg); height: 36px; }
+			.ba, .ld { grid-template-columns: 1fr; }
+			.ld-step { min-height: 0; }
+			.bu-row { grid-template-columns: 40px 1fr; }
+			.bu-unlock { grid-column: 2; text-align: left; }
+			.ax { grid-template-columns: 1fr; }
+			.ax-wires { flex-direction: row; flex-wrap: wrap; justify-content: center; padding: 0.5rem 0; }
+			.tr { grid-template-columns: 1fr; }
+			h1 { font-size: 1.5rem; }
+		}
+	</style>
+</head>
+
+<body class="theme-light">
+	<header class="topbar">
+		<a class="back" href="../index.html">&larr; Lab guides</a>
+		<span class="topbar-name">Microsoft Learn lab &middot; overview</span>
+		<button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch to dark theme">
+			<span class="sun" aria-hidden="true">&#9728;</span><span class="moon" aria-hidden="true">&#9790;</span>
+		</button>
+	</header>
+
+	<!-- REVIEW-ONLY: delete this <nav>, the trailing <script>, and the unused sections to ship. -->
+	<nav class="chooser" aria-label="Design variant (review only)">
+		<span class="chooser-label">Design</span>
+		<button type="button" data-go="a" aria-pressed="true">A &middot; Pipeline</button>
+		<button type="button" data-go="b" aria-pressed="false">B &middot; Before / after</button>
+		<button type="button" data-go="c" aria-pressed="false">C &middot; Build-up</button>
+		<button type="button" data-go="d" aria-pressed="false">D &middot; How far</button>
+		<button type="button" data-go="e" aria-pressed="false">E &middot; Architecture</button>
+		<button type="button" data-go="f" aria-pressed="false">F &middot; Task matrix</button>
+		<button type="button" data-go="g" aria-pressed="false">G &middot; Request trace</button>
+	</nav>
+
+	<main>
+		<!-- ══ A · PIPELINE ══════════════════════════════════════ -->
+		<section data-variant="a" class="is-on">
+			<div>
+				<div class="eyebrow">Lab overview</div>
+				<h1>Build and extend an AI agent</h1>
+				<p class="lead">
+					Tailwind Traders has a language model, but it has never read the company&rsquo;s own documents
+					&mdash; so it answers fluently and gets it wrong. In this lab you turn that model into a real
+					assistant: <strong>ground it in your documents</strong>, <strong>give it tools it can call</strong>,
+					and <strong>put your own app in front of it</strong>. Two core tasks get you a working, tool-using
+					agent in about 35 minutes; four optional tasks take it all the way to a hosted agent.
+				</p>
+			</div>
+
+			<div class="pipe" aria-label="What you build in this lab">
+				<div class="card pipe-zone">
+					<div class="pipe-head">You write</div>
+					<div class="pipe-title">Python on your machine</div>
+					<div class="pipe-sub">A chat window is provided &mdash; you write the logic behind it.</div>
+					<div class="pipe-item" style="--ic:var(--accent-blue)"><span class="dot"></span>
+						<span><span class="pipe-name">client.py</span><span class="tag">Task 3</span>
+							<div class="pipe-note">Loads the agent and routes each tool call</div>
+						</span>
+					</div>
+					<div class="pipe-item" style="--ic:var(--accent-orange)"><span class="dot"></span>
+						<span><span class="pipe-name">Your own tools</span><span class="tag">Tasks 4&ndash;5</span>
+							<div class="pipe-note">Python functions, then your own MCP server</div>
+						</span>
+					</div>
+				</div>
+
+				<div class="link" aria-hidden="true">
+					<svg viewBox="0 0 52 22" preserveAspectRatio="none">
+						<line x1="2" y1="11" x2="42" y2="11" stroke="currentColor" stroke-width="2" />
+						<path d="M42 5 L50 11 L42 17 Z" fill="currentColor" />
+					</svg>
+				</div>
+
+				<div class="card pipe-zone is-core">
+					<div class="pipe-head">You build</div>
+					<div class="pipe-title">One agent in Microsoft Foundry</div>
+					<div class="pipe-sub">Four pieces &mdash; each task adds or upgrades exactly one.</div>
+					<div class="pipe-item" style="--ic:var(--accent-green)"><span class="dot"></span>
+						<span><span class="pipe-name">Instructions</span><span class="tag">Task 1</span>
+							<div class="pipe-note">Who it is, and how it should answer</div>
+						</span>
+					</div>
+					<div class="pipe-item" style="--ic:var(--accent-green)"><span class="dot"></span>
+						<span><span class="pipe-name">Knowledge</span><span class="tag">Task 1</span>
+							<div class="pipe-note">Your uploaded documents, indexed for file search</div>
+						</span>
+					</div>
+					<div class="pipe-item" style="--ic:var(--accent-orange)"><span class="dot"></span>
+						<span><span class="pipe-name">Tools</span><span class="tag">Tasks 2, 4, 5</span>
+							<div class="pipe-note">Remote MCP, your functions, your own server</div>
+						</span>
+					</div>
+					<div class="pipe-item" style="--ic:var(--accent-teal)"><span class="dot"></span>
+						<span><span class="pipe-name">Hosting</span><span class="tag">Task 6</span>
+							<div class="pipe-note">Your code moves into a Foundry-run container</div>
+						</span>
+					</div>
+				</div>
+
+				<div class="link" aria-hidden="true">
+					<svg viewBox="0 0 52 22" preserveAspectRatio="none">
+						<line x1="2" y1="11" x2="42" y2="11" stroke="currentColor" stroke-width="2" />
+						<path d="M42 5 L50 11 L42 17 Z" fill="currentColor" />
+					</svg>
+				</div>
+
+				<div class="card pipe-zone">
+					<div class="pipe-head">It reads</div>
+					<div class="pipe-title">Real sources, not guesses</div>
+					<div class="pipe-sub">Where every grounded answer actually comes from.</div>
+					<div class="pipe-item" style="--ic:var(--accent-green)"><span class="dot"></span>
+						<span><span class="pipe-name">Your documents</span>
+							<div class="pipe-note">Store_Policy.txt, weekly_sales.csv</div>
+						</span>
+					</div>
+					<div class="pipe-item" style="--ic:var(--accent-plum)"><span class="dot"></span>
+						<span><span class="pipe-name">Learn Docs MCP server</span><span class="tag">Task 2</span>
+							<div class="pipe-note">Live documentation, fetched at question time</div>
+						</span>
+					</div>
+				</div>
+			</div>
+
+			<div class="outcomes">
+				<span><b>Knowledge</b> makes it accurate</span>
+				<span><b>Tools</b> make it useful</span>
+				<span><b>A client</b> makes it real</span>
+				<span><b>Hosting</b> makes it yours to run</span>
+			</div>
+
+			<div class="footer-row">
+				<div class="meta">
+					<span>6 tasks &middot; 2 core, 4 optional</span>
+					<span>~35 min core &middot; ~2 h 25 m all</span>
+					<span>Python &middot; Microsoft Foundry</span>
+				</div>
+				<a class="cta" href="https://ivorb.github.io/mslearn-ai-agents/Instructions/Exercises/A-build-and-extend-ai-agents.html"
+					target="_blank" rel="noopener noreferrer">Start the lab &#8599;</a>
+			</div>
+		</section>
+
+		<!-- ══ B · BEFORE / AFTER ════════════════════════════════ -->
+		<section data-variant="b">
+			<div>
+				<div class="eyebrow">Lab overview</div>
+				<h1>Build and extend an AI agent</h1>
+				<p class="lead">
+					Ask a plain language model about your own company and it will answer confidently, and wrongly.
+					This lab closes that gap: you <strong>ground an agent in real documents</strong>, then
+					<strong>give it tools it can call</strong> so it can reach past them. Two core tasks, about 35
+					minutes &mdash; and the same question gets a very different answer.
+				</p>
+			</div>
+
+			<div class="ba" aria-label="The same question, before and after the lab">
+				<div class="card ba-panel is-before">
+					<div class="ba-head">Before &middot; a model on its own</div>
+					<div class="ba-q">&ldquo;What&rsquo;s your return policy for a tent?&rdquo;</div>
+					<div class="ba-a">Tents can be returned within 90 days, no receipt required, for a full refund.</div>
+					<div class="ba-verdict">&#10007;&ensp;Invented &mdash; nothing here came from Tailwind</div>
+					<div class="ba-cite">The model is not broken. It has simply never read the store policy, so it fills
+						the gap with something plausible.</div>
+				</div>
+
+				<div class="card ba-panel is-after">
+					<div class="ba-head">After &middot; a grounded, tool-using agent</div>
+					<div class="ba-q">&ldquo;What&rsquo;s your return policy for a tent?&rdquo;</div>
+					<div class="ba-a">Camping equipment may be returned within 30 days with proof of purchase, provided
+						it is unused and in its original packaging.</div>
+					<div class="ba-verdict">&#10003;&ensp;Answered from your own document</div>
+					<div class="ba-cite">Grounded in <b>Store_Policy.txt</b> &mdash; and for anything outside your
+						files, it calls the Learn Docs MCP server live.</div>
+				</div>
+			</div>
+
+			<div class="ba-bridge">
+				<span class="lbl">What you add to get there:</span>
+				<span class="ba-chip" style="--ic:var(--accent-green)">Knowledge <small>Task 1</small></span>
+				<span class="ba-chip" style="--ic:var(--accent-orange)">Tools <small>Task 2</small></span>
+				<span class="ba-chip" style="--ic:var(--accent-blue)">Your own app <small>Tasks 3&ndash;4</small></span>
+				<span class="ba-chip" style="--ic:var(--accent-teal)">Hosting <small>Tasks 5&ndash;6</small></span>
+			</div>
+
+			<div class="footer-row">
+				<div class="meta">
+					<span>6 tasks &middot; 2 core, 4 optional</span>
+					<span>~35 min core &middot; ~2 h 25 m all</span>
+					<span>Scenario: Tailwind Traders</span>
+				</div>
+				<a class="cta" href="https://ivorb.github.io/mslearn-ai-agents/Instructions/Exercises/A-build-and-extend-ai-agents.html"
+					target="_blank" rel="noopener noreferrer">Start the lab &#8599;</a>
+			</div>
+		</section>
+
+		<!-- ══ C · BUILD-UP LAYERS ═══════════════════════════════ -->
+		<section data-variant="c">
+			<div>
+				<div class="eyebrow">Lab overview</div>
+				<h1>Build and extend an AI agent</h1>
+				<p class="lead">
+					One assistant for Tailwind Traders, built in four layers &mdash; and every task in this lab adds
+					exactly one of them. You start with a model that guesses and finish with an agent that
+					<strong>reads your documents, calls your tools, and runs inside Microsoft Foundry</strong>.
+					Stop after any layer and you still have something that works.
+				</p>
+			</div>
+
+			<div class="bu" aria-label="The four layers you build, in order">
+				<div class="bu-row" style="--ic:var(--accent-green)">
+					<div class="bu-num">1</div>
+					<div>
+						<div class="bu-name">Instructions + knowledge</div>
+						<div class="bu-note">Tell it who it is, upload the store policy, turn on file search &mdash; all
+							in the portal, no code</div>
+					</div>
+					<div class="bu-unlock">Accurate<small>Task 1 &middot; ~15 min</small></div>
+				</div>
+				<div class="bu-row" style="--ic:var(--accent-orange)">
+					<div class="bu-num">2</div>
+					<div>
+						<div class="bu-name">Tools it can call</div>
+						<div class="bu-note">A remote MCP server for live docs, then your own Python functions</div>
+					</div>
+					<div class="bu-unlock">Useful<small>Tasks 2, 4, 5</small></div>
+				</div>
+				<div class="bu-row" style="--ic:var(--accent-blue)">
+					<div class="bu-num">3</div>
+					<div>
+						<div class="bu-name">A client app</div>
+						<div class="bu-note">Your own chat window, talking to the agent you just built</div>
+					</div>
+					<div class="bu-unlock">Real<small>Task 3</small></div>
+				</div>
+				<div class="bu-row" style="--ic:var(--accent-teal)">
+					<div class="bu-num">4</div>
+					<div>
+						<div class="bu-name">Hosting</div>
+						<div class="bu-note">Your code moves into a Foundry-run container with its own endpoint</div>
+					</div>
+					<div class="bu-unlock">Yours to run<small>Task 6</small></div>
+				</div>
+			</div>
+
+			<div class="bu-cap">Layers 1&ndash;2 are the core path &mdash; about 35 minutes to a working, tool-using
+				agent.</div>
+
+			<div class="footer-row">
+				<div class="meta">
+					<span>6 tasks &middot; 2 core, 4 optional</span>
+					<span>Python &middot; Microsoft Foundry</span>
+					<span>Scenario: Tailwind Traders</span>
+				</div>
+				<a class="cta" href="https://ivorb.github.io/mslearn-ai-agents/Instructions/Exercises/A-build-and-extend-ai-agents.html"
+					target="_blank" rel="noopener noreferrer">Start the lab &#8599;</a>
+			</div>
+		</section>
+
+		<!-- ══ D · HOW FAR ═══════════════════════════════════════ -->
+		<section data-variant="d">
+			<div>
+				<div class="eyebrow">Lab overview</div>
+				<h1>Build and extend an AI agent</h1>
+				<p class="lead">
+					Turn a model that guesses into an assistant that answers from Tailwind Traders&rsquo; own documents,
+					calls tools, and runs in Microsoft Foundry. Every task stands alone and shares one starter folder,
+					so <strong>you choose how far to go</strong> &mdash; and you have something working after the first
+					35 minutes.
+				</p>
+			</div>
+
+			<div class="ld" aria-label="How far you can take the lab">
+				<div class="ld-step ld-1" style="--ic:var(--accent-green)">
+					<span class="ld-flag">Core</span>
+					<div class="ld-tasks">Task 1</div>
+					<div class="ld-name">Accurate</div>
+					<div class="ld-note">Answers from your uploaded documents instead of guessing. Portal only &mdash;
+						no code.</div>
+					<div class="ld-time">~15 min</div>
+				</div>
+				<div class="ld-step ld-2" style="--ic:var(--accent-orange)">
+					<span class="ld-flag">Core</span>
+					<div class="ld-tasks">Task 2</div>
+					<div class="ld-name">Useful</div>
+					<div class="ld-note">Calls a remote MCP server for live documentation, and asks you before it acts.
+					</div>
+					<div class="ld-time">~20 min &middot; stop here and you have a working agent</div>
+				</div>
+				<div class="ld-step ld-3" style="--ic:var(--accent-blue)">
+					<span class="ld-flag">Optional</span>
+					<div class="ld-tasks">Tasks 3&ndash;4</div>
+					<div class="ld-name">Real</div>
+					<div class="ld-note">Your own chat app drives it, and your own Python functions become tools it can
+						call.</div>
+					<div class="ld-time">~45 min</div>
+				</div>
+				<div class="ld-step ld-4" style="--ic:var(--accent-teal)">
+					<span class="ld-flag">Optional</span>
+					<div class="ld-tasks">Tasks 5&ndash;6</div>
+					<div class="ld-name">Yours to run</div>
+					<div class="ld-note">Host your own MCP server, then promote the whole thing to a hosted agent
+						running in Foundry.</div>
+					<div class="ld-time">~65 min</div>
+				</div>
+			</div>
+
+			<div class="footer-row">
+				<div class="meta">
+					<span>Any order &mdash; Task 5 follows Task 4</span>
+					<span>One starter folder, one .env</span>
+					<span>Python &middot; Microsoft Foundry</span>
+				</div>
+				<a class="cta" href="https://ivorb.github.io/mslearn-ai-agents/Instructions/Exercises/A-build-and-extend-ai-agents.html"
+					target="_blank" rel="noopener noreferrer">Start the lab &#8599;</a>
+			</div>
+		</section>
+
+		<!-- ══ E · APPLICATION ARCHITECTURE ══════════════════════ -->
+		<section data-variant="e">
+			<div>
+				<div class="eyebrow">Lab overview &middot; application architecture</div>
+				<h1>Build and extend an AI agent</h1>
+				<p class="lead">
+					You write Python locally; the agent, its knowledge and its tool definitions live in a Microsoft
+					Foundry project. Each badge marks the task that builds that component &mdash;
+					<strong>Task 1 is portal-only</strong>, everything else is code you run yourself, until
+					<strong>Task 6 moves your code into Foundry too</strong>.
+				</p>
+			</div>
+
+			<div class="ax" aria-label="Application architecture: components, and the task that builds each">
+				<div class="ax-tier">
+					<div class="ax-tier-head">
+						<img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/python/python-original.svg" alt="" />
+						Your machine
+					</div>
+					<div class="ax-node">
+						<img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/python/python-original.svg" alt="" />
+						<div><span class="ax-name">tailwind_ui.py</span><span class="ax-badge ax-given">provided</span>
+							<div class="ax-sub">Web chat window &mdash; you never edit it</div>
+						</div>
+					</div>
+					<div class="ax-node is-built" style="--ic:var(--accent-blue)">
+						<img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/python/python-original.svg" alt="" />
+						<div><span class="ax-name">client.py</span><span class="ax-badge">Task 3</span>
+							<div class="ax-sub">You write respond() and route each tool call</div>
+						</div>
+					</div>
+					<div class="ax-node is-built" style="--ic:var(--accent-pink,var(--accent-orange))">
+						<img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/python/python-original.svg" alt="" />
+						<div><span class="ax-name">functions.py</span><span class="ax-badge">Task 4</span>
+							<div class="ax-sub">Trip planner and rental pricing, in Python</div>
+						</div>
+					</div>
+					<div class="ax-node is-built" style="--ic:var(--accent-plum)">
+						<img src="../../../lib/icons/brands/mcp-logo.svg" alt="" />
+						<div><span class="ax-name">server.py</span><span class="ax-badge">Task 5</span>
+							<div class="ax-sub">Your own MCP server, tools over stdio</div>
+						</div>
+					</div>
+				</div>
+
+				<div class="ax-wires" aria-hidden="true">
+					<div class="ax-wire" style="--wc:var(--accent-blue)">
+						<div class="ax-wire-lbl">Responses API<br />agent_reference</div>
+						<svg viewBox="0 0 120 14" preserveAspectRatio="none">
+							<line x1="2" y1="7" x2="108" y2="7" stroke="currentColor" stroke-width="2" />
+							<path d="M108 2 L118 7 L108 12 Z" fill="currentColor" />
+						</svg>
+					</div>
+					<div class="ax-wire" style="--wc:var(--accent-orange)">
+						<svg viewBox="0 0 120 14" preserveAspectRatio="none">
+							<line x1="12" y1="7" x2="118" y2="7" stroke="currentColor" stroke-width="2" />
+							<path d="M12 2 L2 7 L12 12 Z" fill="currentColor" />
+						</svg>
+						<div class="ax-wire-lbl">function_call out,<br />your result back</div>
+					</div>
+				</div>
+
+				<div class="ax-tier is-cloud">
+					<div class="ax-tier-head">
+						<img src="../../../lib/icons/Azure_Public_Service_Icons/ai + machine learning/03513-icon-service-AI-Studio.svg" alt="" />
+						Microsoft Foundry project
+					</div>
+					<div class="ax-node">
+						<img src="../../../lib/icons/Azure_Public_Service_Icons/ai + machine learning/03438-icon-service-Azure-OpenAI.svg" alt="" />
+						<div><span class="ax-name">Model deployment</span><span class="ax-badge ax-given">setup</span>
+							<div class="ax-sub">The model your agent runs on</div>
+						</div>
+					</div>
+					<div class="ax-node is-built" style="--ic:var(--accent-green)">
+						<img src="../../../lib/icons/Azure_Public_Service_Icons/ai + machine learning/03513-icon-service-AI-Studio.svg" alt="" />
+						<div><span class="ax-name">Agent &middot; instructions</span><span class="ax-badge">Task 1</span>
+							<div class="ax-sub">Who it is, and how it should answer</div>
+						</div>
+					</div>
+					<div class="ax-node is-built" style="--ic:var(--accent-green)">
+						<img src="../../../lib/icons/Azure_Public_Service_Icons/ai + machine learning/10044-icon-service-Cognitive-Search.svg" alt="" />
+						<div><span class="ax-name">Knowledge &middot; File search</span><span class="ax-badge">Task 1</span>
+							<div class="ax-sub">Your uploaded documents, indexed</div>
+						</div>
+					</div>
+					<div class="ax-node is-built" style="--ic:var(--accent-orange)">
+						<img src="../../../lib/icons/brands/mcp-logo.svg" alt="" />
+						<div><span class="ax-name">Tool definitions</span><span class="ax-badge">Tasks 2, 4, 5</span>
+							<div class="ax-sub">Remote MCP, your functions, your MCP server</div>
+						</div>
+					</div>
+					<div class="ax-node is-built" style="--ic:var(--accent-teal)">
+						<img src="../../../lib/icons/Azure_Public_Service_Icons/containers/10104-icon-service-Container-Instances.svg" alt="" />
+						<div><span class="ax-name">Agent Service</span><span class="ax-badge">Task 6</span>
+							<div class="ax-sub">Your code in a hosted container, own endpoint</div>
+						</div>
+					</div>
+				</div>
+
+				<div class="ax-wires" aria-hidden="true">
+					<div class="ax-wire" style="--wc:var(--accent-green)">
+						<div class="ax-wire-lbl">indexed at<br />upload time</div>
+						<svg viewBox="0 0 120 14" preserveAspectRatio="none">
+							<line x1="2" y1="7" x2="108" y2="7" stroke="currentColor" stroke-width="2" />
+							<path d="M108 2 L118 7 L108 12 Z" fill="currentColor" />
+						</svg>
+					</div>
+					<div class="ax-wire" style="--wc:var(--accent-orange)">
+						<div class="ax-wire-lbl">MCP &middot; called at<br />question time</div>
+						<svg viewBox="0 0 120 14" preserveAspectRatio="none">
+							<line x1="2" y1="7" x2="108" y2="7" stroke="currentColor" stroke-width="2"
+								stroke-dasharray="5 4" />
+							<path d="M108 2 L118 7 L108 12 Z" fill="currentColor" />
+						</svg>
+					</div>
+				</div>
+
+				<div class="ax-tier is-short">
+					<div class="ax-tier-head">
+						<img src="../../../lib/icons/Azure_Public_Service_Icons/general/10801-icon-service-Files.svg" alt="" />
+						Data &amp; remote sources
+					</div>
+					<div class="ax-node is-built" style="--ic:var(--accent-green)">
+						<img src="../../../lib/icons/Azure_Public_Service_Icons/general/10801-icon-service-Files.svg" alt="" />
+						<div><span class="ax-name">Your documents</span><span class="ax-badge">Task 1</span>
+							<div class="ax-sub">Store_Policy.txt, weekly_sales.csv</div>
+						</div>
+					</div>
+					<div class="ax-node is-built" style="--ic:var(--accent-orange)">
+						<img src="../../../lib/icons/brands/mcp-logo.svg" alt="" />
+						<div><span class="ax-name">Learn Docs MCP server</span><span class="ax-badge">Task 2</span>
+							<div class="ax-sub">learn.microsoft.com/api/mcp &middot; approval required</div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="ax-legend">
+				<span><b>Task 1</b> Accurate &mdash; grounded in your files</span>
+				<span><b>Task 2</b> Useful &mdash; reaches live sources</span>
+				<span><b>Tasks 3&ndash;4</b> Real &mdash; your app, your Python</span>
+				<span><b>Tasks 5&ndash;6</b> Yours to run &mdash; your server, hosted</span>
+			</div>
+
+			<div class="footer-row">
+				<div class="meta">
+					<span>6 tasks &middot; 2 core, 4 optional</span>
+					<span>~35 min core &middot; ~2 h 25 m all</span>
+					<span>Python &middot; Microsoft Foundry</span>
+				</div>
+				<a class="cta" href="https://ivorb.github.io/mslearn-ai-agents/Instructions/Exercises/A-build-and-extend-ai-agents.html"
+					target="_blank" rel="noopener noreferrer">Start the lab &#8599;</a>
+			</div>
+		</section>
+
+		<!-- ══ F · TASK → COMPONENT MATRIX ═══════════════════════ -->
+		<section data-variant="f">
+			<div>
+				<div class="eyebrow">Lab overview &middot; what each task builds</div>
+				<h1>Build and extend an AI agent</h1>
+				<p class="lead">
+					Six tasks, one Tailwind Traders assistant &mdash; each row is the component you add and what it
+					buys you. Tasks share one starter folder and one <code>.env</code>, so
+					<strong>you can run just one, or work straight through</strong>.
+				</p>
+			</div>
+
+			<table class="mx" aria-label="Each task, the component it builds, and what it achieves">
+				<thead>
+					<tr>
+						<th>Task</th>
+						<th>Runs where</th>
+						<th>Component you build</th>
+						<th>Achievement</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr style="--ic:var(--accent-green)">
+						<td class="mx-task">Task 1<small>Core &middot; ~15 min</small></td>
+						<td class="mx-where">Foundry portal</td>
+						<td>
+							<div class="mx-comp">
+								<span class="mx-chip"><img src="../../../lib/icons/Azure_Public_Service_Icons/ai + machine learning/03513-icon-service-AI-Studio.svg" alt="" />Agent + instructions</span>
+								<span class="mx-chip"><img src="../../../lib/icons/Azure_Public_Service_Icons/ai + machine learning/10044-icon-service-Cognitive-Search.svg" alt="" />File search index</span>
+								<span class="mx-chip"><img src="../../../lib/icons/Azure_Public_Service_Icons/general/10801-icon-service-Files.svg" alt="" />Store_Policy.txt</span>
+							</div>
+						</td>
+						<td class="mx-ach">Accurate</td>
+					</tr>
+					<tr style="--ic:var(--accent-orange)">
+						<td class="mx-task">Task 2<small>Core &middot; ~20 min</small></td>
+						<td class="mx-where">Foundry + local</td>
+						<td>
+							<div class="mx-comp">
+								<span class="mx-chip"><img src="../../../lib/icons/brands/mcp-logo.svg" alt="" />Remote MCP tool</span>
+								<span class="mx-chip">Approval loop</span>
+							</div>
+						</td>
+						<td class="mx-ach">Useful</td>
+					</tr>
+					<tr style="--ic:var(--accent-blue)">
+						<td class="mx-task">Task 3<small>Optional</small></td>
+						<td class="mx-where">Your machine</td>
+						<td>
+							<div class="mx-comp">
+								<span class="mx-chip"><img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/python/python-original.svg" alt="" />client.py</span>
+								<span class="mx-chip">Responses API &middot; agent_reference</span>
+							</div>
+						</td>
+						<td class="mx-ach">Real</td>
+					</tr>
+					<tr style="--ic:var(--accent-pink,var(--accent-orange))">
+						<td class="mx-task">Task 4<small>Optional</small></td>
+						<td class="mx-where">Your machine</td>
+						<td>
+							<div class="mx-comp">
+								<span class="mx-chip"><img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/python/python-original.svg" alt="" />functions.py</span>
+								<span class="mx-chip">Function-calling loop</span>
+							</div>
+						</td>
+						<td class="mx-ach">Extensible</td>
+					</tr>
+					<tr style="--ic:var(--accent-plum)">
+						<td class="mx-task">Task 5<small>Optional &middot; capstone</small></td>
+						<td class="mx-where">Your machine</td>
+						<td>
+							<div class="mx-comp">
+								<span class="mx-chip"><img src="../../../lib/icons/brands/mcp-logo.svg" alt="" />server.py &middot; your MCP server</span>
+								<span class="mx-chip">stdio &middot; JSON-RPC</span>
+							</div>
+						</td>
+						<td class="mx-ach">Your own tools</td>
+					</tr>
+					<tr style="--ic:var(--accent-teal)">
+						<td class="mx-task">Task 6<small>Optional</small></td>
+						<td class="mx-where">Foundry</td>
+						<td>
+							<div class="mx-comp">
+								<span class="mx-chip"><img src="../../../lib/icons/Azure_Public_Service_Icons/containers/10104-icon-service-Container-Instances.svg" alt="" />Agent Service container</span>
+								<span class="mx-chip">Own endpoint</span>
+							</div>
+						</td>
+						<td class="mx-ach">Yours to run</td>
+					</tr>
+				</tbody>
+			</table>
+
+			<div class="footer-row">
+				<div class="meta">
+					<span>Any order &mdash; Task 5 follows Task 4</span>
+					<span>~35 min core &middot; ~2 h 25 m all</span>
+					<span>Scenario: Tailwind Traders</span>
+				</div>
+				<a class="cta" href="https://ivorb.github.io/mslearn-ai-agents/Instructions/Exercises/A-build-and-extend-ai-agents.html"
+					target="_blank" rel="noopener noreferrer">Start the lab &#8599;</a>
+			</div>
+		</section>
+
+		<!-- ══ G · REQUEST TRACE ═════════════════════════════════ -->
+		<section data-variant="g">
+			<div>
+				<div class="eyebrow">Lab overview &middot; one question, end to end</div>
+				<h1>Build and extend an AI agent</h1>
+				<p class="lead">
+					This is a single question travelling through the assistant you build &mdash; every hop is a
+					component, and every badge is the task that adds it. Build the first two hops and you already have a
+					<strong>grounded, tool-using agent</strong>; the rest put your own code on both ends.
+				</p>
+			</div>
+
+			<div class="tr" aria-label="How one question flows through the components you build">
+				<div class="tr-hop" style="--ic:var(--accent-blue)">
+					<div class="tr-n">1</div>
+					<div class="tr-logo">
+						<img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/python/python-original.svg" alt="" />
+						<span class="tr-name">client.py</span>
+					</div>
+					<div class="tr-sub">Your chat app sends the question and routes whatever comes back.
+						<span class="ax-badge" style="--ic:var(--accent-blue)">Task 3</span>
+					</div>
+					<div class="tr-wire">&rarr; Responses API &middot; agent_reference</div>
+				</div>
+
+				<div class="tr-hop" style="--ic:var(--accent-green)">
+					<div class="tr-n">2</div>
+					<div class="tr-logo">
+						<img src="../../../lib/icons/Azure_Public_Service_Icons/ai + machine learning/03513-icon-service-AI-Studio.svg" alt="" />
+						<span class="tr-name">Foundry agent</span>
+					</div>
+					<div class="tr-sub">Instructions decide how it answers, and which tool it needs.
+						<span class="ax-badge" style="--ic:var(--accent-green)">Task 1</span>
+					</div>
+					<div class="tr-wire">&rarr; file search, or a tool call</div>
+				</div>
+
+				<div class="tr-hop" style="--ic:var(--accent-green)">
+					<div class="tr-n">3</div>
+					<div class="tr-logo">
+						<img src="../../../lib/icons/Azure_Public_Service_Icons/ai + machine learning/10044-icon-service-Cognitive-Search.svg" alt="" />
+						<span class="tr-name">File search</span>
+					</div>
+					<div class="tr-sub">Looks the answer up in your uploaded documents, and cites them.
+						<span class="ax-badge" style="--ic:var(--accent-green)">Task 1</span>
+					</div>
+					<div class="tr-wire">Store_Policy.txt &middot; weekly_sales.csv</div>
+				</div>
+
+				<div class="tr-hop" style="--ic:var(--accent-orange)">
+					<div class="tr-n">4</div>
+					<div class="tr-logo">
+						<img src="../../../lib/icons/brands/mcp-logo.svg" alt="" />
+						<span class="tr-name">Tools</span>
+					</div>
+					<div class="tr-sub">Not in your files? It calls the Learn Docs MCP server, or your own Python.
+						<span class="ax-badge" style="--ic:var(--accent-orange)">Tasks 2, 4, 5</span>
+					</div>
+					<div class="tr-wire">approval required before it acts</div>
+				</div>
+
+				<div class="tr-hop" style="--ic:var(--accent-teal)">
+					<div class="tr-n">5</div>
+					<div class="tr-logo">
+						<img src="../../../lib/icons/Azure_Public_Service_Icons/containers/10104-icon-service-Container-Instances.svg" alt="" />
+						<span class="tr-name">Hosted agent</span>
+					</div>
+					<div class="tr-sub">Finally the same code runs inside Foundry, behind its own endpoint.
+						<span class="ax-badge" style="--ic:var(--accent-teal)">Task 6</span>
+					</div>
+					<div class="tr-wire">callers change nothing</div>
+				</div>
+			</div>
+
+			<div class="tr-foot">
+				<span><b>Hops 2&ndash;3</b> are the core path &mdash; about 35 minutes</span>
+				<span><b>Hops 1, 4, 5</b> are optional, in any order</span>
+				<span>Scenario: Tailwind Traders</span>
+			</div>
+
+			<div class="footer-row">
+				<div class="meta">
+					<span>6 tasks &middot; 2 core, 4 optional</span>
+					<span>Python &middot; Microsoft Foundry</span>
+				</div>
+				<a class="cta" href="https://ivorb.github.io/mslearn-ai-agents/Instructions/Exercises/A-build-and-extend-ai-agents.html"
+					target="_blank" rel="noopener noreferrer">Start the lab &#8599;</a>
+			</div>
+		</section>
+	</main>
+
+	<!-- REVIEW-ONLY: delete together with the .chooser nav. -->
+	<script>
+		(function () {
+			var btns = [].slice.call(document.querySelectorAll('.chooser button'));
+			function show(id) {
+				document.querySelectorAll('section[data-variant]').forEach(function (s) {
+					s.classList.toggle('is-on', s.dataset.variant === id);
+				});
+				btns.forEach(function (b) { b.setAttribute('aria-pressed', b.dataset.go === id ? 'true' : 'false'); });
+				try { localStorage.setItem('aw-lab-overview-design', id); } catch (e) { }
+			}
+			btns.forEach(function (b) { b.addEventListener('click', function () { show(b.dataset.go); }); });
+			var start = 'a';
+			try { start = new URLSearchParams(location.search).get('design') || localStorage.getItem('aw-lab-overview-design') || 'a'; } catch (e) { }
+			if (!document.querySelector('section[data-variant="' + start + '"]')) start = 'a';
+			show(start);
+		}());
+	</script>
+</body>
+
+</html>
