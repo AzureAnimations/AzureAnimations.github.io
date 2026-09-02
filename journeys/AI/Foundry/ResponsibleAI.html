@@ -1,0 +1,1979 @@
+<!DOCTYPE html>
+<!--
+	The Six Pillars of Responsible AI
+	=================================
+	Part of the AI Agents · Microsoft Foundry journey.
+	Narration script: ../../../narration/AI/Foundry/ResponsibleAI.md (+ es/ ja/ ko/ pt/)
+	Audio clips:      audio/ResponsibleAI/step-NN.mp3 (+ <lang>/step-NN.mp3)
+	Regenerate audio: python scripts/generate_narration_audio.py --project foundry --pages ResponsibleAI --langs en,es,ja,ko,pt
+
+	Content is grounded in Microsoft's Responsible AI Standard (six principles):
+	  https://learn.microsoft.com/azure/machine-learning/concept-responsible-ai
+	  https://learn.microsoft.com/agents/center-of-excellence/responsible-ai
+
+	Steps 2-6 all share renderPillarStep() so every pillar reads identically —
+	same layout, same type sizes, only the accent colour and copy change.
+	Paths assume journeys/AI/Foundry/ (three levels under the site root).
+-->
+<html lang="en">
+<head>
+	<script src="/js/tracking.js"></script>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+	<title>The Six Pillars of Responsible AI — Azure Animations</title>
+
+	<link rel="stylesheet" href="https://unpkg.com/@microsoft/atlas-css/dist/index.css" />
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+	<!-- AnimationWorks shared lib -->
+	<script src="../../../lib/js/aw-easings.js"></script>
+	<script src="../../../lib/js/aw-motion.js"></script>
+	<script src="../../../lib/js/aw-theme.js"></script>
+	<script src="../../../lib/js/aw-keyboard.js"></script>
+	<script src="../../../lib/js/aw-captions.js"></script>
+
+<style>
+	/* ── SHELL ─────────────────────────────── */
+	/* Brand palette — reference these tokens; don't hardcode hex */
+	:root {
+		--aw-purple:#5c2d91;   /* primary accent — titles, callouts, arrows, progress, agents */
+		--aw-blue:#0078d4;     /* secondary — inputs, links, "the model", primary button */
+		--aw-green:#10a37f;    /* positive — success, grounded/correct results, value chips */
+		--aw-orange:#e97526;   /* tools / actions — tool calls, function calling, side-effects */
+		--aw-pink:#d24aa8;     /* highlight — a fourth category / emphasis */
+		--aw-teal:#00847a;     /* sixth accent — accountability */
+	}
+	html, body { height:100%; margin:0; }
+	html { font-size:100%; }
+	body {
+		display:flex; flex-direction:column; height:100vh;
+		overflow:hidden;
+		font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif;
+		color: var(--theme-text);
+		background:
+			radial-gradient(circle at 15% 20%, rgba(92,45,145,0.18) 0%, transparent 55%),
+			radial-gradient(circle at 85% 80%, rgba(0,120,212,0.18) 0%, transparent 55%),
+			var(--theme-body-background);
+	}
+	.app-header { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:1rem; flex-shrink:0; font-size:16px; }
+	.app-header > :last-child { justify-self:end; }
+
+	/* #stage fills the space between the top bar and the control dock, and centers the fixed 16:9 frame. */
+	#stage {
+		position:relative; flex:1 1 auto; width:100%; min-height:0;
+		display:flex; align-items:center; justify-content:center;
+		overflow:hidden; container-type:size;
+		padding:1.75rem 2.75rem 5rem;   /* breathing room around the frame; bottom clears the fixed #controls dock */
+	}
+	#stage:focus-visible, button:focus-visible, a:focus-visible, select:focus-visible {
+		outline:2px solid var(--theme-primary, #0078d4); outline-offset:3px; border-radius:4px;
+	}
+	/* The visible rectangle: the largest 16:9 box that fits the stage. All scenes are drawn inside it. */
+	#stage-frame {
+		position:relative; overflow:hidden;
+		width: min(100cqw, calc(100cqh * 16 / 9));
+		aspect-ratio: 16 / 9; max-width:100%; max-height:100%;
+		border-radius:16px;
+		background: rgba(0,0,0,0.015);
+		box-shadow: 0 12px 44px rgba(0,0,0,0.22);
+	}
+	body.theme-dark #stage-frame { background: rgba(255,255,255,0.025); }
+	#fx-svg { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:6; overflow:visible; }
+
+	/* ── SCENE ─────────────────────────────── */
+	.scene {
+		position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+		transform-origin:center center;
+		width:min(1150px, 96%); z-index:10;
+		display:flex; flex-direction:column; align-items:center; gap:1.4rem;
+	}
+	/* 200ms fade in / out between every step */
+	@keyframes awSceneIn { from { opacity:0; } to { opacity:1; } }
+	@keyframes awSceneOut { from { opacity:1; } to { opacity:0; } }
+	.scene.scene-in { animation: awSceneIn 0.2s ease both; }
+	.scene.scene-out { animation: awSceneOut 0.2s ease both; }
+	.scene-title { font-size:2.5rem; font-weight:700; color:var(--theme-tertiary, #5c2d91); margin:0; text-align:center; opacity:0; }
+	body.theme-dark .scene-title { color:#c9a5e8; }
+	/* lead spans wide (near the scene width) to use the side gutters and stay within 2 lines — trim copy if it wraps to 3 */
+	.scene-lead { margin:0; text-align:center; font-size:1.35rem; color:var(--theme-text); max-width:min(1180px,96%); line-height:1.5; opacity:0; }
+
+	/* ── CALLOUT · draggable, slightly see-through so it never fully blocks the diagram ── */
+	.callout {
+		position:absolute; max-width:340px; padding:1rem 1.2rem;
+		background:var(--theme-body-background);
+		background:color-mix(in srgb, var(--theme-body-background) 84%, transparent);
+		-webkit-backdrop-filter:blur(5px); backdrop-filter:blur(5px);
+		border:1px solid var(--theme-border);
+		border-left:4px solid var(--theme-tertiary, #5c2d91); border-radius:6px;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2));
+		font-size:1.05rem; line-height:1.45; z-index:14; opacity:0;
+		cursor:grab; touch-action:none;
+	}
+	.callout:active { cursor:grabbing; }
+
+	/* ── RESET "PIN" · appears on a draggable panel once it has been moved off its home spot ── */
+	.aw-drag-reset {
+		position:absolute; width:24px; height:24px; padding:0; display:none;
+		align-items:center; justify-content:center; border-radius:50%;
+		background:var(--theme-tertiary,#5c2d91); color:#fff;
+		border:2px solid var(--theme-body-background,#fff);
+		box-shadow:0 2px 7px rgba(0,0,0,0.4); cursor:pointer; z-index:6;
+		opacity:0.92; transition:opacity .14s ease, transform .14s ease;
+	}
+	.aw-drag-reset:hover { opacity:1; transform:scale(1.08); }
+	.aw-drag-reset:focus-visible { outline:2px solid #5cc8ff; outline-offset:2px; }
+	.aw-drag-reset svg { width:13px; height:13px; display:block; }
+
+	/* ══════════════════════════════════════════════════════════ */
+	/* ── REUSABLE BUILDING BLOCKS · keep what you use, drop rest ─ */
+	/* ══════════════════════════════════════════════════════════ */
+
+	/* Centered hero card */
+	.card {
+		width:min(680px, 96%); padding:1.6rem 1.8rem; border-radius:16px;
+		background:var(--theme-card-background, #fff); border:2px solid var(--theme-border);
+		box-shadow:0 8px 28px rgba(0,0,0,0.14); opacity:0;
+		display:flex; flex-direction:column; gap:0.6rem; align-items:center; text-align:center;
+	}
+	body.theme-dark .card { background:rgba(255,255,255,0.05); }
+	.card .card-icon { font-size:3rem; line-height:1; }
+	.card .card-h { font-size:1.4rem; font-weight:700; }
+	.card .card-p { font-size:1.05rem; color:var(--theme-text-subtle); line-height:1.5; }
+
+	/* Wide info panel */
+	.ta-card {
+		width:min(1080px, 98%); border:1.5px solid var(--theme-border); border-radius:14px;
+		background:var(--theme-card-background, #fff); box-shadow:0 8px 30px rgba(0,0,0,0.16);
+		padding:1.1rem 1.3rem; opacity:0;
+	}
+	body.theme-dark .ta-card { background:rgba(255,255,255,0.05); }
+	.ta-card-head {
+		display:flex; align-items:center; gap:0.5rem;
+		font-size:1rem; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;
+		color:var(--theme-text-subtle); margin-bottom:0.6rem;
+	}
+	.ta-card-text { font-size:1.22rem; line-height:1.55; color:var(--theme-text); }
+
+	/* Pills / chips */
+	.chip-row { display:flex; flex-wrap:wrap; gap:0.7rem; justify-content:center; }
+	.pill {
+		display:inline-flex; align-items:center; gap:0.5rem; padding:0.55rem 1.1rem;
+		border-radius:999px; font-size:1.05rem; font-weight:600;
+		border:2px solid var(--theme-tertiary, #5c2d91); background:rgba(92,45,145,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .pill { background:rgba(92,45,145,0.2); }
+	.value-chip {
+		display:inline-flex; align-items:center; gap:0.4rem; padding:0.5rem 1rem;
+		border-radius:999px; font-size:1rem; font-weight:700;
+		border:2px solid #107c10; background:rgba(16,124,16,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .value-chip { background:rgba(16,124,16,0.16); }
+	.recap-foot { font-size:1.05rem; color:var(--theme-text); text-align:center; max-width:760px; opacity:0; }
+
+	/* Flow row: input → process → output */
+	.agent-node {
+		display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.2rem;
+		width:160px; height:160px; border-radius:24px;
+		background: linear-gradient(135deg, rgba(92,45,145,0.12), rgba(0,120,212,0.12));
+		border:2.5px solid var(--theme-tertiary, #5c2d91);
+		box-shadow:0 8px 28px rgba(92,45,145,0.2); flex-shrink:0; text-align:center;
+	}
+	.agent-node .an-icon { font-size:3rem; line-height:1; }
+	.agent-node .an-icon img { width:64px; height:64px; display:block; }
+	.agent-node .an-label { font-size:1.05rem; font-weight:700; color:var(--theme-text); }
+	.agent-node .an-sub { font-size:0.85rem; color:var(--theme-text-subtle); }
+	.ta-flow { display:flex; align-items:center; justify-content:center; gap:1.2rem; flex-wrap:wrap; width:100%; }
+	.ta-flow .agent-node { width:140px; height:140px; }
+	.ta-flow .agent-node .an-icon { font-size:2.6rem; }
+	.ta-flow .agent-node .an-icon img { width:54px; height:54px; }
+	.ta-arrow { font-size:1.9rem; color:var(--theme-tertiary,#5c2d91); opacity:0; }
+	.ta-arrow.is-big { font-size:3.2rem; }
+	.ta-arrow.is-down, .ta-arrow.is-up { font-size:2.9rem; line-height:1; }
+	@media (max-width:760px) { .ta-flow .ta-arrow { transform:rotate(90deg); } }
+
+	/* Code card (VS Code style) */
+	.code-card {
+		width:min(560px,96%); border:1px solid #30363d; border-radius:8px;
+		background:#1e1e1e; overflow:hidden; opacity:0;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.25));
+	}
+	.code-head {
+		display:flex; align-items:center; justify-content:space-between; gap:0.5rem;
+		padding:0 0 0 0.85rem; background:#323233; border-bottom:1px solid #1e1e1e;
+	}
+	.code-file { font-size:0.9rem; color:#cccccc; font-weight:500; padding:0.6rem 0; }
+	.code-winctrls { display:flex; align-items:stretch; height:100%; }
+	.code-wbtn {
+		display:flex; align-items:center; justify-content:center; width:2.6rem; padding:0.55rem 0;
+		color:#cccccc; font-family:'Segoe UI Symbol','Segoe MDL2 Assets',sans-serif; font-size:0.7rem;
+	}
+	.code-wbtn.is-close:hover { background:#e81123; color:#fff; }
+	.code-wbtn:hover { background:rgba(255,255,255,0.1); }
+	.code-body {
+		margin:0; padding:0.8rem 1rem;
+		font-family:'Cascadia Code', 'Consolas', 'SFMono-Regular', monospace;
+		font-size:0.86rem; line-height:1.5; color:#d4d4d4;
+		white-space:pre-wrap; overflow-wrap:break-word; word-break:break-word; tab-size:4;
+	}
+	.code-body .tok-com { color:#6a9955; }
+	.code-body .tok-kw  { color:#569cd6; }
+	.code-body .tok-str { color:#ce9178; }
+	.code-body .tok-fn  { color:#dcdcaa; }
+	.code-body .tok-mod { color:#4ec9b0; }
+	.code-body .tok-prop{ color:#9cdcfe; }
+	.code-body .tok-num { color:#b5cea8; }
+	.code-body .tok-punct { color:#d4d4d4; }
+	.code-body .code-hl { border-radius:4px; padding:0 0.15em; box-shadow:0 0 0 1px rgba(96,165,250,0.55); background:rgba(96,165,250,0.22); }
+	.code-duo { display:flex; gap:1.1rem; flex-wrap:wrap; align-items:flex-start; justify-content:center; width:100%; }
+	.code-duo .code-card { flex:1 1 380px; max-width:480px; }
+	.code-duo .code-body { font-size:0.8rem; line-height:1.45; }
+	.code-arrow { align-self:center; font-size:1.8rem; line-height:1; color:var(--theme-tertiary,#5c2d91); opacity:0; flex:none; }
+	.code-arrow.is-big { font-size:2.9rem; }
+	@media (max-width:760px) { .code-arrow { transform:rotate(90deg); } }
+
+	/* Use-case grid */
+	.uc-grid { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:1.1rem; width:min(980px,96%); }
+	@media (max-width:720px) { .uc-grid { grid-template-columns:1fr; } }
+	.uc-card {
+		display:flex; flex-direction:column; gap:0.5rem; padding:1rem 1.15rem;
+		border:1.5px solid var(--theme-border); border-top:4px solid var(--theme-primary,#0078d4);
+		border-radius:14px; background:var(--theme-card-background, #fff);
+		box-shadow:0 6px 22px rgba(0,0,0,0.12); opacity:0;
+		transition:transform 0.2s ease, box-shadow 0.2s ease;
+	}
+	.uc-card:hover { transform:translateY(-4px); box-shadow:0 12px 30px rgba(0,0,0,0.18); }
+	body.theme-dark .uc-card { background:rgba(255,255,255,0.05); }
+	.uc-card[data-uc="a"] { border-top-color:#0078d4; }
+	.uc-card[data-uc="b"] { border-top-color:#10a37f; }
+	.uc-card[data-uc="c"] { border-top-color:#e97526; }
+	.uc-card[data-uc="d"] { border-top-color:#d24aa8; }
+	.uc-head { display:flex; align-items:center; gap:0.55rem; font-size:1.25rem; font-weight:700; color:var(--theme-text); }
+	.uc-head .uc-icon { font-size:1.7rem; display:inline-block; }
+	.uc-desc { font-size:0.98rem; line-height:1.55; color:var(--theme-text-subtle); }
+	.uc-caps { display:flex; flex-wrap:wrap; gap:0.4rem; margin-top:0.2rem; }
+	.uc-cap {
+		display:inline-flex; align-items:center; gap:0.3rem; padding:0.25rem 0.7rem;
+		border-radius:999px; font-size:0.88rem; font-weight:700;
+		background:rgba(0,120,212,0.1); color:var(--theme-text);
+		border:1.5px solid rgba(0,120,212,0.4); opacity:0;
+	}
+
+	/* ── CONTROLS · icon dock ──────────────── */
+	#controls {
+		position:fixed; bottom:14px; left:50%; transform:translateX(-50%); z-index:40;
+		display:flex; align-items:center; gap:5px; padding:5px 7px;
+		background:var(--theme-body-background-translucent, rgba(255,255,255,0.82));
+		backdrop-filter:blur(12px) saturate(1.4); -webkit-backdrop-filter:blur(12px) saturate(1.4);
+		border:1px solid var(--theme-border); border-radius:999px;
+		box-shadow: 0 8px 26px rgba(0,0,0,0.18); font-size:13px;
+	}
+	body.theme-dark #controls { background:var(--theme-body-background-translucent, rgba(32,32,36,0.82)); }
+	#controls .ctrl-icon {
+		width:2.15rem; height:2.15rem; min-width:0; padding:0;
+		display:inline-flex; align-items:center; justify-content:center;
+		border-radius:50%; font-size:0.95rem; line-height:1; font-weight:600;
+		transition:background 0.18s ease, color 0.18s ease, transform 0.12s ease, box-shadow 0.18s ease;
+	}
+	#controls .ctrl-icon:hover { transform:translateY(-1px); }
+	#controls .ctrl-icon:active { transform:scale(0.92); }
+	#controls .ctrl-icon-next {
+		width:2.55rem; height:2.55rem; font-size:1.1rem;
+		box-shadow:0 2px 8px var(--theme-primary-translucent, rgba(0,120,212,0.45));
+	}
+	.step-counter {
+		min-width:52px; text-align:center; font-variant-numeric:tabular-nums;
+		font-size:14px; font-weight:700; color:var(--theme-text);
+		padding:0 6px; white-space:nowrap; letter-spacing:0.02em;
+	}
+	.ctrl-sep { width:1px; align-self:stretch; margin:4px 2px; background:var(--theme-border); }
+	/* Movable dock: drag handle + pin-to-center button */
+	.ctrl-grip {
+		display:inline-flex; align-items:center; justify-content:center;
+		width:1.5rem; height:2.15rem; padding:0; border:none; background:transparent;
+		color:var(--theme-text-subtle); border-radius:8px; cursor:grab; touch-action:none;
+		transition:background 0.18s ease, color 0.18s ease;
+	}
+	.ctrl-grip:hover { color:var(--theme-text); background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); }
+	.ctrl-grip:active { cursor:grabbing; }
+	.ctrl-grip svg { width:13px; height:16px; pointer-events:none; }
+	body.controls-floating .ctrl-grip { color:var(--theme-primary,#0078d4); }
+	#controls .ctrl-pin { display:none; color:var(--theme-primary,#0078d4); }
+	#controls .ctrl-pin svg { width:15px; height:15px; pointer-events:none; }
+	body.controls-floating #controls .ctrl-pin { display:inline-flex; }
+	body.controls-floating #controls { box-shadow:0 10px 30px rgba(0,0,0,0.30), 0 0 0 1.5px var(--theme-primary,#0078d4); }
+	.speed-control { display:inline-flex; align-items:center; gap:1px; padding:2px 3px; border:1px solid var(--theme-border); border-radius:999px; }
+	.speed-control .speed-btn {
+		width:1.7rem; height:1.7rem; min-width:0; padding:0;
+		display:inline-flex; align-items:center; justify-content:center;
+		font-size:0.95rem; font-weight:700; border-radius:50%;
+	}
+	.speed-control .speed-btn[disabled] { opacity:0.4; cursor:not-allowed; }
+	.speed-label { min-width:2.4rem; text-align:center; font-variant-numeric:tabular-nums; font-size:0.82rem; font-weight:700; color:var(--theme-text); }
+
+	#callout-toggle, #outline-toggle, #audio-toggle { border:1px solid var(--theme-border); border-radius:4px; transition:background .2s,color .2s,border-color .2s,opacity .2s; }
+	#callout-toggle.toggle-active, #outline-toggle.toggle-active, #audio-toggle.toggle-active {
+		background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary,#0078d4); border-color:var(--theme-primary,#0078d4); font-weight:600;
+	}
+	#callout-toggle:not(.toggle-active), #outline-toggle:not(.toggle-active), #audio-toggle:not(.toggle-active) { opacity:0.6; }
+
+	/* ── HIDE/SHOW TOP BAR ─────────────────── */
+	#header-hide { display:inline-flex; align-items:center; justify-content:center; width:2rem; height:2rem; padding:0; border:1px solid var(--theme-border); border-radius:50%; color:var(--theme-text-subtle); transition:background .2s,color .2s,transform .18s; }
+	#header-hide:hover { color:var(--theme-text); transform:translateY(-1px); }
+	#header-hide svg { width:16px; height:16px; }
+	#header-hide-top { display:inline-flex; align-items:center; justify-content:center; width:2rem; height:2rem; padding:0; border:1px solid var(--theme-border); border-radius:50%; color:var(--theme-text-subtle); background:transparent; cursor:pointer; transition:background .2s,color .2s,transform .18s; }
+	#header-hide-top:hover { color:var(--theme-text); transform:translateY(-1px); }
+	#header-hide-top svg { width:16px; height:16px; }
+	body.chrome-hidden .app-header, body.chrome-hidden .progress-track { display:none; }
+	#header-reveal {
+		position:fixed; top:0; left:50%; transform:translateX(-50%) translateY(-100%); z-index:45;
+		display:inline-flex; align-items:center; gap:0.35rem; padding:5px 14px 6px; font-size:12px; font-weight:600; line-height:1;
+		color:var(--theme-text-subtle); background:var(--theme-body-background-translucent, rgba(255,255,255,0.88));
+		backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border:1px solid var(--theme-border); border-top:none; border-radius:0 0 12px 12px;
+		box-shadow:0 4px 14px rgba(0,0,0,0.14); cursor:pointer; transition:transform .28s cubic-bezier(0.2,0.7,0.3,1), color .2s, background .2s;
+	}
+	body.theme-dark #header-reveal { background:var(--theme-body-background-translucent, rgba(32,32,36,0.88)); }
+	#header-reveal:hover { color:var(--theme-text); }
+	body.chrome-hidden #header-reveal { transform:translateX(-50%) translateY(0); }
+	#header-reveal svg { width:14px; height:14px; }
+
+	/* ── PLAYER OVERLAY · pills inside the stage frame (YouTube-style) ──
+	   Two translucent pills float over the 16:9 frame: LEFT = "view options"
+	   (callout / outline / shortcuts), RIGHT = "player" (audio / captions / hide-bar / fullscreen). */
+	.stage-overlay {
+		position:absolute; right:12px; bottom:10px; z-index:25;
+		display:flex; align-items:center; gap:2px;
+		padding:3px 6px; border-radius:999px;
+		background:rgba(16,18,24,0.58);
+		backdrop-filter:blur(9px) saturate(1.3); -webkit-backdrop-filter:blur(9px) saturate(1.3);
+		box-shadow:0 4px 16px rgba(0,0,0,0.32);
+	}
+	.ovl-btn {
+		-webkit-appearance:none; appearance:none; margin:0; font:inherit;
+		display:inline-flex; align-items:center; justify-content:center; gap:4px;
+		min-width:30px; height:30px; padding:0 8px;
+		border:none !important; border-radius:999px !important;
+		background:transparent !important; color:#fff !important;
+		box-shadow:none !important; cursor:pointer; line-height:1;
+		font-size:0.82rem; font-weight:700; opacity:0.92; transition:background .15s ease, opacity .15s ease;
+	}
+	.ovl-btn:hover { background:rgba(255,255,255,0.16) !important; opacity:1; }
+	.ovl-btn:disabled { opacity:0.4; cursor:not-allowed; }
+	.ovl-btn svg { width:18px; height:18px; fill:currentColor; display:block; }
+	.ovl-btn.on { color:#5cc8ff !important; }
+	.stage-overlay #audio-toggle { opacity:1 !important; }
+	.stage-overlay .aw-audio-ico { font-size:1rem; line-height:1; }
+	.stage-overlay .aw-audio-time { font-size:0.78rem; font-variant-numeric:tabular-nums; letter-spacing:0.02em; opacity:0.95; min-width:2.4em; text-align:left; }
+	#cc-toggle svg { width:20px; height:20px; }
+	.ovl-btn .fs-exit { display:none; }
+	body.is-fs .ovl-btn .fs-enter { display:none; }
+	body.is-fs .ovl-btn .fs-exit { display:block; }
+
+	/* ── LEFT VIEW-OPTIONS PILL · Callout / Outline / Shortcuts (icon + hover tip) ── */
+	.stage-overlay-left { right:auto; left:12px; }
+	#stage-overlay-left .ovl-btn:not(.toggle-active) { opacity:0.86; }
+	#stage-overlay-left .ovl-btn.toggle-active { color:#5cc8ff !important; opacity:1; }
+	#stage-overlay-left .ovl-btn:hover { opacity:1; }
+	/* Hover tooltip shown above the icon (left-anchored so it never clips the frame edge) */
+	.ovl-btn[data-tip] { position:relative; }
+	.ovl-btn[data-tip]::after { content:attr(data-tip); position:absolute; left:0; bottom:calc(100% + 9px); transform:translateY(4px); padding:4px 8px; border-radius:6px; background:rgba(16,18,24,0.96); color:#fff; font-size:0.72rem; font-weight:600; white-space:nowrap; letter-spacing:0.01em; opacity:0; pointer-events:none; box-shadow:0 3px 12px rgba(0,0,0,0.45); transition:opacity .14s ease, transform .14s ease; z-index:40; }
+	.ovl-btn[data-tip]::before { content:''; position:absolute; left:13px; bottom:calc(100% + 4px); border:5px solid transparent; border-top-color:rgba(16,18,24,0.96); opacity:0; pointer-events:none; transition:opacity .14s ease; z-index:40; }
+	.ovl-btn[data-tip]:hover::after { opacity:1; transform:translateY(0); }
+	.ovl-btn[data-tip]:hover::before { opacity:1; }
+
+	/* ── CAPTION · overlaid inside the frame, draggable + resizable, stays solid (not see-through) ── */
+	#aw-caption {
+		position:absolute; left:50%; transform:translateX(-50%); bottom:56px; z-index:24;
+		max-width:92%; min-width:140px; min-height:38px; max-height:44%;
+		display:none; align-items:center; justify-content:center; text-align:center;
+		padding:0.42rem 0.95rem; border-radius:9px;
+		background:rgba(8,9,13,0.8); color:#fff;
+		font-size:1.1rem; line-height:1.36; font-weight:600;
+		box-shadow:0 3px 14px rgba(0,0,0,0.42); pointer-events:auto; cursor:grab; touch-action:none;
+		overflow:auto; resize:both;   /* user can reshape the caption; corner grip = resize */
+	}
+	#aw-caption:active { cursor:grabbing; }
+	#aw-caption::-webkit-resizer { background:linear-gradient(135deg, transparent 45%, rgba(255,255,255,0.55) 45%, rgba(255,255,255,0.55) 55%, transparent 55%); }
+	body.cc-on #aw-caption.has-text { display:flex; }
+	@media (max-width:640px){ #aw-caption { font-size:0.94rem; bottom:48px; max-width:90%; } }
+
+	/* ── OUTLINE PANEL · draggable + slightly see-through ── */
+	#step-outline {
+		position:fixed; top:4.5rem; right:1rem; width:320px; max-height:calc(100vh - 8rem); overflow-y:auto;
+		padding:1.1rem; background:var(--theme-body-background);
+		background:color-mix(in srgb, var(--theme-body-background) 85%, transparent);
+		-webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
+		border:1px solid var(--theme-border);
+		border-radius:6px; box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2)); z-index:35; font-size:1rem; line-height:1.55;
+		cursor:grab; touch-action:none;
+	}
+	#step-outline:active { cursor:grabbing; }
+	#step-outline[hidden] { display:none; }
+	#step-outline h2 { font-size:0.85rem; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--theme-tertiary,#5c2d91); margin-bottom:0.5rem; }
+	#step-outline .outline-section { margin-top:0.6rem; padding-top:0.6rem; border-top:1px solid var(--theme-border); }
+	#step-outline .outline-section:first-child { margin-top:0; padding-top:0; border-top:0; }
+	#step-outline .stat-row { display:flex; justify-content:space-between; align-items:baseline; gap:0.75rem; padding:0.2rem 0; }
+	#step-outline .stat-row span:first-child { color:var(--theme-text-subtle); flex:0 0 auto; max-width:45%; }
+	#step-outline .stat-row span:last-child { text-align:right; font-weight:600; color:var(--theme-tertiary,#5c2d91); flex:1 1 auto; }
+
+	.progress-track { position:relative; height:6px; background:var(--theme-border, #e0e0e0); flex-shrink:0; cursor:pointer; }
+	.progress-fill { position:absolute; left:0; top:0; bottom:0; width:0%; background:var(--aw-purple, #5c2d91); transition:width .5s cubic-bezier(0.2,0.8,0.2,1); pointer-events:none; }
+	.progress-tick { position:absolute; top:0; bottom:0; width:2px; margin-left:-1px; background:var(--theme-body-background); opacity:0.6; pointer-events:none; }
+
+	/* ── THEME / LANG / FONT CONTROLS ──────── */
+	.theme-toggle { display:inline-flex; align-items:center; justify-content:center; width:2.25rem; height:2.25rem; padding:0; margin-inline-start:0.25rem; background:transparent; border:1px solid var(--theme-border); border-radius:999px; color:var(--theme-text); cursor:pointer; transition:background .15s,color .15s,border-color .15s; }
+	.theme-toggle:hover { background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary); border-color:var(--theme-primary); }
+	.theme-toggle .theme-icon { display:none; }
+	.theme-toggle[data-theme="dark"] .icon-sun { display:block; }
+	.theme-toggle[data-theme="light"] .icon-moon { display:block; }
+	.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+	.skip-link { position:absolute; top:-100px; left:0.5rem; z-index:100; padding:0.5rem 1rem; background:var(--theme-primary); color:var(--theme-primary-invert,#fff); border-radius:4px; text-decoration:none; font-weight:600; }
+	.skip-link:focus { top:0.5rem; }
+	.header-back-link { display:inline-flex; align-items:center; gap:0.25rem; padding:0.2rem 0.6rem; font-size:0.8rem; font-weight:600; color:var(--theme-text-subtle); border:1px solid var(--theme-border); border-radius:999px; text-decoration:none; white-space:nowrap; transition:background .15s,color .15s,border-color .15s; }
+	.header-back-link:hover { color:var(--theme-primary); border-color:var(--theme-primary); background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); }
+	.lang-select {
+		appearance:none; -webkit-appearance:none; background:var(--theme-card-background,#fff); color:var(--theme-body-text,#333);
+		border:1px solid var(--theme-border, rgba(0,0,0,0.2)); border-radius:4px; padding:4px 24px 4px 8px;
+		font-size:0.8rem; font-family:'Segoe UI', sans-serif; cursor:pointer;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+		background-repeat:no-repeat; background-position:right 6px center; min-width:80px;
+	}
+	.lang-select:hover { border-color:var(--theme-primary, #0078d4); }
+	.lang-select:focus { outline:2px solid var(--theme-primary, #0078d4); outline-offset:1px; }
+	body.theme-dark .lang-select {
+		background-color:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); border-color:rgba(255,255,255,0.15);
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23aaa' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+	}
+	body.theme-dark .lang-select option { background:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); }
+	.font-size-controls { display:flex; align-items:center; gap:2px; }
+	.font-size-btn { background:var(--theme-card-background,#fff); color:var(--theme-body-text,#333); border:1px solid var(--theme-border, rgba(0,0,0,0.2)); border-radius:4px; padding:3px 8px; font-size:0.8rem; font-weight:700; font-family:'Segoe UI', sans-serif; cursor:pointer; line-height:1.2; transition:background .15s,border-color .15s; }
+	.font-size-btn:hover { border-color:var(--theme-primary, #0078d4); }
+	body.theme-dark .font-size-btn { background:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); border-color:rgba(255,255,255,0.15); }
+
+	/* Inline icons (crisp on any OS/projector — replaces raw emoji on stage) */
+	.ic { display:inline-flex; align-items:center; justify-content:center; vertical-align:-0.125em; }
+	.ic svg { width:1em; height:1em; fill:currentColor; display:block; }
+	.help-toggle svg { width:15px; height:15px; vertical-align:-2px; }
+
+	/* Keyboard shortcut overlay */
+	#shortcut-overlay { position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center; }
+	#shortcut-overlay[hidden] { display:none; }
+	.sc-backdrop { position:absolute; inset:0; background:rgba(0,0,0,0.5); -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px); }
+	.sc-panel { position:relative; z-index:1; width:min(430px,92vw); max-height:82vh; overflow:auto; padding:1.5rem 1.6rem; background:var(--theme-body-background); border:1px solid var(--theme-border); border-radius:16px; box-shadow:0 24px 70px rgba(0,0,0,0.4); }
+	.sc-panel h2 { margin:0 0 1rem; font-size:1.25rem; color:var(--theme-tertiary,#5c2d91); }
+	body.theme-dark .sc-panel h2 { color:#c9a5e8; }
+	.sc-close { position:absolute; top:0.7rem; right:0.7rem; width:2rem; height:2rem; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--theme-border); border-radius:50%; background:transparent; color:var(--theme-text-subtle); cursor:pointer; }
+	.sc-close:hover { color:var(--theme-text); border-color:var(--theme-primary,#0078d4); }
+	.sc-close svg { width:15px; height:15px; }
+	.sc-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:0.55rem; }
+	.sc-list li { display:flex; align-items:center; justify-content:space-between; gap:1rem; font-size:1rem; color:var(--theme-text); }
+	.sc-keys { display:inline-flex; gap:0.3rem; flex:none; }
+	.sc-panel kbd, .sc-hint kbd { font-family:'Cascadia Code','Consolas',monospace; font-size:0.82rem; line-height:1; padding:0.28rem 0.5rem; border-radius:6px; border:1px solid var(--theme-border); border-bottom-width:2px; background:var(--theme-card-background,#fff); color:var(--theme-text); }
+	body.theme-dark .sc-panel kbd, body.theme-dark .sc-hint kbd { background:rgba(255,255,255,0.08); }
+	.sc-hint { margin:1.1rem 0 0; font-size:0.85rem; color:var(--theme-text-subtle); text-align:center; }
+
+	@media (max-width:640px) { .app-header { font-size:0.95rem; } .scene-title { font-size:1.9rem; } #stage { padding:0.9rem 1rem 4.5rem; } }
+	@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition:none !important; animation:none !important; } .progress-fill { transition:none !important; } }
+
+	/* ── RESPONSIBLE AI SCENES (rai-*) ───────────────────────────────
+	   Steps 2-7 all run through ONE renderPillarStep(), so the layout and the
+	   type scale are identical across all six pillars — only --rai-c and the
+	   copy change. Scale: name 1.55 · meaning 1.12 · body 1 · label 0.82 · chip 0.9. */
+	.rai-card {
+		background: var(--theme-card-background, #fff);
+		border:2px solid var(--theme-border, #d8dde5);
+		border-radius:14px;
+		box-shadow:0 6px 18px rgba(20,30,60,0.10);
+	}
+	body.theme-dark .rai-card { background:#2a2b34; border-color:#3f4150; box-shadow:0 6px 18px rgba(0,0,0,0.34); }
+
+	/* Pillar hero — full coloured border + matching title (no top accent bar) */
+	.rai-pillar { display:flex; align-items:center; gap:1.1rem; width:100%; box-sizing:border-box;
+		padding:1.05rem 1.5rem; border-color:var(--rai-c); opacity:0; }
+	.rai-ico { flex:none; width:3.1rem; height:3.1rem; display:grid; place-items:center; border-radius:12px;
+		background:color-mix(in srgb, var(--rai-c) 14%, transparent); color:var(--rai-c); }
+	.rai-ico .ic svg { width:1.9rem; height:1.9rem; fill:currentColor; }
+	.rai-txt { display:flex; flex-direction:column; gap:0.18rem; text-align:left; min-width:0; }
+	.rai-name { font-size:1.55rem; font-weight:600; color:var(--rai-c); line-height:1.15; }
+	.rai-mean { font-size:1.12rem; font-weight:400; color:var(--theme-text); line-height:1.4; }
+	/* On a pillar step the big title IS the principle name, so it carries the accent colour. */
+	.scene[data-pillar] .scene-title, body.theme-dark .scene[data-pillar] .scene-title { color:var(--rai-c); }
+	.rai-num { flex:none; margin-left:auto; align-self:flex-start; font-size:0.82rem; font-weight:500;
+		letter-spacing:0.04em; color:var(--rai-c); border:1.5px solid var(--rai-c); border-radius:999px; padding:0.12rem 0.6rem; }
+
+	/* Two columns: what goes wrong without it · a concrete example */
+	.rai-duo { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:1.1rem; width:100%; align-items:stretch; }
+	.rai-box { display:flex; flex-direction:column; gap:0.45rem; padding:0.95rem 1.15rem; text-align:left; opacity:0; }
+	.rai-lab { display:flex; align-items:center; gap:0.4rem; font-size:0.86rem; font-weight:500;
+		letter-spacing:0.05em; text-transform:uppercase; color:var(--theme-text-subtle, #5b6270); }
+	.rai-lab .ic svg { width:1rem; height:1rem; fill:currentColor; }
+	.rai-box.is-risk .rai-lab { color:var(--aw-orange); }
+	.rai-box.is-ex .rai-lab { color:var(--rai-c); }
+	.rai-say { font-size:1rem; line-height:1.5; color:var(--theme-text); }
+
+	/* "In practice" chips */
+	.rai-prac { display:flex; flex-wrap:wrap; justify-content:center; gap:0.6rem; }
+	.rai-chip { display:inline-flex; align-items:center; gap:0.4rem; opacity:0;
+		padding:0.34rem 0.85rem; border-radius:999px; font-size:0.9rem; font-weight:400;
+		color:var(--rai-c); border:1.5px solid color-mix(in srgb, var(--rai-c) 55%, transparent);
+		background:color-mix(in srgb, var(--rai-c) 9%, transparent); }
+	.rai-chip .ic svg { width:1rem; height:1rem; fill:currentColor; }
+
+	/* Step 1 — the six pillars named as a foundation row */
+	.rai-found { display:grid; grid-template-columns:repeat(6, minmax(0,1fr)); gap:0.7rem; width:100%; }
+	.rai-fcell { display:flex; flex-direction:column; align-items:center; gap:0.4rem; opacity:0;
+		padding:0.8rem 0.5rem; border-radius:12px; text-align:center; border:2px solid var(--fc);
+		background:var(--theme-card-background, #fff); box-shadow:0 4px 12px rgba(20,30,60,0.08); }
+	body.theme-dark .rai-fcell { background:#2a2b34; box-shadow:0 4px 12px rgba(0,0,0,0.3); }
+	.rai-fico { color:var(--fc); }
+	.rai-fico .ic svg { width:1.7rem; height:1.7rem; fill:currentColor; }
+	.rai-fname { font-size:0.95rem; font-weight:500; color:var(--fc); line-height:1.25; }
+
+	/* Step 1 hero — a decision an AI system makes about a real person */
+	.rai-hero { display:flex; align-items:center; justify-content:center; gap:1.2rem; width:100%; }
+	.rai-hbox { flex:1 1 0; display:flex; flex-direction:column; gap:0.35rem; padding:1rem 1.2rem; text-align:left; opacity:0; }
+	.rai-hh { font-size:1.12rem; font-weight:600; color:var(--theme-tertiary,#5c2d91); }
+	body.theme-dark .rai-hh { color:#c9a5e8; }
+	.rai-hp { font-size:1rem; line-height:1.45; color:var(--theme-text); }
+	.rai-harrow { flex:none; font-size:1.9rem; color:var(--aw-orange); opacity:0; }
+
+	/* Recap — all six at a glance */
+	.rai-grid { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:0.9rem; width:100%; align-items:stretch; }
+	.rai-mini { display:flex; flex-direction:column; gap:0.35rem; opacity:0; padding:0.85rem 1rem; text-align:left; border-color:var(--mc); }
+	.rai-mhead { display:flex; align-items:center; gap:0.55rem; color:var(--mc); }
+	.rai-mhead .ic svg { width:1.35rem; height:1.35rem; fill:currentColor; }
+	.rai-mname { font-size:1.05rem; font-weight:600; line-height:1.2; }
+	.rai-mtext { font-size:0.9rem; line-height:1.4; color:var(--theme-text); }
+	.rai-foot { font-size:1rem; line-height:1.5; text-align:center; color:var(--theme-text); opacity:0; }
+	.rai-foot a { color:var(--aw-blue); font-weight:500; }
+	body.theme-dark .rai-foot a { color:#6fa5ff; }
+</style>
+</head>
+
+<body class="theme-dark" data-theme-preset="atlas">
+
+	<a href="#stage" class="skip-link">Skip to diagram</a>
+
+	<header class="app-header padding-block-xs padding-inline-md border-bottom" role="banner" style="justify-content:space-between;">
+		<div class="display-flex align-items-center gap-xs">
+			<a href="index.html" id="back-link" class="header-back-link" aria-label="Back to the journey hub" title="Back to the AI Agents journey">&larr; Journey</a>
+			<span id="page-title" class="font-size-h6 font-weight-semibold">&#10024; The Six Pillars of Responsible AI</span>
+		</div>
+		<nav class="display-flex gap-xs align-items-center" aria-label="Primary">
+			<span id="breadcrumb" class="font-size-sm color-text-subtle">Step 1</span>
+		</nav>
+		<div class="display-flex gap-xs align-items-center">
+			<select id="lang-select" class="lang-select" aria-label="Language">
+				<option value="en">English</option>
+				<option value="es">Español</option>
+				<option value="ja">日本語</option>
+				<option value="ko">한국어</option>
+				<option value="pt">Português</option>
+			</select>
+			<div class="font-size-controls">
+				<button id="font-decrease" type="button" class="font-size-btn" aria-label="Decrease font size" title="Smaller text">A&minus;</button>
+				<button id="font-increase" type="button" class="font-size-btn" aria-label="Increase font size" title="Larger text">A+</button>
+			</div>
+			<button id="theme-toggle" type="button" class="theme-toggle" aria-label="Switch theme" title="Switch theme">
+				<svg class="theme-icon icon-moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg>
+				<svg class="theme-icon icon-sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.5" y1="4.5" x2="6.5" y2="6.5"/><line x1="17.5" y1="17.5" x2="19.5" y2="19.5"/><line x1="4.5" y1="19.5" x2="6.5" y2="17.5"/><line x1="17.5" y1="6.5" x2="19.5" y2="4.5"/></g></svg>
+			</button>
+			<button id="header-hide-top" type="button" aria-label="Hide top bar" title="Hide top bar (H)">
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/></svg>
+			</button>
+		</div>
+	</header>
+
+	<button id="header-reveal" type="button" aria-label="Show top bar" title="Show top bar">
+		<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/></svg>
+		<span>Toolbar</span>
+	</button>
+
+	<div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
+
+	<main id="stage" tabindex="0" role="region" aria-labelledby="stage-heading" aria-describedby="stage-instructions">
+		<h1 id="stage-heading" class="sr-only" tabindex="-1">The Six Pillars of Responsible AI</h1>
+		<p id="stage-instructions" class="sr-only">Animated explainer. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.</p>
+		<div id="step-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+		<!-- Fixed 16:9 stage. Every scene is drawn INSIDE this box; it always fits the viewport (no scrollbars). -->
+		<div id="stage-frame">
+			<svg id="fx-svg" aria-hidden="true" focusable="false">
+				<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L0,10 L10,5 Z" fill="currentColor"/></marker></defs>
+			</svg>
+			<!-- Caption bar (synced to the step's audio clip by aw-captions.js) -->
+			<div id="aw-caption" class="aw-caption" aria-hidden="true"></div>
+			<!-- LEFT pill · view options: callout / outline / shortcuts (icons; label shows as a hover tooltip) -->
+			<div id="stage-overlay-left" class="stage-overlay stage-overlay-left" role="group" aria-label="View options">
+				<button id="callout-toggle" type="button" class="ovl-btn" aria-label="Toggle callouts" aria-pressed="false" data-tip="Callouts: Off"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M4 5h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H10l-4 3v-3H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></svg></button>
+				<button id="outline-toggle" type="button" class="ovl-btn" aria-controls="step-outline" aria-expanded="false" aria-label="Toggle text outline" data-tip="Outline: Off"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" d="M4 6h16M4 12h16M4 18h10"/></svg></button>
+				<button id="help-toggle" class="ovl-btn help-toggle" type="button" aria-haspopup="dialog" aria-controls="shortcut-overlay" aria-label="Keyboard shortcuts (press ?)" data-tip="Shortcuts"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M11 18h2v-2h-2v2zm1.1-14C9.8 4 8 5.8 8 8h2a2 2 0 1 1 3.2 1.6c-.9.7-2.2 1.5-2.2 3.4h2c0-1 .8-1.5 1.7-2.2A4 4 0 0 0 12.1 4z"/></svg></button>
+			</div>
+			<!-- RIGHT pill · player: audio / captions / hide-top-bar / fullscreen -->
+			<div id="stage-overlay" class="stage-overlay" role="group" aria-label="Player controls">
+				<button id="audio-toggle" class="ovl-btn ovl-audio" type="button" aria-label="Toggle audio narration" aria-pressed="false" title="Narration audio"></button>
+				<button id="cc-toggle" class="ovl-btn" type="button" aria-label="Toggle captions" aria-pressed="false" title="Captions"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9.7 10.2a2.1 2.1 0 1 0 0 3.6M17 10.2a2.1 2.1 0 1 0 0 3.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+				<button id="header-hide" class="ovl-btn" type="button" aria-label="Hide top bar" title="Hide top bar (H)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/></svg></button>
+				<button id="fs-toggle" class="ovl-btn" type="button" aria-label="Toggle full screen" aria-pressed="false" title="Full screen (F)"><svg class="fs-enter" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg><svg class="fs-exit" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg></button>
+			</div>
+		</div>
+	</main>
+
+	<aside id="step-outline" hidden aria-label="Text outline of the current step">
+		<h2 id="outline-title">Step Details</h2>
+		<div id="outline-body"></div>
+	</aside>
+
+	<div id="controls" role="group" aria-label="Diagram navigation">
+		<button id="ctrl-grip" type="button" class="ctrl-grip" aria-label="Drag to move the controls" title="Drag to move">
+			<svg viewBox="0 0 16 16" aria-hidden="true"><g fill="currentColor"><circle cx="5" cy="3" r="1.4"/><circle cx="11" cy="3" r="1.4"/><circle cx="5" cy="8" r="1.4"/><circle cx="11" cy="8" r="1.4"/><circle cx="5" cy="13" r="1.4"/><circle cx="11" cy="13" r="1.4"/></g></svg>
+		</button>
+		<button id="ctrl-pin" type="button" class="button button-clear ctrl-icon ctrl-pin" aria-label="Pin the controls back to the center" title="Pin to center">
+			<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9 2h6a1 1 0 0 1 .8 1.6L14 6v4l3 3v2h-4v5l-1 2-1-2v-5H7v-2l3-3V6L8.2 3.6A1 1 0 0 1 9 2z"/></svg>
+		</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="prev-btn" type="button" class="button ctrl-icon" aria-label="Previous step (left arrow)">&#9664;</button>
+		<div class="step-counter" id="step-counter">0 / 0</div>
+		<button id="next-btn" type="button" class="button button-primary button-filled ctrl-icon ctrl-icon-next" aria-label="Next step (right arrow or space)">&#9654;</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="replay-btn" type="button" class="button ctrl-icon" aria-label="Replay this step's animation (P)">&#8635;</button>
+		<div class="speed-control" role="group" aria-label="Animation speed">
+			<button id="speed-down" type="button" class="button button-clear speed-btn" aria-label="Slower (-)" title="Slower">&minus;</button>
+			<span id="speed-label" class="speed-label" aria-live="polite" aria-label="Current speed">1&times;</span>
+			<button id="speed-up" type="button" class="button button-clear speed-btn" aria-label="Faster (+)" title="Faster">+</button>
+		</div>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="reset-btn" type="button" class="button button-clear ctrl-icon" aria-label="Restart from step 1 (R)">&#9198;</button>
+	</div>
+
+	<div id="shortcut-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="sc-title">
+		<div class="sc-backdrop"></div>
+		<div class="sc-panel">
+			<button id="sc-close" class="sc-close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
+			<h2 id="sc-title">Keyboard shortcuts</h2>
+			<ul id="sc-list" class="sc-list"></ul>
+			<p class="sc-hint">Press <kbd>?</kbd> anytime to toggle this panel.</p>
+		</div>
+	</div>
+
+<script>
+// ── THEME ─────────────────────────────────
+const themeToggleBtn = document.getElementById('theme-toggle');
+function syncThemeBtn(){
+	if (!themeToggleBtn) return;
+	const isDark = document.body.classList.contains('theme-dark');
+	themeToggleBtn.dataset.theme = isDark ? 'dark' : 'light';   // drives which glyph (sun/moon) shows
+	const label = isDark ? 'Switch to light theme' : 'Switch to dark theme';
+	themeToggleBtn.setAttribute('aria-label', label);
+	themeToggleBtn.setAttribute('title', label);
+}
+if (window.AW && AW.theme) {
+	// aw-theme.js owns click handling + persistence; theme recolors via CSS variables, so no re-render/replay.
+	AW.theme.onChange(() => { syncThemeBtn(); });
+	syncThemeBtn();
+} else {
+	// Standalone fallback: toggle .theme-dark / .theme-light on <body> ourselves.
+	syncThemeBtn();
+	if (themeToggleBtn) themeToggleBtn.addEventListener('click', () => {
+		const goingDark = !document.body.classList.contains('theme-dark');
+		document.body.classList.remove('theme-dark', 'theme-light');
+		document.body.classList.add(goingDark ? 'theme-dark' : 'theme-light');
+		try { localStorage.setItem('aw-theme', goingDark ? 'theme-dark' : 'theme-light'); } catch(_){}
+		syncThemeBtn();
+	});
+	// restore a previously chosen theme (standalone only)
+	try { const saved = localStorage.getItem('aw-theme'); if (saved === 'theme-light' || saved === 'theme-dark') { document.body.classList.remove('theme-dark','theme-light'); document.body.classList.add(saved); syncThemeBtn(); } } catch(_){}
+}
+
+// ── i18n ──────────────────────────────────
+// English is the source language. Add sibling objects (es/ja/ko/pt) with the
+// SAME keys + matching <option>s in #lang-select. Keep brand/code/proper-noun
+// sample data untranslated.
+let currentLang = 'en';
+const I18N = {
+	en: {
+		skipToMain: 'Skip to diagram',
+		backLink: 'Journey', backTitle: 'Back to the AI Agents journey',
+		pageTitle: 'The Six Pillars of Responsible AI',
+		stageHeading: 'The Six Pillars of Responsible AI',
+		stageInstructions: 'Animated explainer. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.',
+		prev: '\u25C0 Prev', next: 'Next \u25B6', replay: '\u21BB Replay', restart: '\u21BB Restart',
+		slower: 'Slower', faster: 'Faster',
+		calloutOn: 'Callouts: On', calloutOff: 'Callouts: Off',
+		outlineOn: 'Outline: On', outlineOff: 'Outline: Off',
+		audioTip: 'Narration audio', ccTip: 'Captions', shortcutsTip: 'Shortcuts',
+		stepDetails: 'Step Details', stepOf: 'Step',
+		resetPos: 'Reset to default position',
+		scTitle: 'Keyboard shortcuts',
+		scNext: 'Next step', scPrev: 'Previous step', scRestart: 'Restart', scReplay: 'Replay this step', scHide: 'Hide / show top bar', scHelp: 'Toggle this help',
+
+		// Shared labels reused by all six pillar steps
+		labRisk: 'Without it', labEx: 'For example', labPractice: 'In practice',
+
+		// ── Step 1 · WHY ──
+		whyTitle: 'Six Pillars, One Question',
+		whyCaption: 'Why this matters',
+		whyDesc: 'AI now makes decisions that affect real people. Responsible AI is how Microsoft answers one question: should we build it this way?',
+		whyCallout: 'These six principles are the foundation of Microsoft\u2019s <strong>Responsible AI Standard</strong> \u2014 the framework its own engineering teams build against.',
+		whyAH: 'An AI system decides',
+		whyAP: 'It scores a loan, screens a r\u00e9sum\u00e9, triages a patient, answers a customer \u2014 thousands of times an hour.',
+		whyBH: 'A real person lives with it',
+		whyBP: 'They get the loan or they don\u2019t. They rarely see why, and often have no way to argue back.',
+		whyStat1: 'Scale', whyStat1v: 'Decisions made faster than anyone can review',
+		whyStat2: 'Stakes', whyStat2v: 'Real consequences for real people',
+		whyStat3: 'Answer', whyStat3v: 'Six principles applied from design, not after launch',
+
+		// ── Step 2 · FAIRNESS ──
+		p1Name: 'Fairness',
+		p1Mean: 'AI systems should treat all people fairly.',
+		p1Title: 'Fairness',
+		p1Caption: 'Pillar 1 of 6',
+		p1Desc: 'Similar people, in similar situations, should get similar outcomes \u2014 whoever they are.',
+		p1Callout: 'Bias is rarely typed into the code. It is usually <strong>inherited from the data</strong>, then applied at machine speed.',
+		p1Risk: 'A model trained on past decisions quietly repeats past bias \u2014 at machine speed and machine scale.',
+		p1Ex: 'A loan-screening model learns from ten years of approvals. Women were approved less often back then, so it scores them lower today \u2014 even when income and credit history are identical.',
+		p1P1: 'Compare outcomes across groups', p1P2: 'Balance the training data', p1P3: 'Measure it, don\u2019t assume it',
+		p1Stat1: 'Principle', p1Stat1v: 'Treat all people fairly',
+		p1Stat2: 'Risk', p1Stat2v: 'Historic bias repeated at scale',
+		p1Stat3: 'Practice', p1Stat3v: 'Test outcomes group by group',
+
+		// ── Step 3 · RELIABILITY AND SAFETY ──
+		p2Name: 'Reliability and Safety',
+		p2Mean: 'AI systems should perform reliably and safely.',
+		p2Title: 'Reliability and Safety',
+		p2Caption: 'Pillar 2 of 6',
+		p2Desc: 'A system should behave predictably \u2014 including on the inputs nobody planned for.',
+		p2Callout: 'Confidence is not accuracy. A system that <strong>knows when to stop</strong> is safer than one that always answers.',
+		p2Risk: 'Unexpected input is where systems fail. An AI that guesses confidently is more dangerous than one that stops.',
+		p2Ex: 'A support agent is asked about a product it was never given. Instead of inventing a returns policy, it says it isn\u2019t sure and hands the customer to a human.',
+		p2P1: 'Test the edge cases', p2P2: 'Fail safe, not silent', p2P3: 'Keep a human in the loop',
+		p2Stat1: 'Principle', p2Stat1v: 'Perform reliably and safely',
+		p2Stat2: 'Risk', p2Stat2v: 'Confident answers to questions it can\u2019t answer',
+		p2Stat3: 'Practice', p2Stat3v: 'Handle the unexpected, then escalate',
+
+		// ── Step 4 · PRIVACY AND SECURITY ──
+		p3Name: 'Privacy and Security',
+		p3Mean: 'AI systems should be secure and respect privacy.',
+		p3Title: 'Privacy and Security',
+		p3Caption: 'Pillar 3 of 6',
+		p3Desc: 'An AI system should only ever use the data the person in front of it is allowed to see.',
+		p3Callout: 'An agent should <strong>inherit the user\u2019s permissions</strong> \u2014 never hold a master key of its own.',
+		p3Risk: 'A model that has seen data it shouldn\u2019t can repeat it to exactly the wrong person.',
+		p3Ex: 'An HR assistant answers \u201chow much leave do I have left?\u201d for the person asking \u2014 and cannot see anyone else\u2019s record, because it runs with that user\u2019s permissions.',
+		p3P1: 'Inherit the user\u2019s permissions', p3P2: 'Encrypt in transit and at rest', p3P3: 'No personal data without consent',
+		p3Stat1: 'Principle', p3Stat1v: 'Be secure and respect privacy',
+		p3Stat2: 'Risk', p3Stat2v: 'The right answer to the wrong person',
+		p3Stat3: 'Practice', p3Stat3v: 'Least privilege, end to end',
+
+		// ── Step 5 · INCLUSIVENESS ──
+		p4Name: 'Inclusiveness',
+		p4Mean: 'AI systems should empower everyone and engage people.',
+		p4Title: 'Inclusiveness',
+		p4Caption: 'Pillar 4 of 6',
+		p4Desc: 'If it only works for the average user, it quietly excludes everyone else.',
+		p4Callout: 'Inclusiveness is not a feature added at the end \u2014 it shows up in <strong>who you tested with</strong>.',
+		p4Risk: 'A system built for the \u201caverage\u201d user locks out everyone who isn\u2019t average \u2014 silently.',
+		p4Ex: 'Speech recognition trained mostly on one accent misheard everyone else. Testing with regional accents, older voices and speech differences surfaces what the average never shows.',
+		p4P1: 'Test with diverse users', p4P2: 'Design for assistive tech', p4P3: 'Support more than one language',
+		p4Stat1: 'Principle', p4Stat1v: 'Empower everyone',
+		p4Stat2: 'Risk', p4Stat2v: 'Silent exclusion of whole groups',
+		p4Stat3: 'Practice', p4Stat3v: 'Widen who you test with',
+
+		// ── Step 6 · TRANSPARENCY ──
+		p5Name: 'Transparency',
+		p5Mean: 'AI systems should be understandable.',
+		p5Title: 'Transparency',
+		p5Caption: 'Pillar 5 of 6',
+		p5Desc: 'People should know they are talking to AI, where its answer came from, and where it stops.',
+		p5Callout: 'Transparency is what makes the other five <strong>checkable</strong> \u2014 you cannot audit what you cannot see.',
+		p5Risk: 'People can\u2019t question an answer they don\u2019t know came from AI, or verify a claim with no source.',
+		p5Ex: 'A research assistant labels itself as AI, cites the three documents it drew from, and says plainly when a question falls outside what it was given.',
+		p5P1: 'Say that it\u2019s AI', p5P2: 'Cite the sources', p5P3: 'State the limits',
+		p5Stat1: 'Principle', p5Stat1v: 'Be understandable',
+		p5Stat2: 'Risk', p5Stat2v: 'Unquestionable, unverifiable answers',
+		p5Stat3: 'Practice', p5Stat3v: 'Disclose, cite, and admit the edges',
+
+		// ── Step 7 · ACCOUNTABILITY ──
+		p6Name: 'Accountability',
+		p6Mean: 'People should be accountable for AI systems.',
+		p6Title: 'Accountability',
+		p6Caption: 'Pillar 6 of 6',
+		p6Desc: 'Every AI system needs a person who answers for what it does.',
+		p6Callout: 'Accountability is what turns the other five principles from <strong>good intentions into someone\u2019s job</strong>.',
+		p6Risk: '\u201cThe model decided\u201d is not an answer. Systems don\u2019t take responsibility \u2014 people do.',
+		p6Ex: 'Every deployed agent has a named owner, an audit log of what it did and why, and a human review step before any high-impact decision reaches a customer.',
+		p6P1: 'Name an owner', p6P2: 'Log what it did', p6P3: 'Review high-impact calls',
+		p6Stat1: 'Principle', p6Stat1v: 'People are accountable',
+		p6Stat2: 'Risk', p6Stat2v: 'Responsibility with nowhere to land',
+		p6Stat3: 'Practice', p6Stat3v: 'A named owner and an audit trail',
+
+		// ── Step 8 · RECAP ──
+		recapTitle: 'The Six Pillars Together',
+		recapCaption: 'The whole standard',
+		recapDesc: 'No single pillar is enough, and none of them is optional. Together they are Microsoft\u2019s Responsible AI Standard.',
+		recapCallout: 'Apply them from the <strong>first architecture sketch</strong> \u2014 responsible AI is a design choice, not a review before launch.',
+		recapM1: 'Similar people get similar outcomes.',
+		recapM2: 'It behaves predictably, and fails safely.',
+		recapM3: 'It only sees what this user may see.',
+		recapM4: 'It works for everyone, not the average.',
+		recapM5: 'People can see what it did and why.',
+		recapM6: 'A named person answers for it.',
+		recapFoot: 'Start the free Microsoft Learn module <a href="https://learn.microsoft.com/training/modules/get-started-ai-fundamentals/" target="_blank" rel="noopener">Introduction to AI concepts</a>, which closes with a unit on Responsible AI.',
+		recapStat1: 'Recap', recapStat1v: 'Six principles, applied together',
+		recapStat2: 'When', recapStat2v: 'From the first design choice, not at review',
+		recapStat3: 'Next', recapStat3v: 'Introduction to AI concepts on Microsoft Learn'
+	},
+
+	es: {
+		skipToMain: 'Saltar al diagrama',
+		backLink: 'Ruta', backTitle: 'Volver a la ruta de agentes de IA',
+		pageTitle: 'Los seis pilares de la IA responsable',
+		stageHeading: 'Los seis pilares de la IA responsable',
+		stageInstructions: 'Explicación animada. Use los botones Siguiente/Anterior o las teclas de flecha para navegar. Pulse R para reiniciar.',
+		prev: '\u25C0 Anterior', next: 'Siguiente \u25B6', replay: '\u21BB Repetir', restart: '\u21BB Reiniciar',
+		slower: 'Más lento', faster: 'Más rápido',
+		calloutOn: 'Notas: Sí', calloutOff: 'Notas: No',
+		outlineOn: 'Esquema: Sí', outlineOff: 'Esquema: No',
+		audioTip: 'Narración', ccTip: 'Subtítulos', shortcutsTip: 'Atajos',
+		stepDetails: 'Detalles del paso', stepOf: 'Paso',
+		resetPos: 'Restablecer la posición',
+		scTitle: 'Atajos de teclado',
+		scNext: 'Paso siguiente', scPrev: 'Paso anterior', scRestart: 'Reiniciar', scReplay: 'Repetir este paso', scHide: 'Ocultar / mostrar la barra superior', scHelp: 'Mostrar u ocultar esta ayuda',
+
+		labRisk: 'Sin esto', labEx: 'Por ejemplo',
+
+		whyTitle: 'Seis pilares, una pregunta',
+		whyCaption: 'Por qué importa',
+		whyDesc: 'La IA ya toma decisiones que afectan a personas reales. La IA responsable es la respuesta de Microsoft a una pregunta: ¿deberíamos construirlo así?',
+		whyCallout: 'Estos seis principios son la base del <strong>Estándar de IA Responsable</strong> de Microsoft, el marco con el que trabajan sus propios equipos de ingeniería.',
+		whyAH: 'Un sistema de IA decide',
+		whyAP: 'Puntúa un préstamo, filtra un currículum, prioriza a un paciente, responde a un cliente: miles de veces por hora.',
+		whyBH: 'Una persona real lo vive',
+		whyBP: 'Le conceden el préstamo o no. Rara vez ve por qué y, a menudo, no puede replicar.',
+		whyStat1: 'Escala', whyStat1v: 'Decisiones más rápidas de lo que nadie puede revisar',
+		whyStat2: 'Impacto', whyStat2v: 'Consecuencias reales para personas reales',
+		whyStat3: 'Respuesta', whyStat3v: 'Seis principios aplicados desde el diseño, no después',
+
+		p1Name: 'Equidad', p1Title: 'Equidad', p1Caption: 'Pilar 1 de 6',
+		p1Mean: 'Los sistemas de IA deben tratar a todas las personas de forma justa.',
+		p1Desc: 'Personas parecidas, en situaciones parecidas, deben obtener resultados parecidos, sean quienes sean.',
+		p1Callout: 'El sesgo casi nunca se escribe en el código. Suele <strong>heredarse de los datos</strong> y luego aplicarse a velocidad de máquina.',
+		p1Risk: 'Un modelo entrenado con decisiones pasadas repite en silencio el sesgo pasado, a velocidad y escala de máquina.',
+		p1Ex: 'Un modelo de concesión de préstamos aprende de diez años de aprobaciones. Entonces se aprobaba menos a las mujeres, así que hoy las puntúa más bajo, aunque los ingresos y el historial crediticio sean idénticos.',
+		p1P1: 'Compara resultados por grupo', p1P2: 'Equilibra los datos de entrenamiento', p1P3: 'Mídelo, no lo supongas',
+		p1Stat1: 'Principio', p1Stat1v: 'Tratar a todas las personas de forma justa',
+		p1Stat2: 'Riesgo', p1Stat2v: 'Sesgo histórico repetido a escala',
+		p1Stat3: 'Práctica', p1Stat3v: 'Probar los resultados grupo por grupo',
+
+		p2Name: 'Fiabilidad y seguridad', p2Title: 'Fiabilidad y seguridad', p2Caption: 'Pilar 2 de 6',
+		p2Mean: 'Los sistemas de IA deben funcionar de forma fiable y segura.',
+		p2Desc: 'Un sistema debe comportarse de forma predecible, también con las entradas que nadie previó.',
+		p2Callout: 'La confianza no es precisión. Un sistema que <strong>sabe cuándo detenerse</strong> es más seguro que uno que siempre responde.',
+		p2Risk: 'Las entradas inesperadas son donde fallan los sistemas. Una IA que adivina con seguridad es más peligrosa que una que se detiene.',
+		p2Ex: 'Preguntan a un agente de soporte por un producto que nunca recibió. En lugar de inventar una política de devoluciones, dice que no está seguro y pasa el cliente a una persona.',
+		p2P1: 'Prueba los casos límite', p2P2: 'Fallar seguro, no en silencio', p2P3: 'Mantén a una persona en el circuito',
+		p2Stat1: 'Principio', p2Stat1v: 'Funcionar de forma fiable y segura',
+		p2Stat2: 'Riesgo', p2Stat2v: 'Respuestas seguras a preguntas que no puede responder',
+		p2Stat3: 'Práctica', p2Stat3v: 'Gestionar lo inesperado y escalar',
+
+		p3Name: 'Privacidad y seguridad', p3Title: 'Privacidad y seguridad', p3Caption: 'Pilar 3 de 6',
+		p3Mean: 'Los sistemas de IA deben ser seguros y respetar la privacidad.',
+		p3Desc: 'Un sistema de IA solo debe usar los datos que la persona que tiene delante puede ver.',
+		p3Callout: 'Un agente debe <strong>heredar los permisos del usuario</strong>, nunca tener una llave maestra propia.',
+		p3Risk: 'Un modelo que ha visto datos que no debía puede repetirlos justo a la persona equivocada.',
+		p3Ex: 'Un asistente de RR. HH. responde «¿cuántos días de vacaciones me quedan?» a quien pregunta, y no puede ver el registro de nadie más, porque se ejecuta con los permisos de ese usuario.',
+		p3P1: 'Hereda los permisos del usuario', p3P2: 'Cifra en tránsito y en reposo', p3P3: 'Sin datos personales sin consentimiento',
+		p3Stat1: 'Principio', p3Stat1v: 'Ser seguro y respetar la privacidad',
+		p3Stat2: 'Riesgo', p3Stat2v: 'La respuesta correcta a la persona equivocada',
+		p3Stat3: 'Práctica', p3Stat3v: 'Mínimo privilegio, de extremo a extremo',
+
+		p4Name: 'Inclusión', p4Title: 'Inclusión', p4Caption: 'Pilar 4 de 6',
+		p4Mean: 'Los sistemas de IA deben empoderar a todas las personas e implicarlas.',
+		p4Desc: 'Si solo funciona para el usuario medio, excluye en silencio a todos los demás.',
+		p4Callout: 'La inclusión no es una función que se añade al final: se nota en <strong>con quién has probado</strong>.',
+		p4Risk: 'Un sistema pensado para el usuario «medio» deja fuera, en silencio, a quien no lo es.',
+		p4Ex: 'Un reconocimiento de voz entrenado sobre todo con un acento entendía mal a los demás. Probar con acentos regionales, voces mayores y diferencias del habla saca a la luz lo que la media nunca muestra.',
+		p4P1: 'Prueba con usuarios diversos', p4P2: 'Diseña para tecnología de apoyo', p4P3: 'Admite más de un idioma',
+		p4Stat1: 'Principio', p4Stat1v: 'Empoderar a todas las personas',
+		p4Stat2: 'Riesgo', p4Stat2v: 'Exclusión silenciosa de grupos enteros',
+		p4Stat3: 'Práctica', p4Stat3v: 'Ampliar con quién se prueba',
+
+		p5Name: 'Transparencia', p5Title: 'Transparencia', p5Caption: 'Pilar 5 de 6',
+		p5Mean: 'Los sistemas de IA deben ser comprensibles.',
+		p5Desc: 'Las personas deben saber que hablan con una IA, de dónde sale su respuesta y dónde están sus límites.',
+		p5Callout: 'La transparencia es lo que hace <strong>verificables</strong> a los otros cinco: no se puede auditar lo que no se ve.',
+		p5Risk: 'No se puede cuestionar una respuesta si no se sabe que viene de una IA, ni verificar una afirmación sin fuente.',
+		p5Ex: 'Un asistente de investigación se identifica como IA, cita los tres documentos que ha usado y dice claramente cuándo una pregunta queda fuera de lo que se le dio.',
+		p5P1: 'Di que es IA', p5P2: 'Cita las fuentes', p5P3: 'Indica los límites',
+		p5Stat1: 'Principio', p5Stat1v: 'Ser comprensible',
+		p5Stat2: 'Riesgo', p5Stat2v: 'Respuestas incuestionables y no verificables',
+		p5Stat3: 'Práctica', p5Stat3v: 'Revelar, citar y admitir los límites',
+
+		p6Name: 'Responsabilidad', p6Title: 'Responsabilidad', p6Caption: 'Pilar 6 de 6',
+		p6Mean: 'Las personas deben ser responsables de los sistemas de IA.',
+		p6Desc: 'Todo sistema de IA necesita una persona que responda por lo que hace.',
+		p6Callout: 'La responsabilidad convierte los otros cinco principios de <strong>buenas intenciones en el trabajo de alguien</strong>.',
+		p6Risk: '«Lo decidió el modelo» no es una respuesta. Los sistemas no asumen responsabilidad; las personas sí.',
+		p6Ex: 'Cada agente desplegado tiene una persona propietaria, un registro de auditoría de lo que hizo y por qué, y una revisión humana antes de que una decisión de alto impacto llegue a un cliente.',
+		p6P1: 'Nombra a un responsable', p6P2: 'Registra lo que hizo', p6P3: 'Revisa las decisiones de alto impacto',
+		p6Stat1: 'Principio', p6Stat1v: 'Las personas son responsables',
+		p6Stat2: 'Riesgo', p6Stat2v: 'Responsabilidad sin destinatario',
+		p6Stat3: 'Práctica', p6Stat3v: 'Un responsable con nombre y un registro de auditoría',
+
+		recapTitle: 'Los seis pilares juntos',
+		recapCaption: 'El estándar completo',
+		recapDesc: 'Ningún pilar basta por sí solo, y ninguno es opcional. Juntos forman el Estándar de IA Responsable de Microsoft.',
+		recapCallout: 'Aplícalos desde el <strong>primer boceto de arquitectura</strong>: la IA responsable es una decisión de diseño, no una revisión previa al lanzamiento.',
+		recapM1: 'Personas parecidas obtienen resultados parecidos.',
+		recapM2: 'Se comporta de forma predecible y falla con seguridad.',
+		recapM3: 'Solo ve lo que este usuario puede ver.',
+		recapM4: 'Funciona para todos, no para la media.',
+		recapM5: 'Se puede ver qué hizo y por qué.',
+		recapM6: 'Una persona con nombre responde por ello.',
+		recapFoot: 'Empieza el módulo gratuito de Microsoft Learn <a href="https://learn.microsoft.com/training/modules/get-started-ai-fundamentals/" target="_blank" rel="noopener">Introducción a los conceptos de IA</a>, que termina con una unidad sobre IA responsable.',
+		recapStat1: 'Resumen', recapStat1v: 'Seis principios aplicados juntos',
+		recapStat2: 'Cuándo', recapStat2v: 'Desde la primera decisión de diseño, no en la revisión',
+		recapStat3: 'Siguiente', recapStat3v: 'Introducción a los conceptos de IA en Microsoft Learn'
+	},
+
+	ja: {
+		skipToMain: '図へスキップ',
+		backLink: 'ジャーニー', backTitle: 'AI エージェントジャーニーに戻る',
+		pageTitle: '責任ある AI の 6 つの柱',
+		stageHeading: '責任ある AI の 6 つの柱',
+		stageInstructions: 'アニメーション解説です。次へ / 前へボタンまたは矢印キーで移動し、R キーで最初から再生できます。',
+		prev: '\u25C0 前へ', next: '次へ \u25B6', replay: '\u21BB 再生', restart: '\u21BB 最初から',
+		slower: '遅く', faster: '速く',
+		calloutOn: '吹き出し: オン', calloutOff: '吹き出し: オフ',
+		outlineOn: 'アウトライン: オン', outlineOff: 'アウトライン: オフ',
+		audioTip: 'ナレーション', ccTip: '字幕', shortcutsTip: 'ショートカット',
+		stepDetails: 'ステップ詳細', stepOf: 'ステップ',
+		resetPos: '既定の位置に戻す',
+		scTitle: 'キーボードショートカット',
+		scNext: '次のステップ', scPrev: '前のステップ', scRestart: '最初から再生', scReplay: 'このステップを再生', scHide: '上部バーの表示 / 非表示', scHelp: 'このヘルプの表示切り替え',
+
+		labRisk: 'なければ', labEx: '例えば',
+
+		whyTitle: '6 つの柱、1 つの問い',
+		whyCaption: 'なぜ重要か',
+		whyDesc: 'AI は今や、実在する人に影響する判断を下しています。責任ある AI とは、「この作り方でよいのか」という 1 つの問いに対する Microsoft の答えです。',
+		whyCallout: 'この 6 つの原則は Microsoft の<strong>責任ある AI 標準</strong>の土台であり、同社のエンジニアリングチーム自身が従う枠組みです。',
+		whyAH: 'AI システムが判断する',
+		whyAP: '融資を採点し、履歴書を選別し、患者を振り分け、顧客に応答する — 1 時間に何千回も。',
+		whyBH: '実在する人がその結果を生きる',
+		whyBP: '融資が下りるか下りないか。理由が示されることはまれで、多くの場合、異議を申し立てる手段もありません。',
+		whyStat1: '規模', whyStat1v: '誰も確認しきれない速さで下される判断',
+		whyStat2: '影響', whyStat2v: '実在する人に及ぶ現実の結果',
+		whyStat3: '答え', whyStat3v: 'レビュー時ではなく設計時から適用する 6 つの原則',
+
+		p1Name: '公平性', p1Title: '公平性', p1Caption: '6 つの柱のうち 1 つ目',
+		p1Mean: 'AI システムはすべての人を公平に扱うべきです。',
+		p1Desc: '似た状況にある似た人には、誰であっても似た結果が返るべきです。',
+		p1Callout: 'バイアスがコードに書かれていることはまずありません。多くは<strong>データから受け継がれ</strong>、機械の速度で適用されます。',
+		p1Risk: '過去の判断で学習したモデルは、過去のバイアスを機械の速度と規模で静かに繰り返します。',
+		p1Ex: '融資審査モデルが 10 年分の承認履歴から学習します。当時は女性の承認率が低かったため、収入も信用履歴も同じでも、今日その人を低く採点してしまいます。',
+		p1P1: 'グループ別に結果を比較する', p1P2: '学習データの偏りを整える', p1P3: '推測せず、測定する',
+		p1Stat1: '原則', p1Stat1v: 'すべての人を公平に扱う',
+		p1Stat2: 'リスク', p1Stat2v: '過去のバイアスが規模を伴って再現される',
+		p1Stat3: '実践', p1Stat3v: 'グループごとに結果を検証する',
+
+		p2Name: '信頼性と安全性', p2Title: '信頼性と安全性', p2Caption: '6 つの柱のうち 2 つ目',
+		p2Mean: 'AI システムは信頼でき、安全に動作すべきです。',
+		p2Desc: '誰も想定しなかった入力に対しても、予測どおりに振る舞うべきです。',
+		p2Callout: '自信は正確さではありません。<strong>止まるべきときを知っている</strong>システムのほうが、常に答えるシステムより安全です。',
+		p2Risk: '想定外の入力こそ、システムが破綻する場所です。自信をもって推測する AI は、止まる AI よりも危険です。',
+		p2Ex: 'サポートエージェントが、与えられていない製品について質問されます。返品ポリシーを作り話すのではなく、「わかりません」と伝えて人間に引き継ぎます。',
+		p2P1: '境界ケースを検証する', p2P2: '沈黙ではなく安全に失敗する', p2P3: '人間を判断に関与させる',
+		p2Stat1: '原則', p2Stat1v: '信頼でき、安全に動作する',
+		p2Stat2: 'リスク', p2Stat2v: '答えられない問いに自信満々で答える',
+		p2Stat3: '実践', p2Stat3v: '想定外を処理し、エスカレーションする',
+
+		p3Name: 'プライバシーとセキュリティ', p3Title: 'プライバシーとセキュリティ', p3Caption: '6 つの柱のうち 3 つ目',
+		p3Mean: 'AI システムは安全で、プライバシーを尊重すべきです。',
+		p3Desc: 'AI システムが使ってよいのは、目の前の利用者が見てよいデータだけです。',
+		p3Callout: 'エージェントは<strong>利用者の権限を引き継ぐ</strong>べきであり、独自のマスターキーを持つべきではありません。',
+		p3Risk: '見るべきでないデータを見たモデルは、それを最も見せてはいけない相手に返してしまうことがあります。',
+		p3Ex: '人事アシスタントは「有給はあと何日?」に本人へは答えますが、他人の記録は見られません。その利用者の権限で動作しているからです。',
+		p3P1: '利用者の権限を引き継ぐ', p3P2: '通信時も保存時も暗号化する', p3P3: '同意なく個人データを使わない',
+		p3Stat1: '原則', p3Stat1v: '安全でプライバシーを尊重する',
+		p3Stat2: 'リスク', p3Stat2v: '正しい答えが誤った相手に届く',
+		p3Stat3: '実践', p3Stat3v: '最小権限を端から端まで',
+
+		p4Name: '包括性', p4Title: '包括性', p4Caption: '6 つの柱のうち 4 つ目',
+		p4Mean: 'AI システムはすべての人に力を与え、関与を促すべきです。',
+		p4Desc: '「平均的な利用者」にしか使えないなら、それ以外の人を静かに締め出しています。',
+		p4Callout: '包括性は最後に足す機能ではなく、<strong>誰とテストしたか</strong>に表れます。',
+		p4Risk: '「平均的な」利用者を想定したシステムは、平均から外れる人を静かに排除します。',
+		p4Ex: '主に 1 つのアクセントで学習した音声認識は、それ以外を聞き取れませんでした。地域のアクセント、高齢者の声、発話の違いで試すことで、平均だけでは見えないものが表面化します。',
+		p4P1: '多様な利用者でテストする', p4P2: '支援技術を前提に設計する', p4P3: '複数の言語に対応する',
+		p4Stat1: '原則', p4Stat1v: 'すべての人に力を与える',
+		p4Stat2: 'リスク', p4Stat2v: '特定の層が静かに排除される',
+		p4Stat3: '実践', p4Stat3v: 'テスト対象の幅を広げる',
+
+		p5Name: '透明性', p5Title: '透明性', p5Caption: '6 つの柱のうち 5 つ目',
+		p5Mean: 'AI システムは理解できるものであるべきです。',
+		p5Desc: '利用者は、AI と話していること、答えの出どころ、そして限界を知れるべきです。',
+		p5Callout: '透明性こそ、ほかの 5 つを<strong>検証可能</strong>にするものです。見えないものは監査できません。',
+		p5Risk: 'AI の答えだと知らなければ問い直せませんし、出典がなければ内容を検証できません。',
+		p5Ex: 'リサーチアシスタントは自らを AI と明示し、参照した 3 つの文書を引用し、与えられた範囲を超える質問にはそう明言します。',
+		p5P1: 'AI であると明示する', p5P2: '出典を引用する', p5P3: '限界を伝える',
+		p5Stat1: '原則', p5Stat1v: '理解できるものにする',
+		p5Stat2: 'リスク', p5Stat2v: '問い直せず検証もできない答え',
+		p5Stat3: '実践', p5Stat3v: '開示し、引用し、限界を認める',
+
+		p6Name: '説明責任', p6Title: '説明責任', p6Caption: '6 つの柱のうち 6 つ目',
+		p6Mean: 'AI システムには人が責任を持つべきです。',
+		p6Desc: 'すべての AI システムには、その振る舞いについて責任をもって答える人が必要です。',
+		p6Callout: '説明責任は、ほかの 5 つの原則を<strong>善意から誰かの職務へ</strong>と変えるものです。',
+		p6Risk: '「モデルが決めた」は答えになりません。責任を負うのはシステムではなく人です。',
+		p6Ex: 'デプロイされたすべてのエージェントに、名前のある担当者、何をなぜ行ったかの監査ログ、そして影響の大きい判断が顧客に届く前の人によるレビューがあります。',
+		p6P1: '担当者を明確にする', p6P2: '実行内容を記録する', p6P3: '影響の大きい判断をレビューする',
+		p6Stat1: '原則', p6Stat1v: '人が責任を負う',
+		p6Stat2: 'リスク', p6Stat2v: '行き場のない責任',
+		p6Stat3: '実践', p6Stat3v: '名前のある担当者と監査証跡',
+
+		recapTitle: '6 つの柱をまとめて',
+		recapCaption: '標準の全体像',
+		recapDesc: 'どれか 1 つでは足りず、どれ 1 つとして省略できません。6 つ揃って Microsoft の責任ある AI 標準になります。',
+		recapCallout: '<strong>最初のアーキテクチャ図</strong>の段階から適用してください。責任ある AI はリリース前のレビューではなく、設計上の選択です。',
+		recapM1: '似た人には似た結果が返る。',
+		recapM2: '予測どおりに動き、安全に失敗する。',
+		recapM3: 'その利用者が見てよいものだけを見る。',
+		recapM4: '平均ではなく、すべての人に使える。',
+		recapM5: '何をなぜ行ったかを確認できる。',
+		recapM6: '名前のある人が責任を負う。',
+		recapFoot: '無料の Microsoft Learn モジュール <a href="https://learn.microsoft.com/training/modules/get-started-ai-fundamentals/" target="_blank" rel="noopener">AI の概念の概要</a>を始めましょう。最後に責任ある AI のユニットがあります。',
+		recapStat1: 'まとめ', recapStat1v: '6 つの原則をまとめて適用する',
+		recapStat2: 'いつ', recapStat2v: 'レビュー時ではなく最初の設計判断から',
+		recapStat3: '次へ', recapStat3v: 'Microsoft Learn の「AI の概念の概要」',
+	},
+
+	ko: {
+		skipToMain: '다이어그램으로 건너뛰기',
+		backLink: '여정', backTitle: 'AI 에이전트 여정으로 돌아가기',
+		pageTitle: '책임 있는 AI의 여섯 가지 원칙',
+		stageHeading: '책임 있는 AI의 여섯 가지 원칙',
+		stageInstructions: '애니메이션 설명입니다. 다음/이전 버튼이나 화살표 키로 이동하고, R 키로 처음부터 다시 시작하세요.',
+		prev: '\u25C0 이전', next: '다음 \u25B6', replay: '\u21BB 다시 재생', restart: '\u21BB 처음부터',
+		slower: '느리게', faster: '빠르게',
+		calloutOn: '설명: 켜짐', calloutOff: '설명: 꺼짐',
+		outlineOn: '개요: 켜짐', outlineOff: '개요: 꺼짐',
+		audioTip: '내레이션', ccTip: '자막', shortcutsTip: '단축키',
+		stepDetails: '단계 상세', stepOf: '단계',
+		resetPos: '기본 위치로 되돌리기',
+		scTitle: '키보드 단축키',
+		scNext: '다음 단계', scPrev: '이전 단계', scRestart: '처음부터 다시 시작', scReplay: '이 단계 다시 재생', scHide: '상단 바 숨기기 / 표시', scHelp: '이 도움말 켜기 / 끄기',
+
+		labRisk: '없다면', labEx: '예를 들어',
+
+		whyTitle: '여섯 가지 원칙, 하나의 질문',
+		whyCaption: '왜 중요한가',
+		whyDesc: 'AI는 이제 실제 사람에게 영향을 주는 결정을 내립니다. 책임 있는 AI는 “이렇게 만들어도 되는가”라는 하나의 질문에 대한 Microsoft의 답입니다.',
+		whyCallout: '이 여섯 가지 원칙은 Microsoft <strong>책임 있는 AI 표준</strong>의 토대이며, Microsoft 엔지니어링 팀이 직접 따르는 프레임워크입니다.',
+		whyAH: 'AI 시스템이 결정한다',
+		whyAP: '대출을 평가하고, 이력서를 걸러내고, 환자를 분류하고, 고객에게 답합니다 — 시간당 수천 번씩.',
+		whyBH: '실제 사람이 그 결과를 안고 산다',
+		whyBP: '대출을 받거나 받지 못합니다. 이유를 보는 경우는 드물고, 이의를 제기할 방법도 없는 경우가 많습니다.',
+		whyStat1: '규모', whyStat1v: '누구도 검토할 수 없는 속도로 내려지는 결정',
+		whyStat2: '영향', whyStat2v: '실제 사람에게 미치는 실제 결과',
+		whyStat3: '답', whyStat3v: '검토 단계가 아니라 설계 단계부터 적용하는 여섯 원칙',
+
+		p1Name: '공정성', p1Title: '공정성', p1Caption: '여섯 원칙 중 1',
+		p1Mean: 'AI 시스템은 모든 사람을 공정하게 대해야 합니다.',
+		p1Desc: '비슷한 상황의 비슷한 사람은 누구든 비슷한 결과를 받아야 합니다.',
+		p1Callout: '편향이 코드에 직접 쓰이는 일은 거의 없습니다. 대부분 <strong>데이터에서 물려받아</strong> 기계의 속도로 적용됩니다.',
+		p1Risk: '과거 결정으로 학습한 모델은 과거의 편향을 기계의 속도와 규모로 조용히 반복합니다.',
+		p1Ex: '대출 심사 모델이 10년치 승인 이력을 학습합니다. 당시 여성의 승인 비율이 낮았기 때문에, 소득과 신용 이력이 동일해도 오늘 더 낮은 점수를 매깁니다.',
+		p1P1: '그룹별로 결과를 비교하기', p1P2: '학습 데이터의 균형 맞추기', p1P3: '추측하지 말고 측정하기',
+		p1Stat1: '원칙', p1Stat1v: '모든 사람을 공정하게 대하기',
+		p1Stat2: '위험', p1Stat2v: '과거의 편향이 규모와 함께 반복됨',
+		p1Stat3: '실천', p1Stat3v: '그룹별로 결과 검증하기',
+
+		p2Name: '신뢰성과 안전성', p2Title: '신뢰성과 안전성', p2Caption: '여섯 원칙 중 2',
+		p2Mean: 'AI 시스템은 안정적이고 안전하게 작동해야 합니다.',
+		p2Desc: '아무도 예상하지 못한 입력에서도 예측 가능하게 동작해야 합니다.',
+		p2Callout: '자신감은 정확성이 아닙니다. <strong>멈춰야 할 때를 아는</strong> 시스템이 항상 답하는 시스템보다 안전합니다.',
+		p2Risk: '예상치 못한 입력에서 시스템은 무너집니다. 자신 있게 추측하는 AI가 멈추는 AI보다 위험합니다.',
+		p2Ex: '지원 에이전트가 전달받은 적 없는 제품에 대해 질문받습니다. 반품 정책을 지어내는 대신 “확실하지 않다”고 말하고 사람에게 넘깁니다.',
+		p2P1: '경계 사례 테스트하기', p2P2: '조용히가 아니라 안전하게 실패하기', p2P3: '사람이 개입하도록 유지하기',
+		p2Stat1: '원칙', p2Stat1v: '안정적이고 안전하게 작동하기',
+		p2Stat2: '위험', p2Stat2v: '답할 수 없는 질문에 자신 있게 답하기',
+		p2Stat3: '실천', p2Stat3v: '예외를 처리하고 에스컬레이션하기',
+
+		p3Name: '개인정보 보호와 보안', p3Title: '개인정보 보호와 보안', p3Caption: '여섯 원칙 중 3',
+		p3Mean: 'AI 시스템은 안전해야 하며 개인정보를 존중해야 합니다.',
+		p3Desc: 'AI 시스템은 앞에 있는 사용자가 볼 수 있는 데이터만 사용해야 합니다.',
+		p3Callout: '에이전트는 <strong>사용자의 권한을 상속</strong>해야 하며, 자체 마스터 키를 가져서는 안 됩니다.',
+		p3Risk: '보아서는 안 될 데이터를 본 모델은 그것을 가장 안 될 사람에게 그대로 전할 수 있습니다.',
+		p3Ex: 'HR 어시스턴트는 “내 연차가 며칠 남았지?”에 본인에게만 답하고, 다른 사람의 기록은 볼 수 없습니다. 그 사용자의 권한으로 실행되기 때문입니다.',
+		p3P1: '사용자 권한 상속하기', p3P2: '전송 중과 저장 시 암호화하기', p3P3: '동의 없이 개인 데이터 쓰지 않기',
+		p3Stat1: '원칙', p3Stat1v: '안전하고 개인정보를 존중하기',
+		p3Stat2: '위험', p3Stat2v: '올바른 답이 잘못된 사람에게',
+		p3Stat3: '실천', p3Stat3v: '처음부터 끝까지 최소 권한',
+
+		p4Name: '포용성', p4Title: '포용성', p4Caption: '여섯 원칙 중 4',
+		p4Mean: 'AI 시스템은 모든 사람에게 힘을 주고 참여시켜야 합니다.',
+		p4Desc: '평균적인 사용자에게만 작동한다면 나머지 모두를 조용히 배제하는 것입니다.',
+		p4Callout: '포용성은 마지막에 추가하는 기능이 아니라 <strong>누구와 테스트했는지</strong>에서 드러납니다.',
+		p4Risk: '“평균” 사용자를 위해 만든 시스템은 평균이 아닌 모든 사람을 조용히 차단합니다.',
+		p4Ex: '주로 하나의 억양으로 학습한 음성 인식은 나머지를 잘못 알아들었습니다. 지역 억양, 고령자의 목소리, 발화 차이로 테스트하면 평균만으로는 보이지 않던 것이 드러납니다.',
+		p4P1: '다양한 사용자와 테스트하기', p4P2: '보조 기술을 고려해 설계하기', p4P3: '여러 언어 지원하기',
+		p4Stat1: '원칙', p4Stat1v: '모든 사람에게 힘을 주기',
+		p4Stat2: '위험', p4Stat2v: '특정 집단의 조용한 배제',
+		p4Stat3: '실천', p4Stat3v: '테스트 대상을 넓히기',
+
+		p5Name: '투명성', p5Title: '투명성', p5Caption: '여섯 원칙 중 5',
+		p5Mean: 'AI 시스템은 이해할 수 있어야 합니다.',
+		p5Desc: '사람들은 AI와 대화하고 있다는 것, 답이 어디서 왔는지, 그리고 한계가 어디인지 알아야 합니다.',
+		p5Callout: '투명성은 나머지 다섯 가지를 <strong>확인 가능하게</strong> 만듭니다. 보이지 않는 것은 감사할 수 없습니다.',
+		p5Risk: 'AI가 준 답인지 모르면 되물을 수 없고, 출처가 없으면 주장을 검증할 수 없습니다.',
+		p5Ex: '리서치 어시스턴트는 스스로를 AI라고 밝히고, 참고한 세 개의 문서를 인용하며, 주어진 범위를 벗어난 질문에는 그렇다고 분명히 말합니다.',
+		p5P1: 'AI임을 밝히기', p5P2: '출처 인용하기', p5P3: '한계 명시하기',
+		p5Stat1: '원칙', p5Stat1v: '이해할 수 있게 만들기',
+		p5Stat2: '위험', p5Stat2v: '되물을 수도 검증할 수도 없는 답',
+		p5Stat3: '실천', p5Stat3v: '공개하고, 인용하고, 한계를 인정하기',
+
+		p6Name: '책임성', p6Title: '책임성', p6Caption: '여섯 원칙 중 6',
+		p6Mean: 'AI 시스템에 대해 사람이 책임을 져야 합니다.',
+		p6Desc: '모든 AI 시스템에는 그 행동에 답할 사람이 필요합니다.',
+		p6Callout: '책임성은 나머지 다섯 원칙을 <strong>좋은 의도에서 누군가의 업무로</strong> 바꿉니다.',
+		p6Risk: '“모델이 결정했다”는 답이 될 수 없습니다. 책임은 시스템이 아니라 사람이 집니다.',
+		p6Ex: '배포된 모든 에이전트에는 이름이 명시된 담당자, 무엇을 왜 했는지에 대한 감사 로그, 그리고 영향이 큰 결정이 고객에게 닿기 전 사람의 검토 단계가 있습니다.',
+		p6P1: '담당자 지정하기', p6P2: '수행 내역 기록하기', p6P3: '영향이 큰 결정 검토하기',
+		p6Stat1: '원칙', p6Stat1v: '사람이 책임진다',
+		p6Stat2: '위험', p6Stat2v: '돌아갈 곳 없는 책임',
+		p6Stat3: '실천', p6Stat3v: '이름이 있는 담당자와 감사 추적',
+
+		recapTitle: '여섯 원칙을 함께',
+		recapCaption: '표준 전체',
+		recapDesc: '하나만으로는 충분하지 않고, 어느 하나도 선택 사항이 아닙니다. 여섯이 함께 Microsoft의 책임 있는 AI 표준을 이룹니다.',
+		recapCallout: '<strong>첫 아키텍처 스케치</strong>부터 적용하세요. 책임 있는 AI는 출시 전 검토가 아니라 설계상의 선택입니다.',
+		recapM1: '비슷한 사람은 비슷한 결과를 받는다.',
+		recapM2: '예측 가능하게 동작하고 안전하게 실패한다.',
+		recapM3: '이 사용자가 볼 수 있는 것만 본다.',
+		recapM4: '평균이 아니라 모두에게 작동한다.',
+		recapM5: '무엇을 왜 했는지 확인할 수 있다.',
+		recapM6: '이름이 있는 사람이 책임진다.',
+		recapFoot: '무료 Microsoft Learn 모듈 <a href="https://learn.microsoft.com/training/modules/get-started-ai-fundamentals/" target="_blank" rel="noopener">AI 개념 소개</a>로 시작하세요. 마지막 단원이 책임 있는 AI입니다.',
+		recapStat1: '요약', recapStat1v: '여섯 원칙을 함께 적용하기',
+		recapStat2: '시점', recapStat2v: '검토가 아니라 첫 설계 결정부터',
+		recapStat3: '다음', recapStat3v: 'Microsoft Learn의 «AI 개념 소개»',
+	},
+
+	pt: {
+		skipToMain: 'Ir para o diagrama',
+		backLink: 'Jornada', backTitle: 'Voltar para a jornada de agentes de IA',
+		pageTitle: 'Os seis pilares da IA responsável',
+		stageHeading: 'Os seis pilares da IA responsável',
+		stageInstructions: 'Explicação animada. Use os botões Próximo/Anterior ou as teclas de seta para navegar. Pressione R para recomeçar.',
+		prev: '\u25C0 Anterior', next: 'Próximo \u25B6', replay: '\u21BB Repetir', restart: '\u21BB Recomeçar',
+		slower: 'Mais lento', faster: 'Mais rápido',
+		calloutOn: 'Notas: Sim', calloutOff: 'Notas: Não',
+		outlineOn: 'Resumo: Sim', outlineOff: 'Resumo: Não',
+		audioTip: 'Narração', ccTip: 'Legendas', shortcutsTip: 'Atalhos',
+		stepDetails: 'Detalhes da etapa', stepOf: 'Etapa',
+		resetPos: 'Restaurar a posição padrão',
+		scTitle: 'Atalhos de teclado',
+		scNext: 'Próximo passo', scPrev: 'Passo anterior', scRestart: 'Recomeçar', scReplay: 'Repetir este passo', scHide: 'Ocultar / mostrar a barra superior', scHelp: 'Mostrar ou ocultar esta ajuda',
+
+		labRisk: 'Sem isso', labEx: 'Por exemplo',
+
+		whyTitle: 'Seis pilares, uma pergunta',
+		whyCaption: 'Por que isso importa',
+		whyDesc: 'A IA já toma decisões que afetam pessoas reais. A IA responsável é a resposta da Microsoft a uma pergunta: devemos construir assim?',
+		whyCallout: 'Estes seis princípios são a base do <strong>Padrão de IA Responsável</strong> da Microsoft — a estrutura que as próprias equipes de engenharia seguem.',
+		whyAH: 'Um sistema de IA decide',
+		whyAP: 'Ele pontua um empréstimo, filtra um currículo, tria um paciente, responde a um cliente — milhares de vezes por hora.',
+		whyBH: 'Uma pessoa real vive com isso',
+		whyBP: 'Ela consegue o empréstimo ou não. Raramente vê o porquê e, muitas vezes, não tem como contestar.',
+		whyStat1: 'Escala', whyStat1v: 'Decisões mais rápidas do que qualquer revisão',
+		whyStat2: 'Impacto', whyStat2v: 'Consequências reais para pessoas reais',
+		whyStat3: 'Resposta', whyStat3v: 'Seis princípios aplicados desde o design, não depois',
+
+		p1Name: 'Equidade', p1Title: 'Equidade', p1Caption: 'Pilar 1 de 6',
+		p1Mean: 'Sistemas de IA devem tratar todas as pessoas de forma justa.',
+		p1Desc: 'Pessoas semelhantes, em situações semelhantes, devem ter resultados semelhantes — sejam quem forem.',
+		p1Callout: 'O viés quase nunca é escrito no código. Normalmente ele é <strong>herdado dos dados</strong> e então aplicado na velocidade da máquina.',
+		p1Risk: 'Um modelo treinado com decisões passadas repete em silêncio o viés passado — na velocidade e na escala da máquina.',
+		p1Ex: 'Um modelo de análise de crédito aprende com dez anos de aprovações. Na época, mulheres eram aprovadas com menos frequência; então hoje ele as pontua mais baixo, mesmo com renda e histórico de crédito idênticos.',
+		p1P1: 'Compare resultados por grupo', p1P2: 'Equilibre os dados de treinamento', p1P3: 'Meça, não presuma',
+		p1Stat1: 'Princípio', p1Stat1v: 'Tratar todas as pessoas de forma justa',
+		p1Stat2: 'Risco', p1Stat2v: 'Viés histórico repetido em escala',
+		p1Stat3: 'Prática', p1Stat3v: 'Testar os resultados grupo a grupo',
+
+		p2Name: 'Confiabilidade e segurança', p2Title: 'Confiabilidade e segurança', p2Caption: 'Pilar 2 de 6',
+		p2Mean: 'Sistemas de IA devem funcionar de forma confiável e segura.',
+		p2Desc: 'Um sistema deve se comportar de forma previsível — inclusive com as entradas que ninguém planejou.',
+		p2Callout: 'Confiança não é precisão. Um sistema que <strong>sabe a hora de parar</strong> é mais seguro do que um que sempre responde.',
+		p2Risk: 'É nas entradas inesperadas que os sistemas falham. Uma IA que adivinha com confiança é mais perigosa do que uma que para.',
+		p2Ex: 'Um agente de suporte é questionado sobre um produto que nunca recebeu. Em vez de inventar uma política de devolução, ele diz que não tem certeza e passa o cliente para um humano.',
+		p2P1: 'Teste os casos extremos', p2P2: 'Falhe com segurança, não em silêncio', p2P3: 'Mantenha uma pessoa no circuito',
+		p2Stat1: 'Princípio', p2Stat1v: 'Funcionar de forma confiável e segura',
+		p2Stat2: 'Risco', p2Stat2v: 'Respostas confiantes a perguntas que não sabe responder',
+		p2Stat3: 'Prática', p2Stat3v: 'Tratar o inesperado e escalar',
+
+		p3Name: 'Privacidade e segurança', p3Title: 'Privacidade e segurança', p3Caption: 'Pilar 3 de 6',
+		p3Mean: 'Sistemas de IA devem ser seguros e respeitar a privacidade.',
+		p3Desc: 'Um sistema de IA só deve usar os dados que a pessoa à sua frente pode ver.',
+		p3Callout: 'Um agente deve <strong>herdar as permissões do usuário</strong> — nunca ter uma chave mestra própria.',
+		p3Risk: 'Um modelo que viu dados que não deveria pode repeti-los exatamente para a pessoa errada.',
+		p3Ex: 'Um assistente de RH responde “quantos dias de férias ainda tenho?” para quem pergunta — e não consegue ver o registro de mais ninguém, porque roda com as permissões daquele usuário.',
+		p3P1: 'Herde as permissões do usuário', p3P2: 'Criptografe em trânsito e em repouso', p3P3: 'Sem dados pessoais sem consentimento',
+		p3Stat1: 'Princípio', p3Stat1v: 'Ser seguro e respeitar a privacidade',
+		p3Stat2: 'Risco', p3Stat2v: 'A resposta certa para a pessoa errada',
+		p3Stat3: 'Prática', p3Stat3v: 'Privilégio mínimo, de ponta a ponta',
+
+		p4Name: 'Inclusão', p4Title: 'Inclusão', p4Caption: 'Pilar 4 de 6',
+		p4Mean: 'Sistemas de IA devem capacitar todas as pessoas e envolvê-las.',
+		p4Desc: 'Se só funciona para o usuário médio, ele exclui silenciosamente todo o resto.',
+		p4Callout: 'Inclusão não é um recurso adicionado no fim — ela aparece em <strong>com quem você testou</strong>.',
+		p4Risk: 'Um sistema feito para o usuário “médio” exclui, em silêncio, todos os que não são a média.',
+		p4Ex: 'Um reconhecimento de fala treinado sobretudo com um sotaque entendia mal todos os outros. Testar com sotaques regionais, vozes mais velhas e diferenças de fala revela o que a média nunca mostra.',
+		p4P1: 'Teste com usuários diversos', p4P2: 'Projete para tecnologia assistiva', p4P3: 'Ofereça mais de um idioma',
+		p4Stat1: 'Princípio', p4Stat1v: 'Capacitar todas as pessoas',
+		p4Stat2: 'Risco', p4Stat2v: 'Exclusão silenciosa de grupos inteiros',
+		p4Stat3: 'Prática', p4Stat3v: 'Ampliar com quem se testa',
+
+		p5Name: 'Transparência', p5Title: 'Transparência', p5Caption: 'Pilar 5 de 6',
+		p5Mean: 'Sistemas de IA devem ser compreensíveis.',
+		p5Desc: 'As pessoas devem saber que estão falando com uma IA, de onde veio a resposta e onde ela para.',
+		p5Callout: 'A transparência é o que torna os outros cinco <strong>verificáveis</strong> — não dá para auditar o que não se vê.',
+		p5Risk: 'Não dá para questionar uma resposta sem saber que ela veio de uma IA, nem verificar uma afirmação sem fonte.',
+		p5Ex: 'Um assistente de pesquisa se identifica como IA, cita os três documentos que usou e diz claramente quando uma pergunta está fora do que lhe foi dado.',
+		p5P1: 'Diga que é IA', p5P2: 'Cite as fontes', p5P3: 'Declare os limites',
+		p5Stat1: 'Princípio', p5Stat1v: 'Ser compreensível',
+		p5Stat2: 'Risco', p5Stat2v: 'Respostas inquestionáveis e não verificáveis',
+		p5Stat3: 'Prática', p5Stat3v: 'Revelar, citar e admitir os limites',
+
+		p6Name: 'Responsabilização', p6Title: 'Responsabilização', p6Caption: 'Pilar 6 de 6',
+		p6Mean: 'As pessoas devem ser responsáveis pelos sistemas de IA.',
+		p6Desc: 'Todo sistema de IA precisa de uma pessoa que responda pelo que ele faz.',
+		p6Callout: 'A responsabilização transforma os outros cinco princípios de <strong>boas intenções no trabalho de alguém</strong>.',
+		p6Risk: '“O modelo decidiu” não é uma resposta. Sistemas não assumem responsabilidade — pessoas assumem.',
+		p6Ex: 'Cada agente implantado tem uma pessoa responsável, um log de auditoria do que fez e por quê, e uma revisão humana antes que qualquer decisão de alto impacto chegue a um cliente.',
+		p6P1: 'Defina um responsável', p6P2: 'Registre o que foi feito', p6P3: 'Revise decisões de alto impacto',
+		p6Stat1: 'Princípio', p6Stat1v: 'As pessoas são responsáveis',
+		p6Stat2: 'Risco', p6Stat2v: 'Responsabilidade sem destinatário',
+		p6Stat3: 'Prática', p6Stat3v: 'Um responsável com nome e uma trilha de auditoria',
+
+		recapTitle: 'Os seis pilares juntos',
+		recapCaption: 'O padrão completo',
+		recapDesc: 'Nenhum pilar basta sozinho e nenhum deles é opcional. Juntos, eles formam o Padrão de IA Responsável da Microsoft.',
+		recapCallout: 'Aplique-os desde o <strong>primeiro esboço de arquitetura</strong> — IA responsável é uma escolha de design, não uma revisão antes do lançamento.',
+		recapM1: 'Pessoas semelhantes têm resultados semelhantes.',
+		recapM2: 'Comporta-se de forma previsível e falha com segurança.',
+		recapM3: 'Só enxerga o que este usuário pode ver.',
+		recapM4: 'Funciona para todos, não para a média.',
+		recapM5: 'Dá para ver o que fez e por quê.',
+		recapM6: 'Uma pessoa com nome responde por ele.',
+		recapFoot: 'Comece o módulo gratuito do Microsoft Learn <a href="https://learn.microsoft.com/training/modules/get-started-ai-fundamentals/" target="_blank" rel="noopener">Introdução aos conceitos de IA</a>, que termina com uma unidade sobre IA responsável.',
+		recapStat1: 'Resumo', recapStat1v: 'Seis princípios aplicados juntos',
+		recapStat2: 'Quando', recapStat2v: 'Desde a primeira decisão de design, não na revisão',
+		recapStat3: 'Próximo', recapStat3v: 'Introdução aos conceitos de IA no Microsoft Learn'
+	}
+};
+function t(key) { return (I18N[currentLang] && I18N[currentLang][key]) || I18N.en[key] || key; }
+
+function setLanguage(lang) {
+	currentLang = lang;
+	document.documentElement.lang = lang;
+	try { const u=new URL(location.href); u.searchParams.set('lang', lang); history.replaceState(null,'',u); } catch(_){}
+	document.getElementById('page-title').textContent = '\u2728 ' + t('pageTitle');
+	var _back = document.getElementById('back-link');
+	if (_back) { _back.textContent = '\u2190 ' + t('backLink'); _back.title = t('backTitle'); _back.setAttribute('aria-label', t('backTitle')); }
+	// icon-only nav buttons: the localized label lives in the tooltip (title)
+	document.getElementById('prev-btn').title = t('prev');
+	document.getElementById('next-btn').title = t('next');
+	document.getElementById('replay-btn').title = t('replay');
+	document.getElementById('reset-btn').title = t('restart');
+	document.getElementById('speed-down').title = t('slower');
+	document.getElementById('speed-up').title = t('faster');
+	document.getElementById('outline-title').textContent = t('stepDetails');
+	document.querySelector('.skip-link').textContent = t('skipToMain');
+	document.getElementById('stage-heading').textContent = t('stageHeading');
+	document.getElementById('stage-instructions').textContent = t('stageInstructions');
+	// localize overlay tooltips (icon buttons show their label on hover / as native title)
+	const _hlp=document.getElementById('help-toggle'); if(_hlp) _hlp.setAttribute('data-tip', t('shortcutsTip'));
+	const _aud=document.getElementById('audio-toggle'); if(_aud) _aud.title=t('audioTip');
+	const _ccb=document.getElementById('cc-toggle'); if(_ccb) _ccb.title=t('ccTip');
+	syncCalloutBtn(); syncOutlineBtn();
+	if (typeof syncAudioBtn === 'function') syncAudioBtn();
+	if (typeof buildShortcuts === 'function') buildShortcuts();
+	document.querySelectorAll('.aw-drag-reset').forEach(b=>{ b.title=t('resetPos'); b.setAttribute('aria-label', t('resetPos')); });
+	try { localStorage.setItem('aw-tmpl-lang', lang); } catch(_){}
+	if (current >= 0) renderStep(current);
+}
+
+// ── STEPS (journey order) ─────────────────
+// PILLARS is the single source for the six principles: the order here drives the
+// foundation row (step 1), the six pillar steps, and the recap grid.
+const PILLARS = [
+	{ n:1, key:'p1', colour:'var(--aw-blue)',   icon:'scales' },
+	{ n:2, key:'p2', colour:'var(--aw-green)',  icon:'shield' },
+	{ n:3, key:'p3', colour:'var(--aw-purple)', icon:'lock'   },
+	{ n:4, key:'p4', colour:'var(--aw-pink)',   icon:'people' },
+	{ n:5, key:'p5', colour:'var(--aw-orange)', icon:'eye'    },
+	{ n:6, key:'p6', colour:'var(--aw-teal)',   icon:'badge'  }
+];
+
+const STEPS = [
+	{ id:'why', short:'Why', titleKey:'whyTitle', captionKey:'whyCaption', descKey:'whyDesc', calloutKey:'whyCallout',
+		stats:[['whyStat1','whyStat1v'],['whyStat2','whyStat2v'],['whyStat3','whyStat3v']] },
+	...PILLARS.map(p => ({
+		id:p.key, pillar:p, short:p.key+'Name',
+		titleKey:p.key+'Title', captionKey:p.key+'Caption', descKey:p.key+'Desc', calloutKey:p.key+'Callout',
+		stats:[[p.key+'Stat1',p.key+'Stat1v'],[p.key+'Stat2',p.key+'Stat2v'],[p.key+'Stat3',p.key+'Stat3v']]
+	})),
+	{ id:'recap', short:'Recap', titleKey:'recapTitle', captionKey:'recapCaption', descKey:'recapDesc', calloutKey:'recapCallout',
+		stats:[['recapStat1','recapStat1v'],['recapStat2','recapStat2v'],['recapStat3','recapStat3v']] }
+];
+
+// ── DOM REFS ──────────────────────────────
+const stage=document.getElementById('stage-frame'), svg=document.getElementById('fx-svg'),
+	counter=document.getElementById('step-counter'), breadcrumb=document.getElementById('breadcrumb'),
+	progress=document.getElementById('progress-fill'), announcer=document.getElementById('step-announcer'),
+	outlineBody=document.getElementById('outline-body'), outlinePanel=document.getElementById('step-outline'),
+	outlineBtn=document.getElementById('outline-toggle'), calloutBtn=document.getElementById('callout-toggle'),
+	langSelect=document.getElementById('lang-select');
+
+langSelect.addEventListener('change', e => setLanguage(e.target.value));
+const urlLang = new URLSearchParams(location.search).get('lang');
+let savedLang=null; try{ savedLang=localStorage.getItem('aw-tmpl-lang'); }catch(_){}
+if (urlLang && I18N[urlLang]) { currentLang = urlLang; langSelect.value = urlLang; }
+else if (savedLang && I18N[savedLang]) { currentLang = savedLang; langSelect.value = savedLang; }
+
+// ── Font size ─────────────────────────────
+const fontScales=[0.8,0.9,1,1.1,1.2,1.35]; let fontScaleIdx=2;
+const baseFontSize=parseFloat(getComputedStyle(document.documentElement).fontSize);
+function applyFontScale(){ document.documentElement.style.fontSize=(baseFontSize*fontScales[fontScaleIdx])+'px'; const c=document.getElementById('controls'); if(c) c.style.fontSize=baseFontSize+'px'; if(typeof current!=='undefined'&&current>=0){ const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s); } }
+function saveFont(){ try{ localStorage.setItem('aw-tmpl-font', String(fontScaleIdx)); }catch(_){} }
+try{ const f=parseInt(localStorage.getItem('aw-tmpl-font'),10); if(!isNaN(f)&&f>=0&&f<fontScales.length){ fontScaleIdx=f; applyFontScale(); } }catch(_){}
+document.getElementById('font-decrease').addEventListener('click',()=>{ if(fontScaleIdx>0){fontScaleIdx--;applyFontScale();saveFont();} });
+document.getElementById('font-increase').addEventListener('click',()=>{ if(fontScaleIdx<fontScales.length-1){fontScaleIdx++;applyFontScale();saveFont();} });
+
+let current=-1, animating=false, liveEls=[], liveTimelines=[], calloutEnabled=false;
+
+function syncCalloutBtn(){ calloutBtn.classList.toggle('toggle-active',calloutEnabled); calloutBtn.setAttribute('aria-pressed',calloutEnabled?'true':'false'); calloutBtn.setAttribute('data-tip',calloutEnabled?t('calloutOn'):t('calloutOff')); }
+calloutBtn.addEventListener('click',()=>{
+	calloutEnabled=!calloutEnabled; syncCalloutBtn();
+	if(current<0) return;
+	// Toggle just the callout box in place — don't re-render (no animation replay).
+	const existing=stage.querySelectorAll('.callout');
+	if(calloutEnabled){ if(!existing.length){ const c=maybeCallout(STEPS[current]); if(c) gsap.fromTo(c,{opacity:0,y:10},{opacity:1,y:0,duration:0.4,overwrite:true}); } }
+	else { existing.forEach(c=>{ const idx=liveEls.indexOf(c); if(idx>-1) liveEls.splice(idx,1); gsap.killTweensOf(c); c.remove(); }); }
+}); syncCalloutBtn();
+function syncOutlineBtn(){ const on=!outlinePanel.hasAttribute('hidden'); outlineBtn.classList.toggle('toggle-active',on); outlineBtn.setAttribute('aria-expanded',on?'true':'false'); outlineBtn.setAttribute('data-tip',on?t('outlineOn'):t('outlineOff')); }
+outlineBtn.addEventListener('click',()=>{ const showing=!outlinePanel.hasAttribute('hidden'); if(showing){outlinePanel.setAttribute('hidden','');} else {outlinePanel.removeAttribute('hidden');} syncOutlineBtn(); }); syncOutlineBtn();
+
+// ── Audio narration (overlay button · speaker + remaining-time countdown) ──
+// Drop one recorded clip per step (in STEPS order) into AUDIO_FILES for real narration;
+// localized clips live under AUDIO_BASE/<lang>/. With no files, the browser reads each
+// step's title + description aloud (speech synthesis), so the button works with zero assets.
+const AUDIO_BASE = 'audio/ResponsibleAI/';
+const AUDIO_FILES = [
+	'step-01.mp3', 'step-02.mp3', 'step-03.mp3', 'step-04.mp3',
+	'step-05.mp3', 'step-06.mp3', 'step-07.mp3', 'step-08.mp3'
+];
+let audioEnabled=false, currentAudio=null, audioTimeout=null, ccPref=false;
+const audioBtn=document.getElementById('audio-toggle');
+if(audioBtn){ audioBtn.innerHTML='<span class="aw-audio-ico" aria-hidden="true">\uD83D\uDD07</span><span class="aw-audio-time" aria-hidden="true">--:--</span>'; }
+const audioIco=audioBtn&&audioBtn.querySelector('.aw-audio-ico'), audioTimeEl=audioBtn&&audioBtn.querySelector('.aw-audio-time');
+// Captions can play WITHOUT sound: when CC is on but audio is off we still play the clip MUTED, so the
+// caption reveals at the same pace — speaker shows 🔇 and the remaining-time countdown keeps running.
+function playbackOn(){ return audioEnabled || ccPref; }
+function audioDir(){ return (currentLang && currentLang!=='en') ? currentLang+'/' : ''; }
+function fmtDur(s){ s=Math.max(0,Math.ceil(s)); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
+function updateAudioTime(){ if(audioTimeEl && currentAudio && isFinite(currentAudio.duration) && currentAudio.duration>0) audioTimeEl.textContent=fmtDur(currentAudio.duration-currentAudio.currentTime); }
+function syncAudioBtn(){ if(!audioBtn) return; if(audioIco) audioIco.textContent=audioEnabled?'\uD83D\uDD0A':'\uD83D\uDD07'; if(audioTimeEl && !playbackOn()) audioTimeEl.textContent='--:--'; audioBtn.classList.toggle('toggle-active',audioEnabled); audioBtn.setAttribute('aria-pressed',audioEnabled?'true':'false'); }
+function speakFallback(i){ if(!window.speechSynthesis) return; const step=STEPS[i]; const u=new SpeechSynthesisUtterance(`${t(step.titleKey)}. ${t(step.descKey)}`); u.lang=currentLang||'en'; try{ speechSynthesis.cancel(); speechSynthesis.speak(u); }catch(_){} }
+function stopAudio(){
+	if(currentAudio){ currentAudio.pause(); currentAudio.currentTime=0; currentAudio=null; }
+	if(audioTimeout){ clearTimeout(audioTimeout); audioTimeout=null; }
+	if(audioTimeEl) audioTimeEl.textContent='--:--';
+	try{ if(window.speechSynthesis) speechSynthesis.cancel(); }catch(_){}
+	if(window.AWCaptions) AWCaptions.clear();
+}
+function playStepAudio(i){
+	stopAudio();
+	if(document.body.classList.contains('aw-prestart')) return;   // start gate holds audio too
+	if(!playbackOn() || i<0 || i>=STEPS.length) return;
+	audioTimeout=setTimeout(()=>{
+		audioTimeout=null;
+		const file=AUDIO_FILES[i];
+		if(!file){ if(audioEnabled) speakFallback(i); return; }   // no clip = no timing source for caption-only
+		currentAudio=new Audio(AUDIO_BASE+audioDir()+file);
+		currentAudio.volume = audioEnabled ? 1 : 0;              // caption-only = silent (volume 0) timing source
+		if(window.AWCaptions) AWCaptions.bind(currentAudio,i);
+		currentAudio.addEventListener('loadedmetadata',updateAudioTime);
+		currentAudio.addEventListener('timeupdate',updateAudioTime);
+		currentAudio.addEventListener('ended',()=>{ if(audioTimeEl) audioTimeEl.textContent='0:00'; });
+		currentAudio.addEventListener('error',()=>{ if(audioEnabled) speakFallback(i); });
+		currentAudio.play().catch(()=>{});
+	}, 400);
+}
+if(audioBtn){ audioBtn.addEventListener('click',()=>{
+	audioEnabled=!audioEnabled; try{localStorage.setItem('aw-tmpl-audio',audioEnabled?'1':'0');}catch(_){} syncAudioBtn();
+	if(current>=0){
+		if(!playbackOn()) stopAudio();
+		else if(currentAudio) currentAudio.volume = audioEnabled ? 1 : 0;   // flip sound without restarting the clip
+		else playStepAudio(current);
+	}
+	if(typeof applyCc==='function') applyCc();
+}); }
+// Initial audio + CC from the ?audio parameter:
+//   on -> audio ON + captions ON  ·  off -> both OFF  ·  (absent) -> audio ON, captions OFF (a prior stored choice still wins).
+(function(){
+	var p=null; try{ p=new URLSearchParams(location.search).get('audio'); }catch(_){}
+	if(p==='on'){ audioEnabled=true; ccPref=true; }
+	else if(p==='off'){ audioEnabled=false; ccPref=false; }
+	else {
+		audioEnabled=true; ccPref=false;
+		try{ var a=localStorage.getItem('aw-tmpl-audio'); if(a==='1') audioEnabled=true; else if(a==='0') audioEnabled=false; }catch(_){}
+		try{ var c=localStorage.getItem('aw-tmpl-cc'); if(c==='1') ccPref=true; else if(c==='0') ccPref=false; }catch(_){}
+	}
+	try{ localStorage.setItem('aw-tmpl-audio',audioEnabled?'1':'0'); localStorage.setItem('aw-tmpl-cc',ccPref?'1':'0'); }catch(_){}
+})();
+syncAudioBtn();
+
+// ── Captions (CC) — overlaid in the frame; play WITH or WITHOUT audio ──
+// Reads the SAME narration Markdown used to synthesize the audio. Set page to THIS file's
+// stem and base to its narration folder (see the path note near the top of the file).
+const ccBtn=document.getElementById('cc-toggle');
+function ccEffective(){ return ccPref; }                          // captions show whenever CC is on (audio not required)
+function syncCcBtn(){ if(!ccBtn) return; ccBtn.classList.toggle('on',ccPref); ccBtn.setAttribute('aria-pressed',ccPref?'true':'false'); }
+function applyCc(){ if(window.AWCaptions) AWCaptions.setEnabled(ccEffective()); if(ccEffective()&&currentAudio&&window.AWCaptions) AWCaptions.bind(currentAudio,current); syncCcBtn(); }
+if(window.AWCaptions){ AWCaptions.configure({ page:'ResponsibleAI', base:'../../../narration/AI/Foundry/', lang:()=>currentLang, fallback:(i)=>(STEPS[i]?t(STEPS[i].descKey):''), reserve:false }); }
+if(ccBtn){ ccBtn.addEventListener('click',()=>{
+	ccPref=!ccPref; try{localStorage.setItem('aw-tmpl-cc',ccPref?'1':'0');}catch(_){} applyCc();
+	if(current>=0){
+		if(playbackOn() && !currentAudio) playStepAudio(current);   // caption-only: start the muted timing clip
+		else if(!playbackOn() && currentAudio) stopAudio();          // CC off + audio off: nothing left to play
+	}
+}); }
+applyCc();
+
+// ── Full screen ──
+(function(){
+	const fsBtn=document.getElementById('fs-toggle'); if(!fsBtn) return;
+	function inFs(){ return !!(document.fullscreenElement||document.webkitFullscreenElement); }
+	function syncFs(){ document.body.classList.toggle('is-fs',inFs()); fsBtn.setAttribute('aria-pressed',inFs()?'true':'false'); fsBtn.title=inFs()?'Exit full screen (F)':'Full screen (F)'; }
+	function toggle(){ try{ if(inFs()){ (document.exitFullscreen||document.webkitExitFullscreen).call(document); } else { const el=document.documentElement; (el.requestFullscreen||el.webkitRequestFullscreen).call(el); } }catch(_){} }
+	fsBtn.addEventListener('click',e=>{ e.stopPropagation(); toggle(); });
+	document.addEventListener('fullscreenchange',syncFs); document.addEventListener('webkitfullscreenchange',syncFs);
+	document.addEventListener('keydown',e=>{ if(e.code==='KeyF'&&!e.metaKey&&!e.ctrlKey&&!e.altKey){ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return; e.preventDefault(); toggle(); } });
+	syncFs();
+})();
+
+// ── Reduced motion ────────────────────────
+const motionMQ=window.matchMedia('(prefers-reduced-motion: reduce)'); let motionPaused=motionMQ.matches;
+motionMQ.addEventListener('change',e=>{ motionPaused=e.matches; renderStep(current); });
+
+// ── Helpers ───────────────────────────────
+function clearStage(){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; liveEls.forEach(el=>el.remove()); liveEls=[]; Array.from(svg.children).forEach(c=>{ if(c.tagName.toLowerCase()!=='defs') c.remove(); }); }
+function el(cls,html){ const d=document.createElement('div'); if(cls) d.className=cls; if(html!=null) d.innerHTML=html; return d; }
+// Inline SVG icons (monochrome, currentColor) — crisp on any OS/projector. Add your own here.
+const ICONS = {
+	puzzle:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h8v8H3zm10 0h8v8h-8zM3 13h8v8H3zm10 0h8v8h-8z"/></svg>',
+	inbox:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 3h2v5h3l-4 4-4-4h3zM5 14h14v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1z"/></svg>',
+	gear:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M19.14 12.94a7.9 7.9 0 0 0 0-1.88l2-1.56-2-3.46-2.36.96a7.7 7.7 0 0 0-1.62-.94L14.8 2.5h-4l-.36 2.56c-.58.24-1.12.56-1.62.94L6.46 6.04l-2 3.46 2 1.56a7.9 7.9 0 0 0 0 1.88l-2 1.56 2 3.46 2.36-.96c.5.38 1.04.7 1.62.94l.36 2.56h4l.36-2.56c.58-.24 1.12-.56 1.62-.94l2.36.96 2-3.46-2-1.56zM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg>',
+	sparkle:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg>',
+	bulb:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-4 12.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26A7 7 0 0 0 12 2zM9 20h6v1a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1z"/></svg>',
+	check:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.55 17.6 4.4 12.45l1.86-1.86 3.29 3.29 8.19-8.19 1.86 1.86z"/></svg>',
+	bolt:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>',
+	lock:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 10a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1zm3-1V7a4 4 0 1 1 8 0v2h-2V7a2 2 0 1 0-4 0v2z"/></svg>',
+	box:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 3 7v10l9 5 9-5V7zm0 2.3L17.7 7 12 10.2 6.3 7zM5 9.1l6 3.4v6.8l-6-3.3zm14 0v6.9l-6 3.3v-6.8z"/></svg>',
+	key:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M14 2a6 6 0 0 0-5.66 8L2 16.34V22h5.66l.34-.34V20h2v-2h2l.34-.34A6 6 0 1 0 14 2zm2 3a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z"/></svg>',
+	rocket:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2c3 3 4 6 4 9l3 3-4 1-1 4-2-3-2 3-1-4-4-1 3-3c0-3 1-6 4-9zm0 5a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>',
+	health:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 2h6v5h5v6h-5v5H9v-5H4V7h5z"/></svg>',
+	headset:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a8 8 0 0 0-8 8v5a3 3 0 0 0 3 3h1v-7H6v-1a6 6 0 1 1 12 0v1h-2v7h1a3 3 0 0 0 3-3v-5a8 8 0 0 0-8-8z"/></svg>',
+	media:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M4 4h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zm5 4v8l7-4z"/></svg>',
+	book:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v16H6a2 2 0 0 1-2-2zm9 0h7v14a2 2 0 0 1-2 2h-5z"/></svg>',
+	party:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5zm6 11l.9 2.6L21.5 16.5l-2.6.9L18 20l-.9-2.6L14.5 16.5l2.6-.9zM6 14l.7 2 2 .7-2 .7L6 19.4l-.7-2-2-.7 2-.7z"/></svg>',
+	chat:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-4 4v-4H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/></svg>',
+	access:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a2.2 2.2 0 1 1 0 4.4A2.2 2.2 0 0 1 12 2zM4 8h16v2h-5.4l1 12h-2.3l-.7-6h-1.2l-.7 6H8.4l1-12H4z"/></svg>',
+	globe:'<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></g></svg>',
+	/* the six pillars */
+	scales:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 2h2v2.2l6.4 1.7-.5 1.9L13 6.3V19h4v2H7v-2h4V6.3L5.1 7.8l-.5-1.9L11 4.2zM6.5 9 10 16H3zm11 0L21 16h-7z"/></svg>',
+	shield:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 3v6c0 5-3.4 9.2-8 11-4.6-1.8-8-6-8-11V5zm-1.2 13.3 5.5-5.5-1.5-1.4-4 4-1.9-1.9-1.4 1.5z"/></svg>',
+	people:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm7 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM2 19c0-3 2.9-5 6.5-5s6.5 2 6.5 5v1H2zm14.6-4.7c2.6.5 4.4 2.3 4.4 4.7v1h-4.3v-1c0-1.7-.7-3.2-1.9-4.3z"/></svg>',
+	eye:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5c5 0 9.3 3.1 11 7-1.7 3.9-6 7-11 7S2.7 15.9 1 12c1.7-3.9 6-7 11-7zm0 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm0 2a2 2 0 1 1 0 4 2 2 0 0 1 0-4z"/></svg>',
+	badge:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a5.5 5.5 0 0 1 3.2 10l1.3 9.4-4.5-2.6-4.5 2.6L8.8 12A5.5 5.5 0 0 1 12 2zm0 2a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z"/></svg>',
+	warn:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 23 21H1zm-1 6v7h2V8zm0 9v2h2v-2z"/></svg>',
+	quote:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 6h4v6a5 5 0 0 1-5 5v-2a3 3 0 0 0 3-3H7zm8 0h4v6a5 5 0 0 1-5 5v-2a3 3 0 0 0 3-3h-2z"/></svg>',
+	person:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a4 4 0 1 1 0 8 4 4 0 0 1 0-8zm0 10c4.4 0 8 2.5 8 5.5V21H4v-2.5C4 15.5 7.6 13 12 13z"/></svg>',
+	cpu:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 2h2v2h2V2h2v2h2a1 1 0 0 1 1 1v2h2v2h-2v2h2v2h-2v2h2v2h-2v2a1 1 0 0 1-1 1h-2v2h-2v-2h-2v2H9v-2H7a1 1 0 0 1-1-1v-2H4v-2h2v-2H4v-2h2V9H4V7h2V5a1 1 0 0 1 1-1h2zm0 5v10h6V7z"/></svg>'
+};
+function icon(name){ return `<span class="ic">${ICONS[name]||''}</span>`; }
+function stepById(id){ return STEPS.find(s=>s.id===id); }
+// Scale the current scene down (never up) so it always fits inside the 16:9 frame — no clipping, no scroll.
+function fitScene(scene){
+	if(!scene) return;
+	scene.style.transform='translate(-50%,-50%) scale(1)';
+	const box=stage.getBoundingClientRect();
+	const availW=box.width-32, availH=box.height-28;
+	const sw=scene.offsetWidth, sh=scene.offsetHeight;
+	if(!sw||!sh) return;
+	const k=Math.min(1, availW/sw, availH/sh);
+	scene.style.transform='translate(-50%,-50%) scale('+k+')';
+}
+function headerEls(scene){ return [scene.querySelector('.scene-title'), scene.querySelector('.scene-lead')]; }
+function buildScene(step){ const s=el('scene'); s.appendChild(el('scene-title', t(step.titleKey))); s.appendChild(el('scene-lead', t(step.descKey))); return s; }
+function maybeCallout(step){ if(!calloutEnabled) return null; const c=el('callout', t(step.calloutKey)); c.style.left='1.5rem'; c.style.top='1.5rem'; stage.appendChild(c); liveEls.push(c); dragify(c, 'aw-tmpl-callout-pos'); return c; }
+function renderOutline(step,idx){
+	const rows=(step.stats||[]).map(([k,v])=>`<div class="stat-row"><span>${t(k)}</span><span>${t(v)}</span></div>`).join('');
+	outlineBody.innerHTML=`<div class="outline-section"><strong>${t('stepOf')} ${idx+1} / ${STEPS.length}: ${t(step.titleKey)}</strong><p style="margin-top:0.4rem;">${t(step.descKey)}</p></div>${rows?`<div class="outline-section">${rows}</div>`:''}`;
+}
+function announceStep(step,idx){ announcer.textContent=`${t('stepOf')} ${idx+1} / ${STEPS.length}: ${t(step.titleKey)}. ${t(step.descKey)}`; }
+
+// ── RENDER DISPATCH ───────────────────────
+function renderStep(i){
+	if(i<0||i>=STEPS.length) return;
+	if(animating){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; animating=false; }
+	animating=true;
+	const step=STEPS[i];
+	// cross-fade (200ms, CSS keyframes so it's independent of the speed control) — outgoing fades out, incoming fades in, on every step
+	const outgoing=stage.querySelector('.scene:not(.scene-out)');
+	if(outgoing) liveEls=liveEls.filter(x=>x!==outgoing);
+	clearStage();
+	if(outgoing){ outgoing.style.zIndex='5';
+		if(motionPaused){ outgoing.remove(); }
+		else { outgoing.classList.remove('scene-in'); outgoing.classList.add('scene-out'); setTimeout(()=>outgoing.remove(), 240); } }
+	if(step.id==='why') renderWhyStep();
+	else if(step.id==='recap') renderRecapStep();
+	else if(step.pillar) renderPillarStep(step);
+	const incoming=stage.querySelector('.scene:not(.scene-out)');
+	if(incoming && !motionPaused) incoming.classList.add('scene-in');
+	fitScene(incoming);
+	current=i;
+	try{ const u=new URL(location.href); u.searchParams.set('step', String(i+1)); history.replaceState(null,'',u); }catch(_){}
+	counter.textContent=`${t('stepOf')} ${current+1} / ${STEPS.length}`;
+	breadcrumb.textContent=t(step.captionKey);
+	progress.style.width=((current+1)/STEPS.length*100)+'%';
+	renderOutline(step,i); announceStep(step,i);
+	if(typeof playStepAudio==='function') playStepAudio(i);
+}
+
+// ── STEP 1 · WHY (a decision, a person, then the six pillars) ──
+function renderWhyStep(){
+	const step=stepById('why'); const scene=buildScene(step);
+	const hero=el('rai-hero');
+	const a=el('rai-card rai-hbox', `<span class="rai-hh">${t('whyAH')}</span><span class="rai-hp">${t('whyAP')}</span>`);
+	const arrow=el('rai-harrow','\u279C');
+	const b=el('rai-card rai-hbox', `<span class="rai-hh">${t('whyBH')}</span><span class="rai-hp">${t('whyBP')}</span>`);
+	[a,arrow,b].forEach(n=>hero.appendChild(n));
+	const found=el('rai-found');
+	PILLARS.forEach(p=>{
+		const cell=el('rai-fcell', `<span class="rai-fico">${icon(p.icon)}</span><span class="rai-fname">${t(p.key+'Name')}</span>`);
+		cell.style.setProperty('--fc', p.colour); found.appendChild(cell);
+	});
+	scene.appendChild(hero); scene.appendChild(found); stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	const cells=found.querySelectorAll('.rai-fcell');
+	if(motionPaused){ gsap.set([...headerEls(scene), a, arrow, b, ...cells], {opacity:1}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
+	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	tl.fromTo(a, {opacity:0,x:-24}, {opacity:1,x:0,duration:0.5,ease:'power2.out'}, '-=0.05');
+	tl.fromTo(arrow, {opacity:0,scale:0.5}, {opacity:1,scale:1,duration:0.3,ease:'back.out(2)'}, '-=0.15');
+	tl.fromTo(b, {opacity:0,x:24}, {opacity:1,x:0,duration:0.5,ease:'power2.out'}, '-=0.2');
+	tl.fromTo(cells, {opacity:0,y:18,scale:0.9}, {opacity:1,y:0,scale:1,duration:0.4,stagger:0.09,ease:'back.out(1.5)'}, '+=0.1');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.3');
+}
+
+// ── STEPS 2-7 · ONE PILLAR (shared, so all six read identically) ──
+function renderPillarStep(step){
+	const p=step.pillar, k=p.key; const scene=buildScene(step);
+	scene.dataset.pillar=k; scene.style.setProperty('--rai-c', p.colour);
+	const head=el('rai-card rai-pillar',
+		`<span class="rai-ico">${icon(p.icon)}</span>` +
+		`<span class="rai-txt"><span class="rai-mean">${t(k+'Mean')}</span></span>` +
+		`<span class="rai-num">${p.n} / 6</span>`);
+	const duo=el('rai-duo');
+	const risk=el('rai-card rai-box is-risk', `<span class="rai-lab">${icon('warn')}<span>${t('labRisk')}</span></span><span class="rai-say">${t(k+'Risk')}</span>`);
+	const ex=el('rai-card rai-box is-ex', `<span class="rai-lab">${icon('quote')}<span>${t('labEx')}</span></span><span class="rai-say">${t(k+'Ex')}</span>`);
+	duo.appendChild(risk); duo.appendChild(ex);
+	const prac=el('rai-prac');
+	['1','2','3'].forEach(i=>prac.appendChild(el('rai-chip', `${icon('check')}<span>${t(k+'P'+i)}</span>`)));
+	scene.appendChild(head); scene.appendChild(duo); scene.appendChild(prac);
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	const chips=prac.querySelectorAll('.rai-chip');
+	if(motionPaused){ gsap.set([...headerEls(scene), head, risk, ex, ...chips], {opacity:1}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
+	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	tl.fromTo(head, {opacity:0,y:18,scale:0.98}, {opacity:1,y:0,scale:1,duration:0.5,ease:'back.out(1.4)'}, '-=0.05');
+	tl.fromTo(risk, {opacity:0,y:16}, {opacity:1,y:0,duration:0.45,ease:'power2.out'}, '-=0.1');
+	tl.fromTo(ex, {opacity:0,y:16}, {opacity:1,y:0,duration:0.45,ease:'power2.out'}, '-=0.28');
+	tl.fromTo(chips, {opacity:0,y:12,scale:0.85}, {opacity:1,y:0,scale:1,duration:0.35,stagger:0.1,ease:'back.out(1.8)'}, '-=0.1');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.3');
+}
+
+// ── STEP 8 · RECAP (all six at a glance) ──
+function renderRecapStep(){
+	const step=stepById('recap'); const scene=buildScene(step);
+	const grid=el('rai-grid');
+	PILLARS.forEach(p=>{
+		const mini=el('rai-card rai-mini',
+			`<span class="rai-mhead">${icon(p.icon)}<span class="rai-mname">${t(p.key+'Name')}</span></span>` +
+			`<span class="rai-mtext">${t('recapM'+p.n)}</span>`);
+		mini.style.setProperty('--mc', p.colour); grid.appendChild(mini);
+	});
+	const foot=el('rai-foot', t('recapFoot'));
+	scene.appendChild(grid); scene.appendChild(foot); stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	const minis=grid.querySelectorAll('.rai-mini');
+	if(motionPaused){ gsap.set([...headerEls(scene), ...minis, foot], {opacity:1}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
+	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	tl.fromTo(minis, {opacity:0,y:20,scale:0.94}, {opacity:1,y:0,scale:1,duration:0.45,stagger:0.1,ease:'back.out(1.4)'}, '-=0.05');
+	tl.fromTo(foot, {opacity:0,y:10}, {opacity:1,y:0,duration:0.5,ease:'power2.out'}, '-=0.1');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.3');
+}
+
+// ── CONTROLS ──────────────────────────────
+function focusHeading(){ const h=document.getElementById('stage-heading'); if(h){ try{ h.focus({preventScroll:true}); }catch(_){ h.focus(); } } }
+function interruptAnimation(){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; animating=false; }
+function next(){ interruptAnimation(); if(current<STEPS.length-1){ renderStep(current+1); focusHeading(); } }
+function prev(){ interruptAnimation(); if(current>0){ renderStep(current-1); focusHeading(); } }
+function reset(){ interruptAnimation(); renderStep(0); focusHeading(); }
+function replay(){ if(current<0) return; interruptAnimation(); renderStep(current); focusHeading(); }
+
+// ── Hide / show top bar (toggle; the ^ chevron flips to v when hidden) ──
+(function(){
+	const hideBtn=document.getElementById('header-hide'), revealBtn=document.getElementById('header-reveal');
+	if(!hideBtn||!revealBtn) return;
+	var hideBtnTop=document.getElementById('header-hide-top'); if(hideBtnTop) hideBtnTop.addEventListener('click',function(e){ e.stopPropagation(); hideBtn.click(); });
+	const hidePath=hideBtn.querySelector('svg path');
+	const UP='M6 15l6-6 6 6', DOWN='M6 9l6 6 6-6';   // ^ points up to hide the bar; flips to v to show it again
+	function setHidden(h){
+		document.body.classList.toggle('chrome-hidden',h);
+		hideBtn.setAttribute('aria-expanded',String(!h));
+		hideBtn.setAttribute('aria-label',h?'Show top bar':'Hide top bar');
+		hideBtn.title=(h?'Show top bar':'Hide top bar')+' (H)';
+		if(hidePath) hidePath.setAttribute('d',h?DOWN:UP);
+		try{localStorage.setItem('aw-tmpl-chrome-hidden',h?'1':'0');}catch(_){}
+		if(current>=0) requestAnimationFrame(()=>{ const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s); });
+	}
+	hideBtn.addEventListener('click',e=>{e.stopPropagation();setHidden(!document.body.classList.contains('chrome-hidden'));});
+	revealBtn.addEventListener('click',e=>{e.stopPropagation();setHidden(false);});
+	try{ if(localStorage.getItem('aw-tmpl-chrome-hidden')==='1') setHidden(true); }catch(_){}
+	document.addEventListener('keydown',e=>{ if(e.code==='KeyH'&&!e.metaKey&&!e.ctrlKey&&!e.altKey){ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return; e.preventDefault(); setHidden(!document.body.classList.contains('chrome-hidden')); } });
+})();
+
+document.getElementById('next-btn').addEventListener('click',e=>{e.stopPropagation();next();});
+document.getElementById('prev-btn').addEventListener('click',e=>{e.stopPropagation();prev();});
+document.getElementById('reset-btn').addEventListener('click',e=>{e.stopPropagation();reset();});
+document.getElementById('replay-btn').addEventListener('click',e=>{e.stopPropagation();replay();});
+
+// ── Clickable progress bar + step ticks ──
+(function(){
+	const track=document.querySelector('.progress-track'); if(!track) return;
+	for(let s=1; s<STEPS.length; s++){ const tk=document.createElement('div'); tk.className='progress-tick'; tk.style.left=(s/STEPS.length*100)+'%'; track.appendChild(tk); }
+	track.setAttribute('title','Jump to a step');
+	track.addEventListener('click', e=>{
+		const r=track.getBoundingClientRect(); const frac=(e.clientX-r.left)/r.width;
+		const target=Math.max(0, Math.min(STEPS.length-1, Math.floor(frac*STEPS.length)));
+		if(target!==current){ interruptAnimation(); renderStep(target); focusHeading(); }
+	});
+})();
+
+// ── Movable / pinnable control dock ───────
+(function(){
+	const dock=document.getElementById('controls'), grip=document.getElementById('ctrl-grip'), pin=document.getElementById('ctrl-pin');
+	if(!dock||!grip) return;
+	const KEY='aw-tmpl-controls-pos';
+	let dragging=false, sx=0, sy=0, bl=0, bt=0, moved=false;
+	function place(left,top){
+		const w=dock.offsetWidth, h=dock.offsetHeight;
+		left=Math.max(6, Math.min(left, window.innerWidth - w - 6));
+		top =Math.max(6, Math.min(top,  window.innerHeight - h - 6));
+		dock.style.left=left+'px'; dock.style.top=top+'px'; dock.style.right='auto'; dock.style.bottom='auto'; dock.style.transform='none';
+		document.body.classList.add('controls-floating');
+	}
+	function recenter(){
+		dock.style.left=dock.style.top=dock.style.right=dock.style.bottom=dock.style.transform='';
+		document.body.classList.remove('controls-floating');
+		try{ localStorage.removeItem(KEY); }catch(_){}
+	}
+	grip.addEventListener('pointerdown', e=>{
+		e.preventDefault(); dragging=true; moved=false;
+		const r=dock.getBoundingClientRect(); bl=r.left; bt=r.top; sx=e.clientX; sy=e.clientY;
+		try{ grip.setPointerCapture(e.pointerId); }catch(_){}
+	});
+	grip.addEventListener('pointermove', e=>{
+		if(!dragging) return;
+		const dx=e.clientX-sx, dy=e.clientY-sy;
+		if(Math.abs(dx)>2||Math.abs(dy)>2) moved=true;
+		place(bl+dx, bt+dy);
+	});
+	function end(e){ if(!dragging) return; dragging=false; try{ grip.releasePointerCapture(e.pointerId); }catch(_){}
+		if(moved){ try{ const r=dock.getBoundingClientRect(); localStorage.setItem(KEY, JSON.stringify({left:r.left, top:r.top})); }catch(_){} } }
+	grip.addEventListener('pointerup', end); grip.addEventListener('pointercancel', end);
+	// keyboard-nudge the dock when the grip is focused (arrow keys; Shift = larger step)
+	grip.addEventListener('keydown', e=>{
+		const d=e.shiftKey?40:12; const r=dock.getBoundingClientRect(); let ok=true;
+		if(e.key==='ArrowLeft') place(r.left-d, r.top);
+		else if(e.key==='ArrowRight') place(r.left+d, r.top);
+		else if(e.key==='ArrowUp') place(r.left, r.top-d);
+		else if(e.key==='ArrowDown') place(r.left, r.top+d);
+		else ok=false;
+		if(ok){ e.preventDefault(); e.stopPropagation(); }
+	});
+	if(pin) pin.addEventListener('click', e=>{ e.stopPropagation(); recenter(); });
+	window.addEventListener('resize', ()=>{ if(document.body.classList.contains('controls-floating')){ const r=dock.getBoundingClientRect(); place(r.left, r.top); } });
+	try{ const s=JSON.parse(localStorage.getItem(KEY)||'null'); if(s && typeof s.left==='number') place(s.left, s.top); }catch(_){}
+})();
+
+// ── Make callout / outline / caption draggable (same pointer-drag as the control dock) ──
+function dragify(el, key){
+	if(!el || el.__awDrag) return; el.__awDrag=true;
+	let dragging=false, sx=0, sy=0, bl=0, bt=0, moved=false;
+	const resizable = getComputedStyle(el).resize !== 'none';
+	const sizeKey = key ? key + '-size' : null;
+	// snapshot the home position + size so the reset pin can restore it exactly
+	const home={ position:el.style.position, left:el.style.left, top:el.style.top,
+		right:el.style.right, bottom:el.style.bottom, margin:el.style.margin, transform:el.style.transform,
+		width:el.style.width, height:el.style.height };
+	// reset "pin" — hidden until the panel is dragged or resized off its home spot
+	const pin=document.createElement('button');
+	pin.type='button'; pin.className='aw-drag-reset';
+	pin.title=t('resetPos'); pin.setAttribute('aria-label', t('resetPos'));
+	pin.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>';
+	// keep the pin inside scrollable / resizable panels so it isn't clipped
+	const oy=getComputedStyle(el).overflowY; const clips=(oy==='auto'||oy==='scroll'||oy==='hidden');
+	pin.style.top=clips?'8px':'-10px'; pin.style.right=clips?'8px':'-10px';
+	el.appendChild(pin);
+	function showPin(on){ pin.style.display=on?'flex':'none'; }
+	pin.addEventListener('pointerdown', e=>{ e.stopPropagation(); });
+	pin.addEventListener('click', e=>{
+		e.preventDefault(); e.stopPropagation();
+		el.style.position=home.position; el.style.left=home.left; el.style.top=home.top;
+		el.style.right=home.right; el.style.bottom=home.bottom; el.style.margin=home.margin; el.style.transform=home.transform;
+		el.style.width=home.width; el.style.height=home.height;
+		if(key){ try{ localStorage.removeItem(key); }catch(_){} }
+		if(sizeKey){ try{ localStorage.removeItem(sizeKey); }catch(_){} }
+		showPin(false);
+	});
+	function fix(left,top){
+		const w=el.offsetWidth, h=el.offsetHeight;
+		left=Math.max(6, Math.min(left, window.innerWidth  - w - 6));
+		top =Math.max(6, Math.min(top,  window.innerHeight - h - 6));
+		el.style.position='fixed'; el.style.left=left+'px'; el.style.top=top+'px';
+		el.style.right='auto'; el.style.bottom='auto'; el.style.margin='0'; el.style.transform='none';
+	}
+	// persist user resizes (the CSS resize grip writes inline width/height; content changes don't)
+	if(resizable && typeof ResizeObserver!=='undefined'){
+		let rt;
+		new ResizeObserver(()=>{
+			if(el.style.width || el.style.height){
+				showPin(true);
+				if(sizeKey){ clearTimeout(rt); rt=setTimeout(()=>{ try{ localStorage.setItem(sizeKey, JSON.stringify({w:el.style.width, h:el.style.height})); }catch(_){} }, 150); }
+			}
+		}).observe(el);
+	}
+	el.addEventListener('pointerdown', e=>{
+		if(e.button!==0 || (e.target.closest && e.target.closest('a,button,select,input,textarea'))) return;
+		if(resizable){ const r=el.getBoundingClientRect(); if(e.clientX>r.right-18 && e.clientY>r.bottom-18) return; } // let the resize grip win
+		dragging=true; moved=false;
+		const r=el.getBoundingClientRect(); bl=r.left; bt=r.top; sx=e.clientX; sy=e.clientY;
+		fix(bl, bt);   // pin at the current spot first, so there's no jump
+		try{ el.setPointerCapture(e.pointerId); }catch(_){}
+		e.preventDefault();
+	});
+	el.addEventListener('pointermove', e=>{
+		if(!dragging) return;
+		const dx=e.clientX-sx, dy=e.clientY-sy;
+		if(Math.abs(dx)>2||Math.abs(dy)>2) moved=true;
+		fix(bl+dx, bt+dy);
+	});
+	function end(e){
+		if(!dragging) return; dragging=false;
+		try{ el.releasePointerCapture(e.pointerId); }catch(_){}
+		if(moved){ showPin(true); if(key){ try{ const r=el.getBoundingClientRect(); localStorage.setItem(key, JSON.stringify({left:r.left, top:r.top})); }catch(_){} } }
+	}
+	el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+	if(sizeKey){ try{ const z=JSON.parse(localStorage.getItem(sizeKey)||'null'); if(z && (z.w||z.h)){ if(z.w) el.style.width=z.w; if(z.h) el.style.height=z.h; showPin(true); } }catch(_){} }
+	if(key){ try{ const s=JSON.parse(localStorage.getItem(key)||'null'); if(s && isFinite(s.left) && isFinite(s.top)){ fix(s.left, s.top); showPin(true); } }catch(_){} }
+}
+dragify(document.getElementById('step-outline'), 'aw-tmpl-outline-pos');
+dragify(document.getElementById('aw-caption'), 'aw-tmpl-caption-pos');
+
+// ── Speed ─────────────────────────────────
+const SPEED_STEPS=[0.5,0.75,1,1.25,1.5,2]; const BASE_TIMESCALE=0.25;
+let speedIndex=SPEED_STEPS.indexOf(1);
+try{ const sp=parseInt(localStorage.getItem('aw-tmpl-speed'),10); if(!isNaN(sp)&&sp>=0&&sp<SPEED_STEPS.length) speedIndex=sp; }catch(_){}
+const speedLabel=document.getElementById('speed-label'), speedDownBtn=document.getElementById('speed-down'), speedUpBtn=document.getElementById('speed-up');
+function saveSpeed(){ try{ localStorage.setItem('aw-tmpl-speed', String(speedIndex)); }catch(_){} }
+function syncSpeedUI(){ const spd=SPEED_STEPS[speedIndex]; speedLabel.textContent=spd+'\u00d7'; speedDownBtn.disabled=speedIndex===0; speedUpBtn.disabled=speedIndex===SPEED_STEPS.length-1; gsap.globalTimeline.timeScale(spd*BASE_TIMESCALE); }
+syncSpeedUI();
+speedDownBtn.addEventListener('click',e=>{e.stopPropagation(); if(speedIndex>0){speedIndex--;syncSpeedUI();saveSpeed();}});
+speedUpBtn.addEventListener('click',e=>{e.stopPropagation(); if(speedIndex<SPEED_STEPS.length-1){speedIndex++;syncSpeedUI();saveSpeed();}});
+
+// ── Keyboard ──────────────────────────────
+if (window.AW && AW.keyboard) { AW.keyboard.bind({ next, prev, reset, replay }); }
+else { document.addEventListener('keydown', e => {
+	if (['Space','ArrowRight','Enter'].includes(e.code)) { e.preventDefault(); next(); }
+	else if (e.code==='ArrowLeft') { e.preventDefault(); prev(); }
+	else if (e.code==='KeyR') { e.preventDefault(); reset(); }
+	else if (e.code==='KeyP') { e.preventDefault(); replay(); }
+}); }
+
+// ── Touch swipe (tablets) ─────────────────
+(function(){
+	const surf=document.getElementById('stage'); if(!surf) return;
+	let x0=null,y0=null,t0=0;
+	surf.addEventListener('touchstart',e=>{ if(e.touches.length!==1){x0=null;return;} x0=e.touches[0].clientX; y0=e.touches[0].clientY; t0=Date.now(); },{passive:true});
+	surf.addEventListener('touchend',e=>{
+		if(x0===null) return; const tch=e.changedTouches[0]; const dx=tch.clientX-x0, dy=tch.clientY-y0; x0=null;
+		if(Date.now()-t0>800) return;
+		if(Math.abs(dx)>50 && Math.abs(dx)>Math.abs(dy)*1.6){ if(dx<0) next(); else prev(); }
+	},{passive:true});
+})();
+
+// ── Keyboard shortcut help overlay ────────
+(function(){
+	const overlay=document.getElementById('shortcut-overlay'), btn=document.getElementById('help-toggle'), closeBtn=document.getElementById('sc-close'), list=document.getElementById('sc-list');
+	if(!overlay||!list) return;
+	const ROWS=[[['\u2192','Space'],'scNext'],[['\u2190'],'scPrev'],[['R'],'scRestart'],[['P'],'scReplay'],[['H'],'scHide'],[['?'],'scHelp']];
+	window.buildShortcuts=function(){ const title=document.getElementById('sc-title'); if(title) title.textContent=t('scTitle');
+		list.innerHTML=ROWS.map(([keys,k])=>`<li><span>${t(k)}</span><span class="sc-keys">${keys.map(x=>`<kbd>${x}</kbd>`).join('')}</span></li>`).join(''); };
+	buildShortcuts();
+	function open(){ overlay.removeAttribute('hidden'); if(closeBtn) closeBtn.focus(); }
+	function close(){ overlay.setAttribute('hidden',''); if(btn) btn.focus(); }
+	function toggle(){ overlay.hasAttribute('hidden')?open():close(); }
+	if(btn) btn.addEventListener('click',e=>{e.stopPropagation();toggle();});
+	if(closeBtn) closeBtn.addEventListener('click',e=>{e.stopPropagation();close();});
+	const bd=overlay.querySelector('.sc-backdrop'); if(bd) bd.addEventListener('click',close);
+	document.addEventListener('keydown',e=>{ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return;
+		if(e.key==='?'){ e.preventDefault(); toggle(); }
+		else if(e.key==='Escape' && !overlay.hasAttribute('hidden')){ e.preventDefault(); close(); } });
+})();
+
+// ── Resize (re-fit only — never rebuild or replay the animation) ──
+let resizeTimer, lastStageW=0, lastStageH=0;
+window.addEventListener('resize',()=>{ clearTimeout(resizeTimer); resizeTimer=setTimeout(()=>{
+	if(current<0) return;
+	const box=stage.getBoundingClientRect();
+	if(Math.abs(box.width-lastStageW)<1 && Math.abs(box.height-lastStageH)<1) return;   // ignore no-op reflows (focus/URL-bar) so the animation never restarts
+	lastStageW=box.width; lastStageH=box.height;
+	const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s);
+},200); });
+
+// ── Init ──────────────────────────────────
+setLanguage(currentLang);
+counter.textContent = `1 / ${STEPS.length}`;
+const urlStep = parseInt(new URLSearchParams(location.search).get('step'), 10);   // ?step=N opens on step N
+renderStep((!isNaN(urlStep) && urlStep>=1 && urlStep<=STEPS.length) ? urlStep-1 : 0);
+</script>
+<script>
+// ── Start gate · hold autoplay until the viewer clicks Play (empty stage + centered Play) ──
+(function () {
+	if (new URLSearchParams(location.search).has('present')) return;
+	var stage = document.getElementById('stage');
+	if (!stage) return;
+	function freeze() { try { if (window.gsap && gsap.globalTimeline) gsap.globalTimeline.pause(); } catch (_) {} }
+	freeze(); requestAnimationFrame(freeze);
+	document.body.classList.add('aw-prestart');
+	try { if (typeof stopAudio === 'function') stopAudio(); } catch (_) {}
+	stage.style.transition = 'opacity .55s ease';
+	stage.style.opacity = '0';
+
+	var T = {
+		title: { en:'Ready to begin?', es:'\u00BFTodo listo?', ja:'\u6E96\u5099\u306F\u3044\u3044\u3067\u3059\u304B\uFF1F', ko:'\uC2DC\uC791\uD560 \uC900\uBE44\uAC00 \uB418\uC168\uB098\uC694?', pt:'Tudo pronto?' },
+		sound: { en:'Sound', es:'Sonido', ja:'\u97F3\u58F0', ko:'\uC18C\uB9AC', pt:'Som' },
+		cc:    { en:'Subtitles (CC)', es:'Subt\u00EDtulos (CC)', ja:'\u5B57\u5E55\uFF08CC\uFF09', ko:'\uC790\uB9C9 (CC)', pt:'Legendas (CC)' },
+		start: { en:'Start presentation', es:'Iniciar presentaci\u00F3n', ja:'\u30D7\u30EC\u30BC\u30F3\u3092\u958B\u59CB', ko:'\uD504\uB808\uC820\uD14C\uC774\uC158 \uC2DC\uC791', pt:'Iniciar apresenta\u00E7\u00E3o' }
+	};
+	function L(){ return (typeof currentLang === 'string' && currentLang) || (typeof CURRENT_LANG === 'string' && CURRENT_LANG) || 'en'; }
+	function t(k){ var m = T[k], l = L(); return m[m[l] ? l : 'en']; }
+	function awAudioState(){ try{ if(typeof window.__awAudioOn==='function') return !!window.__awAudioOn(); }catch(_){} return (typeof audioEnabled!=='undefined') && !!audioEnabled; }
+	function awCcState(){ try{ if(typeof window.__awCcOn!=='undefined' && window.__awCcOn!==null) return !!window.__awCcOn; }catch(_){} return (typeof ccPref!=='undefined') && !!ccPref; }
+
+	var style = document.createElement('style');
+	style.textContent =
+		'body.aw-prestart #controls{opacity:.4;pointer-events:none;transition:opacity .4s ease}' +
+		'#aw-play-card{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:50;box-sizing:border-box;width:min(90vw,22rem);padding:1.35rem 1.5rem 1.5rem;border-radius:16px;background:var(--theme-card-background,#fff);color:var(--theme-text,#222);border:1px solid var(--theme-border,rgba(0,0,0,.1));box-shadow:0 24px 60px rgba(0,0,0,.28);transition:opacity .3s ease,transform .3s ease}' +
+		'#aw-play-card.aw-hide{opacity:0;transform:translate(-50%,-50%) scale(.96);pointer-events:none}' +
+		'body.theme-dark #aw-play-card{border-color:rgba(255,255,255,.12);box-shadow:0 24px 60px rgba(0,0,0,.55)}' +
+		'body.present-mode #aw-play-card{display:none!important}' +
+		'.aw-card-title{margin:0 0 1rem;text-align:center;font-size:1.02rem;font-weight:800;letter-spacing:.03em;text-transform:uppercase;opacity:.85}' +
+		'.aw-row{display:flex;align-items:center;gap:.65rem;padding:.6rem 0}' +
+		'.aw-row + .aw-row{border-top:1px solid var(--theme-border,rgba(0,0,0,.08))}' +
+		'.aw-row-ico{flex:none;width:1.5rem;text-align:center;font-size:1.15rem;line-height:1}' +
+		'.aw-row-lbl{flex:1 1 auto;font-size:.9rem;font-weight:600}' +
+		'.aw-row-state{flex:none;min-width:2.5rem;text-align:right;font-size:.68rem;font-weight:800;letter-spacing:.05em;opacity:.5}' +
+		'.aw-row-state.on{color:var(--theme-primary,#0078d4);opacity:1}' +
+		'.aw-switch{position:relative;flex:none;width:44px;height:24px;padding:0;border:none;border-radius:999px;cursor:pointer;background:var(--theme-border,#c7c7d1);transition:background .18s ease}' +
+		'.aw-switch.on{background:var(--theme-primary,#0078d4)}' +
+		'.aw-switch::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.4);transition:transform .18s ease}' +
+		'.aw-switch.on::after{transform:translateX(20px)}' +
+		'#aw-start{margin-top:1.2rem;width:100%;display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:.8rem 1rem;border:none;border-radius:11px;cursor:pointer;background:var(--theme-primary,#0078d4);color:#fff;font-size:.96rem;font-weight:700;letter-spacing:.01em;box-shadow:0 8px 22px var(--theme-primary-translucent,rgba(0,120,212,.45));transition:transform .15s ease}' +
+		'#aw-start:hover{transform:translateY(-2px)}#aw-start:active{transform:scale(.98)}' +
+		'#aw-start svg{width:18px;height:18px;flex:none}';
+	document.head.appendChild(style);
+
+	var card = document.createElement('div');
+	card.id = 'aw-play-card'; card.setAttribute('role', 'dialog'); card.setAttribute('aria-modal', 'true');
+	card.innerHTML =
+		'<div class="aw-card-title"></div>' +
+		'<div class="aw-row" data-k="audio"><span class="aw-row-ico" aria-hidden="true">\uD83D\uDD0A</span><span class="aw-row-lbl"></span><span class="aw-row-state"></span><button type="button" class="aw-switch" role="switch"></button></div>' +
+		'<div class="aw-row" data-k="cc"><span class="aw-row-ico" aria-hidden="true">\uD83D\uDCAC</span><span class="aw-row-lbl"></span><span class="aw-row-state"></span><button type="button" class="aw-switch" role="switch"></button></div>' +
+		'<button type="button" id="aw-start"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 5v14l11-7z"/></svg><span class="aw-start-lbl"></span></button>';
+	document.body.appendChild(card);
+
+	var titleEl = card.querySelector('.aw-card-title');
+	var startBtn = card.querySelector('#aw-start');
+	var ROWS = [ { k:'audio', lbl:'sound', el:card.querySelector('.aw-row[data-k="audio"]'), read:awAudioState, toggle:'audio-toggle' },
+	             { k:'cc',    lbl:'cc',    el:card.querySelector('.aw-row[data-k="cc"]'),    read:awCcState,    toggle:'cc-toggle' } ];
+
+	function render(){
+		titleEl.textContent = t('title'); card.setAttribute('aria-label', t('title'));
+		startBtn.querySelector('.aw-start-lbl').textContent = t('start');
+		ROWS.forEach(function(r){
+			var on = r.read();
+			r.el.querySelector('.aw-row-lbl').textContent = t(r.lbl);
+			var st = r.el.querySelector('.aw-row-state'); st.textContent = on ? 'ON' : 'OFF'; st.classList.toggle('on', on);
+			var sw = r.el.querySelector('.aw-switch'); sw.classList.toggle('on', on); sw.setAttribute('aria-checked', on ? 'true' : 'false');
+			sw.setAttribute('aria-label', t(r.lbl) + ' \u2014 ' + (on ? 'on' : 'off'));
+		});
+	}
+	ROWS.forEach(function(r){
+		r.el.querySelector('.aw-switch').addEventListener('click', function(e){ e.stopPropagation(); var b = document.getElementById(r.toggle); if(b) b.click(); render(); });
+	});
+	render();
+
+	var sel = document.getElementById('lang-select');
+	// Only re-freeze while the gate is still up — after Play, freezing would pause the
+	// global timeline for good and every later scene would stay at opacity 0 (blank stage).
+	if (sel) sel.addEventListener('change', function () { if (done) return; render(); freeze(); });
+
+	function gateKeys(e) {
+		if (done) return;
+		var tag = (e.target && e.target.tagName || '').toLowerCase();
+		if (tag === 'select' || tag === 'input' || tag === 'textarea') return;
+		if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'].indexOf(e.key) >= 0) { e.preventDefault(); e.stopPropagation(); }
+	}
+	document.addEventListener('keydown', gateKeys, true);
+
+	var done = false;
+	function start() {
+		if (done) return; done = true;
+		document.removeEventListener('keydown', gateKeys, true);
+		document.body.classList.remove('aw-prestart');
+		card.classList.add('aw-hide');
+		setTimeout(function () { if (card.parentNode) card.parentNode.removeChild(card); if (style.parentNode) style.parentNode.removeChild(style); }, 420);
+		setTimeout(function () {
+			try { if (window.gsap && gsap.globalTimeline) gsap.globalTimeline.play(); } catch (_) {}
+			stage.style.opacity = '1';
+			try { if (typeof interruptAnimation === 'function') interruptAnimation(); } catch (_) {}
+			try { if (typeof renderStep === 'function') renderStep(typeof current === 'number' && current >= 0 ? current : 0); } catch (_) {}
+		}, 380);
+	}
+	startBtn.addEventListener('click', start);
+}());
+</script>
+<script src="../../../lib/js/aw-present.js"></script>
+<script src="../../../lib/js/aw-declutter.js"></script>
+<script src="../../../lib/js/aw-url-state.js"></script>
+
+</body>
+</html>
