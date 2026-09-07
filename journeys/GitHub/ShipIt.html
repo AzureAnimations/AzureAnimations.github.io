@@ -1,0 +1,2419 @@
+<!DOCTYPE html>
+<!--
+	Shift Left — prove every change before it travels
+	================================================
+	Step 5 of the Contoso delivery journey (journeys/GitHub/).
+	Narration script: ../../narration/GitHub/ShipIt.md
+
+	This is the CI half of Epic 3. The CD half (container, Service Principal, OIDC,
+	deploy) lives in DeployIt.html — keep the handoff in the recap accurate.
+
+	Covers: the shift-left cost curve, pipeline/workflow/runner anatomy, unit tests,
+	CodeQL, Dependabot, and how secrets are handled.
+
+	RUNNER ACCURACY: GitHub-hosted runners are a fresh VM per job, so nothing leaks
+	between runs; self-hosted runners persist and are the reason you avoid them for
+	untrusted forks. Do not blur those two.
+
+	PATH DEPTH: this journey is TWO levels deep (journeys/GitHub/), so libs are
+	`../../lib/` and narration is `../../narration/GitHub/`. The AI/Foundry and
+	DevOps/GitHub journeys are THREE levels and use `../../../` — do not copy those.
+
+	DESIGN NOTES
+	  • Green (--si-pass) means "proven"; purple (--si-scan) means "security";
+	    orange (--si-build) means "packaging"; red (--si-warn) means "never do this".
+-->
+<html lang="en">
+<head>
+	<script src="/js/tracking.js"></script>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+	<title>Shift Left — Azure Animations</title>
+
+	<link rel="stylesheet" href="https://unpkg.com/@microsoft/atlas-css/dist/index.css" />
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+	<!-- AnimationWorks shared lib -->
+	<script src="../../lib/js/aw-easings.js"></script>
+	<script src="../../lib/js/aw-motion.js"></script>
+	<script src="../../lib/js/aw-theme.js"></script>
+	<script src="../../lib/js/aw-keyboard.js"></script>
+	<script src="../../lib/js/aw-captions.js"></script>
+	<link rel="stylesheet" href="../../lib/css/aw-chrome.css" />
+	<script src="../../lib/js/aw-chrome.js"></script>
+
+<style>
+	/* ── SHELL ─────────────────────────────── */
+	/* Brand palette — reference these tokens; don't hardcode hex */
+	:root {
+		--aw-purple:#5c2d91;   /* primary accent — titles, callouts, arrows, progress, agents */
+		--aw-blue:#0078d4;     /* secondary — inputs, links, "the model", primary button */
+		--aw-green:#10a37f;    /* positive — success, grounded/correct results, value chips */
+		--aw-orange:#e97526;   /* tools / actions — tool calls, function calling, side-effects */
+		--aw-pink:#d24aa8;     /* highlight — a fourth category / emphasis */
+	}
+	html, body { height:100%; margin:0; }
+	html { font-size:100%; }
+	body {
+		display:flex; flex-direction:column; height:100vh;
+		overflow:hidden;
+		font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif;
+		color: var(--theme-text);
+		background:
+			radial-gradient(circle at 15% 20%, rgba(92,45,145,0.18) 0%, transparent 55%),
+			radial-gradient(circle at 85% 80%, rgba(0,120,212,0.18) 0%, transparent 55%),
+			var(--theme-body-background);
+	}
+	.app-header { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:1rem; flex-shrink:0; font-size:16px; }
+	.app-header > :last-child { justify-self:end; }
+
+	/* #stage fills the space between the top bar and the control dock, and centers the fixed 16:9 frame. */
+	#stage {
+		position:relative; flex:1 1 auto; width:100%; min-height:0;
+		display:flex; align-items:center; justify-content:center;
+		overflow:hidden; container-type:size;
+		padding:1.75rem 2.75rem 5rem;   /* breathing room around the frame; bottom clears the fixed #controls dock */
+	}
+	#stage:focus-visible, button:focus-visible, a:focus-visible, select:focus-visible {
+		outline:2px solid var(--theme-primary, #0078d4); outline-offset:3px; border-radius:4px;
+	}
+	/* The visible rectangle: the largest 16:9 box that fits the stage. All scenes are drawn inside it. */
+	#stage-frame {
+		position:relative; overflow:hidden;
+		width: min(100cqw, calc(100cqh * 16 / 9));
+		aspect-ratio: 16 / 9; max-width:100%; max-height:100%;
+		border-radius:16px;
+		background: rgba(0,0,0,0.015);
+		box-shadow: 0 12px 44px rgba(0,0,0,0.22);
+	}
+	body.theme-dark #stage-frame { background: rgba(255,255,255,0.025); }
+	/* Coloured gradient border (brand purple → blue → pink) drawn as a masked ring — no interior tint. */
+	#stage-frame::before {
+		content:""; position:absolute; inset:0; border-radius:inherit; padding:2.5px;
+		background: linear-gradient(135deg, var(--aw-purple) 0%, var(--aw-blue) 55%, var(--aw-pink) 100%);
+		-webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+		mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+		-webkit-mask-composite: xor; mask-composite: exclude;
+		pointer-events:none; z-index:20;
+	}
+	#fx-svg { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:6; overflow:visible; }
+
+	/* ── SCENE ─────────────────────────────── */
+	.scene {
+		position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+		transform-origin:center center;
+		width:min(1150px, 96%); z-index:10;
+		display:flex; flex-direction:column; align-items:center; gap:1.4rem;
+	}
+	/* 200ms fade in / out between every step */
+	@keyframes awSceneIn { from { opacity:0; } to { opacity:1; } }
+	@keyframes awSceneOut { from { opacity:1; } to { opacity:0; } }
+	.scene.scene-in { animation: awSceneIn 0.2s ease both; }
+	.scene.scene-out { animation: awSceneOut 0.2s ease both; }
+	.scene-title { font-size:2.5rem; font-weight:700; color:var(--theme-tertiary, #5c2d91); margin:0; text-align:center; opacity:0; }
+	body.theme-dark .scene-title { color:#c9a5e8; }
+	/* lead spans wide (near the scene width) to use the side gutters and stay within 2 lines — trim copy if it wraps to 3 */
+	.scene-lead { margin:0; text-align:center; font-size:1.35rem; color:var(--theme-text); max-width:min(1180px,96%); line-height:1.5; opacity:0; }
+
+	/* ── CALLOUT · draggable, slightly see-through so it never fully blocks the diagram ── */
+	.callout {
+		position:absolute; max-width:340px; padding:1rem 1.2rem;
+		background:var(--theme-body-background);
+		background:color-mix(in srgb, var(--theme-body-background) 84%, transparent);
+		-webkit-backdrop-filter:blur(5px); backdrop-filter:blur(5px);
+		border:1px solid var(--theme-border);
+		border-left:4px solid var(--theme-tertiary, #5c2d91); border-radius:6px;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2));
+		font-size:1.05rem; line-height:1.45; z-index:14; opacity:0;
+		cursor:grab; touch-action:none;
+	}
+	.callout:active { cursor:grabbing; }
+
+	/* ── RESET "PIN" · appears on a draggable panel once it has been moved off its home spot ── */
+	.aw-drag-reset {
+		position:absolute; width:24px; height:24px; padding:0; display:none;
+		align-items:center; justify-content:center; border-radius:50%;
+		background:var(--theme-tertiary,#5c2d91); color:#fff;
+		border:2px solid var(--theme-body-background,#fff);
+		box-shadow:0 2px 7px rgba(0,0,0,0.4); cursor:pointer; z-index:6;
+		opacity:0.92; transition:opacity .14s ease, transform .14s ease;
+	}
+	.aw-drag-reset:hover { opacity:1; transform:scale(1.08); }
+	.aw-drag-reset:focus-visible { outline:2px solid #5cc8ff; outline-offset:2px; }
+	.aw-drag-reset svg { width:13px; height:13px; display:block; }
+
+	/* ══════════════════════════════════════════════════════════ */
+	/* ── REUSABLE BUILDING BLOCKS · keep what you use, drop rest ─ */
+	/* ══════════════════════════════════════════════════════════ */
+
+	/* Centered hero card */
+	.card {
+		width:min(680px, 96%); padding:1.6rem 1.8rem; border-radius:16px;
+		background:var(--theme-card-background, #fff); border:2px solid var(--theme-border);
+		box-shadow:0 8px 28px rgba(0,0,0,0.14); opacity:0;
+		display:flex; flex-direction:column; gap:0.6rem; align-items:center; text-align:center;
+	}
+	body.theme-dark .card { background:rgba(255,255,255,0.05); }
+	.card .card-icon { font-size:3rem; line-height:1; }
+	.card .card-h { font-size:1.4rem; font-weight:700; }
+	.card .card-p { font-size:1.05rem; color:var(--theme-text-subtle); line-height:1.5; }
+
+	/* Wide info panel */
+	.ta-card {
+		width:min(1080px, 98%); border:1.5px solid var(--theme-border); border-radius:14px;
+		background:var(--theme-card-background, #fff); box-shadow:0 8px 30px rgba(0,0,0,0.16);
+		padding:1.1rem 1.3rem; opacity:0;
+	}
+	body.theme-dark .ta-card { background:rgba(255,255,255,0.05); }
+	.ta-card-head {
+		display:flex; align-items:center; gap:0.5rem;
+		font-size:1rem; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;
+		color:var(--theme-text-subtle); margin-bottom:0.6rem;
+	}
+	.ta-card-text { font-size:1.22rem; line-height:1.55; color:var(--theme-text); }
+
+	/* Pills / chips */
+	.chip-row { display:flex; flex-wrap:wrap; gap:0.7rem; justify-content:center; }
+	.pill {
+		display:inline-flex; align-items:center; gap:0.5rem; padding:0.55rem 1.1rem;
+		border-radius:999px; font-size:1.05rem; font-weight:600;
+		border:2px solid var(--theme-tertiary, #5c2d91); background:rgba(92,45,145,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .pill { background:rgba(92,45,145,0.2); }
+	.value-chip {
+		display:inline-flex; align-items:center; gap:0.4rem; padding:0.5rem 1rem;
+		border-radius:999px; font-size:1rem; font-weight:700;
+		border:2px solid #107c10; background:rgba(16,124,16,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .value-chip { background:rgba(16,124,16,0.16); }
+	.recap-foot { font-size:1.05rem; color:var(--theme-text); text-align:center; max-width:760px; opacity:0; }
+
+	/* Flow row: input → process → output */
+	.agent-node {
+		display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.2rem;
+		width:160px; height:160px; border-radius:24px;
+		background: linear-gradient(135deg, rgba(92,45,145,0.12), rgba(0,120,212,0.12));
+		border:2.5px solid var(--theme-tertiary, #5c2d91);
+		box-shadow:0 8px 28px rgba(92,45,145,0.2); flex-shrink:0; text-align:center;
+	}
+	.agent-node .an-icon { font-size:3rem; line-height:1; }
+	.agent-node .an-icon img { width:64px; height:64px; display:block; }
+	.agent-node .an-label { font-size:1.05rem; font-weight:700; color:var(--theme-text); }
+	.agent-node .an-sub { font-size:0.85rem; color:var(--theme-text-subtle); }
+	.ta-flow { display:flex; align-items:center; justify-content:center; gap:1.2rem; flex-wrap:wrap; width:100%; }
+	.ta-flow .agent-node { width:140px; height:140px; }
+	.ta-flow .agent-node .an-icon { font-size:2.6rem; }
+	.ta-flow .agent-node .an-icon img { width:54px; height:54px; }
+	.ta-arrow { font-size:1.9rem; color:var(--theme-tertiary,#5c2d91); opacity:0; }
+	.ta-arrow.is-big { font-size:3.2rem; }
+	.ta-arrow.is-down, .ta-arrow.is-up { font-size:2.9rem; line-height:1; }
+	@media (max-width:760px) { .ta-flow .ta-arrow { transform:rotate(90deg); } }
+
+	/* Code card (VS Code style) */
+	.code-card {
+		width:min(560px,96%); border:1px solid #30363d; border-radius:8px;
+		background:#1e1e1e; overflow:hidden; opacity:0;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.25));
+	}
+	.code-head {
+		display:flex; align-items:center; justify-content:space-between; gap:0.5rem;
+		padding:0 0 0 0.85rem; background:#323233; border-bottom:1px solid #1e1e1e;
+	}
+	.code-file { font-size:0.9rem; color:#cccccc; font-weight:500; padding:0.6rem 0; }
+	.code-winctrls { display:flex; align-items:stretch; height:100%; }
+	.code-wbtn {
+		display:flex; align-items:center; justify-content:center; width:2.6rem; padding:0.55rem 0;
+		color:#cccccc; font-family:'Segoe UI Symbol','Segoe MDL2 Assets',sans-serif; font-size:0.7rem;
+	}
+	.code-wbtn.is-close:hover { background:#e81123; color:#fff; }
+	.code-wbtn:hover { background:rgba(255,255,255,0.1); }
+	.code-body {
+		margin:0; padding:0.8rem 1rem;
+		font-family:'Cascadia Code', 'Consolas', 'SFMono-Regular', monospace;
+		font-size:0.86rem; line-height:1.5; color:#d4d4d4;
+		white-space:pre-wrap; overflow-wrap:break-word; word-break:break-word; tab-size:4;
+	}
+	.code-body .tok-com { color:#6a9955; }
+	.code-body .tok-kw  { color:#569cd6; }
+	.code-body .tok-str { color:#ce9178; }
+	.code-body .tok-fn  { color:#dcdcaa; }
+	.code-body .tok-mod { color:#4ec9b0; }
+	.code-body .tok-prop{ color:#9cdcfe; }
+	.code-body .tok-num { color:#b5cea8; }
+	.code-body .tok-punct { color:#d4d4d4; }
+	.code-body .code-hl { border-radius:4px; padding:0 0.15em; box-shadow:0 0 0 1px rgba(96,165,250,0.55); background:rgba(96,165,250,0.22); }
+	.code-duo { display:flex; gap:1.1rem; flex-wrap:wrap; align-items:flex-start; justify-content:center; width:100%; }
+	.code-duo .code-card { flex:1 1 380px; max-width:480px; }
+	.code-duo .code-body { font-size:0.8rem; line-height:1.45; }
+	.code-arrow { align-self:center; font-size:1.8rem; line-height:1; color:var(--theme-tertiary,#5c2d91); opacity:0; flex:none; }
+	.code-arrow.is-big { font-size:2.9rem; }
+	@media (max-width:760px) { .code-arrow { transform:rotate(90deg); } }
+
+	/* Use-case grid */
+	.uc-grid { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:1.1rem; width:min(980px,96%); }
+	@media (max-width:720px) { .uc-grid { grid-template-columns:1fr; } }
+	.uc-card {
+		display:flex; flex-direction:column; gap:0.5rem; padding:1rem 1.15rem;
+		border:1.5px solid var(--theme-border); border-top:4px solid var(--theme-primary,#0078d4);
+		border-radius:14px; background:var(--theme-card-background, #fff);
+		box-shadow:0 6px 22px rgba(0,0,0,0.12); opacity:0;
+		transition:transform 0.2s ease, box-shadow 0.2s ease;
+	}
+	.uc-card:hover { transform:translateY(-4px); box-shadow:0 12px 30px rgba(0,0,0,0.18); }
+	body.theme-dark .uc-card { background:rgba(255,255,255,0.05); }
+	.uc-card[data-uc="a"] { border-top-color:#0078d4; }
+	.uc-card[data-uc="b"] { border-top-color:#10a37f; }
+	.uc-card[data-uc="c"] { border-top-color:#e97526; }
+	.uc-card[data-uc="d"] { border-top-color:#d24aa8; }
+	.uc-head { display:flex; align-items:center; gap:0.55rem; font-size:1.25rem; font-weight:700; color:var(--theme-text); }
+	.uc-head .uc-icon { font-size:1.7rem; display:inline-block; }
+	.uc-desc { font-size:0.98rem; line-height:1.55; color:var(--theme-text-subtle); }
+	.uc-caps { display:flex; flex-wrap:wrap; gap:0.4rem; margin-top:0.2rem; }
+	.uc-cap {
+		display:inline-flex; align-items:center; gap:0.3rem; padding:0.25rem 0.7rem;
+		border-radius:999px; font-size:0.88rem; font-weight:700;
+		background:rgba(0,120,212,0.1); color:var(--theme-text);
+		border:1.5px solid rgba(0,120,212,0.4); opacity:0;
+	}
+
+	/* ── CONTROLS · icon dock ──────────────── */
+	#controls {
+		position:fixed; bottom:14px; left:50%; transform:translateX(-50%); z-index:40;
+		display:flex; align-items:center; gap:5px; padding:5px 7px;
+		background:var(--theme-body-background-translucent, rgba(255,255,255,0.82));
+		backdrop-filter:blur(12px) saturate(1.4); -webkit-backdrop-filter:blur(12px) saturate(1.4);
+		border:1px solid var(--theme-border); border-radius:999px;
+		box-shadow: 0 8px 26px rgba(0,0,0,0.18); font-size:13px;
+	}
+	body.theme-dark #controls { background:var(--theme-body-background-translucent, rgba(32,32,36,0.82)); }
+	#controls .ctrl-icon {
+		width:2.15rem; height:2.15rem; min-width:0; padding:0;
+		display:inline-flex; align-items:center; justify-content:center;
+		border-radius:50%; font-size:0.95rem; line-height:1; font-weight:600;
+		transition:background 0.18s ease, color 0.18s ease, transform 0.12s ease, box-shadow 0.18s ease;
+	}
+	#controls .ctrl-icon:hover { transform:translateY(-1px); }
+	#controls .ctrl-icon:active { transform:scale(0.92); }
+	#controls .ctrl-icon-next {
+		width:2.55rem; height:2.55rem; font-size:1.1rem;
+		box-shadow:0 2px 8px var(--theme-primary-translucent, rgba(0,120,212,0.45));
+	}
+	.step-counter {
+		min-width:52px; text-align:center; font-variant-numeric:tabular-nums;
+		font-size:14px; font-weight:700; color:var(--theme-text);
+		padding:0 6px; white-space:nowrap; letter-spacing:0.02em;
+	}
+	.ctrl-sep { width:1px; align-self:stretch; margin:4px 2px; background:var(--theme-border); }
+	/* Movable dock: drag handle + pin-to-center button */
+	.ctrl-grip {
+		display:inline-flex; align-items:center; justify-content:center;
+		width:1.5rem; height:2.15rem; padding:0; border:none; background:transparent;
+		color:var(--theme-text-subtle); border-radius:8px; cursor:grab; touch-action:none;
+		transition:background 0.18s ease, color 0.18s ease;
+	}
+	.ctrl-grip:hover { color:var(--theme-text); background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); }
+	.ctrl-grip:active { cursor:grabbing; }
+	.ctrl-grip svg { width:13px; height:16px; pointer-events:none; }
+	body.controls-floating .ctrl-grip { color:var(--theme-primary,#0078d4); }
+	#controls .ctrl-pin { display:none; color:var(--theme-primary,#0078d4); }
+	#controls .ctrl-pin svg { width:15px; height:15px; pointer-events:none; }
+	body.controls-floating #controls .ctrl-pin { display:inline-flex; }
+	body.controls-floating #controls { box-shadow:0 10px 30px rgba(0,0,0,0.30), 0 0 0 1.5px var(--theme-primary,#0078d4); }
+	.speed-control { display:inline-flex; align-items:center; gap:1px; padding:2px 3px; border:1px solid var(--theme-border); border-radius:999px; }
+	.speed-control .speed-btn {
+		width:1.7rem; height:1.7rem; min-width:0; padding:0;
+		display:inline-flex; align-items:center; justify-content:center;
+		font-size:0.95rem; font-weight:700; border-radius:50%;
+	}
+	.speed-control .speed-btn[disabled] { opacity:0.4; cursor:not-allowed; }
+	.speed-label { min-width:2.4rem; text-align:center; font-variant-numeric:tabular-nums; font-size:0.82rem; font-weight:700; color:var(--theme-text); }
+
+	#callout-toggle, #outline-toggle, #audio-toggle { border:1px solid var(--theme-border); border-radius:4px; transition:background .2s,color .2s,border-color .2s,opacity .2s; }
+	#callout-toggle.toggle-active, #outline-toggle.toggle-active, #audio-toggle.toggle-active {
+		background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary,#0078d4); border-color:var(--theme-primary,#0078d4); font-weight:600;
+	}
+	#callout-toggle:not(.toggle-active), #outline-toggle:not(.toggle-active), #audio-toggle:not(.toggle-active) { opacity:0.6; }
+
+	/* ── HIDE/SHOW TOP BAR ─────────────────── */
+	#header-hide { display:inline-flex; align-items:center; justify-content:center; width:2rem; height:2rem; padding:0; border:1px solid var(--theme-border); border-radius:50%; color:var(--theme-text-subtle); transition:background .2s,color .2s,transform .18s; }
+	#header-hide:hover { color:var(--theme-text); transform:translateY(-1px); }
+	#header-hide svg { width:16px; height:16px; }
+	#header-hide-top { display:inline-flex; align-items:center; justify-content:center; width:2rem; height:2rem; padding:0; border:1px solid var(--theme-border); border-radius:50%; color:var(--theme-text-subtle); background:transparent; cursor:pointer; transition:background .2s,color .2s,transform .18s; }
+	#header-hide-top:hover { color:var(--theme-text); transform:translateY(-1px); }
+	#header-hide-top svg { width:16px; height:16px; }
+	body.chrome-hidden .app-header, body.chrome-hidden .progress-track { display:none; }
+	#header-reveal {
+		position:fixed; top:0; left:50%; transform:translateX(-50%) translateY(-100%); z-index:45;
+		display:inline-flex; align-items:center; gap:0.35rem; padding:5px 14px 6px; font-size:12px; font-weight:600; line-height:1;
+		color:var(--theme-text-subtle); background:var(--theme-body-background-translucent, rgba(255,255,255,0.88));
+		backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border:1px solid var(--theme-border); border-top:none; border-radius:0 0 12px 12px;
+		box-shadow:0 4px 14px rgba(0,0,0,0.14); cursor:pointer; transition:transform .28s cubic-bezier(0.2,0.7,0.3,1), color .2s, background .2s;
+	}
+	body.theme-dark #header-reveal { background:var(--theme-body-background-translucent, rgba(32,32,36,0.88)); }
+	#header-reveal:hover { color:var(--theme-text); }
+	body.chrome-hidden #header-reveal { transform:translateX(-50%) translateY(0); }
+	#header-reveal svg { width:14px; height:14px; }
+
+	/* ── PLAYER OVERLAY · pills inside the stage frame (YouTube-style) ──
+	   Two translucent pills float over the 16:9 frame: LEFT = "view options"
+	   (callout / outline / shortcuts), RIGHT = "player" (audio / captions / hide-bar / fullscreen). */
+	.stage-overlay {
+		position:absolute; right:12px; bottom:10px; z-index:25;
+		display:flex; align-items:center; gap:2px;
+		padding:3px 6px; border-radius:999px;
+		background:rgba(16,18,24,0.58);
+		backdrop-filter:blur(9px) saturate(1.3); -webkit-backdrop-filter:blur(9px) saturate(1.3);
+		box-shadow:0 4px 16px rgba(0,0,0,0.32);
+	}
+	.ovl-btn {
+		-webkit-appearance:none; appearance:none; margin:0; font:inherit;
+		display:inline-flex; align-items:center; justify-content:center; gap:4px;
+		min-width:30px; height:30px; padding:0 8px;
+		border:none !important; border-radius:999px !important;
+		background:transparent !important; color:#fff !important;
+		box-shadow:none !important; cursor:pointer; line-height:1;
+		font-size:0.82rem; font-weight:700; opacity:0.92; transition:background .15s ease, opacity .15s ease;
+	}
+	.ovl-btn:hover { background:rgba(255,255,255,0.16) !important; opacity:1; }
+	.ovl-btn:disabled { opacity:0.4; cursor:not-allowed; }
+	.ovl-btn svg { width:18px; height:18px; fill:currentColor; display:block; }
+	.ovl-btn.on { color:#5cc8ff !important; }
+	.stage-overlay #audio-toggle { opacity:1 !important; }
+	.stage-overlay .aw-audio-ico { font-size:1rem; line-height:1; }
+	.stage-overlay .aw-audio-time { font-size:0.78rem; font-variant-numeric:tabular-nums; letter-spacing:0.02em; opacity:0.95; min-width:2.4em; text-align:left; }
+	#cc-toggle svg { width:20px; height:20px; }
+	.ovl-btn .fs-exit { display:none; }
+	body.is-fs .ovl-btn .fs-enter { display:none; }
+	body.is-fs .ovl-btn .fs-exit { display:block; }
+
+	/* ── LEFT VIEW-OPTIONS PILL · Callout / Outline / Shortcuts (icon + hover tip) ── */
+	.stage-overlay-left { right:auto; left:12px; }
+	#stage-overlay-left .ovl-btn:not(.toggle-active) { opacity:0.86; }
+	#stage-overlay-left .ovl-btn.toggle-active { color:#5cc8ff !important; opacity:1; }
+	#stage-overlay-left .ovl-btn:hover { opacity:1; }
+	/* Hover tooltip shown above the icon (left-anchored so it never clips the frame edge) */
+	.ovl-btn[data-tip] { position:relative; }
+	.ovl-btn[data-tip]::after { content:attr(data-tip); position:absolute; left:0; bottom:calc(100% + 9px); transform:translateY(4px); padding:4px 8px; border-radius:6px; background:rgba(16,18,24,0.96); color:#fff; font-size:0.72rem; font-weight:600; white-space:nowrap; letter-spacing:0.01em; opacity:0; pointer-events:none; box-shadow:0 3px 12px rgba(0,0,0,0.45); transition:opacity .14s ease, transform .14s ease; z-index:40; }
+	.ovl-btn[data-tip]::before { content:''; position:absolute; left:13px; bottom:calc(100% + 4px); border:5px solid transparent; border-top-color:rgba(16,18,24,0.96); opacity:0; pointer-events:none; transition:opacity .14s ease; z-index:40; }
+	.ovl-btn[data-tip]:hover::after { opacity:1; transform:translateY(0); }
+	.ovl-btn[data-tip]:hover::before { opacity:1; }
+
+	/* ── CAPTION · overlaid inside the frame, draggable + resizable, stays solid (not see-through) ── */
+	#aw-caption {
+		position:absolute; left:50%; transform:translateX(-50%); bottom:56px; z-index:24;
+		max-width:92%; min-width:140px; min-height:38px; max-height:44%;
+		display:none; align-items:center; justify-content:center; text-align:center;
+		padding:0.42rem 0.95rem; border-radius:9px;
+		background:rgba(8,9,13,0.8); color:#fff;
+		font-size:1.1rem; line-height:1.36; font-weight:600;
+		box-shadow:0 3px 14px rgba(0,0,0,0.42); pointer-events:auto; cursor:grab; touch-action:none;
+		overflow:auto; resize:both;   /* user can reshape the caption; corner grip = resize */
+	}
+	#aw-caption:active { cursor:grabbing; }
+	#aw-caption::-webkit-resizer { background:linear-gradient(135deg, transparent 45%, rgba(255,255,255,0.55) 45%, rgba(255,255,255,0.55) 55%, transparent 55%); }
+	body.cc-on #aw-caption.has-text { display:flex; }
+	@media (max-width:640px){ #aw-caption { font-size:0.94rem; bottom:48px; max-width:90%; } }
+
+	/* ── OUTLINE PANEL · draggable + slightly see-through ── */
+	#step-outline {
+		position:fixed; top:4.5rem; right:1rem; width:320px; max-height:calc(100vh - 8rem); overflow-y:auto;
+		padding:1.1rem; background:var(--theme-body-background);
+		background:color-mix(in srgb, var(--theme-body-background) 85%, transparent);
+		-webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
+		border:1px solid var(--theme-border);
+		border-radius:6px; box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2)); z-index:35; font-size:1rem; line-height:1.55;
+		cursor:grab; touch-action:none;
+	}
+	#step-outline:active { cursor:grabbing; }
+	#step-outline[hidden] { display:none; }
+	#step-outline h2 { font-size:0.85rem; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--theme-tertiary,#5c2d91); margin-bottom:0.5rem; }
+	#step-outline .outline-section { margin-top:0.6rem; padding-top:0.6rem; border-top:1px solid var(--theme-border); }
+	#step-outline .outline-section:first-child { margin-top:0; padding-top:0; border-top:0; }
+	#step-outline .stat-row { display:flex; justify-content:space-between; align-items:baseline; gap:0.75rem; padding:0.2rem 0; }
+	#step-outline .stat-row span:first-child { color:var(--theme-text-subtle); flex:0 0 auto; max-width:45%; }
+	#step-outline .stat-row span:last-child { text-align:right; font-weight:600; color:var(--theme-tertiary,#5c2d91); flex:1 1 auto; }
+
+	.progress-track { position:relative; height:6px; background:var(--theme-border, #e0e0e0); flex-shrink:0; cursor:pointer; }
+	.progress-fill { position:absolute; left:0; top:0; bottom:0; width:0%; background:var(--aw-purple, #5c2d91); transition:width .5s cubic-bezier(0.2,0.8,0.2,1); pointer-events:none; }
+	.progress-tick { position:absolute; top:0; bottom:0; width:2px; margin-left:-1px; background:var(--theme-body-background); opacity:0.6; pointer-events:none; }
+
+	/* ── THEME / LANG / FONT CONTROLS ──────── */
+	.theme-toggle { display:inline-flex; align-items:center; justify-content:center; width:2.25rem; height:2.25rem; padding:0; margin-inline-start:0.25rem; background:transparent; border:1px solid var(--theme-border); border-radius:999px; color:var(--theme-text); cursor:pointer; transition:background .15s,color .15s,border-color .15s; }
+	.theme-toggle:hover { background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary); border-color:var(--theme-primary); }
+	.theme-toggle .theme-icon { display:none; }
+	.theme-toggle[data-theme="dark"] .icon-sun { display:block; }
+	.theme-toggle[data-theme="light"] .icon-moon { display:block; }
+	.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+	.skip-link { position:absolute; top:-100px; left:0.5rem; z-index:100; padding:0.5rem 1rem; background:var(--theme-primary); color:var(--theme-primary-invert,#fff); border-radius:4px; text-decoration:none; font-weight:600; }
+	.skip-link:focus { top:0.5rem; }
+	.header-back-link { display:inline-flex; align-items:center; gap:0.25rem; padding:0.2rem 0.6rem; font-size:0.8rem; font-weight:600; color:var(--theme-text-subtle); border:1px solid var(--theme-border); border-radius:999px; text-decoration:none; white-space:nowrap; transition:background .15s,color .15s,border-color .15s; }
+	.header-back-link:hover { color:var(--theme-primary); border-color:var(--theme-primary); background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); }
+	.lang-select {
+		appearance:none; -webkit-appearance:none; background:var(--theme-card-background,#fff); color:var(--theme-body-text,#333);
+		border:1px solid var(--theme-border, rgba(0,0,0,0.2)); border-radius:4px; padding:4px 24px 4px 8px;
+		font-size:0.8rem; font-family:'Segoe UI', sans-serif; cursor:pointer;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+		background-repeat:no-repeat; background-position:right 6px center; min-width:80px;
+	}
+	.lang-select:hover { border-color:var(--theme-primary, #0078d4); }
+	.lang-select:focus { outline:2px solid var(--theme-primary, #0078d4); outline-offset:1px; }
+	body.theme-dark .lang-select {
+		background-color:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); border-color:rgba(255,255,255,0.15);
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23aaa' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+	}
+	body.theme-dark .lang-select option { background:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); }
+	.font-size-controls { display:flex; align-items:center; gap:2px; }
+	.font-size-btn { background:var(--theme-card-background,#fff); color:var(--theme-body-text,#333); border:1px solid var(--theme-border, rgba(0,0,0,0.2)); border-radius:4px; padding:3px 8px; font-size:0.8rem; font-weight:700; font-family:'Segoe UI', sans-serif; cursor:pointer; line-height:1.2; transition:background .15s,border-color .15s; }
+	.font-size-btn:hover { border-color:var(--theme-primary, #0078d4); }
+	body.theme-dark .font-size-btn { background:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); border-color:rgba(255,255,255,0.15); }
+
+	/* Inline icons (crisp on any OS/projector — replaces raw emoji on stage) */
+	.ic { display:inline-flex; align-items:center; justify-content:center; vertical-align:-0.125em; }
+	.ic svg { width:1em; height:1em; fill:currentColor; display:block; }
+	.help-toggle svg { width:15px; height:15px; vertical-align:-2px; }
+
+	/* Keyboard shortcut overlay */
+	#shortcut-overlay { position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center; }
+	#shortcut-overlay[hidden] { display:none; }
+	.sc-backdrop { position:absolute; inset:0; background:rgba(0,0,0,0.5); -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px); }
+	.sc-panel { position:relative; z-index:1; width:min(430px,92vw); max-height:82vh; overflow:auto; padding:1.5rem 1.6rem; background:var(--theme-body-background); border:1px solid var(--theme-border); border-radius:16px; box-shadow:0 24px 70px rgba(0,0,0,0.4); }
+	.sc-panel h2 { margin:0 0 1rem; font-size:1.25rem; color:var(--theme-tertiary,#5c2d91); }
+	body.theme-dark .sc-panel h2 { color:#c9a5e8; }
+	.sc-close { position:absolute; top:0.7rem; right:0.7rem; width:2rem; height:2rem; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--theme-border); border-radius:50%; background:transparent; color:var(--theme-text-subtle); cursor:pointer; }
+	.sc-close:hover { color:var(--theme-text); border-color:var(--theme-primary,#0078d4); }
+	.sc-close svg { width:15px; height:15px; }
+	.sc-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:0.55rem; }
+	.sc-list li { display:flex; align-items:center; justify-content:space-between; gap:1rem; font-size:1rem; color:var(--theme-text); }
+	.sc-keys { display:inline-flex; gap:0.3rem; flex:none; }
+	.sc-panel kbd, .sc-hint kbd { font-family:'Cascadia Code','Consolas',monospace; font-size:0.82rem; line-height:1; padding:0.28rem 0.5rem; border-radius:6px; border:1px solid var(--theme-border); border-bottom-width:2px; background:var(--theme-card-background,#fff); color:var(--theme-text); }
+	body.theme-dark .sc-panel kbd, body.theme-dark .sc-hint kbd { background:rgba(255,255,255,0.08); }
+	.sc-hint { margin:1.1rem 0 0; font-size:0.85rem; color:var(--theme-text-subtle); text-align:center; }
+
+	/* ══ SHIP IT (si-*) ═══════════════════════════════════ */
+	:root { --si-pass:#2da44e; --si-build:#e2681a; --si-cloud:#0b6bcb; --si-scan:#5c2d91; --si-warn:#c2410c; --si-mute:#5b6270; }
+	body.theme-dark { --si-pass:#57d977; --si-build:#ffab6b; --si-cloud:#6fa5ff; --si-scan:#c9a5e8; --si-warn:#ff9166; --si-mute:#a8adba; }
+
+	.si-arw { flex:none; align-self:center; color:var(--theme-text-subtle,#5b6270); opacity:0; }
+	.si-arw svg { display:block; width:100%; height:auto; fill:currentColor; }
+	/* step 1 · where we are — the two-lane delivery flow */
+	.fl-wrap { width:100%; opacity:0; }
+	.fl-wrap svg { display:block; width:100%; height:auto; }
+	.fl-lane { fill:none; stroke:var(--theme-text); stroke-width:5; stroke-linecap:round; }
+	.fl-lname { font-size:24px; font-weight:600; fill:var(--theme-text); }
+	.fl-hop { fill:none; stroke:var(--theme-text-subtle,#5b6270); stroke-width:3; stroke-dasharray:9 7; }
+	.fl-flow { fill:none; stroke:var(--theme-text-subtle,#5b6270); stroke-width:3; }
+	.fl-loopline { fill:none; stroke:var(--si-warn); stroke-width:3; }
+	.fl-fix { fill:var(--theme-card-background,#fff); stroke:var(--si-warn); stroke-width:4; }
+	.fl-ring { fill:var(--theme-card-background,#fff); stroke-width:4; }
+	.fl-done .fl-ring { stroke:var(--si-pass); }
+	.fl-now .fl-ring { fill:var(--si-build); stroke:var(--si-build); }
+	.fl-next .fl-ring { stroke:var(--theme-text-subtle,#5b6270); stroke-dasharray:7 6; }
+	.fl-gl { fill:var(--si-pass); }
+	.fl-now .fl-gl { fill:#fff; }
+	.fl-next .fl-gl { fill:var(--theme-text-subtle,#5b6270); }
+	.fl-pulse { fill:none; stroke:var(--si-build); stroke-width:3; opacity:0; }
+	.fl-num { fill:var(--si-warn); }
+	.fl-numt { font-size:20px; font-weight:600; fill:#20222b; }
+	.fl-name { font-size:21px; font-weight:600; fill:var(--theme-text); }
+	.fl-sub { font-size:19px; fill:var(--theme-text-subtle,#5b6270); }
+	.fl-dia { fill:var(--theme-card-background,#fff); stroke:var(--theme-text-subtle,#5b6270); stroke-width:3; }
+	.fl-diat { font-size:21px; font-weight:600; fill:var(--theme-text); }
+	.fl-yn { font-size:20px; font-weight:600; fill:var(--si-warn); }
+	body.theme-dark .fl-ring, body.theme-dark .fl-dia, body.theme-dark .fl-fix { fill:#2a2b34; }
+	body.theme-dark .fl-lname, body.theme-dark .fl-name, body.theme-dark .fl-diat { fill:#ececf1; }
+	body.theme-dark .fl-sub { fill:#a8adba; }
+
+	/* step 3 · the pipeline drawn as a conveyor — machines on a belt, the artifact riding through.
+	   Depth is flat-shaded faces (no gradients). Casings stay NEUTRAL; --ac carries the stage colour so
+	   four machines in a row don't shout. */
+	.cv-wrap { width:100%; opacity:0; }
+	.cv-wrap svg { display:block; width:100%; height:auto; }
+	.iso-t { fill:var(--mc); filter:brightness(1.14); }
+	.iso-f { fill:var(--mc); }
+	.iso-s { fill:var(--mc); filter:brightness(0.76); }
+	.cv-beltg { --mc:#9aa3b1; }
+	body.theme-dark .cv-beltg { --mc:#3b3f4a; }
+	.cv-mach { --mc:#cfd6de; }
+	body.theme-dark .cv-mach { --mc:#565c69; }
+	.cv-pkgg { --mc:#d8b98a; }
+	body.theme-dark .cv-pkgg { --mc:#b08f5f; }
+	.cv-roller { fill:var(--theme-card-background,#fff); stroke:var(--si-mute); stroke-width:3.5; }
+	body.theme-dark .cv-roller { fill:#2a2b34; }
+	.cv-tread { stroke:#fff; stroke-width:2.5; opacity:0.38; }
+	.cv-panel { fill:var(--theme-card-background,#fff); }
+	body.theme-dark .cv-panel { fill:#20222b; }
+	.cv-gl { fill:var(--ac); }
+	.cv-name { font-size:23px; font-weight:600; fill:var(--ac); }
+	.cv-desc { font-size:19px; fill:var(--theme-text); }
+	body.theme-dark .cv-desc { fill:#ececf1; }
+	.cv-chipt { font-family:'Cascadia Code','Consolas',monospace; font-size:17px; font-weight:600; fill:var(--ac); }
+	/* each station's working area, cast down onto the belt it acts on */
+	.cv-beam { fill:var(--ac); opacity:0.13; }
+	.cv-pad { fill:none; stroke:var(--si-mute); stroke-width:2.5; stroke-dasharray:7 6; }
+	.cv-flame-o { fill:#f08a1e; }
+	.cv-flame-i { fill:#ffd15c; }
+	/* a background zone, not a bracket — painted first so it sits behind the rig */
+	.cv-hi { fill:var(--si-build); fill-opacity:0.09; stroke:var(--si-build); stroke-opacity:0.4;
+		stroke-width:2.5; stroke-dasharray:10 8; }
+	.cv-hia { font-size:21px; fill:var(--theme-text); }
+	body.theme-dark .cv-hia { fill:#ececf1; }
+	.cv-hib { font-size:22px; font-weight:600; fill:var(--si-build); }
+	.cv-codeg { --mc:#8fb8e8; }
+	body.theme-dark .cv-codeg { --mc:#4d6f9c; }
+	.cv-artg { --mc:#d8b98a; }
+	body.theme-dark .cv-artg { --mc:#b08f5f; }
+	.cv-badg { --mc:#e08b7a; }
+	.cv-boxt { font-family:'Cascadia Code','Consolas',monospace; font-size:14px; font-weight:600; fill:#1f2430; }
+	.cv-artt { font-family:'Cascadia Code','Consolas',monospace; font-size:15px; font-weight:600; fill:#3a2c15; }
+	.cv-xray { fill:#5fe3ff; opacity:0; }
+	.cv-verdict { font-size:30px; font-weight:700; }
+	.cv-ok { fill:var(--si-pass); }
+	.cv-no { fill:#c2410c; }
+
+	/* step 4 · who owns the machine — same extruded 2.5D language as the conveyor */
+	.rn-wrap { width:100%; opacity:0; }
+	.rn-wrap svg { display:block; width:100%; height:auto; }
+	.rn-zone { fill:var(--ac); fill-opacity:0.06; stroke:var(--ac); stroke-opacity:0.5;
+		stroke-width:2.5; stroke-dasharray:10 8; }
+	.rn-ztitle { font-size:23px; font-weight:600; fill:var(--ac); }
+	.rn-zsub { font-size:17px; fill:var(--theme-text); }
+	.rn-zcap { font-size:16px; fill:var(--theme-text-subtle,#5b6270); }
+	body.theme-dark .rn-zsub { fill:#ececf1; }
+	body.theme-dark .rn-zcap { fill:#a8adba; }
+	.rn-badge { fill:var(--bc); fill-opacity:0.14; stroke:var(--bc); stroke-width:2; }
+	.rn-badget { font-size:15px; font-weight:600; fill:var(--bc); }
+	.rn-vm { --mc:#cfd6de; }
+	body.theme-dark .rn-vm { --mc:#565c69; }
+	.rn-face { fill:var(--theme-card-background,#fff); }
+	body.theme-dark .rn-face { fill:#20222b; }
+	.rn-vmt { font-family:'Cascadia Code','Consolas',monospace; font-size:17px; font-weight:600; fill:var(--ac); }
+	.rn-price { fill:none; stroke:var(--ac); stroke-width:2; }
+	.rn-pricet { font-family:'Cascadia Code','Consolas',monospace; font-size:16px; font-weight:600; fill:var(--ac); }
+	.rn-strip { fill:var(--ac); fill-opacity:0.08; stroke:none; }
+	.rn-stript { font-size:16.5px; fill:var(--theme-text); }
+	.rn-stripsub { font-size:15.5px; fill:var(--theme-text-subtle,#5b6270); }
+	body.theme-dark .rn-stript { fill:#ececf1; }
+	body.theme-dark .rn-stripsub { fill:#a8adba; }
+	.rn-chip { fill:var(--theme-card-background,#fff); stroke:var(--ac); stroke-width:2; }
+	body.theme-dark .rn-chip { fill:#20222b; }
+	.rn-chipt { font-family:'Cascadia Code','Consolas',monospace; font-size:16px; font-weight:600; fill:var(--ac); }
+	.rn-tile { fill:var(--theme-card-background,#fff); stroke:var(--ac); stroke-width:2; }
+	body.theme-dark .rn-tile { fill:#2a2b34; }
+	.rn-tilet { font-size:17px; font-weight:600; fill:var(--theme-text); }
+	body.theme-dark .rn-tilet { fill:#ececf1; }
+	.rn-gl { fill:var(--ac); }
+	.rn-link { fill:none; stroke:var(--ac); stroke-width:2.5; stroke-opacity:0.75; }
+	.rn-rackt { font-size:17px; font-weight:600; fill:var(--ac); }
+	.rn-line { font-size:16.5px; fill:var(--theme-text); }
+	body.theme-dark .rn-line { fill:#ececf1; }
+	.rn-dot { fill:var(--ac); }
+
+	.pl-why { display:flex; align-items:stretch; justify-content:center; gap:0.8rem; width:100%; }
+	.pl-wcard { flex:1 1 0; min-width:0; display:flex; flex-direction:column; gap:0.28rem;
+		padding:0.85rem 1rem; opacity:0; border:2px solid var(--theme-border,#d8dde5); border-radius:12px;
+		background:var(--theme-card-background,#fff); }
+	body.theme-dark .pl-wcard { background:#2a2b34; border-color:#3f4150; }
+	.pl-wtitle { font-size:1.08rem; font-weight:600; color:var(--si-pass); line-height:1.3; }
+	.pl-wtext { font-size:1.02rem; line-height:1.45; color:var(--theme-text); }
+
+	.si-note { font-size:1.15rem; line-height:1.55; text-align:center; color:var(--theme-text); opacity:0; max-width:1000px; }
+	.si-note strong { font-weight:600; }
+	.si-note code { font-family:'Cascadia Code','Consolas',monospace; font-size:1.05rem; padding:0.1rem 0.4rem;
+		border-radius:5px; background:color-mix(in srgb, var(--si-scan) 14%, transparent); }
+	/* the diagrams are the payload — give them more air than the shared 1.4rem */
+	.scene { gap:1.9rem; }
+	.scene.is-wide { width:min(1290px, 98%); }
+
+	/* shared code block */
+	.si-code { padding:2.2rem 1.8rem; opacity:0; border:2px solid var(--tc,var(--si-scan)); border-radius:14px;
+		background:#1e1f28; display:flex; flex-direction:column; gap:0.2rem; }
+	.si-cline { font-family:'Cascadia Code','Consolas',monospace; font-size:1.1rem; line-height:2.2; color:#e6e6ef; white-space:nowrap; }
+	.si-cline .cm { color:#8b93a7; }
+	.si-cline .kw { color:#ff9d6b; }
+	.si-cline .st { color:#7ee787; font-weight:600; }
+
+	/* step 1 · the shift-left cost curve */
+	.si-shift { display:flex; align-items:flex-end; justify-content:center; gap:1.1rem; width:100%; }
+	.si-sstage { flex:1 1 0; display:flex; flex-direction:column; align-items:center; gap:0.75rem; opacity:0; }
+	/* the value sits ABOVE the bar — inside it, the 1× bar is too short to hold a label */
+	.si-scol { width:100%; height:250px; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; gap:0.45rem; }
+	.si-sbar { display:block; width:100%; border-radius:10px 10px 0 0; background:var(--stc); }
+	.si-sval { font-size:1.3rem; font-weight:700; color:var(--stc); line-height:1; }
+	.si-slab { font-size:1.18rem; font-weight:600; color:var(--stc); line-height:1.3; text-align:center; }
+	.si-swhen { font-size:1.05rem; color:var(--si-mute); line-height:1.4; text-align:center; }
+	.si-leftward { display:inline-flex; align-items:center; gap:0.8rem; padding:0.9rem 1.6rem; border-radius:999px;
+		opacity:0; font-size:1.18rem; font-weight:600; color:var(--si-pass); border:2px solid var(--si-pass); }
+	.si-leftward .si-lw { font-size:1.5rem; line-height:1; }
+
+	/* step 2 · what a pipeline actually is */
+	.si-pipe { display:flex; align-items:stretch; justify-content:center; gap:1.1rem; width:100%; }
+	.si-pcard { flex:1 1 0; display:flex; flex-direction:column; gap:0.7rem; padding:1.9rem 1.3rem; opacity:0;
+		border:2px solid var(--pcc); border-radius:14px; background:var(--theme-card-background,#fff); }
+	body.theme-dark .si-pcard { background:#2a2b34; }
+	.si-pcard.is-runner { border-width:2.5px; background:color-mix(in srgb, var(--pcc) 10%, transparent); }
+	.si-plab { font-size:0.98rem; font-weight:600; letter-spacing:0.07em; text-transform:uppercase; color:var(--pcc); }
+	.si-pttl { font-size:1.28rem; font-weight:700; color:var(--pcc); line-height:1.3; }
+	.si-pmono { font-family:'Cascadia Code','Consolas',monospace; font-size:1.08rem; color:var(--theme-text); line-height:1.5; }
+	.si-pline { display:flex; gap:0.55rem; font-size:1.06rem; line-height:1.45; color:var(--theme-text); }
+	.si-pline::before { content:"\203A"; color:var(--pcc); font-weight:700; flex:none; }
+	.si-pchips { margin-top:auto; padding-top:0.6rem; display:flex; flex-wrap:wrap; gap:0.45rem; }
+	.si-pchip { font-size:1rem; font-weight:500; padding:0.36rem 0.8rem; border-radius:999px;
+		border:1.5px solid var(--pcc); color:var(--theme-text); }
+
+	/* step 6 · secrets */
+	.si-sec { display:flex; align-items:stretch; justify-content:center; gap:1.2rem; width:100%; }
+	.si-never { flex:1 1 0; display:flex; flex-direction:column; gap:0.8rem; padding:2rem 1.5rem; opacity:0;
+		border:2px dashed var(--si-warn); border-radius:14px; }
+	.si-nlab { font-size:1.15rem; font-weight:700; color:var(--si-warn); line-height:1.3; padding-bottom:0.5rem;
+		border-bottom:2px solid color-mix(in srgb, var(--si-warn) 35%, transparent); }
+	.si-nitem { display:flex; gap:0.6rem; font-size:1.1rem; line-height:1.45; color:var(--theme-text); }
+	.si-nitem::before { content:"\2715"; color:var(--si-warn); font-weight:700; flex:none; }
+	.si-instead { display:flex; flex-direction:column; gap:0.8rem; }
+	.si-insteadwin { flex:1 1 0; opacity:0; }
+	.si-ilab { font-size:1.15rem; font-weight:700; color:var(--si-pass); line-height:1.3; padding-bottom:0.5rem;
+		border-bottom:2px solid color-mix(in srgb, var(--si-pass) 35%, transparent); }
+	.si-iitem { display:flex; gap:0.6rem; font-size:1.1rem; line-height:1.45; color:var(--theme-text); }
+	.si-iitem::before { content:"\2713"; color:var(--si-pass); font-weight:700; flex:none; }
+	.si-usage { margin-top:auto; padding-top:0.7rem; font-family:'Cascadia Code','Consolas',monospace;
+		font-size:1.06rem; font-weight:600; color:var(--si-scan); }
+
+	/* steps 2-4 · a workflow file beside what it produces */
+	.si-duo { display:flex; align-items:center; justify-content:center; gap:1.3rem; width:100%; }
+	.si-out { display:flex; flex-direction:column; gap:0.85rem; }
+	.si-outwin { flex:0 0 470px; opacity:0; }
+	.si-item { display:flex; align-items:center; gap:0.85rem; padding:1.4rem 1.3rem; opacity:0;
+		border:2px solid var(--ic); border-radius:12px; font-size:1.12rem; color:var(--theme-text);
+		background:var(--theme-card-background,#fff); }
+	body.theme-dark .si-item { background:#2a2b34; }
+	.si-iico { flex:none; width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+		font-size:1.05rem; font-weight:700; color:#fff; background:var(--ic); }
+	body.theme-dark .si-iico { color:#12131a; }
+	.si-itag { margin-left:auto; flex:none; font-size:1rem; font-weight:600; color:var(--ic); }
+
+	/* step 10 · recap — deliberately the same rig as step 3, but now it is the PULL REQUEST on the belt */
+	.rp-wrap { width:100%; opacity:0; }
+	.rp-wrap svg { display:block; width:100%; height:auto; }
+	.rp-trig { fill:var(--theme-card-background,#fff); stroke:var(--si-mute); stroke-width:2; }
+	body.theme-dark .rp-trig { fill:#2a2b34; }
+	.rp-trigt { font-size:18px; fill:var(--theme-text); }
+	body.theme-dark .rp-trigt { fill:#ececf1; }
+	.rp-name { font-size:23px; font-weight:600; fill:var(--ac); }
+	.rp-desc { font-size:19px; fill:var(--theme-text); }
+	body.theme-dark .rp-desc { fill:#ececf1; }
+	.rp-mach { --mc:#cfd6de; }
+	body.theme-dark .rp-mach { --mc:#565c69; }
+	.rp-beltg { --mc:#9aa3b1; }
+	body.theme-dark .rp-beltg { --mc:#3b3f4a; }
+	.rp-panel { fill:var(--theme-card-background,#fff); }
+	body.theme-dark .rp-panel { fill:#20222b; }
+	.rp-gl { fill:var(--ac); }
+	.rp-chipt { font-family:'Cascadia Code','Consolas',monospace; font-size:17px; font-weight:600; fill:var(--ac); }
+	.rp-beam { fill:var(--ac); opacity:0.13; }
+	.rp-tread { stroke:#fff; stroke-width:2.5; opacity:0.38; }
+	.rp-roller { fill:var(--theme-card-background,#fff); stroke:var(--si-mute); stroke-width:3.5; }
+	body.theme-dark .rp-roller { fill:#2a2b34; }
+	.rp-prg { --mc:#8fb8e8; }
+	body.theme-dark .rp-prg { --mc:#4d6f9c; }
+	.rp-okg { --mc:#7fd39b; }
+	body.theme-dark .rp-okg { --mc:#4e9a6b; }
+	.rp-boxt { font-family:'Cascadia Code','Consolas',monospace; font-size:15px; font-weight:600; fill:#1f2430; }
+	.rp-tick { fill:var(--si-pass); }
+	.rp-tickg { fill:#fff; }
+	.rp-lineA { font-size:21px; fill:var(--theme-text); }
+	body.theme-dark .rp-lineA { fill:#ececf1; }
+	.rp-lineB { font-size:22px; font-weight:600; fill:var(--si-pass); }
+
+	@media (max-width:640px) { .app-header { font-size:0.95rem; } .scene-title { font-size:1.9rem; } #stage { padding:0.9rem 1rem 4.5rem; } }
+	@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition:none !important; animation:none !important; } .progress-fill { transition:none !important; } }
+</style>
+</head>
+
+<body class="theme-dark" data-theme-preset="atlas">
+
+	<a href="#stage" class="skip-link">Skip to diagram</a>
+
+	<header class="app-header padding-block-xs padding-inline-md border-bottom" role="banner" style="justify-content:space-between;">
+		<div class="display-flex align-items-center gap-xs">
+			<!-- Set href to the previous animation in the journey, or the hub index.html -->
+			<a href="index.html" id="back-link" class="header-back-link" aria-label="Back to the Contoso delivery journey" title="Back to the journey">&larr; Journey</a>
+			<span id="page-title" class="font-size-h6 font-weight-semibold">&#10024; Why Contoso Is Building This</span>
+		</div>
+		<nav class="display-flex gap-xs align-items-center" aria-label="Primary">
+			<span id="breadcrumb" class="font-size-sm color-text-subtle">Step 1</span>
+		</nav>
+		<div class="display-flex gap-xs align-items-center">
+			<select id="lang-select" class="lang-select" aria-label="Language">
+				<option value="en">English</option>
+				<!-- add es/ja/ko/pt <option>s once translations are added -->
+			</select>
+			<div class="font-size-controls">
+				<button id="font-decrease" type="button" class="font-size-btn" aria-label="Decrease font size" title="Smaller text">A&minus;</button>
+				<button id="font-increase" type="button" class="font-size-btn" aria-label="Increase font size" title="Larger text">A+</button>
+			</div>
+			<button id="theme-toggle" type="button" class="theme-toggle" aria-label="Switch theme" title="Switch theme">
+				<svg class="theme-icon icon-moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg>
+				<svg class="theme-icon icon-sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.5" y1="4.5" x2="6.5" y2="6.5"/><line x1="17.5" y1="17.5" x2="19.5" y2="19.5"/><line x1="4.5" y1="19.5" x2="6.5" y2="17.5"/><line x1="17.5" y1="6.5" x2="19.5" y2="4.5"/></g></svg>
+			</button>
+			<button id="header-hide-top" type="button" aria-label="Hide top bar" title="Hide top bar (H)">
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/></svg>
+			</button>
+		</div>
+	</header>
+
+	<button id="header-reveal" type="button" aria-label="Show top bar" title="Show top bar">
+		<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/></svg>
+		<span>Toolbar</span>
+	</button>
+
+	<div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
+
+	<main id="stage" tabindex="0" role="region" aria-labelledby="stage-heading" aria-describedby="stage-instructions">
+		<h1 id="stage-heading" class="sr-only" tabindex="-1">Why Contoso Is Building This</h1>
+		<p id="stage-instructions" class="sr-only">Animated explainer. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.</p>
+		<div id="step-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+		<!-- Fixed 16:9 stage. Every scene is drawn INSIDE this box; it always fits the viewport (no scrollbars). -->
+		<div id="stage-frame">
+			<svg id="fx-svg" aria-hidden="true" focusable="false">
+				<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L0,10 L10,5 Z" fill="currentColor"/></marker></defs>
+			</svg>
+			<!-- Caption bar (synced to the step's audio clip by aw-captions.js) -->
+			<div id="aw-caption" class="aw-caption" aria-hidden="true"></div>
+			<!-- LEFT pill · view options: callout / outline / shortcuts (icons; label shows as a hover tooltip) -->
+			<div id="stage-overlay-left" class="stage-overlay stage-overlay-left" role="group" aria-label="View options">
+				<button id="callout-toggle" type="button" class="ovl-btn" aria-label="Toggle callouts" aria-pressed="false" data-tip="Callouts: Off"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M4 5h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H10l-4 3v-3H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></svg></button>
+				<button id="outline-toggle" type="button" class="ovl-btn" aria-controls="step-outline" aria-expanded="false" aria-label="Toggle text outline" data-tip="Outline: Off"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" d="M4 6h16M4 12h16M4 18h10"/></svg></button>
+				<button id="help-toggle" class="ovl-btn help-toggle" type="button" aria-haspopup="dialog" aria-controls="shortcut-overlay" aria-label="Keyboard shortcuts (press ?)" data-tip="Shortcuts"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M11 18h2v-2h-2v2zm1.1-14C9.8 4 8 5.8 8 8h2a2 2 0 1 1 3.2 1.6c-.9.7-2.2 1.5-2.2 3.4h2c0-1 .8-1.5 1.7-2.2A4 4 0 0 0 12.1 4z"/></svg></button>
+			</div>
+			<!-- RIGHT pill · player: audio / captions / hide-top-bar / fullscreen -->
+			<div id="stage-overlay" class="stage-overlay" role="group" aria-label="Player controls">
+				<button id="audio-toggle" class="ovl-btn ovl-audio" type="button" aria-label="Toggle audio narration" aria-pressed="false" title="Narration audio"></button>
+				<button id="cc-toggle" class="ovl-btn" type="button" aria-label="Toggle captions" aria-pressed="false" title="Captions"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9.7 10.2a2.1 2.1 0 1 0 0 3.6M17 10.2a2.1 2.1 0 1 0 0 3.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+				<button id="header-hide" class="ovl-btn" type="button" aria-label="Hide top bar" title="Hide top bar (H)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/></svg></button>
+				<button id="fs-toggle" class="ovl-btn" type="button" aria-label="Toggle full screen" aria-pressed="false" title="Full screen (F)"><svg class="fs-enter" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg><svg class="fs-exit" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg></button>
+			</div>
+		</div>
+	</main>
+
+	<aside id="step-outline" hidden aria-label="Text outline of the current step">
+		<h2 id="outline-title">Step Details</h2>
+		<div id="outline-body"></div>
+	</aside>
+
+	<div id="controls" role="group" aria-label="Diagram navigation">
+		<button id="ctrl-grip" type="button" class="ctrl-grip" aria-label="Drag to move the controls" title="Drag to move">
+			<svg viewBox="0 0 16 16" aria-hidden="true"><g fill="currentColor"><circle cx="5" cy="3" r="1.4"/><circle cx="11" cy="3" r="1.4"/><circle cx="5" cy="8" r="1.4"/><circle cx="11" cy="8" r="1.4"/><circle cx="5" cy="13" r="1.4"/><circle cx="11" cy="13" r="1.4"/></g></svg>
+		</button>
+		<button id="ctrl-pin" type="button" class="button button-clear ctrl-icon ctrl-pin" aria-label="Pin the controls back to the center" title="Pin to center">
+			<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9 2h6a1 1 0 0 1 .8 1.6L14 6v4l3 3v2h-4v5l-1 2-1-2v-5H7v-2l3-3V6L8.2 3.6A1 1 0 0 1 9 2z"/></svg>
+		</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="prev-btn" type="button" class="button ctrl-icon" aria-label="Previous step (left arrow)">&#9664;</button>
+		<div class="step-counter" id="step-counter">0 / 0</div>
+		<button id="next-btn" type="button" class="button button-primary button-filled ctrl-icon ctrl-icon-next" aria-label="Next step (right arrow or space)">&#9654;</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="replay-btn" type="button" class="button ctrl-icon" aria-label="Replay this step's animation (P)">&#8635;</button>
+		<div class="speed-control" role="group" aria-label="Animation speed">
+			<button id="speed-down" type="button" class="button button-clear speed-btn" aria-label="Slower (-)" title="Slower">&minus;</button>
+			<span id="speed-label" class="speed-label" aria-live="polite" aria-label="Current speed">1&times;</span>
+			<button id="speed-up" type="button" class="button button-clear speed-btn" aria-label="Faster (+)" title="Faster">+</button>
+		</div>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="reset-btn" type="button" class="button button-clear ctrl-icon" aria-label="Restart from step 1 (R)">&#9198;</button>
+	</div>
+
+	<div id="shortcut-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="sc-title">
+		<div class="sc-backdrop"></div>
+		<div class="sc-panel">
+			<button id="sc-close" class="sc-close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
+			<h2 id="sc-title">Keyboard shortcuts</h2>
+			<ul id="sc-list" class="sc-list"></ul>
+			<p class="sc-hint">Press <kbd>?</kbd> anytime to toggle this panel.</p>
+		</div>
+	</div>
+
+<script>
+// ── THEME ─────────────────────────────────
+const themeToggleBtn = document.getElementById('theme-toggle');
+function syncThemeBtn(){
+	if (!themeToggleBtn) return;
+	const isDark = document.body.classList.contains('theme-dark');
+	themeToggleBtn.dataset.theme = isDark ? 'dark' : 'light';   // drives which glyph (sun/moon) shows
+	const label = isDark ? 'Switch to light theme' : 'Switch to dark theme';
+	themeToggleBtn.setAttribute('aria-label', label);
+	themeToggleBtn.setAttribute('title', label);
+}
+if (window.AW && AW.theme) {
+	// aw-theme.js owns click handling + persistence; theme recolors via CSS variables, so no re-render/replay.
+	AW.theme.onChange(() => { syncThemeBtn(); });
+	syncThemeBtn();
+} else {
+	// Standalone fallback: toggle .theme-dark / .theme-light on <body> ourselves.
+	syncThemeBtn();
+	if (themeToggleBtn) themeToggleBtn.addEventListener('click', () => {
+		const goingDark = !document.body.classList.contains('theme-dark');
+		document.body.classList.remove('theme-dark', 'theme-light');
+		document.body.classList.add(goingDark ? 'theme-dark' : 'theme-light');
+		try { localStorage.setItem('aw-theme', goingDark ? 'theme-dark' : 'theme-light'); } catch(_){}
+		syncThemeBtn();
+	});
+	// restore a previously chosen theme (standalone only)
+	try { const saved = localStorage.getItem('aw-theme'); if (saved === 'theme-light' || saved === 'theme-dark') { document.body.classList.remove('theme-dark','theme-light'); document.body.classList.add(saved); syncThemeBtn(); } } catch(_){}
+}
+
+// ── i18n ──────────────────────────────────
+// English is the source language. Add sibling objects (es/ja/ko/pt) with the
+// SAME keys + matching <option>s in #lang-select. Keep brand/code/proper-noun
+// sample data untranslated.
+let currentLang = 'en';
+const I18N = {
+	en: {
+		skipToMain: 'Skip to diagram',
+		backLink: 'Journey', backTitle: 'Back to the Contoso delivery journey',
+		pageTitle: 'Shift Left',
+		stageHeading: 'Shift Left',
+		stageInstructions: 'Animated explainer. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.',
+		prev: '\u25C0 Prev', next: 'Next \u25B6', replay: '\u21BB Replay', restart: '\u21BB Restart',
+		slower: 'Slower', faster: 'Faster',
+		calloutOn: 'Callouts: On', calloutOff: 'Callouts: Off',
+		outlineOn: 'Outline: On', outlineOff: 'Outline: Off',
+		audioTip: 'Narration audio', ccTip: 'Captions', shortcutsTip: 'Shortcuts',
+		stepDetails: 'Step Details', stepOf: 'Step',
+		resetPos: 'Reset to default position',
+		scTitle: 'Keyboard shortcuts',
+		scNext: 'Next step', scPrev: 'Previous step', scRestart: 'Restart', scReplay: 'Replay this step', scHide: 'Hide / show top bar', scHelp: 'Toggle this help',
+
+		// ── Step 1 · WHERE WE ARE ──
+		flTitle: 'What You Have, and What Is Missing',
+		flCaption: 'Where we are',
+		flDesc: 'You already have a branch, commits that reference their issue, and an open pull request. What you do not have is proof the code still works — and that proof belongs at stop 4, before anything reaches main.',
+		flCallout: 'Run the tests <strong>on the pull request</strong>, not after the merge. Once a change lands on <code>main</code>, every teammate pulls it — and the bug becomes everyone\u2019s problem.',
+		flMain: 'main', flBranch: 'your branch',
+		flS1: 'Checkout branch',
+		flS2a: 'Commit', flS2b: 'changes',
+		flS3a: 'Open pull', flS3b: 'request',
+		flS4a: 'Automated', flS4b: 'testing', flS4s: 'GitHub Actions',
+		flS5a: 'Approve', flS5b: 'pull request',
+		flS6: 'Merge to main', flS6s: 'then deploy',
+		flPass: 'Pass?', flY: 'Y', flN: 'N', flFix: 'Commit fixes',
+		flFoot: 'Stops 1, 2, 3 and 5 are what you built in <b>04 · Branch with Intent</b>. Stop 4 — the automated gate — is what this page adds. Stop 6 is <b>06 · Deploy It</b>.',
+		flStat1: 'Already done', flStat1v: 'Branch, commits, pull request',
+		flStat2: 'Still missing', flStat2v: 'Proof the code still works',
+		flStat3: 'Runs at', flStat3v: 'Stop 4 — before the merge',
+
+		// ── Step 1 · SHIFT LEFT ──
+		slTitle: 'The Later You Find It, the More It Costs',
+		slCaption: 'Shift left',
+		slDesc: 'The same bug or the same vulnerability gets dramatically more expensive the further right it travels. Shifting left means moving the checks as close to the keyboard as you can.',
+		slCallout: 'Shift left is not \u201ctest more\u201d. It is <strong>test earlier</strong> \u2014 and it applies to security exactly as much as it applies to correctness.',
+		sl1: 'On your laptop', sl1w: 'Lint and unit tests before you commit', sl1v: '1\u00d7',
+		sl2: 'In the pull request', sl2w: 'CI, CodeQL and a reviewer', sl2v: '10\u00d7',
+		sl3: 'On main', sl3w: 'Found after it merged', sl3v: '100\u00d7',
+		sl4: 'In production', sl4w: 'Found by a customer, or an attacker', sl4v: '1000\u00d7',
+		slMove: 'Move every check as far left as it will go',
+		slStat1: 'Applies to', slStat1v: 'Testing and security, equally',
+		slStat2: 'Cheapest', slStat2v: 'Before the code ever leaves the branch',
+		slStat3: 'Most costly', slStat3v: 'A vulnerability found in production',
+
+		// ── Step 3 · PIPELINE OVERVIEW ──
+		ovTitle: 'What the Pipeline Does — and Why You Want One',
+		ovCaption: 'Pipeline overview',
+		ovDesc: 'A pipeline is a fixed run of stages that fires on every push and every pull request. Each stage has one job, and the whole run stops the moment one of them fails.',
+		ovCallout: 'The value is not that a machine runs your tests. It is that <strong>the same steps run every time</strong> — on a Friday, on a rushed hotfix, and on the pull request nobody wanted to review.',
+		ovS1n: 'Source', ovS1a: 'A push starts the run', ovS1c: 'on: push',
+		ovS2n: 'Build', ovS2a: 'Restore and compile', ovS2c: 'npm ci',
+		ovS3n: 'Test', ovS3a: 'Run the unit tests', ovS3c: 'npm test',
+		ovS4n: 'Scan', ovS4a: 'CodeQL and Dependabot', ovS4c: 'CodeQL',
+		ovS5n: 'Deploy', ovS5a: 'All four green',
+		ovW1t: 'Same steps, every time', ovW1x: 'A person forgets step four on a Friday. A workflow file does not.',
+		ovW2t: 'Runs without being asked', ovW2x: 'It fires on the push. Nobody has to remember to start it, and nobody has to be free to babysit it.',
+		ovW3t: 'Cannot be skipped', ovW3x: 'Branch protection holds the merge until the run is green — the ruleset you set in Branch with Intent.',
+		ovFoot: 'Every stage here lives in ONE file — <code>.github/workflows/ci.yml</code>. The next step opens it.',
+		ovStat1: 'Fires on', ovStat1v: 'Every push and every pull request',
+		ovStat2: 'Stops at', ovStat2v: 'The first stage that fails',
+		ovStat3: 'Lives in', ovStat3v: '.github/workflows/ci.yml',
+		ovHiA: 'Build, Test, Scan and Deploy all need compute, memory and storage.',
+		ovHiB: 'So who provides the machine? The GitHub Runner \u2014 next.',
+		ovCode1: 'app.js', ovCode2: 'api.js', ovCode3: 'db.js', ovArt: 'build',
+
+		// ── Step 4 · RUNNERS ──
+		rnTitle: 'The Machine That Actually Runs It',
+		rnCaption: 'Runners',
+		rnDesc: 'A runner is the machine your job executes on. GitHub can hand you one \u2014 a clean virtual machine built for that single job and thrown away after it \u2014 or you can bring your own.',
+		rnCallout: 'A GitHub-hosted runner is <strong>fresh every time</strong>. Nothing survives between jobs \u2014 which is exactly why \u201cit works on my laptop\u201d and \u201cit passes in CI\u201d are two different claims.',
+		rnAt: 'GitHub-hosted', rnAs: 'GitHub owns it, patches it and pays for it',
+		rnOs1: 'ubuntu-latest', rnOs2: 'windows-latest', rnOs3: 'macos-latest',
+		// per-minute rates + included minutes: docs.github.com/billing/concepts/product-billing/github-actions
+		rnPr1: '$0.006 / min', rnPr2: '$0.010 / min', rnPr3: '$0.062 / min',
+		rnFree: 'Free on public repos',
+		rnMeter: 'Billed by the minute while your job runs',
+		rnAf2: 'Private repos include 2,000 min a month on the Free plan',
+		rnRun: 'your job', rnMin: '0 min', rnCost: '$0.000',
+		rnBt: 'Self-hosted', rnBs: 'Your machine, your network, your responsibility',
+		rnB0: 'Runs on hardware you already own',
+		rnNoBill: 'No per-minute bill',
+		rnSrc1: 'Your data centre', rnSrc2: 'Your own cloud',
+		rnRack: 'A machine you own and keep',
+		rnBf1: 'You install the runner software and keep it connected',
+		rnBf2: 'You patch it, secure it, and clean up after every job',
+		rnBf3: 'Worth it for special hardware, a GPU, or a private network',
+		rnFoot: 'You choose between them with one line \u2014 <code>runs-on:</code> \u2014 which is the first thing you will meet in the workflow file next.',
+		rnStat1: 'Hosted runner', rnStat1v: 'A clean VM, created and destroyed per job',
+		rnStat2: 'Choose', rnStat2v: 'Ubuntu, Windows or macOS',
+		rnStat3: 'Self-hosted', rnStat3v: 'Your hardware \u2014 you install and secure it',
+
+		// ── Step 2 · PIPELINE, CI/CD AND THE RUNNER ──
+		pipeTitle: 'What a Pipeline Actually Is',
+		pipeCaption: 'Pipeline & runner',
+		pipeDesc: 'A pipeline is a workflow file in your repository. Something triggers it, GitHub hands it to a runner, and the runner executes the jobs and steps you wrote.',
+		pipeCallout: 'The runner is the part people forget. It is a <strong>real machine</strong> \u2014 and on GitHub-hosted runners it is a clean virtual machine created for that one job and destroyed afterwards.',
+		pipeT1lab: 'Trigger', pipeT1: 'When it runs',
+		pipeT1a: 'on: push', pipeT1b: 'on: pull_request', pipeT1c: 'on: schedule',
+		pipeT1n: 'The event decides which workflow wakes up',
+		pipeT2lab: 'Runner', pipeT2: 'Where it runs',
+		pipeT2a: 'runs-on: ubuntu-latest',
+		pipeT2n1: 'GitHub-hosted: a fresh VM per job, thrown away after',
+		pipeT2n2: 'Self-hosted: your own machine, when you need private network access',
+		pipeT3lab: 'Job & steps', pipeT3: 'What it runs',
+		pipeT3a: 'checkout', pipeT3b: 'setup-node', pipeT3c: 'npm ci', pipeT3d: 'npm test',
+		pipeT3n: 'Steps run in order; a failure stops the job',
+		pipeCiCd: 'CI proves the change is good. CD takes the proven change and releases it \u2014 the same pipeline, continued.',
+		pipeStat1: 'Pipeline', pipeStat1v: 'A YAML workflow in .github/workflows',
+		pipeStat2: 'Runner', pipeStat2v: 'The machine that executes the job',
+		pipeStat3: 'CI vs CD', pipeStat3v: 'Prove it, then release it',
+
+		// ── Step 2 · UNIT TESTS ──
+		testTitle: 'Tests That Run Themselves',
+		testCaption: 'Unit tests',
+		testDesc: 'The CI workflow installs, builds and tests on every push and pull request. The tests cover the two things most likely to break quietly.',
+		testCallout: 'The provider-failure test matters most. Azure Maps <em>will</em> be slow or down one day, and Contoso needs to know what happens when it is.',
+		testFile: '# .github/workflows/ci.yml',
+		testC1: 'on: [push, pull_request]',
+		testC2: 'jobs:',
+		testC3: '  build-and-test:',
+		testC4: '    runs-on: ubuntu-latest',
+		testC5: '    steps:',
+		testC6: '      - run: npm ci',
+		testC7: '      - run: npm test',
+		testI1: 'Backend \u00b7 weather response parsing', testT1: 'Passing',
+		testI2: 'Backend \u00b7 provider failure handling', testT2: 'Passing',
+		testI3: 'Frontend \u00b7 city card rendering', testT3: 'Passing',
+		testI4: 'Frontend \u00b7 navigation to city detail', testT4: 'Passing',
+		testStat1: 'Trigger', testStat1v: 'Every push and every pull request',
+		testStat2: 'Backend', testStat2v: 'Parsing, and what happens when the provider fails',
+		testStat3: 'Frontend', testStat3v: 'Card rendering and navigation',
+
+		// ── Step 3 · CODEQL ──
+		cqTitle: 'Let GitHub Read the Code for You',
+		cqCaption: 'CodeQL',
+		cqDesc: 'CodeQL analyses the source for known-vulnerable patterns and comments its findings straight onto the pull request, before anything is merged.',
+		cqCallout: 'This is not a linter. CodeQL follows <strong>data flow</strong> \u2014 it can see that an untrusted city name reached a query without ever being validated.',
+		cqFile: '# .github/workflows/codeql.yml',
+		cqC1: 'on:',
+		cqC2: '  pull_request:',
+		cqC3: '  schedule:',
+		cqC4: '    - cron: "0 3 * * 1"   # weekly',
+		cqC5: 'jobs:',
+		cqC6: '  analyze:',
+		cqC7: '    uses: github/codeql-action/analyze@v3',
+		cqI1: 'Injection and unsafe input paths', cqT1: 'Scanned',
+		cqI2: 'Secrets committed to the repository', cqT2: 'Scanned',
+		cqI3: 'Unsafe data flow into the provider call', cqT3: 'Scanned',
+		cqI4: 'Findings raised on the pull request', cqT4: 'Blocking',
+		cqStat1: 'What', cqStat1v: 'Static analysis that follows data flow',
+		cqStat2: 'When', cqStat2v: 'On every pull request, plus weekly',
+		cqStat3: 'Where', cqStat3v: 'Findings appear as review comments',
+
+		// ── Step 4 · DEPENDABOT ──
+		dbTitle: 'Keep the Dependencies Honest',
+		dbCaption: 'Dependabot',
+		dbDesc: 'Most vulnerabilities arrive through packages nobody wrote. Dependabot watches the manifest, and opens a pull request when something needs updating.',
+		dbCallout: 'The update arrives as a <strong>pull request</strong>, which means it runs the same tests and the same scan as any other change. Nothing skips the gate.',
+		dbFile: '# .github/dependabot.yml',
+		dbC1: 'version: 2',
+		dbC2: 'updates:',
+		dbC3: '  - package-ecosystem: "npm"',
+		dbC4: '    directory: "/backend"',
+		dbC5: '    schedule:',
+		dbC6: '      interval: "weekly"',
+		dbI1: 'Bump express from 4.18.2 to 4.21.2', dbT1: 'Open',
+		dbI2: 'Bump the npm group in /frontend', dbT2: 'Open',
+		dbI3: 'Security advisory patched', dbT3: 'Merged',
+		dbStat1: 'Watches', dbStat1v: 'package.json in backend and frontend',
+		dbStat2: 'Opens', dbStat2v: 'A pull request per update',
+		dbStat3: 'Still gated', dbStat3v: 'Tests and CodeQL run on it too',
+
+		// ── Step 6 · SECRETS ──
+		secTitle: 'Where Secrets Are Allowed to Live',
+		secCaption: 'Secrets',
+		secDesc: 'The pipeline needs credentials, and the repository is the one place they must never be. GitHub Actions secrets keep them out of the code and out of the logs.',
+		secCallout: 'Remember the very first explainer: the Azure Maps key had to stay server-side. This is the same rule, applied to the <strong>pipeline</strong>.',
+		secNlab: 'Never in the repository',
+		secN1: 'The Azure Maps subscription key',
+		secN2: 'Any client secret or password',
+		secN3: 'Connection strings and tokens',
+		secN4: 'A .env file committed \u201cjust for now\u201d',
+		secIlab: 'Actions secrets instead',
+		secI1: 'Encrypted at rest, and write-only \u2014 you cannot read one back',
+		secI2: 'Masked automatically if a step tries to print it',
+		secI3: 'Environment secrets can require an approval first',
+		secI4: 'Rotate in one place, without touching the code',
+		secUse: '${{ secrets.AZURE_CLIENT_ID }}',
+		secStat1: 'Never', secStat1v: 'Committed to the repository',
+		secStat2: 'Stored', secStat2v: 'As encrypted Actions or environment secrets',
+		secStat3: 'Best', secStat3v: 'Fewer secrets \u2014 federate instead, next page',
+
+		// ── Step 7 · RECAP ──
+		recTitle: 'Every Change Arrives Already Proven',
+		recCaption: 'The takeaway',
+		recDesc: 'The checks moved as far left as they go: tests, security analysis and dependency updates all run on the pull request, on a clean runner, with secrets that never touch the code.',
+		recCallout: 'That is continuous integration finished. Next: continuous delivery \u2014 packaging this and getting it into Azure safely.',
+		recS1: 'Tested', recS2: 'Scanned', recS3: 'Dependencies', recS4: 'Secrets',
+		recS1s: 'Unit tests, every push', recS2s: 'CodeQL reads the code',
+		recS3s: 'Packages kept patched', recS4s: 'Never in the code',
+		recC1: 'npm test', recC2: 'CodeQL', recC3: 'dependabot.yml', recC4: 'secrets.*',
+		recTrig: 'Every push \u00b7 every pull request \u00b7 on a clean runner',
+		recPR: 'your PR', recOk: 'merged',
+		recLineA: 'The pull request passes all four gates before a human reads it.',
+		recLineB: 'Nothing merges until every one of them is green.',
+		recFoot: 'Workflow syntax is documented in <a href="https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions" target="_blank" rel="noopener">Workflow syntax for GitHub Actions</a>.',
+		recStat1: 'Runs on', recStat1v: 'Every push and every pull request',
+		recStat2: 'Blocks', recStat2v: 'The merge, if any check fails',
+		recStat3: 'Next', recStat3v: 'Package it and deploy it to Azure'
+
+	}
+	/* es: { ...I18N.en, /* overrides *​/ },  <- spread pattern for quick partial translations */
+};
+function t(key) { return (I18N[currentLang] && I18N[currentLang][key]) || I18N.en[key] || key; }
+
+function setLanguage(lang) {
+	currentLang = lang;
+	document.documentElement.lang = lang;
+	try { const u=new URL(location.href); u.searchParams.set('lang', lang); history.replaceState(null,'',u); } catch(_){}
+	document.getElementById('page-title').textContent = '\u2728 ' + t('pageTitle');
+	// icon-only nav buttons: the localized label lives in the tooltip (title)
+	document.getElementById('prev-btn').title = t('prev');
+	document.getElementById('next-btn').title = t('next');
+	document.getElementById('replay-btn').title = t('replay');
+	document.getElementById('reset-btn').title = t('restart');
+	document.getElementById('speed-down').title = t('slower');
+	document.getElementById('speed-up').title = t('faster');
+	document.getElementById('outline-title').textContent = t('stepDetails');
+	document.querySelector('.skip-link').textContent = t('skipToMain');
+	document.getElementById('stage-heading').textContent = t('stageHeading');
+	document.getElementById('stage-instructions').textContent = t('stageInstructions');
+	// localize overlay tooltips (icon buttons show their label on hover / as native title)
+	const _hlp=document.getElementById('help-toggle'); if(_hlp) _hlp.setAttribute('data-tip', t('shortcutsTip'));
+	const _aud=document.getElementById('audio-toggle'); if(_aud) _aud.title=t('audioTip');
+	const _ccb=document.getElementById('cc-toggle'); if(_ccb) _ccb.title=t('ccTip');
+	syncCalloutBtn(); syncOutlineBtn();
+	if (typeof syncAudioBtn === 'function') syncAudioBtn();
+	if (typeof buildShortcuts === 'function') buildShortcuts();
+	document.querySelectorAll('.aw-drag-reset').forEach(b=>{ b.title=t('resetPos'); b.setAttribute('aria-label', t('resetPos')); });
+	try { localStorage.setItem('aw-tmpl-lang', lang); } catch(_){}
+	if (current >= 0) renderStep(current);
+}
+
+// ── STEPS (journey order) ─────────────────
+// Every step gets its own diagram and its own render function — no shared slide layout.
+const STEPS = [
+	{ id:'sofar', short:'Where we are', titleKey:'flTitle', captionKey:'flCaption', descKey:'flDesc', calloutKey:'flCallout',
+		stats:[['flStat1','flStat1v'],['flStat2','flStat2v'],['flStat3','flStat3v']] },
+	{ id:'shiftleft', short:'Shift left', titleKey:'slTitle', captionKey:'slCaption', descKey:'slDesc', calloutKey:'slCallout',
+		stats:[['slStat1','slStat1v'],['slStat2','slStat2v'],['slStat3','slStat3v']] },
+	{ id:'overview', short:'Overview', titleKey:'ovTitle', captionKey:'ovCaption', descKey:'ovDesc', calloutKey:'ovCallout',
+		stats:[['ovStat1','ovStat1v'],['ovStat2','ovStat2v'],['ovStat3','ovStat3v']] },
+	{ id:'runners', short:'Runners', titleKey:'rnTitle', captionKey:'rnCaption', descKey:'rnDesc', calloutKey:'rnCallout',
+		stats:[['rnStat1','rnStat1v'],['rnStat2','rnStat2v'],['rnStat3','rnStat3v']] },
+	{ id:'pipeline', short:'Pipeline', titleKey:'pipeTitle', captionKey:'pipeCaption', descKey:'pipeDesc', calloutKey:'pipeCallout',
+		stats:[['pipeStat1','pipeStat1v'],['pipeStat2','pipeStat2v'],['pipeStat3','pipeStat3v']] },
+	{ id:'test', short:'Tests', titleKey:'testTitle', captionKey:'testCaption', descKey:'testDesc', calloutKey:'testCallout',
+		stats:[['testStat1','testStat1v'],['testStat2','testStat2v'],['testStat3','testStat3v']] },
+	{ id:'codeql', short:'CodeQL', titleKey:'cqTitle', captionKey:'cqCaption', descKey:'cqDesc', calloutKey:'cqCallout',
+		stats:[['cqStat1','cqStat1v'],['cqStat2','cqStat2v'],['cqStat3','cqStat3v']] },
+	{ id:'dependabot', short:'Dependabot', titleKey:'dbTitle', captionKey:'dbCaption', descKey:'dbDesc', calloutKey:'dbCallout',
+		stats:[['dbStat1','dbStat1v'],['dbStat2','dbStat2v'],['dbStat3','dbStat3v']] },
+	{ id:'secrets', short:'Secrets', titleKey:'secTitle', captionKey:'secCaption', descKey:'secDesc', calloutKey:'secCallout',
+		stats:[['secStat1','secStat1v'],['secStat2','secStat2v'],['secStat3','secStat3v']] },
+	{ id:'recap', short:'Recap', titleKey:'recTitle', captionKey:'recCaption', descKey:'recDesc', calloutKey:'recCallout',
+		stats:[['recStat1','recStat1v'],['recStat2','recStat2v'],['recStat3','recStat3v']] }
+];
+
+// ── DOM REFS ──────────────────────────────
+const stage=document.getElementById('stage-frame'), svg=document.getElementById('fx-svg'),
+	counter=document.getElementById('step-counter'), breadcrumb=document.getElementById('breadcrumb'),
+	progress=document.getElementById('progress-fill'), announcer=document.getElementById('step-announcer'),
+	outlineBody=document.getElementById('outline-body'), outlinePanel=document.getElementById('step-outline'),
+	outlineBtn=document.getElementById('outline-toggle'), calloutBtn=document.getElementById('callout-toggle'),
+	langSelect=document.getElementById('lang-select');
+
+langSelect.addEventListener('change', e => setLanguage(e.target.value));
+const urlLang = new URLSearchParams(location.search).get('lang');
+let savedLang=null; try{ savedLang=localStorage.getItem('aw-tmpl-lang'); }catch(_){}
+if (urlLang && I18N[urlLang]) { currentLang = urlLang; langSelect.value = urlLang; }
+else if (savedLang && I18N[savedLang]) { currentLang = savedLang; langSelect.value = savedLang; }
+
+// ── Font size ─────────────────────────────
+const fontScales=[0.8,0.9,1,1.1,1.2,1.35]; let fontScaleIdx=2;
+const baseFontSize=parseFloat(getComputedStyle(document.documentElement).fontSize);
+function applyFontScale(){ document.documentElement.style.fontSize=(baseFontSize*fontScales[fontScaleIdx])+'px'; const c=document.getElementById('controls'); if(c) c.style.fontSize=baseFontSize+'px'; if(typeof current!=='undefined'&&current>=0){ const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s); } }
+function saveFont(){ try{ localStorage.setItem('aw-tmpl-font', String(fontScaleIdx)); }catch(_){} }
+try{ const f=parseInt(localStorage.getItem('aw-tmpl-font'),10); if(!isNaN(f)&&f>=0&&f<fontScales.length){ fontScaleIdx=f; applyFontScale(); } }catch(_){}
+document.getElementById('font-decrease').addEventListener('click',()=>{ if(fontScaleIdx>0){fontScaleIdx--;applyFontScale();saveFont();} });
+document.getElementById('font-increase').addEventListener('click',()=>{ if(fontScaleIdx<fontScales.length-1){fontScaleIdx++;applyFontScale();saveFont();} });
+
+let current=-1, animating=false, liveEls=[], liveTimelines=[], calloutEnabled=false;
+
+function syncCalloutBtn(){ calloutBtn.classList.toggle('toggle-active',calloutEnabled); calloutBtn.setAttribute('aria-pressed',calloutEnabled?'true':'false'); calloutBtn.setAttribute('data-tip',calloutEnabled?t('calloutOn'):t('calloutOff')); }
+calloutBtn.addEventListener('click',()=>{
+	calloutEnabled=!calloutEnabled; syncCalloutBtn();
+	if(current<0) return;
+	// Toggle just the callout box in place — don't re-render (no animation replay).
+	const existing=stage.querySelectorAll('.callout');
+	if(calloutEnabled){ if(!existing.length){ const c=maybeCallout(STEPS[current]); if(c) gsap.fromTo(c,{opacity:0,y:10},{opacity:1,y:0,duration:0.4,overwrite:true}); } }
+	else { existing.forEach(c=>{ const idx=liveEls.indexOf(c); if(idx>-1) liveEls.splice(idx,1); gsap.killTweensOf(c); c.remove(); }); }
+}); syncCalloutBtn();
+function syncOutlineBtn(){ const on=!outlinePanel.hasAttribute('hidden'); outlineBtn.classList.toggle('toggle-active',on); outlineBtn.setAttribute('aria-expanded',on?'true':'false'); outlineBtn.setAttribute('data-tip',on?t('outlineOn'):t('outlineOff')); }
+outlineBtn.addEventListener('click',()=>{ const showing=!outlinePanel.hasAttribute('hidden'); if(showing){outlinePanel.setAttribute('hidden','');} else {outlinePanel.removeAttribute('hidden');} syncOutlineBtn(); }); syncOutlineBtn();
+
+// ── Audio narration (overlay button · speaker + remaining-time countdown) ──
+// Drop one recorded clip per step (in STEPS order) into AUDIO_FILES for real narration;
+// localized clips live under AUDIO_BASE/<lang>/. With no files, the browser reads each
+// step's title + description aloud (speech synthesis), so the button works with zero assets.
+const AUDIO_BASE = 'assets/audio/';
+const AUDIO_FILES = [
+	// 'step-01.mp3', 'step-02.mp3', /* one per step, in order */
+];
+let audioEnabled=false, currentAudio=null, audioTimeout=null, ccPref=false;
+const audioBtn=document.getElementById('audio-toggle');
+if(audioBtn){ audioBtn.innerHTML='<span class="aw-audio-ico" aria-hidden="true">\uD83D\uDD07</span><span class="aw-audio-time" aria-hidden="true">--:--</span>'; }
+const audioIco=audioBtn&&audioBtn.querySelector('.aw-audio-ico'), audioTimeEl=audioBtn&&audioBtn.querySelector('.aw-audio-time');
+// Captions can play WITHOUT sound: when CC is on but audio is off we still play the clip MUTED, so the
+// caption reveals at the same pace — speaker shows 🔇 and the remaining-time countdown keeps running.
+function playbackOn(){ return audioEnabled || ccPref; }
+function audioDir(){ return (currentLang && currentLang!=='en') ? currentLang+'/' : ''; }
+function fmtDur(s){ s=Math.max(0,Math.ceil(s)); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
+function updateAudioTime(){ if(audioTimeEl && currentAudio && isFinite(currentAudio.duration) && currentAudio.duration>0) audioTimeEl.textContent=fmtDur(currentAudio.duration-currentAudio.currentTime); }
+function syncAudioBtn(){ if(!audioBtn) return; if(audioIco) audioIco.textContent=audioEnabled?'\uD83D\uDD0A':'\uD83D\uDD07'; if(audioTimeEl && !playbackOn()) audioTimeEl.textContent='--:--'; audioBtn.classList.toggle('toggle-active',audioEnabled); audioBtn.setAttribute('aria-pressed',audioEnabled?'true':'false'); }
+function speakFallback(i){ if(!window.speechSynthesis) return; const step=STEPS[i]; const u=new SpeechSynthesisUtterance(`${t(step.titleKey)}. ${t(step.descKey)}`); u.lang=currentLang||'en'; try{ speechSynthesis.cancel(); speechSynthesis.speak(u); }catch(_){} }
+function stopAudio(){
+	if(currentAudio){ currentAudio.pause(); currentAudio.currentTime=0; currentAudio=null; }
+	if(audioTimeout){ clearTimeout(audioTimeout); audioTimeout=null; }
+	if(audioTimeEl) audioTimeEl.textContent='--:--';
+	try{ if(window.speechSynthesis) speechSynthesis.cancel(); }catch(_){}
+	if(window.AWCaptions) AWCaptions.clear();
+}
+function playStepAudio(i){
+	stopAudio();
+	if(document.body.classList.contains('aw-prestart')) return;   // start gate holds audio too
+	if(!playbackOn() || i<0 || i>=STEPS.length) return;
+	audioTimeout=setTimeout(()=>{
+		audioTimeout=null;
+		const file=AUDIO_FILES[i];
+		if(!file){ if(audioEnabled) speakFallback(i); return; }   // no clip = no timing source for caption-only
+		currentAudio=new Audio(AUDIO_BASE+audioDir()+file);
+		currentAudio.volume = audioEnabled ? 1 : 0;              // caption-only = silent (volume 0) timing source
+		if(window.AWCaptions) AWCaptions.bind(currentAudio,i);
+		currentAudio.addEventListener('loadedmetadata',updateAudioTime);
+		currentAudio.addEventListener('timeupdate',updateAudioTime);
+		currentAudio.addEventListener('ended',()=>{ if(audioTimeEl) audioTimeEl.textContent='0:00'; });
+		currentAudio.addEventListener('error',()=>{ if(audioEnabled) speakFallback(i); });
+		currentAudio.play().catch(()=>{});
+	}, 400);
+}
+if(audioBtn){ audioBtn.addEventListener('click',()=>{
+	audioEnabled=!audioEnabled; try{localStorage.setItem('aw-tmpl-audio',audioEnabled?'1':'0');}catch(_){} syncAudioBtn();
+	if(current>=0){
+		if(!playbackOn()) stopAudio();
+		else if(currentAudio) currentAudio.volume = audioEnabled ? 1 : 0;   // flip sound without restarting the clip
+		else playStepAudio(current);
+	}
+	if(typeof applyCc==='function') applyCc();
+}); }
+// Initial audio + CC from the ?audio parameter:
+//   on -> audio ON + captions ON  ·  off -> both OFF  ·  (absent) -> audio ON, captions OFF (a prior stored choice still wins).
+(function(){
+	var p=null; try{ p=new URLSearchParams(location.search).get('audio'); }catch(_){}
+	if(p==='on'){ audioEnabled=true; ccPref=true; }
+	else if(p==='off'){ audioEnabled=false; ccPref=false; }
+	else {
+		audioEnabled=true; ccPref=false;
+		try{ var a=localStorage.getItem('aw-tmpl-audio'); if(a==='1') audioEnabled=true; else if(a==='0') audioEnabled=false; }catch(_){}
+		try{ var c=localStorage.getItem('aw-tmpl-cc'); if(c==='1') ccPref=true; else if(c==='0') ccPref=false; }catch(_){}
+	}
+	try{ localStorage.setItem('aw-tmpl-audio',audioEnabled?'1':'0'); localStorage.setItem('aw-tmpl-cc',ccPref?'1':'0'); }catch(_){}
+})();
+syncAudioBtn();
+
+// ── Captions (CC) — overlaid in the frame; play WITH or WITHOUT audio ──
+// Reads the SAME narration Markdown used to synthesize the audio. Set page to THIS file's
+// stem and base to its narration folder (see the path note near the top of the file).
+const ccBtn=document.getElementById('cc-toggle');
+function ccEffective(){ return ccPref; }                          // captions show whenever CC is on (audio not required)
+function syncCcBtn(){ if(!ccBtn) return; ccBtn.classList.toggle('on',ccPref); ccBtn.setAttribute('aria-pressed',ccPref?'true':'false'); }
+function applyCc(){ if(window.AWCaptions) AWCaptions.setEnabled(ccEffective()); if(ccEffective()&&currentAudio&&window.AWCaptions) AWCaptions.bind(currentAudio,current); syncCcBtn(); }
+if(window.AWCaptions){ AWCaptions.configure({ page:'ShipIt', base:'../../narration/GitHub/', lang:()=>currentLang, fallback:(i)=>(STEPS[i]?t(STEPS[i].descKey):''), reserve:false }); }
+if(ccBtn){ ccBtn.addEventListener('click',()=>{
+	ccPref=!ccPref; try{localStorage.setItem('aw-tmpl-cc',ccPref?'1':'0');}catch(_){} applyCc();
+	if(current>=0){
+		if(playbackOn() && !currentAudio) playStepAudio(current);   // caption-only: start the muted timing clip
+		else if(!playbackOn() && currentAudio) stopAudio();          // CC off + audio off: nothing left to play
+	}
+}); }
+applyCc();
+
+// ── Full screen ──
+(function(){
+	const fsBtn=document.getElementById('fs-toggle'); if(!fsBtn) return;
+	function inFs(){ return !!(document.fullscreenElement||document.webkitFullscreenElement); }
+	function syncFs(){ document.body.classList.toggle('is-fs',inFs()); fsBtn.setAttribute('aria-pressed',inFs()?'true':'false'); fsBtn.title=inFs()?'Exit full screen (F)':'Full screen (F)'; }
+	function toggle(){ try{ if(inFs()){ (document.exitFullscreen||document.webkitExitFullscreen).call(document); } else { const el=document.documentElement; (el.requestFullscreen||el.webkitRequestFullscreen).call(el); } }catch(_){} }
+	fsBtn.addEventListener('click',e=>{ e.stopPropagation(); toggle(); });
+	document.addEventListener('fullscreenchange',syncFs); document.addEventListener('webkitfullscreenchange',syncFs);
+	document.addEventListener('keydown',e=>{ if(e.code==='KeyF'&&!e.metaKey&&!e.ctrlKey&&!e.altKey){ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return; e.preventDefault(); toggle(); } });
+	syncFs();
+})();
+
+// ── Reduced motion ────────────────────────
+const motionMQ=window.matchMedia('(prefers-reduced-motion: reduce)'); let motionPaused=motionMQ.matches;
+motionMQ.addEventListener('change',e=>{ motionPaused=e.matches; renderStep(current); });
+
+// ── Helpers ───────────────────────────────
+function clearStage(){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; liveEls.forEach(el=>el.remove()); liveEls=[]; Array.from(svg.children).forEach(c=>{ if(c.tagName.toLowerCase()!=='defs') c.remove(); }); }
+function el(cls,html){ const d=document.createElement('div'); if(cls) d.className=cls; if(html!=null) d.innerHTML=(window.AW&&AW.linkify)?AW.linkify(html):html; return d; }
+// Inline SVG icons (monochrome, currentColor) — crisp on any OS/projector. Add your own here.
+const ICONS = {
+	puzzle:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h8v8H3zm10 0h8v8h-8zM3 13h8v8H3zm10 0h8v8h-8z"/></svg>',
+	inbox:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 3h2v5h3l-4 4-4-4h3zM5 14h14v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1z"/></svg>',
+	gear:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M19.14 12.94a7.9 7.9 0 0 0 0-1.88l2-1.56-2-3.46-2.36.96a7.7 7.7 0 0 0-1.62-.94L14.8 2.5h-4l-.36 2.56c-.58.24-1.12.56-1.62.94L6.46 6.04l-2 3.46 2 1.56a7.9 7.9 0 0 0 0 1.88l-2 1.56 2 3.46 2.36-.96c.5.38 1.04.7 1.62.94l.36 2.56h4l.36-2.56c.58-.24 1.12-.56 1.62-.94l2.36.96 2-3.46-2-1.56zM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg>',
+	sparkle:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg>',
+	bulb:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-4 12.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26A7 7 0 0 0 12 2zM9 20h6v1a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1z"/></svg>',
+	check:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.55 17.6 4.4 12.45l1.86-1.86 3.29 3.29 8.19-8.19 1.86 1.86z"/></svg>',
+	bolt:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>',
+	lock:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 10a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1zm3-1V7a4 4 0 1 1 8 0v2h-2V7a2 2 0 1 0-4 0v2z"/></svg>',
+	box:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 3 7v10l9 5 9-5V7zm0 2.3L17.7 7 12 10.2 6.3 7zM5 9.1l6 3.4v6.8l-6-3.3zm14 0v6.9l-6 3.3v-6.8z"/></svg>',
+	key:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M14 2a6 6 0 0 0-5.66 8L2 16.34V22h5.66l.34-.34V20h2v-2h2l.34-.34A6 6 0 1 0 14 2zm2 3a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z"/></svg>',
+	rocket:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2c3 3 4 6 4 9l3 3-4 1-1 4-2-3-2 3-1-4-4-1 3-3c0-3 1-6 4-9zm0 5a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>',
+	health:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 2h6v5h5v6h-5v5H9v-5H4V7h5z"/></svg>',
+	headset:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a8 8 0 0 0-8 8v5a3 3 0 0 0 3 3h1v-7H6v-1a6 6 0 1 1 12 0v1h-2v7h1a3 3 0 0 0 3-3v-5a8 8 0 0 0-8-8z"/></svg>',
+	media:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M4 4h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zm5 4v8l7-4z"/></svg>',
+	book:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v16H6a2 2 0 0 1-2-2zm9 0h7v14a2 2 0 0 1-2 2h-5z"/></svg>',
+	party:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5zm6 11l.9 2.6L21.5 16.5l-2.6.9L18 20l-.9-2.6L14.5 16.5l2.6-.9zM6 14l.7 2 2 .7-2 .7L6 19.4l-.7-2-2-.7 2-.7z"/></svg>',
+	chat:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-4 4v-4H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/></svg>',
+	access:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a2.2 2.2 0 1 1 0 4.4A2.2 2.2 0 0 1 12 2zM4 8h16v2h-5.4l1 12h-2.3l-.7-6h-1.2l-.7 6H8.4l1-12H4z"/></svg>',
+	globe:'<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></g></svg>'
+};
+function icon(name){ return `<span class="ic">${ICONS[name]||''}</span>`; }
+function stepById(id){ return STEPS.find(s=>s.id===id); }
+// Scale the current scene down (never up) so it always fits inside the 16:9 frame — no clipping, no scroll.
+function fitScene(scene){
+	if(!scene) return;
+	scene.style.transform='translate(-50%,-50%) scale(1)';
+	const box=stage.getBoundingClientRect();
+	const availW=box.width-32, availH=box.height-28;
+	const sw=scene.offsetWidth, sh=scene.offsetHeight;
+	if(!sw||!sh) return;
+	const k=Math.min(1, availW/sw, availH/sh);
+	scene.style.transform='translate(-50%,-50%) scale('+k+')';
+}
+function headerEls(scene){ return [scene.querySelector('.scene-title'), scene.querySelector('.scene-lead')]; }
+function buildScene(step){ const s=el('scene'); s.appendChild(el('scene-title', t(step.titleKey))); s.appendChild(el('scene-lead', t(step.descKey))); return s; }
+function maybeCallout(step){ if(!calloutEnabled) return null; const c=el('callout', t(step.calloutKey)); c.style.left='1.5rem'; c.style.top='1.5rem'; stage.appendChild(c); liveEls.push(c); dragify(c, 'aw-tmpl-callout-pos'); return c; }
+function renderOutline(step,idx){
+	const rows=(step.stats||[]).map(([k,v])=>`<div class="stat-row"><span>${t(k)}</span><span>${t(v)}</span></div>`).join('');
+	outlineBody.innerHTML=`<div class="outline-section"><strong>${t('stepOf')} ${idx+1} / ${STEPS.length}: ${t(step.titleKey)}</strong><p style="margin-top:0.4rem;">${t(step.descKey)}</p></div>${rows?`<div class="outline-section">${rows}</div>`:''}`;
+}
+function announceStep(step,idx){ announcer.textContent=`${t('stepOf')} ${idx+1} / ${STEPS.length}: ${t(step.titleKey)}. ${t(step.descKey)}`; }
+
+// ── RENDER DISPATCH ───────────────────────
+function renderStep(i){
+	if(i<0||i>=STEPS.length) return;
+	if(animating){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; animating=false; }
+	animating=true;
+	const step=STEPS[i];
+	// cross-fade (200ms, CSS keyframes so it's independent of the speed control) — outgoing fades out, incoming fades in, on every step
+	const outgoing=stage.querySelector('.scene:not(.scene-out)');
+	if(outgoing) liveEls=liveEls.filter(x=>x!==outgoing);
+	clearStage();
+	if(outgoing){ outgoing.style.zIndex='5';
+		if(motionPaused){ outgoing.remove(); }
+		else { outgoing.classList.remove('scene-in'); outgoing.classList.add('scene-out'); setTimeout(()=>outgoing.remove(), 240); } }
+	if(step.id==='sofar') renderSoFarStep();
+	else if(step.id==='shiftleft') renderShiftLeftStep();
+	else if(step.id==='overview') renderOverviewStep();
+	else if(step.id==='runners') renderRunnersStep();
+	else if(step.id==='pipeline') renderPipelineStep();
+	else if(step.id==='test') renderTestStep();
+	else if(step.id==='codeql') renderCodeqlStep();
+	else if(step.id==='dependabot') renderDbStep();
+	else if(step.id==='secrets') renderSecretsStep();
+	else if(step.id==='recap') renderRecapStep();
+	const incoming=stage.querySelector('.scene:not(.scene-out)');
+	if(incoming && !motionPaused) incoming.classList.add('scene-in');
+	fitScene(incoming);
+	current=i;
+	try{ const u=new URL(location.href); u.searchParams.set('step', String(i+1)); history.replaceState(null,'',u); }catch(_){}
+	counter.textContent=`${t('stepOf')} ${current+1} / ${STEPS.length}`;
+	breadcrumb.textContent=t(step.captionKey);
+	progress.style.width=((current+1)/STEPS.length*100)+'%';
+	renderOutline(step,i); announceStep(step,i);
+	if(typeof playStepAudio==='function') playStepAudio(i);
+}
+
+// ── STEP 1 · ONE GIANT ISSUE ──────────────
+// Solid SVG arrow — a unicode glyph renders as a hairline at any font-size.
+const PW_ARROW = '<svg viewBox="0 0 64 44" aria-hidden="true"><rect x="2" y="16" width="40" height="12" rx="3"/><path d="M63 22 L38 5 L38 39 Z"/></svg>';
+function siArrow(w){ const a=el('si-arw', PW_ARROW); a.style.width=w||'3rem'; return a; }
+
+// Steps 2-4 are all "a workflow file, and what it produces" — same skeleton, different payload,
+// so the learner reads the third one as fast as the first.
+function renderWorkflow(step, codeKeys, itemKeys, colour, tab, path){
+	const scene=buildScene(step); scene.classList.add('is-wide');
+	const duo=el('si-duo');
+	const code=el('si-code');
+	code.style.setProperty('--tc', colour);
+	code.innerHTML=codeKeys.map(([k,cls])=>`<span class="si-cline ${cls||''}">${t(k)}</span>`).join('');
+	const arrow=siArrow('3rem');
+	const out=el('si-out');
+	const items=itemKeys.map(([nameK,tagK])=>{
+		const i=el('si-item', `<span class="si-iico">\u2713</span><span>${t(nameK)}</span><span class="si-itag">${t(tagK)}</span>`);
+		i.style.setProperty('--ic', colour); out.appendChild(i); return i;
+	});
+	// the YAML on the left is a file; the results on the right are a GitHub screen
+	const outWrap=AW.github({ tab:tab, path:path, cls:'si-outwin' });
+	outWrap.bodyEl.appendChild(out);
+	duo.appendChild(code); duo.appendChild(arrow); duo.appendChild(outWrap);
+	scene.appendChild(duo); stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	const lines=code.querySelectorAll('.si-cline');
+	if(motionPaused){ gsap.set([...headerEls(scene), code, arrow, outWrap, ...items, ...lines], {opacity:1}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
+	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	tl.fromTo(code, {opacity:0,x:-20}, {opacity:1,x:0,duration:0.42,ease:'power2.out'}, '-=0.05');
+	tl.fromTo(lines, {opacity:0,x:-10}, {opacity:1,x:0,duration:0.2,stagger:0.08,ease:'power2.out'}, '-=0.15');
+	tl.fromTo(arrow, {opacity:0,scaleX:0.3}, {opacity:1,scaleX:1,duration:0.32,ease:'power2.out',transformOrigin:'left center'}, '+=0.1');
+	tl.fromTo(outWrap, {opacity:0,x:20}, {opacity:1,x:0,duration:0.4,ease:'power2.out'}, '-=0.05');
+	// the config on the left produces the results on the right, one at a time
+	tl.fromTo(items, {opacity:0,x:20}, {opacity:1,x:0,duration:0.32,stagger:0.14,ease:'power2.out'}, '-=0.2');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.3');
+}
+
+// The bars grow taller left-to-right, so the cost curve is FELT before the arrow names it.
+// ── STEP 1 · WHERE WE ARE ─────────────────
+// One picture answers both questions: what stops 01–04 already built, and where this page fits.
+const FLGL = {
+	check:'M9.55 17.6 4.4 12.45l1.86-1.86 3.29 3.29 8.19-8.19 1.86 1.86z',
+	gear:'M19.14 12.94a7.9 7.9 0 0 0 0-1.88l2-1.56-2-3.46-2.36.96a7.7 7.7 0 0 0-1.62-.94L14.8 2.5h-4l-.36 2.56c-.58.24-1.12.56-1.62.94L6.46 6.04l-2 3.46 2 1.56a7.9 7.9 0 0 0 0 1.88l-2 1.56 2 3.46 2.36-.96c.5.38 1.04.7 1.62.94l.36 2.56h4l.36-2.56c.58-.24 1.12-.56 1.62-.94l2.36.96 2-3.46-2-1.56zM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z',
+	next:'M10 6l6 6-6 6-1.9-1.9L12.2 12 8.1 7.9z'
+};
+const FLOW = [
+	{ n:1, x:260,  y:150, lane:'main', l1:'flS1',                    st:'done' },
+	{ n:2, x:405,  y:300, lane:'feat', l1:'flS2a', l2:'flS2b',       st:'done' },
+	{ n:3, x:555,  y:300, lane:'feat', l1:'flS3a', l2:'flS3b',       st:'done' },
+	{ n:4, x:705,  y:300, lane:'feat', l1:'flS4a', l2:'flS4b', sub:'flS4s', st:'now' },
+	{ n:5, x:905,  y:300, lane:'feat', l1:'flS5a', l2:'flS5b',       st:'done' },
+	{ n:6, x:1030, y:150, lane:'main', l1:'flS6',              sub:'flS6s', st:'next' }
+];
+function flStop(S){
+	const now = S.st==='now', R = now?34:30, G = now?34:28, top = S.y-30, M = S.lane==='main';
+	const gl = S.st==='done' ? FLGL.check : now ? FLGL.gear : FLGL.next;
+	let s=`<g class="fl-stop fl-${S.st}" data-s="${S.n}">`;
+	s+=`<circle class="fl-num" cx="${S.x}" cy="${top-(M?74:118)}" r="15"/>`;
+	s+=`<text class="fl-numt" x="${S.x}" y="${top-(M?67:111)}" text-anchor="middle">${S.n}</text>`;
+	s+=`<text class="fl-name" x="${S.x}" y="${top-(M?32:78)}" text-anchor="middle">${t(S.l1)}</text>`;
+	if(S.l2) s+=`<text class="fl-name" x="${S.x}" y="${top-52}" text-anchor="middle">${t(S.l2)}</text>`;
+	// a main-lane stop has no room above it, so its sub-label hangs below — nudged right of the
+	// centreline so the incoming dashed hop does not run through the text
+	if(S.sub) s+=`<text class="fl-sub" x="${M ? S.x-22 : S.x}" y="${M ? S.y+56 : top-22}" text-anchor="${M?'start':'middle'}">${t(S.sub)}</text>`;
+	if(now) s+=`<circle class="fl-pulse" cx="${S.x}" cy="${S.y}" r="${R}"/>`;
+	s+=`<circle class="fl-ring" cx="${S.x}" cy="${S.y}" r="${R}"/>`;
+	s+=`<g class="fl-gl" transform="translate(${S.x-G/2} ${S.y-G/2}) scale(${G/24})"><path d="${gl}"/></g>`;
+	return s+`</g>`;
+}
+function flowSvg(){
+	let s=`<svg viewBox="0 0 1240 450" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${t('flDesc')}">`;
+	// userSpaceOnUse or the head is multiplied by stroke-width; context-stroke keeps it the line's colour
+	s+=`<defs><marker id="fl-ah" markerUnits="userSpaceOnUse" markerWidth="20" markerHeight="18" refX="17" refY="9" orient="auto">` +
+		`<path d="M2,1.5 L18,9 L2,16.5 Z" fill="context-stroke"/></marker></defs>`;
+	s+=`<path class="fl-lane" d="M 150 150 H 1090"/>`;
+	s+=`<text class="fl-lname" x="138" y="158" text-anchor="end">${t('flMain')}</text>`;
+	s+=`<path class="fl-lane" d="M 250 300 H 955"/>`;
+	s+=`<text class="fl-lname" x="238" y="308" text-anchor="end">${t('flBranch')}</text>`;
+	s+=`<path class="fl-hop" d="M 282 172 L 363 288" marker-end="url(#fl-ah)"/>`;
+	s+=`<path class="fl-hop" d="M 926 278 L 1007 174" marker-end="url(#fl-ah)"/>`;
+	// the gate: pass goes on to review, fail loops back through a fix commit
+	s+=`<path class="fl-dia" data-g="gate" d="M 795 266 L 829 300 L 795 334 L 761 300 Z"/>`;
+	s+=`<text class="fl-diat" data-g="gate" x="795" y="307" text-anchor="middle">${t('flPass')}</text>`;
+	s+=`<path class="fl-flow" data-g="gate" d="M 829 300 H 871" marker-end="url(#fl-ah)"/>`;
+	s+=`<text class="fl-yn" data-g="gate" x="850" y="286" text-anchor="middle">${t('flY')}</text>`;
+	// no head on the way DOWN — there is no room for one before the circle, and the return arrow
+	// already carries the direction
+	s+=`<path class="fl-loopline" data-g="loop" d="M 795 334 V 380 H 776"/>`;
+	s+=`<path class="fl-loopline" data-g="loop" d="M 724 380 H 705 V 338" marker-end="url(#fl-ah)"/>`;
+	s+=`<text class="fl-yn" data-g="loop" x="809" y="358" text-anchor="start">${t('flN')}</text>`;
+	s+=`<circle class="fl-fix" data-g="loop" cx="750" cy="380" r="26"/>`;
+	s+=`<text class="fl-sub" data-g="loop" x="750" y="434" text-anchor="middle">${t('flFix')}</text>`;
+	FLOW.forEach(S=>{ s+=flStop(S); });
+	return s+`</svg>`;
+}
+// "you are here" — one slow ring on the only stop this page adds
+function startFlPulse(ring){
+	if(!ring) return;
+	const p=gsap.timeline({repeat:-1, repeatDelay:0.4}); p.timeScale(3); liveTimelines.push(p);
+	p.fromTo(ring, {opacity:0.75, scale:1, svgOrigin:'705 300'}, {opacity:0, scale:1.55, duration:1.3, ease:'power2.out'});
+}
+// Hand-drawn connector. The CSS dash pattern must be replaced by a TWO-value solid array while it
+// draws (a single value merges with the pattern), then restored. Restore + arrowhead are `tl.set`s,
+// not an onComplete, because GSAP suppresses callbacks when a timeline is seeked.
+let flSeq=0;
+function flDraw(tl, p, pos, rest){
+	const len=p.getTotalLength(), lab='fld'+(flSeq++);
+	// restore whatever head this path shipped with — some connectors deliberately have none
+	const mk=p.getAttribute('marker-end')||'none';
+	tl.addLabel(lab, pos);
+	tl.set(p, {opacity:1, strokeDasharray:len+' '+len, strokeDashoffset:len, attr:{'marker-end':'none'}}, lab);
+	tl.to(p, {strokeDashoffset:0, duration:0.55, ease:'power2.inOut'}, lab);
+	tl.set(p, {strokeDasharray:rest||'none', strokeDashoffset:0, attr:{'marker-end':mk}}, lab+'+=0.55');
+}
+// marching ants along the two branch hops — only the OFFSET moves, so the CSS `9 7` pattern survives
+function startFlDash(paths){
+	if(!paths || !paths.length) return;
+	const d=gsap.timeline({repeat:-1}); d.timeScale(2.6); liveTimelines.push(d);
+	d.fromTo(paths, {strokeDashoffset:32}, {strokeDashoffset:0, duration:1.6, ease:'none'});
+}
+function renderSoFarStep(){
+	const step=stepById('sofar'); const scene=buildScene(step); scene.classList.add('is-wide');
+	const wrap=el('fl-wrap'); wrap.innerHTML=flowSvg();
+	const foot=el('si-note', t('flFoot'));
+	scene.appendChild(wrap); scene.appendChild(foot);
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	const qa=s=>[...wrap.querySelectorAll(s)];
+	const stop=n=>wrap.querySelector('[data-s="'+n+'"]');
+	const lanes=qa('.fl-lane'), lnames=qa('.fl-lname'), hops=qa('.fl-hop');
+	const gate=qa('[data-g="gate"]'), loop=qa('[data-g="loop"]');
+	const yPath=wrap.querySelector('.fl-flow'), loopLines=qa('.fl-loopline');
+	const gateRest=gate.filter(e=>e!==yPath), loopRest=loop.filter(e=>loopLines.indexOf(e)<0);
+	const pulse=wrap.querySelector('.fl-pulse');
+	const stops=qa('.fl-stop');
+	const all=[...lanes,...lnames,...hops,...gate,...loop,...stops];
+	if(motionPaused){
+		gsap.set([...headerEls(scene), wrap, foot], {opacity:1});
+		gsap.set(all,{opacity:1}); gsap.set(pulse,{opacity:0});
+		if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return;
+	}
+	gsap.set(all,{opacity:0});
+	const tl=gsap.timeline({onComplete:()=>{ animating=false; startFlPulse(pulse); startFlDash(hops); }}); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	tl.set(wrap,{opacity:1});
+	lanes.forEach(p=>{ const len=p.getTotalLength(); gsap.set(p,{strokeDasharray:len,strokeDashoffset:len,opacity:1}); });
+	tl.to(lanes, {strokeDashoffset:0, duration:0.6, stagger:0.12, ease:'power2.inOut'}, '-=0.05');
+	tl.fromTo(lnames, {opacity:0}, {opacity:1,duration:0.3,stagger:0.1}, '-=0.3');
+	// stops land in the order the work actually happened; every connector DRAWS rather than fading
+	tl.fromTo(stop(1), {opacity:0,y:14}, {opacity:1,y:0,duration:0.4,ease:'power2.out'}, '+=0.05');
+	flDraw(tl, hops[0], '-=0.1', '9 7');
+	tl.fromTo([stop(2),stop(3)], {opacity:0,y:14}, {opacity:1,y:0,duration:0.4,stagger:0.16,ease:'power2.out'}, '-=0.2');
+	// the gate is the point of the page, so it gets its own beat and lands with weight
+	tl.fromTo(stop(4), {opacity:0,scale:0.7,svgOrigin:'705 300'}, {opacity:1,scale:1,duration:0.6,ease:'back.out(1.9)'}, '+=0.2');
+	tl.fromTo(gateRest, {opacity:0}, {opacity:1,duration:0.3,stagger:0.08}, '-=0.05');
+	flDraw(tl, yPath, '-=0.1');
+	tl.fromTo(loopRest, {opacity:0}, {opacity:1,duration:0.3,stagger:0.09}, '-=0.25');
+	loopLines.forEach((p,i)=>flDraw(tl, p, i?'-=0.4':'-=0.3'));
+	tl.fromTo(stop(5), {opacity:0,y:14}, {opacity:1,y:0,duration:0.4,ease:'power2.out'}, '+=0.1');
+	flDraw(tl, hops[1], '-=0.1', '9 7');
+	tl.fromTo(stop(6), {opacity:0,y:14}, {opacity:1,y:0,duration:0.4,ease:'power2.out'}, '-=0.25');
+	tl.fromTo(foot, {opacity:0,y:10}, {opacity:1,y:0,duration:0.45,ease:'power2.out'}, '-=0.05');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.3');
+}
+
+function renderShiftLeftStep(){
+	const step=stepById('shiftleft'); const scene=buildScene(step); scene.classList.add('is-wide');
+	const wrap=el('si-shift');
+	const DEFS=[['sl1','sl1w','sl1v',12,'var(--si-pass)'],['sl2','sl2w','sl2v',30,'var(--si-cloud)'],
+		['sl3','sl3w','sl3v',60,'var(--si-build)'],['sl4','sl4w','sl4v',100,'var(--si-warn)']];
+	const stages=[], bars=[];
+	DEFS.forEach(([nameK,whenK,valK,pct,colour])=>{
+		const s=el('si-sstage'); s.style.setProperty('--stc', colour);
+		s.innerHTML=`<span class="si-scol"><span class="si-sval">${t(valK)}</span>` +
+			`<span class="si-sbar" style="height:${pct}%"></span></span>` +
+			`<span class="si-slab">${t(nameK)}</span><span class="si-swhen">${t(whenK)}</span>`;
+		wrap.appendChild(s); stages.push(s); bars.push(s.querySelector('.si-sbar'));
+	});
+	const move=el('si-leftward', `<span class="si-lw">\u2190</span>${t('slMove')}`);
+	scene.appendChild(wrap); scene.appendChild(move); stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	if(motionPaused){ gsap.set([...headerEls(scene), ...stages, move], {opacity:1}); gsap.set(bars,{scaleY:1}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
+	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	tl.fromTo(stages, {opacity:0}, {opacity:1,duration:0.28,stagger:0.16}, '-=0.05');
+	// each bar grows from nothing, so the escalation reads as it happens
+	tl.fromTo(bars, {scaleY:0, transformOrigin:'bottom center'}, {scaleY:1, duration:0.5, stagger:0.18, ease:'power2.out'}, '-=0.6');
+	tl.fromTo(move, {opacity:0,x:26}, {opacity:1,x:0,duration:0.5,ease:'power2.out'}, '+=0.15');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.3');
+}
+
+// ── STEP 3 · PIPELINE OVERVIEW ─────────
+// A conveyor, not a row of cards: machines stand ON the belt and the artifact rides through them.
+// GitHub-only by design — third-party CI logos point away from the story this journey tells, and the
+// colours follow the page legend at the top of this file (green proven / orange packaging / purple security).
+const CVGL = {
+	bolt:'M13 2 4 14h6l-1 8 9-12h-6z',
+	box:'M12 2 3 7v10l9 5 9-5V7zm0 2.3L17.7 7 12 10.2 6.3 7zM5 9.1l6 3.4v6.8l-6-3.3zm14 0v6.9l-6 3.3v-6.8z',
+	check:'M9.55 17.6 4.4 12.45l1.86-1.86 3.29 3.29 8.19-8.19 1.86 1.86z',
+	lock:'M5 10a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1zm3-1V7a4 4 0 1 1 8 0v2h-2V7a2 2 0 1 0-4 0v2z',
+	rocket:'M12 2c3 3 4 6 4 9l3 3-4 1-1 4-2-3-2 3-1-4-4-1 3-3c0-3 1-6 4-9zm0 5a2 2 0 1 0 0 4 2 2 0 0 0 0-4z'
+};
+const CVCODE = ['ovCode1','ovCode2','ovCode3'];
+const CVM = [
+	{ cx:240, n:'ovS1n', a:'ovS1a', c:'ovS1c', gl:'bolt',  col:'var(--si-cloud)' },
+	{ cx:465, n:'ovS2n', a:'ovS2a', c:'ovS2c', gl:'box',   col:'var(--si-build)' },
+	{ cx:690, n:'ovS3n', a:'ovS3a', c:'ovS3c', gl:'check', col:'var(--si-pass)' },
+	{ cx:915, n:'ovS4n', a:'ovS4a', c:'ovS4c', gl:'lock',  col:'var(--si-scan)' }
+];
+// depth vector for the extrusion — every solid is drawn side, then top, then front face
+const CVDX=30, CVDY=-20;
+function isoBox(x,y,w,h,dx,dy){
+	const X2=x+w, Y2=y+h;
+	return `<polygon class="iso-s" points="${X2},${y} ${X2+dx},${y+dy} ${X2+dx},${Y2+dy} ${X2},${Y2}"/>` +
+		`<polygon class="iso-t" points="${x},${y} ${x+dx},${y+dy} ${X2+dx},${y+dy} ${X2},${y}"/>` +
+		`<rect class="iso-f" x="${x}" y="${y}" width="${w}" height="${h}" rx="3"/>`;
+}
+function cvLabel(cx, nk, ak){
+	return `<text class="cv-name" x="${cx}" y="96" text-anchor="middle">${t(nk)}</text>` +
+		`<text class="cv-desc" x="${cx}" y="124" text-anchor="middle">${t(ak)}</text>`;
+}
+// The stations HOVER above the belt (front face 159–255) so the cargo lane at 288–330 is never
+// covered. Source is the odd one out on purpose: a portrait hopper with a chute, because it is the
+// only station that PUTS something on the line rather than acting on what passes under it.
+const CVTOP=159, CVBOT=255, CVBELT=310;
+function conveyorSvg(){
+	let s=`<svg viewBox="0 0 1240 360" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${t('ovDesc')}">`;
+	// treads are clipped to the belt's top face so the marching loop never spills past the rollers
+	s+=`<defs><clipPath id="cv-beltclip"><polygon points="82,330 112,310 1188,310 1158,330"/></clipPath>` +
+		`<clipPath id="cv-scanclip"><rect x="857" y="167" width="116" height="80" rx="7"/></clipPath></defs>`;
+	// the rig is lifted so the closing question has room underneath it, inside the same viewBox
+	s+=`<g transform="translate(0 -70)">`;
+	// painted FIRST so the runner zone reads as background, never as a bracket over the machines
+	s+=`<rect class="cv-hi" data-cv="hi" x="382" y="133" width="788" height="131" rx="16"/>`;
+	s+=`<g class="cv-beltg" data-cv="belt">${isoBox(82,330,1076,28,CVDX,CVDY)}`;
+	s+=`<g data-cv="treads" clip-path="url(#cv-beltclip)">`;
+	for(let x=78; x<1160; x+=34) s+=`<line class="cv-tread" x1="${x}" y1="329" x2="${x+CVDX}" y2="${329+CVDY}"/>`;
+	s+=`</g>`;
+	s+=`<circle class="cv-roller" cx="82" cy="344" r="14"/><circle class="cv-roller" cx="1158" cy="344" r="14"/></g>`;
+	// the reach of each processing station, drawn under the cargo so a box rides through it
+	CVM.slice(1).forEach((M,i)=>{
+		s+=`<polygon class="cv-beam" data-cv="beam" data-b="${i}" style="--ac:${M.col}" opacity="0"` +
+			` points="${M.cx-58},${CVBOT} ${M.cx+58},${CVBOT} ${M.cx+70},${CVBELT} ${M.cx-70},${CVBELT}"/>`;
+	});
+	// Cargo rides the belt in full view; only the Source chute ever covers it.
+	CVCODE.forEach((c,i)=>{
+		s+=`<g class="cv-codeg" data-cv="code" data-i="${i}" opacity="0">${isoBox(207,300,54,30,12,-9)}` +
+			`<text class="cv-boxt" x="234" y="320" text-anchor="middle">${t(c)}</text></g>`;
+	});
+	s+=`<g class="cv-artg" data-cv="art" opacity="0">${isoBox(434,288,66,42,14,-10)}` +
+		`<text class="cv-artt" x="467" y="314" text-anchor="middle">${t('ovArt')}</text></g>`;
+	[['rejT',657],['rejS',882]].forEach(([id,x])=>{
+		s+=`<g class="cv-badg" data-cv="${id}" opacity="0">${isoBox(x,288,66,42,14,-10)}` +
+			`<text class="cv-verdict cv-no" x="${x+33}" y="318" text-anchor="middle">\u2715</text></g>`;
+	});
+	CVM.forEach((M,i)=>{
+		const w = i ? 140 : 108, pw = i ? 116 : 88;
+		s+=`<g class="cv-mach" data-m="${i}" style="--ac:${M.col}">`;
+		s+=cvLabel(M.cx, M.n, M.a);
+		// Source gets its chute first so the casing's front face paints over the join. It stops short of
+		// the cargo lane, so a box is hidden while inside and fully in view the moment it lands.
+		if(!i) s+=`<polygon class="iso-s" points="${M.cx+42},${CVBOT} ${M.cx+72},${CVBOT-20} ${M.cx+66},265 ${M.cx+36},285"/>` +
+			`<polygon class="iso-f" points="${M.cx-42},${CVBOT} ${M.cx+42},${CVBOT} ${M.cx+36},285 ${M.cx-36},285"/>`;
+		s+=isoBox(M.cx-w/2, CVTOP, w, 96, CVDX, CVDY);
+		// light control panel on the casing, so the icon and command stay legible
+		s+=`<rect class="cv-panel" x="${M.cx-pw/2}" y="167" width="${pw}" height="80" rx="7"/>`;
+		s+=`<g class="cv-gl" transform="translate(${M.cx-17} 173) scale(1.4167)"><path d="${CVGL[M.gl]}"/></g>`;
+		s+=`<text class="cv-chipt" x="${M.cx}" y="235" text-anchor="middle">${t(M.c)}</text>`;
+		if(M.gl==='lock') s+=`<g clip-path="url(#cv-scanclip)"><rect class="cv-xray" data-cv="xray" x="845" y="167" width="14" height="80"/></g>`;
+		s+=`</g>`;
+	});
+	// the launch at the end of the line — the pad stays put, the rocket and its flame lift off it
+	s+=`<g class="cv-mach" data-m="4" style="--ac:var(--si-mute)">`;
+	s+=cvLabel(1105, 'ovS5n', 'ovS5a');
+	s+=`<ellipse class="cv-pad" cx="1105" cy="320" rx="52" ry="12"/>`;
+	s+=`<g data-cv="rocket">`;
+	// flame overlaps the tail by a few units so the two read as one object, and stops at the pad
+	s+=`<path class="cv-flame-o" data-cv="flame" d="M 1105 314 C 1097 305 1096 296 1099 284 L 1111 284 C 1114 296 1113 305 1105 314 Z"/>`;
+	s+=`<path class="cv-flame-i" data-cv="flame" d="M 1105 306 C 1101 300 1100 294 1101 286 L 1109 286 C 1110 294 1109 300 1105 306 Z"/>`;
+	s+=`<g class="cv-gl" transform="translate(1070.2 232.9) scale(2.9)"><path d="${CVGL.rocket}"/></g>`;
+	s+=`</g></g>`;
+	s+=`</g>`;
+	s+=`<text class="cv-hia" data-cv="hi" x="456" y="316" text-anchor="start"></text>`;
+	s+=`<text class="cv-hib" data-cv="hi" x="456" y="350" text-anchor="start"></text>`;
+	return s+`</svg>`;
+}
+// types into an SVG <text>; motionPaused fills it outright so the resting state is never blank
+function svgType(tl, node, text, pos, dur){
+	const o={n:0};
+	tl.set(node, {attr:{}}, pos);
+	tl.to(o, {n:text.length, duration:dur, ease:'none',
+		onUpdate:()=>{ node.textContent=text.slice(0, Math.round(o.n)); }}, pos);
+}
+// ambient loops: the belt runs, and the launched rocket holds altitude
+function startCvLoops(treads, rocket, flames){
+	if(treads){
+		const b=gsap.timeline({repeat:-1}); b.timeScale(2.2); liveTimelines.push(b);
+		// one tread pitch per cycle, so the reset is seamless
+		b.fromTo(treads, {x:0}, {x:34, duration:1.2, ease:'none'});
+	}
+	// it has already delivered and left the pad — it stays up rather than landing to launch again
+	if(rocket){
+		const r=gsap.timeline({repeat:-1, yoyo:true}); r.timeScale(1.6); liveTimelines.push(r);
+		r.to(rocket, {y:'-=7', duration:1.4, ease:'sine.inOut'});
+	}
+	if(flames && flames.length){
+		const f=gsap.timeline({repeat:-1, yoyo:true}); f.timeScale(6); liveTimelines.push(f);
+		f.to(flames, {scaleY:1.25, scaleX:0.88, duration:0.5, ease:'sine.inOut', svgOrigin:'1105 284'});
+	}
+}
+function renderOverviewStep(){
+	const step=stepById('overview'); const scene=buildScene(step); scene.classList.add('is-wide');
+	const wrap=el('cv-wrap'); wrap.innerHTML=conveyorSvg();
+	const why=el('pl-why');
+	const wcards=[['ovW1t','ovW1x'],['ovW2t','ovW2x'],['ovW3t','ovW3x']].map(([tk,xk])=>{
+		const w=el('pl-wcard', `<span class="pl-wtitle">${t(tk)}</span><span class="pl-wtext">${t(xk)}</span>`);
+		why.appendChild(w); return w;
+	});
+	scene.appendChild(wrap); scene.appendChild(why);
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	const qa=s=>[...wrap.querySelectorAll(s)];
+	const belt=qa('[data-cv="belt"]'), machs=qa('.cv-mach'), beams=qa('[data-cv="beam"]');
+	const treads=wrap.querySelector('[data-cv="treads"]'), rocket=wrap.querySelector('[data-cv="rocket"]');
+	const flames=qa('[data-cv="flame"]');
+	const hiRect=wrap.querySelector('rect.cv-hi'), hiA=wrap.querySelector('.cv-hia'), hiB=wrap.querySelector('.cv-hib');
+	const codes=qa('[data-cv="code"]'), art=wrap.querySelector('[data-cv="art"]');
+	const rejT=wrap.querySelector('[data-cv="rejT"]'), rejS=wrap.querySelector('[data-cv="rejS"]');
+	const xray=wrap.querySelector('[data-cv="xray"]');
+	// a station lighting up as the cargo passes underneath it
+	const beamPulse=(tl,i,pos)=>tl.to(beams[i], {opacity:0.34, duration:0.28, yoyo:true, repeat:1, ease:'sine.inOut'}, pos);
+	if(motionPaused){
+		gsap.set([...headerEls(scene), wrap, ...belt, ...machs, ...beams, hiRect, ...wcards], {opacity:1});
+		gsap.set(beams, {opacity:0.13});
+		// resting state: one artifact part-way down the line, no launch so no exhaust
+		gsap.set(art, {opacity:1, x:223});
+		gsap.set(flames, {opacity:0});
+		hiA.textContent=t('ovHiA'); hiB.textContent=t('ovHiB');
+		if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return;
+	}
+	gsap.set([...belt,...machs,hiRect],{opacity:0});
+	gsap.set(flames,{opacity:0});
+	const tl=gsap.timeline({onComplete:()=>{ animating=false; startCvLoops(treads, rocket, flames); }}); liveTimelines.push(tl);
+	// ten narrative beats would run ~55s at the page default; this is a relative speed-up, so it
+	// still tracks the user's speed control
+	tl.timeScale(2.05);
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	tl.set(wrap,{opacity:1});
+	// the belt is laid down first, then the stations drop into place above it in running order
+	tl.fromTo(belt, {opacity:0,scaleX:0.6,transformOrigin:'left center'}, {opacity:1,scaleX:1,duration:0.6,ease:'power2.out'}, '-=0.05');
+	machs.slice(0,4).forEach((m,i)=>{
+		tl.fromTo(m, {opacity:0,y:-22}, {opacity:1,y:0,duration:0.42,ease:'back.out(1.5)'}, i?'-=0.16':'-=0.15');
+	});
+	tl.fromTo(machs[4], {opacity:0,y:24}, {opacity:1,y:0,duration:0.5,ease:'power2.out'}, '-=0.2');
+	// each station's reach drops onto the belt it works on
+	tl.fromTo(beams, {opacity:0,scaleY:0,transformOrigin:'center top'}, {opacity:0.13,scaleY:1,duration:0.4,stagger:0.1,ease:'power2.out'}, '-=0.2');
+	// ── the artifact's journey ────────────────
+	// commits fall out of the Source chute one at a time and queue up towards Build. They start deep
+	// enough to sit behind the hopper casing, so each one is only seen once it clears the chute.
+	// immediateRender:false — the from-state is opacity 1, which would otherwise paint all three
+	// stacked on the empty stage before the rig has even arrived.
+	codes.forEach((c,i)=>{
+		tl.fromTo(c, {opacity:1,y:-75,x:0}, {y:0,duration:0.5,ease:'bounce.out',immediateRender:false}, i?'-=0.5':'+=0.1');
+		tl.to(c, {x:231-i*62, duration:0.9, ease:'none'}, '-=0.24');
+	});
+	// Build takes the three of them and hands back one artifact
+	beamPulse(tl, 0, '-=0.3');
+	tl.to(codes, {opacity:0, duration:0.25, stagger:0.06}, '-=0.2');
+	tl.fromTo(art, {opacity:0,x:0}, {opacity:1,duration:0.3}, '-=0.1');
+	tl.to(art, {x:223, duration:0.9, ease:'none'});
+	beamPulse(tl, 1, '-=0.3');
+	// a run that fails its tests is dropped off the line
+	tl.fromTo(rejT, {opacity:0,x:0,y:0,rotation:0}, {opacity:1,duration:0.2}, '+=0.05');
+	tl.to(rejT, {y:110, x:42, rotation:38, opacity:0, duration:0.65, ease:'power1.in'});
+	tl.to(art, {x:448, duration:0.9, ease:'none'}, '-=0.35');
+	// the scan reads it like an X-ray at the airport
+	beamPulse(tl, 2, '-=0.2');
+	tl.fromTo(xray, {opacity:0.85,x:0}, {x:118, duration:0.75, ease:'none', immediateRender:false}, '-=0.3');
+	tl.to(xray, {opacity:0, duration:0.2}, '-=0.12');
+	tl.fromTo(rejS, {opacity:0,x:0,y:0,rotation:0}, {opacity:1,duration:0.2}, '-=0.05');
+	tl.to(rejS, {y:110, x:42, rotation:-32, opacity:0, duration:0.65, ease:'power1.in'});
+	// what survives both gates rides to the pad and leaves with the rocket, which stays airborne
+	tl.to(art, {x:638, duration:0.9, ease:'none'}, '-=0.38');
+	tl.addLabel('launch', '+=0.12');
+	tl.to(flames, {opacity:1, duration:0.3}, 'launch-=0.25');
+	tl.to([art, rocket], {y:-84, duration:1.0, ease:'power1.in'}, 'launch');
+	tl.to(art, {opacity:0, duration:0.4}, '-=0.5');
+	tl.fromTo(wcards, {opacity:0,y:14}, {opacity:1,y:0,duration:0.4,stagger:0.14,ease:'power2.out'}, '-=0.2');
+	// only NOW does the runner zone light up — it is the subject of the closing question, so it lands
+	// with the words rather than sitting there for the whole journey
+	tl.fromTo(hiRect, {opacity:0}, {opacity:1,duration:0.5,ease:'power2.out'}, '-=0.05');
+	svgType(tl, hiA, t('ovHiA'), '-=0.12', 0.85);
+	svgType(tl, hiB, t('ovHiB'), '+=0.18', 0.72);
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.3');
+}
+
+// ── STEP 4 · RUNNERS ──────────────────────
+// Same extruded 2.5D vocabulary as the conveyor: the machines that ran the stages in step 3 are now
+// the SUBJECT. Left = a rented pool with a meter running; right = a box you own outright.
+const RNGL = {
+	dc:'M4 20V4h7v16H4zm9 0V9h7v11h-7zM6 6h3v2H6zm0 4h3v2H6zm0 4h3v2H6zm9 0h3v2h-3zm0-4h3v2h-3z',
+	cloud:'M6.6 19a4.6 4.6 0 0 1-.5-9.17A6 6 0 0 1 17.8 9.3 4.45 4.45 0 0 1 17.4 19z'
+};
+const RNVM = [ {n:'rnOs1', p:'rnPr1'}, {n:'rnOs2', p:'rnPr2'}, {n:'rnOs3', p:'rnPr3'} ];
+function rnBadge(x, y, w, key, colour){
+	return `<g data-rn="badge" style="--bc:${colour}" opacity="0">` +
+		`<rect class="rn-badge" x="${x}" y="${y}" width="${w}" height="30" rx="15"/>` +
+		`<text class="rn-badget" x="${x+w/2}" y="${y+20}" text-anchor="middle">${t(key)}</text></g>`;
+}
+function runnersSvg(){
+	let s=`<svg viewBox="0 0 1240 450" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${t('rnDesc')}">`;
+	// ── rented: GitHub keeps the pool, you pay for the minutes ──
+	s+=`<g style="--ac:var(--si-cloud)">`;
+	s+=`<rect class="rn-zone" x="16" y="48" width="584" height="384" rx="18"/>`;
+	s+=`<text class="rn-ztitle" x="40" y="84">${t('rnAt')}</text>`;
+	s+=rnBadge(356, 62, 220, 'rnFree', 'var(--si-pass)');
+	s+=`<text class="rn-zsub" x="40" y="110">${t('rnAs')}</text>`;
+	RNVM.forEach((M,i)=>{
+		// 44-tall boxes on a 76 pitch — the extruded top face steals 11 units, so the pitch has to pay for it
+		const y=140+i*76;
+		s+=`<g data-rn="vm" data-i="${i}" class="rn-vm" opacity="0">${isoBox(40,y,300,44,16,-11)}` +
+			`<rect class="rn-face" x="52" y="${y+7}" width="276" height="30" rx="6"/>` +
+			`<text class="rn-vmt" x="70" y="${y+28}">${t(M.n)}</text></g>`;
+		s+=`<g data-rn="price" data-i="${i}" opacity="0">` +
+			`<rect class="rn-price" x="380" y="${y+6}" width="196" height="32" rx="9"/>` +
+			`<text class="rn-pricet" x="478" y="${y+28}" text-anchor="middle">${t(M.p)}</text></g>`;
+	});
+	// the meter is the point — a rented machine costs money for exactly as long as it is up
+	s+=`<g data-rn="strip" opacity="0">`;
+	s+=`<rect class="rn-strip" x="40" y="356" width="536" height="60" rx="12"/>`;
+	s+=`<text class="rn-stript" x="58" y="381">${t('rnMeter')}</text>`;
+	s+=`<text class="rn-stripsub" x="58" y="404">${t('rnAf2')}</text>`;
+	s+=`<rect class="rn-chip" x="392" y="372" width="82" height="30" rx="8"/>`;
+	s+=`<text class="rn-chipt" data-rn="min" x="433" y="393" text-anchor="middle">${t('rnMin')}</text>`;
+	s+=`<rect class="rn-chip" x="484" y="372" width="92" height="30" rx="8"/>`;
+	s+=`<text class="rn-chipt" data-rn="cost" x="530" y="393" text-anchor="middle">${t('rnCost')}</text>`;
+	s+=`</g></g>`;
+	// ── owned: no meter, but every chore is yours ──
+	s+=`<g style="--ac:var(--si-build)">`;
+	s+=`<rect class="rn-zone" x="624" y="48" width="600" height="384" rx="18"/>`;
+	s+=`<text class="rn-ztitle" x="648" y="84">${t('rnBt')}</text>`;
+	s+=rnBadge(1000, 62, 200, 'rnNoBill', 'var(--si-build)');
+	s+=`<text class="rn-zsub" x="648" y="110">${t('rnBs')}</text>`;
+	s+=`<text class="rn-zcap" x="648" y="134">${t('rnB0')}</text>`;
+	[['rnSrc1',648,'dc'],['rnSrc2',936,'cloud']].forEach(([k,x,g],i)=>{
+		s+=`<g data-rn="tile" data-i="${i}" opacity="0">` +
+			`<rect class="rn-tile" x="${x}" y="156" width="264" height="56" rx="12"/>` +
+			`<g class="rn-gl" transform="translate(${x+18} 172) scale(1.0417)"><path d="${RNGL[g]}"/></g>` +
+			`<text class="rn-tilet" x="${x+60}" y="190">${t(k)}</text></g>`;
+	});
+	s+=`<path class="rn-link" data-rn="link" d="M 780 212 L 866 244"/>`;
+	s+=`<path class="rn-link" data-rn="link" d="M 1068 212 L 982 244"/>`;
+	s+=`<g data-rn="rack" class="rn-vm" opacity="0">${isoBox(796,244,256,58,16,-11)}` +
+		`<rect class="rn-face" x="808" y="254" width="232" height="38" rx="6"/>` +
+		`<text class="rn-rackt" x="924" y="279" text-anchor="middle">${t('rnRack')}</text></g>`;
+	['rnBf1','rnBf2','rnBf3'].forEach((k,i)=>{
+		const y=340+i*30;
+		s+=`<g data-rn="line" data-i="${i}" opacity="0">` +
+			`<circle class="rn-dot" cx="654" cy="${y-5}" r="4"/>` +
+			`<text class="rn-line" x="670" y="${y}">${t(k)}</text></g>`;
+	});
+	s+=`</g>`;
+	return s+`</svg>`;
+}
+// counts a number into an SVG <text>; survives a seek because it is driven by a tween proxy
+function svgCount(tl, node, to, fmt, pos, dur){
+	const o={n:0};
+	tl.to(o, {n:to, duration:dur, ease:'none',
+		onUpdate:()=>{ node.textContent=fmt(o.n); }}, pos);
+}
+function renderRunnersStep(){
+	const step=stepById('runners'); const scene=buildScene(step); scene.classList.add('is-wide');
+	const wrap=el('rn-wrap'); wrap.innerHTML=runnersSvg();
+	const foot=el('si-note', t('rnFoot'));
+	scene.appendChild(wrap); scene.appendChild(foot);
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	const qa=s=>[...wrap.querySelectorAll(s)];
+	const zones=qa('rect.rn-zone'), vms=qa('[data-rn="vm"]'), prices=qa('[data-rn="price"]');
+	const badges=qa('[data-rn="badge"]'), strip=wrap.querySelector('[data-rn="strip"]');
+	const tiles=qa('[data-rn="tile"]'), links=qa('[data-rn="link"]');
+	const rack=wrap.querySelector('[data-rn="rack"]'), lines=qa('[data-rn="line"]');
+	const minEl=wrap.querySelector('[data-rn="min"]'), costEl=wrap.querySelector('[data-rn="cost"]');
+	const MINS=3, RATE=0.006;
+	const fmtMin=n=>Math.round(n)+' min', fmtCost=n=>'$'+(Math.round(n)*RATE).toFixed(3);
+	if(motionPaused){
+		gsap.set([...headerEls(scene), wrap, ...zones, ...vms, ...prices, ...badges, strip,
+			...tiles, ...links, rack, ...lines, foot], {opacity:1});
+		minEl.textContent=fmtMin(MINS); costEl.textContent=fmtCost(MINS);
+		if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return;
+	}
+	gsap.set([...zones, ...links], {opacity:0});
+	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	tl.set(wrap,{opacity:1});
+	tl.fromTo(zones[0], {opacity:0,scale:0.96,transformOrigin:'center center'}, {opacity:1,scale:1,duration:0.45,ease:'power2.out'}, '-=0.05');
+	// each machine arrives with its price already attached — the menu IS the price list
+	vms.forEach((v,i)=>{
+		tl.fromTo(v, {opacity:0,y:-16}, {opacity:1,y:0,duration:0.36,ease:'back.out(1.5)'}, i?'-=0.18':'-=0.1');
+		tl.fromTo(prices[i], {opacity:0,x:-14}, {opacity:1,x:0,duration:0.3,ease:'power2.out'}, '-=0.16');
+	});
+	tl.fromTo(badges[0], {opacity:0,scale:0.8,transformOrigin:'center center'}, {opacity:1,scale:1,duration:0.35,ease:'back.out(2)'}, '-=0.1');
+	tl.fromTo(strip, {opacity:0,y:12}, {opacity:1,y:0,duration:0.4,ease:'power2.out'}, '-=0.05');
+	// the meter runs while the job runs — that is the whole cost model in one beat
+	svgCount(tl, minEl, MINS, fmtMin, '-=0.1', 1.1);
+	svgCount(tl, costEl, MINS, fmtCost, '<', 1.1);
+	tl.fromTo(zones[1], {opacity:0,scale:0.96,transformOrigin:'center center'}, {opacity:1,scale:1,duration:0.45,ease:'power2.out'}, '-=0.35');
+	tl.fromTo(tiles, {opacity:0,y:-12}, {opacity:1,y:0,duration:0.34,stagger:0.12,ease:'power2.out'}, '-=0.15');
+	tl.fromTo(links, {opacity:0}, {opacity:1,duration:0.3}, '-=0.1');
+	tl.fromTo(rack, {opacity:0,y:14}, {opacity:1,y:0,duration:0.4,ease:'back.out(1.4)'}, '-=0.12');
+	tl.fromTo(badges[1], {opacity:0,scale:0.8,transformOrigin:'center center'}, {opacity:1,scale:1,duration:0.35,ease:'back.out(2)'}, '-=0.15');
+	tl.fromTo(lines, {opacity:0,x:-10}, {opacity:1,x:0,duration:0.28,stagger:0.1,ease:'power2.out'}, '-=0.1');
+	tl.fromTo(foot, {opacity:0,y:10}, {opacity:1,y:0,duration:0.45,ease:'power2.out'}, '-=0.05');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.3');
+}
+
+function renderPipelineStep(){
+	const step=stepById('pipeline'); const scene=buildScene(step); scene.classList.add('is-wide');
+	const wrap=el('si-pipe');
+	const trig=el('si-pcard',
+		`<span class="si-plab">${t('pipeT1lab')}</span><span class="si-pttl">${t('pipeT1')}</span>` +
+		['pipeT1a','pipeT1b','pipeT1c'].map(k=>`<span class="si-pmono">${t(k)}</span>`).join('') +
+		`<span class="si-pchips"><span class="si-pchip">${t('pipeT1n')}</span></span>`);
+	trig.style.setProperty('--pcc','var(--si-scan)');
+	const a1=siArrow('2.4rem');
+	const run=el('si-pcard is-runner',
+		`<span class="si-plab">${t('pipeT2lab')}</span><span class="si-pttl">${t('pipeT2')}</span>` +
+		`<span class="si-pmono">${t('pipeT2a')}</span>` +
+		`<span class="si-pline">${t('pipeT2n1')}</span><span class="si-pline">${t('pipeT2n2')}</span>`);
+	run.style.setProperty('--pcc','var(--si-build)');
+	const a2=siArrow('2.4rem');
+	const job=el('si-pcard',
+		`<span class="si-plab">${t('pipeT3lab')}</span><span class="si-pttl">${t('pipeT3')}</span>` +
+		`<span class="si-pchips">${['pipeT3a','pipeT3b','pipeT3c','pipeT3d'].map(k=>`<span class="si-pchip">${t(k)}</span>`).join('')}</span>` +
+		`<span class="si-pline">${t('pipeT3n')}</span>`);
+	job.style.setProperty('--pcc','var(--si-pass)');
+	wrap.appendChild(trig); wrap.appendChild(a1); wrap.appendChild(run); wrap.appendChild(a2); wrap.appendChild(job);
+	const foot=el('si-note', t('pipeCiCd'));
+	scene.appendChild(wrap); scene.appendChild(foot); stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	if(motionPaused){ gsap.set([...headerEls(scene), trig, run, job, a1, a2, foot], {opacity:1}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
+	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	tl.fromTo(trig, {opacity:0,x:-20}, {opacity:1,x:0,duration:0.4,ease:'power2.out'}, '-=0.05');
+	tl.fromTo(a1, {opacity:0,scaleX:0.3}, {opacity:1,scaleX:1,duration:0.26,ease:'power2.out',transformOrigin:'left center'}, '-=0.05');
+	// the runner lands with weight — it is the piece learners tend to skip over
+	tl.fromTo(run, {opacity:0,y:18,scale:0.95}, {opacity:1,y:0,scale:1,duration:0.5,ease:'back.out(1.6)'}, '-=0.05');
+	tl.fromTo(a2, {opacity:0,scaleX:0.3}, {opacity:1,scaleX:1,duration:0.26,ease:'power2.out',transformOrigin:'left center'}, '-=0.05');
+	tl.fromTo(job, {opacity:0,x:20}, {opacity:1,x:0,duration:0.4,ease:'power2.out'}, '-=0.05');
+	tl.fromTo(foot, {opacity:0,y:10}, {opacity:1,y:0,duration:0.45,ease:'power2.out'}, '-=0.05');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.3');
+}
+
+// ── STEP 2 · THE FOUR EPICS ──
+function renderTestStep(){
+	renderWorkflow(stepById('test'),
+		[['testFile','cm'],['testC1','kw'],['testC2','kw'],['testC3'],['testC4'],['testC5'],['testC6','st'],['testC7','st']],
+		[['testI1','testT1'],['testI2','testT2'],['testI3','testT3'],['testI4','testT4']],
+		'var(--si-pass)', 'actions', '/actions');
+}
+
+function renderCodeqlStep(){
+	renderWorkflow(stepById('codeql'),
+		[['cqFile','cm'],['cqC1','kw'],['cqC2'],['cqC3'],['cqC4','cm'],['cqC5','kw'],['cqC6'],['cqC7','st']],
+		[['cqI1','cqT1'],['cqI2','cqT2'],['cqI3','cqT3'],['cqI4','cqT4']],
+		'var(--si-scan)', 'security', '/security/code-scanning');
+}
+
+function renderDbStep(){
+	renderWorkflow(stepById('dependabot'),
+		[['dbFile','cm'],['dbC1','kw'],['dbC2','kw'],['dbC3','st'],['dbC4'],['dbC5'],['dbC6']],
+		[['dbI1','dbT1'],['dbI2','dbT2'],['dbI3','dbT3']],
+		'var(--si-cloud)', 'security', '/security/dependabot');
+}
+
+// ── STEP 3 · SPLIT INTO SUB-TASKS ────────────
+// The forbidden list lands first and stays visible, so the fix is read as an answer to it.
+function renderSecretsStep(){
+	const step=stepById('secrets'); const scene=buildScene(step); scene.classList.add('is-wide');
+	const wrap=el('si-sec');
+	const never=el('si-never', `<span class="si-nlab">${t('secNlab')}</span>` +
+		['secN1','secN2','secN3','secN4'].map(k=>`<span class="si-nitem">${t(k)}</span>`).join(''));
+	const arrow=siArrow('2.8rem');
+	const instead=el('si-instead', `<span class="si-ilab">${t('secIlab')}</span>` +
+		['secI1','secI2','secI3','secI4'].map(k=>`<span class="si-iitem">${t(k)}</span>`).join('') +
+		`<span class="si-usage">${t('secUse')}</span>`);
+	// Actions secrets are configured under repository Settings
+	const insteadWin=AW.github({ tab:'settings', path:'/settings/secrets/actions', cls:'si-insteadwin' });
+	insteadWin.bodyEl.appendChild(instead);
+	wrap.appendChild(never); wrap.appendChild(arrow); wrap.appendChild(insteadWin);
+	scene.appendChild(wrap); stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	const nitems=never.querySelectorAll('.si-nitem'), iitems=instead.querySelectorAll('.si-iitem');
+	const usage=instead.querySelector('.si-usage');
+	if(motionPaused){ gsap.set([...headerEls(scene), never, arrow, insteadWin, ...nitems, ...iitems, usage], {opacity:1}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
+	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	tl.fromTo(never, {opacity:0,x:-20}, {opacity:1,x:0,duration:0.42,ease:'power2.out'}, '-=0.05');
+	tl.fromTo(nitems, {opacity:0,x:-10}, {opacity:1,x:0,duration:0.24,stagger:0.11,ease:'power2.out'}, '-=0.15');
+	tl.fromTo(arrow, {opacity:0,scaleX:0.3}, {opacity:1,scaleX:1,duration:0.3,ease:'power2.out',transformOrigin:'left center'}, '+=0.1');
+	tl.fromTo(insteadWin, {opacity:0,x:20}, {opacity:1,x:0,duration:0.42,ease:'power2.out'}, '-=0.05');
+	tl.fromTo(iitems, {opacity:0,x:10}, {opacity:1,x:0,duration:0.24,stagger:0.11,ease:'power2.out'}, '-=0.15');
+	tl.fromTo(usage, {opacity:0,scale:0.92}, {opacity:1,scale:1,duration:0.35,ease:'back.out(1.9)'}, '-=0.05');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.3');
+}
+
+// ── STEP 4 · ISSUE ANATOMY ─────────
+
+// Shared skeleton for steps 5 + 6 so the before/after reads as ONE picture being fixed.
+
+// ── STEP 10 · RECAP ──
+// Closes the loop on step 3 on purpose: same belt, same hovering stations — but the thing riding the
+// line is now the learner's own pull request, and it leaves as a merge.
+const RPG = [
+	{ cx:275, n:'recS1', d:'recS1s', c:'recC1', gl:'check', col:'var(--si-pass)' },
+	{ cx:495, n:'recS2', d:'recS2s', c:'recC2', gl:'lock',  col:'var(--si-scan)' },
+	{ cx:715, n:'recS3', d:'recS3s', c:'recC3', gl:'box',   col:'var(--si-build)' },
+	{ cx:935, n:'recS4', d:'recS4s', c:'recC4', gl:'key',   col:'var(--si-scan)' }
+];
+const RPKEY = 'M14.5 3a6.5 6.5 0 0 0-6.24 8.35L3 16.6V21h4.4l1.5-1.5V18h1.5l1.6-1.6h1.9l1.35-1.35A6.5 6.5 0 1 0 14.5 3zm2.6 3.1a1.7 1.7 0 1 1 0 3.4 1.7 1.7 0 0 1 0-3.4z';
+function recapSvg(){
+	let s=`<svg viewBox="0 0 1240 440" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${t('recDesc')}">`;
+	s+=`<defs><clipPath id="rp-beltclip"><polygon points="82,338 106,318 1182,318 1158,338"/></clipPath></defs>`;
+	// what wakes the whole thing up — steps 4 and 5 in one line
+	s+=`<g data-rp="trig" opacity="0"><rect class="rp-trig" x="356" y="24" width="528" height="36" rx="18"/>` +
+		`<text class="rp-trigt" x="620" y="48" text-anchor="middle">${t('recTrig')}</text></g>`;
+	s+=`<g class="rp-beltg" data-rp="belt">${isoBox(82,338,1076,28,24,-20)}`;
+	s+=`<g data-rp="treads" clip-path="url(#rp-beltclip)">`;
+	for(let x=78; x<1160; x+=34) s+=`<line class="rp-tread" x1="${x}" y1="337" x2="${x+24}" y2="317"/>`;
+	s+=`</g>`;
+	s+=`<circle class="rp-roller" cx="82" cy="352" r="14"/><circle class="rp-roller" cx="1158" cy="352" r="14"/></g>`;
+	RPG.forEach((M,i)=>{
+		s+=`<polygon class="rp-beam" data-rp="beam" data-i="${i}" style="--ac:${M.col}" opacity="0"` +
+			` points="${M.cx-52},266 ${M.cx+52},266 ${M.cx+64},318 ${M.cx-64},318"/>`;
+	});
+	// cargo before the stations, so a box passing under one is occluded for free
+	s+=`<g class="rp-prg" data-rp="pr" opacity="0">${isoBox(96,296,98,42,14,-10)}` +
+		`<text class="rp-boxt" x="145" y="322" text-anchor="middle">${t('recPR')}</text></g>`;
+	s+=`<g class="rp-okg" data-rp="ok" opacity="0">${isoBox(1040,296,98,42,14,-10)}` +
+		`<text class="rp-boxt" x="1089" y="322" text-anchor="middle">${t('recOk')}</text></g>`;
+	RPG.forEach((M,i)=>{
+		s+=`<g data-rp="st" data-i="${i}" class="rp-mach" style="--ac:${M.col}" opacity="0">`;
+		s+=`<text class="rp-name" x="${M.cx}" y="96" text-anchor="middle">${t(M.n)}</text>`;
+		s+=`<text class="rp-desc" x="${M.cx}" y="126" text-anchor="middle">${t(M.d)}</text>`;
+		s+=isoBox(M.cx-85, 160, 170, 106, 24, -20);
+		s+=`<rect class="rp-panel" x="${M.cx-73}" y="168" width="146" height="90" rx="7"/>`;
+		s+=`<g class="rp-gl" transform="translate(${M.cx-17} 178) scale(1.4167)"><path d="${M.gl==='key'?RPKEY:CVGL[M.gl]}"/></g>`;
+		s+=`<text class="rp-chipt" x="${M.cx}" y="244" text-anchor="middle">${t(M.c)}</text>`;
+		s+=`</g>`;
+		// the green tick only lands once the PR has actually cleared that gate
+		s+=`<g data-rp="tick" data-i="${i}" opacity="0">` +
+			`<circle class="rp-tick" cx="${M.cx+92}" cy="154" r="16"/>` +
+			`<path class="rp-tickg" transform="translate(${M.cx+80} 142) scale(1)" d="${CVGL.check}"/></g>`;
+	});
+	s+=`<text class="rp-lineA" data-rp="lineA" x="620" y="400" text-anchor="middle"></text>`;
+	s+=`<text class="rp-lineB" data-rp="lineB" x="620" y="432" text-anchor="middle"></text>`;
+	return s+`</svg>`;
+}
+function renderRecapStep(){
+	const step=stepById('recap'); const scene=buildScene(step); scene.classList.add('is-wide');
+	const wrap=el('rp-wrap'); wrap.innerHTML=recapSvg();
+	const foot=el('si-note', t('recFoot'));
+	scene.appendChild(wrap); scene.appendChild(foot); stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	const qa=s=>[...wrap.querySelectorAll(s)];
+	const belt=qa('[data-rp="belt"]'), treads=wrap.querySelector('[data-rp="treads"]');
+	const trig=wrap.querySelector('[data-rp="trig"]'), sts=qa('[data-rp="st"]');
+	const beams=qa('[data-rp="beam"]'), ticks=qa('[data-rp="tick"]');
+	const pr=wrap.querySelector('[data-rp="pr"]'), ok=wrap.querySelector('[data-rp="ok"]');
+	const lineA=wrap.querySelector('[data-rp="lineA"]'), lineB=wrap.querySelector('[data-rp="lineB"]');
+	if(motionPaused){
+		gsap.set([...headerEls(scene), wrap, ...belt, trig, ...sts, ...beams, ...ticks, ok, foot], {opacity:1});
+		gsap.set(beams, {opacity:0.13});
+		gsap.set(pr, {opacity:1, x:350});   // parked mid-gauntlet so the resting frame still tells the story
+		lineA.textContent=t('recLineA'); lineB.textContent=t('recLineB');
+		if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return;
+	}
+	gsap.set([...belt, ...sts], {opacity:0});
+	const tl=gsap.timeline({onComplete:()=>{ animating=false; startRpBelt(treads); }}); liveTimelines.push(tl);
+	tl.timeScale(1.5);
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	tl.set(wrap,{opacity:1});
+	tl.fromTo(trig, {opacity:0,y:-12}, {opacity:1,y:0,duration:0.4,ease:'power2.out'}, '-=0.15');
+	tl.fromTo(belt, {opacity:0,scaleX:0.6,transformOrigin:'left center'}, {opacity:1,scaleX:1,duration:0.55,ease:'power2.out'}, '-=0.1');
+	sts.forEach((n,i)=>tl.fromTo(n, {opacity:0,y:-20}, {opacity:1,y:0,duration:0.4,ease:'back.out(1.5)'}, i?'-=0.18':'-=0.15'));
+	tl.fromTo(beams, {opacity:0,scaleY:0,transformOrigin:'center top'}, {opacity:0.13,scaleY:1,duration:0.35,stagger:0.08,ease:'power2.out'}, '-=0.2');
+	// the whole page, replayed in miniature: one PR earning four ticks
+	tl.fromTo(pr, {opacity:0,x:0}, {opacity:1,duration:0.3}, '+=0.05');
+	RPG.forEach((M,i)=>{
+		tl.to(pr, {x:M.cx-145, duration:0.55, ease:'power1.inOut'}, i?'-=0.05':'+=0.05');
+		tl.to(beams[i], {opacity:0.34, duration:0.22, yoyo:true, repeat:1, ease:'sine.inOut'}, '-=0.15');
+		tl.fromTo(ticks[i], {opacity:0,scale:0.5,transformOrigin:'center center'}, {opacity:1,scale:1,duration:0.3,ease:'back.out(2.2)'}, '-=0.1');
+	});
+	tl.to(pr, {x:944, duration:0.5, ease:'power1.in'}, '+=0.05');
+	tl.to(pr, {opacity:0, duration:0.25}, '-=0.18');
+	tl.fromTo(ok, {opacity:0,scale:0.8,transformOrigin:'center center'}, {opacity:1,scale:1,duration:0.4,ease:'back.out(1.8)'}, '-=0.15');
+	svgType(tl, lineA, t('recLineA'), '+=0.1', 0.8);
+	svgType(tl, lineB, t('recLineB'), '+=0.15', 0.68);
+	tl.fromTo(foot, {opacity:0,y:10}, {opacity:1,y:0,duration:0.45,ease:'power2.out'}, '-=0.1');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.3');
+}
+function startRpBelt(treads){
+	if(!treads) return;
+	const b=gsap.timeline({repeat:-1}); b.timeScale(2.2); liveTimelines.push(b);
+	b.fromTo(treads, {x:0}, {x:34, duration:1.2, ease:'none'});
+}
+
+// ── CONTROLS ──────────────────────────────
+function focusHeading(){ const h=document.getElementById('stage-heading'); if(h){ try{ h.focus({preventScroll:true}); }catch(_){ h.focus(); } } }
+function interruptAnimation(){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; animating=false; }
+function next(){ interruptAnimation(); if(current<STEPS.length-1){ renderStep(current+1); focusHeading(); } }
+function prev(){ interruptAnimation(); if(current>0){ renderStep(current-1); focusHeading(); } }
+function reset(){ interruptAnimation(); renderStep(0); focusHeading(); }
+function replay(){ if(current<0) return; interruptAnimation(); renderStep(current); focusHeading(); }
+
+// ── Hide / show top bar (toggle; the ^ chevron flips to v when hidden) ──
+(function(){
+	const hideBtn=document.getElementById('header-hide'), revealBtn=document.getElementById('header-reveal');
+	if(!hideBtn||!revealBtn) return;
+	var hideBtnTop=document.getElementById('header-hide-top'); if(hideBtnTop) hideBtnTop.addEventListener('click',function(e){ e.stopPropagation(); hideBtn.click(); });
+	const hidePath=hideBtn.querySelector('svg path');
+	const UP='M6 15l6-6 6 6', DOWN='M6 9l6 6 6-6';   // ^ points up to hide the bar; flips to v to show it again
+	function setHidden(h){
+		document.body.classList.toggle('chrome-hidden',h);
+		hideBtn.setAttribute('aria-expanded',String(!h));
+		hideBtn.setAttribute('aria-label',h?'Show top bar':'Hide top bar');
+		hideBtn.title=(h?'Show top bar':'Hide top bar')+' (H)';
+		if(hidePath) hidePath.setAttribute('d',h?DOWN:UP);
+		try{localStorage.setItem('aw-tmpl-chrome-hidden',h?'1':'0');}catch(_){}
+		if(current>=0) requestAnimationFrame(()=>{ const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s); });
+	}
+	hideBtn.addEventListener('click',e=>{e.stopPropagation();setHidden(!document.body.classList.contains('chrome-hidden'));});
+	revealBtn.addEventListener('click',e=>{e.stopPropagation();setHidden(false);});
+	try{ if(localStorage.getItem('aw-tmpl-chrome-hidden')==='1') setHidden(true); }catch(_){}
+	document.addEventListener('keydown',e=>{ if(e.code==='KeyH'&&!e.metaKey&&!e.ctrlKey&&!e.altKey){ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return; e.preventDefault(); setHidden(!document.body.classList.contains('chrome-hidden')); } });
+})();
+
+document.getElementById('next-btn').addEventListener('click',e=>{e.stopPropagation();next();});
+document.getElementById('prev-btn').addEventListener('click',e=>{e.stopPropagation();prev();});
+document.getElementById('reset-btn').addEventListener('click',e=>{e.stopPropagation();reset();});
+document.getElementById('replay-btn').addEventListener('click',e=>{e.stopPropagation();replay();});
+
+// ── Clickable progress bar + step ticks ──
+(function(){
+	const track=document.querySelector('.progress-track'); if(!track) return;
+	for(let s=1; s<STEPS.length; s++){ const tk=document.createElement('div'); tk.className='progress-tick'; tk.style.left=(s/STEPS.length*100)+'%'; track.appendChild(tk); }
+	track.setAttribute('title','Jump to a step');
+	track.addEventListener('click', e=>{
+		const r=track.getBoundingClientRect(); const frac=(e.clientX-r.left)/r.width;
+		const target=Math.max(0, Math.min(STEPS.length-1, Math.floor(frac*STEPS.length)));
+		if(target!==current){ interruptAnimation(); renderStep(target); focusHeading(); }
+	});
+})();
+
+// ── Movable / pinnable control dock ───────
+(function(){
+	const dock=document.getElementById('controls'), grip=document.getElementById('ctrl-grip'), pin=document.getElementById('ctrl-pin');
+	if(!dock||!grip) return;
+	const KEY='aw-tmpl-controls-pos';
+	let dragging=false, sx=0, sy=0, bl=0, bt=0, moved=false;
+	function place(left,top){
+		const w=dock.offsetWidth, h=dock.offsetHeight;
+		left=Math.max(6, Math.min(left, window.innerWidth - w - 6));
+		top =Math.max(6, Math.min(top,  window.innerHeight - h - 6));
+		dock.style.left=left+'px'; dock.style.top=top+'px'; dock.style.right='auto'; dock.style.bottom='auto'; dock.style.transform='none';
+		document.body.classList.add('controls-floating');
+	}
+	function recenter(){
+		dock.style.left=dock.style.top=dock.style.right=dock.style.bottom=dock.style.transform='';
+		document.body.classList.remove('controls-floating');
+		try{ localStorage.removeItem(KEY); }catch(_){}
+	}
+	grip.addEventListener('pointerdown', e=>{
+		e.preventDefault(); dragging=true; moved=false;
+		const r=dock.getBoundingClientRect(); bl=r.left; bt=r.top; sx=e.clientX; sy=e.clientY;
+		try{ grip.setPointerCapture(e.pointerId); }catch(_){}
+	});
+	grip.addEventListener('pointermove', e=>{
+		if(!dragging) return;
+		const dx=e.clientX-sx, dy=e.clientY-sy;
+		if(Math.abs(dx)>2||Math.abs(dy)>2) moved=true;
+		place(bl+dx, bt+dy);
+	});
+	function end(e){ if(!dragging) return; dragging=false; try{ grip.releasePointerCapture(e.pointerId); }catch(_){}
+		if(moved){ try{ const r=dock.getBoundingClientRect(); localStorage.setItem(KEY, JSON.stringify({left:r.left, top:r.top})); }catch(_){} } }
+	grip.addEventListener('pointerup', end); grip.addEventListener('pointercancel', end);
+	// keyboard-nudge the dock when the grip is focused (arrow keys; Shift = larger step)
+	grip.addEventListener('keydown', e=>{
+		const d=e.shiftKey?40:12; const r=dock.getBoundingClientRect(); let ok=true;
+		if(e.key==='ArrowLeft') place(r.left-d, r.top);
+		else if(e.key==='ArrowRight') place(r.left+d, r.top);
+		else if(e.key==='ArrowUp') place(r.left, r.top-d);
+		else if(e.key==='ArrowDown') place(r.left, r.top+d);
+		else ok=false;
+		if(ok){ e.preventDefault(); e.stopPropagation(); }
+	});
+	if(pin) pin.addEventListener('click', e=>{ e.stopPropagation(); recenter(); });
+	window.addEventListener('resize', ()=>{ if(document.body.classList.contains('controls-floating')){ const r=dock.getBoundingClientRect(); place(r.left, r.top); } });
+	try{ const s=JSON.parse(localStorage.getItem(KEY)||'null'); if(s && typeof s.left==='number') place(s.left, s.top); }catch(_){}
+})();
+
+// ── Make callout / outline / caption draggable (same pointer-drag as the control dock) ──
+function dragify(el, key){
+	if(!el || el.__awDrag) return; el.__awDrag=true;
+	let dragging=false, sx=0, sy=0, bl=0, bt=0, moved=false;
+	const resizable = getComputedStyle(el).resize !== 'none';
+	const sizeKey = key ? key + '-size' : null;
+	// snapshot the home position + size so the reset pin can restore it exactly
+	const home={ position:el.style.position, left:el.style.left, top:el.style.top,
+		right:el.style.right, bottom:el.style.bottom, margin:el.style.margin, transform:el.style.transform,
+		width:el.style.width, height:el.style.height };
+	// reset "pin" — hidden until the panel is dragged or resized off its home spot
+	const pin=document.createElement('button');
+	pin.type='button'; pin.className='aw-drag-reset';
+	pin.title=t('resetPos'); pin.setAttribute('aria-label', t('resetPos'));
+	pin.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>';
+	// keep the pin inside scrollable / resizable panels so it isn't clipped
+	const oy=getComputedStyle(el).overflowY; const clips=(oy==='auto'||oy==='scroll'||oy==='hidden');
+	pin.style.top=clips?'8px':'-10px'; pin.style.right=clips?'8px':'-10px';
+	el.appendChild(pin);
+	function showPin(on){ pin.style.display=on?'flex':'none'; }
+	pin.addEventListener('pointerdown', e=>{ e.stopPropagation(); });
+	pin.addEventListener('click', e=>{
+		e.preventDefault(); e.stopPropagation();
+		el.style.position=home.position; el.style.left=home.left; el.style.top=home.top;
+		el.style.right=home.right; el.style.bottom=home.bottom; el.style.margin=home.margin; el.style.transform=home.transform;
+		el.style.width=home.width; el.style.height=home.height;
+		if(key){ try{ localStorage.removeItem(key); }catch(_){} }
+		if(sizeKey){ try{ localStorage.removeItem(sizeKey); }catch(_){} }
+		showPin(false);
+	});
+	function fix(left,top){
+		const w=el.offsetWidth, h=el.offsetHeight;
+		left=Math.max(6, Math.min(left, window.innerWidth  - w - 6));
+		top =Math.max(6, Math.min(top,  window.innerHeight - h - 6));
+		el.style.position='fixed'; el.style.left=left+'px'; el.style.top=top+'px';
+		el.style.right='auto'; el.style.bottom='auto'; el.style.margin='0'; el.style.transform='none';
+	}
+	// persist user resizes (the CSS resize grip writes inline width/height; content changes don't)
+	if(resizable && typeof ResizeObserver!=='undefined'){
+		let rt;
+		new ResizeObserver(()=>{
+			if(el.style.width || el.style.height){
+				showPin(true);
+				if(sizeKey){ clearTimeout(rt); rt=setTimeout(()=>{ try{ localStorage.setItem(sizeKey, JSON.stringify({w:el.style.width, h:el.style.height})); }catch(_){} }, 150); }
+			}
+		}).observe(el);
+	}
+	el.addEventListener('pointerdown', e=>{
+		if(e.button!==0 || (e.target.closest && e.target.closest('a,button,select,input,textarea'))) return;
+		if(resizable){ const r=el.getBoundingClientRect(); if(e.clientX>r.right-18 && e.clientY>r.bottom-18) return; } // let the resize grip win
+		dragging=true; moved=false;
+		const r=el.getBoundingClientRect(); bl=r.left; bt=r.top; sx=e.clientX; sy=e.clientY;
+		fix(bl, bt);   // pin at the current spot first, so there's no jump
+		try{ el.setPointerCapture(e.pointerId); }catch(_){}
+		e.preventDefault();
+	});
+	el.addEventListener('pointermove', e=>{
+		if(!dragging) return;
+		const dx=e.clientX-sx, dy=e.clientY-sy;
+		if(Math.abs(dx)>2||Math.abs(dy)>2) moved=true;
+		fix(bl+dx, bt+dy);
+	});
+	function end(e){
+		if(!dragging) return; dragging=false;
+		try{ el.releasePointerCapture(e.pointerId); }catch(_){}
+		if(moved){ showPin(true); if(key){ try{ const r=el.getBoundingClientRect(); localStorage.setItem(key, JSON.stringify({left:r.left, top:r.top})); }catch(_){} } }
+	}
+	el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+	if(sizeKey){ try{ const z=JSON.parse(localStorage.getItem(sizeKey)||'null'); if(z && (z.w||z.h)){ if(z.w) el.style.width=z.w; if(z.h) el.style.height=z.h; showPin(true); } }catch(_){} }
+	if(key){ try{ const s=JSON.parse(localStorage.getItem(key)||'null'); if(s && isFinite(s.left) && isFinite(s.top)){ fix(s.left, s.top); showPin(true); } }catch(_){} }
+}
+dragify(document.getElementById('step-outline'), 'aw-tmpl-outline-pos');
+dragify(document.getElementById('aw-caption'), 'aw-tmpl-caption-pos');
+
+// ── Speed ─────────────────────────────────
+const SPEED_STEPS=[0.5,0.75,1,1.25,1.5,2]; const BASE_TIMESCALE=0.25;
+let speedIndex=SPEED_STEPS.indexOf(1);
+try{ const sp=parseInt(localStorage.getItem('aw-tmpl-speed'),10); if(!isNaN(sp)&&sp>=0&&sp<SPEED_STEPS.length) speedIndex=sp; }catch(_){}
+const speedLabel=document.getElementById('speed-label'), speedDownBtn=document.getElementById('speed-down'), speedUpBtn=document.getElementById('speed-up');
+function saveSpeed(){ try{ localStorage.setItem('aw-tmpl-speed', String(speedIndex)); }catch(_){} }
+function syncSpeedUI(){ const spd=SPEED_STEPS[speedIndex]; speedLabel.textContent=spd+'\u00d7'; speedDownBtn.disabled=speedIndex===0; speedUpBtn.disabled=speedIndex===SPEED_STEPS.length-1; gsap.globalTimeline.timeScale(spd*BASE_TIMESCALE); }
+syncSpeedUI();
+speedDownBtn.addEventListener('click',e=>{e.stopPropagation(); if(speedIndex>0){speedIndex--;syncSpeedUI();saveSpeed();}});
+speedUpBtn.addEventListener('click',e=>{e.stopPropagation(); if(speedIndex<SPEED_STEPS.length-1){speedIndex++;syncSpeedUI();saveSpeed();}});
+
+// ── Keyboard ──────────────────────────────
+if (window.AW && AW.keyboard) { AW.keyboard.bind({ next, prev, reset, replay }); }
+else { document.addEventListener('keydown', e => {
+	if (['Space','ArrowRight','Enter'].includes(e.code)) { e.preventDefault(); next(); }
+	else if (e.code==='ArrowLeft') { e.preventDefault(); prev(); }
+	else if (e.code==='KeyR') { e.preventDefault(); reset(); }
+	else if (e.code==='KeyP') { e.preventDefault(); replay(); }
+}); }
+
+// ── Touch swipe (tablets) ─────────────────
+(function(){
+	const surf=document.getElementById('stage'); if(!surf) return;
+	let x0=null,y0=null,t0=0;
+	surf.addEventListener('touchstart',e=>{ if(e.touches.length!==1){x0=null;return;} x0=e.touches[0].clientX; y0=e.touches[0].clientY; t0=Date.now(); },{passive:true});
+	surf.addEventListener('touchend',e=>{
+		if(x0===null) return; const tch=e.changedTouches[0]; const dx=tch.clientX-x0, dy=tch.clientY-y0; x0=null;
+		if(Date.now()-t0>800) return;
+		if(Math.abs(dx)>50 && Math.abs(dx)>Math.abs(dy)*1.6){ if(dx<0) next(); else prev(); }
+	},{passive:true});
+})();
+
+// ── Keyboard shortcut help overlay ────────
+(function(){
+	const overlay=document.getElementById('shortcut-overlay'), btn=document.getElementById('help-toggle'), closeBtn=document.getElementById('sc-close'), list=document.getElementById('sc-list');
+	if(!overlay||!list) return;
+	const ROWS=[[['\u2192','Space'],'scNext'],[['\u2190'],'scPrev'],[['R'],'scRestart'],[['P'],'scReplay'],[['H'],'scHide'],[['?'],'scHelp']];
+	window.buildShortcuts=function(){ const title=document.getElementById('sc-title'); if(title) title.textContent=t('scTitle');
+		list.innerHTML=ROWS.map(([keys,k])=>`<li><span>${t(k)}</span><span class="sc-keys">${keys.map(x=>`<kbd>${x}</kbd>`).join('')}</span></li>`).join(''); };
+	buildShortcuts();
+	function open(){ overlay.removeAttribute('hidden'); if(closeBtn) closeBtn.focus(); }
+	function close(){ overlay.setAttribute('hidden',''); if(btn) btn.focus(); }
+	function toggle(){ overlay.hasAttribute('hidden')?open():close(); }
+	if(btn) btn.addEventListener('click',e=>{e.stopPropagation();toggle();});
+	if(closeBtn) closeBtn.addEventListener('click',e=>{e.stopPropagation();close();});
+	const bd=overlay.querySelector('.sc-backdrop'); if(bd) bd.addEventListener('click',close);
+	document.addEventListener('keydown',e=>{ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return;
+		if(e.key==='?'){ e.preventDefault(); toggle(); }
+		else if(e.key==='Escape' && !overlay.hasAttribute('hidden')){ e.preventDefault(); close(); } });
+})();
+
+// ── Resize (re-fit only — never rebuild or replay the animation) ──
+let resizeTimer, lastStageW=0, lastStageH=0;
+window.addEventListener('resize',()=>{ clearTimeout(resizeTimer); resizeTimer=setTimeout(()=>{
+	if(current<0) return;
+	const box=stage.getBoundingClientRect();
+	if(Math.abs(box.width-lastStageW)<1 && Math.abs(box.height-lastStageH)<1) return;   // ignore no-op reflows (focus/URL-bar) so the animation never restarts
+	lastStageW=box.width; lastStageH=box.height;
+	const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s);
+},200); });
+
+// ── Init ──────────────────────────────────
+setLanguage(currentLang);
+counter.textContent = `1 / ${STEPS.length}`;
+const urlStep = parseInt(new URLSearchParams(location.search).get('step'), 10);   // ?step=N opens on step N
+renderStep((!isNaN(urlStep) && urlStep>=1 && urlStep<=STEPS.length) ? urlStep-1 : 0);
+</script>
+<script>
+// ── Start gate · hold autoplay until the viewer clicks Play (empty stage + centered Play) ──
+(function () {
+	if (new URLSearchParams(location.search).has('present')) return;
+	var stage = document.getElementById('stage');
+	if (!stage) return;
+	function freeze() { try { if (window.gsap && gsap.globalTimeline) gsap.globalTimeline.pause(); } catch (_) {} }
+	freeze(); requestAnimationFrame(freeze);
+	document.body.classList.add('aw-prestart');
+	try { if (typeof stopAudio === 'function') stopAudio(); } catch (_) {}
+	stage.style.transition = 'opacity .55s ease';
+	stage.style.opacity = '0';
+
+	var T = {
+		title: { en:'Ready to begin?', es:'\u00BFTodo listo?', ja:'\u6E96\u5099\u306F\u3044\u3044\u3067\u3059\u304B\uFF1F', ko:'\uC2DC\uC791\uD560 \uC900\uBE44\uAC00 \uB418\uC168\uB098\uC694?', pt:'Tudo pronto?' },
+		sound: { en:'Sound', es:'Sonido', ja:'\u97F3\u58F0', ko:'\uC18C\uB9AC', pt:'Som' },
+		cc:    { en:'Subtitles (CC)', es:'Subt\u00EDtulos (CC)', ja:'\u5B57\u5E55\uFF08CC\uFF09', ko:'\uC790\uB9C9 (CC)', pt:'Legendas (CC)' },
+		start: { en:'Start presentation', es:'Iniciar presentaci\u00F3n', ja:'\u30D7\u30EC\u30BC\u30F3\u3092\u958B\u59CB', ko:'\uD504\uB808\uC820\uD14C\uC774\uC158 \uC2DC\uC791', pt:'Iniciar apresenta\u00E7\u00E3o' }
+	};
+	function L(){ return (typeof currentLang === 'string' && currentLang) || (typeof CURRENT_LANG === 'string' && CURRENT_LANG) || 'en'; }
+	function t(k){ var m = T[k], l = L(); return m[m[l] ? l : 'en']; }
+	function awAudioState(){ try{ if(typeof window.__awAudioOn==='function') return !!window.__awAudioOn(); }catch(_){} return (typeof audioEnabled!=='undefined') && !!audioEnabled; }
+	function awCcState(){ try{ if(typeof window.__awCcOn!=='undefined' && window.__awCcOn!==null) return !!window.__awCcOn; }catch(_){} return (typeof ccPref!=='undefined') && !!ccPref; }
+
+	var style = document.createElement('style');
+	style.textContent =
+		'body.aw-prestart #controls{opacity:.4;pointer-events:none;transition:opacity .4s ease}' +
+		'#aw-play-card{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:50;box-sizing:border-box;width:min(90vw,22rem);padding:1.35rem 1.5rem 1.5rem;border-radius:16px;background:var(--theme-card-background,#fff);color:var(--theme-text,#222);border:1px solid var(--theme-border,rgba(0,0,0,.1));box-shadow:0 24px 60px rgba(0,0,0,.28);transition:opacity .3s ease,transform .3s ease}' +
+		'#aw-play-card.aw-hide{opacity:0;transform:translate(-50%,-50%) scale(.96);pointer-events:none}' +
+		'body.theme-dark #aw-play-card{border-color:rgba(255,255,255,.12);box-shadow:0 24px 60px rgba(0,0,0,.55)}' +
+		'body.present-mode #aw-play-card{display:none!important}' +
+		'.aw-card-title{margin:0 0 1rem;text-align:center;font-size:1.02rem;font-weight:800;letter-spacing:.03em;text-transform:uppercase;opacity:.85}' +
+		'.aw-row{display:flex;align-items:center;gap:.65rem;padding:.6rem 0}' +
+		'.aw-row + .aw-row{border-top:1px solid var(--theme-border,rgba(0,0,0,.08))}' +
+		'.aw-row-ico{flex:none;width:1.5rem;text-align:center;font-size:1.15rem;line-height:1}' +
+		'.aw-row-lbl{flex:1 1 auto;font-size:.9rem;font-weight:600}' +
+		'.aw-row-state{flex:none;min-width:2.5rem;text-align:right;font-size:.68rem;font-weight:800;letter-spacing:.05em;opacity:.5}' +
+		'.aw-row-state.on{color:var(--theme-primary,#0078d4);opacity:1}' +
+		'.aw-switch{position:relative;flex:none;width:44px;height:24px;padding:0;border:none;border-radius:999px;cursor:pointer;background:var(--theme-border,#c7c7d1);transition:background .18s ease}' +
+		'.aw-switch.on{background:var(--theme-primary,#0078d4)}' +
+		'.aw-switch::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.4);transition:transform .18s ease}' +
+		'.aw-switch.on::after{transform:translateX(20px)}' +
+		'#aw-start{margin-top:1.2rem;width:100%;display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:.8rem 1rem;border:none;border-radius:11px;cursor:pointer;background:var(--theme-primary,#0078d4);color:#fff;font-size:.96rem;font-weight:700;letter-spacing:.01em;box-shadow:0 8px 22px var(--theme-primary-translucent,rgba(0,120,212,.45));transition:transform .15s ease}' +
+		'#aw-start:hover{transform:translateY(-2px)}#aw-start:active{transform:scale(.98)}' +
+		'#aw-start svg{width:18px;height:18px;flex:none}';
+	document.head.appendChild(style);
+
+	var card = document.createElement('div');
+	card.id = 'aw-play-card'; card.setAttribute('role', 'dialog'); card.setAttribute('aria-modal', 'true');
+	card.innerHTML =
+		'<div class="aw-card-title"></div>' +
+		'<div class="aw-row" data-k="audio"><span class="aw-row-ico" aria-hidden="true">\uD83D\uDD0A</span><span class="aw-row-lbl"></span><span class="aw-row-state"></span><button type="button" class="aw-switch" role="switch"></button></div>' +
+		'<div class="aw-row" data-k="cc"><span class="aw-row-ico" aria-hidden="true">\uD83D\uDCAC</span><span class="aw-row-lbl"></span><span class="aw-row-state"></span><button type="button" class="aw-switch" role="switch"></button></div>' +
+		'<button type="button" id="aw-start"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 5v14l11-7z"/></svg><span class="aw-start-lbl"></span></button>';
+	document.body.appendChild(card);
+
+	var titleEl = card.querySelector('.aw-card-title');
+	var startBtn = card.querySelector('#aw-start');
+	var ROWS = [ { k:'audio', lbl:'sound', el:card.querySelector('.aw-row[data-k="audio"]'), read:awAudioState, toggle:'audio-toggle' },
+	             { k:'cc',    lbl:'cc',    el:card.querySelector('.aw-row[data-k="cc"]'),    read:awCcState,    toggle:'cc-toggle' } ];
+
+	function render(){
+		titleEl.textContent = t('title'); card.setAttribute('aria-label', t('title'));
+		startBtn.querySelector('.aw-start-lbl').textContent = t('start');
+		ROWS.forEach(function(r){
+			var on = r.read();
+			r.el.querySelector('.aw-row-lbl').textContent = t(r.lbl);
+			var st = r.el.querySelector('.aw-row-state'); st.textContent = on ? 'ON' : 'OFF'; st.classList.toggle('on', on);
+			var sw = r.el.querySelector('.aw-switch'); sw.classList.toggle('on', on); sw.setAttribute('aria-checked', on ? 'true' : 'false');
+			sw.setAttribute('aria-label', t(r.lbl) + ' \u2014 ' + (on ? 'on' : 'off'));
+		});
+	}
+	ROWS.forEach(function(r){
+		r.el.querySelector('.aw-switch').addEventListener('click', function(e){ e.stopPropagation(); var b = document.getElementById(r.toggle); if(b) b.click(); render(); });
+	});
+	render();
+
+	var sel = document.getElementById('lang-select');
+	// Only re-freeze while the gate is still up — after Play, freezing would pause the
+	// global timeline for good and every later scene would stay at opacity 0 (blank stage).
+	if (sel) sel.addEventListener('change', function () { if (done) return; render(); freeze(); });
+
+	function gateKeys(e) {
+		if (done) return;
+		var tag = (e.target && e.target.tagName || '').toLowerCase();
+		if (tag === 'select' || tag === 'input' || tag === 'textarea') return;
+		if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'].indexOf(e.key) >= 0) { e.preventDefault(); e.stopPropagation(); }
+	}
+	document.addEventListener('keydown', gateKeys, true);
+
+	var done = false;
+	function start() {
+		if (done) return; done = true;
+		document.removeEventListener('keydown', gateKeys, true);
+		document.body.classList.remove('aw-prestart');
+		card.classList.add('aw-hide');
+		setTimeout(function () { if (card.parentNode) card.parentNode.removeChild(card); if (style.parentNode) style.parentNode.removeChild(style); }, 420);
+		setTimeout(function () {
+			try { if (window.gsap && gsap.globalTimeline) gsap.globalTimeline.play(); } catch (_) {}
+			stage.style.opacity = '1';
+			try { if (typeof interruptAnimation === 'function') interruptAnimation(); } catch (_) {}
+			try { if (typeof renderStep === 'function') renderStep(typeof current === 'number' && current >= 0 ? current : 0); } catch (_) {}
+		}, 380);
+	}
+	startBtn.addEventListener('click', start);
+}());
+</script>
+<script src="../../lib/js/aw-present.js"></script>
+<script src="../../lib/js/aw-declutter.js"></script>
+<script src="../../lib/js/aw-url-state.js"></script>
+
+</body>
+</html>

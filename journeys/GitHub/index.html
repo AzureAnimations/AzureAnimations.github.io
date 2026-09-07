@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<!-- Narration script: /narration/GitHub/index.md -->
+<!--
+	GitHub · Contoso Delivery — series hub.
+
+	DEPTH: this hub lives at journeys/GitHub/ = TWO levels down, so shared assets are ../../
+	(NOT ../../../ like journeys/DevOps/GitHub/). Copying a page from that folder means
+	rewriting every ../../../ to ../../ — it fails silently otherwise.
+
+	This journey is the DELIVERY STORY for the Contoso weather-driven retail app: why it exists,
+	how the work was broken down, tracked, branched and shipped. It is deliberately separate from
+	the concept-first "GitHub & Azure DevOps" journey at journeys/DevOps/GitHub/.
+
+	No audio: the narration scripts exist as text under /narration/GitHub/, but no clips are
+	generated yet, so the hub ships without an audio toggle.
+-->
+<html lang="en">
+<head>
+	<script src="/js/tracking.js"></script>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+	<title>GitHub · Contoso Delivery — Journey</title>
+	<meta name="description" content="A visual journey through delivering a real app on GitHub: the business case, breaking work into epics, tracking it on a Project board, a three-tier branching strategy, and shipping with Actions, CodeQL and OIDC to Azure." />
+	<link rel="icon" href="../../img/favicon.png" />
+
+	<link rel="stylesheet" href="https://unpkg.com/@microsoft/atlas-css/dist/index.css" />
+	<script src="../../lib/js/aw-theme.js"></script>
+	<!-- for AW.parseRepo/getRepo/setRepo — the hub is where the learner hands us their repo -->
+	<script src="../../lib/js/aw-chrome.js"></script>
+	<script src="../../lib/js/aw-hub-captions.js"></script>
+	<link rel="stylesheet" href="../../lib/css/aw-likes.css" />
+	<!-- Anonymous like button (Supabase) — credentials live in lib/js/aw-likes.js -->
+	<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+	<script src="../../lib/js/aw-likes.js"></script>
+
+<style>
+	:root {
+		--aw-purple:#5c2d91; --aw-blue:#0078d4; --aw-green:#10a37f; --aw-orange:#e97526;
+		/* per-stop accents: why → plan → board → branch → ship */
+		--c-why:#0b6bcb; --c-plan:#5c2d91; --c-board:#0e9e8a; --c-branch:#e2681a; --c-ship:#2da44e; --c-deploy:#0078d4; --c-try:#bc4c00;
+		--mono:'Cascadia Code','JetBrains Mono','Fira Code','SF Mono','Consolas',monospace;
+		/* the editor keeps GitHub's real Dark palette in BOTH themes — an editor is a screenshot, not a surface */
+		--ed-bg:#0d1117; --ed-panel:#161b22; --ed-line:#30363d; --ed-fg:#c9d1d9; --ed-dim:#8b949e;
+		--ed-key:#ff7b72; --ed-str:#a5d6ff; --ed-fn:#d2a8ff; --ed-num:#79c0ff; --ed-cm:#8b949e; --ed-ok:#3fb950;
+		/* brand.github.com: the Invertocat is flat black or flat white, never tinted */
+		--gh-ink:#1f2328;
+		/* the page canvas is deliberately NOT the card colour — white-on-white is what made this read as flat.
+		   Dark uses GitHub's dimmed charcoal, matching the browser mocks in the explainers. */
+		--gh-canvas:#eef1f6;
+	}
+	body.theme-dark { --gh-ink:#ffffff; --gh-canvas:#22272e; }
+	* { box-sizing:border-box; }
+	html { font-size:100%; scroll-behavior:smooth; }
+	body {
+		margin:0; min-height:100vh;
+		font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif;
+		color:var(--theme-text,#1b1a22);
+		/* a flat dot grid drawn as an SVG tile — graph paper under the editor motif. A PATTERN, not a
+		   gradient wash, so it adds texture without competing with the cards on top of it. */
+		background-color:var(--gh-canvas);
+		background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='26'%3E%3Ccircle cx='1.8' cy='1.8' r='1.8' fill='%231f2328' fill-opacity='0.09'/%3E%3C/svg%3E");
+		background-size:26px 26px;
+		background-attachment:fixed;
+	}
+	body.theme-dark {
+		color:var(--theme-text,#ececf1);
+		background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='26'%3E%3Ccircle cx='1.8' cy='1.8' r='1.8' fill='%23ffffff' fill-opacity='0.075'/%3E%3C/svg%3E");
+	}
+	/* atlas-css ships body[data-theme-preset] (0,1,1), which outranks a bare body{} (0,0,1) — so the canvas
+	   colour has to be claimed at equal specificity or it silently stays the theme default. */
+	body.theme-light, body.theme-dark { background-color:var(--gh-canvas); }
+	a { color:inherit; }
+
+	/* ── HEADER ─────────────────────────────── */
+	.site-head { position:sticky; top:0; z-index:30; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:1rem;
+		padding:0.85rem 1.6rem; backdrop-filter:blur(12px) saturate(1.3); -webkit-backdrop-filter:blur(12px) saturate(1.3);
+		background:var(--theme-body-background-translucent, rgba(255,255,255,0.7)); border-bottom:1px solid var(--theme-border, rgba(128,128,128,0.16)); }
+	body.theme-dark .site-head { background:var(--theme-body-background-translucent, rgba(24,24,30,0.72)); }
+	.topbar-left { display:flex; align-items:center; gap:0.6rem; justify-self:start; min-width:0; }
+	.brand { display:inline-flex; align-items:center; gap:0.55rem; font-weight:700; font-size:1rem; text-decoration:none; justify-self:start; white-space:nowrap; }
+	.head-title { display:inline-flex; align-items:center; gap:0.5rem; justify-self:center; white-space:nowrap; font-size:1.05rem; font-weight:600; }
+	.head-title .mark { width:26px; height:26px; display:inline-flex; align-items:center; justify-content:center; }
+	@media (max-width:1180px) { .brand > span:last-child { display:none; } }
+	.head-actions { display:inline-flex; align-items:center; gap:0.5rem; justify-self:end; }
+	.theme-toggle { display:inline-flex; align-items:center; justify-content:center; width:2.3rem; height:2.3rem; padding:0; background:transparent;
+		border:1px solid var(--theme-border, rgba(128,128,128,0.3)); border-radius:999px; color:var(--theme-text); cursor:pointer; transition:background .15s,color .15s,border-color .15s; }
+	.theme-toggle:hover { background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary,var(--aw-blue)); border-color:var(--theme-primary,var(--aw-blue)); }
+	.theme-toggle .ico { display:none; } .theme-toggle[data-theme="dark"] .ico-sun { display:block; } .theme-toggle[data-theme="light"] .ico-moon { display:block; }
+	/* language selector */
+	.lang-select { appearance:none; -webkit-appearance:none; background:var(--theme-card-background,#fff); color:var(--theme-body-text,#333);
+		border:1px solid var(--theme-border, rgba(128,128,128,0.3)); border-radius:8px; padding:5px 26px 5px 10px; font-size:0.82rem; font-weight:600;
+		font-family:'Segoe UI',sans-serif; cursor:pointer; min-width:104px;
+		background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 8px center; }
+	.lang-select:hover { border-color:var(--theme-primary,var(--aw-blue)); }
+	.lang-select:focus { outline:2px solid var(--theme-primary,var(--aw-blue)); outline-offset:1px; }
+	body.theme-dark .lang-select { background-color:color-mix(in srgb, var(--theme-body-background) 85%, transparent); color:var(--theme-text,#e0e0e0); border-color:rgba(255,255,255,0.18);
+		background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23aaa' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E"); }
+	body.theme-dark .lang-select option { background:var(--theme-body-background,#1a1a2e); color:var(--theme-text,#e0e0e0); }
+
+	/* ── HERO ───────────────────────────────── */
+	.hero { max-width:1200px; margin:0 auto; padding:3.4rem 1.6rem 1rem; display:grid; grid-template-columns:1.05fr 0.95fr; gap:2.2rem; align-items:center; }
+	.hero-eyebrow { display:inline-flex; align-items:center; gap:0.7rem; font-size:0.8rem; font-weight:600; letter-spacing:0.16em; text-transform:uppercase;
+		color:var(--theme-text-subtle); margin-bottom:1rem; }
+	/* official Invertocat + wordmark, unmodified and untinted */
+	.gh-lockup { display:inline-flex; align-items:center; gap:0.5rem; color:var(--gh-ink); }
+	.gh-lockup .gh-word { font-size:1.2rem; font-weight:600; letter-spacing:-0.01em; text-transform:none; }
+	.eb-sep { color:var(--theme-border,#c9ccd4); font-weight:400; }
+	.hero h1 { margin:0 0 1rem; font-size:clamp(2.2rem, 4.4vw, 3.5rem); line-height:1.06; font-weight:700; letter-spacing:-0.02em; }
+	.hero h1 .g1 { color:var(--c-why); }
+	.hero h1 .g2 { color:var(--c-plan); }
+	.hero h1 .g3 { color:var(--c-ship); }
+	body.theme-dark .hero h1 .g1 { color:#6fa5ff; }
+	body.theme-dark .hero h1 .g2 { color:#c9a5e8; }
+	body.theme-dark .hero h1 .g3 { color:#57d977; }
+	.hero p.lead { margin:0 0 1.4rem; font-size:1.16rem; line-height:1.6; color:var(--theme-text-subtle); max-width:36rem; }
+	.hero-meta { display:flex; flex-wrap:wrap; gap:0.6rem; }
+	.meta-chip { display:inline-flex; align-items:center; gap:0.45rem; font-family:var(--mono); font-size:0.82rem; font-weight:500; padding:0.42rem 0.9rem; border-radius:8px;
+		background:var(--theme-card-background,#fff); border:1px solid var(--theme-border, rgba(128,128,128,0.22)); }
+	body.theme-dark .meta-chip { background:#2a2b34; }
+	.meta-chip b { font-weight:600; color:var(--theme-text); }
+
+	/* hero visual — the editor these six explainers are really about */
+	.hero-art { position:relative; display:flex; align-items:center; justify-content:center; }
+	.editor { width:100%; max-width:520px; border-radius:12px; overflow:hidden; font-family:var(--mono);
+		background:var(--ed-bg); border:1px solid var(--ed-line); box-shadow:0 24px 56px rgba(0,0,0,0.34); }
+	.ed-tabs { display:flex; align-items:stretch; background:var(--ed-panel); border-bottom:1px solid var(--ed-line); }
+	.ed-tab { padding:0.6rem 1rem; font-size:0.78rem; color:var(--ed-dim); border-right:1px solid var(--ed-line); white-space:nowrap; }
+	.ed-tab.is-on { color:var(--ed-fg); background:var(--ed-bg); border-bottom:2px solid #f78166; }
+	.ed-body { padding:0.9rem 0.5rem 0.9rem 0; }
+	/* a real gutter: the counter is the line number, so the code stays copy-pasteable text */
+	.ed-code { margin:0; padding:0; list-style:none; counter-reset:ln; }
+	/* the row has exactly TWO children — gutter and code — or the row gap lands between syntax spans */
+	.ed-code li { counter-increment:ln; display:flex; gap:0.9rem; padding:0.1rem 0.9rem 0.1rem 0;
+		font-size:0.78rem; line-height:1.75; color:var(--ed-fg); }
+	.ed-code li::before { content:counter(ln); flex:none; width:2.4rem; text-align:right; color:var(--ed-dim); opacity:0.65; }
+	.ed-code code { min-width:0; white-space:pre; overflow:hidden; text-overflow:ellipsis; font:inherit; }
+	.c-key { color:var(--ed-key); } .c-str { color:var(--ed-str); } .c-fn { color:var(--ed-fn); }
+	.c-num { color:var(--ed-num); } .c-cm { color:var(--ed-cm); font-style:italic; }
+	.ed-status { display:flex; align-items:center; gap:0.6rem; padding:0.5rem 0.9rem; font-size:0.74rem;
+		color:var(--ed-dim); background:var(--ed-panel); border-top:1px solid var(--ed-line); }
+	.ed-status .ed-br { color:var(--ed-fg); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+	.ed-status .ed-ok { margin-left:auto; flex:none; color:var(--ed-ok); }
+
+	@keyframes softPulse { 0%,100%{ opacity:0.4; } 50%{ opacity:1; } }
+
+	/* ── JOURNEY ────────────────────────────── */
+	.section-head { max-width:1200px; margin:2.6rem auto 0; padding:0 1.6rem; }
+	.section-head .rail { display:inline-flex; align-items:center; gap:0.6rem; font-size:0.78rem; font-weight:600; letter-spacing:0.14em; text-transform:uppercase; color:var(--theme-text-subtle); }
+	.section-head .rail::before { content:""; width:26px; height:2px; border-radius:2px; background:var(--c-why); }
+	.section-head h2 { margin:0.6rem 0 0.3rem; font-size:clamp(1.6rem,3vw,2.15rem); font-weight:700; letter-spacing:-0.01em; }
+	.section-head p { margin:0; color:var(--theme-text-subtle); font-size:1.02rem; max-width:44rem; }
+
+	/* ── JOURNEY · one connected pipeline (problem → production) ── */
+	.pipeline { max-width:1200px; margin:1.5rem auto 0; padding:0 1.6rem; }
+	/* setup is a prerequisite, not a stage — it sits outside the six-station rail */
+	.prep { display:flex; align-items:center; gap:1rem; margin-bottom:1.4rem; padding:0.95rem 1.25rem;
+		border-radius:14px; text-decoration:none; color:inherit;
+		border:2px dashed var(--c-try); background:color-mix(in srgb, var(--c-try) 7%, transparent);
+		transition:background .18s, transform .18s; }
+	.prep:hover { background:color-mix(in srgb, var(--c-try) 14%, transparent); transform:translateY(-2px); }
+	.prep-ico { flex:none; font-size:1.7rem; line-height:1; }
+	.prep-copy { display:flex; flex-direction:column; gap:0.15rem; }
+	.prep-copy b { font-size:1.02rem; font-weight:600; color:var(--c-try); }
+	.prep-copy span { font-size:0.92rem; color:var(--theme-text-subtle); line-height:1.4; }
+	.prep-go { margin-left:auto; flex:none; font-size:0.92rem; font-weight:600; color:var(--c-try); white-space:nowrap; }
+	@media (max-width:640px) { .prep { flex-wrap:wrap; } .prep-go { margin-left:0; } }
+
+	/* the repo the learner gives us — carried through the journey on ?repo= */
+	.prep-block { margin-bottom:1.4rem; }
+	.prep-block .prep { margin-bottom:0; border-bottom-left-radius:0; border-bottom-right-radius:0; }
+	.prep-repo { display:flex; flex-direction:column; gap:0.5rem; padding:0.9rem 1.25rem 1rem;
+		border:2px solid var(--c-try); border-top:none; border-radius:0;
+		background:color-mix(in srgb, var(--c-try) 7%, transparent); }
+	.pr-lab { font-size:0.9rem; font-weight:600; color:var(--c-try); }
+	.pr-row { display:flex; flex-wrap:wrap; gap:0.55rem; }
+	.pr-in { flex:1 1 22rem; min-width:0; padding:0.55rem 0.8rem; border-radius:9px;
+		font-family:var(--mono); font-size:0.9rem; color:var(--theme-text);
+		background:var(--theme-card-background,#fff); border:1.5px solid var(--theme-border); }
+	.pr-in:focus { outline:2px solid var(--c-try); outline-offset:1px; }
+	.pr-btn { flex:none; padding:0.55rem 1.1rem; border-radius:9px; cursor:pointer;
+		font-family:inherit; font-size:0.9rem; font-weight:600;
+		color:#fff; background:var(--c-try); border:1.5px solid var(--c-try); }
+	.pr-btn:hover { filter:brightness(1.08); }
+	.pr-msg { margin:0; font-size:0.88rem; line-height:1.45; color:var(--theme-text-subtle); min-height:1.2rem; }
+	.pr-msg.is-ok { color:var(--c-try); font-weight:600; }
+	.pr-msg.is-bad { color:#c2410c; font-weight:600; }
+
+	/* the real, view-only example repo the journey is modelled on */
+	.prep-eg { display:flex; flex-wrap:wrap; align-items:center; gap:0.5rem 0.9rem; padding:0.8rem 1.25rem 0.9rem;
+		border:2px solid var(--c-try); border-top:1px dashed color-mix(in srgb, var(--c-try) 45%, transparent);
+		border-radius:0 0 14px 14px; background:color-mix(in srgb, var(--c-try) 7%, transparent); }
+	.pe-lab { font-size:0.9rem; font-weight:600; color:var(--c-try); }
+	.pe-links { display:inline-flex; flex-wrap:wrap; gap:0.5rem; }
+	.pe-link { padding:0.34rem 0.8rem; border-radius:8px; text-decoration:none;
+		font-size:0.88rem; font-weight:600; color:var(--c-try);
+		background:var(--theme-card-background,#fff); border:1.5px solid var(--c-try); }
+	.pe-link:hover { background:color-mix(in srgb, var(--c-try) 14%, transparent); }
+	.pe-note { flex:1 1 100%; font-size:0.85rem; line-height:1.45; color:var(--theme-text-subtle); }
+	.pl-ends { display:flex; justify-content:space-between; align-items:center; padding:0 0.4rem; margin-bottom:0.7rem; }
+	.pl-ends span { display:inline-flex; align-items:center; gap:0.45rem; font-size:0.82rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; color:var(--theme-text-subtle); }
+	.pl-ends .pe-ico { font-size:1.15rem; }
+	.pl-rail { position:relative; display:grid; grid-template-columns:repeat(6,1fr); gap:1rem; }
+	.pl-rail::before { content:""; position:absolute; left:8%; right:8%; top:44px; height:2px; border-radius:2px; z-index:0;
+		background:var(--theme-border, rgba(128,128,128,0.3)); }
+	.pl-ms { position:relative; z-index:1; display:flex; flex-direction:column; align-items:center; gap:0.55rem; }
+	.pl-ms .pm-verb { font-family:var(--mono); font-size:0.7rem; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:var(--mc,#888); }
+	.pl-ms .pm-dot { width:44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:var(--mono); font-weight:600; font-size:1rem; color:#fff;
+		background:var(--mc); border:4px solid var(--gh-canvas); }
+	.pl-ms[data-topic="why"]{ --mc:var(--c-why); } .pl-ms[data-topic="plan"]{ --mc:var(--c-plan); }
+	.pl-ms[data-topic="board"]{ --mc:var(--c-board); } .pl-ms[data-topic="branch"]{ --mc:var(--c-branch); } .pl-ms[data-topic="ship"]{ --mc:var(--c-ship); }
+	.pl-ms[data-topic="deploy"]{ --mc:var(--c-deploy); }
+	/* six stations read better as two rows of three than six narrow columns */
+	.pl-stations { display:grid; grid-template-columns:repeat(3,1fr); gap:1rem; margin-top:0.9rem; align-items:stretch; }
+	.journey-card { position:relative; display:flex; flex-direction:column; align-items:stretch; text-align:left; gap:0.75rem; padding:0 0 1.1rem; border-radius:14px; text-decoration:none; color:inherit;
+		background:var(--theme-card-background,#fff); border:2px solid var(--accent); overflow:hidden;
+		box-shadow:0 12px 30px rgba(0,0,0,0.07); transition:transform .22s cubic-bezier(.2,.7,.3,1), box-shadow .22s;
+		opacity:0; transform:translateY(18px); }
+	body.theme-dark .journey-card { background:#2a2b34; box-shadow:0 12px 30px rgba(0,0,0,0.34); }
+	.journey-card.revealed { opacity:1; transform:translateY(0); }
+	.journey-card:hover { transform:translateY(-6px); box-shadow:0 22px 46px rgba(0,0,0,0.16); }
+	.journey-card[data-topic="why"] { --accent:var(--c-why); }
+	.journey-card[data-topic="plan"] { --accent:var(--c-plan); }
+	.journey-card[data-topic="board"] { --accent:var(--c-board); }
+	.journey-card[data-topic="branch"] { --accent:var(--c-branch); }
+	.journey-card[data-topic="ship"] { --accent:var(--c-ship); }
+	.journey-card[data-topic="deploy"] { --accent:var(--c-deploy); }
+	.journey-card[data-topic="try"] { --accent:var(--c-try); }
+	/* each explainer is presented as a file in the repo, header first */
+	.jc-file { display:flex; align-items:center; gap:0.55rem; padding:0.6rem 0.9rem; font-family:var(--mono); font-size:0.78rem;
+		background:color-mix(in srgb, var(--accent) 10%, transparent);
+		border-bottom:1px solid color-mix(in srgb, var(--accent) 28%, transparent); }
+	.jc-num { flex:none; color:var(--accent); font-weight:600; }
+	.jc-path { color:var(--theme-text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+	.jc-steps { margin-left:auto; flex:none; color:var(--theme-text-subtle); }
+	.jc-top { display:flex; flex-direction:row; align-items:center; gap:0.8rem; padding:0.9rem 1.1rem 0; }
+	.jc-icon { flex:none; width:44px; height:44px; border-radius:11px; display:flex; align-items:center; justify-content:center; font-size:1.4rem;
+		background:color-mix(in srgb, var(--accent) 12%, transparent); border:1px solid color-mix(in srgb, var(--accent) 30%, transparent); }
+	.jc-head { display:flex; flex-direction:column; gap:0.15rem; min-width:0; }
+	.jc-head h3 { margin:0; font-size:1.08rem; font-weight:600; letter-spacing:-0.01em; line-height:1.25; color:var(--accent); }
+	.jc-head .sub { font-family:var(--mono); font-size:0.8rem; color:var(--theme-text-subtle); }
+	.jc-mini { position:relative; width:calc(100% - 2.2rem); margin:0 1.1rem; height:66px; border-radius:10px; overflow:hidden; background:color-mix(in srgb, var(--accent) 7%, transparent);
+		border:1px solid color-mix(in srgb, var(--accent) 16%, transparent); }
+	.jc-feats { display:flex; flex-wrap:wrap; gap:0.4rem; padding:0 1.1rem; }
+	.jc-feats span { font-family:var(--mono); font-size:0.74rem; font-weight:500; padding:0.26rem 0.55rem; border-radius:6px; background:color-mix(in srgb, var(--accent) 10%, transparent);
+		color:var(--theme-text); border:1px solid color-mix(in srgb, var(--accent) 22%, transparent); }
+	.jc-go { margin-top:auto; display:inline-flex; align-items:center; gap:0.4rem; padding:0 1.1rem; font-size:0.88rem; font-weight:600; color:var(--accent); }
+	.jc-go .arw { transition:transform .2s ease; }
+	.journey-card:hover .jc-go .arw { transform:translateX(4px); }
+
+	/* per-card mini diagrams */
+	.mini { display:flex; align-items:center; justify-content:center; gap:0.45rem; height:100%; }
+	.mini .m-arw { font-size:1rem; font-weight:700; color:var(--accent); }
+	.mini .m-chip { padding:0.3rem 0.5rem; border-radius:7px; font-size:0.68rem; font-weight:600; color:#fff; background:var(--accent); white-space:nowrap; }
+	.mini .m-ghost { padding:0.3rem 0.5rem; border-radius:7px; font-size:0.68rem; font-weight:600; color:var(--accent);
+		border:1.5px solid var(--accent); background:transparent; white-space:nowrap; }
+	/* 2 · plan — an epic with two children */
+	.mini-plan { display:flex; flex-direction:column; align-items:flex-start; gap:3px; height:100%; justify-content:center; padding-left:1.4rem; }
+	.mini-plan .mp-epic { width:92px; height:11px; border-radius:3px; background:var(--accent); }
+	.mini-plan .mp-kid { width:66px; height:9px; margin-left:18px; border-radius:3px; background:var(--accent); opacity:0.45; animation:softPulse 2.4s ease-in-out infinite; }
+	.mini-plan .mp-kid:nth-of-type(3){ animation-delay:.3s; }
+	/* 3 · board — three columns of cards */
+	.mini-board { display:flex; align-items:flex-start; justify-content:center; gap:5px; height:100%; padding-top:0.6rem; }
+	.mini-board .mb-col { display:flex; flex-direction:column; gap:3px; padding:3px; border-radius:6px; border:1.5px solid color-mix(in srgb, var(--accent) 40%, transparent); }
+	.mini-board .mb-card { width:22px; height:8px; border-radius:2px; background:var(--accent); opacity:0.5; animation:softPulse 2.2s ease-in-out infinite; }
+	.mini-board .mb-col:nth-child(2) .mb-card { animation-delay:.25s; } .mini-board .mb-col:nth-child(3) .mb-card { animation-delay:.5s; }
+	/* 4 · branch — three tiers */
+	.mini-branch { height:100%; display:flex; align-items:center; justify-content:center; }
+	.mini-branch svg { width:118px; height:52px; }
+	.mini-branch .bl { fill:none; stroke:var(--accent); stroke-width:2.5; stroke-linecap:round; }
+	.mini-branch .bn { fill:var(--accent); }
+	.mini-branch .bn.faint { opacity:0.5; }
+	/* 5 · ship — checks then a cloud */
+	.mini-ship { display:flex; align-items:center; justify-content:center; gap:0.4rem; height:100%; }
+	.mini-ship .ms-checks { display:flex; flex-direction:column; gap:2px; }
+	.mini-ship .ms-chk { display:flex; align-items:center; gap:3px; font-size:0.6rem; font-weight:700; color:var(--accent); }
+	.mini-ship .ms-chk::before { content:"\2713"; }
+	.mini-ship .ms-cloud { font-size:1.5rem; }
+
+	/* ── LEARN STRIP ────────────────────────── */
+	.learn { max-width:1200px; margin:2.8rem auto 0; padding:0 1.6rem; }
+	.learn-inner { border-radius:20px; padding:1.8rem 1.9rem; display:flex; flex-wrap:wrap; align-items:center; gap:1.2rem; justify-content:space-between;
+		background:var(--theme-card-background,#fff); border:2px solid var(--theme-border, rgba(128,128,128,0.28)); }
+	body.theme-dark .learn-inner { background:#2a2b34; }
+	.learn-copy { max-width:38rem; }
+	.learn-copy .eyebrow { font-size:0.76rem; font-weight:600; letter-spacing:0.14em; text-transform:uppercase; color:var(--theme-text-subtle); }
+	.learn-copy h3 { margin:0.35rem 0 0.3rem; font-size:1.35rem; font-weight:700; }
+	.learn-copy p { margin:0; color:var(--theme-text-subtle); font-size:0.98rem; }
+	.learn-cta { display:flex; flex-wrap:wrap; gap:0.7rem; }
+	.btn-cta { display:inline-flex; align-items:center; gap:0.45rem; font-size:0.9rem; font-weight:600; text-decoration:none; padding:0.7rem 1.15rem; border-radius:12px;
+		color:#fff; transition:transform .15s, box-shadow .15s; white-space:nowrap; }
+	.btn-cta.b1 { background:var(--c-plan); box-shadow:0 10px 24px rgba(92,45,145,0.3); }
+	.btn-cta.b2 { background:var(--c-board); box-shadow:0 10px 24px rgba(14,158,138,0.3); }
+	.btn-cta.b3 { background:var(--c-ship); box-shadow:0 10px 24px rgba(45,164,78,0.3); }
+	.btn-cta:hover { transform:translateY(-2px); }
+
+	/* ── CERTIFICATIONS ─────────────────────── */
+	.certs { max-width:1200px; margin:2.8rem auto 0; padding:0 1.6rem; }
+	.certs-head { text-align:center; margin-bottom:1.5rem; }
+	.certs-head .eyebrow { font-size:0.76rem; font-weight:600; letter-spacing:0.14em; text-transform:uppercase; color:var(--theme-text-subtle); }
+	.certs-head h3 { margin:0.35rem 0 0.4rem; font-size:1.5rem; font-weight:700; }
+	.certs-head p { margin:0 auto; max-width:46rem; color:var(--theme-text-subtle); font-size:0.98rem; }
+	/* explicit 3-up: auto-fit broke 4 + 2, which reads as a mistake with six cards */
+	.cert-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:1.1rem; }
+	.cert-card { position:relative; display:flex; flex-direction:column; align-items:center; text-align:center; gap:0.5rem;
+		padding:1.5rem 1.15rem 1.25rem; border-radius:16px; text-decoration:none; color:inherit;
+		background:var(--theme-card-background,#fff); border:2px solid var(--cc);
+		transition:transform .16s ease, box-shadow .16s ease; }
+	body.theme-dark .cert-card { background:#2a2b34; }
+	.cert-card:hover { transform:translateY(-3px); box-shadow:0 14px 30px rgba(0,0,0,0.16); }
+	body.theme-dark .cert-card:hover { box-shadow:0 14px 30px rgba(0,0,0,0.4); }
+	.cert-badge { width:78px; height:78px; flex:none; }
+	.cert-code { font-family:var(--mono); font-size:0.8rem; font-weight:600; letter-spacing:0.04em;
+		padding:0.22rem 0.6rem; border-radius:999px; color:var(--cc);
+		background:color-mix(in srgb, var(--cc) 12%, transparent); }
+	.cert-name { font-size:1.05rem; font-weight:600; line-height:1.3; }
+	.cert-why { font-size:0.9rem; line-height:1.45; color:var(--theme-text-subtle); }
+	.cert-go { margin-top:auto; padding-top:0.5rem; font-size:0.88rem; font-weight:600; color:var(--cc); }
+	.cert-tag { position:absolute; top:0.7rem; right:0.7rem; font-size:0.68rem; font-weight:600; letter-spacing:0.06em;
+		text-transform:uppercase; padding:0.2rem 0.5rem; border-radius:6px; color:#fff; background:var(--cc); }
+	.certs-note { margin:1.1rem 0 0; text-align:center; font-size:0.88rem; color:var(--theme-text-subtle); }
+
+	/* ── FOOTER ─────────────────────────────── */
+	footer.site-foot { max-width:1200px; margin:2.6rem auto 0; padding:2.2rem 1.6rem 3.2rem; text-align:center; font-size:0.9rem; opacity:0.88;
+		border-top:1px solid var(--theme-border, rgba(128,128,128,0.18)); display:flex; flex-direction:column; align-items:center; gap:0.85rem; }
+	footer.site-foot a { color:var(--aw-blue); font-weight:600; }
+	.foot-credit { display:inline-flex; align-items:center; gap:0.5rem; flex-wrap:wrap; justify-content:center; }
+	.foot-credit .credit-link { display:inline-flex; align-items:center; gap:0.45rem; font-weight:600; color:var(--theme-text); text-decoration:none; padding:0.3rem 0.8rem; border-radius:999px; border:1px solid var(--theme-border, rgba(128,128,128,0.3)); transition:border-color .15s ease, color .15s ease; }
+	.foot-credit .credit-link .li-icon { color:#0a66c2; flex-shrink:0; }
+	.foot-credit .credit-link:hover { border-color:#0a66c2; color:#0a66c2; }
+
+	@media (max-width:860px) {
+		.cert-grid { grid-template-columns:repeat(2,1fr); }
+		.hero { grid-template-columns:1fr; padding-top:2.4rem; }
+		.hero-art { height:280px; order:-1; }
+		.pl-rail { display:none; }
+		.pl-stations { grid-template-columns:repeat(2,1fr); }
+	}
+	@media (max-width:560px) {
+		.cert-grid { grid-template-columns:1fr; }
+		.pl-stations { grid-template-columns:1fr; }
+	}
+	@media (prefers-reduced-motion: reduce) {
+		*, *::before, *::after { animation:none !important; transition:none !important; }
+		.journey-card { opacity:1 !important; transform:none !important; }
+		html { scroll-behavior:auto; }
+	}
+</style>
+</head>
+
+<body class="theme-dark" data-theme-preset="atlas">
+
+	<header class="site-head">
+		<div class="topbar-left">
+			<a class="brand" href="../../index.html" title="Back to all journeys" aria-label="Azure Animations home">
+				<img src="../../img/AzureAnimations-Logo.svg" alt="" decoding="async" style="width:28px;height:28px;display:block" />
+				<span>Azure <b>Animations</b></span>
+			</a>
+			<div class="aw-like-top">
+				<button class="aw-like" data-aw-like data-like-total data-page-slug="journey-github-contoso" type="button" aria-pressed="false" aria-label="Support Azure Animations — tap the heart">
+					<span class="aw-like-heart" aria-hidden="true">❤️</span>
+					<span class="aw-like-label">Support</span>
+					<span class="aw-like-count" data-like-count>0</span>
+				</button>
+				<div class="aw-like-pop" role="tooltip">
+					<strong>A little tap makes our day 💙</strong>
+					<span>These Azure animations are a labour of love. If they helped you, a tap of the heart means the world — thank you for your support! 🙏</span>
+					<span class="aw-like-geo" data-like-geo hidden></span>
+				</div>
+			</div>
+		</div>
+		<div class="head-title">
+			<span class="mark">
+				<svg viewBox="0 0 16 16" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.42 7.42 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+			</span>
+			<span>GitHub · Contoso Delivery</span>
+		</div>
+		<div class="head-actions">
+			<select id="lang-select" class="lang-select" aria-label="Language" title="Language">
+				<option value="en">English</option>
+			</select>
+			<button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch theme" title="Switch theme">
+				<svg class="ico ico-moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg>
+				<svg class="ico ico-sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.5" y1="4.5" x2="6.5" y2="6.5"/><line x1="17.5" y1="17.5" x2="19.5" y2="19.5"/><line x1="4.5" y1="19.5" x2="6.5" y2="17.5"/><line x1="17.5" y1="6.5" x2="19.5" y2="4.5"/></g></svg>
+			</button>
+		</div>
+	</header>
+
+	<section class="hero">
+		<div class="hero-text">
+			<div class="hero-eyebrow">
+				<span class="gh-lockup">
+					<svg viewBox="0 0 16 16" width="30" height="30" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.42 7.42 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+					<span class="gh-word">GitHub</span>
+				</span>
+				<span class="eb-sep" aria-hidden="true">/</span>
+				<span data-i18n="heroEyebrow">Real delivery, end to end</span>
+			</div>
+			<h1><span class="g1" data-i18n="heroTitle1">One business problem.</span><br /><span class="g2" data-i18n="heroTitle2">One team on GitHub.</span><br /><span class="g3" data-i18n="heroTitle3">Shipped to Azure.</span></h1>
+			<p class="lead" data-i18n="heroLead">Follow a real project from a rainy afternoon that costs a retailer money, all the way to running code on Azure &mdash; breaking the idea into epics, tracking it on a Project board, branching with intent, and proving every change before it ships.</p>
+			<div class="hero-meta">
+				<span class="meta-chip" data-i18n-html="meta1Html"><b>6</b>&nbsp;interactive explainers</span>
+				<span class="meta-chip" data-i18n-html="meta2Html"><b>57</b>&nbsp;animated steps</span>
+				<span class="meta-chip" data-i18n-html="meta3Html">Built on a <b>real&nbsp;repository</b></span>
+			</div>
+		</div>
+		<div class="hero-art" aria-hidden="true">
+			<div class="editor">
+				<div class="ed-tabs">
+					<span class="ed-tab is-on">server.js</span>
+					<span class="ed-tab">ci.yml</span>
+					<span class="ed-tab">cd.yml</span>
+				</div>
+				<div class="ed-body">
+					<ol class="ed-code">
+						<li><code><span class="c-key">const</span> express = <span class="c-fn">require</span>(<span class="c-str">'express'</span>);</code></li>
+						<li><code><span class="c-key">const</span> { getWeather } = <span class="c-fn">require</span>(<span class="c-str">'./azureMaps'</span>);</code></li>
+						<li><code>&nbsp;</code></li>
+						<li><code><span class="c-cm">// one call, every city Contoso sells in</span></code></li>
+						<li><code>router.<span class="c-fn">get</span>(<span class="c-str">'/api/cities'</span>, <span class="c-key">async</span> (req, res) =&gt; {</code></li>
+						<li><code>  <span class="c-key">const</span> cities = <span class="c-key">await</span> <span class="c-fn">getWeather</span>(req.query.q);</code></li>
+						<li><code>  res.<span class="c-fn">json</span>(cities);</code></li>
+						<li><code>});</code></li>
+					</ol>
+				</div>
+				<div class="ed-status">
+					<span class="ed-br">&#9095; feature/#2-health-cities-endpoints</span>
+					<span class="ed-ok">&#10003; 4 checks passed</span>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<div class="section-head">
+		<span class="rail" data-i18n="secRail">The journey</span>
+		<h2 data-i18n="secTitle">From a business problem to production</h2>
+		<p data-i18n="secLead">Six connected stops. Understand why the app exists, break it into work you can actually assign, track it, branch for it, prove every change, and ship it to Azure. Follow the whole path, or jump straight to any stop.</p>
+	</div>
+
+	<section class="pipeline">
+		<div class="prep-block" id="prep-block">
+			<a class="prep" href="TryItYourself.html" target="_blank" rel="noopener">
+				<span class="prep-ico">&#128736;&#65039;</span>
+				<span class="prep-copy">
+					<b data-i18n="prepTitle">Step 0 &mdash; do this first, or the rest will not work</b>
+					<span data-i18n="prepSub">Four of the six explainers ask you to run real commands against a real repository. Take five minutes now: create the repo, choose who owns it, install the GitHub CLI and sign in.</span>
+				</span>
+				<span class="prep-go" data-i18n="prepGo">Set it up &rarr;</span>
+			</a>
+			<div class="prep-repo">
+				<label class="pr-lab" for="repo-input" data-i18n="repoLab">Done? Paste your repository URL and the whole journey will use it</label>
+				<div class="pr-row">
+					<input id="repo-input" class="pr-in" type="text" autocomplete="off" spellcheck="false"
+						placeholder="https://github.com/your-account/your-repo" aria-describedby="repo-msg" />
+					<button id="repo-save" class="pr-btn" type="button" data-i18n="repoSave">Use this repo</button>
+				</div>
+				<p id="repo-msg" class="pr-msg" role="status" aria-live="polite"></p>
+			</div>
+		</div>
+		<div class="pl-ends">
+			<span data-i18n-html="plStart"><span class="pe-ico">&#127783;</span> A business problem</span>
+			<span data-i18n-html="plEnd"><span class="pe-ico">&#9729;</span> Running on Azure</span>
+		</div>
+		<div class="pl-rail" aria-hidden="true">
+			<div class="pl-ms" data-topic="why"><span class="pm-verb" data-i18n="plV1">Understand</span><span class="pm-dot">1</span></div>
+			<div class="pl-ms" data-topic="plan"><span class="pm-verb" data-i18n="plV2">Plan</span><span class="pm-dot">2</span></div>
+			<div class="pl-ms" data-topic="board"><span class="pm-verb" data-i18n="plV3">Track</span><span class="pm-dot">3</span></div>
+			<div class="pl-ms" data-topic="branch"><span class="pm-verb" data-i18n="plV4">Branch</span><span class="pm-dot">4</span></div>
+			<div class="pl-ms" data-topic="ship"><span class="pm-verb" data-i18n="plV5">Prove</span><span class="pm-dot">5</span></div>
+			<div class="pl-ms" data-topic="deploy"><span class="pm-verb" data-i18n="plV6">Ship</span><span class="pm-dot">6</span></div>
+		</div>
+		<main class="pl-stations">
+			<a class="journey-card" data-topic="why" href="WhyContoso.html" target="_blank" rel="noopener">
+				<span class="jc-file"><span class="jc-num">01</span><span class="jc-path">why-contoso.md</span><span class="jc-steps">8 steps</span></span>
+				<div class="jc-top">
+					<span class="jc-icon">&#127783;&#65039;</span>
+					<div class="jc-head">
+						<h3 data-i18n="c1Title">Why Contoso Is Building This</h3>
+						<span class="sub" data-i18n="c1Sub">The business case</span>
+					</div>
+				</div>
+				<div class="jc-mini"><div class="mini"><span class="m-ghost">Rain</span><span class="m-arw">&rarr;</span><span class="m-chip">Revenue</span></div></div>
+				<div class="jc-feats"><span data-i18n="c1f1">Weather signal</span><span data-i18n="c1f2">Promotions</span><span data-i18n="c1f3">One API</span></div>
+				<span class="jc-go"><span data-i18n="c1Go">Start the journey</span> <span class="arw">&rarr;</span></span>
+			</a>
+
+			<a class="journey-card" data-topic="plan" href="PlanTheWork.html" target="_blank" rel="noopener">
+				<span class="jc-file"><span class="jc-num">02</span><span class="jc-path">plan-the-work.md</span><span class="jc-steps">9 steps</span></span>
+				<div class="jc-top">
+					<span class="jc-icon">&#128203;</span>
+					<div class="jc-head">
+						<h3 data-i18n="c2Title">Plan the Work</h3>
+						<span class="sub" data-i18n="c2Sub">Idea &rarr; epics &rarr; sub-tasks</span>
+					</div>
+				</div>
+				<div class="jc-mini"><div class="mini-plan"><span class="mp-epic"></span><span class="mp-kid"></span><span class="mp-kid"></span></div></div>
+				<div class="jc-feats"><span data-i18n="c2f1">Epics</span><span data-i18n="c2f2">Sub-tasks</span><span data-i18n="c2f3">Task lists</span></div>
+				<span class="jc-go"><span data-i18n="c2Go">Open explainer</span> <span class="arw">&rarr;</span></span>
+			</a>
+
+			<a class="journey-card" data-topic="board" href="TheBoard.html" target="_blank" rel="noopener">
+				<span class="jc-file"><span class="jc-num">03</span><span class="jc-path">track-the-board.md</span><span class="jc-steps">10 steps</span></span>
+				<div class="jc-top">
+					<span class="jc-icon">&#128202;</span>
+					<div class="jc-head">
+						<h3 data-i18n="c3Title">Track It on a Board</h3>
+						<span class="sub" data-i18n="c3Sub">GitHub Projects</span>
+					</div>
+				</div>
+				<div class="jc-mini"><div class="mini-board"><span class="mb-col"><i class="mb-card"></i><i class="mb-card"></i></span><span class="mb-col"><i class="mb-card"></i></span><span class="mb-col"><i class="mb-card"></i><i class="mb-card"></i></span></div></div>
+				<div class="jc-feats"><span data-i18n="c3f1">Board view</span><span data-i18n="c3f2">Work Type</span><span data-i18n="c3f3">Sprints</span></div>
+				<span class="jc-go"><span data-i18n="c3Go">Open explainer</span> <span class="arw">&rarr;</span></span>
+			</a>
+
+			<a class="journey-card" data-topic="branch" href="BranchStrategy.html" target="_blank" rel="noopener">
+				<span class="jc-file"><span class="jc-num">04</span><span class="jc-path">branch-strategy.md</span><span class="jc-steps">13 steps</span></span>
+				<div class="jc-top">
+					<span class="jc-icon">&#127807;</span>
+					<div class="jc-head">
+						<h3 data-i18n="c4Title">Branch with Intent</h3>
+						<span class="sub" data-i18n="c4Sub">main &rarr; epic &rarr; feature</span>
+					</div>
+				</div>
+				<div class="jc-mini"><div class="mini-branch"><svg viewBox="0 0 118 52" xmlns="http://www.w3.org/2000/svg"><path class="bl" d="M6 10 H112"/><path class="bl" d="M30 10 C42 10 42 26 54 26 H104"/><path class="bl" d="M60 26 C72 26 72 42 84 42 H104"/><circle class="bn" cx="6" cy="10" r="4"/><circle class="bn faint" cx="54" cy="26" r="4"/><circle class="bn faint" cx="84" cy="42" r="4"/></svg></div></div>
+				<div class="jc-feats"><span data-i18n="c4f1">Protected main</span><span data-i18n="c4f2">Epic branches</span><span data-i18n="c4f3">PR reviews</span></div>
+				<span class="jc-go"><span data-i18n="c4Go">Open explainer</span> <span class="arw">&rarr;</span></span>
+			</a>
+
+			<a class="journey-card" data-topic="ship" href="ShipIt.html" target="_blank" rel="noopener">
+				<span class="jc-file"><span class="jc-num">05</span><span class="jc-path">.github/workflows/ci.yml</span><span class="jc-steps">10 steps</span></span>
+				<div class="jc-top">
+					<span class="jc-icon">&#11013;&#65039;</span>
+					<div class="jc-head">
+						<h3 data-i18n="c5Title">Shift Left</h3>
+						<span class="sub" data-i18n="c5Sub">Pipeline, tests &amp; security</span>
+					</div>
+				</div>
+				<div class="jc-mini"><div class="mini-ship"><span class="ms-checks"><span class="ms-chk">tests</span><span class="ms-chk">CodeQL</span><span class="ms-chk">secrets</span></span><span class="m-arw">&rarr;</span><span class="ms-cloud">&#9989;</span></div></div>
+				<div class="jc-feats"><span data-i18n="c5f1">Runner</span><span data-i18n="c5f2">CodeQL</span><span data-i18n="c5f3">Secrets</span></div>
+				<span class="jc-go"><span data-i18n="c5Go">Open explainer</span> <span class="arw">&rarr;</span></span>
+			</a>
+
+			<a class="journey-card" data-topic="deploy" href="DeployIt.html" target="_blank" rel="noopener">
+				<span class="jc-file"><span class="jc-num">06</span><span class="jc-path">.github/workflows/cd.yml</span><span class="jc-steps">7 steps</span></span>
+				<div class="jc-top">
+					<span class="jc-icon">&#128640;</span>
+					<div class="jc-head">
+						<h3 data-i18n="c6Title">Ship It to Azure</h3>
+						<span class="sub" data-i18n="c6Sub">CD, Service Principal &amp; deploy</span>
+					</div>
+				</div>
+				<div class="jc-mini"><div class="mini-ship"><span class="ms-checks"><span class="ms-chk">image</span><span class="ms-chk">identity</span><span class="ms-chk">deploy</span></span><span class="m-arw">&rarr;</span><span class="ms-cloud">&#9729;&#65039;</span></div></div>
+				<div class="jc-feats"><span data-i18n="c6f1">GHCR</span><span data-i18n="c6f2">Service Principal</span><span data-i18n="c6f3">OIDC</span></div>
+				<span class="jc-go"><span data-i18n="c6Go">Open explainer</span> <span class="arw">&rarr;</span></span>
+			</a>
+		</main>
+	</section>
+
+	<section class="learn">
+		<div class="learn-inner">
+			<div class="learn-copy">
+				<div class="eyebrow" data-i18n="learnEyebrow">Start here</div>
+				<h3 data-i18n="learnTitle">The spec this journey is built from</h3>
+				<p data-i18n="learnLead">Every screen, endpoint and check in this journey comes from one short requirements document. Download it, then follow along &mdash; the official GitHub and Microsoft pages cover the mechanics.</p>
+			</div>
+			<div class="learn-cta">
+				<a class="btn-cta b1" href="assets/Contoso-Weather-Map-Requirements-v1.0.pdf" download data-i18n="learnCta0">Requirements (PDF) ↓</a>
+				<a class="btn-cta b2" href="https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects" target="_blank" rel="noopener noreferrer" data-i18n="learnCta1">About Projects ↗</a>
+				<a class="btn-cta b3" href="https://learn.microsoft.com/azure/developer/github/connect-from-azure-openid-connect" target="_blank" rel="noopener noreferrer" data-i18n="learnCta3">OIDC to Azure ↗</a>
+			</div>
+		</div>
+	</section>
+
+	<!-- Exam codes, titles, credential URLs and badge art all verified against Microsoft Learn (2026-09-06).
+	     NOTE the GH-600 badge lives under /credentials/images/badges/, not the /media/learn/... path the
+	     other five use. Badges are cross-origin: an <img src> renders fine, but never add loading="lazy"
+	     to them — below-the-fold + lazy leaves naturalWidth at 0. -->
+	<section class="certs" id="certs">
+		<div class="certs-head">
+			<div class="eyebrow" data-i18n="certEyebrow">Where this can take you</div>
+			<h3 data-i18n="certTitle">GitHub certifications</h3>
+			<p data-i18n="certLead">Six GitHub credentials, all delivered through Microsoft Learn. This journey lines up most closely with GH-900 and GH-200 — the rest are where you go next.</p>
+		</div>
+		<div class="cert-grid">
+			<a class="cert-card" style="--cc:#0b6bcb" href="https://learn.microsoft.com/en-us/credentials/certifications/github-foundations/" target="_blank" rel="noopener noreferrer">
+				<span class="cert-tag" data-i18n="certStart">Start here</span>
+				<img class="cert-badge" src="https://learn.microsoft.com/en-us/media/learn/certification/badges/github-foundations.svg" alt="" />
+				<span class="cert-code">GH-900</span>
+				<span class="cert-name" data-i18n="cert1n">GitHub Foundations</span>
+				<span class="cert-why" data-i18n="cert1w">Git, repositories, collaboration and project management — written for developers and non-developers alike.</span>
+				<span class="cert-go" data-i18n="certGo">View certification ↗</span>
+			</a>
+			<a class="cert-card" style="--cc:#2da44e" href="https://learn.microsoft.com/en-us/credentials/certifications/github-actions/" target="_blank" rel="noopener noreferrer">
+				<img class="cert-badge" src="https://learn.microsoft.com/en-us/media/learn/certification/badges/github-actions.svg" alt="" />
+				<span class="cert-code">GH-200</span>
+				<span class="cert-name" data-i18n="cert2n">GitHub Actions</span>
+				<span class="cert-why" data-i18n="cert2w">Author, troubleshoot and secure workflows — the CI/CD you meet in Shift Left and Ship It to Azure.</span>
+				<span class="cert-go" data-i18n="certGo">View certification ↗</span>
+			</a>
+			<a class="cert-card" style="--cc:#5c2d91" href="https://learn.microsoft.com/en-us/credentials/certifications/github-copilot/" target="_blank" rel="noopener noreferrer">
+				<img class="cert-badge" src="https://learn.microsoft.com/en-us/media/learn/certification/badges/github-copilot.svg" alt="" />
+				<span class="cert-code">GH-300</span>
+				<span class="cert-name" data-i18n="cert3n">GitHub Copilot</span>
+				<span class="cert-why" data-i18n="cert3w">Responsible AI use, Copilot plans and features, prompt engineering, privacy and content exclusions.</span>
+				<span class="cert-go" data-i18n="certGo">View certification ↗</span>
+			</a>
+			<a class="cert-card" style="--cc:#e2681a" href="https://learn.microsoft.com/en-us/credentials/certifications/github-advanced-security/" target="_blank" rel="noopener noreferrer">
+				<img class="cert-badge" src="https://learn.microsoft.com/en-us/media/learn/certification/badges/github-advanced-security.svg" alt="" />
+				<span class="cert-code">GH-500</span>
+				<span class="cert-name" data-i18n="cert4n">GitHub Advanced Security</span>
+				<span class="cert-why" data-i18n="cert4w">Secret Protection, supply chain security and CodeQL code scanning — find, triage and remediate.</span>
+				<span class="cert-go" data-i18n="certGo">View certification ↗</span>
+			</a>
+			<a class="cert-card" style="--cc:#0e9e8a" href="https://learn.microsoft.com/en-us/credentials/certifications/github-administration/" target="_blank" rel="noopener noreferrer">
+				<img class="cert-badge" src="https://learn.microsoft.com/en-us/media/learn/certification/badges/github-administration.svg" alt="" />
+				<span class="cert-code">GH-100</span>
+				<span class="cert-name" data-i18n="cert5n">GitHub Administration</span>
+				<span class="cert-why" data-i18n="cert5w">Running GitHub Enterprise: identities and access, SAML and SCIM, policies, runners and licensing.</span>
+				<span class="cert-go" data-i18n="certGo">View certification ↗</span>
+			</a>
+			<a class="cert-card" style="--cc:#bc4c00" href="https://learn.microsoft.com/en-us/credentials/certifications/agentic-ai-developer/" target="_blank" rel="noopener noreferrer">
+				<img class="cert-badge" src="https://learn.microsoft.com/en-us/credentials/images/badges/github-agentic-ai-developer.svg" alt="" />
+				<span class="cert-code">GH-600</span>
+				<span class="cert-name" data-i18n="cert6n">Agentic AI Developer</span>
+				<span class="cert-why" data-i18n="cert6w">Operate and supervise AI agents inside the software lifecycle, with GitHub as the control plane.</span>
+				<span class="cert-go" data-i18n="certGo">View certification ↗</span>
+			</a>
+		</div>
+		<p class="certs-note" data-i18n="certNote">Exam codes and titles as published on Microsoft Learn. Each exam requires a score of 700 to pass.</p>
+	</section>
+
+	<footer class="site-foot">
+		<div class="foot-credit">
+			<span data-i18n="footBy">Brought to you by</span>
+			<a class="credit-link" href="https://www.linkedin.com/in/nutwongaree/" target="_blank" rel="noopener noreferrer" aria-label="Azure Animations Creator on LinkedIn">
+				<svg class="li-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
+					<path fill="currentColor" d="M20.45 20.45h-3.55v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.36V9h3.41v1.56h.05c.47-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM7.12 20.45H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.73V1.73C24 .77 23.2 0 22.22 0z"/>
+				</svg>
+				<span data-i18n="footCreator">Azure Animations Creator</span>
+			</a>
+		</div>
+		<div data-i18n-html="footMetaHtml">Built with the <a href="https://aka.ms/AzureAnimations" target="_blank" rel="noopener noreferrer">Azure Animations</a> engine &middot; Practices grounded in the <a href="https://docs.github.com/" target="_blank" rel="noopener noreferrer">GitHub docs</a> and <a href="https://learn.microsoft.com/azure/developer/github/" target="_blank" rel="noopener noreferrer">Microsoft Learn</a>.</div>
+	</footer>
+
+	<script>
+		// Theme toggle (uses shared AW.theme when present, else local fallback)
+		(function(){
+			const btn=document.getElementById('theme-toggle');
+			function sync(){ const dark=document.body.classList.contains('theme-dark'); btn.dataset.theme=dark?'dark':'light';
+				const l=dark?'Switch to light theme':'Switch to dark theme'; btn.setAttribute('aria-label',l); btn.setAttribute('title',l); }
+			if(window.AW && AW.theme){ AW.theme.onChange(sync); sync(); }
+			else {
+				sync();
+				btn.addEventListener('click',()=>{ const goDark=!document.body.classList.contains('theme-dark');
+					document.body.classList.remove('theme-dark','theme-light'); document.body.classList.add(goDark?'theme-dark':'theme-light');
+					try{ localStorage.setItem('aw-theme', goDark?'theme-dark':'theme-light'); }catch(_){} sync(); });
+				try{ const s=localStorage.getItem('aw-theme'); if(s==='theme-light'||s==='theme-dark'){ document.body.classList.remove('theme-dark','theme-light'); document.body.classList.add(s); sync(); } }catch(_){}
+			}
+		})();
+
+		// ── i18n (English only for now; structure ready for es/ja/ko/pt). Product/proper nouns stay in English. ──
+		const I18N = {
+			en: {
+				heroEyebrow: 'Real delivery, end to end',
+				heroTitle1: 'One business problem.', heroTitle2: 'One team on GitHub.', heroTitle3: 'Shipped to Azure.',
+				heroLead: 'Follow a real project from a rainy afternoon that costs a retailer money, all the way to running code on Azure — breaking the idea into epics, tracking it on a Project board, branching with intent, and proving every change before it ships.',
+				meta1Html: '<b>6</b>&nbsp;interactive explainers', meta2Html: '<b>57</b>&nbsp;animated steps', meta3Html: 'Built on a <b>real&nbsp;repository</b>',
+				secRail: 'The journey', secTitle: 'From a business problem to production',
+				secLead: 'Six connected stops. Understand why the app exists, break it into work you can actually assign, track it, branch for it, prove every change, and ship it to Azure. Follow the whole path, or jump straight to any stop.',
+				plStart: '<span class="pe-ico">&#127783;</span> A business problem', plEnd: '<span class="pe-ico">&#9729;</span> Running on Azure',
+				plV1: 'Understand', plV2: 'Plan', plV3: 'Track', plV4: 'Branch', plV5: 'Prove', plV6: 'Ship',
+				c1Title: 'Why Contoso Is Building This', c1Sub: 'The business case',
+				c1f1: 'Weather signal', c1f2: 'Promotions', c1f3: 'One API', c1Go: 'Start the journey',
+				c2Title: 'Plan the Work', c2Sub: 'Idea → epics → sub-tasks',
+				c2f1: 'Epics', c2f2: 'Sub-tasks', c2f3: 'Task lists', c2Go: 'Open explainer',
+				c3Title: 'Track It on a Board', c3Sub: 'GitHub Projects',
+				c3f1: 'Board view', c3f2: 'Work Type', c3f3: 'Sprints', c3Go: 'Open explainer',
+				c4Title: 'Branch with Intent', c4Sub: 'main → epic → feature',
+				c4f1: 'Protected main', c4f2: 'Epic branches', c4f3: 'PR reviews', c4Go: 'Open explainer',
+				c5Title: 'Shift Left', c5Sub: 'Pipeline, tests & security',
+				c5f1: 'Runner', c5f2: 'CodeQL', c5f3: 'Secrets', c5Go: 'Open explainer',
+				c6Title: 'Ship It to Azure', c6Sub: 'CD, Service Principal & deploy',
+				c6f1: 'GHCR', c6f2: 'Service Principal', c6f3: 'OIDC', c6Go: 'Open explainer',
+				prepTitle: 'Step 0 \u2014 do this first, or the rest will not work',
+				prepSub: 'Four of the six explainers ask you to run real commands against a real repository. Take five minutes now: create the repo, choose who owns it, install the GitHub CLI and sign in.',
+				prepGo: 'Set it up →',
+				repoLab: 'Done? Paste your repository URL and the whole journey will use it',
+				repoSave: 'Use this repo',
+				repoOk: 'Every screen in this journey now shows',
+				repoNone: 'Optional \u2014 skip it and every screen shows our example repo, contoso-retail/weather-map-app.',
+				repoBad: 'That does not look like a GitHub repository. Try https://github.com/your-account/your-repo',
+				repoCleared: 'Cleared \u2014 back to the worked example, contoso-retail/weather-map-app.',
+				learnEyebrow: 'Start here', learnTitle: 'The spec this journey is built from',
+				learnLead: 'Every screen, endpoint and check in this journey comes from one short requirements document. Download it, then follow along \u2014 the official GitHub and Microsoft pages cover the mechanics.',
+				learnCta0: 'Requirements (PDF) ↓', learnCta1: 'About Projects ↗', learnCta3: 'OIDC to Azure ↗',
+				certEyebrow: 'Where this can take you', certTitle: 'GitHub certifications',
+				certLead: 'Six GitHub credentials, all delivered through Microsoft Learn. This journey lines up most closely with GH-900 and GH-200 \u2014 the rest are where you go next.',
+				certStart: 'Start here', certGo: 'View certification ↗',
+				cert1n: 'GitHub Foundations', cert1w: 'Git, repositories, collaboration and project management \u2014 written for developers and non-developers alike.',
+				cert2n: 'GitHub Actions', cert2w: 'Author, troubleshoot and secure workflows \u2014 the CI/CD you meet in Shift Left and Ship It to Azure.',
+				cert3n: 'GitHub Copilot', cert3w: 'Responsible AI use, Copilot plans and features, prompt engineering, privacy and content exclusions.',
+				cert4n: 'GitHub Advanced Security', cert4w: 'Secret Protection, supply chain security and CodeQL code scanning \u2014 find, triage and remediate.',
+				cert5n: 'GitHub Administration', cert5w: 'Running GitHub Enterprise: identities and access, SAML and SCIM, policies, runners and licensing.',
+				cert6n: 'Agentic AI Developer', cert6w: 'Operate and supervise AI agents inside the software lifecycle, with GitHub as the control plane.',
+				certNote: 'Exam codes and titles as published on Microsoft Learn. Each exam requires a score of 700 to pass.',
+				footBy: 'Brought to you by', footCreator: 'Azure Animations Creator',
+				footMetaHtml: 'Built with the <a href="https://aka.ms/AzureAnimations" target="_blank" rel="noopener noreferrer">Azure Animations</a> engine · Practices grounded in the <a href="https://docs.github.com/" target="_blank" rel="noopener noreferrer">GitHub docs</a> and <a href="https://learn.microsoft.com/azure/developer/github/" target="_blank" rel="noopener noreferrer">Microsoft Learn</a>.'
+			}
+		};
+
+		// Carry the chosen language — and the learner's own repo — through to each explainer
+		const LANG_STORAGE_KEY='aw-lang';
+		let activeLang='en';
+		function repoParam(){
+			const r = (window.AW && AW.getRepo) ? AW.getRepo() : null;
+			return r ? '&repo='+encodeURIComponent(r) : '';
+		}
+		function updateCardLinks(){
+			document.querySelectorAll('a.journey-card, a.prep').forEach(a=>{
+				let base=a.getAttribute('data-href'); if(!base){ base=a.getAttribute('href'); a.setAttribute('data-href',base); }
+				base=base.split('?')[0].split('#')[0];
+				a.setAttribute('href', base+'?lang='+encodeURIComponent(activeLang)+repoParam());
+			});
+		}
+		function applyLanguage(lang){
+			if(!I18N[lang]) lang='en';
+			const dict=I18N[lang];
+			document.documentElement.setAttribute('lang', lang);
+			document.querySelectorAll('[data-i18n]').forEach(el=>{ const k=el.dataset.i18n; if(dict[k]!=null) el.textContent=dict[k]; });
+			document.querySelectorAll('[data-i18n-html]').forEach(el=>{ const k=el.dataset.i18nHtml; if(dict[k]!=null) el.innerHTML=dict[k]; });
+			activeLang=lang; updateCardLinks();
+			try{ localStorage.setItem(LANG_STORAGE_KEY, lang); }catch(_){}
+		}
+		(function(){
+			const sel=document.getElementById('lang-select');
+			let saved;
+			try{ const q=new URLSearchParams(location.search).get('lang'); if(q && I18N[q]) saved=q; }catch(_){}
+			if(!saved){ try{ saved=localStorage.getItem(LANG_STORAGE_KEY); }catch(_){} }
+			if(!saved || !I18N[saved]) saved='en';
+			if(sel){ sel.value=saved; sel.addEventListener('change', e=>applyLanguage(e.target.value)); }
+			applyLanguage(saved);
+		})();
+
+		// The learner's own repo. Stored locally, and passed on ?repo= so the value survives
+		// even when a link is opened in a new tab.
+		(function(){
+			const input=document.getElementById('repo-input');
+			const btn=document.getElementById('repo-save');
+			const msg=document.getElementById('repo-msg');
+			if(!input||!btn||!msg||!window.AW||!AW.parseRepo) return;
+			function say(text, cls){ msg.textContent=text; msg.className='pr-msg'+(cls?' '+cls:''); }
+			function dict(){ return I18N[activeLang]||I18N.en; }
+			const current=AW.getRepo();
+			if(current){ input.value='https://github.com/'+current; say(dict().repoOk+' '+current, 'is-ok'); }
+			else { say(dict().repoNone); }
+			function save(){
+				const raw=input.value.trim();
+				if(!raw){ AW.setRepo(null); updateCardLinks(); say(dict().repoCleared); return; }
+				const ok=AW.setRepo(raw);
+				if(!ok){ say(dict().repoBad, 'is-bad'); return; }
+				input.value='https://github.com/'+ok;
+				updateCardLinks();
+				say(dict().repoOk+' '+ok, 'is-ok');
+			}
+			btn.addEventListener('click', save);
+			input.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); save(); } });
+		})();
+
+		// Reveal-on-scroll (respects reduced motion)
+		(function(){
+			const cards=[...document.querySelectorAll('.journey-card')];
+			if(window.matchMedia('(prefers-reduced-motion: reduce)').matches){ cards.forEach(c=>c.classList.add('revealed')); return; }
+			const io=new IntersectionObserver((entries)=>{ entries.forEach((e)=>{ if(e.isIntersecting){ const el=e.target;
+				setTimeout(()=>el.classList.add('revealed'), cards.indexOf(el)%2*90); io.unobserve(el); } }); },{ threshold:0.18 });
+			cards.forEach(c=>io.observe(c));
+		})();
+	</script>
+	<!-- Carry the chosen language home so the root hub opens in the same language. -->
+	<script>
+	(function () {
+		var sel = document.getElementById('lang-select');
+		var home = document.querySelector('a.brand[href]');
+		if (!sel || !home) return;
+		var base = home.getAttribute('href').split('?')[0];
+		function sync() { home.setAttribute('href', base + '?lang=' + encodeURIComponent(sel.value || 'en')); }
+		sel.addEventListener('change', sync);
+		window.addEventListener('load', sync);   // the hubs set sel.value during init, after this runs
+		sync();
+	}());
+	</script>
+</body>
+</html>

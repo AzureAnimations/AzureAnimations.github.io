@@ -1,0 +1,1952 @@
+<!DOCTYPE html>
+<!--
+	Plan the Work — idea → epics → sub-tasks
+	=======================================
+	Step 2 of the Contoso delivery journey (journeys/GitHub/).
+	Narration script: ../../narration/GitHub/PlanTheWork.md
+
+	This page turns one unbuildable idea into work a team can actually pick up:
+	four epics, sub-tasks under each, and the two pieces of GitHub syntax that make
+	the hierarchy real — `- [ ] #2` task lists and `Blocked by #3`.
+
+	The epic/sub-task names are taken VERBATIM from the Contoso delivery story, so
+	they match the branch names on the BranchStrategy page and the board columns on
+	TheBoard page. Change them in one place and you must change them in all three.
+
+	PATH DEPTH: this journey is TWO levels deep (journeys/GitHub/), so libs are
+	`../../lib/` and narration is `../../narration/GitHub/`. The AI/Foundry and
+	DevOps/GitHub journeys are THREE levels and use `../../../` — do not copy those.
+
+	DESIGN NOTES
+	  • Accent colour is --theme-tertiary (Microsoft purple #5c2d91); primary blue
+	    and green (#10a37f) act as secondary / positive accents.
+	  • Each epic keeps ONE colour across every step (--pw-e1..--pw-e4) so the eye
+	    can follow "Epic 1" from the epic grid, through the split, into the recap.
+	  • The bottom #controls is a compact translucent "icon dock" of glyph-only
+	    buttons; their localized labels live in the tooltip (title), set in setLanguage().
+	  • Audio narration is optional: list one clip per step (in order) in AUDIO_FILES[]
+	    and an Audio toggle appears automatically. Present mode (dual-window) ships via
+	    aw-present.js at the bottom — it self-installs a "Present" button in the header.
+-->
+<html lang="en">
+<head>
+	<script src="/js/tracking.js"></script>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+	<title>Plan the Work — Azure Animations</title>
+
+	<link rel="stylesheet" href="https://unpkg.com/@microsoft/atlas-css/dist/index.css" />
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+	<!-- AnimationWorks shared lib -->
+	<script src="../../lib/js/aw-easings.js"></script>
+	<script src="../../lib/js/aw-motion.js"></script>
+	<script src="../../lib/js/aw-theme.js"></script>
+	<script src="../../lib/js/aw-keyboard.js"></script>
+	<script src="../../lib/js/aw-captions.js"></script>
+	<link rel="stylesheet" href="../../lib/css/aw-chrome.css" />
+	<script src="../../lib/js/aw-chrome.js"></script>
+
+<style>
+	/* ── SHELL ─────────────────────────────── */
+	/* Brand palette — reference these tokens; don't hardcode hex */
+	:root {
+		--aw-purple:#5c2d91;   /* primary accent — titles, callouts, arrows, progress, agents */
+		--aw-blue:#0078d4;     /* secondary — inputs, links, "the model", primary button */
+		--aw-green:#10a37f;    /* positive — success, grounded/correct results, value chips */
+		--aw-orange:#e97526;   /* tools / actions — tool calls, function calling, side-effects */
+		--aw-pink:#d24aa8;     /* highlight — a fourth category / emphasis */
+	}
+	html, body { height:100%; margin:0; }
+	html { font-size:100%; }
+	body {
+		display:flex; flex-direction:column; height:100vh;
+		overflow:hidden;
+		font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif;
+		color: var(--theme-text);
+		background:
+			radial-gradient(circle at 15% 20%, rgba(92,45,145,0.18) 0%, transparent 55%),
+			radial-gradient(circle at 85% 80%, rgba(0,120,212,0.18) 0%, transparent 55%),
+			var(--theme-body-background);
+	}
+	.app-header { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:1rem; flex-shrink:0; font-size:16px; }
+	.app-header > :last-child { justify-self:end; }
+
+	/* #stage fills the space between the top bar and the control dock, and centers the fixed 16:9 frame. */
+	#stage {
+		position:relative; flex:1 1 auto; width:100%; min-height:0;
+		display:flex; align-items:center; justify-content:center;
+		overflow:hidden; container-type:size;
+		padding:1.75rem 2.75rem 5rem;   /* breathing room around the frame; bottom clears the fixed #controls dock */
+	}
+	#stage:focus-visible, button:focus-visible, a:focus-visible, select:focus-visible {
+		outline:2px solid var(--theme-primary, #0078d4); outline-offset:3px; border-radius:4px;
+	}
+	/* The visible rectangle: the largest 16:9 box that fits the stage. All scenes are drawn inside it. */
+	#stage-frame {
+		position:relative; overflow:hidden;
+		width: min(100cqw, calc(100cqh * 16 / 9));
+		aspect-ratio: 16 / 9; max-width:100%; max-height:100%;
+		border-radius:16px;
+		background: rgba(0,0,0,0.015);
+		box-shadow: 0 12px 44px rgba(0,0,0,0.22);
+	}
+	body.theme-dark #stage-frame { background: rgba(255,255,255,0.025); }
+	/* Coloured gradient border (brand purple → blue → pink) drawn as a masked ring — no interior tint. */
+	#stage-frame::before {
+		content:""; position:absolute; inset:0; border-radius:inherit; padding:2.5px;
+		background: linear-gradient(135deg, var(--aw-purple) 0%, var(--aw-blue) 55%, var(--aw-pink) 100%);
+		-webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+		mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+		-webkit-mask-composite: xor; mask-composite: exclude;
+		pointer-events:none; z-index:20;
+	}
+	#fx-svg { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:6; overflow:visible; }
+
+	/* ── SCENE ─────────────────────────────── */
+	.scene {
+		position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+		transform-origin:center center;
+		width:min(1150px, 96%); z-index:10;
+		display:flex; flex-direction:column; align-items:center; gap:1.4rem;
+	}
+	/* 200ms fade in / out between every step */
+	@keyframes awSceneIn { from { opacity:0; } to { opacity:1; } }
+	@keyframes awSceneOut { from { opacity:1; } to { opacity:0; } }
+	.scene.scene-in { animation: awSceneIn 0.2s ease both; }
+	.scene.scene-out { animation: awSceneOut 0.2s ease both; }
+	.scene-title { font-size:2.5rem; font-weight:700; color:var(--theme-tertiary, #5c2d91); margin:0; text-align:center; opacity:0; }
+	body.theme-dark .scene-title { color:#c9a5e8; }
+	/* lead spans wide (near the scene width) to use the side gutters and stay within 2 lines — trim copy if it wraps to 3 */
+	.scene-lead { margin:0; text-align:center; font-size:1.35rem; color:var(--theme-text); max-width:min(1180px,96%); line-height:1.5; opacity:0; }
+
+	/* ── CALLOUT · draggable, slightly see-through so it never fully blocks the diagram ── */
+	.callout {
+		position:absolute; max-width:340px; padding:1rem 1.2rem;
+		background:var(--theme-body-background);
+		background:color-mix(in srgb, var(--theme-body-background) 84%, transparent);
+		-webkit-backdrop-filter:blur(5px); backdrop-filter:blur(5px);
+		border:1px solid var(--theme-border);
+		border-left:4px solid var(--theme-tertiary, #5c2d91); border-radius:6px;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2));
+		font-size:1.05rem; line-height:1.45; z-index:14; opacity:0;
+		cursor:grab; touch-action:none;
+	}
+	.callout:active { cursor:grabbing; }
+
+	/* ── RESET "PIN" · appears on a draggable panel once it has been moved off its home spot ── */
+	.aw-drag-reset {
+		position:absolute; width:24px; height:24px; padding:0; display:none;
+		align-items:center; justify-content:center; border-radius:50%;
+		background:var(--theme-tertiary,#5c2d91); color:#fff;
+		border:2px solid var(--theme-body-background,#fff);
+		box-shadow:0 2px 7px rgba(0,0,0,0.4); cursor:pointer; z-index:6;
+		opacity:0.92; transition:opacity .14s ease, transform .14s ease;
+	}
+	.aw-drag-reset:hover { opacity:1; transform:scale(1.08); }
+	.aw-drag-reset:focus-visible { outline:2px solid #5cc8ff; outline-offset:2px; }
+	.aw-drag-reset svg { width:13px; height:13px; display:block; }
+
+	/* ══════════════════════════════════════════════════════════ */
+	/* ── REUSABLE BUILDING BLOCKS · keep what you use, drop rest ─ */
+	/* ══════════════════════════════════════════════════════════ */
+
+	/* Centered hero card */
+	.card {
+		width:min(680px, 96%); padding:1.6rem 1.8rem; border-radius:16px;
+		background:var(--theme-card-background, #fff); border:2px solid var(--theme-border);
+		box-shadow:0 8px 28px rgba(0,0,0,0.14); opacity:0;
+		display:flex; flex-direction:column; gap:0.6rem; align-items:center; text-align:center;
+	}
+	body.theme-dark .card { background:rgba(255,255,255,0.05); }
+	.card .card-icon { font-size:3rem; line-height:1; }
+	.card .card-h { font-size:1.4rem; font-weight:700; }
+	.card .card-p { font-size:1.05rem; color:var(--theme-text-subtle); line-height:1.5; }
+
+	/* Wide info panel */
+	.ta-card {
+		width:min(1080px, 98%); border:1.5px solid var(--theme-border); border-radius:14px;
+		background:var(--theme-card-background, #fff); box-shadow:0 8px 30px rgba(0,0,0,0.16);
+		padding:1.1rem 1.3rem; opacity:0;
+	}
+	body.theme-dark .ta-card { background:rgba(255,255,255,0.05); }
+	.ta-card-head {
+		display:flex; align-items:center; gap:0.5rem;
+		font-size:1rem; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;
+		color:var(--theme-text-subtle); margin-bottom:0.6rem;
+	}
+	.ta-card-text { font-size:1.22rem; line-height:1.55; color:var(--theme-text); }
+
+	/* Pills / chips */
+	.chip-row { display:flex; flex-wrap:wrap; gap:0.7rem; justify-content:center; }
+	.pill {
+		display:inline-flex; align-items:center; gap:0.5rem; padding:0.55rem 1.1rem;
+		border-radius:999px; font-size:1.05rem; font-weight:600;
+		border:2px solid var(--theme-tertiary, #5c2d91); background:rgba(92,45,145,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .pill { background:rgba(92,45,145,0.2); }
+	.value-chip {
+		display:inline-flex; align-items:center; gap:0.4rem; padding:0.5rem 1rem;
+		border-radius:999px; font-size:1rem; font-weight:700;
+		border:2px solid #107c10; background:rgba(16,124,16,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .value-chip { background:rgba(16,124,16,0.16); }
+	.recap-foot { font-size:1.05rem; color:var(--theme-text); text-align:center; max-width:760px; opacity:0; }
+
+	/* Flow row: input → process → output */
+	.agent-node {
+		display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.2rem;
+		width:160px; height:160px; border-radius:24px;
+		background: linear-gradient(135deg, rgba(92,45,145,0.12), rgba(0,120,212,0.12));
+		border:2.5px solid var(--theme-tertiary, #5c2d91);
+		box-shadow:0 8px 28px rgba(92,45,145,0.2); flex-shrink:0; text-align:center;
+	}
+	.agent-node .an-icon { font-size:3rem; line-height:1; }
+	.agent-node .an-icon img { width:64px; height:64px; display:block; }
+	.agent-node .an-label { font-size:1.05rem; font-weight:700; color:var(--theme-text); }
+	.agent-node .an-sub { font-size:0.85rem; color:var(--theme-text-subtle); }
+	.ta-flow { display:flex; align-items:center; justify-content:center; gap:1.2rem; flex-wrap:wrap; width:100%; }
+	.ta-flow .agent-node { width:140px; height:140px; }
+	.ta-flow .agent-node .an-icon { font-size:2.6rem; }
+	.ta-flow .agent-node .an-icon img { width:54px; height:54px; }
+	.ta-arrow { font-size:1.9rem; color:var(--theme-tertiary,#5c2d91); opacity:0; }
+	.ta-arrow.is-big { font-size:3.2rem; }
+	.ta-arrow.is-down, .ta-arrow.is-up { font-size:2.9rem; line-height:1; }
+	@media (max-width:760px) { .ta-flow .ta-arrow { transform:rotate(90deg); } }
+
+	/* Code card (VS Code style) */
+	.code-card {
+		width:min(560px,96%); border:1px solid #30363d; border-radius:8px;
+		background:#1e1e1e; overflow:hidden; opacity:0;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.25));
+	}
+	.code-head {
+		display:flex; align-items:center; justify-content:space-between; gap:0.5rem;
+		padding:0 0 0 0.85rem; background:#323233; border-bottom:1px solid #1e1e1e;
+	}
+	.code-file { font-size:0.9rem; color:#cccccc; font-weight:500; padding:0.6rem 0; }
+	.code-winctrls { display:flex; align-items:stretch; height:100%; }
+	.code-wbtn {
+		display:flex; align-items:center; justify-content:center; width:2.6rem; padding:0.55rem 0;
+		color:#cccccc; font-family:'Segoe UI Symbol','Segoe MDL2 Assets',sans-serif; font-size:0.7rem;
+	}
+	.code-wbtn.is-close:hover { background:#e81123; color:#fff; }
+	.code-wbtn:hover { background:rgba(255,255,255,0.1); }
+	.code-body {
+		margin:0; padding:0.8rem 1rem;
+		font-family:'Cascadia Code', 'Consolas', 'SFMono-Regular', monospace;
+		font-size:0.86rem; line-height:1.5; color:#d4d4d4;
+		white-space:pre-wrap; overflow-wrap:break-word; word-break:break-word; tab-size:4;
+	}
+	.code-body .tok-com { color:#6a9955; }
+	.code-body .tok-kw  { color:#569cd6; }
+	.code-body .tok-str { color:#ce9178; }
+	.code-body .tok-fn  { color:#dcdcaa; }
+	.code-body .tok-mod { color:#4ec9b0; }
+	.code-body .tok-prop{ color:#9cdcfe; }
+	.code-body .tok-num { color:#b5cea8; }
+	.code-body .tok-punct { color:#d4d4d4; }
+	.code-body .code-hl { border-radius:4px; padding:0 0.15em; box-shadow:0 0 0 1px rgba(96,165,250,0.55); background:rgba(96,165,250,0.22); }
+	.code-duo { display:flex; gap:1.1rem; flex-wrap:wrap; align-items:flex-start; justify-content:center; width:100%; }
+	.code-duo .code-card { flex:1 1 380px; max-width:480px; }
+	.code-duo .code-body { font-size:0.8rem; line-height:1.45; }
+	.code-arrow { align-self:center; font-size:1.8rem; line-height:1; color:var(--theme-tertiary,#5c2d91); opacity:0; flex:none; }
+	.code-arrow.is-big { font-size:2.9rem; }
+	@media (max-width:760px) { .code-arrow { transform:rotate(90deg); } }
+
+	/* Use-case grid */
+	.uc-grid { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:1.1rem; width:min(980px,96%); }
+	@media (max-width:720px) { .uc-grid { grid-template-columns:1fr; } }
+	.uc-card {
+		display:flex; flex-direction:column; gap:0.5rem; padding:1rem 1.15rem;
+		border:1.5px solid var(--theme-border); border-top:4px solid var(--theme-primary,#0078d4);
+		border-radius:14px; background:var(--theme-card-background, #fff);
+		box-shadow:0 6px 22px rgba(0,0,0,0.12); opacity:0;
+		transition:transform 0.2s ease, box-shadow 0.2s ease;
+	}
+	.uc-card:hover { transform:translateY(-4px); box-shadow:0 12px 30px rgba(0,0,0,0.18); }
+	body.theme-dark .uc-card { background:rgba(255,255,255,0.05); }
+	.uc-card[data-uc="a"] { border-top-color:#0078d4; }
+	.uc-card[data-uc="b"] { border-top-color:#10a37f; }
+	.uc-card[data-uc="c"] { border-top-color:#e97526; }
+	.uc-card[data-uc="d"] { border-top-color:#d24aa8; }
+	.uc-head { display:flex; align-items:center; gap:0.55rem; font-size:1.25rem; font-weight:700; color:var(--theme-text); }
+	.uc-head .uc-icon { font-size:1.7rem; display:inline-block; }
+	.uc-desc { font-size:0.98rem; line-height:1.55; color:var(--theme-text-subtle); }
+	.uc-caps { display:flex; flex-wrap:wrap; gap:0.4rem; margin-top:0.2rem; }
+	.uc-cap {
+		display:inline-flex; align-items:center; gap:0.3rem; padding:0.25rem 0.7rem;
+		border-radius:999px; font-size:0.88rem; font-weight:700;
+		background:rgba(0,120,212,0.1); color:var(--theme-text);
+		border:1.5px solid rgba(0,120,212,0.4); opacity:0;
+	}
+
+	/* ── CONTROLS · icon dock ──────────────── */
+	#controls {
+		position:fixed; bottom:14px; left:50%; transform:translateX(-50%); z-index:40;
+		display:flex; align-items:center; gap:5px; padding:5px 7px;
+		background:var(--theme-body-background-translucent, rgba(255,255,255,0.82));
+		backdrop-filter:blur(12px) saturate(1.4); -webkit-backdrop-filter:blur(12px) saturate(1.4);
+		border:1px solid var(--theme-border); border-radius:999px;
+		box-shadow: 0 8px 26px rgba(0,0,0,0.18); font-size:13px;
+	}
+	body.theme-dark #controls { background:var(--theme-body-background-translucent, rgba(32,32,36,0.82)); }
+	#controls .ctrl-icon {
+		width:2.15rem; height:2.15rem; min-width:0; padding:0;
+		display:inline-flex; align-items:center; justify-content:center;
+		border-radius:50%; font-size:0.95rem; line-height:1; font-weight:600;
+		transition:background 0.18s ease, color 0.18s ease, transform 0.12s ease, box-shadow 0.18s ease;
+	}
+	#controls .ctrl-icon:hover { transform:translateY(-1px); }
+	#controls .ctrl-icon:active { transform:scale(0.92); }
+	#controls .ctrl-icon-next {
+		width:2.55rem; height:2.55rem; font-size:1.1rem;
+		box-shadow:0 2px 8px var(--theme-primary-translucent, rgba(0,120,212,0.45));
+	}
+	.step-counter {
+		min-width:52px; text-align:center; font-variant-numeric:tabular-nums;
+		font-size:14px; font-weight:700; color:var(--theme-text);
+		padding:0 6px; white-space:nowrap; letter-spacing:0.02em;
+	}
+	.ctrl-sep { width:1px; align-self:stretch; margin:4px 2px; background:var(--theme-border); }
+	/* Movable dock: drag handle + pin-to-center button */
+	.ctrl-grip {
+		display:inline-flex; align-items:center; justify-content:center;
+		width:1.5rem; height:2.15rem; padding:0; border:none; background:transparent;
+		color:var(--theme-text-subtle); border-radius:8px; cursor:grab; touch-action:none;
+		transition:background 0.18s ease, color 0.18s ease;
+	}
+	.ctrl-grip:hover { color:var(--theme-text); background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); }
+	.ctrl-grip:active { cursor:grabbing; }
+	.ctrl-grip svg { width:13px; height:16px; pointer-events:none; }
+	body.controls-floating .ctrl-grip { color:var(--theme-primary,#0078d4); }
+	#controls .ctrl-pin { display:none; color:var(--theme-primary,#0078d4); }
+	#controls .ctrl-pin svg { width:15px; height:15px; pointer-events:none; }
+	body.controls-floating #controls .ctrl-pin { display:inline-flex; }
+	body.controls-floating #controls { box-shadow:0 10px 30px rgba(0,0,0,0.30), 0 0 0 1.5px var(--theme-primary,#0078d4); }
+	.speed-control { display:inline-flex; align-items:center; gap:1px; padding:2px 3px; border:1px solid var(--theme-border); border-radius:999px; }
+	.speed-control .speed-btn {
+		width:1.7rem; height:1.7rem; min-width:0; padding:0;
+		display:inline-flex; align-items:center; justify-content:center;
+		font-size:0.95rem; font-weight:700; border-radius:50%;
+	}
+	.speed-control .speed-btn[disabled] { opacity:0.4; cursor:not-allowed; }
+	.speed-label { min-width:2.4rem; text-align:center; font-variant-numeric:tabular-nums; font-size:0.82rem; font-weight:700; color:var(--theme-text); }
+
+	#callout-toggle, #outline-toggle, #audio-toggle { border:1px solid var(--theme-border); border-radius:4px; transition:background .2s,color .2s,border-color .2s,opacity .2s; }
+	#callout-toggle.toggle-active, #outline-toggle.toggle-active, #audio-toggle.toggle-active {
+		background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary,#0078d4); border-color:var(--theme-primary,#0078d4); font-weight:600;
+	}
+	#callout-toggle:not(.toggle-active), #outline-toggle:not(.toggle-active), #audio-toggle:not(.toggle-active) { opacity:0.6; }
+
+	/* ── HIDE/SHOW TOP BAR ─────────────────── */
+	#header-hide { display:inline-flex; align-items:center; justify-content:center; width:2rem; height:2rem; padding:0; border:1px solid var(--theme-border); border-radius:50%; color:var(--theme-text-subtle); transition:background .2s,color .2s,transform .18s; }
+	#header-hide:hover { color:var(--theme-text); transform:translateY(-1px); }
+	#header-hide svg { width:16px; height:16px; }
+	#header-hide-top { display:inline-flex; align-items:center; justify-content:center; width:2rem; height:2rem; padding:0; border:1px solid var(--theme-border); border-radius:50%; color:var(--theme-text-subtle); background:transparent; cursor:pointer; transition:background .2s,color .2s,transform .18s; }
+	#header-hide-top:hover { color:var(--theme-text); transform:translateY(-1px); }
+	#header-hide-top svg { width:16px; height:16px; }
+	body.chrome-hidden .app-header, body.chrome-hidden .progress-track { display:none; }
+	#header-reveal {
+		position:fixed; top:0; left:50%; transform:translateX(-50%) translateY(-100%); z-index:45;
+		display:inline-flex; align-items:center; gap:0.35rem; padding:5px 14px 6px; font-size:12px; font-weight:600; line-height:1;
+		color:var(--theme-text-subtle); background:var(--theme-body-background-translucent, rgba(255,255,255,0.88));
+		backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border:1px solid var(--theme-border); border-top:none; border-radius:0 0 12px 12px;
+		box-shadow:0 4px 14px rgba(0,0,0,0.14); cursor:pointer; transition:transform .28s cubic-bezier(0.2,0.7,0.3,1), color .2s, background .2s;
+	}
+	body.theme-dark #header-reveal { background:var(--theme-body-background-translucent, rgba(32,32,36,0.88)); }
+	#header-reveal:hover { color:var(--theme-text); }
+	body.chrome-hidden #header-reveal { transform:translateX(-50%) translateY(0); }
+	#header-reveal svg { width:14px; height:14px; }
+
+	/* ── PLAYER OVERLAY · pills inside the stage frame (YouTube-style) ──
+	   Two translucent pills float over the 16:9 frame: LEFT = "view options"
+	   (callout / outline / shortcuts), RIGHT = "player" (audio / captions / hide-bar / fullscreen). */
+	.stage-overlay {
+		position:absolute; right:12px; bottom:10px; z-index:25;
+		display:flex; align-items:center; gap:2px;
+		padding:3px 6px; border-radius:999px;
+		background:rgba(16,18,24,0.58);
+		backdrop-filter:blur(9px) saturate(1.3); -webkit-backdrop-filter:blur(9px) saturate(1.3);
+		box-shadow:0 4px 16px rgba(0,0,0,0.32);
+	}
+	.ovl-btn {
+		-webkit-appearance:none; appearance:none; margin:0; font:inherit;
+		display:inline-flex; align-items:center; justify-content:center; gap:4px;
+		min-width:30px; height:30px; padding:0 8px;
+		border:none !important; border-radius:999px !important;
+		background:transparent !important; color:#fff !important;
+		box-shadow:none !important; cursor:pointer; line-height:1;
+		font-size:0.82rem; font-weight:700; opacity:0.92; transition:background .15s ease, opacity .15s ease;
+	}
+	.ovl-btn:hover { background:rgba(255,255,255,0.16) !important; opacity:1; }
+	.ovl-btn:disabled { opacity:0.4; cursor:not-allowed; }
+	.ovl-btn svg { width:18px; height:18px; fill:currentColor; display:block; }
+	.ovl-btn.on { color:#5cc8ff !important; }
+	.stage-overlay #audio-toggle { opacity:1 !important; }
+	.stage-overlay .aw-audio-ico { font-size:1rem; line-height:1; }
+	.stage-overlay .aw-audio-time { font-size:0.78rem; font-variant-numeric:tabular-nums; letter-spacing:0.02em; opacity:0.95; min-width:2.4em; text-align:left; }
+	#cc-toggle svg { width:20px; height:20px; }
+	.ovl-btn .fs-exit { display:none; }
+	body.is-fs .ovl-btn .fs-enter { display:none; }
+	body.is-fs .ovl-btn .fs-exit { display:block; }
+
+	/* ── LEFT VIEW-OPTIONS PILL · Callout / Outline / Shortcuts (icon + hover tip) ── */
+	.stage-overlay-left { right:auto; left:12px; }
+	#stage-overlay-left .ovl-btn:not(.toggle-active) { opacity:0.86; }
+	#stage-overlay-left .ovl-btn.toggle-active { color:#5cc8ff !important; opacity:1; }
+	#stage-overlay-left .ovl-btn:hover { opacity:1; }
+	/* Hover tooltip shown above the icon (left-anchored so it never clips the frame edge) */
+	.ovl-btn[data-tip] { position:relative; }
+	.ovl-btn[data-tip]::after { content:attr(data-tip); position:absolute; left:0; bottom:calc(100% + 9px); transform:translateY(4px); padding:4px 8px; border-radius:6px; background:rgba(16,18,24,0.96); color:#fff; font-size:0.72rem; font-weight:600; white-space:nowrap; letter-spacing:0.01em; opacity:0; pointer-events:none; box-shadow:0 3px 12px rgba(0,0,0,0.45); transition:opacity .14s ease, transform .14s ease; z-index:40; }
+	.ovl-btn[data-tip]::before { content:''; position:absolute; left:13px; bottom:calc(100% + 4px); border:5px solid transparent; border-top-color:rgba(16,18,24,0.96); opacity:0; pointer-events:none; transition:opacity .14s ease; z-index:40; }
+	.ovl-btn[data-tip]:hover::after { opacity:1; transform:translateY(0); }
+	.ovl-btn[data-tip]:hover::before { opacity:1; }
+
+	/* ── CAPTION · overlaid inside the frame, draggable + resizable, stays solid (not see-through) ── */
+	#aw-caption {
+		position:absolute; left:50%; transform:translateX(-50%); bottom:56px; z-index:24;
+		max-width:92%; min-width:140px; min-height:38px; max-height:44%;
+		display:none; align-items:center; justify-content:center; text-align:center;
+		padding:0.42rem 0.95rem; border-radius:9px;
+		background:rgba(8,9,13,0.8); color:#fff;
+		font-size:1.1rem; line-height:1.36; font-weight:600;
+		box-shadow:0 3px 14px rgba(0,0,0,0.42); pointer-events:auto; cursor:grab; touch-action:none;
+		overflow:auto; resize:both;   /* user can reshape the caption; corner grip = resize */
+	}
+	#aw-caption:active { cursor:grabbing; }
+	#aw-caption::-webkit-resizer { background:linear-gradient(135deg, transparent 45%, rgba(255,255,255,0.55) 45%, rgba(255,255,255,0.55) 55%, transparent 55%); }
+	body.cc-on #aw-caption.has-text { display:flex; }
+	@media (max-width:640px){ #aw-caption { font-size:0.94rem; bottom:48px; max-width:90%; } }
+
+	/* ── OUTLINE PANEL · draggable + slightly see-through ── */
+	#step-outline {
+		position:fixed; top:4.5rem; right:1rem; width:320px; max-height:calc(100vh - 8rem); overflow-y:auto;
+		padding:1.1rem; background:var(--theme-body-background);
+		background:color-mix(in srgb, var(--theme-body-background) 85%, transparent);
+		-webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
+		border:1px solid var(--theme-border);
+		border-radius:6px; box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2)); z-index:35; font-size:1rem; line-height:1.55;
+		cursor:grab; touch-action:none;
+	}
+	#step-outline:active { cursor:grabbing; }
+	#step-outline[hidden] { display:none; }
+	#step-outline h2 { font-size:0.85rem; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--theme-tertiary,#5c2d91); margin-bottom:0.5rem; }
+	#step-outline .outline-section { margin-top:0.6rem; padding-top:0.6rem; border-top:1px solid var(--theme-border); }
+	#step-outline .outline-section:first-child { margin-top:0; padding-top:0; border-top:0; }
+	#step-outline .stat-row { display:flex; justify-content:space-between; align-items:baseline; gap:0.75rem; padding:0.2rem 0; }
+	#step-outline .stat-row span:first-child { color:var(--theme-text-subtle); flex:0 0 auto; max-width:45%; }
+	#step-outline .stat-row span:last-child { text-align:right; font-weight:600; color:var(--theme-tertiary,#5c2d91); flex:1 1 auto; }
+
+	.progress-track { position:relative; height:6px; background:var(--theme-border, #e0e0e0); flex-shrink:0; cursor:pointer; }
+	.progress-fill { position:absolute; left:0; top:0; bottom:0; width:0%; background:var(--aw-purple, #5c2d91); transition:width .5s cubic-bezier(0.2,0.8,0.2,1); pointer-events:none; }
+	.progress-tick { position:absolute; top:0; bottom:0; width:2px; margin-left:-1px; background:var(--theme-body-background); opacity:0.6; pointer-events:none; }
+
+	/* ── THEME / LANG / FONT CONTROLS ──────── */
+	.theme-toggle { display:inline-flex; align-items:center; justify-content:center; width:2.25rem; height:2.25rem; padding:0; margin-inline-start:0.25rem; background:transparent; border:1px solid var(--theme-border); border-radius:999px; color:var(--theme-text); cursor:pointer; transition:background .15s,color .15s,border-color .15s; }
+	.theme-toggle:hover { background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary); border-color:var(--theme-primary); }
+	.theme-toggle .theme-icon { display:none; }
+	.theme-toggle[data-theme="dark"] .icon-sun { display:block; }
+	.theme-toggle[data-theme="light"] .icon-moon { display:block; }
+	.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+	.skip-link { position:absolute; top:-100px; left:0.5rem; z-index:100; padding:0.5rem 1rem; background:var(--theme-primary); color:var(--theme-primary-invert,#fff); border-radius:4px; text-decoration:none; font-weight:600; }
+	.skip-link:focus { top:0.5rem; }
+	.header-back-link { display:inline-flex; align-items:center; gap:0.25rem; padding:0.2rem 0.6rem; font-size:0.8rem; font-weight:600; color:var(--theme-text-subtle); border:1px solid var(--theme-border); border-radius:999px; text-decoration:none; white-space:nowrap; transition:background .15s,color .15s,border-color .15s; }
+	.header-back-link:hover { color:var(--theme-primary); border-color:var(--theme-primary); background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); }
+	.lang-select {
+		appearance:none; -webkit-appearance:none; background:var(--theme-card-background,#fff); color:var(--theme-body-text,#333);
+		border:1px solid var(--theme-border, rgba(0,0,0,0.2)); border-radius:4px; padding:4px 24px 4px 8px;
+		font-size:0.8rem; font-family:'Segoe UI', sans-serif; cursor:pointer;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+		background-repeat:no-repeat; background-position:right 6px center; min-width:80px;
+	}
+	.lang-select:hover { border-color:var(--theme-primary, #0078d4); }
+	.lang-select:focus { outline:2px solid var(--theme-primary, #0078d4); outline-offset:1px; }
+	body.theme-dark .lang-select {
+		background-color:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); border-color:rgba(255,255,255,0.15);
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23aaa' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+	}
+	body.theme-dark .lang-select option { background:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); }
+	.font-size-controls { display:flex; align-items:center; gap:2px; }
+	.font-size-btn { background:var(--theme-card-background,#fff); color:var(--theme-body-text,#333); border:1px solid var(--theme-border, rgba(0,0,0,0.2)); border-radius:4px; padding:3px 8px; font-size:0.8rem; font-weight:700; font-family:'Segoe UI', sans-serif; cursor:pointer; line-height:1.2; transition:background .15s,border-color .15s; }
+	.font-size-btn:hover { border-color:var(--theme-primary, #0078d4); }
+	body.theme-dark .font-size-btn { background:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); border-color:rgba(255,255,255,0.15); }
+
+	/* Inline icons (crisp on any OS/projector — replaces raw emoji on stage) */
+	.ic { display:inline-flex; align-items:center; justify-content:center; vertical-align:-0.125em; }
+	.ic svg { width:1em; height:1em; fill:currentColor; display:block; }
+	.help-toggle svg { width:15px; height:15px; vertical-align:-2px; }
+
+	/* Keyboard shortcut overlay */
+	#shortcut-overlay { position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center; }
+	#shortcut-overlay[hidden] { display:none; }
+	.sc-backdrop { position:absolute; inset:0; background:rgba(0,0,0,0.5); -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px); }
+	.sc-panel { position:relative; z-index:1; width:min(430px,92vw); max-height:82vh; overflow:auto; padding:1.5rem 1.6rem; background:var(--theme-body-background); border:1px solid var(--theme-border); border-radius:16px; box-shadow:0 24px 70px rgba(0,0,0,0.4); }
+	.sc-panel h2 { margin:0 0 1rem; font-size:1.25rem; color:var(--theme-tertiary,#5c2d91); }
+	body.theme-dark .sc-panel h2 { color:#c9a5e8; }
+	.sc-close { position:absolute; top:0.7rem; right:0.7rem; width:2rem; height:2rem; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--theme-border); border-radius:50%; background:transparent; color:var(--theme-text-subtle); cursor:pointer; }
+	.sc-close:hover { color:var(--theme-text); border-color:var(--theme-primary,#0078d4); }
+	.sc-close svg { width:15px; height:15px; }
+	.sc-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:0.55rem; }
+	.sc-list li { display:flex; align-items:center; justify-content:space-between; gap:1rem; font-size:1rem; color:var(--theme-text); }
+	.sc-keys { display:inline-flex; gap:0.3rem; flex:none; }
+	.sc-panel kbd, .sc-hint kbd { font-family:'Cascadia Code','Consolas',monospace; font-size:0.82rem; line-height:1; padding:0.28rem 0.5rem; border-radius:6px; border:1px solid var(--theme-border); border-bottom-width:2px; background:var(--theme-card-background,#fff); color:var(--theme-text); }
+	body.theme-dark .sc-panel kbd, body.theme-dark .sc-hint kbd { background:rgba(255,255,255,0.08); }
+	.sc-hint { margin:1.1rem 0 0; font-size:0.85rem; color:var(--theme-text-subtle); text-align:center; }
+
+	/* ══ PLAN THE WORK (pw-*) ═══════════════════════════════════ */
+	:root { --pw-e1:#0b6bcb; --pw-e2:#5c2d91; --pw-e3:#0e9e8a; --pw-e4:#2da44e; --pw-warn:#c2410c; --pw-mute:#5b6270; }
+	body.theme-dark { --pw-e1:#6fa5ff; --pw-e2:#c9a5e8; --pw-e3:#3ddcb2; --pw-e4:#57d977; --pw-warn:#ff9166; --pw-mute:#a8adba; }
+
+	.pw-arw { flex:none; align-self:center; color:var(--theme-text-subtle,#5b6270); opacity:0; }
+	.pw-arw svg { display:block; width:100%; height:auto; fill:currentColor; }
+	.pw-note { font-size:1.15rem; line-height:1.55; text-align:center; color:var(--theme-text); opacity:0; max-width:1000px; }
+	.pw-note strong { font-weight:600; }
+	.pw-note code { font-family:'Cascadia Code','Consolas',monospace; font-size:1.05rem; padding:0.1rem 0.4rem;
+		border-radius:5px; background:color-mix(in srgb, var(--pw-e2) 14%, transparent); }
+	/* the diagrams are the payload — give them more air than the shared 1.4rem */
+	.scene { gap:1.9rem; }
+	.scene.is-wide { width:min(1290px, 98%); }
+
+	/* step 1 · one issue nobody can pick up — shown on the repository's Issues tab */
+	.pw-mono { width:min(880px,97%); opacity:0; }
+	.pw-mhead { display:flex; align-items:baseline; gap:0.6rem; flex-wrap:wrap; }
+	.pw-mtitle { font-size:1.5rem; font-weight:700; color:var(--aw-br-fg,#1f2328); line-height:1.25; }
+	.pw-mnum { font-family:'Cascadia Code','Consolas',monospace; font-size:1.3rem; font-weight:400;
+		color:var(--aw-br-muted,#59636e); }
+	.pw-mmeta { display:flex; align-items:center; gap:0.6rem; font-size:1.02rem; color:var(--aw-br-muted,#59636e);
+		padding-bottom:0.7rem; border-bottom:1px solid var(--aw-br-border,#d1d9e0); }
+	.pw-mbody { display:flex; flex-direction:column; gap:0.7rem; }
+	.pw-mline { display:flex; gap:0.65rem; font-size:1.15rem; line-height:1.45; color:var(--aw-br-fg,#1f2328); }
+	.pw-mline::before { content:"\2022"; color:var(--aw-br-muted,#59636e); font-weight:700; flex:none; }
+	.pw-pains { display:flex; flex-wrap:wrap; gap:0.7rem; justify-content:center; width:100%; }
+	.pw-pain { display:inline-flex; align-items:center; gap:0.45rem; padding:0.62rem 1.15rem; opacity:0;
+		border-radius:999px; font-size:1.12rem; font-weight:500; color:var(--theme-text);
+		border:2px dashed var(--pw-warn); background:none; }
+	.pw-pain::before { content:"\2715"; color:var(--pw-warn); font-weight:700; }
+	.pw-speclink { display:inline-flex; align-items:center; gap:0.6rem; padding:0.8rem 1.4rem; border-radius:12px; opacity:0;
+		font-size:1.1rem; font-weight:600; text-decoration:none; color:var(--pw-e2);
+		border:2px solid var(--pw-e2); background:var(--theme-card-background,#fff); }
+	body.theme-dark .pw-speclink { background:#2a2b34; }
+	.pw-speclink:hover { background:color-mix(in srgb, var(--pw-e2) 14%, transparent); }
+
+	/* step 2 · the four epics */
+	.pw-epics { display:flex; align-items:stretch; justify-content:center; gap:1rem; width:100%; }
+	.pw-epic { flex:1 1 0; display:flex; flex-direction:column; gap:0.65rem; padding:2.1rem 1.3rem; opacity:0;
+		border:2px solid var(--ec); border-radius:14px; background:var(--theme-card-background,#fff);
+		box-shadow:0 6px 18px rgba(20,30,60,0.10); }
+	body.theme-dark .pw-epic { background:#2a2b34; box-shadow:0 6px 18px rgba(0,0,0,0.34); }
+	.pw-enum { font-size:0.98rem; font-weight:600; letter-spacing:0.07em; text-transform:uppercase; color:var(--ec); }
+	.pw-ename { font-size:1.35rem; font-weight:700; color:var(--ec); line-height:1.25; }
+	.pw-esub { font-size:1.08rem; color:var(--pw-mute); line-height:1.45; }
+	.pw-etags { margin-top:auto; padding-top:0.5rem; display:flex; flex-wrap:wrap; gap:0.45rem; }
+	.pw-etag { font-size:1rem; font-weight:500; padding:0.36rem 0.8rem; border-radius:999px;
+		border:1.5px solid var(--ec); color:var(--theme-text); }
+
+	/* step 3 · one epic split into sub-tasks */
+	.pw-split { display:flex; align-items:center; justify-content:center; gap:1.2rem; width:100%; }
+	.pw-parent { flex:0 0 330px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.6rem;
+		padding:2.9rem 1.3rem; opacity:0; border:2.5px solid var(--pw-e1); border-radius:14px; text-align:center;
+		background:color-mix(in srgb, var(--pw-e1) 12%, transparent); }
+	.pw-pnum { font-size:0.98rem; font-weight:600; letter-spacing:0.07em; text-transform:uppercase; color:var(--pw-e1); }
+	.pw-pname { font-size:1.4rem; font-weight:700; color:var(--pw-e1); line-height:1.25; }
+	.pw-psub { font-size:1.08rem; color:var(--pw-mute); line-height:1.45; }
+	.pw-kids { flex:1 1 auto; display:flex; flex-direction:column; gap:1.1rem; }
+	.pw-kid { display:flex; align-items:flex-start; gap:1rem; padding:1.95rem 1.5rem; opacity:0;
+		border:2px solid var(--pw-e1); border-radius:14px; background:var(--theme-card-background,#fff); }
+	body.theme-dark .pw-kid { background:#2a2b34; }
+	.pw-knum { flex:none; font-family:'Cascadia Code','Consolas',monospace; font-size:1.05rem; font-weight:600;
+		padding:0.35rem 0.7rem; border-radius:8px; background:var(--pw-e1); color:#fff; }
+	body.theme-dark .pw-knum { color:#12131a; }
+	.pw-ktxt { display:flex; flex-direction:column; gap:0.5rem; }
+	.pw-kname { font-size:1.3rem; font-weight:600; color:var(--theme-text); line-height:1.3; }
+	.pw-klist { display:flex; flex-wrap:wrap; gap:0.5rem; }
+	.pw-kitem { display:inline-flex; align-items:center; gap:0.4rem; font-size:1.05rem; font-weight:500;
+		padding:0.34rem 0.85rem; border-radius:999px; border:1.5px solid var(--pw-e1); color:var(--theme-text); }
+	.pw-kitem code { font-family:'Cascadia Code','Consolas',monospace; }
+
+	/* step 4 · the anatomy of a good sub-task issue, on the repository's Issues tab */
+	.pw-iwin { width:100%; opacity:0; margin-bottom:3.4rem; }   /* clears the bottom-corner overlay pills */
+	.pw-iwin > .aw-br-body { padding:1.4rem 1.7rem; }
+	.pw-issue { display:flex; align-items:flex-start; justify-content:center; gap:1.5rem; width:100%; }
+	.pw-imain { flex:1 1 auto; display:flex; flex-direction:column; gap:0.75rem; min-width:0; }
+	.pw-ihead { display:flex; align-items:baseline; gap:0.6rem; flex-wrap:wrap; }
+	.pw-ititle { font-size:1.4rem; font-weight:700; color:var(--aw-br-fg,#1f2328); line-height:1.25; }
+	.pw-inum { font-family:'Cascadia Code','Consolas',monospace; font-size:1.3rem; font-weight:400;
+		color:var(--aw-br-muted,#59636e); }
+	.pw-imeta { display:flex; align-items:center; gap:0.6rem; font-size:1.02rem; color:var(--aw-br-muted,#59636e);
+		padding-bottom:0.7rem; border-bottom:1px solid var(--aw-br-border,#d1d9e0); }
+	.pw-ibody { display:flex; flex-direction:column; gap:0.6rem; }
+	.pw-itext { font-size:1.12rem; line-height:1.55; color:var(--aw-br-fg,#1f2328); padding-bottom:0.35rem; }
+	.pw-ilab { font-size:0.98rem; font-weight:600; letter-spacing:0.05em; text-transform:uppercase; color:var(--aw-br-muted,#59636e); }
+	.pw-ac { display:flex; gap:0.6rem; font-size:1.12rem; line-height:1.45; color:var(--aw-br-fg,#1f2328); }
+	.pw-ac::before { content:"\2610"; color:var(--aw-br-muted,#59636e); font-weight:700; flex:none; }
+	/* github.com puts these fields in a divided sidebar, not in bordered cards */
+	.pw-side { flex:0 0 280px; display:flex; flex-direction:column;
+		padding-left:1.5rem; border-left:1px solid var(--aw-br-border,#d1d9e0); }
+	.pw-srow { display:flex; flex-direction:column; gap:0.2rem; padding:0.72rem 0; opacity:0;
+		border-top:1px solid var(--aw-br-border,#d1d9e0); }
+	.pw-srow:first-child { border-top:none; padding-top:0; }
+	.pw-sk { font-size:0.95rem; font-weight:600; letter-spacing:0.05em; text-transform:uppercase; color:var(--aw-br-muted,#59636e); }
+	.pw-sv { font-size:1.18rem; font-weight:600; color:var(--rc); line-height:1.3; }
+
+	/* step 5 · the task-list syntax that makes the hierarchy real */
+	.pw-link { display:flex; align-items:center; justify-content:center; gap:1.2rem; width:100%; }
+	.pw-code { flex:0 0 460px; padding:2rem 1.6rem; opacity:0; border:2px solid var(--pw-e2); border-radius:14px;
+		background:#1e1f28; display:flex; flex-direction:column; gap:0.3rem; }
+	.pw-cline { font-family:'Cascadia Code','Consolas',monospace; font-size:1.15rem; line-height:2.1; color:#e6e6ef; white-space:nowrap; }
+	.pw-cline .cm { color:#8b93a7; }
+	.pw-cline .rf { color:#7ee787; font-weight:600; }
+	.pw-rend { flex:1 1 auto; display:flex; flex-direction:column; gap:0.75rem; }
+	.pw-rhead { font-size:1.2rem; font-weight:600; color:var(--pw-e2); opacity:0; padding-bottom:0.45rem;
+		border-bottom:2px solid color-mix(in srgb, var(--pw-e2) 35%, transparent); }
+	.pw-task { display:flex; align-items:center; gap:0.75rem; padding:1.35rem 1.2rem; opacity:0;
+		border:2px solid var(--pw-e2); border-radius:11px; background:var(--theme-card-background,#fff);
+		font-size:1.15rem; color:var(--theme-text); }
+	body.theme-dark .pw-task { background:#2a2b34; }
+	.pw-cb { flex:none; width:22px; height:22px; border-radius:5px; border:2px solid var(--pw-e2);
+		display:flex; align-items:center; justify-content:center; font-size:0.95rem; font-weight:700; line-height:1; }
+	.pw-cb.is-done { background:var(--pw-e2); color:#fff; }
+	body.theme-dark .pw-cb.is-done { color:#12131a; }
+	.pw-tref { margin-left:auto; flex:none; font-family:'Cascadia Code','Consolas',monospace;
+		font-size:1.05rem; font-weight:600; color:var(--pw-e2); }
+	.pw-prog { display:flex; align-items:center; gap:0.8rem; opacity:0; padding-top:0.7rem; }
+	.pw-ptrack { flex:1 1 auto; display:block; height:16px; border-radius:999px; background:color-mix(in srgb, var(--pw-e2) 18%, transparent); overflow:hidden; }
+	/* must be display:block — a bare <span> is inline, so width/height would be ignored */
+	.pw-pbar { display:block; height:100%; width:0; border-radius:999px; background:var(--pw-e2); }
+	.pw-plab { flex:none; font-size:1.05rem; font-weight:600; color:var(--pw-e2); }
+	/* the repository's shared issue/PR counter, shown running */
+	.pw-nums { display:flex; flex-direction:column; align-items:center; gap:0.65rem; width:100%; opacity:0; }
+	.pw-numlab { font-size:0.98rem; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--pw-mute); }
+	.pw-numrow { display:flex; align-items:stretch; justify-content:center; gap:0.7rem; flex-wrap:wrap; }
+	.pw-num { display:flex; flex-direction:column; align-items:center; gap:0.15rem; opacity:0;
+		padding:0.6rem 1.15rem; border-radius:11px; border:2px solid var(--pw-e1);
+		background:var(--theme-card-background,#fff); }
+	body.theme-dark .pw-num { background:#2a2b34; }
+	.pw-numn { font-family:'Cascadia Code','Consolas',monospace; font-size:1.3rem; font-weight:700; color:var(--pw-e1); line-height:1.2; }
+	.pw-numb { font-size:1.02rem; color:var(--theme-text-subtle,#5b6270); line-height:1.3; }
+
+	/* step 6 · declaring the dependency between two sub-tasks */
+	.pw-dep { display:flex; align-items:center; justify-content:center; gap:1.3rem; width:100%; }
+	.pw-dnode { flex:0 0 340px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.6rem;
+		padding:3.1rem 1.4rem; opacity:0; border:2px solid var(--dc); border-radius:14px; text-align:center;
+		background:var(--theme-card-background,#fff); box-shadow:0 6px 18px rgba(20,30,60,0.10); }
+	body.theme-dark .pw-dnode { background:#2a2b34; box-shadow:0 6px 18px rgba(0,0,0,0.34); }
+	.pw-dref { font-family:'Cascadia Code','Consolas',monospace; font-size:1.12rem; font-weight:600; color:var(--dc); }
+	.pw-dname { font-size:1.38rem; font-weight:600; color:var(--theme-text); line-height:1.3; }
+	.pw-dsub { font-size:1.08rem; color:var(--pw-mute); line-height:1.45; }
+	.pw-dgate { display:flex; flex-direction:column; align-items:center; gap:0.7rem; flex:none; }
+	.pw-block { padding:0.7rem 1.2rem; border-radius:999px; opacity:0; white-space:nowrap;
+		font-family:'Cascadia Code','Consolas',monospace; font-size:1.1rem; font-weight:600;
+		border:2px dashed var(--pw-warn); color:var(--pw-warn); }
+
+	/* steps 7 + 8 · do it on your own repository */
+	.pw-trywrap { display:flex; align-items:stretch; justify-content:center; gap:1.1rem; width:100%; }
+	.pw-trywrap > * { flex:1 1 0; min-width:0; }
+	.pw-tryhalf { display:flex; flex-direction:column; gap:0.8rem; min-width:0; }
+	.pw-req { display:flex; flex-direction:column; gap:0.5rem; padding:1.15rem 1.25rem; opacity:0;
+		border:2px solid var(--pw-warn); border-radius:14px; background:var(--theme-card-background,#fff); }
+	body.theme-dark .pw-req { background:#2a2b34; }
+	.pw-reqh { font-size:1.14rem; font-weight:700; color:var(--pw-warn); }
+	.pw-reqi { display:flex; gap:0.6rem; font-size:1.06rem; line-height:1.45; color:var(--theme-text); }
+	.pw-reqi::before { content:"\2610"; color:var(--pw-warn); font-weight:700; flex:none; }
+	.pw-dlrow { display:flex; flex-wrap:wrap; gap:0.7rem; }
+	.pw-dl { display:inline-flex; align-items:center; gap:0.5rem; padding:0.72rem 1.2rem; border-radius:12px; opacity:0;
+		font-size:1.06rem; font-weight:600; text-decoration:none; color:var(--pw-e2);
+		border:2px solid var(--pw-e2); background:var(--theme-card-background,#fff); }
+	body.theme-dark .pw-dl { background:#2a2b34; }
+	.pw-dl:hover { background:color-mix(in srgb, var(--pw-e2) 14%, transparent); }
+	.pw-flwin { width:100%; opacity:0; margin-bottom:2.6rem; }   /* clears the bottom-corner overlay pills */
+	.pw-flrow { display:flex; align-items:center; gap:0.7rem; padding:0.72rem 1.3rem; font-size:1.08rem;
+		color:var(--aw-br-fg,#1f2328); border-top:1px solid var(--aw-br-border,#d1d9e0); }
+	.pw-flrow:first-child { border-top:none; }
+	.pw-flico { flex:none; color:#1f883d; font-weight:700; }
+	.pw-flnum { flex:none; font-family:'Cascadia Code','Consolas',monospace; color:var(--aw-br-muted,#59636e); }
+	.pw-flq { margin-left:auto; flex:none; font-size:1.02rem; font-style:italic; color:var(--pw-warn); }
+
+	/* step 9 · recap — same rail shape as the other pages in this journey */
+	.pw-rail { display:flex; align-items:center; justify-content:center; gap:0.9rem; width:100%; }
+	.pw-stop { flex:1 1 0; display:flex; flex-direction:column; align-items:center; gap:0.6rem; padding:2.5rem 0.9rem;
+		opacity:0; border:2px solid var(--sc); border-radius:12px; background:var(--theme-card-background,#fff); text-align:center; }
+	body.theme-dark .pw-stop { background:#2a2b34; }
+	.pw-sico { font-size:3.4rem; line-height:1; }
+	.pw-sname { font-size:1.3rem; font-weight:600; color:var(--sc); line-height:1.25; }
+	.pw-ssub { font-size:1.05rem; color:var(--theme-text-subtle,#5b6270); line-height:1.45; }
+
+	@media (max-width:640px) { .app-header { font-size:0.95rem; } .scene-title { font-size:1.9rem; } #stage { padding:0.9rem 1rem 4.5rem; } }
+	@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition:none !important; animation:none !important; } .progress-fill { transition:none !important; } }
+</style>
+</head>
+
+<body class="theme-dark" data-theme-preset="atlas">
+
+	<a href="#stage" class="skip-link">Skip to diagram</a>
+
+	<header class="app-header padding-block-xs padding-inline-md border-bottom" role="banner" style="justify-content:space-between;">
+		<div class="display-flex align-items-center gap-xs">
+			<!-- Set href to the previous animation in the journey, or the hub index.html -->
+			<a href="index.html" id="back-link" class="header-back-link" aria-label="Back to the Contoso delivery journey" title="Back to the journey">&larr; Journey</a>
+			<span id="page-title" class="font-size-h6 font-weight-semibold">&#10024; Why Contoso Is Building This</span>
+		</div>
+		<nav class="display-flex gap-xs align-items-center" aria-label="Primary">
+			<span id="breadcrumb" class="font-size-sm color-text-subtle">Step 1</span>
+		</nav>
+		<div class="display-flex gap-xs align-items-center">
+			<select id="lang-select" class="lang-select" aria-label="Language">
+				<option value="en">English</option>
+				<!-- add es/ja/ko/pt <option>s once translations are added -->
+			</select>
+			<div class="font-size-controls">
+				<button id="font-decrease" type="button" class="font-size-btn" aria-label="Decrease font size" title="Smaller text">A&minus;</button>
+				<button id="font-increase" type="button" class="font-size-btn" aria-label="Increase font size" title="Larger text">A+</button>
+			</div>
+			<button id="theme-toggle" type="button" class="theme-toggle" aria-label="Switch theme" title="Switch theme">
+				<svg class="theme-icon icon-moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg>
+				<svg class="theme-icon icon-sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.5" y1="4.5" x2="6.5" y2="6.5"/><line x1="17.5" y1="17.5" x2="19.5" y2="19.5"/><line x1="4.5" y1="19.5" x2="6.5" y2="17.5"/><line x1="17.5" y1="6.5" x2="19.5" y2="4.5"/></g></svg>
+			</button>
+			<button id="header-hide-top" type="button" aria-label="Hide top bar" title="Hide top bar (H)">
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/></svg>
+			</button>
+		</div>
+	</header>
+
+	<button id="header-reveal" type="button" aria-label="Show top bar" title="Show top bar">
+		<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/></svg>
+		<span>Toolbar</span>
+	</button>
+
+	<div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
+
+	<main id="stage" tabindex="0" role="region" aria-labelledby="stage-heading" aria-describedby="stage-instructions">
+		<h1 id="stage-heading" class="sr-only" tabindex="-1">Why Contoso Is Building This</h1>
+		<p id="stage-instructions" class="sr-only">Animated explainer. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.</p>
+		<div id="step-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+		<!-- Fixed 16:9 stage. Every scene is drawn INSIDE this box; it always fits the viewport (no scrollbars). -->
+		<div id="stage-frame">
+			<svg id="fx-svg" aria-hidden="true" focusable="false">
+				<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L0,10 L10,5 Z" fill="currentColor"/></marker></defs>
+			</svg>
+			<!-- Caption bar (synced to the step's audio clip by aw-captions.js) -->
+			<div id="aw-caption" class="aw-caption" aria-hidden="true"></div>
+			<!-- LEFT pill · view options: callout / outline / shortcuts (icons; label shows as a hover tooltip) -->
+			<div id="stage-overlay-left" class="stage-overlay stage-overlay-left" role="group" aria-label="View options">
+				<button id="callout-toggle" type="button" class="ovl-btn" aria-label="Toggle callouts" aria-pressed="false" data-tip="Callouts: Off"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M4 5h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H10l-4 3v-3H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></svg></button>
+				<button id="outline-toggle" type="button" class="ovl-btn" aria-controls="step-outline" aria-expanded="false" aria-label="Toggle text outline" data-tip="Outline: Off"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" d="M4 6h16M4 12h16M4 18h10"/></svg></button>
+				<button id="help-toggle" class="ovl-btn help-toggle" type="button" aria-haspopup="dialog" aria-controls="shortcut-overlay" aria-label="Keyboard shortcuts (press ?)" data-tip="Shortcuts"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M11 18h2v-2h-2v2zm1.1-14C9.8 4 8 5.8 8 8h2a2 2 0 1 1 3.2 1.6c-.9.7-2.2 1.5-2.2 3.4h2c0-1 .8-1.5 1.7-2.2A4 4 0 0 0 12.1 4z"/></svg></button>
+			</div>
+			<!-- RIGHT pill · player: audio / captions / hide-top-bar / fullscreen -->
+			<div id="stage-overlay" class="stage-overlay" role="group" aria-label="Player controls">
+				<button id="audio-toggle" class="ovl-btn ovl-audio" type="button" aria-label="Toggle audio narration" aria-pressed="false" title="Narration audio"></button>
+				<button id="cc-toggle" class="ovl-btn" type="button" aria-label="Toggle captions" aria-pressed="false" title="Captions"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9.7 10.2a2.1 2.1 0 1 0 0 3.6M17 10.2a2.1 2.1 0 1 0 0 3.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+				<button id="header-hide" class="ovl-btn" type="button" aria-label="Hide top bar" title="Hide top bar (H)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/></svg></button>
+				<button id="fs-toggle" class="ovl-btn" type="button" aria-label="Toggle full screen" aria-pressed="false" title="Full screen (F)"><svg class="fs-enter" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg><svg class="fs-exit" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg></button>
+			</div>
+		</div>
+	</main>
+
+	<aside id="step-outline" hidden aria-label="Text outline of the current step">
+		<h2 id="outline-title">Step Details</h2>
+		<div id="outline-body"></div>
+	</aside>
+
+	<div id="controls" role="group" aria-label="Diagram navigation">
+		<button id="ctrl-grip" type="button" class="ctrl-grip" aria-label="Drag to move the controls" title="Drag to move">
+			<svg viewBox="0 0 16 16" aria-hidden="true"><g fill="currentColor"><circle cx="5" cy="3" r="1.4"/><circle cx="11" cy="3" r="1.4"/><circle cx="5" cy="8" r="1.4"/><circle cx="11" cy="8" r="1.4"/><circle cx="5" cy="13" r="1.4"/><circle cx="11" cy="13" r="1.4"/></g></svg>
+		</button>
+		<button id="ctrl-pin" type="button" class="button button-clear ctrl-icon ctrl-pin" aria-label="Pin the controls back to the center" title="Pin to center">
+			<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9 2h6a1 1 0 0 1 .8 1.6L14 6v4l3 3v2h-4v5l-1 2-1-2v-5H7v-2l3-3V6L8.2 3.6A1 1 0 0 1 9 2z"/></svg>
+		</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="prev-btn" type="button" class="button ctrl-icon" aria-label="Previous step (left arrow)">&#9664;</button>
+		<div class="step-counter" id="step-counter">0 / 0</div>
+		<button id="next-btn" type="button" class="button button-primary button-filled ctrl-icon ctrl-icon-next" aria-label="Next step (right arrow or space)">&#9654;</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="replay-btn" type="button" class="button ctrl-icon" aria-label="Replay this step's animation (P)">&#8635;</button>
+		<div class="speed-control" role="group" aria-label="Animation speed">
+			<button id="speed-down" type="button" class="button button-clear speed-btn" aria-label="Slower (-)" title="Slower">&minus;</button>
+			<span id="speed-label" class="speed-label" aria-live="polite" aria-label="Current speed">1&times;</span>
+			<button id="speed-up" type="button" class="button button-clear speed-btn" aria-label="Faster (+)" title="Faster">+</button>
+		</div>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="reset-btn" type="button" class="button button-clear ctrl-icon" aria-label="Restart from step 1 (R)">&#9198;</button>
+	</div>
+
+	<div id="shortcut-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="sc-title">
+		<div class="sc-backdrop"></div>
+		<div class="sc-panel">
+			<button id="sc-close" class="sc-close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
+			<h2 id="sc-title">Keyboard shortcuts</h2>
+			<ul id="sc-list" class="sc-list"></ul>
+			<p class="sc-hint">Press <kbd>?</kbd> anytime to toggle this panel.</p>
+		</div>
+	</div>
+
+<script>
+// ── THEME ─────────────────────────────────
+const themeToggleBtn = document.getElementById('theme-toggle');
+function syncThemeBtn(){
+	if (!themeToggleBtn) return;
+	const isDark = document.body.classList.contains('theme-dark');
+	themeToggleBtn.dataset.theme = isDark ? 'dark' : 'light';   // drives which glyph (sun/moon) shows
+	const label = isDark ? 'Switch to light theme' : 'Switch to dark theme';
+	themeToggleBtn.setAttribute('aria-label', label);
+	themeToggleBtn.setAttribute('title', label);
+}
+if (window.AW && AW.theme) {
+	// aw-theme.js owns click handling + persistence; theme recolors via CSS variables, so no re-render/replay.
+	AW.theme.onChange(() => { syncThemeBtn(); });
+	syncThemeBtn();
+} else {
+	// Standalone fallback: toggle .theme-dark / .theme-light on <body> ourselves.
+	syncThemeBtn();
+	if (themeToggleBtn) themeToggleBtn.addEventListener('click', () => {
+		const goingDark = !document.body.classList.contains('theme-dark');
+		document.body.classList.remove('theme-dark', 'theme-light');
+		document.body.classList.add(goingDark ? 'theme-dark' : 'theme-light');
+		try { localStorage.setItem('aw-theme', goingDark ? 'theme-dark' : 'theme-light'); } catch(_){}
+		syncThemeBtn();
+	});
+	// restore a previously chosen theme (standalone only)
+	try { const saved = localStorage.getItem('aw-theme'); if (saved === 'theme-light' || saved === 'theme-dark') { document.body.classList.remove('theme-dark','theme-light'); document.body.classList.add(saved); syncThemeBtn(); } } catch(_){}
+}
+
+// ── i18n ──────────────────────────────────
+// English is the source language. Add sibling objects (es/ja/ko/pt) with the
+// SAME keys + matching <option>s in #lang-select. Keep brand/code/proper-noun
+// sample data untranslated.
+let currentLang = 'en';
+const I18N = {
+	en: {
+		skipToMain: 'Skip to diagram',
+		backLink: 'Journey', backTitle: 'Back to the Contoso delivery journey',
+		pageTitle: 'Plan the Work',
+		stageHeading: 'Plan the Work',
+		stageInstructions: 'Animated explainer. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.',
+		prev: '\u25C0 Prev', next: 'Next \u25B6', replay: '\u21BB Replay', restart: '\u21BB Restart',
+		slower: 'Slower', faster: 'Faster',
+		calloutOn: 'Callouts: On', calloutOff: 'Callouts: Off',
+		outlineOn: 'Outline: On', outlineOff: 'Outline: Off',
+		audioTip: 'Narration audio', ccTip: 'Captions', shortcutsTip: 'Shortcuts',
+		stepDetails: 'Step Details', stepOf: 'Step',
+		resetPos: 'Reset to default position',
+		scTitle: 'Keyboard shortcuts',
+		scNext: 'Next step', scPrev: 'Previous step', scRestart: 'Restart', scReplay: 'Replay this step', scHide: 'Hide / show top bar', scHelp: 'Toggle this help',
+
+		// ── Step 1 · ONE GIANT ISSUE ──
+		messTitle: 'One Issue Nobody Can Pick Up',
+		messCaption: 'The problem',
+		messDesc: 'The requirements document is agreed. Pasted into a single issue it is easy to write and impossible to deliver \u2014 nobody can own it, review it, or tell how far along it is.',
+		messCallout: 'This issue is not <em>wrong</em> \u2014 it is just <strong>too big to act on</strong>. Everything that follows is about making it smaller.',
+		messOpen: 'Open', messNum: '#1',
+		messMeta: 'opened this issue \u00b7 0 comments',
+		messIssue: 'Build the Contoso weather-driven retail app',
+		messL1: 'A backend that talks to Azure Maps',
+		messL2: 'A dashboard, and a detail page per city',
+		messL3: 'Tests, security scanning and a CI pipeline',
+		messL4: 'A container image, and a deployment to Azure',
+		messP1: 'Nobody can own it', messP2: 'It never fits in one review',
+		messP3: 'Nobody can work in parallel', messP4: 'Progress is invisible until the end',
+		messSpec: 'Read the requirements this came from (PDF)',
+		messStat1: 'Size', messStat1v: 'The entire product, in one issue',
+		messStat2: 'Owner', messStat2v: 'Everyone, which means no one',
+		messStat3: 'Status', messStat3v: 'Open \u2014 and it stays that way for months',
+
+		// ── Step 2 · THE FOUR EPICS ──
+		epicsTitle: 'Cut It Into Four Epics',
+		epicsCaption: 'The epics',
+		epicsDesc: 'An epic is a milestone-sized slice of the product \u2014 big enough to matter to the business, small enough that you can tell when it is finished.',
+		epicsCallout: 'Each epic later becomes a <strong>long-lived branch</strong> and a group on the project board. Naming them carefully pays off three times over.',
+		e1n: 'Epic 1', e1: 'Centralized Node.js REST API', e1s: 'Backend core \u2014 the single source of truth',
+		e1t1: 'Node.js', e1t2: 'Azure Maps', e1t3: 'REST',
+		e2n: 'Epic 2', e2: 'Retail-Ready Modular Frontend', e2s: 'What the customer actually sees',
+		e2t1: 'Bootstrap 5', e2t2: 'Dashboard', e2t3: 'City detail',
+		e3n: 'Epic 3', e3: 'Automated Quality & Security Pipeline', e3s: 'Proof that a change is safe to merge',
+		e3t1: 'Unit tests', e3t2: 'CodeQL', e3t3: 'Dependabot',
+		e4n: 'Epic 4', e4: 'Containerization, GHCR & Cloud Deployment', e4s: 'Getting it running on Azure',
+		e4t1: 'Dockerfile', e4t2: 'GHCR', e4t3: 'OIDC',
+		epicsStat1: 'Grain', epicsStat1v: 'A milestone, not a task',
+		epicsStat2: 'Test', epicsStat2v: 'You can say clearly when it is done',
+		epicsStat3: 'Reuse', epicsStat3v: 'Becomes a branch and a board group later',
+
+		// ── Step 3 · SPLIT INTO SUB-TASKS ──
+		splitTitle: 'Split Each Epic Into Sub-Tasks',
+		splitCaption: 'Sub-tasks',
+		splitDesc: 'A sub-task is one focused piece of work \u2014 one branch, one pull request, one review. Epic 1 becomes exactly two of them.',
+		splitCallout: 'The test for a good sub-task: could one person finish it, and could a reviewer hold <strong>all</strong> of it in their head at once?',
+		splitPnum: 'Epic 1', splitPname: 'Centralized Node.js REST API', splitPsub: 'Backend core',
+		k1num: '1.1', k1name: 'Service scaffold and the first two endpoints',
+		k1a: '/api/cities', k1b: '/api/health',
+		k2num: '1.2', k2name: 'The Azure Maps weather proxy',
+		k2a: '/api/weather', k2b: 'Server-side key', k2c: 'Normalized JSON',
+		splitStat1: 'Grain', splitStat1v: 'One branch, one pull request',
+		splitStat2: 'Review', splitStat2v: 'Small enough to read in one sitting',
+		splitStat3: 'Result', splitStat3v: 'Two people can now work at once',
+
+		// ── Step 4 · ANATOMY OF A SUB-TASK ──
+		anatTitle: 'What Goes Inside a Sub-Task',
+		anatCaption: 'Issue anatomy',
+		anatDesc: 'The title says what. The acceptance criteria say when to stop. The fields on the right tell GitHub where this piece of work belongs.',
+		anatCallout: 'Acceptance criteria are the whole trick. Without them <strong>done</strong> is an opinion, and the review turns into a negotiation.',
+		anatIssue: 'Implement /api/health and /api/cities endpoints', anatNum: '#2',
+		anatOpen: 'Open', anatMeta: 'opened this issue \u00b7 1 of 2 sub-tasks in Epic 1',
+		anatDescLab: 'Description',
+		anatDescVal: 'Expose the two read-only endpoints the dashboard needs, serving the supported cities from the server-side configuration module.',
+		anatAcLab: 'Acceptance criteria',
+		anatAc1: 'GET /api/health returns 200 with a status payload',
+		anatAc2: 'GET /api/cities returns the supported cities as JSON',
+		anatAc3: 'Both routes are covered by unit tests that run in CI',
+		anatK1: 'Assignee', anatV1: 'One named person',
+		anatK2: 'Labels', anatV2: 'backend \u00b7 epic-1',
+		anatK3: 'Project', anatV3: 'Contoso Weather-Driven Retail App',
+		anatK4: 'Milestone', anatV4: 'v1.0.0 \u2014 Contoso Weather + Map',
+		anatK5: 'Effort', anatV5: 'Medium \u00b7 3 story points',
+		anatK6: 'Work Type', anatV6: 'Sub-Task',
+		anatStat1: 'Title', anatStat1v: 'One sentence, starting with a verb',
+		anatStat2: 'Criteria', anatStat2v: 'Checkable statements, not adjectives',
+		anatStat3: 'Fields', anatStat3v: 'How the board knows where it belongs',
+
+		// ── Step 5 · TASK LISTS BUILD THE TREE ──
+		// Numbers follow the order the importer script creates them: epic 1 is #1, so its
+		// two sub-tasks are #2 and #3, and epic 2 lands on #4.
+		linkTitle: 'Make the Hierarchy Real',
+		linkCaption: 'Task lists',
+		linkDesc: 'Write a task list of issue references in the epic body, and GitHub turns it into a live checklist \u2014 with a progress bar that maintains itself.',
+		linkCallout: 'You never edit the progress bar. Closing <code>#2</code> moves it for you \u2014 which is exactly why the board can be trusted.',
+		linkCodeLab: '## Sub-tasks',
+		linkCode1: 'Service scaffold + endpoints',
+		linkCode2: 'Azure Maps weather proxy',
+		linkT1: 'Service scaffold + endpoints', linkT2: 'Azure Maps weather proxy',
+		linkRHead: '#1 \u00b7 Epic 1 \u2014 Centralized Node.js REST API',
+		linkR1: '#2', linkR2: '#3',
+		linkProg: '1 of 2 done',
+		numLab: 'Where those numbers come from',
+		numN1: '#1', numB1: 'Epic 1',
+		numN2: '#2', numB2: 'Sub-task 1.1',
+		numN3: '#3', numB3: 'Sub-task 1.2',
+		numN4: '#4', numB4: 'Epic 2',
+		numNote: 'GitHub stamps every new issue with the next number in the repository \u2014 you never choose it. Pull requests draw from the <strong>same</strong> counter, and a number is never reused.',
+		linkStat1: 'Syntax', linkStat1v: 'A task list of issue references',
+		linkStat2: 'Effect', linkStat2v: 'A real parent / child relationship',
+		linkStat3: 'Numbering', linkStat3v: 'Auto-assigned in creation order, never reused',
+
+		// ── Step 6 · DEPENDENCIES ──
+		blockTitle: 'Say What Blocks What',
+		blockCaption: 'Dependencies',
+		blockDesc: 'The city detail page cannot render weather that no endpoint returns yet. Writing that down stops anyone starting work that cannot finish.',
+		blockCallout: 'Order is information. An issue that <strong>says</strong> it is blocked costs far less than one discovered halfway through a sprint.',
+		blkAref: '#3', blkAname: 'Azure Maps weather proxy', blkAsub: 'Epic 1 \u00b7 has to land first',
+		blkBref: '#6', blkBname: 'City detail page with weather', blkBsub: 'Epic 2 \u00b7 waits on the endpoint',
+		blkGate: 'Blocked by #3',
+		blockNote: 'Write <code>Blocked by #3</code> in the body of #6. GitHub shows the relationship on <strong>both</strong> issues, so the order survives the sprint.',
+		blockStat1: 'Where', blockStat1v: 'One line in the blocked issue body',
+		blockStat2: 'Effect', blockStat2v: 'The link shows on both issues',
+		blockStat3: 'Why', blockStat3v: 'Nobody starts work that cannot finish',
+
+		// ── Steps 7 + 8 · DO IT ON YOUR OWN REPOSITORY ──
+		// Setup (repo, gh, sign-in) happens on TryItYourself.html; this is where the
+		// learner actually runs the importer. Prerequisites are the script's own hard
+		// exits — Initialize-IssueEffortField and `gh issue create --type` both fail loudly.
+		tryTitle: 'Your Turn: Generate This Backlog',
+		tryCaption: 'Try it',
+		tryDesc: 'You have seen the shape. Now make it real \u2014 download the importer, point it at your own repository, and let it create all twelve work items for you.',
+		tryCallout: 'Not set up yet? <a href="TryItYourself.html">Set Up Your Repo</a> first \u2014 it takes about five minutes and you only do it once.',
+		tryReqh: 'Before you run it',
+		tryReq1: 'An empty repo, and <code>gh auth login</code> already done',
+		tryReq2: 'Write access to that repository',
+		tryReq3: 'A single-select issue field named <b>Effort</b> \u2014 High, Medium, Low',
+		tryReq4: 'The <b>Feature</b> issue type available to the repo',
+		tryDlPs: 'PowerShell (.ps1)', tryDlSh: 'Bash (.sh)',
+		tryTerm: 'Running the importer',
+		tryR1: './contoso-weather-epic-workitem-generation.ps1',
+		tryR2: 'Enter GitHub Repository: your-username/weather-map-app',
+		tryR3: '[1/5] Checking GitHub CLI Authentication & Setup...',
+		tryR4: ' -> Repository access confirmed!',
+		tryR5: '[3/5] Setting up Labels with distinct colors...',
+		tryR6: '[4/5] Creating Epics and Tasks...',
+		tryR7: ' Created Epic 1: #1',
+		tryR8: '    Linked Sub-Task #2 to Epic #1',
+		tryR9: '[5/5] Success! All items imported.',
+		tryTurnH: 'Your turn',
+		tryT1: '<b>1.</b> Download the script for your shell',
+		tryT2: '<b>2.</b> Run it, and answer with <code>your-username/weather-map-app</code>',
+		tryT3: '<b>3.</b> Wait about a minute for all five stages to finish',
+		tryAsk: 'Did it print <b>[5/5] Success!</b>? If it stopped early, it is almost always the Effort field or the Feature issue type \u2014 add those, then run it again.',
+		tryStat1: 'You run', tryStat1v: 'One script, one question',
+		tryStat2: 'It creates', tryStat2v: '1 milestone, 7 labels, 12 linked issues',
+		tryStat3: 'Takes', tryStat3v: 'About a minute',
+
+		flatTitle: 'Twelve Issues \u2014 and No Way to Work Them',
+		flatCaption: 'The gap',
+		flatDesc: 'Open the Issues tab on your repository. Everything you planned is there, correctly linked \u2014 and completely unusable as a day-to-day view of the work.',
+		flatCallout: 'A list can tell you what <em>exists</em>. It cannot tell you what is <strong>in progress</strong>, what is next, or who is stuck \u2014 and that is exactly what the next explainer fixes.',
+		flatQ1: 'started?', flatQ2: 'next?', flatQ3: 'blocked?', flatQ4: 'whose?',
+		flatE1: '[Epic 1] Backend \u2014 Weather & Map API', flatN1: '#1',
+		flatE2: 'Sub-Task 1.1 \u00b7 Base server & Azure Maps', flatN2: '#2',
+		flatE3: 'Sub-Task 1.2 \u00b7 REST endpoints', flatN3: '#3',
+		flatE4: '[Epic 2] Frontend \u2014 Country & City Dashboard', flatN4: '#4',
+		flatE5: '\u2026and eight more, all open, all the same shade of grey', flatN5: '#5\u2013#12',
+		flatTurnH: 'Your turn',
+		flatT1: '<b>1.</b> Open the <b>Issues</b> tab on your repository',
+		flatT2: '<b>2.</b> Count them \u2014 you should have twelve, all open',
+		flatT3: '<b>3.</b> Now try to answer: which one should someone pick up first?',
+		flatAsk: 'Do you see the same flat list? Good \u2014 that is the problem. Keep this tab open; the next explainer turns it into a board. <a href="https://github.com/contoso-retail/weather-map-app/issues" target="_blank" rel="noopener">Stuck? See ours, read-only \u2197</a>',
+		flatStat1: 'You have', flatStat1v: '12 open issues, correctly linked',
+		flatStat2: 'You cannot see', flatStat2v: 'Status, order, or who is on what',
+		flatStat3: 'Next', flatStat3v: 'Track It on a Board',
+
+		// ── Step 9 · RECAP ──
+		recTitle: 'From One Idea to Work You Can Assign',
+		recCaption: 'The takeaway',
+		recDesc: 'One unbuildable issue became four epics, each split into sub-tasks with real acceptance criteria, linked into a hierarchy and ordered by what blocks what.',
+		recCallout: 'Next stop: putting all of this on a board \u2014 so the team can see it, and so status stops living in somebody\u2019s head.',
+		recS1: 'One idea', recS2: 'Four epics', recS3: 'Sub-tasks', recS4: 'Linked & ordered',
+		recS1s: 'Too big for anyone to pick up',
+		recS2s: 'Milestone-sized, named for the branches to come',
+		recS3s: 'One branch, one pull request, one review each',
+		recS4s: 'Task lists build the tree, Blocked by sets the order',
+		recFoot: 'The mechanics live in <a href="https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects" target="_blank" rel="noopener">About Projects</a> in the GitHub docs.',
+		recStat1: 'Before', recStat1v: 'One issue, no owner, no visible progress',
+		recStat2: 'After', recStat2v: 'Four epics and assignable sub-tasks',
+		recStat3: 'Next', recStat3v: 'Track all of it on a project board',
+		// only rendered while the learner is still on the worked example — see AW.egNote
+		egNo: 'Not set up your own repository yet?', egIssues: 'See the finished issue list'
+	}
+	/* es: { ...I18N.en, /* overrides *​/ },  <- spread pattern for quick partial translations */
+};
+function t(key) { return (I18N[currentLang] && I18N[currentLang][key]) || I18N.en[key] || key; }
+
+function setLanguage(lang) {
+	currentLang = lang;
+	document.documentElement.lang = lang;
+	try { const u=new URL(location.href); u.searchParams.set('lang', lang); history.replaceState(null,'',u); } catch(_){}
+	document.getElementById('page-title').textContent = '\u2728 ' + t('pageTitle');
+	// icon-only nav buttons: the localized label lives in the tooltip (title)
+	document.getElementById('prev-btn').title = t('prev');
+	document.getElementById('next-btn').title = t('next');
+	document.getElementById('replay-btn').title = t('replay');
+	document.getElementById('reset-btn').title = t('restart');
+	document.getElementById('speed-down').title = t('slower');
+	document.getElementById('speed-up').title = t('faster');
+	document.getElementById('outline-title').textContent = t('stepDetails');
+	document.querySelector('.skip-link').textContent = t('skipToMain');
+	document.getElementById('stage-heading').textContent = t('stageHeading');
+	document.getElementById('stage-instructions').textContent = t('stageInstructions');
+	// localize overlay tooltips (icon buttons show their label on hover / as native title)
+	const _hlp=document.getElementById('help-toggle'); if(_hlp) _hlp.setAttribute('data-tip', t('shortcutsTip'));
+	const _aud=document.getElementById('audio-toggle'); if(_aud) _aud.title=t('audioTip');
+	const _ccb=document.getElementById('cc-toggle'); if(_ccb) _ccb.title=t('ccTip');
+	syncCalloutBtn(); syncOutlineBtn();
+	if (typeof syncAudioBtn === 'function') syncAudioBtn();
+	if (typeof buildShortcuts === 'function') buildShortcuts();
+	document.querySelectorAll('.aw-drag-reset').forEach(b=>{ b.title=t('resetPos'); b.setAttribute('aria-label', t('resetPos')); });
+	try { localStorage.setItem('aw-tmpl-lang', lang); } catch(_){}
+	if (current >= 0) renderStep(current);
+}
+
+// ── STEPS (journey order) ─────────────────
+// Every step gets its own diagram and its own render function — no shared slide layout.
+const STEPS = [
+	{ id:'mess', short:'Problem', titleKey:'messTitle', captionKey:'messCaption', descKey:'messDesc', calloutKey:'messCallout',
+		stats:[['messStat1','messStat1v'],['messStat2','messStat2v'],['messStat3','messStat3v']] },
+	{ id:'epics', short:'Epics', titleKey:'epicsTitle', captionKey:'epicsCaption', descKey:'epicsDesc', calloutKey:'epicsCallout',
+		stats:[['epicsStat1','epicsStat1v'],['epicsStat2','epicsStat2v'],['epicsStat3','epicsStat3v']] },
+	{ id:'split', short:'Sub-tasks', titleKey:'splitTitle', captionKey:'splitCaption', descKey:'splitDesc', calloutKey:'splitCallout',
+		stats:[['splitStat1','splitStat1v'],['splitStat2','splitStat2v'],['splitStat3','splitStat3v']] },
+	{ id:'anat', short:'Anatomy', titleKey:'anatTitle', captionKey:'anatCaption', descKey:'anatDesc', calloutKey:'anatCallout',
+		stats:[['anatStat1','anatStat1v'],['anatStat2','anatStat2v'],['anatStat3','anatStat3v']] },
+	{ id:'link', short:'Task lists', titleKey:'linkTitle', captionKey:'linkCaption', descKey:'linkDesc', calloutKey:'linkCallout',
+		stats:[['linkStat1','linkStat1v'],['linkStat2','linkStat2v'],['linkStat3','linkStat3v']] },
+	{ id:'block', short:'Blockers', titleKey:'blockTitle', captionKey:'blockCaption', descKey:'blockDesc', calloutKey:'blockCallout',
+		stats:[['blockStat1','blockStat1v'],['blockStat2','blockStat2v'],['blockStat3','blockStat3v']] },
+	{ id:'try', short:'Try it', titleKey:'tryTitle', captionKey:'tryCaption', descKey:'tryDesc', calloutKey:'tryCallout',
+		stats:[['tryStat1','tryStat1v'],['tryStat2','tryStat2v'],['tryStat3','tryStat3v']] },
+	{ id:'flat', short:'The gap', titleKey:'flatTitle', captionKey:'flatCaption', descKey:'flatDesc', calloutKey:'flatCallout',
+		stats:[['flatStat1','flatStat1v'],['flatStat2','flatStat2v'],['flatStat3','flatStat3v']] },
+	{ id:'recap', short:'Recap', titleKey:'recTitle', captionKey:'recCaption', descKey:'recDesc', calloutKey:'recCallout',
+		stats:[['recStat1','recStat1v'],['recStat2','recStat2v'],['recStat3','recStat3v']] }
+];
+
+// ── DOM REFS ──────────────────────────────
+const stage=document.getElementById('stage-frame'), svg=document.getElementById('fx-svg'),
+	counter=document.getElementById('step-counter'), breadcrumb=document.getElementById('breadcrumb'),
+	progress=document.getElementById('progress-fill'), announcer=document.getElementById('step-announcer'),
+	outlineBody=document.getElementById('outline-body'), outlinePanel=document.getElementById('step-outline'),
+	outlineBtn=document.getElementById('outline-toggle'), calloutBtn=document.getElementById('callout-toggle'),
+	langSelect=document.getElementById('lang-select');
+
+langSelect.addEventListener('change', e => setLanguage(e.target.value));
+const urlLang = new URLSearchParams(location.search).get('lang');
+let savedLang=null; try{ savedLang=localStorage.getItem('aw-tmpl-lang'); }catch(_){}
+if (urlLang && I18N[urlLang]) { currentLang = urlLang; langSelect.value = urlLang; }
+else if (savedLang && I18N[savedLang]) { currentLang = savedLang; langSelect.value = savedLang; }
+
+// ── Font size ─────────────────────────────
+const fontScales=[0.8,0.9,1,1.1,1.2,1.35]; let fontScaleIdx=2;
+const baseFontSize=parseFloat(getComputedStyle(document.documentElement).fontSize);
+function applyFontScale(){ document.documentElement.style.fontSize=(baseFontSize*fontScales[fontScaleIdx])+'px'; const c=document.getElementById('controls'); if(c) c.style.fontSize=baseFontSize+'px'; if(typeof current!=='undefined'&&current>=0){ const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s); } }
+function saveFont(){ try{ localStorage.setItem('aw-tmpl-font', String(fontScaleIdx)); }catch(_){} }
+try{ const f=parseInt(localStorage.getItem('aw-tmpl-font'),10); if(!isNaN(f)&&f>=0&&f<fontScales.length){ fontScaleIdx=f; applyFontScale(); } }catch(_){}
+document.getElementById('font-decrease').addEventListener('click',()=>{ if(fontScaleIdx>0){fontScaleIdx--;applyFontScale();saveFont();} });
+document.getElementById('font-increase').addEventListener('click',()=>{ if(fontScaleIdx<fontScales.length-1){fontScaleIdx++;applyFontScale();saveFont();} });
+
+let current=-1, animating=false, liveEls=[], liveTimelines=[], calloutEnabled=false;
+
+function syncCalloutBtn(){ calloutBtn.classList.toggle('toggle-active',calloutEnabled); calloutBtn.setAttribute('aria-pressed',calloutEnabled?'true':'false'); calloutBtn.setAttribute('data-tip',calloutEnabled?t('calloutOn'):t('calloutOff')); }
+calloutBtn.addEventListener('click',()=>{
+	calloutEnabled=!calloutEnabled; syncCalloutBtn();
+	if(current<0) return;
+	// Toggle just the callout box in place — don't re-render (no animation replay).
+	const existing=stage.querySelectorAll('.callout');
+	if(calloutEnabled){ if(!existing.length){ const c=maybeCallout(STEPS[current]); if(c) gsap.fromTo(c,{opacity:0,y:10},{opacity:1,y:0,duration:0.4,overwrite:true}); } }
+	else { existing.forEach(c=>{ const idx=liveEls.indexOf(c); if(idx>-1) liveEls.splice(idx,1); gsap.killTweensOf(c); c.remove(); }); }
+}); syncCalloutBtn();
+function syncOutlineBtn(){ const on=!outlinePanel.hasAttribute('hidden'); outlineBtn.classList.toggle('toggle-active',on); outlineBtn.setAttribute('aria-expanded',on?'true':'false'); outlineBtn.setAttribute('data-tip',on?t('outlineOn'):t('outlineOff')); }
+outlineBtn.addEventListener('click',()=>{ const showing=!outlinePanel.hasAttribute('hidden'); if(showing){outlinePanel.setAttribute('hidden','');} else {outlinePanel.removeAttribute('hidden');} syncOutlineBtn(); }); syncOutlineBtn();
+
+// ── Audio narration (overlay button · speaker + remaining-time countdown) ──
+// Drop one recorded clip per step (in STEPS order) into AUDIO_FILES for real narration;
+// localized clips live under AUDIO_BASE/<lang>/. With no files, the browser reads each
+// step's title + description aloud (speech synthesis), so the button works with zero assets.
+const AUDIO_BASE = 'assets/audio/';
+const AUDIO_FILES = [
+	// 'step-01.mp3', 'step-02.mp3', /* one per step, in order */
+];
+let audioEnabled=false, currentAudio=null, audioTimeout=null, ccPref=false;
+const audioBtn=document.getElementById('audio-toggle');
+if(audioBtn){ audioBtn.innerHTML='<span class="aw-audio-ico" aria-hidden="true">\uD83D\uDD07</span><span class="aw-audio-time" aria-hidden="true">--:--</span>'; }
+const audioIco=audioBtn&&audioBtn.querySelector('.aw-audio-ico'), audioTimeEl=audioBtn&&audioBtn.querySelector('.aw-audio-time');
+// Captions can play WITHOUT sound: when CC is on but audio is off we still play the clip MUTED, so the
+// caption reveals at the same pace — speaker shows 🔇 and the remaining-time countdown keeps running.
+function playbackOn(){ return audioEnabled || ccPref; }
+function audioDir(){ return (currentLang && currentLang!=='en') ? currentLang+'/' : ''; }
+function fmtDur(s){ s=Math.max(0,Math.ceil(s)); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
+function updateAudioTime(){ if(audioTimeEl && currentAudio && isFinite(currentAudio.duration) && currentAudio.duration>0) audioTimeEl.textContent=fmtDur(currentAudio.duration-currentAudio.currentTime); }
+function syncAudioBtn(){ if(!audioBtn) return; if(audioIco) audioIco.textContent=audioEnabled?'\uD83D\uDD0A':'\uD83D\uDD07'; if(audioTimeEl && !playbackOn()) audioTimeEl.textContent='--:--'; audioBtn.classList.toggle('toggle-active',audioEnabled); audioBtn.setAttribute('aria-pressed',audioEnabled?'true':'false'); }
+function speakFallback(i){ if(!window.speechSynthesis) return; const step=STEPS[i]; const u=new SpeechSynthesisUtterance(`${t(step.titleKey)}. ${t(step.descKey)}`); u.lang=currentLang||'en'; try{ speechSynthesis.cancel(); speechSynthesis.speak(u); }catch(_){} }
+function stopAudio(){
+	if(currentAudio){ currentAudio.pause(); currentAudio.currentTime=0; currentAudio=null; }
+	if(audioTimeout){ clearTimeout(audioTimeout); audioTimeout=null; }
+	if(audioTimeEl) audioTimeEl.textContent='--:--';
+	try{ if(window.speechSynthesis) speechSynthesis.cancel(); }catch(_){}
+	if(window.AWCaptions) AWCaptions.clear();
+}
+function playStepAudio(i){
+	stopAudio();
+	if(document.body.classList.contains('aw-prestart')) return;   // start gate holds audio too
+	if(!playbackOn() || i<0 || i>=STEPS.length) return;
+	audioTimeout=setTimeout(()=>{
+		audioTimeout=null;
+		const file=AUDIO_FILES[i];
+		if(!file){ if(audioEnabled) speakFallback(i); return; }   // no clip = no timing source for caption-only
+		currentAudio=new Audio(AUDIO_BASE+audioDir()+file);
+		currentAudio.volume = audioEnabled ? 1 : 0;              // caption-only = silent (volume 0) timing source
+		if(window.AWCaptions) AWCaptions.bind(currentAudio,i);
+		currentAudio.addEventListener('loadedmetadata',updateAudioTime);
+		currentAudio.addEventListener('timeupdate',updateAudioTime);
+		currentAudio.addEventListener('ended',()=>{ if(audioTimeEl) audioTimeEl.textContent='0:00'; });
+		currentAudio.addEventListener('error',()=>{ if(audioEnabled) speakFallback(i); });
+		currentAudio.play().catch(()=>{});
+	}, 400);
+}
+if(audioBtn){ audioBtn.addEventListener('click',()=>{
+	audioEnabled=!audioEnabled; try{localStorage.setItem('aw-tmpl-audio',audioEnabled?'1':'0');}catch(_){} syncAudioBtn();
+	if(current>=0){
+		if(!playbackOn()) stopAudio();
+		else if(currentAudio) currentAudio.volume = audioEnabled ? 1 : 0;   // flip sound without restarting the clip
+		else playStepAudio(current);
+	}
+	if(typeof applyCc==='function') applyCc();
+}); }
+// Initial audio + CC from the ?audio parameter:
+//   on -> audio ON + captions ON  ·  off -> both OFF  ·  (absent) -> audio ON, captions OFF (a prior stored choice still wins).
+(function(){
+	var p=null; try{ p=new URLSearchParams(location.search).get('audio'); }catch(_){}
+	if(p==='on'){ audioEnabled=true; ccPref=true; }
+	else if(p==='off'){ audioEnabled=false; ccPref=false; }
+	else {
+		audioEnabled=true; ccPref=false;
+		try{ var a=localStorage.getItem('aw-tmpl-audio'); if(a==='1') audioEnabled=true; else if(a==='0') audioEnabled=false; }catch(_){}
+		try{ var c=localStorage.getItem('aw-tmpl-cc'); if(c==='1') ccPref=true; else if(c==='0') ccPref=false; }catch(_){}
+	}
+	try{ localStorage.setItem('aw-tmpl-audio',audioEnabled?'1':'0'); localStorage.setItem('aw-tmpl-cc',ccPref?'1':'0'); }catch(_){}
+})();
+syncAudioBtn();
+
+// ── Captions (CC) — overlaid in the frame; play WITH or WITHOUT audio ──
+// Reads the SAME narration Markdown used to synthesize the audio. Set page to THIS file's
+// stem and base to its narration folder (see the path note near the top of the file).
+const ccBtn=document.getElementById('cc-toggle');
+function ccEffective(){ return ccPref; }                          // captions show whenever CC is on (audio not required)
+function syncCcBtn(){ if(!ccBtn) return; ccBtn.classList.toggle('on',ccPref); ccBtn.setAttribute('aria-pressed',ccPref?'true':'false'); }
+function applyCc(){ if(window.AWCaptions) AWCaptions.setEnabled(ccEffective()); if(ccEffective()&&currentAudio&&window.AWCaptions) AWCaptions.bind(currentAudio,current); syncCcBtn(); }
+if(window.AWCaptions){ AWCaptions.configure({ page:'PlanTheWork', base:'../../narration/GitHub/', lang:()=>currentLang, fallback:(i)=>(STEPS[i]?t(STEPS[i].descKey):''), reserve:false }); }
+if(ccBtn){ ccBtn.addEventListener('click',()=>{
+	ccPref=!ccPref; try{localStorage.setItem('aw-tmpl-cc',ccPref?'1':'0');}catch(_){} applyCc();
+	if(current>=0){
+		if(playbackOn() && !currentAudio) playStepAudio(current);   // caption-only: start the muted timing clip
+		else if(!playbackOn() && currentAudio) stopAudio();          // CC off + audio off: nothing left to play
+	}
+}); }
+applyCc();
+
+// ── Full screen ──
+(function(){
+	const fsBtn=document.getElementById('fs-toggle'); if(!fsBtn) return;
+	function inFs(){ return !!(document.fullscreenElement||document.webkitFullscreenElement); }
+	function syncFs(){ document.body.classList.toggle('is-fs',inFs()); fsBtn.setAttribute('aria-pressed',inFs()?'true':'false'); fsBtn.title=inFs()?'Exit full screen (F)':'Full screen (F)'; }
+	function toggle(){ try{ if(inFs()){ (document.exitFullscreen||document.webkitExitFullscreen).call(document); } else { const el=document.documentElement; (el.requestFullscreen||el.webkitRequestFullscreen).call(el); } }catch(_){} }
+	fsBtn.addEventListener('click',e=>{ e.stopPropagation(); toggle(); });
+	document.addEventListener('fullscreenchange',syncFs); document.addEventListener('webkitfullscreenchange',syncFs);
+	document.addEventListener('keydown',e=>{ if(e.code==='KeyF'&&!e.metaKey&&!e.ctrlKey&&!e.altKey){ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return; e.preventDefault(); toggle(); } });
+	syncFs();
+})();
+
+// ── Reduced motion ────────────────────────
+const motionMQ=window.matchMedia('(prefers-reduced-motion: reduce)'); let motionPaused=motionMQ.matches;
+motionMQ.addEventListener('change',e=>{ motionPaused=e.matches; renderStep(current); });
+
+// ── Helpers ───────────────────────────────
+function clearStage(){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; liveEls.forEach(el=>el.remove()); liveEls=[]; Array.from(svg.children).forEach(c=>{ if(c.tagName.toLowerCase()!=='defs') c.remove(); }); }
+function el(cls,html){ const d=document.createElement('div'); if(cls) d.className=cls; if(html!=null) d.innerHTML=(window.AW&&AW.linkify)?AW.linkify(html):html; return d; }
+// Inline SVG icons (monochrome, currentColor) — crisp on any OS/projector. Add your own here.
+const ICONS = {
+	puzzle:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h8v8H3zm10 0h8v8h-8zM3 13h8v8H3zm10 0h8v8h-8z"/></svg>',
+	inbox:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 3h2v5h3l-4 4-4-4h3zM5 14h14v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1z"/></svg>',
+	gear:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M19.14 12.94a7.9 7.9 0 0 0 0-1.88l2-1.56-2-3.46-2.36.96a7.7 7.7 0 0 0-1.62-.94L14.8 2.5h-4l-.36 2.56c-.58.24-1.12.56-1.62.94L6.46 6.04l-2 3.46 2 1.56a7.9 7.9 0 0 0 0 1.88l-2 1.56 2 3.46 2.36-.96c.5.38 1.04.7 1.62.94l.36 2.56h4l.36-2.56c.58-.24 1.12-.56 1.62-.94l2.36.96 2-3.46-2-1.56zM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg>',
+	sparkle:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg>',
+	bulb:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-4 12.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26A7 7 0 0 0 12 2zM9 20h6v1a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1z"/></svg>',
+	check:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.55 17.6 4.4 12.45l1.86-1.86 3.29 3.29 8.19-8.19 1.86 1.86z"/></svg>',
+	bolt:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>',
+	lock:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 10a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1zm3-1V7a4 4 0 1 1 8 0v2h-2V7a2 2 0 1 0-4 0v2z"/></svg>',
+	box:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 3 7v10l9 5 9-5V7zm0 2.3L17.7 7 12 10.2 6.3 7zM5 9.1l6 3.4v6.8l-6-3.3zm14 0v6.9l-6 3.3v-6.8z"/></svg>',
+	key:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M14 2a6 6 0 0 0-5.66 8L2 16.34V22h5.66l.34-.34V20h2v-2h2l.34-.34A6 6 0 1 0 14 2zm2 3a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z"/></svg>',
+	rocket:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2c3 3 4 6 4 9l3 3-4 1-1 4-2-3-2 3-1-4-4-1 3-3c0-3 1-6 4-9zm0 5a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>',
+	health:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 2h6v5h5v6h-5v5H9v-5H4V7h5z"/></svg>',
+	headset:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a8 8 0 0 0-8 8v5a3 3 0 0 0 3 3h1v-7H6v-1a6 6 0 1 1 12 0v1h-2v7h1a3 3 0 0 0 3-3v-5a8 8 0 0 0-8-8z"/></svg>',
+	media:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M4 4h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zm5 4v8l7-4z"/></svg>',
+	book:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v16H6a2 2 0 0 1-2-2zm9 0h7v14a2 2 0 0 1-2 2h-5z"/></svg>',
+	party:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5zm6 11l.9 2.6L21.5 16.5l-2.6.9L18 20l-.9-2.6L14.5 16.5l2.6-.9zM6 14l.7 2 2 .7-2 .7L6 19.4l-.7-2-2-.7 2-.7z"/></svg>',
+	chat:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-4 4v-4H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/></svg>',
+	access:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a2.2 2.2 0 1 1 0 4.4A2.2 2.2 0 0 1 12 2zM4 8h16v2h-5.4l1 12h-2.3l-.7-6h-1.2l-.7 6H8.4l1-12H4z"/></svg>',
+	globe:'<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></g></svg>'
+};
+function icon(name){ return `<span class="ic">${ICONS[name]||''}</span>`; }
+function stepById(id){ return STEPS.find(s=>s.id===id); }
+// Scale the current scene down (never up) so it always fits inside the 16:9 frame — no clipping, no scroll.
+function fitScene(scene){
+	if(!scene) return;
+	scene.style.transform='translate(-50%,-50%) scale(1)';
+	const box=stage.getBoundingClientRect();
+	const availW=box.width-32, availH=box.height-28;
+	const sw=scene.offsetWidth, sh=scene.offsetHeight;
+	if(!sw||!sh) return;
+	const k=Math.min(1, availW/sw, availH/sh);
+	scene.style.transform='translate(-50%,-50%) scale('+k+')';
+}
+function headerEls(scene){ return [scene.querySelector('.scene-title'), scene.querySelector('.scene-lead')]; }
+function buildScene(step){ const s=el('scene'); s.appendChild(el('scene-title', t(step.titleKey))); s.appendChild(el('scene-lead', t(step.descKey))); return s; }
+function maybeCallout(step){ if(!calloutEnabled) return null; const c=el('callout', t(step.calloutKey)); c.style.left='1.5rem'; c.style.top='1.5rem'; stage.appendChild(c); liveEls.push(c); dragify(c, 'aw-tmpl-callout-pos'); return c; }
+function renderOutline(step,idx){
+	const rows=(step.stats||[]).map(([k,v])=>`<div class="stat-row"><span>${t(k)}</span><span>${t(v)}</span></div>`).join('');
+	outlineBody.innerHTML=`<div class="outline-section"><strong>${t('stepOf')} ${idx+1} / ${STEPS.length}: ${t(step.titleKey)}</strong><p style="margin-top:0.4rem;">${t(step.descKey)}</p></div>${rows?`<div class="outline-section">${rows}</div>`:''}`;
+}
+function announceStep(step,idx){ announcer.textContent=`${t('stepOf')} ${idx+1} / ${STEPS.length}: ${t(step.titleKey)}. ${t(step.descKey)}`; }
+
+// ── RENDER DISPATCH ───────────────────────
+function renderStep(i){
+	if(i<0||i>=STEPS.length) return;
+	if(animating){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; animating=false; }
+	animating=true;
+	const step=STEPS[i];
+	// cross-fade (200ms, CSS keyframes so it's independent of the speed control) — outgoing fades out, incoming fades in, on every step
+	const outgoing=stage.querySelector('.scene:not(.scene-out)');
+	if(outgoing) liveEls=liveEls.filter(x=>x!==outgoing);
+	clearStage();
+	if(outgoing){ outgoing.style.zIndex='5';
+		if(motionPaused){ outgoing.remove(); }
+		else { outgoing.classList.remove('scene-in'); outgoing.classList.add('scene-out'); setTimeout(()=>outgoing.remove(), 240); } }
+	if(step.id==='mess') renderMessStep();
+	else if(step.id==='epics') renderEpicsStep();
+	else if(step.id==='split') renderSplitStep();
+	else if(step.id==='anat') renderAnatStep();
+	else if(step.id==='link') renderLinkStep();
+	else if(step.id==='block') renderBlockStep();
+	else if(step.id==='try') renderTryStep();
+	else if(step.id==='flat') renderFlatStep();
+	else if(step.id==='recap') renderRecapStep();
+	const incoming=stage.querySelector('.scene:not(.scene-out)');
+	if(incoming && !motionPaused) incoming.classList.add('scene-in');
+	fitScene(incoming);
+	current=i;
+	try{ const u=new URL(location.href); u.searchParams.set('step', String(i+1)); history.replaceState(null,'',u); }catch(_){}
+	counter.textContent=`${t('stepOf')} ${current+1} / ${STEPS.length}`;
+	breadcrumb.textContent=t(step.captionKey);
+	progress.style.width=((current+1)/STEPS.length*100)+'%';
+	renderOutline(step,i); announceStep(step,i);
+	if(typeof playStepAudio==='function') playStepAudio(i);
+}
+
+// ── STEP 1 · ONE GIANT ISSUE ──────────────
+// Solid SVG arrow — a unicode glyph renders as a hairline at any font-size.
+const PW_ARROW = '<svg viewBox="0 0 64 44" aria-hidden="true"><rect x="2" y="16" width="40" height="12" rx="3"/><path d="M63 22 L38 5 L38 39 Z"/></svg>';
+function pwArrow(w){ const a=el('pw-arw', PW_ARROW); a.style.width=w||'3rem'; return a; }
+
+// The scope grows line by line, and only THEN do the pain chips name what is wrong.
+function renderMessStep(){
+	const step=stepById('mess'); const scene=buildScene(step);
+	const issue=AW.github({ tab:'issues', path:'/issues/1', cls:'pw-mono', counts:{issues:1}, body:
+		`<span class="pw-mhead"><span class="pw-mtitle">${t('messIssue')}</span><span class="pw-mnum">${t('messNum')}</span></span>` +
+		`<span class="pw-mmeta"><span class="aw-gh-state">${AW.icon('issue')}${t('messOpen')}</span>${t('messMeta')}</span>` +
+		`<span class="pw-mbody">${['messL1','messL2','messL3','messL4'].map(k=>`<span class="pw-mline">${t(k)}</span>`).join('')}</span>` });
+	const pains=el('pw-pains');
+	const painEls=['messP1','messP2','messP3','messP4'].map(k=>{ const p=el('pw-pain', t(k)); pains.appendChild(p); return p; });
+	// the spec lives with the journey so learners can read what the epics were cut from
+	const spec=document.createElement('a');
+	spec.className='pw-speclink';
+	spec.href='assets/Contoso-Weather-Map-Requirements-v1.0.pdf';
+	spec.setAttribute('download','');
+	spec.innerHTML=`\uD83D\uDCC4 ${t('messSpec')}`;
+	scene.appendChild(issue); scene.appendChild(pains); scene.appendChild(spec); stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	const lines=issue.querySelectorAll('.pw-mline');
+	if(motionPaused){ gsap.set([...headerEls(scene), issue, ...painEls, ...lines, spec], {opacity:1}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
+	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	tl.fromTo(issue, {opacity:0,y:16}, {opacity:1,y:0,duration:0.45,ease:'power2.out'}, '-=0.05');
+	// the scope keeps piling on, one line at a time \u2014 that IS the problem
+	tl.fromTo(lines, {opacity:0,x:-14}, {opacity:1,x:0,duration:0.32,stagger:0.14,ease:'power2.out'}, '-=0.15');
+	tl.fromTo(painEls, {opacity:0,y:10}, {opacity:1,y:0,duration:0.34,stagger:0.12,ease:'power2.out'}, '+=0.15');
+	tl.fromTo(spec, {opacity:0,y:10}, {opacity:1,y:0,duration:0.4,ease:'power2.out'}, '-=0.05');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.3');
+}
+
+// ── STEP 2 · THE FOUR EPICS ──
+function renderEpicsStep(){
+	const step=stepById('epics'); const scene=buildScene(step); scene.classList.add('is-wide');
+	const grid=el('pw-epics');
+	const DEFS=[
+		['e1n','e1','e1s','var(--pw-e1)',['e1t1','e1t2','e1t3']],
+		['e2n','e2','e2s','var(--pw-e2)',['e2t1','e2t2','e2t3']],
+		['e3n','e3','e3s','var(--pw-e3)',['e3t1','e3t2','e3t3']],
+		['e4n','e4','e4s','var(--pw-e4)',['e4t1','e4t2','e4t3']]
+	];
+	const cards=DEFS.map(([numK,nameK,subK,colour,tagKeys])=>{
+		const c=el('pw-epic'); c.style.setProperty('--ec', colour);
+		c.innerHTML=`<span class="pw-enum">${t(numK)}</span><span class="pw-ename">${t(nameK)}</span>` +
+			`<span class="pw-esub">${t(subK)}</span>` +
+			`<span class="pw-etags">${tagKeys.map(g=>`<span class="pw-etag">${t(g)}</span>`).join('')}</span>`;
+		grid.appendChild(c); return c;
+	});
+	scene.appendChild(grid); stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	const tags=grid.querySelectorAll('.pw-etag');
+	if(motionPaused){ gsap.set([...headerEls(scene), ...cards, ...tags], {opacity:1}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
+	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	// the four epics deal out left to right, in the order they will be delivered
+	tl.fromTo(cards, {opacity:0,y:20,scale:0.94}, {opacity:1,y:0,scale:1,duration:0.42,stagger:0.15,ease:'back.out(1.5)'}, '-=0.05');
+	tl.fromTo(tags, {opacity:0,scale:0.8}, {opacity:1,scale:1,duration:0.26,stagger:0.045,ease:'back.out(1.8)'}, '-=0.5');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.3');
+}
+
+// ── STEP 3 · SPLIT INTO SUB-TASKS ────────────
+function renderSplitStep(){
+	const step=stepById('split'); const scene=buildScene(step);
+	const split=el('pw-split');
+	const parent=el('pw-parent', `<span class="pw-pnum">${t('splitPnum')}</span>` +
+		`<span class="pw-pname">${t('splitPname')}</span><span class="pw-psub">${t('splitPsub')}</span>`);
+	const arrow=pwArrow('3.2rem');
+	const kids=el('pw-kids');
+	const mk=(numK,nameK,itemKeys)=>{
+		const k=el('pw-kid', `<span class="pw-knum">${t(numK)}</span><span class="pw-ktxt">` +
+			`<span class="pw-kname">${t(nameK)}</span>` +
+			`<span class="pw-klist">${itemKeys.map(i=>`<span class="pw-kitem"><code>${t(i)}</code></span>`).join('')}</span></span>`);
+		kids.appendChild(k); return k;
+	};
+	const k1=mk('k1num','k1name',['k1a','k1b']);
+	const k2=mk('k2num','k2name',['k2a','k2b','k2c']);
+	split.appendChild(parent); split.appendChild(arrow); split.appendChild(kids);
+	scene.appendChild(split); stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	if(motionPaused){ gsap.set([...headerEls(scene), parent, arrow, k1, k2], {opacity:1}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
+	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	tl.fromTo(parent, {opacity:0,x:-20}, {opacity:1,x:0,duration:0.45,ease:'power2.out'}, '-=0.05');
+	tl.fromTo(arrow, {opacity:0,scaleX:0.3}, {opacity:1,scaleX:1,duration:0.32,ease:'power2.out',transformOrigin:'left center'}, '-=0.1');
+	// the epic splits: the two sub-tasks fall out of it, one after the other
+	tl.fromTo(k1, {opacity:0,x:24}, {opacity:1,x:0,duration:0.42,ease:'power2.out'}, '-=0.05');
+	tl.fromTo(k2, {opacity:0,x:24}, {opacity:1,x:0,duration:0.42,ease:'power2.out'}, '-=0.18');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.3');
+}
+
+// ── STEP 4 · ISSUE ANATOMY ─────────
+function renderAnatStep(){
+	const step=stepById('anat'); const scene=buildScene(step); scene.classList.add('is-wide');
+	const wrap=el('pw-issue');
+	const main=el('pw-imain',
+		`<span class="pw-ihead"><span class="pw-ititle">${t('anatIssue')}</span><span class="pw-inum">${t('anatNum')}</span></span>` +
+		`<span class="pw-imeta"><span class="aw-gh-state">${AW.icon('issue')}${t('anatOpen')}</span>${t('anatMeta')}</span>` +
+		`<span class="pw-ibody"><span class="pw-ilab">${t('anatDescLab')}</span>` +
+		`<span class="pw-itext">${t('anatDescVal')}</span>` +
+		`<span class="pw-ilab">${t('anatAcLab')}</span>` +
+		['anatAc1','anatAc2','anatAc3'].map(k=>`<span class="pw-ac">${t(k)}</span>`).join('') +
+		`</span>`);
+	const side=el('pw-side');
+	const SIDE=[['anatK1','anatV1','var(--pw-e1)'],['anatK2','anatV2','var(--pw-e2)'],
+		['anatK3','anatV3','var(--pw-e3)'],['anatK4','anatV4','var(--pw-e4)'],
+		['anatK5','anatV5','var(--pw-e1)'],['anatK6','anatV6','var(--pw-e2)']];
+	const rows=SIDE.map(([kk,vk,colour])=>{
+		const r=el('pw-srow', `<span class="pw-sk">${t(kk)}</span><span class="pw-sv">${t(vk)}</span>`);
+		r.style.setProperty('--rc', colour); side.appendChild(r); return r;
+	});
+	wrap.appendChild(main); wrap.appendChild(side);
+	const win=AW.github({ tab:'issues', path:'/issues/2', cls:'pw-iwin', counts:{issues:12} });
+	win.bodyEl.appendChild(wrap);
+	scene.appendChild(win); stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	const acs=main.querySelectorAll('.pw-ac');
+	if(motionPaused){ gsap.set([...headerEls(scene), win, main, ...rows, ...acs], {opacity:1}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
+	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	tl.fromTo(win, {opacity:0,y:16}, {opacity:1,y:0,duration:0.45,ease:'power2.out'}, '-=0.05');
+	tl.fromTo(main, {opacity:0,y:12}, {opacity:1,y:0,duration:0.4,ease:'power2.out'}, '-=0.2');
+	// the acceptance criteria arrive one at a time — they are the part people skip
+	tl.fromTo(acs, {opacity:0,x:-12}, {opacity:1,x:0,duration:0.3,stagger:0.13,ease:'power2.out'}, '-=0.15');
+	tl.fromTo(rows, {opacity:0,x:20}, {opacity:1,x:0,duration:0.34,stagger:0.12,ease:'power2.out'}, '-=0.3');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.3');
+}
+
+// Shared skeleton for steps 5 + 6 so the before/after reads as ONE picture being fixed.
+function renderLinkStep(){
+	const step=stepById('link'); const scene=buildScene(step);
+	const wrap=el('pw-link');
+	const code=el('pw-code',
+		`<span class="pw-cline cm">${t('linkCodeLab')}</span>` +
+		`<span class="pw-cline">- [ ] <span class="rf">${t('linkR1')}</span> ${t('linkCode1')}</span>` +
+		`<span class="pw-cline">- [ ] <span class="rf">${t('linkR2')}</span> ${t('linkCode2')}</span>`);
+	const arrow=pwArrow('3.2rem');
+	const rend=el('pw-rend');
+	const rhead=el('pw-rhead', t('linkRHead'));
+	rend.appendChild(rhead);
+	const mk=(nameK,refK)=>{
+		const r=el('pw-task', `<span class="pw-cb"></span><span>${t(nameK)}</span><span class="pw-tref">${t(refK)}</span>`);
+		rend.appendChild(r); return r;
+	};
+	const task1=mk('linkT1','linkR1'), task2=mk('linkT2','linkR2');
+	const prog=el('pw-prog', `<span class="pw-ptrack"><span class="pw-pbar"></span></span><span class="pw-plab">${t('linkProg')}</span>`);
+	rend.appendChild(prog);
+	wrap.appendChild(code); wrap.appendChild(arrow); wrap.appendChild(rend);
+	// the counter is the thing learners ask about, so show it running rather than assert it
+	const nums=el('pw-nums', `<span class="pw-numlab">${t('numLab')}</span><span class="pw-numrow"></span>`);
+	const numRow=nums.querySelector('.pw-numrow');
+	const numEls=[['numN1','numB1'],['numN2','numB2'],['numN3','numB3'],['numN4','numB4']].map(([nk,bk])=>{
+		const c=el('pw-num', `<span class="pw-numn">${t(nk)}</span><span class="pw-numb">${t(bk)}</span>`);
+		numRow.appendChild(c); return c;
+	});
+	const numNote=el('pw-note', t('numNote'));
+	scene.appendChild(wrap); scene.appendChild(nums); scene.appendChild(numNote);
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	const bar=prog.querySelector('.pw-pbar'), cb1=task1.querySelector('.pw-cb');
+	const tick=()=>{ cb1.textContent='\u2713'; cb1.classList.add('is-done'); };
+	if(motionPaused){
+		gsap.set([...headerEls(scene), code, arrow, rhead, task1, task2, prog, nums, ...numEls, numNote], {opacity:1});
+		gsap.set(bar,{width:'50%'}); tick();
+		if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return;
+	}
+	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	tl.fromTo(code, {opacity:0,x:-20}, {opacity:1,x:0,duration:0.45,ease:'power2.out'}, '-=0.05');
+	tl.fromTo(arrow, {opacity:0,scaleX:0.3}, {opacity:1,scaleX:1,duration:0.32,ease:'power2.out',transformOrigin:'left center'}, '-=0.1');
+	tl.fromTo(rhead, {opacity:0,y:-8}, {opacity:1,y:0,duration:0.32,ease:'power2.out'}, '-=0.05');
+	tl.fromTo([task1,task2], {opacity:0,x:20}, {opacity:1,x:0,duration:0.38,stagger:0.14,ease:'power2.out'}, '-=0.05');
+	tl.fromTo(prog, {opacity:0}, {opacity:1,duration:0.3}, '-=0.1');
+	// closing #2 ticks the box and moves the bar — nobody edits either by hand
+	tl.call(tick, null, '+=0.25');
+	tl.fromTo(bar, {width:'0%'}, {width:'50%', duration:0.6, ease:'power2.out'}, '-=0.05');
+	tl.fromTo(nums, {opacity:0,y:12}, {opacity:1,y:0,duration:0.35,ease:'power2.out'}, '+=0.15');
+	// they land one after another, which is what "auto-increment" looks like
+	tl.fromTo(numEls, {opacity:0,scale:0.85}, {opacity:1,scale:1,duration:0.26,stagger:0.14,ease:'back.out(2)'}, '-=0.1');
+	tl.fromTo(numNote, {opacity:0,y:10}, {opacity:1,y:0,duration:0.4,ease:'power2.out'}, '-=0.05');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.3');
+}
+function renderBlockStep(){
+	const step=stepById('block'); const scene=buildScene(step);
+	const dep=el('pw-dep');
+	const mkNode=(refK,nameK,subK,colour)=>{
+		const n=el('pw-dnode', `<span class="pw-dref">${t(refK)}</span>` +
+			`<span class="pw-dname">${t(nameK)}</span><span class="pw-dsub">${t(subK)}</span>`);
+		n.style.setProperty('--dc', colour); return n;
+	};
+	const blocker=mkNode('blkAref','blkAname','blkAsub','var(--pw-e1)');
+	const waiting=mkNode('blkBref','blkBname','blkBsub','var(--pw-e2)');
+	const gate=el('pw-dgate');
+	const arrow=pwArrow('3.2rem');
+	const badge=el('pw-block', t('blkGate'));
+	gate.appendChild(arrow); gate.appendChild(badge);
+	dep.appendChild(blocker); dep.appendChild(gate); dep.appendChild(waiting);
+	const foot=el('pw-note', t('blockNote'));
+	scene.appendChild(dep); scene.appendChild(foot); stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	if(motionPaused){ gsap.set([...headerEls(scene), blocker, waiting, arrow, badge, foot], {opacity:1}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
+	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	// the waiting issue arrives first and stalls; the blocker explains why
+	tl.fromTo(waiting, {opacity:0,x:24}, {opacity:1,x:0,duration:0.45,ease:'power2.out'}, '-=0.05');
+	tl.fromTo(badge, {opacity:0,scale:0.85}, {opacity:1,scale:1,duration:0.4,ease:'back.out(2)'}, '+=0.1');
+	tl.fromTo(blocker, {opacity:0,x:-24}, {opacity:1,x:0,duration:0.45,ease:'power2.out'}, '-=0.1');
+	tl.fromTo(arrow, {opacity:0,scaleX:0.3}, {opacity:1,scaleX:1,duration:0.32,ease:'power2.out',transformOrigin:'left center'}, '-=0.2');
+	tl.fromTo(foot, {opacity:0,y:10}, {opacity:1,y:0,duration:0.45,ease:'power2.out'}, '-=0.05');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.3');
+}
+
+// ── STEP 7 · RUN IT ON YOUR OWN REPO ──────
+function renderTryStep(){
+	const step=stepById('try'); const scene=buildScene(step); scene.classList.add('is-wide');
+	const row=el('pw-trywrap');
+	const left=el('pw-tryhalf');
+	const req=el('pw-req', `<span class="pw-reqh">${t('tryReqh')}</span>` +
+		['tryReq1','tryReq2','tryReq3','tryReq4'].map(k=>`<span class="pw-reqi">${t(k)}</span>`).join(''));
+	const dls=el('pw-dlrow');
+	// the importer ships with the journey so the download still works offline in class
+	const mk=(file,labelKey)=>{ const a=document.createElement('a'); a.className='pw-dl';
+		a.href='assets/'+file; a.setAttribute('download','');
+		a.innerHTML=`\u2B07 ${t(labelKey)}`; dls.appendChild(a); return a; };
+	const dlPs=mk('contoso-weather-epic-workitem-generation.ps1','tryDlPs');
+	const dlSh=mk('contoso-weather-epic-workitem-generation.sh','tryDlSh');
+	left.appendChild(req); left.appendChild(dls);
+	const term=AW.terminal({ title:t('tryTerm'), lines:[
+		[t('tryR1'),'is-cmd'],[t('tryR2'),'is-ask'],[t('tryR3'),'is-dim'],[t('tryR4'),'is-ok'],
+		[t('tryR5'),'is-dim'],[t('tryR6'),'is-dim'],[t('tryR7'),'is-ok'],[t('tryR8'),'is-dim'],
+		[t('tryR9'),'is-ok']] });
+	term.style.opacity='0';
+	row.appendChild(left); row.appendChild(term);
+	const turn=AW.turn({ title:t('tryTurnH'), colour:'var(--pw-warn)',
+		steps:[t('tryT1'),t('tryT2'),t('tryT3')], ask:t('tryAsk') });
+	turn.style.opacity='0';
+	const eg=AW.egNote({ kind:'issues', text:t('egNo'), cta:t('egIssues') });
+	if(eg) eg.style.opacity='0';
+	scene.appendChild(row); scene.appendChild(turn); if(eg) scene.appendChild(eg);
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	const items=[...req.querySelectorAll('.pw-reqi')];
+	if(motionPaused){ gsap.set([...headerEls(scene), req, dlPs, dlSh, term, turn, ...items, ...term.lineEls].concat(eg||[]), {opacity:1}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
+	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	tl.fromTo(req, {opacity:0,x:-20}, {opacity:1,x:0,duration:0.42,ease:'power2.out'}, '-=0.05');
+	tl.fromTo(items, {opacity:0,x:-10}, {opacity:1,x:0,duration:0.22,stagger:0.1,ease:'power2.out'}, '-=0.15');
+	tl.fromTo([dlPs,dlSh], {opacity:0,y:10}, {opacity:1,y:0,duration:0.32,stagger:0.12,ease:'power2.out'}, '-=0.05');
+	tl.fromTo(term, {opacity:0,x:20}, {opacity:1,x:0,duration:0.42,ease:'power2.out'}, '-=0.2');
+	// the log prints line by line, so it reads as the script actually running
+	tl.fromTo(term.lineEls, {opacity:0}, {opacity:1,duration:0.15,stagger:0.12}, '-=0.15');
+	tl.fromTo(turn, {opacity:0,y:12}, {opacity:1,y:0,duration:0.4,ease:'power2.out'}, '-=0.05');
+	if(eg) tl.fromTo(eg, {opacity:0,y:10}, {opacity:1,y:0,duration:0.35,ease:'power2.out'}, '-=0.15');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.3');
+}
+
+// ── STEP 8 · THE FLAT LIST ────────────────
+// The unanswered questions are the hook into TheBoard.html — keep them in sync.
+function renderFlatStep(){
+	const step=stepById('flat'); const scene=buildScene(step);
+	const ROWS=[['flatE1','flatN1','flatQ1'],['flatE2','flatN2','flatQ2'],['flatE3','flatN3','flatQ3'],
+		['flatE4','flatN4','flatQ4'],['flatE5','flatN5','']];
+	const win=AW.github({ tab:'issues', path:'/issues', cls:'pw-flwin is-flush', counts:{issues:12}, body:
+		ROWS.map(([n,num,q])=>`<span class="pw-flrow"><span class="pw-flico">\u2299</span>` +
+			`<span class="pw-flnum">${t(num)}</span>${t(n)}` +
+			(q?`<span class="pw-flq">${t(q)}</span>`:'') + `</span>`).join('') });
+	const turn=AW.turn({ title:t('flatTurnH'), colour:'var(--pw-warn)',
+		steps:[t('flatT1'),t('flatT2'),t('flatT3')], ask:t('flatAsk') });
+	turn.style.opacity='0';
+	const eg=AW.egNote({ kind:'issues', text:t('egNo'), cta:t('egIssues') });
+	if(eg) eg.style.opacity='0';
+	scene.appendChild(win); scene.appendChild(turn); if(eg) scene.appendChild(eg);
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	const rows=[...win.querySelectorAll('.pw-flrow')], qs=[...win.querySelectorAll('.pw-flq')];
+	if(motionPaused){ gsap.set([...headerEls(scene), win, turn, ...rows, ...qs].concat(eg||[]), {opacity:1}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
+	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	tl.fromTo(win, {opacity:0,y:16}, {opacity:1,y:0,duration:0.45,ease:'power2.out'}, '-=0.05');
+	tl.fromTo(rows, {opacity:0,x:-14}, {opacity:1,x:0,duration:0.28,stagger:0.13,ease:'power2.out'}, '-=0.2');
+	// the unanswerable questions arrive last, once the list looks complete
+	tl.fromTo(qs, {opacity:0,x:10}, {opacity:1,x:0,duration:0.3,stagger:0.14,ease:'power2.out'}, '+=0.2');
+	tl.fromTo(turn, {opacity:0,y:12}, {opacity:1,y:0,duration:0.4,ease:'power2.out'}, '-=0.05');
+	if(eg) tl.fromTo(eg, {opacity:0,y:10}, {opacity:1,y:0,duration:0.35,ease:'power2.out'}, '-=0.15');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.3');
+}
+
+// ── STEP 9 · RECAP ──
+function renderRecapStep(){
+	const step=stepById('recap'); const scene=buildScene(step);
+	const rail=el('pw-rail');
+	const defs=[['recS1','recS1s','\uD83D\uDCE6','var(--pw-warn)'],['recS2','recS2s','\uD83C\uDFAF','var(--pw-e1)'],
+		['recS3','recS3s','\uD83E\uDDE9','var(--pw-e3)'],['recS4','recS4s','\uD83D\uDD17','var(--pw-e2)']];
+	const stops=[], arrows=[];
+	defs.forEach(([k,sk,ico,colour],i)=>{
+		const s=el('pw-stop', `<span class="pw-sico">${ico}</span><span class="pw-sname">${t(k)}</span>` +
+			`<span class="pw-ssub">${t(sk)}</span>`);
+		s.style.setProperty('--sc', colour); rail.appendChild(s); stops.push(s);
+		if(i<defs.length-1){ const a=pwArrow('2.2rem'); rail.appendChild(a); arrows.push(a); }
+	});
+	const foot=el('pw-note', t('recFoot'));
+	scene.appendChild(rail); scene.appendChild(foot); stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	if(motionPaused){ gsap.set([...headerEls(scene), ...stops, ...arrows, foot], {opacity:1}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
+	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	tl.fromTo(stops, {opacity:0,y:18,scale:0.92}, {opacity:1,y:0,scale:1,duration:0.42,stagger:0.16,ease:'back.out(1.5)'}, '-=0.05');
+	tl.fromTo(arrows, {opacity:0,scaleX:0.3}, {opacity:1,scaleX:1,duration:0.28,stagger:0.16,ease:'power2.out',transformOrigin:'left center'}, '-=0.75');
+	tl.fromTo(foot, {opacity:0,y:10}, {opacity:1,y:0,duration:0.5,ease:'power2.out'}, '-=0.05');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.3');
+}
+
+// ── CONTROLS ──────────────────────────────
+function focusHeading(){ const h=document.getElementById('stage-heading'); if(h){ try{ h.focus({preventScroll:true}); }catch(_){ h.focus(); } } }
+function interruptAnimation(){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; animating=false; }
+function next(){ interruptAnimation(); if(current<STEPS.length-1){ renderStep(current+1); focusHeading(); } }
+function prev(){ interruptAnimation(); if(current>0){ renderStep(current-1); focusHeading(); } }
+function reset(){ interruptAnimation(); renderStep(0); focusHeading(); }
+function replay(){ if(current<0) return; interruptAnimation(); renderStep(current); focusHeading(); }
+
+// ── Hide / show top bar (toggle; the ^ chevron flips to v when hidden) ──
+(function(){
+	const hideBtn=document.getElementById('header-hide'), revealBtn=document.getElementById('header-reveal');
+	if(!hideBtn||!revealBtn) return;
+	var hideBtnTop=document.getElementById('header-hide-top'); if(hideBtnTop) hideBtnTop.addEventListener('click',function(e){ e.stopPropagation(); hideBtn.click(); });
+	const hidePath=hideBtn.querySelector('svg path');
+	const UP='M6 15l6-6 6 6', DOWN='M6 9l6 6 6-6';   // ^ points up to hide the bar; flips to v to show it again
+	function setHidden(h){
+		document.body.classList.toggle('chrome-hidden',h);
+		hideBtn.setAttribute('aria-expanded',String(!h));
+		hideBtn.setAttribute('aria-label',h?'Show top bar':'Hide top bar');
+		hideBtn.title=(h?'Show top bar':'Hide top bar')+' (H)';
+		if(hidePath) hidePath.setAttribute('d',h?DOWN:UP);
+		try{localStorage.setItem('aw-tmpl-chrome-hidden',h?'1':'0');}catch(_){}
+		if(current>=0) requestAnimationFrame(()=>{ const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s); });
+	}
+	hideBtn.addEventListener('click',e=>{e.stopPropagation();setHidden(!document.body.classList.contains('chrome-hidden'));});
+	revealBtn.addEventListener('click',e=>{e.stopPropagation();setHidden(false);});
+	try{ if(localStorage.getItem('aw-tmpl-chrome-hidden')==='1') setHidden(true); }catch(_){}
+	document.addEventListener('keydown',e=>{ if(e.code==='KeyH'&&!e.metaKey&&!e.ctrlKey&&!e.altKey){ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return; e.preventDefault(); setHidden(!document.body.classList.contains('chrome-hidden')); } });
+})();
+
+document.getElementById('next-btn').addEventListener('click',e=>{e.stopPropagation();next();});
+document.getElementById('prev-btn').addEventListener('click',e=>{e.stopPropagation();prev();});
+document.getElementById('reset-btn').addEventListener('click',e=>{e.stopPropagation();reset();});
+document.getElementById('replay-btn').addEventListener('click',e=>{e.stopPropagation();replay();});
+
+// ── Clickable progress bar + step ticks ──
+(function(){
+	const track=document.querySelector('.progress-track'); if(!track) return;
+	for(let s=1; s<STEPS.length; s++){ const tk=document.createElement('div'); tk.className='progress-tick'; tk.style.left=(s/STEPS.length*100)+'%'; track.appendChild(tk); }
+	track.setAttribute('title','Jump to a step');
+	track.addEventListener('click', e=>{
+		const r=track.getBoundingClientRect(); const frac=(e.clientX-r.left)/r.width;
+		const target=Math.max(0, Math.min(STEPS.length-1, Math.floor(frac*STEPS.length)));
+		if(target!==current){ interruptAnimation(); renderStep(target); focusHeading(); }
+	});
+})();
+
+// ── Movable / pinnable control dock ───────
+(function(){
+	const dock=document.getElementById('controls'), grip=document.getElementById('ctrl-grip'), pin=document.getElementById('ctrl-pin');
+	if(!dock||!grip) return;
+	const KEY='aw-tmpl-controls-pos';
+	let dragging=false, sx=0, sy=0, bl=0, bt=0, moved=false;
+	function place(left,top){
+		const w=dock.offsetWidth, h=dock.offsetHeight;
+		left=Math.max(6, Math.min(left, window.innerWidth - w - 6));
+		top =Math.max(6, Math.min(top,  window.innerHeight - h - 6));
+		dock.style.left=left+'px'; dock.style.top=top+'px'; dock.style.right='auto'; dock.style.bottom='auto'; dock.style.transform='none';
+		document.body.classList.add('controls-floating');
+	}
+	function recenter(){
+		dock.style.left=dock.style.top=dock.style.right=dock.style.bottom=dock.style.transform='';
+		document.body.classList.remove('controls-floating');
+		try{ localStorage.removeItem(KEY); }catch(_){}
+	}
+	grip.addEventListener('pointerdown', e=>{
+		e.preventDefault(); dragging=true; moved=false;
+		const r=dock.getBoundingClientRect(); bl=r.left; bt=r.top; sx=e.clientX; sy=e.clientY;
+		try{ grip.setPointerCapture(e.pointerId); }catch(_){}
+	});
+	grip.addEventListener('pointermove', e=>{
+		if(!dragging) return;
+		const dx=e.clientX-sx, dy=e.clientY-sy;
+		if(Math.abs(dx)>2||Math.abs(dy)>2) moved=true;
+		place(bl+dx, bt+dy);
+	});
+	function end(e){ if(!dragging) return; dragging=false; try{ grip.releasePointerCapture(e.pointerId); }catch(_){}
+		if(moved){ try{ const r=dock.getBoundingClientRect(); localStorage.setItem(KEY, JSON.stringify({left:r.left, top:r.top})); }catch(_){} } }
+	grip.addEventListener('pointerup', end); grip.addEventListener('pointercancel', end);
+	// keyboard-nudge the dock when the grip is focused (arrow keys; Shift = larger step)
+	grip.addEventListener('keydown', e=>{
+		const d=e.shiftKey?40:12; const r=dock.getBoundingClientRect(); let ok=true;
+		if(e.key==='ArrowLeft') place(r.left-d, r.top);
+		else if(e.key==='ArrowRight') place(r.left+d, r.top);
+		else if(e.key==='ArrowUp') place(r.left, r.top-d);
+		else if(e.key==='ArrowDown') place(r.left, r.top+d);
+		else ok=false;
+		if(ok){ e.preventDefault(); e.stopPropagation(); }
+	});
+	if(pin) pin.addEventListener('click', e=>{ e.stopPropagation(); recenter(); });
+	window.addEventListener('resize', ()=>{ if(document.body.classList.contains('controls-floating')){ const r=dock.getBoundingClientRect(); place(r.left, r.top); } });
+	try{ const s=JSON.parse(localStorage.getItem(KEY)||'null'); if(s && typeof s.left==='number') place(s.left, s.top); }catch(_){}
+})();
+
+// ── Make callout / outline / caption draggable (same pointer-drag as the control dock) ──
+function dragify(el, key){
+	if(!el || el.__awDrag) return; el.__awDrag=true;
+	let dragging=false, sx=0, sy=0, bl=0, bt=0, moved=false;
+	const resizable = getComputedStyle(el).resize !== 'none';
+	const sizeKey = key ? key + '-size' : null;
+	// snapshot the home position + size so the reset pin can restore it exactly
+	const home={ position:el.style.position, left:el.style.left, top:el.style.top,
+		right:el.style.right, bottom:el.style.bottom, margin:el.style.margin, transform:el.style.transform,
+		width:el.style.width, height:el.style.height };
+	// reset "pin" — hidden until the panel is dragged or resized off its home spot
+	const pin=document.createElement('button');
+	pin.type='button'; pin.className='aw-drag-reset';
+	pin.title=t('resetPos'); pin.setAttribute('aria-label', t('resetPos'));
+	pin.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>';
+	// keep the pin inside scrollable / resizable panels so it isn't clipped
+	const oy=getComputedStyle(el).overflowY; const clips=(oy==='auto'||oy==='scroll'||oy==='hidden');
+	pin.style.top=clips?'8px':'-10px'; pin.style.right=clips?'8px':'-10px';
+	el.appendChild(pin);
+	function showPin(on){ pin.style.display=on?'flex':'none'; }
+	pin.addEventListener('pointerdown', e=>{ e.stopPropagation(); });
+	pin.addEventListener('click', e=>{
+		e.preventDefault(); e.stopPropagation();
+		el.style.position=home.position; el.style.left=home.left; el.style.top=home.top;
+		el.style.right=home.right; el.style.bottom=home.bottom; el.style.margin=home.margin; el.style.transform=home.transform;
+		el.style.width=home.width; el.style.height=home.height;
+		if(key){ try{ localStorage.removeItem(key); }catch(_){} }
+		if(sizeKey){ try{ localStorage.removeItem(sizeKey); }catch(_){} }
+		showPin(false);
+	});
+	function fix(left,top){
+		const w=el.offsetWidth, h=el.offsetHeight;
+		left=Math.max(6, Math.min(left, window.innerWidth  - w - 6));
+		top =Math.max(6, Math.min(top,  window.innerHeight - h - 6));
+		el.style.position='fixed'; el.style.left=left+'px'; el.style.top=top+'px';
+		el.style.right='auto'; el.style.bottom='auto'; el.style.margin='0'; el.style.transform='none';
+	}
+	// persist user resizes (the CSS resize grip writes inline width/height; content changes don't)
+	if(resizable && typeof ResizeObserver!=='undefined'){
+		let rt;
+		new ResizeObserver(()=>{
+			if(el.style.width || el.style.height){
+				showPin(true);
+				if(sizeKey){ clearTimeout(rt); rt=setTimeout(()=>{ try{ localStorage.setItem(sizeKey, JSON.stringify({w:el.style.width, h:el.style.height})); }catch(_){} }, 150); }
+			}
+		}).observe(el);
+	}
+	el.addEventListener('pointerdown', e=>{
+		if(e.button!==0 || (e.target.closest && e.target.closest('a,button,select,input,textarea'))) return;
+		if(resizable){ const r=el.getBoundingClientRect(); if(e.clientX>r.right-18 && e.clientY>r.bottom-18) return; } // let the resize grip win
+		dragging=true; moved=false;
+		const r=el.getBoundingClientRect(); bl=r.left; bt=r.top; sx=e.clientX; sy=e.clientY;
+		fix(bl, bt);   // pin at the current spot first, so there's no jump
+		try{ el.setPointerCapture(e.pointerId); }catch(_){}
+		e.preventDefault();
+	});
+	el.addEventListener('pointermove', e=>{
+		if(!dragging) return;
+		const dx=e.clientX-sx, dy=e.clientY-sy;
+		if(Math.abs(dx)>2||Math.abs(dy)>2) moved=true;
+		fix(bl+dx, bt+dy);
+	});
+	function end(e){
+		if(!dragging) return; dragging=false;
+		try{ el.releasePointerCapture(e.pointerId); }catch(_){}
+		if(moved){ showPin(true); if(key){ try{ const r=el.getBoundingClientRect(); localStorage.setItem(key, JSON.stringify({left:r.left, top:r.top})); }catch(_){} } }
+	}
+	el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+	if(sizeKey){ try{ const z=JSON.parse(localStorage.getItem(sizeKey)||'null'); if(z && (z.w||z.h)){ if(z.w) el.style.width=z.w; if(z.h) el.style.height=z.h; showPin(true); } }catch(_){} }
+	if(key){ try{ const s=JSON.parse(localStorage.getItem(key)||'null'); if(s && isFinite(s.left) && isFinite(s.top)){ fix(s.left, s.top); showPin(true); } }catch(_){} }
+}
+dragify(document.getElementById('step-outline'), 'aw-tmpl-outline-pos');
+dragify(document.getElementById('aw-caption'), 'aw-tmpl-caption-pos');
+
+// ── Speed ─────────────────────────────────
+const SPEED_STEPS=[0.5,0.75,1,1.25,1.5,2]; const BASE_TIMESCALE=0.25;
+let speedIndex=SPEED_STEPS.indexOf(1);
+try{ const sp=parseInt(localStorage.getItem('aw-tmpl-speed'),10); if(!isNaN(sp)&&sp>=0&&sp<SPEED_STEPS.length) speedIndex=sp; }catch(_){}
+const speedLabel=document.getElementById('speed-label'), speedDownBtn=document.getElementById('speed-down'), speedUpBtn=document.getElementById('speed-up');
+function saveSpeed(){ try{ localStorage.setItem('aw-tmpl-speed', String(speedIndex)); }catch(_){} }
+function syncSpeedUI(){ const spd=SPEED_STEPS[speedIndex]; speedLabel.textContent=spd+'\u00d7'; speedDownBtn.disabled=speedIndex===0; speedUpBtn.disabled=speedIndex===SPEED_STEPS.length-1; gsap.globalTimeline.timeScale(spd*BASE_TIMESCALE); }
+syncSpeedUI();
+speedDownBtn.addEventListener('click',e=>{e.stopPropagation(); if(speedIndex>0){speedIndex--;syncSpeedUI();saveSpeed();}});
+speedUpBtn.addEventListener('click',e=>{e.stopPropagation(); if(speedIndex<SPEED_STEPS.length-1){speedIndex++;syncSpeedUI();saveSpeed();}});
+
+// ── Keyboard ──────────────────────────────
+if (window.AW && AW.keyboard) { AW.keyboard.bind({ next, prev, reset, replay }); }
+else { document.addEventListener('keydown', e => {
+	if (['Space','ArrowRight','Enter'].includes(e.code)) { e.preventDefault(); next(); }
+	else if (e.code==='ArrowLeft') { e.preventDefault(); prev(); }
+	else if (e.code==='KeyR') { e.preventDefault(); reset(); }
+	else if (e.code==='KeyP') { e.preventDefault(); replay(); }
+}); }
+
+// ── Touch swipe (tablets) ─────────────────
+(function(){
+	const surf=document.getElementById('stage'); if(!surf) return;
+	let x0=null,y0=null,t0=0;
+	surf.addEventListener('touchstart',e=>{ if(e.touches.length!==1){x0=null;return;} x0=e.touches[0].clientX; y0=e.touches[0].clientY; t0=Date.now(); },{passive:true});
+	surf.addEventListener('touchend',e=>{
+		if(x0===null) return; const tch=e.changedTouches[0]; const dx=tch.clientX-x0, dy=tch.clientY-y0; x0=null;
+		if(Date.now()-t0>800) return;
+		if(Math.abs(dx)>50 && Math.abs(dx)>Math.abs(dy)*1.6){ if(dx<0) next(); else prev(); }
+	},{passive:true});
+})();
+
+// ── Keyboard shortcut help overlay ────────
+(function(){
+	const overlay=document.getElementById('shortcut-overlay'), btn=document.getElementById('help-toggle'), closeBtn=document.getElementById('sc-close'), list=document.getElementById('sc-list');
+	if(!overlay||!list) return;
+	const ROWS=[[['\u2192','Space'],'scNext'],[['\u2190'],'scPrev'],[['R'],'scRestart'],[['P'],'scReplay'],[['H'],'scHide'],[['?'],'scHelp']];
+	window.buildShortcuts=function(){ const title=document.getElementById('sc-title'); if(title) title.textContent=t('scTitle');
+		list.innerHTML=ROWS.map(([keys,k])=>`<li><span>${t(k)}</span><span class="sc-keys">${keys.map(x=>`<kbd>${x}</kbd>`).join('')}</span></li>`).join(''); };
+	buildShortcuts();
+	function open(){ overlay.removeAttribute('hidden'); if(closeBtn) closeBtn.focus(); }
+	function close(){ overlay.setAttribute('hidden',''); if(btn) btn.focus(); }
+	function toggle(){ overlay.hasAttribute('hidden')?open():close(); }
+	if(btn) btn.addEventListener('click',e=>{e.stopPropagation();toggle();});
+	if(closeBtn) closeBtn.addEventListener('click',e=>{e.stopPropagation();close();});
+	const bd=overlay.querySelector('.sc-backdrop'); if(bd) bd.addEventListener('click',close);
+	document.addEventListener('keydown',e=>{ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return;
+		if(e.key==='?'){ e.preventDefault(); toggle(); }
+		else if(e.key==='Escape' && !overlay.hasAttribute('hidden')){ e.preventDefault(); close(); } });
+})();
+
+// ── Resize (re-fit only — never rebuild or replay the animation) ──
+let resizeTimer, lastStageW=0, lastStageH=0;
+window.addEventListener('resize',()=>{ clearTimeout(resizeTimer); resizeTimer=setTimeout(()=>{
+	if(current<0) return;
+	const box=stage.getBoundingClientRect();
+	if(Math.abs(box.width-lastStageW)<1 && Math.abs(box.height-lastStageH)<1) return;   // ignore no-op reflows (focus/URL-bar) so the animation never restarts
+	lastStageW=box.width; lastStageH=box.height;
+	const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s);
+},200); });
+
+// ── Init ──────────────────────────────────
+setLanguage(currentLang);
+counter.textContent = `1 / ${STEPS.length}`;
+const urlStep = parseInt(new URLSearchParams(location.search).get('step'), 10);   // ?step=N opens on step N
+renderStep((!isNaN(urlStep) && urlStep>=1 && urlStep<=STEPS.length) ? urlStep-1 : 0);
+</script>
+<script>
+// ── Start gate · hold autoplay until the viewer clicks Play (empty stage + centered Play) ──
+(function () {
+	if (new URLSearchParams(location.search).has('present')) return;
+	var stage = document.getElementById('stage');
+	if (!stage) return;
+	function freeze() { try { if (window.gsap && gsap.globalTimeline) gsap.globalTimeline.pause(); } catch (_) {} }
+	freeze(); requestAnimationFrame(freeze);
+	document.body.classList.add('aw-prestart');
+	try { if (typeof stopAudio === 'function') stopAudio(); } catch (_) {}
+	stage.style.transition = 'opacity .55s ease';
+	stage.style.opacity = '0';
+
+	var T = {
+		title: { en:'Ready to begin?', es:'\u00BFTodo listo?', ja:'\u6E96\u5099\u306F\u3044\u3044\u3067\u3059\u304B\uFF1F', ko:'\uC2DC\uC791\uD560 \uC900\uBE44\uAC00 \uB418\uC168\uB098\uC694?', pt:'Tudo pronto?' },
+		sound: { en:'Sound', es:'Sonido', ja:'\u97F3\u58F0', ko:'\uC18C\uB9AC', pt:'Som' },
+		cc:    { en:'Subtitles (CC)', es:'Subt\u00EDtulos (CC)', ja:'\u5B57\u5E55\uFF08CC\uFF09', ko:'\uC790\uB9C9 (CC)', pt:'Legendas (CC)' },
+		start: { en:'Start presentation', es:'Iniciar presentaci\u00F3n', ja:'\u30D7\u30EC\u30BC\u30F3\u3092\u958B\u59CB', ko:'\uD504\uB808\uC820\uD14C\uC774\uC158 \uC2DC\uC791', pt:'Iniciar apresenta\u00E7\u00E3o' }
+	};
+	function L(){ return (typeof currentLang === 'string' && currentLang) || (typeof CURRENT_LANG === 'string' && CURRENT_LANG) || 'en'; }
+	function t(k){ var m = T[k], l = L(); return m[m[l] ? l : 'en']; }
+	function awAudioState(){ try{ if(typeof window.__awAudioOn==='function') return !!window.__awAudioOn(); }catch(_){} return (typeof audioEnabled!=='undefined') && !!audioEnabled; }
+	function awCcState(){ try{ if(typeof window.__awCcOn!=='undefined' && window.__awCcOn!==null) return !!window.__awCcOn; }catch(_){} return (typeof ccPref!=='undefined') && !!ccPref; }
+
+	var style = document.createElement('style');
+	style.textContent =
+		'body.aw-prestart #controls{opacity:.4;pointer-events:none;transition:opacity .4s ease}' +
+		'#aw-play-card{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:50;box-sizing:border-box;width:min(90vw,22rem);padding:1.35rem 1.5rem 1.5rem;border-radius:16px;background:var(--theme-card-background,#fff);color:var(--theme-text,#222);border:1px solid var(--theme-border,rgba(0,0,0,.1));box-shadow:0 24px 60px rgba(0,0,0,.28);transition:opacity .3s ease,transform .3s ease}' +
+		'#aw-play-card.aw-hide{opacity:0;transform:translate(-50%,-50%) scale(.96);pointer-events:none}' +
+		'body.theme-dark #aw-play-card{border-color:rgba(255,255,255,.12);box-shadow:0 24px 60px rgba(0,0,0,.55)}' +
+		'body.present-mode #aw-play-card{display:none!important}' +
+		'.aw-card-title{margin:0 0 1rem;text-align:center;font-size:1.02rem;font-weight:800;letter-spacing:.03em;text-transform:uppercase;opacity:.85}' +
+		'.aw-row{display:flex;align-items:center;gap:.65rem;padding:.6rem 0}' +
+		'.aw-row + .aw-row{border-top:1px solid var(--theme-border,rgba(0,0,0,.08))}' +
+		'.aw-row-ico{flex:none;width:1.5rem;text-align:center;font-size:1.15rem;line-height:1}' +
+		'.aw-row-lbl{flex:1 1 auto;font-size:.9rem;font-weight:600}' +
+		'.aw-row-state{flex:none;min-width:2.5rem;text-align:right;font-size:.68rem;font-weight:800;letter-spacing:.05em;opacity:.5}' +
+		'.aw-row-state.on{color:var(--theme-primary,#0078d4);opacity:1}' +
+		'.aw-switch{position:relative;flex:none;width:44px;height:24px;padding:0;border:none;border-radius:999px;cursor:pointer;background:var(--theme-border,#c7c7d1);transition:background .18s ease}' +
+		'.aw-switch.on{background:var(--theme-primary,#0078d4)}' +
+		'.aw-switch::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.4);transition:transform .18s ease}' +
+		'.aw-switch.on::after{transform:translateX(20px)}' +
+		'#aw-start{margin-top:1.2rem;width:100%;display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:.8rem 1rem;border:none;border-radius:11px;cursor:pointer;background:var(--theme-primary,#0078d4);color:#fff;font-size:.96rem;font-weight:700;letter-spacing:.01em;box-shadow:0 8px 22px var(--theme-primary-translucent,rgba(0,120,212,.45));transition:transform .15s ease}' +
+		'#aw-start:hover{transform:translateY(-2px)}#aw-start:active{transform:scale(.98)}' +
+		'#aw-start svg{width:18px;height:18px;flex:none}';
+	document.head.appendChild(style);
+
+	var card = document.createElement('div');
+	card.id = 'aw-play-card'; card.setAttribute('role', 'dialog'); card.setAttribute('aria-modal', 'true');
+	card.innerHTML =
+		'<div class="aw-card-title"></div>' +
+		'<div class="aw-row" data-k="audio"><span class="aw-row-ico" aria-hidden="true">\uD83D\uDD0A</span><span class="aw-row-lbl"></span><span class="aw-row-state"></span><button type="button" class="aw-switch" role="switch"></button></div>' +
+		'<div class="aw-row" data-k="cc"><span class="aw-row-ico" aria-hidden="true">\uD83D\uDCAC</span><span class="aw-row-lbl"></span><span class="aw-row-state"></span><button type="button" class="aw-switch" role="switch"></button></div>' +
+		'<button type="button" id="aw-start"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 5v14l11-7z"/></svg><span class="aw-start-lbl"></span></button>';
+	document.body.appendChild(card);
+
+	var titleEl = card.querySelector('.aw-card-title');
+	var startBtn = card.querySelector('#aw-start');
+	var ROWS = [ { k:'audio', lbl:'sound', el:card.querySelector('.aw-row[data-k="audio"]'), read:awAudioState, toggle:'audio-toggle' },
+	             { k:'cc',    lbl:'cc',    el:card.querySelector('.aw-row[data-k="cc"]'),    read:awCcState,    toggle:'cc-toggle' } ];
+
+	function render(){
+		titleEl.textContent = t('title'); card.setAttribute('aria-label', t('title'));
+		startBtn.querySelector('.aw-start-lbl').textContent = t('start');
+		ROWS.forEach(function(r){
+			var on = r.read();
+			r.el.querySelector('.aw-row-lbl').textContent = t(r.lbl);
+			var st = r.el.querySelector('.aw-row-state'); st.textContent = on ? 'ON' : 'OFF'; st.classList.toggle('on', on);
+			var sw = r.el.querySelector('.aw-switch'); sw.classList.toggle('on', on); sw.setAttribute('aria-checked', on ? 'true' : 'false');
+			sw.setAttribute('aria-label', t(r.lbl) + ' \u2014 ' + (on ? 'on' : 'off'));
+		});
+	}
+	ROWS.forEach(function(r){
+		r.el.querySelector('.aw-switch').addEventListener('click', function(e){ e.stopPropagation(); var b = document.getElementById(r.toggle); if(b) b.click(); render(); });
+	});
+	render();
+
+	var sel = document.getElementById('lang-select');
+	// Only re-freeze while the gate is still up — after Play, freezing would pause the
+	// global timeline for good and every later scene would stay at opacity 0 (blank stage).
+	if (sel) sel.addEventListener('change', function () { if (done) return; render(); freeze(); });
+
+	function gateKeys(e) {
+		if (done) return;
+		var tag = (e.target && e.target.tagName || '').toLowerCase();
+		if (tag === 'select' || tag === 'input' || tag === 'textarea') return;
+		if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'].indexOf(e.key) >= 0) { e.preventDefault(); e.stopPropagation(); }
+	}
+	document.addEventListener('keydown', gateKeys, true);
+
+	var done = false;
+	function start() {
+		if (done) return; done = true;
+		document.removeEventListener('keydown', gateKeys, true);
+		document.body.classList.remove('aw-prestart');
+		card.classList.add('aw-hide');
+		setTimeout(function () { if (card.parentNode) card.parentNode.removeChild(card); if (style.parentNode) style.parentNode.removeChild(style); }, 420);
+		setTimeout(function () {
+			try { if (window.gsap && gsap.globalTimeline) gsap.globalTimeline.play(); } catch (_) {}
+			stage.style.opacity = '1';
+			try { if (typeof interruptAnimation === 'function') interruptAnimation(); } catch (_) {}
+			try { if (typeof renderStep === 'function') renderStep(typeof current === 'number' && current >= 0 ? current : 0); } catch (_) {}
+		}, 380);
+	}
+	startBtn.addEventListener('click', start);
+}());
+</script>
+<script src="../../lib/js/aw-present.js"></script>
+<script src="../../lib/js/aw-declutter.js"></script>
+<script src="../../lib/js/aw-url-state.js"></script>
+
+</body>
+</html>
