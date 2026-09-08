@@ -13,6 +13,6 @@ markers. The home hub has a single welcome clip.
 [500ms]
 [confident] This is where we learn the cloud the fun way — short, visual, story-driven explainers for Azure, AI, and low-code, refreshingly light on text.
 [500ms]
-[calm] Pick a journey — AI agents with Microsoft Foundry, Copilot Studio, Azure Storage, PaaS Compute, Containers, or Security — and press play.
+[calm] Pick a journey. Copilot and Copilot Studio to start, then the whole of Azure — AI agents with Microsoft Foundry, on top of Compute, Containers, Networking, Storage and Security. And a GitHub journey that carries one real project from a business problem all the way to running code.
 [600ms]
-[encouraging] Every one is made with love by Microsoft Technical Trainers — MTTs for short — and Certified Trainers. Let's begin.
+[encouraging] Pick the one closest to what you are working on. Let's begin.

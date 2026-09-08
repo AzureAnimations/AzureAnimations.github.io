@@ -12,6 +12,6 @@
 [500ms]
 [confident] ここでは、クラウドを楽しく学びます。Azure、AI、ローコードを、短くて視覚的な物語仕立ての解説で、テキストは控えめにお届けします。
 [500ms]
-[calm] 好きなジャーニーを選んでください。Microsoft Foundry の AI エージェント、Copilot Studio、Azure Storage、PaaS Compute、Containers、Security から選んで、再生を押しましょう。
+[calm] 好きなジャーニーを選んでください。まずは Copilot と Copilot Studio、そして Azure 全体。Microsoft Foundry の AI エージェントを、Compute、Containers、Networking、Storage、Security の上に。さらに、一つの実プロジェクトをビジネス上の課題から動くコードまで運ぶ GitHub ジャーニーもあります。
 [600ms]
-[encouraging] どれも Microsoft Technical Trainers（略して MTTs）と Certified Trainers が心を込めて作りました。さあ、始めましょう。
+[encouraging] いまの仕事に一番近いものを選んでください。さあ、始めましょう。

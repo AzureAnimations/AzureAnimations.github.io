@@ -13,6 +13,6 @@ se eliminan automáticamente para las voces localizadas, pero las pausas `[NNNms
 [500ms]
 [confident] Aquí aprendemos la nube de una forma divertida: explicaciones breves, visuales y narradas para Azure, la IA y el low-code, con muy poco texto.
 [500ms]
-[calm] Elige un recorrido —agentes de IA con Microsoft Foundry, Copilot Studio, Azure Storage, PaaS Compute, Containers o Security— y pulsa reproducir.
+[calm] Elige un recorrido. Copilot y Copilot Studio para empezar, y luego todo Azure: agentes de IA con Microsoft Foundry, sobre Compute, Containers, Networking, Storage y Security. Y un recorrido de GitHub que lleva un proyecto real desde un problema de negocio hasta código funcionando.
 [600ms]
-[encouraging] Todos están hechos con cariño por Microsoft Technical Trainers —MTTs, para abreviar— y Certified Trainers. Empecemos.
+[encouraging] Elige el que más se acerque a lo que estás haciendo. Empecemos.

@@ -4,12 +4,11 @@
 	GitHub · Contoso Delivery — series hub.
 
 	DEPTH: this hub lives at journeys/GitHub/ = TWO levels down, so shared assets are ../../
-	(NOT ../../../ like journeys/DevOps/GitHub/). Copying a page from that folder means
-	rewriting every ../../../ to ../../ — it fails silently otherwise.
+	(the AI/Foundry journey is THREE levels and uses ../../../ — do not copy from it without
+	rewriting every prefix; it fails silently otherwise).
 
 	This journey is the DELIVERY STORY for the Contoso weather-driven retail app: why it exists,
-	how the work was broken down, tracked, branched and shipped. It is deliberately separate from
-	the concept-first "GitHub & Azure DevOps" journey at journeys/DevOps/GitHub/.
+	how the work was broken down, tracked, branched and shipped.
 
 	No audio: the narration scripts exist as text under /narration/GitHub/, but no clips are
 	generated yet, so the hub ships without an audio toggle.
@@ -35,9 +34,14 @@
 
 <style>
 	:root {
-		--aw-purple:#5c2d91; --aw-blue:#0078d4; --aw-green:#10a37f; --aw-orange:#e97526;
-		/* per-stop accents: why → plan → board → branch → ship */
-		--c-why:#0b6bcb; --c-plan:#5c2d91; --c-board:#0e9e8a; --c-branch:#e2681a; --c-ship:#2da44e; --c-deploy:#0078d4; --c-try:#bc4c00;
+		--aw-purple:#5c2d91; --aw-blue:#005a9e; --aw-green:#0f766e; --aw-orange:#e97526;
+		/* per-stop accents: why → plan → board → branch → ship.
+		   These are TEXT colours (card titles, step numbers, "Open explainer"), so each theme needs its
+		   own value — the light set is darkened to clear 4.5:1 on the card, the dark set is the same
+		   pastel ramp the explainer pages already use. */
+		--c-why:#0a5aa8; --c-plan:#5c2d91; --c-board:#0f766e; --c-branch:#a8480a; --c-ship:#116329; --c-deploy:#005a9e; --c-try:#bc4c00;
+		/* not a stop on the rail — the tool a developer picks up partway through */
+		--c-copilot:#6639ba;
 		--mono:'Cascadia Code','JetBrains Mono','Fira Code','SF Mono','Consolas',monospace;
 		/* the editor keeps GitHub's real Dark palette in BOTH themes — an editor is a screenshot, not a surface */
 		--ed-bg:#0d1117; --ed-panel:#161b22; --ed-line:#30363d; --ed-fg:#c9d1d9; --ed-dim:#8b949e;
@@ -48,7 +52,12 @@
 		   Dark uses GitHub's dimmed charcoal, matching the browser mocks in the explainers. */
 		--gh-canvas:#eef1f6;
 	}
-	body.theme-dark { --gh-ink:#ffffff; --gh-canvas:#22272e; }
+	body.theme-dark {
+		--gh-ink:#ffffff; --gh-canvas:#22272e;
+		--aw-blue:#6fb8ff; --aw-green:#3ddcb2;
+		--c-why:#6fa5ff; --c-plan:#c9a5e8; --c-board:#3ddcb2; --c-branch:#ffab6b; --c-ship:#57d977; --c-deploy:#6fb8ff; --c-try:#ff9166;
+		--c-copilot:#c9a5e8;
+	}
 	* { box-sizing:border-box; }
 	html { font-size:100%; scroll-behavior:smooth; }
 	body {
@@ -85,6 +94,12 @@
 	.theme-toggle { display:inline-flex; align-items:center; justify-content:center; width:2.3rem; height:2.3rem; padding:0; background:transparent;
 		border:1px solid var(--theme-border, rgba(128,128,128,0.3)); border-radius:999px; color:var(--theme-text); cursor:pointer; transition:background .15s,color .15s,border-color .15s; }
 	.theme-toggle:hover { background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary,var(--aw-blue)); border-color:var(--theme-primary,var(--aw-blue)); }
+	/* welcome narration. Flat fill when on — no gradient. */
+	.audio-toggle .aw-audio-ico { font-size:1rem; line-height:1; }
+	.audio-toggle.on { background:var(--c-ship); color:#fff; border-color:var(--c-ship); }
+	.audio-toggle:not(.on) { animation:audioGlow 2.6s ease-in-out infinite; }
+	@keyframes audioGlow { 0%,100% { box-shadow:0 0 0 0 rgba(45,164,78,0.45); } 50% { box-shadow:0 0 0 7px rgba(45,164,78,0); } }
+	@media (prefers-reduced-motion: reduce) { .audio-toggle:not(.on) { animation:none; } }
 	.theme-toggle .ico { display:none; } .theme-toggle[data-theme="dark"] .ico-sun { display:block; } .theme-toggle[data-theme="light"] .ico-moon { display:block; }
 	/* language selector */
 	.lang-select { appearance:none; -webkit-appearance:none; background:var(--theme-card-background,#fff); color:var(--theme-body-text,#333);
@@ -152,25 +167,71 @@
 
 	/* ── JOURNEY · one connected pipeline (problem → production) ── */
 	.pipeline { max-width:1200px; margin:1.5rem auto 0; padding:0 1.6rem; }
-	/* setup is a prerequisite, not a stage — it sits outside the six-station rail */
-	.prep { display:flex; align-items:center; gap:1rem; margin-bottom:1.4rem; padding:0.95rem 1.25rem;
-		border-radius:14px; text-decoration:none; color:inherit;
-		border:2px dashed var(--c-try); background:color-mix(in srgb, var(--c-try) 7%, transparent);
-		transition:background .18s, transform .18s; }
-	.prep:hover { background:color-mix(in srgb, var(--c-try) 14%, transparent); transform:translateY(-2px); }
-	.prep-ico { flex:none; font-size:1.7rem; line-height:1; }
-	.prep-copy { display:flex; flex-direction:column; gap:0.15rem; }
-	.prep-copy b { font-size:1.02rem; font-weight:600; color:var(--c-try); }
-	.prep-copy span { font-size:0.92rem; color:var(--theme-text-subtle); line-height:1.4; }
+	/* Setup is a prerequisite, not a stage — it sits outside the six-station rail.
+	   Flagged hard on purpose: skip it and four of the six stops cannot be followed along with. */
+	.prep-block { position:relative; margin-bottom:1.8rem; border:2px solid var(--c-try); border-radius:16px;
+		background:color-mix(in srgb, var(--c-try) 8%, var(--theme-card-background,#fff));
+		box-shadow:0 10px 26px color-mix(in srgb, var(--c-try) 20%, transparent); }
+	.prep-flag { position:absolute; top:-0.8rem; left:1.6rem; z-index:2;
+		padding:0.2rem 0.85rem; border-radius:999px; font-size:0.76rem; font-weight:600;
+		letter-spacing:0.1em; text-transform:uppercase; color:#fff; background:var(--c-try); }
+	body.theme-dark .prep-flag { color:#231a12; }
+
+	/* Pulse the speaker and point a finger at it until narration has been played once, so the
+	   guided welcome is discoverable rather than a mystery icon.
+	   The class name matters: aw-hub-captions.js looks for `.audio-cta-wrap` and injects its CC
+	   button AFTER it. Any other name and CC lands inside, so the finger centres on both buttons. */
+	.audio-cta-wrap { position:relative; display:inline-flex; }
+	.audio-toggle.is-new { animation:audioGlow 1.9s ease-in-out infinite; }
+	.audio-hint { position:absolute; left:50%; top:100%; margin-top:1px;
+		font-size:1.7rem; line-height:1; pointer-events:none; z-index:3;
+		filter:drop-shadow(0 3px 8px rgba(0,0,0,0.35));
+		animation:audioFinger 1s ease-in-out infinite; }
+	.audio-toggle:not(.is-new) ~ .audio-hint { display:none; }
+	@keyframes audioGlow {
+		0%,100% { box-shadow:0 0 0 0 rgba(0,0,0,0); }
+		50%     { box-shadow:0 0 16px 5px color-mix(in srgb, var(--c-try) 65%, transparent); }
+	}
+	@keyframes audioFinger {
+		0%,100% { transform:translate(-50%,3px); }
+		50%     { transform:translate(-50%,-5px); }
+	}
+	@media (prefers-reduced-motion: reduce) { .audio-toggle.is-new, .audio-hint { animation:none; } }
+
+	/* NARRATION SPOTLIGHT · the welcome names the Start here panel out loud, so dim the page and
+	   lift that one block while the line is spoken. Veil is click-through so nothing is trapped. */
+	.spot-veil { position:fixed; inset:0; z-index:60; background:rgba(12,14,18,0.66);
+		opacity:0; pointer-events:none; transition:opacity .5s ease; }
+	body.is-spotting .spot-veil { opacity:1; }
+	#prep-block.is-spot { z-index:61; box-shadow:0 0 0 3px var(--c-try),
+		0 0 0 10px color-mix(in srgb, var(--c-try) 30%, transparent), 0 22px 60px rgba(0,0,0,0.5); }
+	@media (prefers-reduced-motion: reduce) { .spot-veil { transition:none; } }
+	.prep { display:flex; align-items:center; gap:1rem; padding:1.2rem 1.25rem 1.05rem;
+		border-radius:14px 14px 0 0; text-decoration:none; color:inherit; transition:background .18s; }
+	.prep:hover { background:color-mix(in srgb, var(--c-try) 9%, transparent); }
+	/* station zero — the same numbered dot the rail below uses, so it reads as the stop before 1 */
+	.prep-num { flex:none; display:grid; place-items:center; width:2.7rem; height:2.7rem; border-radius:50%;
+		font-size:1.3rem; font-weight:700; color:#fff; background:var(--c-try);
+		animation:prepPing 2.8s ease-out infinite; }
+	body.theme-dark .prep-num { color:#231a12; }
+	@keyframes prepPing {
+		0% { box-shadow:0 0 0 0 color-mix(in srgb, var(--c-try) 55%, transparent); }
+		70% { box-shadow:0 0 0 15px transparent; }
+		100% { box-shadow:0 0 0 0 transparent; }
+	}
+	.prep-copy { display:flex; flex-direction:column; gap:0.22rem; }
+	.prep-h { display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap; }
+	.prep-copy b { font-size:1.06rem; font-weight:600; color:var(--c-try); }
+	.prep-mins { flex:none; font-size:0.74rem; font-weight:600; letter-spacing:0.07em; text-transform:uppercase;
+		padding:0.1rem 0.5rem; border-radius:999px; border:1.5px solid var(--c-try); color:var(--c-try); }
+	.prep-sub { font-size:0.92rem; color:var(--theme-text-subtle); line-height:1.45; }
 	.prep-go { margin-left:auto; flex:none; font-size:0.92rem; font-weight:600; color:var(--c-try); white-space:nowrap; }
 	@media (max-width:640px) { .prep { flex-wrap:wrap; } .prep-go { margin-left:0; } }
 
 	/* the repo the learner gives us — carried through the journey on ?repo= */
-	.prep-block { margin-bottom:1.4rem; }
-	.prep-block .prep { margin-bottom:0; border-bottom-left-radius:0; border-bottom-right-radius:0; }
-	.prep-repo { display:flex; flex-direction:column; gap:0.5rem; padding:0.9rem 1.25rem 1rem;
-		border:2px solid var(--c-try); border-top:none; border-radius:0;
-		background:color-mix(in srgb, var(--c-try) 7%, transparent); }
+	.prep-repo { display:flex; flex-direction:column; gap:0.5rem; padding:0.85rem 1.25rem 1rem;
+		border:none; border-top:1.5px dashed color-mix(in srgb, var(--c-try) 45%, transparent);
+		border-radius:0 0 14px 14px; background:transparent; }
 	.pr-lab { font-size:0.9rem; font-weight:600; color:var(--c-try); }
 	.pr-row { display:flex; flex-wrap:wrap; gap:0.55rem; }
 	.pr-in { flex:1 1 22rem; min-width:0; padding:0.55rem 0.8rem; border-radius:9px;
@@ -247,10 +308,34 @@
 	.jc-go .arw { transition:transform .2s ease; }
 	.journey-card:hover .jc-go .arw { transform:translateX(4px); }
 
+	/* ── TOOL BAND · spans both card rows; deliberately UNNUMBERED, because Copilot is
+	   a tool you pick up at this point in the journey, not another stop on the rail ── */
+	.tool-band { grid-column:1 / -1; display:flex; align-items:center; gap:1.3rem; padding:1.1rem 1.35rem;
+		border:2px solid var(--c-copilot); border-radius:14px; text-decoration:none; color:inherit;
+		background:color-mix(in srgb, var(--c-copilot) 6%, var(--theme-card-background,#fff));
+		box-shadow:0 8px 22px rgba(0,0,0,0.07); transition:transform .18s ease, box-shadow .18s ease; }
+	body.theme-dark .tool-band { background:color-mix(in srgb, #5c2d91 30%, #2a2b34); box-shadow:0 10px 26px rgba(0,0,0,0.34); }
+	.tool-band:hover { transform:translateY(-2px); box-shadow:0 14px 30px rgba(0,0,0,0.13); }
+	.tb-ico { flex:none; width:48px; height:48px; border-radius:12px; display:flex; align-items:center; justify-content:center;
+		background:color-mix(in srgb, var(--c-copilot) 15%, transparent); color:var(--c-copilot); }
+	.tb-ico svg { width:28px; height:28px; }
+	.tb-copy { flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:0.18rem; }
+	.tb-eyebrow { font-family:var(--mono); font-size:0.7rem; font-weight:600; letter-spacing:0.09em; text-transform:uppercase; color:var(--c-copilot); }
+	.tb-copy h3 { margin:0; font-size:1.08rem; font-weight:600; letter-spacing:-0.01em; color:var(--c-copilot); }
+	.tb-copy p { margin:0; font-size:0.9rem; line-height:1.45; color:var(--theme-text-subtle); }
+	.tb-feats { flex:none; display:flex; flex-wrap:wrap; gap:0.4rem; max-width:23rem; }
+	.tb-feats span { font-family:var(--mono); font-size:0.74rem; font-weight:500; padding:0.26rem 0.55rem; border-radius:6px;
+		background:color-mix(in srgb, var(--c-copilot) 13%, transparent); color:var(--c-copilot); }
+	.tb-go { flex:none; display:inline-flex; align-items:center; gap:0.4rem; font-size:0.9rem; font-weight:600; color:var(--c-copilot); }
+	.tb-go .arw { transition:transform .2s ease; }
+	.tool-band:hover .tb-go .arw { transform:translateX(4px); }
+
 	/* per-card mini diagrams */
 	.mini { display:flex; align-items:center; justify-content:center; gap:0.45rem; height:100%; }
 	.mini .m-arw { font-size:1rem; font-weight:700; color:var(--accent); }
 	.mini .m-chip { padding:0.3rem 0.5rem; border-radius:7px; font-size:0.68rem; font-weight:600; color:#fff; background:var(--accent); white-space:nowrap; }
+	/* the accents go pastel in dark, so the chip flips to dark ink rather than white */
+	body.theme-dark .mini .m-chip { color:#12131a; }
 	.mini .m-ghost { padding:0.3rem 0.5rem; border-radius:7px; font-size:0.68rem; font-weight:600; color:var(--accent);
 		border:1.5px solid var(--accent); background:transparent; white-space:nowrap; }
 	/* 2 · plan — an epic with two children */
@@ -345,6 +430,7 @@
 		html { scroll-behavior:auto; }
 	}
 </style>
+	<script src="../../lib/js/aw-brand.js"></script>
 </head>
 
 <body class="theme-dark" data-theme-preset="atlas">
@@ -352,8 +438,8 @@
 	<header class="site-head">
 		<div class="topbar-left">
 			<a class="brand" href="../../index.html" title="Back to all journeys" aria-label="Azure Animations home">
-				<img src="../../img/AzureAnimations-Logo.svg" alt="" decoding="async" style="width:28px;height:28px;display:block" />
-				<span>Azure <b>Animations</b></span>
+				<img data-aw-logo src="../../img/AzureAnimations-Logo.svg" alt="" decoding="async" style="width:28px;height:28px;display:block" />
+				<span data-aw-name="b"></span>
 			</a>
 			<div class="aw-like-top">
 				<button class="aw-like" data-aw-like data-like-total data-page-slug="journey-github-contoso" type="button" aria-pressed="false" aria-label="Support Azure Animations — tap the heart">
@@ -377,7 +463,15 @@
 		<div class="head-actions">
 			<select id="lang-select" class="lang-select" aria-label="Language" title="Language">
 				<option value="en">English</option>
+				<option value="es">Español</option>
+				<option value="ja">日本語</option>
+				<option value="ko">한국어</option>
+				<option value="pt">Português</option>
 			</select>
+			<span class="audio-cta-wrap">
+				<button id="audio-toggle" class="theme-toggle audio-toggle" type="button" aria-label="Play welcome narration" title="Play narration"><span class="aw-audio-ico" aria-hidden="true">&#128263;</span></button>
+				<span class="audio-hint" aria-hidden="true">👆</span>
+			</span>
 			<button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch theme" title="Switch theme">
 				<svg class="ico ico-moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg>
 				<svg class="ico ico-sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.5" y1="4.5" x2="6.5" y2="6.5"/><line x1="17.5" y1="17.5" x2="19.5" y2="19.5"/><line x1="4.5" y1="19.5" x2="6.5" y2="17.5"/><line x1="17.5" y1="6.5" x2="19.5" y2="4.5"/></g></svg>
@@ -398,8 +492,8 @@
 			<h1><span class="g1" data-i18n="heroTitle1">One business problem.</span><br /><span class="g2" data-i18n="heroTitle2">One team on GitHub.</span><br /><span class="g3" data-i18n="heroTitle3">Shipped to Azure.</span></h1>
 			<p class="lead" data-i18n="heroLead">Follow a real project from a rainy afternoon that costs a retailer money, all the way to running code on Azure &mdash; breaking the idea into epics, tracking it on a Project board, branching with intent, and proving every change before it ships.</p>
 			<div class="hero-meta">
-				<span class="meta-chip" data-i18n-html="meta1Html"><b>6</b>&nbsp;interactive explainers</span>
-				<span class="meta-chip" data-i18n-html="meta2Html"><b>57</b>&nbsp;animated steps</span>
+				<span class="meta-chip" data-i18n-html="meta1Html"><b>7</b>&nbsp;interactive explainers</span>
+				<span class="meta-chip" data-i18n-html="meta2Html"><b>65</b>&nbsp;animated steps</span>
 				<span class="meta-chip" data-i18n-html="meta3Html">Built on a <b>real&nbsp;repository</b></span>
 			</div>
 		</div>
@@ -438,11 +532,15 @@
 
 	<section class="pipeline">
 		<div class="prep-block" id="prep-block">
+			<span class="prep-flag" data-i18n="prepFlag">Start here</span>
 			<a class="prep" href="TryItYourself.html" target="_blank" rel="noopener">
-				<span class="prep-ico">&#128736;&#65039;</span>
+				<span class="prep-num" aria-hidden="true">0</span>
 				<span class="prep-copy">
-					<b data-i18n="prepTitle">Step 0 &mdash; do this first, or the rest will not work</b>
-					<span data-i18n="prepSub">Four of the six explainers ask you to run real commands against a real repository. Take five minutes now: create the repo, choose who owns it, install the GitHub CLI and sign in.</span>
+					<span class="prep-h">
+						<b data-i18n="prepTitle">Step 0 &mdash; do this first, or the rest will not work</b>
+						<span class="prep-mins" data-i18n="prepMins">5 min</span>
+					</span>
+					<span class="prep-sub" data-i18n="prepSub">Three of the six stops ask you to run real commands against a real repository. Take five minutes now: create the repo, choose who owns it, install the GitHub CLI and sign in.</span>
 				</span>
 				<span class="prep-go" data-i18n="prepGo">Set it up &rarr;</span>
 			</a>
@@ -509,6 +607,17 @@
 				<div class="jc-mini"><div class="mini-board"><span class="mb-col"><i class="mb-card"></i><i class="mb-card"></i></span><span class="mb-col"><i class="mb-card"></i></span><span class="mb-col"><i class="mb-card"></i><i class="mb-card"></i></span></div></div>
 				<div class="jc-feats"><span data-i18n="c3f1">Board view</span><span data-i18n="c3f2">Work Type</span><span data-i18n="c3f3">Sprints</span></div>
 				<span class="jc-go"><span data-i18n="c3Go">Open explainer</span> <span class="arw">&rarr;</span></span>
+			</a>
+
+			<a class="tool-band" href="BuildWithCopilot.html" target="_blank" rel="noopener">
+				<span class="tb-ico"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4 3h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9.5L4 21v-4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" opacity=".2"/><path d="M12 5.6l1.15 2.75L15.9 9.5l-2.75 1.15L12 13.4l-1.15-2.75L8.1 9.5l2.75-1.15L12 5.6z"/></svg></span>
+				<div class="tb-copy">
+					<span class="tb-eyebrow" data-i18n="cpEyebrow">Your toolkit · not a stop on the rail</span>
+					<h3 data-i18n="cpTitle">Build It with Copilot</h3>
+					<p data-i18n="cpLead">The board is full, so somebody has to write the code. Plans and pricing, Ask/Plan/Agent, and handing issue #2 to the cloud agent — then straight on to branching.</p>
+				</div>
+				<div class="tb-feats"><span data-i18n="cpf1">Free vs paid</span><span data-i18n="cpf2">AI credits</span><span data-i18n="cpf3">Ask/Plan/Agent</span><span data-i18n="cpf4">Cloud agent</span></div>
+				<span class="tb-go"><span data-i18n="cpGo">Open explainer</span> <span class="arw">&rarr;</span></span>
 			</a>
 
 			<a class="journey-card" data-topic="branch" href="BranchStrategy.html" target="_blank" rel="noopener">
@@ -629,15 +738,7 @@
 	</section>
 
 	<footer class="site-foot">
-		<div class="foot-credit">
-			<span data-i18n="footBy">Brought to you by</span>
-			<a class="credit-link" href="https://www.linkedin.com/in/nutwongaree/" target="_blank" rel="noopener noreferrer" aria-label="Azure Animations Creator on LinkedIn">
-				<svg class="li-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
-					<path fill="currentColor" d="M20.45 20.45h-3.55v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.36V9h3.41v1.56h.05c.47-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM7.12 20.45H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.73V1.73C24 .77 23.2 0 22.22 0z"/>
-				</svg>
-				<span data-i18n="footCreator">Azure Animations Creator</span>
-			</a>
-		</div>
+		<div class="foot-credit" data-aw-credit="18"></div>
 		<div data-i18n-html="footMetaHtml">Built with the <a href="https://aka.ms/AzureAnimations" target="_blank" rel="noopener noreferrer">Azure Animations</a> engine &middot; Practices grounded in the <a href="https://docs.github.com/" target="_blank" rel="noopener noreferrer">GitHub docs</a> and <a href="https://learn.microsoft.com/azure/developer/github/" target="_blank" rel="noopener noreferrer">Microsoft Learn</a>.</div>
 	</footer>
 
@@ -663,7 +764,7 @@
 				heroEyebrow: 'Real delivery, end to end',
 				heroTitle1: 'One business problem.', heroTitle2: 'One team on GitHub.', heroTitle3: 'Shipped to Azure.',
 				heroLead: 'Follow a real project from a rainy afternoon that costs a retailer money, all the way to running code on Azure — breaking the idea into epics, tracking it on a Project board, branching with intent, and proving every change before it ships.',
-				meta1Html: '<b>6</b>&nbsp;interactive explainers', meta2Html: '<b>57</b>&nbsp;animated steps', meta3Html: 'Built on a <b>real&nbsp;repository</b>',
+				meta1Html: '<b>7</b>&nbsp;interactive explainers', meta2Html: '<b>65</b>&nbsp;animated steps', meta3Html: 'Built on a <b>real&nbsp;repository</b>',
 				secRail: 'The journey', secTitle: 'From a business problem to production',
 				secLead: 'Six connected stops. Understand why the app exists, break it into work you can actually assign, track it, branch for it, prove every change, and ship it to Azure. Follow the whole path, or jump straight to any stop.',
 				plStart: '<span class="pe-ico">&#127783;</span> A business problem', plEnd: '<span class="pe-ico">&#9729;</span> Running on Azure',
@@ -674,14 +775,19 @@
 				c2f1: 'Epics', c2f2: 'Sub-tasks', c2f3: 'Task lists', c2Go: 'Open explainer',
 				c3Title: 'Track It on a Board', c3Sub: 'GitHub Projects',
 				c3f1: 'Board view', c3f2: 'Work Type', c3f3: 'Sprints', c3Go: 'Open explainer',
+				cpEyebrow: 'Your toolkit · not a stop on the rail', cpTitle: 'Build It with Copilot',
+				cpLead: 'The board is full, so somebody has to write the code. Plans and pricing, Ask/Plan/Agent, and handing issue #2 to the cloud agent — then straight on to branching.',
+				cpf1: 'Free vs paid', cpf2: 'AI credits', cpf3: 'Ask/Plan/Agent', cpf4: 'Cloud agent', cpGo: 'Open explainer',
 				c4Title: 'Branch with Intent', c4Sub: 'main → epic → feature',
 				c4f1: 'Protected main', c4f2: 'Epic branches', c4f3: 'PR reviews', c4Go: 'Open explainer',
 				c5Title: 'Shift Left', c5Sub: 'Pipeline, tests & security',
 				c5f1: 'Runner', c5f2: 'CodeQL', c5f3: 'Secrets', c5Go: 'Open explainer',
 				c6Title: 'Ship It to Azure', c6Sub: 'CD, Service Principal & deploy',
 				c6f1: 'GHCR', c6f2: 'Service Principal', c6f3: 'OIDC', c6Go: 'Open explainer',
+				prepFlag: 'Start here',
 				prepTitle: 'Step 0 \u2014 do this first, or the rest will not work',
-				prepSub: 'Four of the six explainers ask you to run real commands against a real repository. Take five minutes now: create the repo, choose who owns it, install the GitHub CLI and sign in.',
+				prepMins: '5 min',
+				prepSub: 'Three of the six stops ask you to run real commands against a real repository. Take five minutes now: create the repo, choose who owns it, install the GitHub CLI and sign in.',
 				prepGo: 'Set it up →',
 				repoLab: 'Done? Paste your repository URL and the whole journey will use it',
 				repoSave: 'Use this repo',
@@ -704,6 +810,214 @@
 				certNote: 'Exam codes and titles as published on Microsoft Learn. Each exam requires a score of 700 to pass.',
 				footBy: 'Brought to you by', footCreator: 'Azure Animations Creator',
 				footMetaHtml: 'Built with the <a href="https://aka.ms/AzureAnimations" target="_blank" rel="noopener noreferrer">Azure Animations</a> engine · Practices grounded in the <a href="https://docs.github.com/" target="_blank" rel="noopener noreferrer">GitHub docs</a> and <a href="https://learn.microsoft.com/azure/developer/github/" target="_blank" rel="noopener noreferrer">Microsoft Learn</a>.'
+			},
+
+			es: {
+				heroEyebrow: 'Entrega real, de principio a fin',
+				heroTitle1: 'Un problema de negocio.', heroTitle2: 'Un equipo en GitHub.', heroTitle3: 'Publicado en Azure.',
+				heroLead: 'Sigue un proyecto real desde una tarde lluviosa que le cuesta dinero a un minorista hasta código en marcha en Azure: dividiendo la idea en épicos, siguiéndola en un tablero de Projects, ramificando con intención y demostrando cada cambio antes de publicarlo.',
+				meta1Html: '<b>7</b>&nbsp;explicaciones interactivas', meta2Html: '<b>65</b>&nbsp;pasos animados', meta3Html: 'Sobre un <b>repositorio&nbsp;real</b>',
+				secRail: 'El recorrido', secTitle: 'De un problema de negocio a producción',
+				secLead: 'Seis paradas conectadas. Entiende por qué existe la app, divídela en trabajo que puedas asignar de verdad, síguelo, ramifica para él, demuestra cada cambio y llévalo a Azure. Recorre el camino entero o salta a cualquier parada.',
+				plStart: '<span class="pe-ico">&#127783;</span> Un problema de negocio', plEnd: '<span class="pe-ico">&#9729;</span> En marcha en Azure',
+				plV1: 'Entender', plV2: 'Planificar', plV3: 'Seguir', plV4: 'Ramificar', plV5: 'Demostrar', plV6: 'Publicar',
+				c1Title: 'Por qué Contoso construye esto', c1Sub: 'El caso de negocio',
+				c1f1: 'Señal meteorológica', c1f2: 'Promociones', c1f3: 'Una API', c1Go: 'Empezar el recorrido',
+				c2Title: 'Planifica el trabajo', c2Sub: 'Idea → épicos → subtareas',
+				c2f1: 'Épicos', c2f2: 'Subtareas', c2f3: 'Listas de tareas', c2Go: 'Abrir explicación',
+				c3Title: 'Síguelo en un tablero', c3Sub: 'GitHub Projects',
+				c3f1: 'Vista de tablero', c3f2: 'Work Type', c3f3: 'Sprints', c3Go: 'Abrir explicación',
+				cpEyebrow: 'Tu caja de herramientas · no es una parada del recorrido', cpTitle: 'Constrúyelo con Copilot',
+				cpLead: 'El tablero está lleno, así que alguien tiene que escribir el código. Planes y precios, Ask/Plan/Agent, y entregar la issue #2 al agente en la nube; y de ahí, directo a las ramas.',
+				cpf1: 'Gratis vs de pago', cpf2: 'Créditos de IA', cpf3: 'Ask/Plan/Agent', cpf4: 'Agente en la nube', cpGo: 'Abrir explicación',
+				c4Title: 'Ramifica con intención', c4Sub: 'main → épico → funcionalidad',
+				c4f1: 'main protegida', c4f2: 'Ramas de épico', c4f3: 'Revisiones de PR', c4Go: 'Abrir explicación',
+				c5Title: 'Desplaza a la izquierda', c5Sub: 'Pipeline, pruebas y seguridad',
+				c5f1: 'Runner', c5f2: 'CodeQL', c5f3: 'Secretos', c5Go: 'Abrir explicación',
+				c6Title: 'Llévalo a Azure', c6Sub: 'CD, Service Principal y despliegue',
+				c6f1: 'GHCR', c6f2: 'Service Principal', c6f3: 'OIDC', c6Go: 'Abrir explicación',
+				prepFlag: 'Empieza aquí',
+				prepTitle: 'Paso 0 \u2014 haz esto primero, o el resto no funcionará',
+				prepMins: '5 min',
+				prepSub: 'Tres de las seis paradas te piden ejecutar comandos reales contra un repositorio real. Dedica cinco minutos ahora: crea el repo, elige quién es el propietario, instala el GitHub CLI e inicia sesión.',
+				prepGo: 'Prepararlo →',
+				repoLab: '\u00BFListo? Pega la URL de tu repositorio y todo el recorrido la usará',
+				repoSave: 'Usar este repo',
+				repoOk: 'Ahora todas las pantallas de este recorrido muestran',
+				repoNone: 'Opcional \u2014 sáltatelo y todas las pantallas mostrarán nuestro repo de ejemplo, contoso-retail/weather-map-app.',
+				repoBad: 'Eso no parece un repositorio de GitHub. Prueba con https://github.com/tu-cuenta/tu-repo',
+				repoCleared: 'Borrado \u2014 de vuelta al ejemplo trabajado, contoso-retail/weather-map-app.',
+				learnEyebrow: 'Empieza aquí', learnTitle: 'La especificación sobre la que se construye este recorrido',
+				learnLead: 'Cada pantalla, endpoint y comprobación de este recorrido sale de un breve documento de requisitos. Descárgalo y sigue adelante: las páginas oficiales de GitHub y de Microsoft cubren la mecánica.',
+				learnCta0: 'Requisitos (PDF) ↓', learnCta1: 'About Projects ↗', learnCta3: 'OIDC hacia Azure ↗',
+				certEyebrow: 'Adónde puede llevarte', certTitle: 'Certificaciones de GitHub',
+				certLead: 'Seis credenciales de GitHub, todas a través de Microsoft Learn. Este recorrido encaja sobre todo con GH-900 y GH-200; las demás son el paso siguiente.',
+				certStart: 'Empieza aquí', certGo: 'Ver certificación ↗',
+				cert1n: 'GitHub Foundations', cert1w: 'Git, repositorios, colaboración y gestión de proyectos, escrito tanto para perfiles técnicos como no técnicos.',
+				cert2n: 'GitHub Actions', cert2w: 'Escribir, depurar y asegurar flujos de trabajo: el CI/CD que ves en Desplaza a la izquierda y Llévalo a Azure.',
+				cert3n: 'GitHub Copilot', cert3w: 'Uso responsable de la IA, planes y funciones de Copilot, ingeniería de prompts, privacidad y exclusiones de contenido.',
+				cert4n: 'GitHub Advanced Security', cert4w: 'Secret Protection, seguridad de la cadena de suministro y análisis de código con CodeQL: encontrar, clasificar y corregir.',
+				cert5n: 'GitHub Administration', cert5w: 'Operar GitHub Enterprise: identidades y acceso, SAML y SCIM, políticas, runners y licencias.',
+				cert6n: 'Agentic AI Developer', cert6w: 'Operar y supervisar agentes de IA dentro del ciclo de vida del software, con GitHub como plano de control.',
+				certNote: 'Códigos y títulos de examen según se publican en Microsoft Learn. Cada examen requiere una puntuación de 700 para aprobar.',
+				footBy: 'Te lo trae', footCreator: 'Azure Animations Creator',
+				footMetaHtml: 'Construido con el motor <a href="https://aka.ms/AzureAnimations" target="_blank" rel="noopener noreferrer">Azure Animations</a> · Prácticas basadas en la <a href="https://docs.github.com/" target="_blank" rel="noopener noreferrer">documentación de GitHub</a> y <a href="https://learn.microsoft.com/azure/developer/github/" target="_blank" rel="noopener noreferrer">Microsoft Learn</a>.'
+			},
+
+			ja: {
+				heroEyebrow: '本物のデリバリーを、端から端まで',
+				heroTitle1: '一つのビジネス課題。', heroTitle2: 'GitHub 上の一つのチーム。', heroTitle3: 'Azure へ出荷。',
+				heroLead: '小売企業から売上を奪う雨の午後から、Azure で動くコードまで、実際のプロジェクトを追いかけます。着想をエピックに割り、Projects のボードで追跡し、意図を持ってブランチを切り、出荷前にすべての変更を証明します。',
+				meta1Html: '<b>7</b>&nbsp;本のインタラクティブ解説', meta2Html: '<b>65</b>&nbsp;のアニメーション ステップ', meta3Html: '<b>実在するリポジトリ</b>の上で',
+				secRail: 'ジャーニー', secTitle: 'ビジネス課題から本番まで',
+				secLead: 'つながった六つの停留所。なぜこのアプリがあるのかを理解し、実際に割り当てられる作業に分け、追跡し、そのためにブランチを切り、すべての変更を証明し、Azure へ出荷します。全体をたどっても、好きな停留所へ飛んでも構いません。',
+				plStart: '<span class="pe-ico">&#127783;</span> ビジネス課題', plEnd: '<span class="pe-ico">&#9729;</span> Azure で稼働',
+				plV1: '理解する', plV2: '計画する', plV3: '追跡する', plV4: 'ブランチを切る', plV5: '証明する', plV6: '出荷する',
+				c1Title: 'Contoso がこれを作る理由', c1Sub: 'ビジネス ケース',
+				c1f1: '気象の信号', c1f2: '販促', c1f3: '一つの API', c1Go: 'ジャーニーを始める',
+				c2Title: '作業を計画する', c2Sub: '着想 → エピック → サブタスク',
+				c2f1: 'エピック', c2f2: 'サブタスク', c2f3: 'タスクリスト', c2Go: '解説を開く',
+				c3Title: 'ボードで追跡する', c3Sub: 'GitHub Projects',
+				c3f1: 'ボード表示', c3f2: 'Work Type', c3f3: 'スプリント', c3Go: '解説を開く',
+				cpEyebrow: 'あなたの道具箱 · 本線の停留所ではありません', cpTitle: 'Copilot と一緒に作る',
+				cpLead: 'ボードは埋まりました。誰かがコードを書かなければなりません。プランと価格、Ask/Plan/Agent、そしてイシュー #2 をクラウド エージェントに渡すところまで。その足でブランチの話へ。',
+				cpf1: '無料と有料', cpf2: 'AI クレジット', cpf3: 'Ask/Plan/Agent', cpf4: 'クラウド エージェント', cpGo: '解説を開く',
+				c4Title: '意図を持ってブランチを切る', c4Sub: 'main → エピック → フィーチャー',
+				c4f1: '保護された main', c4f2: 'エピック ブランチ', c4f3: 'PR レビュー', c4Go: '解説を開く',
+				c5Title: 'シフトレフト', c5Sub: 'パイプライン、テスト、セキュリティ',
+				c5f1: 'ランナー', c5f2: 'CodeQL', c5f3: 'シークレット', c5Go: '解説を開く',
+				c6Title: 'Azure へ出荷する', c6Sub: 'CD、サービスプリンシパル、デプロイ',
+				c6f1: 'GHCR', c6f2: 'サービスプリンシパル', c6f3: 'OIDC', c6Go: '解説を開く',
+				prepFlag: 'ここから始める',
+				prepTitle: 'ステップ 0 \u2014 まずこれを。さもないと残りが動きません',
+				prepMins: '5 分',
+				prepSub: '六つの停留所のうち三つで、実在するリポジトリに対して実際のコマンドを実行します。いま五分だけ使ってください。リポジトリを作り、所有者を選び、GitHub CLI をインストールしてサインインします。',
+				prepGo: '準備する →',
+				repoLab: '済みましたか。リポジトリの URL を貼り付ければ、ジャーニー全体がそれを使います',
+				repoSave: 'このリポジトリを使う',
+				repoOk: 'このジャーニーのすべての画面が次を表示します',
+				repoNone: '任意です \u2014 飛ばせば、すべての画面が私たちの例、contoso-retail/weather-map-app を表示します。',
+				repoBad: 'GitHub のリポジトリには見えません。https://github.com/your-account/your-repo の形で試してください',
+				repoCleared: 'クリアしました \u2014 例題の contoso-retail/weather-map-app に戻ります。',
+				learnEyebrow: 'ここから始める', learnTitle: 'このジャーニーの土台になっている仕様',
+				learnLead: 'このジャーニーのすべての画面、エンドポイント、チェックは、一つの短い要件定義書から来ています。ダウンロードして、一緒に進めてください。仕組みは GitHub と Microsoft の公式ページが扱っています。',
+				learnCta0: '要件定義書 (PDF) ↓', learnCta1: 'About Projects ↗', learnCta3: 'Azure への OIDC ↗',
+				certEyebrow: 'この先に行ける場所', certTitle: 'GitHub の認定資格',
+				certLead: '六つの GitHub 資格。すべて Microsoft Learn 経由です。このジャーニーがいちばん近いのは GH-900 と GH-200。残りは、その次に向かう場所です。',
+				certStart: 'ここから', certGo: '認定資格を見る ↗',
+				cert1n: 'GitHub Foundations', cert1w: 'Git、リポジトリ、コラボレーション、プロジェクト管理。開発者にも、そうでない人にも向けて書かれています。',
+				cert2n: 'GitHub Actions', cert2w: 'ワークフローの作成、トラブルシューティング、セキュア化。「シフトレフト」と「Azure へ出荷する」で出会う CI/CD です。',
+				cert3n: 'GitHub Copilot', cert3w: '責任ある AI の利用、Copilot のプランと機能、プロンプト エンジニアリング、プライバシー、コンテンツの除外。',
+				cert4n: 'GitHub Advanced Security', cert4w: 'Secret Protection、サプライ チェーンのセキュリティ、CodeQL によるコード スキャン。発見し、選別し、修正する。',
+				cert5n: 'GitHub Administration', cert5w: 'GitHub Enterprise の運用: ID とアクセス、SAML と SCIM、ポリシー、ランナー、ライセンス。',
+				cert6n: 'Agentic AI Developer', cert6w: 'ソフトウェアのライフサイクルの中で AI エージェントを運用し、監督する。GitHub を制御面として。',
+				certNote: '試験コードと名称は Microsoft Learn の公表に基づきます。各試験の合格には 700 点が必要です。',
+				footBy: '提供', footCreator: 'Azure Animations Creator',
+				footMetaHtml: '<a href="https://aka.ms/AzureAnimations" target="_blank" rel="noopener noreferrer">Azure Animations</a> エンジンで構築 · 実践は <a href="https://docs.github.com/" target="_blank" rel="noopener noreferrer">GitHub ドキュメント</a>と <a href="https://learn.microsoft.com/azure/developer/github/" target="_blank" rel="noopener noreferrer">Microsoft Learn</a> に基づいています。'
+			},
+
+			ko: {
+				heroEyebrow: '진짜 딜리버리를, 처음부터 끝까지',
+				heroTitle1: '하나의 비즈니스 문제.', heroTitle2: 'GitHub 위의 한 팀.', heroTitle3: 'Azure로 배포.',
+				heroLead: '소매업체의 매출을 앗아 가는 비 오는 오후에서 Azure에서 실행되는 코드까지, 실제 프로젝트를 따라갑니다. 아이디어를 에픽으로 나누고, Projects 보드에서 추적하고, 의도를 담아 브랜치를 나누고, 배포 전에 모든 변경을 증명합니다.',
+				meta1Html: '<b>7</b>&nbsp;개의 대화형 설명', meta2Html: '<b>65</b>&nbsp;개의 애니메이션 단계', meta3Html: '<b>실제&nbsp;저장소</b> 기반',
+				secRail: '여정', secTitle: '비즈니스 문제에서 프로덕션까지',
+				secLead: '이어진 여섯 정거장. 이 앱이 왜 존재하는지 이해하고, 실제로 할당할 수 있는 작업으로 나누고, 추적하고, 그것을 위해 브랜치를 나누고, 모든 변경을 증명하고, Azure로 배포합니다. 전체를 따라가도 되고, 아무 정거장으로 바로 가도 됩니다.',
+				plStart: '<span class="pe-ico">&#127783;</span> 비즈니스 문제', plEnd: '<span class="pe-ico">&#9729;</span> Azure에서 가동',
+				plV1: '이해', plV2: '계획', plV3: '추적', plV4: '브랜치', plV5: '증명', plV6: '배포',
+				c1Title: 'Contoso가 이것을 만드는 이유', c1Sub: '비즈니스 사례',
+				c1f1: '날씨 신호', c1f2: '프로모션', c1f3: '하나의 API', c1Go: '여정 시작하기',
+				c2Title: '작업 계획하기', c2Sub: '아이디어 → 에픽 → 서브태스크',
+				c2f1: '에픽', c2f2: '서브태스크', c2f3: '작업 목록', c2Go: '설명 열기',
+				c3Title: '보드에서 추적하기', c3Sub: 'GitHub Projects',
+				c3f1: '보드 보기', c3f2: 'Work Type', c3f3: '스프린트', c3Go: '설명 열기',
+				cpEyebrow: '여러분의 도구 상자 · 본선 정거장이 아닙니다', cpTitle: 'Copilot과 함께 만들기',
+				cpLead: '보드가 찼으니 누군가는 코드를 써야 합니다. 요금제와 가격, Ask/Plan/Agent, 그리고 이슈 #2를 클라우드 에이전트에게 넘기기까지. 그다음 바로 브랜치 이야기로.',
+				cpf1: '무료 대 유료', cpf2: 'AI 크레딧', cpf3: 'Ask/Plan/Agent', cpf4: '클라우드 에이전트', cpGo: '설명 열기',
+				c4Title: '의도를 담아 브랜치 나누기', c4Sub: 'main → 에픽 → 피처',
+				c4f1: '보호된 main', c4f2: '에픽 브랜치', c4f3: 'PR 리뷰', c4Go: '설명 열기',
+				c5Title: '시프트 레프트', c5Sub: '파이프라인, 테스트, 보안',
+				c5f1: '러너', c5f2: 'CodeQL', c5f3: '시크릿', c5Go: '설명 열기',
+				c6Title: 'Azure로 배포하기', c6Sub: 'CD, 서비스 주체, 배포',
+				c6f1: 'GHCR', c6f2: '서비스 주체', c6f3: 'OIDC', c6Go: '설명 열기',
+				prepFlag: '여기서 시작',
+				prepTitle: '0단계 \u2014 이것부터 하세요. 안 하면 나머지가 돌아가지 않습니다',
+				prepMins: '5분',
+				prepSub: '여섯 정거장 중 세 곳에서 실제 저장소에 실제 명령을 실행하게 됩니다. 지금 5분만 쓰세요. 저장소를 만들고, 소유자를 고르고, GitHub CLI를 설치하고 로그인합니다.',
+				prepGo: '설정하기 →',
+				repoLab: '다 됐나요? 저장소 URL을 붙여 넣으면 여정 전체가 그것을 사용합니다',
+				repoSave: '이 저장소 사용',
+				repoOk: '이제 이 여정의 모든 화면이 다음을 표시합니다',
+				repoNone: '선택 사항입니다 \u2014 건너뛰면 모든 화면이 저희 예제 저장소인 contoso-retail/weather-map-app을 보여 줍니다.',
+				repoBad: 'GitHub 저장소로 보이지 않습니다. https://github.com/your-account/your-repo 형태로 시도해 보세요',
+				repoCleared: '지웠습니다 \u2014 예제인 contoso-retail/weather-map-app으로 돌아갑니다.',
+				learnEyebrow: '여기서 시작', learnTitle: '이 여정이 기반으로 삼은 명세',
+				learnLead: '이 여정의 모든 화면, 엔드포인트, 검사는 짧은 요구사항 문서 하나에서 나옵니다. 내려받아 함께 따라오세요. 작동 원리는 GitHub과 Microsoft의 공식 페이지가 다룹니다.',
+				learnCta0: '요구사항 (PDF) ↓', learnCta1: 'About Projects ↗', learnCta3: 'Azure로의 OIDC ↗',
+				certEyebrow: '이 길이 데려다줄 곳', certTitle: 'GitHub 자격증',
+				certLead: '여섯 개의 GitHub 자격증, 모두 Microsoft Learn을 통해 제공됩니다. 이 여정과 가장 가까운 것은 GH-900과 GH-200이고, 나머지는 그다음에 갈 곳입니다.',
+				certStart: '여기서 시작', certGo: '자격증 보기 ↗',
+				cert1n: 'GitHub Foundations', cert1w: 'Git, 저장소, 협업, 프로젝트 관리 \u2014 개발자와 비개발자 모두를 위해 쓰였습니다.',
+				cert2n: 'GitHub Actions', cert2w: '워크플로를 작성하고, 문제를 해결하고, 안전하게 만들기 \u2014 시프트 레프트와 Azure로 배포하기에서 만나는 CI/CD입니다.',
+				cert3n: 'GitHub Copilot', cert3w: '책임 있는 AI 사용, Copilot 요금제와 기능, 프롬프트 엔지니어링, 프라이버시와 콘텐츠 제외.',
+				cert4n: 'GitHub Advanced Security', cert4w: 'Secret Protection, 공급망 보안, CodeQL 코드 스캐닝 \u2014 찾고, 분류하고, 고치기.',
+				cert5n: 'GitHub Administration', cert5w: 'GitHub Enterprise 운영: 신원과 접근, SAML과 SCIM, 정책, 러너, 라이선스.',
+				cert6n: 'Agentic AI Developer', cert6w: '소프트웨어 수명 주기 안에서 AI 에이전트를 운영하고 감독하기. GitHub을 컨트롤 플레인으로.',
+				certNote: '시험 코드와 명칭은 Microsoft Learn에 게시된 대로입니다. 각 시험은 합격에 700점이 필요합니다.',
+				footBy: '제공', footCreator: 'Azure Animations Creator',
+				footMetaHtml: '<a href="https://aka.ms/AzureAnimations" target="_blank" rel="noopener noreferrer">Azure Animations</a> 엔진으로 제작 · 실무 지침은 <a href="https://docs.github.com/" target="_blank" rel="noopener noreferrer">GitHub 문서</a>와 <a href="https://learn.microsoft.com/azure/developer/github/" target="_blank" rel="noopener noreferrer">Microsoft Learn</a>에 기반합니다.'
+			},
+
+			pt: {
+				heroEyebrow: 'Entrega real, de ponta a ponta',
+				heroTitle1: 'Um problema de negócio.', heroTitle2: 'Um time no GitHub.', heroTitle3: 'Publicado no Azure.',
+				heroLead: 'Acompanhe um projeto real desde uma tarde chuvosa que custa dinheiro a uma varejista até código rodando no Azure \u2014 quebrando a ideia em épicos, acompanhando num quadro do Projects, criando branches com intenção e comprovando cada mudança antes de publicar.',
+				meta1Html: '<b>7</b>&nbsp;explicações interativas', meta2Html: '<b>65</b>&nbsp;passos animados', meta3Html: 'Sobre um <b>reposit\u00F3rio&nbsp;real</b>',
+				secRail: 'A jornada', secTitle: 'De um problema de negócio à produção',
+				secLead: 'Seis paradas conectadas. Entenda por que o app existe, quebre em trabalho que dá para atribuir de verdade, acompanhe, crie branches para ele, comprove cada mudança e publique no Azure. Siga o caminho inteiro, ou pule direto para qualquer parada.',
+				plStart: '<span class="pe-ico">&#127783;</span> Um problema de negócio', plEnd: '<span class="pe-ico">&#9729;</span> Rodando no Azure',
+				plV1: 'Entender', plV2: 'Planejar', plV3: 'Acompanhar', plV4: 'Ramificar', plV5: 'Comprovar', plV6: 'Publicar',
+				c1Title: 'Por que a Contoso está construindo isto', c1Sub: 'O caso de negócio',
+				c1f1: 'Sinal do tempo', c1f2: 'Promoções', c1f3: 'Uma API', c1Go: 'Começar a jornada',
+				c2Title: 'Planeje o trabalho', c2Sub: 'Ideia → épicos → subtarefas',
+				c2f1: 'Épicos', c2f2: 'Subtarefas', c2f3: 'Listas de tarefas', c2Go: 'Abrir explicação',
+				c3Title: 'Acompanhe num quadro', c3Sub: 'GitHub Projects',
+				c3f1: 'Visão de quadro', c3f2: 'Work Type', c3f3: 'Sprints', c3Go: 'Abrir explicação',
+				cpEyebrow: 'Seu kit de ferramentas · não é uma parada do trilho', cpTitle: 'Construa com o Copilot',
+				cpLead: 'O quadro está cheio, então alguém precisa escrever o código. Planos e preços, Ask/Plan/Agent, e entregar a issue #2 ao agente na nuvem \u2014 e daí direto para os branches.',
+				cpf1: 'Grátis vs pago', cpf2: 'Créditos de IA', cpf3: 'Ask/Plan/Agent', cpf4: 'Agente na nuvem', cpGo: 'Abrir explicação',
+				c4Title: 'Crie branches com intenção', c4Sub: 'main → épico → feature',
+				c4f1: 'main protegida', c4f2: 'Branches de épico', c4f3: 'Revisões de PR', c4Go: 'Abrir explicação',
+				c5Title: 'Shift left', c5Sub: 'Pipeline, testes e segurança',
+				c5f1: 'Runner', c5f2: 'CodeQL', c5f3: 'Segredos', c5Go: 'Abrir explicação',
+				c6Title: 'Publique no Azure', c6Sub: 'CD, entidade de serviço e implantação',
+				c6f1: 'GHCR', c6f2: 'Entidade de serviço', c6f3: 'OIDC', c6Go: 'Abrir explicação',
+				prepFlag: 'Comece aqui',
+				prepTitle: 'Passo 0 \u2014 faça isto primeiro, ou o resto não vai funcionar',
+				prepMins: '5 min',
+				prepSub: 'Três das seis paradas pedem que você rode comandos reais num reposit\u00F3rio real. Reserve cinco minutos agora: crie o repo, escolha o proprietário, instale o GitHub CLI e faça login.',
+				prepGo: 'Configurar →',
+				repoLab: 'Pronto? Cole a URL do seu reposit\u00F3rio e a jornada inteira vai usá-la',
+				repoSave: 'Usar este repo',
+				repoOk: 'Agora toda tela desta jornada mostra',
+				repoNone: 'Opcional \u2014 pule e toda tela mostrará nosso repo de exemplo, contoso-retail/weather-map-app.',
+				repoBad: 'Isso não parece um reposit\u00F3rio do GitHub. Tente https://github.com/sua-conta/seu-repo',
+				repoCleared: 'Limpo \u2014 de volta ao exemplo trabalhado, contoso-retail/weather-map-app.',
+				learnEyebrow: 'Comece aqui', learnTitle: 'A especificação sobre a qual esta jornada foi construída',
+				learnLead: 'Cada tela, endpoint e verificação desta jornada vem de um documento curto de requisitos. Baixe e acompanhe \u2014 as páginas oficiais do GitHub e da Microsoft cobrem a mecânica.',
+				learnCta0: 'Requisitos (PDF) ↓', learnCta1: 'About Projects ↗', learnCta3: 'OIDC para o Azure ↗',
+				certEyebrow: 'Aonde isso pode te levar', certTitle: 'Certificações do GitHub',
+				certLead: 'Seis credenciais do GitHub, todas entregues via Microsoft Learn. Esta jornada se alinha mais de perto com a GH-900 e a GH-200 \u2014 as outras são para onde você vai depois.',
+				certStart: 'Comece aqui', certGo: 'Ver certificação ↗',
+				cert1n: 'GitHub Foundations', cert1w: 'Git, reposit\u00F3rios, colaboração e gestão de projetos \u2014 escrito para quem programa e para quem não programa.',
+				cert2n: 'GitHub Actions', cert2w: 'Escrever, depurar e proteger workflows \u2014 o CI/CD que você encontra em Shift left e Publique no Azure.',
+				cert3n: 'GitHub Copilot', cert3w: 'Uso responsável de IA, planos e recursos do Copilot, engenharia de prompt, privacidade e exclusões de conteúdo.',
+				cert4n: 'GitHub Advanced Security', cert4w: 'Secret Protection, segurança da cadeia de suprimentos e varredura de código com CodeQL \u2014 encontrar, triar e corrigir.',
+				cert5n: 'GitHub Administration', cert5w: 'Operar o GitHub Enterprise: identidades e acesso, SAML e SCIM, políticas, runners e licenciamento.',
+				cert6n: 'Agentic AI Developer', cert6w: 'Operar e supervisionar agentes de IA dentro do ciclo de vida de software, com o GitHub como plano de controle.',
+				certNote: 'Códigos e títulos de exame conforme publicados no Microsoft Learn. Cada exame exige nota 700 para aprovação.',
+				footBy: 'Trazido a você por', footCreator: 'Azure Animations Creator',
+				footMetaHtml: 'Construído com o motor <a href="https://aka.ms/AzureAnimations" target="_blank" rel="noopener noreferrer">Azure Animations</a> · Práticas baseadas na <a href="https://docs.github.com/" target="_blank" rel="noopener noreferrer">documentação do GitHub</a> e no <a href="https://learn.microsoft.com/azure/developer/github/" target="_blank" rel="noopener noreferrer">Microsoft Learn</a>.'
 			}
 		};
 
@@ -715,7 +1029,7 @@
 			return r ? '&repo='+encodeURIComponent(r) : '';
 		}
 		function updateCardLinks(){
-			document.querySelectorAll('a.journey-card, a.prep').forEach(a=>{
+			document.querySelectorAll('a.journey-card, a.prep, a.tool-band').forEach(a=>{
 				let base=a.getAttribute('data-href'); if(!base){ base=a.getAttribute('href'); a.setAttribute('data-href',base); }
 				base=base.split('?')[0].split('#')[0];
 				a.setAttribute('href', base+'?lang='+encodeURIComponent(activeLang)+repoParam());
@@ -740,6 +1054,69 @@
 			applyLanguage(saved);
 		})();
 
+		// Hub welcome narration. aw-hub-captions.js watches for this clip and syncs captions to it,
+		// so nothing here has to know about the caption bar.
+		(function(){
+			// Only the "has the hint been seen" flag is remembered — narration state itself is per visit.
+			const HUB_AUDIO_SEEN='aw-gh-hub-audio-seen';
+			const btn=document.getElementById('audio-toggle');
+			if(!btn) return;
+			const langSel=document.getElementById('lang-select');
+			const ico=btn.querySelector('.aw-audio-ico');
+			let welcome=null, sessionOn=false;
+			// Spotlight the Start here panel while the narration names it. Matched on the LABEL TEXT,
+			// not a line number: aw-captions splits lines into sentences, so the index differs per
+			// locale. Every localized script names the same label the UI shows (prepFlag).
+			let untrack=null, spotAt=-1;
+			const veil=document.createElement('div'); veil.className='spot-veil'; document.body.appendChild(veil);
+			const prep=document.getElementById('prep-block');
+			function spotlight(on){
+				if(!prep || prep.classList.contains('is-spot')===on) return;
+				document.body.classList.toggle('is-spotting',on);
+				prep.classList.toggle('is-spot',on);
+				if(on){
+					const smooth=!window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+					prep.scrollIntoView({behavior:smooth?'smooth':'auto', block:'center'});
+				}
+			}
+			function welcomeSrc(){ return 'assets/audio/index/'+(activeLang==='en'?'':activeLang+'/')+'step-01.mp3'; }
+			function setOn(on){ btn.classList.toggle('on',on); if(ico) ico.innerHTML=on?'&#128266;':'&#128263;';
+				btn.setAttribute('aria-label', on?'Mute narration':'Play welcome narration');
+				btn.setAttribute('aria-pressed', on?'true':'false'); }
+			function stop(){
+				if(untrack){ untrack(); untrack=null; }
+				spotAt=-1; spotlight(false);
+				if(welcome){ welcome.pause(); welcome.currentTime=0; welcome=null; }
+			}
+			function play(){
+				stop(); welcome=new Audio(welcomeSrc());
+				// track() reports the spoken sentence even when captions are off, unlike bind()
+				if(window.AWCaptions && AWCaptions.track){
+					const flag=((I18N[activeLang]||I18N.en).prepFlag||'').trim();
+					untrack=AWCaptions.track(welcome, 0, function(i,n,text){
+						if(flag && text && text.indexOf(flag)!==-1){ spotAt=i; spotlight(true); }
+						// hold it through the sentence that follows, then release
+						else if(spotAt>=0 && i>spotAt+1){ spotlight(false); }
+					});
+				}
+				welcome.addEventListener('ended', function(){ spotlight(false); });
+				welcome.play().catch(()=>{});
+			}
+			btn.addEventListener('click', ()=>{
+				sessionOn=!sessionOn;
+				btn.classList.remove('is-new');
+				try{ localStorage.setItem(HUB_AUDIO_SEEN,'1'); }catch(_){}
+				setOn(sessionOn); if(sessionOn) play(); else stop();
+			});
+			if(langSel) langSel.addEventListener('change', ()=>{ if(sessionOn) play(); });
+			// Always start muted. The sibling hubs restore a saved "on", but that leaves the button
+			// pre-armed so a later language change starts talking unprompted; narration should only
+			// ever begin because someone asked for it in this visit.
+			setOn(false);
+			// Stop pulsing and drop the pointing finger once narration has been played once.
+			try{ if(localStorage.getItem(HUB_AUDIO_SEEN)) btn.classList.remove('is-new'); else btn.classList.add('is-new'); }
+			catch(_){ btn.classList.add('is-new'); }
+		})();
 		// The learner's own repo. Stored locally, and passed on ?repo= so the value survives
 		// even when a link is opened in a new tab.
 		(function(){
