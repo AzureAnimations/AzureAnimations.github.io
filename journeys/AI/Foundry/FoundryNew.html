@@ -9,7 +9,7 @@
 
 <link rel="icon" type="image/png" href="../../../img/favicon.png" />
 <link rel="stylesheet" href="https://unpkg.com/@microsoft/atlas-css/dist/index.css" />
-<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+<script src="../../../lib/vendor/gsap-3.15.0.min.js"></script>
 
 <!-- AnimationWorks shared lib -->
 <script src="../../../lib/js/aw-easings.js"></script>
@@ -24,8 +24,7 @@
 	body {
 		display:flex; flex-direction:column;
 		min-height:100vh;
-		overflow-x:hidden; overflow-y:auto;
-		padding-bottom:6rem;
+		overflow:hidden;                 /* the 16:9 frame always fits — the page itself never scrolls */
 		background:
 			radial-gradient(circle at 15% 20%, rgba(92,45,145,0.18) 0%, transparent 55%),
 			radial-gradient(circle at 85% 80%, rgba(0,120,212,0.18) 0%, transparent 55%),
@@ -36,10 +35,49 @@
 	.app-header { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:1rem; flex-shrink:0; font-size:16px; }
 	.app-header > :last-child { justify-self:end; }
 
+	/* ── HEADER BACK LINK ───────────────────── */
+	.header-back-link {
+		display:inline-flex; align-items:center; gap:0.25rem;
+		padding:0.2rem 0.6rem;
+		font-size:0.8rem; font-weight:600;
+		color:var(--theme-text-subtle);
+		border:1px solid var(--theme-border);
+		border-radius:999px;
+		text-decoration:none; white-space:nowrap;
+		transition:background 0.15s, color 0.15s, border-color 0.15s;
+	}
+	.header-back-link:hover {
+		color:var(--theme-primary);
+		border-color:var(--theme-primary);
+		background:var(--theme-primary-translucent, rgba(0,120,212,0.12));
+	}
+
+	/* #stage fills the space between the top bar and the control dock, and centers the fixed 16:9 frame. */
 	#stage {
-		position:relative; flex:1 1 auto; width:100%;
-		min-height:720px;
-		overflow:auto;
+		position:relative; flex:1 1 auto; width:100%; min-height:0;
+		display:flex; align-items:center; justify-content:center;
+		overflow:hidden; container-type:size;
+		padding:1.75rem 2.75rem 5rem;   /* breathing room around the frame; bottom clears the fixed #controls dock */
+	}
+
+	/* The visible rectangle: the largest 16:9 box that fits the stage. Every step is drawn inside it. */
+	#stage-frame {
+		position:relative; overflow:hidden;
+		width: min(100cqw, calc(100cqh * 16 / 9));
+		aspect-ratio: 16 / 9; max-width:100%; max-height:100%;
+		border-radius:16px;
+		background: rgba(0,0,0,0.015);
+		box-shadow: 0 12px 44px rgba(0,0,0,0.22);
+	}
+	body.theme-dark #stage-frame { background: rgba(255,255,255,0.025); }
+	/* Coloured gradient border (brand purple → blue → pink) drawn as a masked ring — no interior tint. */
+	#stage-frame::before {
+		content:""; position:absolute; inset:0; border-radius:inherit; padding:2.5px;
+		background: linear-gradient(135deg, var(--aw-purple) 0%, var(--aw-blue) 55%, var(--aw-pink) 100%);
+		-webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+		mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+		-webkit-mask-composite: xor; mask-composite: exclude;
+		pointer-events:none; z-index:20;
 	}
 	#stage:focus-visible, button:focus-visible, a:focus-visible {
 		outline:2px solid var(--theme-primary, #0078d4);
@@ -1100,7 +1138,7 @@
 
 	/* ── PLAYER OVERLAY · pinned to the bottom corners of the viewport ── */
 	.stage-overlay {
-		position:fixed; right:14px; bottom:14px; z-index:41;
+		position:absolute; right:12px; bottom:10px; z-index:25;
 		display:flex; align-items:center; gap:2px;
 		padding:3px 6px; border-radius:999px;
 		background:rgba(16,18,24,0.58);
@@ -1128,7 +1166,7 @@
 	.ovl-btn .fs-exit { display:none; }
 	body.is-fs .ovl-btn .fs-enter { display:none; }
 	body.is-fs .ovl-btn .fs-exit { display:block; }
-	.stage-overlay-left { right:auto; left:14px; }
+	.stage-overlay-left { right:auto; left:12px; }
 	#stage-overlay-left .ovl-btn:not(.toggle-active) { opacity:0.86; }
 	#stage-overlay-left .ovl-btn.toggle-active { color:#5cc8ff !important; opacity:1; }
 	#stage-overlay-left .ovl-btn:hover { opacity:1; }
@@ -1384,6 +1422,17 @@
 	.jn-close svg { width:15px; height:15px; }
 	@media (max-width:860px){ #journey-next { right:0.8rem; bottom:5.1rem; max-width:min(22rem,88vw); } }
 	@media (prefers-reduced-motion: reduce){ #journey-next { transition:none !important; transform:none !important; } }
+
+	/* ── Every step section is centred in the 16:9 frame; fitScene() then scales it to fit. ──
+	   Listed last so it wins over each section's own top/inset without touching those blocks. */
+	.summary-section, .resources-section, .models-section, .features-section, .overview-section {
+		position:absolute;
+		inset:auto;
+		top:50%; left:50%; transform:translate(-50%,-50%);
+		transform-origin:center center;
+		overflow:visible;
+	}
+	.overview-section { width:min(1460px, 98%); padding:0 2rem; }
 </style>
 </head>
 
@@ -1393,7 +1442,10 @@
 
 	<header class="app-header padding-block-xs padding-inline-md border-bottom" role="banner" style="justify-content:space-between;">
 	<script src="/js/tracking.js"></script>
-		<span id="page-title" class="font-size-h6 font-weight-semibold">🏗️ Microsoft Foundry — New Experience</span>
+		<div class="display-flex align-items-center gap-xs">
+			<a href="index.html" class="header-back-link" aria-label="Back to the Foundry journey" title="Back to the Foundry journey">← Foundry journey</a>
+			<span id="page-title" class="font-size-h6 font-weight-semibold">🏗️ Microsoft Foundry — New Experience</span>
+		</div>
 		<nav class="display-flex gap-xs align-items-center" aria-label="Primary">
 			<span id="breadcrumb" class="font-size-sm color-text-subtle">Step 1</span>
 		</nav>
@@ -1454,6 +1506,9 @@
 		</p>
 		<div id="step-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
 
+		<!-- Fixed 16:9 stage. Every step is drawn INSIDE this box; it always fits the viewport (no scrollbars). -->
+		<div id="stage-frame">
+
 		<svg id="fx-svg" aria-hidden="true" focusable="false">
 			<defs>
 				<marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
@@ -1474,6 +1529,8 @@
 			<button id="header-hide" class="ovl-btn" type="button" aria-label="Hide top bar" aria-pressed="false" title="Hide top bar"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/></svg></button>
 			<button id="fs-toggle" class="ovl-btn" type="button" aria-label="Toggle full screen" aria-pressed="false" title="Full screen (F)"><svg class="fs-enter" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg><svg class="fs-exit" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg></button>
 		</div>
+
+		</div><!-- /#stage-frame -->
 	</main>
 
 	<aside id="step-outline" hidden aria-label="Text outline of the current step">
@@ -2173,7 +2230,7 @@ const STEPS = [
 ];
 
 // ── DOM REFS ──────────────────────────────
-const stage       = document.getElementById('stage');
+const stage       = document.getElementById('stage-frame');
 const svg         = document.getElementById('fx-svg');
 const counter     = document.getElementById('step-counter');
 const breadcrumb  = document.getElementById('breadcrumb');
@@ -2340,6 +2397,45 @@ let motionPaused = motionMQ.matches;
 motionMQ.addEventListener('change', e => { motionPaused = e.matches; renderStep(current); });
 
 // ── Helpers ───────────────────────────────
+// This page has no generic .scene wrapper — each step appends its own section element.
+const FIT_SECTIONS = '.summary-section,.resources-section,.models-section,.features-section,.overview-section';
+// Scale the current section down (never up) so it always fits inside the 16:9 frame — no clipping, no scroll.
+function fitScene(scene) {
+	if (!scene) return;
+	scene.style.transform = 'translate(-50%,-50%) scale(1)';
+	const box = stage.getBoundingClientRect();
+	const availW = box.width - 32, availH = box.height - 28;
+	const sw = scene.offsetWidth, sh = scene.offsetHeight;
+	if (!sw || !sh) return;
+	const k = Math.min(1, availW / sw, availH / sh);
+	scene.style.transform = 'translate(-50%,-50%) scale(' + k + ')';
+	centreScene(scene, k, box);
+}
+// A step may zoom a child (the portal step scales its card), and offsetWidth/offsetHeight above
+// cannot see child transforms — so the section ends up centred on a box that isn't what's painted.
+// Re-centre on the real thing, measured at the step's FINAL frame: timelines are fast-forwarded
+// with events suppressed and then rewound in one synchronous pass, so nothing paints mid-way and
+// no onComplete fires early.
+function centreScene(scene, k, box) {
+	const tls = liveTimelines.filter(tl => tl && tl.repeat && tl.repeat() !== -1);
+	const saved = tls.map(tl => tl.progress());
+	tls.forEach(tl => tl.progress(1, true));
+	let l = Infinity, t = Infinity, r = -Infinity, b = -Infinity, n = 0;
+	scene.querySelectorAll('*').forEach(el => {
+		const cs = getComputedStyle(el);
+		if (cs.display === 'none' || cs.visibility === 'hidden' || parseFloat(cs.opacity) < 0.05) return;
+		const q = el.getBoundingClientRect();
+		if (q.width < 2 || q.height < 2) return;
+		l = Math.min(l, q.left); t = Math.min(t, q.top);
+		r = Math.max(r, q.right); b = Math.max(b, q.bottom);
+		n++;
+	});
+	tls.forEach((tl, i) => tl.progress(saved[i], true));
+	if (!n || !isFinite(t)) return;
+	const dx = (box.left + box.width / 2) - (l + r) / 2;
+	const dy = (box.top + box.height / 2) - (t + b) / 2;
+	scene.style.transform = 'translate(-50%,-50%) translate(' + dx + 'px,' + dy + 'px) scale(' + k + ')';
+}
 function clearStage() {
 	liveTimelines.forEach(t => t.kill());
 	liveTimelines = [];
@@ -2415,6 +2511,10 @@ function renderStep(stepIndex) {
 	}
 
 	current = stepIndex;
+	// the step is in the DOM now — shrink it if it is taller/wider than the frame (rAF catches late layout)
+	const builtSection = stage.querySelector(FIT_SECTIONS);
+	fitScene(builtSection);
+	requestAnimationFrame(() => fitScene(builtSection));
 	try { const u=new URL(location.href); u.searchParams.set('step', String(stepIndex+1)); history.replaceState(null,'',u); } catch(_){}
 	counter.textContent = `${t('stepOf')} ${current+1} / ${STEPS.length}`;
 	breadcrumb.textContent = stepCaption(step);
@@ -2471,8 +2571,10 @@ function renderPortalStep() {
 	logoEl.appendChild(foundryIcon);
 
 	if (motionPaused) {
-		gsap.set(explainText, { scale:2, y:60, transformOrigin:'center center' });
-		gsap.set(browserCard, { scale:2, y:300, transformOrigin:'center center' });
+		// The offsets keep the two zoomed elements from overlapping; centreScene() re-centres the
+		// whole composition afterwards, so they no longer push it off-centre.
+		gsap.set(explainText, { scale:1.55, y:35, transformOrigin:'center center' });
+		gsap.set(browserCard, { scale:1.45, y:120, transformOrigin:'center center' });
 		gsap.set(foundryIcon, { opacity:1 });
 		animating = false;
 	} else {
@@ -2480,8 +2582,8 @@ function renderPortalStep() {
 		tl.timeScale(0.3);
 		liveTimelines.push(tl);
 		tl.to(browserCard, { boxShadow:'0 8px 40px rgba(0,120,212,0.4)', duration:0.5, ease:'power2.out' }, 0);
-		tl.to(explainText, { scale:2, y:60, transformOrigin:'center center', duration:0.8, ease:'power2.inOut' }, 0);
-		tl.to(browserCard, { scale:2, y:300, transformOrigin:'center center', duration:0.8, ease:'power2.inOut' }, 0);
+		tl.to(explainText, { scale:1.55, y:35, transformOrigin:'center center', duration:0.8, ease:'power2.inOut' }, 0);
+		tl.to(browserCard, { scale:1.45, y:120, transformOrigin:'center center', duration:0.8, ease:'power2.inOut' }, 0);
 		tl.to(foundryIcon, { opacity:1, duration:0.8, ease:'power2.out' }, '>');
 	}
 }
@@ -3291,13 +3393,23 @@ window.addEventListener('resize', () => {
 		// Ignore no-op resizes (focus/click reflow, mobile URL-bar) so the animation never restarts.
 		if (Math.abs(box.width - lastStageW) < 1 && Math.abs(box.height - lastStageH) < 1) return;
 		lastStageW = box.width; lastStageH = box.height;
-		// Rebuild at the final frame only (recomputes measured geometry like wires); never replay the entrance animation.
+		// The rebuild recomputes measured geometry (wires are plotted in screen px), but forcing
+		// motionPaused would slam a half-played step to its final frame — which is what entering
+		// full screen used to do. Remember how far the step had got and resume there instead.
+		const liveNow = liveTimelines.filter(t => t && t.repeat && t.repeat() !== -1);
+		const prog = liveNow.length ? Math.max(...liveNow.map(t => t.progress())) : 1;
 		const wasPaused = motionPaused;
-		motionPaused = true;
+		if (prog >= 1) motionPaused = true;
 		window.__awSkipAudioOnce = true;
 		renderStep(current);
 		window.__awSkipAudioOnce = false;
 		motionPaused = wasPaused;
+		if (prog > 0 && prog < 1) {
+			// The new timelines are built in a deferred frame, so seek once they exist.
+			requestAnimationFrame(() => requestAnimationFrame(() => {
+				liveTimelines.forEach(t => { if (t && t.repeat && t.repeat() !== -1) { try { t.progress(prog); } catch (_) {} } });
+			}));
+		}
 	}, 200);
 });
 

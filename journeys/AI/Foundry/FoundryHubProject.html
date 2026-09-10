@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" href="../../../img/favicon.png" />
 
 <link rel="stylesheet" href="https://unpkg.com/@microsoft/atlas-css/dist/index.css" />
-<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+<script src="../../../lib/vendor/gsap-3.15.0.min.js"></script>
 
 <!-- AnimationWorks shared lib -->
 <script src="../../../lib/js/aw-easings.js"></script>
@@ -26,8 +26,7 @@
 	body {
 		display:flex; flex-direction:column;
 		min-height:100vh;
-		overflow-x:hidden; overflow-y:auto;
-		padding-bottom:6rem;
+		overflow:hidden;                 /* the 16:9 frame always fits — the page itself never scrolls */
 		background:
 			radial-gradient(circle at 15% 20%, rgba(92,45,145,0.18) 0%, transparent 55%),
 			radial-gradient(circle at 85% 80%, rgba(0,120,212,0.18) 0%, transparent 55%),
@@ -38,11 +37,53 @@
 	.app-header { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:1rem; flex-shrink:0; font-size:16px; }
 	.app-header > :last-child { justify-self:end; }
 
-	#stage {
-		position:relative; flex:1 1 auto; width:100%;
-		min-height:720px;
-		overflow:auto;
+	/* ── HEADER BACK LINK ───────────────────── */
+	.header-back-link {
+		display:inline-flex; align-items:center; gap:0.25rem;
+		padding:0.2rem 0.6rem;
+		font-size:0.8rem; font-weight:600;
+		color:var(--theme-text-subtle);
+		border:1px solid var(--theme-border);
+		border-radius:999px;
+		text-decoration:none; white-space:nowrap;
+		transition:background 0.15s, color 0.15s, border-color 0.15s;
 	}
+	.header-back-link:hover {
+		color:var(--theme-primary);
+		border-color:var(--theme-primary);
+		background:var(--theme-primary-translucent, rgba(0,120,212,0.12));
+	}
+
+	/* #stage fills the space between the top bar and the control dock, and centers the fixed 16:9 frame. */
+	#stage {
+		position:relative; flex:1 1 auto; width:100%; min-height:0;
+		display:flex; align-items:center; justify-content:center;
+		overflow:hidden; container-type:size;
+		padding:1.75rem 2.75rem 5rem;   /* breathing room around the frame; bottom clears the fixed #controls dock */
+	}
+
+	/* The visible rectangle: the largest 16:9 box that fits the stage. Every step is drawn inside it. */
+	#stage-frame {
+		position:relative; overflow:hidden;
+		width: min(100cqw, calc(100cqh * 16 / 9));
+		aspect-ratio: 16 / 9; max-width:100%; max-height:100%;
+		border-radius:16px;
+		background: rgba(0,0,0,0.015);
+		box-shadow: 0 12px 44px rgba(0,0,0,0.22);
+	}
+	body.theme-dark #stage-frame { background: rgba(255,255,255,0.025); }
+	/* Coloured gradient border (brand purple → blue → pink) drawn as a masked ring — no interior tint. */
+	#stage-frame::before {
+		content:""; position:absolute; inset:0; border-radius:inherit; padding:2.5px;
+		background: linear-gradient(135deg, var(--aw-purple) 0%, var(--aw-blue) 55%, var(--aw-pink) 100%);
+		-webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+		mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+		-webkit-mask-composite: xor; mask-composite: exclude;
+		pointer-events:none; z-index:20;
+	}
+	/* This page places each step with pctX()/pctY() of the stage, so the stage must keep a fixed
+	   canvas — 1600x900 is 16:9, so it scales into the frame edge-to-edge with no letterboxing. */
+	#step-layer { position:absolute; top:50%; left:50%; width:1600px; height:900px; transform-origin:center center; }
 	#stage:focus-visible, button:focus-visible, a:focus-visible {
 		outline:2px solid var(--theme-primary, #0078d4);
 		outline-offset:3px; border-radius:4px;
@@ -768,9 +809,11 @@
 	}
 
 	/* ── SUMMARY SECTION (with title) ──────── */
+	/* Anchored to the canvas centre, not the top: the portal step collapses the legacy box mid-step,
+	   so a top anchor overflows the frame while the box is up and strands the card high once it goes. */
 	.summary-section {
 		position:absolute;
-		top:2%; left:50%; transform:translateX(-50%);
+		top:50%; left:50%; transform:translate(-50%,-50%);
 		width:min(1000px, 94%);
 		z-index:10;
 		opacity:0;
@@ -939,7 +982,7 @@
 
 	/* ── PLAYER OVERLAY · pinned to the bottom corners of the viewport ── */
 	.stage-overlay {
-		position:fixed; right:14px; bottom:14px; z-index:41;
+		position:absolute; right:12px; bottom:10px; z-index:25;
 		display:flex; align-items:center; gap:2px;
 		padding:3px 6px; border-radius:999px;
 		background:rgba(16,18,24,0.58);
@@ -966,7 +1009,7 @@
 	.ovl-btn .fs-exit { display:none; }
 	body.is-fs .ovl-btn .fs-enter { display:none; }
 	body.is-fs .ovl-btn .fs-exit { display:block; }
-	.stage-overlay-left { right:auto; left:14px; }
+	.stage-overlay-left { right:auto; left:12px; }
 	#stage-overlay-left .ovl-btn:not(.toggle-active) { opacity:0.86; }
 	#stage-overlay-left .ovl-btn.toggle-active { color:#5cc8ff !important; opacity:1; }
 	#stage-overlay-left .ovl-btn:hover { opacity:1; }
@@ -1271,7 +1314,10 @@
 
 	<header class="app-header padding-block-xs padding-inline-md border-bottom" role="banner" style="justify-content:space-between;">
 	<script src="/js/tracking.js"></script>
-		<span id="page-title" class="font-size-h6 font-weight-semibold">🏗️ Foundry Hub &amp; Project</span>
+		<div class="display-flex align-items-center gap-xs">
+			<a href="index.html" class="header-back-link" aria-label="Back to the Foundry journey" title="Back to the Foundry journey">← Foundry journey</a>
+			<span id="page-title" class="font-size-h6 font-weight-semibold">🏗️ Foundry Hub &amp; Project</span>
+		</div>
 		<nav class="display-flex gap-xs align-items-center" aria-label="Primary">
 			<span id="breadcrumb" class="font-size-sm color-text-subtle">Step 1</span>
 		</nav>
@@ -1332,13 +1378,19 @@
 		</p>
 		<div id="step-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
 
-		<svg id="fx-svg" aria-hidden="true" focusable="false">
+		<!-- Fixed 16:9 stage. Every step is drawn INSIDE this box; it always fits the viewport (no scrollbars). -->
+		<div id="stage-frame">
+		<div id="step-layer">
+
+		<svg id="fx-svg" class="aw-screen-svg" aria-hidden="true" focusable="false">
 			<defs>
 				<marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
 					<path d="M0,0 L0,10 L10,5 Z" fill="currentColor"/>
 				</marker>
 			</defs>
 		</svg>
+
+		</div><!-- /#step-layer -->
 
 		<div id="aw-caption" aria-hidden="true"></div>
 		<div id="stage-overlay-left" class="stage-overlay stage-overlay-left" role="group" aria-label="View options">
@@ -1351,6 +1403,8 @@
 			<button id="header-hide" class="ovl-btn" type="button" aria-label="Hide top bar" aria-pressed="false" title="Hide top bar"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/></svg></button>
 			<button id="fs-toggle" class="ovl-btn" type="button" aria-label="Toggle full screen" aria-pressed="false" title="Full screen (F)"><svg class="fs-enter" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg><svg class="fs-exit" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg></button>
 		</div>
+
+		</div><!-- /#stage-frame -->
 	</main>
 
 	<aside id="step-outline" hidden aria-label="Text outline of the current step">
@@ -1994,7 +2048,8 @@ const STEPS = [
 ];
 
 // ── DOM REFS ──────────────────────────────
-const stage       = document.getElementById('stage');
+const stage       = document.getElementById('step-layer');
+const stageFrame  = document.getElementById('stage-frame');
 const svg         = document.getElementById('fx-svg');
 const counter     = document.getElementById('step-counter');
 const breadcrumb  = document.getElementById('breadcrumb');
@@ -2095,6 +2150,61 @@ motionMQ.addEventListener('change', e => { motionPaused = e.matches; renderStep(
 // ── Helpers ───────────────────────────────
 function pctX(v) { return (v/100) * stage.clientWidth; }
 function pctY(v) { return (v/100) * stage.clientHeight; }
+// Each step is placed with pctX()/pctY() against a fixed 1600x900 canvas, so the layer keeps that
+// size and is scaled as a whole into the 16:9 frame — the layout is identical, just smaller.
+let layerScale = 1;
+function fitStage() {
+	if (!stage || !stageFrame) return;
+	const f = stageFrame.getBoundingClientRect();
+	const k = Math.min(1, (f.width - 24) / stage.offsetWidth, (f.height - 24) / stage.offsetHeight);
+	stage.style.transform = 'translate(-50%,-50%) scale(' + k + ')';
+	// Wires are plotted from screen-space measurements, which are already scaled by k.
+	// Counter-scale their SVG so those coordinates aren't applied twice.
+	layerScale = k;
+	stage.querySelectorAll('.aw-screen-svg').forEach(s => {
+		s.style.transformOrigin = '0 0';
+		s.style.transform = (k === 1) ? 'none' : 'scale(' + (1 / k) + ')';
+		// shrink the box by the same factor so the counter-scale doesn't push it past the frame
+		s.style.width = (k === 1) ? '100%' : (k * 100) + '%';
+		s.style.height = (k === 1) ? '100%' : (k * 100) + '%';
+	});
+	centreContent(k, f);
+}
+
+// The canvas is 16:9 so it fills the frame, but a step rarely fills the CANVAS — the leftover
+// canvas space then reads as dead space in the frame. Slide the layer so what is actually drawn
+// sits in the middle.
+// The step is measured at its FINAL frame: timelines are fast-forwarded with events suppressed and
+// then rewound, all within one synchronous pass so nothing is painted mid-way. Measuring at render
+// time instead would centre on a composition that no longer exists once the animation lands, and
+// layout offsets can't be used either because steps position with left:50% + translate(-50%,-50%).
+// Wires (.aw-screen-svg) move with the layer, so they must not drag the centre around.
+function centreContent(k, f) {
+	const tls = liveTimelines.filter(tl => tl && tl.repeat && tl.repeat() !== -1);
+	const saved = tls.map(tl => tl.progress());
+	tls.forEach(tl => tl.progress(1, true));
+	let l = Infinity, t = Infinity, r = -Infinity, b = -Infinity, n = 0;
+	stage.querySelectorAll('*').forEach(el => {
+		if (el.closest('.aw-screen-svg')) return;
+		const cs = getComputedStyle(el);
+		if (cs.display === 'none' || cs.visibility === 'hidden' || parseFloat(cs.opacity) < 0.05) return;
+		const q = el.getBoundingClientRect();
+		if (q.width < 2 || q.height < 2) return;
+		if (q.width >= f.width * 0.97 && q.height >= f.height * 0.97) return;
+		l = Math.min(l, q.left); t = Math.min(t, q.top);
+		r = Math.max(r, q.right); b = Math.max(b, q.bottom);
+		n++;
+	});
+	tls.forEach((tl, i) => tl.progress(saved[i], true));
+	if (!n || !isFinite(t)) return;
+	// Vertical only, and only when the step is genuinely stranded. The offset is per-step, so any
+	// difference between two steps makes the furniture they share visibly jump on the transition —
+	// steps with a similar layout must therefore resolve to the SAME offset. A sideways nudge is
+	// the most obvious of all, and the canvas is already centred horizontally by design.
+	let dy = (f.top + f.height / 2) - (t + b) / 2;
+	if (Math.abs(dy) < f.height * 0.08) dy = 0;
+	stage.style.transform = 'translate(-50%,-50%) translate(0px,' + dy + 'px) scale(' + k + ')';
+}
 function clearStage() {
 	liveTimelines.forEach(t => t.kill());
 	liveTimelines = [];
@@ -2672,6 +2782,7 @@ function renderStep(stepIndex) {
 
 		// ── Connector SVG for dashed lines ──
 		const connSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		connSvg.setAttribute('class', 'aw-screen-svg');
 		connSvg.style.position = 'absolute';
 		connSvg.style.top = '0';
 		connSvg.style.left = '0';
@@ -3434,8 +3545,12 @@ function renderStep(stepIndex) {
 
 			if (motionPaused) {
 				if (legacyBox) gsap.set(legacyBox, { opacity:0, height:0, overflow:'hidden', padding:0, margin:0, border:'none' });
-				if (explainText) gsap.set(explainText, { scale:2, y:60, transformOrigin:'center center' });
-				if (browserCard) gsap.set(browserCard, { scale:2, y:140, transformOrigin:'center center' });
+				// The offsets keep the two zoomed elements from overlapping; centreContent() re-centres
+				// the whole composition afterwards, so they no longer push it off-centre.
+				// The gap between the two absorbs their zoom so they don't collide; splitting it around the
+				// centre (rather than pushing both down) keeps the pair centred in the frame.
+				if (explainText) gsap.set(explainText, { scale:1.55, y:-50, transformOrigin:'center center' });
+				if (browserCard) gsap.set(browserCard, { scale:1.45, y:20, transformOrigin:'center center' });
 				// Add Foundry icon after "Microsoft Foundry" logo text
 				let foundryIcon = browserCard.querySelector('.foundry-portal-icon');
 				if (!foundryIcon) {
@@ -3457,8 +3572,8 @@ function renderStep(stepIndex) {
 				// After 1s delay, zoom and collapse legacy box
 				tl.to(legacyBox, { height:0, overflow:'hidden', padding:0, margin:0, border:'none', duration:0.4, ease:'power2.inOut' }, '+=1');
 				tl.to(legacyBox, { opacity:0, duration:0.3, ease:'power2.inOut' }, '<');
-				tl.to(explainText, { scale:2, y:60, transformOrigin:'center center', duration:0.8, ease:'power2.inOut' }, '<');
-				tl.to(browserCard, { scale:2, y:300, transformOrigin:'center center', duration:0.8, ease:'power2.inOut' }, '<');
+				tl.to(explainText, { scale:1.55, y:-50, transformOrigin:'center center', duration:0.8, ease:'power2.inOut' }, '<');
+				tl.to(browserCard, { scale:1.45, y:20, transformOrigin:'center center', duration:0.8, ease:'power2.inOut' }, '<');
 				// Fade in Foundry icon after "Microsoft Foundry" text
 				let foundryIcon = document.createElement('span');
 				foundryIcon.className = 'foundry-portal-icon';
@@ -3549,8 +3664,8 @@ function renderStep(stepIndex) {
 			tl.to(legacyBox, { opacity:0.15, filter:'blur(2px)', duration:0.6, ease:'power2.inOut' }, 0);
 			tl.to(browserCard, { boxShadow:'0 8px 40px rgba(0,120,212,0.4)', duration:0.5, ease:'power2.out' }, '<');
 			tl.to(legacyBox, { height:0, overflow:'hidden', padding:0, margin:0, border:'none', opacity:0, duration:0.4, ease:'power2.inOut' }, '+=1');
-			tl.to(explainText, { scale:2, y:60, transformOrigin:'center center', duration:0.8, ease:'power2.inOut' }, '<');
-			tl.to(browserCard, { scale:2, y:300, transformOrigin:'center center', duration:0.8, ease:'power2.inOut' }, '<');
+			tl.to(explainText, { scale:1.55, y:-50, transformOrigin:'center center', duration:0.8, ease:'power2.inOut' }, '<');
+			tl.to(browserCard, { scale:1.45, y:20, transformOrigin:'center center', duration:0.8, ease:'power2.inOut' }, '<');
 			// Fade in Foundry icon after "Microsoft Foundry" text
 			const foundryIconFb = document.createElement('span');
 			foundryIconFb.className = 'foundry-portal-icon';
@@ -3562,6 +3677,9 @@ function renderStep(stepIndex) {
 	}
 
 	current = stepIndex;
+	// the step is in the DOM now — scale the whole layer if it outgrew the frame (rAF catches late layout)
+	fitStage();
+	requestAnimationFrame(fitStage);
 	try { const u=new URL(location.href); u.searchParams.set('step', String(stepIndex+1)); history.replaceState(null,'',u); } catch(_){}
 	const captionKeys = { intro: 'introCaption', hub: 'hubCaption', shared: 'sharedCaption', config: 'configCaption', projects: 'projectsCaption', summary: 'summaryCaption', portal: 'summaryCaption' };
 	counter.textContent = `${t('stepOf')} ${current+1} / ${STEPS.length}`;
@@ -3763,11 +3881,21 @@ window.addEventListener('resize', () => {
 		// Ignore no-op resizes (focus/click reflow, mobile URL-bar) so the animation never restarts.
 		if (Math.abs(box.width - lastStageW) < 1 && Math.abs(box.height - lastStageH) < 1) return;
 		lastStageW = box.width; lastStageH = box.height;
-		// Rebuild at the final frame only (recomputes measured geometry like wires); never replay the entrance animation.
+		// The rebuild recomputes measured geometry (wires are plotted in screen px), but forcing
+		// motionPaused would slam a half-played step to its final frame — which is what entering
+		// full screen used to do. Remember how far the step had got and resume there instead.
+		const liveNow = liveTimelines.filter(t => t && t.repeat && t.repeat() !== -1);
+		const prog = liveNow.length ? Math.max(...liveNow.map(t => t.progress())) : 1;
 		const wasPaused = motionPaused;
-		motionPaused = true;
+		if (prog >= 1) motionPaused = true;
 		renderStep(current);
 		motionPaused = wasPaused;
+		if (prog > 0 && prog < 1) {
+			// The new timelines are built in a deferred frame, so seek once they exist.
+			requestAnimationFrame(() => requestAnimationFrame(() => {
+				liveTimelines.forEach(t => { if (t && t.repeat && t.repeat() !== -1) { try { t.progress(prog); } catch (_) {} } });
+			}));
+		}
 	}, 200);
 });
 

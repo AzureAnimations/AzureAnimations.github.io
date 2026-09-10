@@ -7,7 +7,7 @@
 <title>Azure Storage Redundancy — LRS · ZRS · GRS · GZRS</title>
 
 <link rel="stylesheet" href="https://unpkg.com/@microsoft/atlas-css/dist/index.css" />
-<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+<script src="../../lib/vendor/gsap-3.15.0.min.js"></script>
 
 <!-- AnimationWorks shared lib (JS plumbing: theme, keyboard, outline, motion, easings) -->
 <script src="../../lib/js/aw-easings.js"></script>
@@ -2283,8 +2283,14 @@
 	// The connectors are positioned in absolute px, so a rebuild is required —
 	// but if the step is still animating we rebuild WITH motion and resume from
 	// the same progress, so hiding the bar no longer snaps everything to the end.
+	let lastStageW = 0, lastStageH = 0;
+	function markStageSize(){
+		const box = stageRoot && stageRoot.getBoundingClientRect();
+		if (box) { lastStageW = box.width; lastStageH = box.height; }
+	}
 	function refitAfterChrome(){
 		if (current < 0) return;
+		markStageSize();   // claim this size so the resize that follows doesn't rebuild again
 		if (!animating || motionPaused) { rerenderInstant(); return; }
 		// Capture progress, rebuild with motion, then resume once the step's
 		// timeline has been re-created (it is built in a deferred frame).
@@ -3913,10 +3919,19 @@
 		});
 	}
 
+	// Rebuild only when the stage really changed size. Fullscreen, hiding the top bar and
+	// focus/URL-bar reflows all fire resize; rebuilding on those replayed the step, and going
+	// through rerenderInstant() also overrode the progress-preserving refit above.
 	let resizeTimer;
+	requestAnimationFrame(markStageSize);   // claim the load size, or the first reflow reads as a change
 	window.addEventListener('resize', () => {
 		clearTimeout(resizeTimer);
-		resizeTimer = setTimeout(() => rerenderInstant(), 200);
+		resizeTimer = setTimeout(() => {
+			if (current < 0 || !stageRoot) return;
+			const box = stageRoot.getBoundingClientRect();
+			if (Math.abs(box.width - lastStageW) < 1 && Math.abs(box.height - lastStageH) < 1) return;
+			refitAfterChrome();
+		}, 200);
 	});
 
 	// ── Hide / show top bar ──────────────────
