@@ -7,13 +7,15 @@ el generador de audio y `aw-captions.js` los usan como índice.
 
 ---
 
+**TTS status:** Audio regenerated 2026-09-17 after text review.
+
 ## Step 1 · Welcome to the Contoso Delivery Journey
 
 [confident] Bienvenido. Este es un proyecto real, seguido desde un problema de negocio hasta el código funcionando en Azure.
 [450ms]
 [calm] Un minorista estaba perdiendo ventas por el clima, en silencio. Nadie lo había notado, porque nadie tenía los números.
 [350ms]
-[calm] A lo largo de siete explicaciones breves convertirás eso en trabajo sobre un tablero, le pasarás una parte a GitHub Copilot, crearás ramas con intención, probarás cada cambio antes de fusionarlo y lo desplegarás en Azure sin guardar ninguna contraseña.
+[calm] A lo largo de seis explicaciones breves convertirás ese problema en tareas de un tablero, encargarás algunas a GitHub Copilot, crearás ramas con un propósito claro, probarás cada cambio antes de fusionarlo y desplegarás la aplicación en Azure sin guardar ninguna contraseña.
 [600ms]
 [serious] Una cosa antes de todo eso.
 [300ms]

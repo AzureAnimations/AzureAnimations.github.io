@@ -7,9 +7,13 @@
 
 ---
 
+<!-- Review source: https://learn.microsoft.com/azure/foundry/agents/concepts/what-is-foundry-iq -->
+
+**TTS status:** Audio regenerated 2026-09-17 after text review.
+
 ## Step 1 · The New Foundry Experience
 
-[excited] 이것이 A I dot Azure dot com의 새로운 Microsoft Foundry입니다. 모든 새 프로젝트에 권장되는, 더 깔끔한 홈입니다.
+[excited] 새로운 Microsoft Foundry입니다. 에이 아이 점 애저 점 컴에서 접속할 수 있으며, 정돈된 화면에서 프로젝트를 만들 수 있습니다.
 
 ## Step 2 · Resources
 
@@ -33,7 +37,7 @@
 
 [confident] 하지만 Foundry는 단순한 카탈로그를 훨씬 넘어섭니다.
 [600ms]
-[impressed] 리더보드는 품질, 비용, 처리량으로 모델을 비교하고, Agent Service는 오케스트레이션과 도구, 메모리를 담당하며, Foundry IQ는 추천하고, Workflows는 여러 단계의 파이프라인을 연결합니다.
+[impressed] 리더보드에서는 품질, 비용, 처리량을 기준으로 모델을 비교합니다. Agent Service는 오케스트레이션, 도구, 메모리를 제공합니다. Foundry IQ는 조직의 데이터에서 답변의 근거가 될 정보를 검색하고, Workflows는 여러 단계의 작업을 연결합니다.
 [600ms]
 [intrigued] 심지어 Foundry Local도 있어서, 자신의 컴퓨터에서 모델을 실행할 수 있습니다.
 

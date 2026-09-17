@@ -2,11 +2,15 @@
 
 **Source animation:** `static/v2/Container/WhyDocker.html`
 
+<!-- Review sources: https://learn.microsoft.com/virtualization/windowscontainers/about/containers-vs-vm ; https://docs.docker.com/get-started/docker-concepts/building-images/understanding-image-layers/ ; https://buildah.io/ -->
+
 ---
+
+**TTS status:** Audio regenerated 2026-09-17 after text review.
 
 ## Step 1 · problem
 
-[confident] Te presento a Contoso. Su equipo escribe una app en .NET o Java, la compila y entrega el artefacto —un dot jar o un dot d-l-l— a Operaciones para desplegarlo.
+[confident] Conozcamos a Contoso. Su equipo desarrolla una aplicación en .NET o Java, la compila y entrega el archivo resultante, de tipo JAR o DLL, al equipo de operaciones para que lo despliegue.
 [600ms]
 [calm] Pero ese artefacto solo lleva el código compilado. No lleva las bibliotecas del sistema operativo ni el runtime con el que se construyó.
 [700ms]
@@ -14,7 +18,7 @@
 
 ## Step 2 · drift
 
-[curious] ¿Y por qué falla? Una sola palabra: deriva.
+[curious] ¿Por qué falla? Porque los entornos han dejado de coincidir.
 [600ms]
 [calm] Tu app nunca fue solo tu código. Es tu código más un runtime específico y un conjunto específico de bibliotecas.
 [600ms]
@@ -24,15 +28,15 @@
 
 [confident] Aquí está la solución de Docker. Un Dockerfile es una receta que envuelve tu código y sus dependencias junto con un sistema operativo base y un runtime.
 [600ms]
-[calm] Luego docker build sella todo eso en una sola imagen: para Contoso, es contoso-orders version one.
+[calm] Después, el comando docker build reúne todo en una imagen. En este ejemplo, es la versión uno de contoso-orders.
 [700ms]
-[reassuring] Ahora el runtime y las bibliotecas viajan dentro de la imagen. El host solo necesita un runtime de contenedores, y ese desajuste de sistema operativo simplemente no puede ocurrir.
+[reassuring] El entorno de ejecución y las bibliotecas viajan dentro de la imagen, lo que reduce las diferencias entre entornos. El host sigue necesitando un sistema operativo, una arquitectura de procesador y un motor de contenedores compatibles.
 
 ## Step 4 · layers
 
 [curious] Mira dentro de esa imagen y no es un bloque sólido: es una pila de capas de solo lectura.
 [600ms]
-[calm] Cada línea del Dockerfile añade una capa: la base, las dependencias y luego tu app encima.
+[calm] La imagen base aporta las primeras capas. Las instrucciones que modifican archivos añaden capas para las dependencias y la aplicación; otras configuran cómo se ejecuta el contenedor.
 [600ms]
 [impressed] Las capas son inmutables y se comparten, así que las idénticas se almacenan una sola vez. Eso hace que las descargas sean rápidas y las reconstrucciones, baratas.
 
@@ -40,37 +44,37 @@
 
 [confident] Ahora bien, un contenedor no es solo una máquina virtual ligera.
 [600ms]
-[calm] Una VM virtualiza el hardware y ejecuta un sistema operativo invitado completo por cada app. Un contenedor comparte el kernel del host y empaqueta solo la app y sus bibliotecas: un proceso aislado, no una máquina entera.
+[calm] Cada máquina virtual tiene su propio sistema operativo invitado y puede ejecutar varias aplicaciones. Un contenedor con aislamiento de procesos comparte el kernel del host y empaqueta la aplicación con sus dependencias, sin un kernel invitado independiente.
 [700ms]
-[impressed] Ese kernel compartido es todo el truco: los contenedores arrancan en segundos, pesan megabytes en lugar de gigabytes y caben muchos más en un mismo host.
+[impressed] Compartir el kernel reduce el consumo de recursos. Los contenedores suelen arrancar más rápido y necesitar menos recursos que una máquina virtual completa, aunque el tamaño y el tiempo de inicio dependen de la aplicación.
 
 ## Step 6 · ports
 
 [confident] Ejecuta esa imagen y obtienes un contenedor, y ese contenedor ES Contoso Orders. Dentro, la app escucha en el puerto tres mil.
 [600ms]
-[calm] Pero un puerto dentro del contenedor está aislado. Para dejar entrar las solicitudes, lo publicas al ejecutar la imagen.
+[calm] La aplicación ya escucha dentro del contenedor, pero en este ejemplo todavía no hay un puerto publicado en el host. Al publicarlo, los clientes externos pueden llegar a la aplicación a través del host.
 [600ms]
-[encouraging] Así que docker run, guion p, puerto ochenta-ochenta a tres mil: el tráfico externo llega al host por el puerto ochenta-ochenta, y Docker lo reenvía a la app en el puerto tres mil.
+[encouraging] Con docker run y la opción de publicación, conectamos el puerto ocho mil ochenta del host con el puerto tres mil del contenedor. Docker recibe las solicitudes en el primero y las reenvía a la aplicación en el segundo.
 
 ## Step 7 · oci
 
 [curious] Y aquí hay algo que muchos pasan por alto: Docker no es la única forma de ejecutar un contenedor.
 [600ms]
-[calm] Tu imagen sigue el estándar de la Open Container Initiative —OCI—, que define tres especificaciones: image, runtime y distribution.
+[calm] La Open Container Initiative, u OCI, define especificaciones para el formato de las imágenes, la ejecución de los contenedores y su distribución.
 [600ms]
-[impressed] Así que cualquier runtime compatible con OCI la ejecuta sin cambios: containerd, el motor dentro de Docker y en los nodos de AKS, además de CRI-O, Podman y Buildah. La mayoría son de código abierto, bajo la Linux Foundation y la CNCF.
+[impressed] Cada herramienta cumple una función: containerd y CRI-O ejecutan contenedores, Podman los administra y Buildah crea imágenes. Los estándares abiertos permiten combinarlas, pero sigue siendo necesario comprobar la compatibilidad del host.
 
 ## Step 8 · targets
 
-[confident] Al ser un estándar abierto, una imagen se ejecuta en cualquier lugar, incluso por toda Azure.
+[confident] Una imagen compatible puede reutilizarse en distintos entornos, incluido Azure. Antes, hay que comprobar qué sistemas operativos y formatos de imagen admite cada servicio.
 [600ms]
-[calm] Mismo artefacto, cuatro puertas de entrada: Azure Container Instances para un solo contenedor, Azure Container Apps para autoescalado serverless, Azure Kubernetes Service para control total y App Service para ejecutarla como una app web gestionada.
+[calm] Aquí aparecen cuatro opciones: Azure Container Instances para ejecutar contenedores bajo demanda, Azure Container Apps para escalado automático sin administrar servidores, Azure Kubernetes Service para controlar la orquestación y App Service para aplicaciones web administradas.
 [700ms]
-[encouraging] Solo eliges según cuánta orquestación quieras: la imagen nunca cambia.
+[encouraging] Elige según la compatibilidad, el escalado y el control que necesites. Reutilizar la imagen mantiene el mismo paquete de aplicación, aunque la configuración del despliegue puede cambiar.
 
 ## Step 9 · recap
 
-[proud] Así que esa es toda la idea. Empaqueta tu app y sus dependencias una sola vez como una imagen inmutable y por capas, y luego ejecuta esa imagen idéntica en cualquier lugar: tu portátil, CI o Azure.
+[proud] Esa es la idea: empaquetar la aplicación y sus dependencias en una imagen inmutable, organizada en capas. Puedes reutilizarla en hosts compatibles de desarrollo, pruebas y Azure, sin reconstruir el entorno a mano cada vez.
 [700ms]
 [optimistic] La imagen es la unidad que almacenarás, protegerás, escalarás y ejecutarás durante el resto de este recorrido.
 [600ms]

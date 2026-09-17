@@ -8,6 +8,10 @@ One block per animation step.
 
 ---
 
+<!-- Review source: https://learn.microsoft.com/azure/foundry/agents/concepts/what-is-foundry-iq -->
+
+**TTS status:** Audio regenerated 2026-09-17 after text review.
+
 ## Step 1 · The New Foundry Experience
 
 [excited] This is the new Microsoft Foundry at A I dot Azure dot com — the recommended, cleaner home for every new project.
@@ -34,7 +38,7 @@ One block per animation step.
 
 [confident] But Foundry is far more than a catalog.
 [600ms]
-[impressed] A leaderboard compares models on quality, cost, and throughput; an Agent Service handles orchestration, tools, and memory; Foundry IQ recommends; and Workflows chain multi-step pipelines.
+[impressed] Leaderboards compare models by quality, cost, and throughput. Agent Service provides orchestration, tools, and memory. Foundry IQ retrieves knowledge from your organization's data to ground answers, and Workflows connects multi-step processes.
 [600ms]
 [intrigued] There's even Foundry Local, to run models on your own machine.
 

@@ -7,9 +7,13 @@
 
 ---
 
+<!-- Review source: https://learn.microsoft.com/azure/foundry/agents/concepts/what-is-foundry-iq -->
+
+**TTS status:** Audio regenerated 2026-09-17 after text review.
+
 ## Step 1 · The New Foundry Experience
 
-[excited] これが A I dot Azure dot com の新しい Microsoft Foundry です。すべての新規プロジェクトにおすすめの、すっきりとしたホームです。
+[excited] こちらが、新しい Microsoft Foundry です。エー アイ ドット アジュール ドット コムからアクセスでき、整理された画面でプロジェクトを作成できます。
 
 ## Step 2 · Resources
 
@@ -33,7 +37,7 @@
 
 [confident] でも、Foundry はカタログをはるかに超える存在です。
 [600ms]
-[impressed] リーダーボードは品質・コスト・スループットでモデルを比較し、Agent Service はオーケストレーション・ツール・メモリを担い、Foundry IQ はレコメンドし、Workflows は複数ステップのパイプラインをつなぎます。
+[impressed] リーダーボードでは、品質、コスト、処理能力でモデルを比較できます。Agent Service はオーケストレーション、ツール、メモリを提供します。Foundry IQ は組織のデータから回答の根拠となる情報を取得し、Workflows は複数の処理をつなぎます。
 [600ms]
 [intrigued] さらに Foundry Local もあり、自分のマシンでモデルを実行できます。
 

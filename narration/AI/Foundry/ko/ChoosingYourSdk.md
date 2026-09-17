@@ -6,7 +6,7 @@ Source animation: `journeys/AI/Foundry/ChoosingYourSdk.html`
 
 ---
 
-## Step 1 · 세 개의 SDK, 하나의 애플리케이션
+## Step 1 · Three SDKs, One Application
 
 Azure OpenAI SDK. Foundry SDK. Microsoft Agent Framework.
 [500ms]
@@ -18,7 +18,7 @@ Azure OpenAI SDK. Foundry SDK. Microsoft Agent Framework.
 
 ---
 
-## Step 2 · 하나의 리소스, 두 개의 엔드포인트
+## Step 2 · One Resource, Two Endpoints
 
 모든 것이 이 그림에서 출발합니다.
 [500ms]
@@ -66,7 +66,7 @@ OpenAI SDK는 두 번째와, Foundry SDK는 첫 번째와 통신합니다. Agent
 
 ---
 
-## Step 6 · 서로 어떻게 맞물리는가
+## Step 6 · How They Fit Together
 
 같은 세 SDK를 컴포넌트 다이어그램으로 보겠습니다.
 [500ms]
@@ -78,7 +78,7 @@ OpenAI SDK는 두 번째와, Foundry SDK는 첫 번째와 통신합니다. Agent
 
 ---
 
-## Step 7 · 실제 애플리케이션에서
+## Step 7 · In a Real Application
 
 이제 배포된 시스템에 놓아 봅시다.
 [500ms]
@@ -90,7 +90,7 @@ API 키가 아니라 DefaultAzureCredential을 사용하세요. OpenAI 엔드포
 
 ---
 
-## Step 8 · 그래서 어느 것을 쓰나요?
+## Step 8 · So Which One Do I Use?
 
 결정을 표로 정리했습니다. 실제로 쓸 수 있는 형태입니다.
 [500ms]
@@ -102,7 +102,7 @@ API 키가 아니라 DefaultAzureCredential을 사용하세요. OpenAI 엔드포
 
 ---
 
-## Step 9 · 계층을 고르세요
+## Step 9 · Pick Your Layer
 
 규칙은 단순합니다. 일을 해낼 수 있는 가장 낮은 계층에서 시작하세요.
 [500ms]

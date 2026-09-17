@@ -7,6 +7,8 @@
 
 ---
 
+**TTS status:** Audio regenerated 2026-09-17 after text review.
+
 ## Step 1 · Overview
 
 [confident] Microsoft Foundry をご紹介します。AI エージェントを大規模に構築・デプロイ・実行するための、統合されたひとつのコンソールです。
@@ -65,4 +67,4 @@
 
 [encouraging] 最後にひとつアドバイスです。
 [600ms]
-[confident] A I dot Azure dot com で新しい Foundry エクスペリエンスをオンにしてください。すべての新規プロジェクトにおすすめのホームです。
+[confident] エー アイ ドット アジュール ドット コムで、新しい Foundry の画面に切り替えましょう。新規プロジェクトの作成と管理を、ここから始められます。

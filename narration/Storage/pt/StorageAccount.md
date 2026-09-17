@@ -4,29 +4,33 @@
 
 ---
 
+**TTS status:** Audio regenerated 2026-09-17 after text review.
+
+<!-- Review sources: https://learn.microsoft.com/azure/storage/common/storage-account-overview ; https://learn.microsoft.com/azure/storage/blobs/access-tiers-overview ; https://learn.microsoft.com/azure/storage/blobs/access-tiers-smart -->
+
 ## Step 1 · Overview
 
 [warm] Vamos começar pela base do Azure Storage: a conta de armazenamento.
 [600ms]
-[calm] Pense nela como um único lar durável para todos os dados na nuvem da Contoso — blobs, arquivos, filas e tabelas — sob um único namespace e uma única fatura.
+[calm] Ela fornece um namespace exclusivo para os dados de armazenamento da Contoso. Uma conta Standard de uso geral, versão dois, pode armazenar blobs, arquivos, filas e tabelas.
 [600ms]
-[confident] Tudo fica atrás de um único ponto de conexão da conta, como contoso ponto blob ponto core ponto windows ponto net. Uma conta, uma fatura, muitos serviços: escolha uma camada de desempenho uma vez e depois armazene o que a carga de trabalho precisar.
+[confident] Cada serviço tem seu próprio ponto de conexão. Por exemplo, contoso ponto blob ponto core ponto windows ponto net é o endereço do Blob, não de todos os serviços. Escolha um tipo de conta que atenda à sua carga de trabalho.
 
 ## Step 2 · Standard vs Premium
 
-[confident] Primeiro, escolha quão rápida a conta deve ser.
+[confident] Primeiro, compare as necessidades de desempenho e os serviços disponíveis.
 [600ms]
-[calm] Standard roda em discos rígidos — armazenamento econômico e de uso geral que suporta todos os serviços e todas as camadas de acesso. Premium roda em unidades de estado sólido, para uma latência de milissegundos de um só dígito quando os aplicativos exigem.
+[calm] Standard de uso geral, versão dois, é um ponto de partida comum. Premium usa armazenamento de estado sólido para cargas que precisam de latência baixa e consistente ou de muitas transações.
 [600ms]
-[reassuring] Premium vem como uma conta especializada — block blob, page blob ou compartilhamentos de arquivos — escolhida por latência, não por capacidade bruta. Então a regra é simples: Premium para velocidade, Standard para custo.
+[reassuring] As contas Premium são especializadas em blobs de blocos, blobs de páginas ou compartilhamentos de arquivos; elas não reúnem os quatro serviços. Compare também os recursos e os custos, não apenas a velocidade.
 
 ## Step 3 · Four Data Services
 
-[confident] Uma conta Standard te dá quatro formas de armazenar dados: escolha o formato que se ajusta ao trabalho.
+[confident] O Azure Storage oferece quatro serviços para diferentes tipos de dados.
 [600ms]
-[calm] Blob é o carro-chefe para grandes volumes de dados não estruturados — imagens, vídeo, backups, documentos. Files oferece compartilhamentos de arquivos gerenciados S-M-B e N-F-S. Queue passa pequenas mensagens assíncronas entre componentes do aplicativo. E Table é um armazenamento NoSQL de chave-valor sem esquema.
+[calm] Blob armazena imagens, vídeos, backups e documentos. Files oferece compartilhamentos gerenciados; os de N-F-S exigem armazenamento SSD. Queue troca mensagens assíncronas entre componentes do aplicativo. Table armazena dados NoSQL estruturados sem um esquema fixo.
 [600ms]
-[impressed] Uma conta, quatro serviços: a maioria das cargas de trabalho se apoia em Blob, e os outros três cobrem compartilhamentos, mensageria e NoSQL.
+[impressed] Escolha o serviço adequado aos dados e confira se o tipo de conta oferece os recursos necessários.
 
 ## Step 4 · Three Kinds of Blob
 
@@ -38,11 +42,11 @@
 
 ## Step 5 · Access Tiers
 
-[confident] Para os block blobs, uma camada de acesso equilibra o custo de armazenamento com o custo de leitura e uma retenção mínima.
+[confident] Nos blobs de blocos, as camadas de acesso equilibram os custos de armazenamento e recuperação. Os períodos mínimos são regras de cobrança, não bloqueios que impeçam a exclusão dos dados.
 [600ms]
-[calm] Hot é para acesso frequente, sem mínimo. Cool é para acesso pouco frequente, ao menos trinta dias. Cold é para acesso raro, ao menos noventa. E Archive fica offline e é o mais barato: ao menos cento e oitenta dias, e você o reidrata para ler.
+[calm] Em uma conta Standard de uso geral, versão dois, Hot não tem cobrança por período mínimo. Cool tem trinta dias; Cold, noventa; e Archive, cento e oitenta. Hot, Cool e Cold ficam online, com acesso em milissegundos. Archive precisa de reidratação antes da leitura, o que pode levar horas.
 [600ms]
-[reassuring] As camadas mais frias armazenam mais barato, mas leem mais caro e mais devagar, e excluir antes do tempo gera uma cobrança. Ou deixe a nova camada Smart mover os dados entre Hot, Cool e Cold automaticamente, conforme o uso real, sem regras de ciclo de vida para gerenciar.
+[reassuring] Excluir ou mudar de camada antes do prazo pode gerar uma cobrança. Em contas compatíveis com redundância de zona, Smart gerencia automaticamente os blobs de blocos elegíveis entre Hot, Cool e Cold, sem regras de transição. Não usa Archive e tem uma cobrança diferente.
 
 ## Step 6 · Recap
 
@@ -50,4 +54,4 @@
 [600ms]
 [calm] Desempenho: Standard ou Premium. Quatro serviços: Blob, File, Queue, Table. Três tipos de blob: Block, Append, Page. E cinco camadas de acesso, de Hot a Archive, mais Smart.
 [600ms]
-[encouraging] Comece sempre pela carga de trabalho: quão rápida, que formato de dados e com que frequência você vai ler, e a fatura vem depois. Aprofunde-se na trilha gratuita do Microsoft Learn, Armazenar dados no Azure.
+[encouraging] Comece pelo desempenho necessário, pelo tipo de dados e pela frequência de acesso. Essas escolhas afetam os recursos disponíveis e o custo. Saiba mais na trilha gratuita do Microsoft Learn, Armazenar dados no Azure.

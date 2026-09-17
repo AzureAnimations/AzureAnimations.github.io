@@ -4,19 +4,23 @@
 
 ---
 
+<!-- Review source: https://docs.docker.com/docker-hub/repos/ -->
+
+**TTS status:** Audio regenerated 2026-09-17 after text review.
+
 ## Step 1 · dockerhub
 
-[confident] 前の章では、contoso-orders version one というイメージをビルドしましたね。
+[confident] 前の章では、contoso-orders イメージの最初のバージョンを作成しました。
 [600ms]
-[curious] では、docker push を実行するとそれはどこへ行くのでしょう? 名前の前にレジストリが付いていなければ、Docker は docker dot io — つまり公開の Docker Hub に送ります。
+[curious] docker push の送信先はどこでしょうか。イメージ名にレジストリのホスト名が含まれていなければ、Docker Hub が使われます。送信先のリポジトリへのアクセス権限も必要です。
 [700ms]
-[calm] これは便利な既定値ですが、あなたのイメージが公開リポジトリに置かれるということでもあります。自分のアプリではたいていそれは望ましくありません。
+[calm] Docker Hub では、公開リポジトリと非公開リポジトリの両方を利用できます。アプリのイメージをプッシュする前に、公開設定を確認しましょう。
 
 ## Step 2 · acr
 
 [confident] 解決策はこうです — 自分が所有するプライベートな場所にイメージを置きましょう。
 [600ms]
-[calm] 名前の前にレジストリのログインサーバー、contoso dot azure-c-r dot io を付けます。すると docker push は、あなた自身の Azure Container Registry に直接アップロードします。
+[calm] イメージ名の先頭に、レジストリのログインサーバー名を付けます。この例では、コントーソ ドット アジュール シー アール ドット アイ オーです。これで docker push の送信先が、自分の Azure Container Registry になります。
 [700ms]
 [reassuring] まず az acr login でサインインすると、ACR は Microsoft Entra ID で認証します — 共有パスワードが飛び交うことはありません。
 

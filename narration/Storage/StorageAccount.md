@@ -6,29 +6,33 @@ Narrated by a female voice (en-US-Ava). One block per step.
 
 ---
 
+**TTS status:** Audio regenerated 2026-09-17 after text review.
+
+<!-- Review sources: https://learn.microsoft.com/azure/storage/common/storage-account-overview ; https://learn.microsoft.com/azure/storage/blobs/access-tiers-overview ; https://learn.microsoft.com/azure/storage/blobs/access-tiers-smart -->
+
 ## Step 1 · Overview
 
 [warm] Let's start with the foundation of Azure Storage — the storage account.
 [600ms]
-[calm] Think of it as one durable home for all of Contoso's cloud data — blobs, files, queues, and tables — under a single namespace and a single bill.
+[calm] It gives Contoso a unique namespace for its storage data. A Standard general-purpose version two account can hold blobs, files, queues, and tables.
 [600ms]
-[confident] Everything sits behind one account endpoint, like contoso dot blob dot core dot windows dot net. One account, one bill, many services — pick a performance tier once, then store whatever the workload needs.
+[confident] Each service has its own endpoint. For example, contoso dot blob dot core dot windows dot net is the Blob endpoint, not the address for every service. Choose the account type that supports your workload.
 
 ## Step 2 · Standard vs Premium
 
-[confident] First, choose how fast the account should be.
+[confident] First, compare the workload's performance needs and supported services.
 [600ms]
-[calm] Standard runs on hard drives — cost-effective, general-purpose storage that supports every service and every access tier. Premium runs on solid-state drives, for single-digit-millisecond latency when apps demand it.
+[calm] Standard general-purpose version two is a common starting point. Premium uses solid-state storage for workloads that need consistently low latency or high transaction rates.
 [600ms]
-[reassuring] Premium comes as a specialized account — block blob, page blob, or file shares — chosen for latency, not raw capacity. So the rule is simple: Premium for speed, Standard for cost.
+[reassuring] Premium accounts specialize in block blobs, page blobs, or file shares; they do not combine all four services. Compare features and costs as well as speed before choosing.
 
 ## Step 3 · Four Data Services
 
-[confident] A Standard account gives you four ways to store data — pick the shape that fits the job.
+[confident] Azure Storage offers four services for different kinds of data.
 [600ms]
-[calm] Blob is the workhorse for massive unstructured data — images, video, backups, documents. Files gives you managed S-M-B and N-F-S file shares. Queue passes small asynchronous messages between app components. And Table is a schemaless NoSQL key-value store.
+[calm] Blob stores images, video, backups, and documents. Files provides managed file shares; N-F-S shares require SSD storage. Queue passes asynchronous messages between app components. Table stores structured NoSQL data without a fixed schema.
 [600ms]
-[impressed] One account, four services — most workloads lean on Blob, with the other three covering shares, messaging, and NoSQL.
+[impressed] Match the service to the data, then check that the account type supports the features you need.
 
 ## Step 4 · Three Kinds of Blob
 
@@ -40,11 +44,11 @@ Narrated by a female voice (en-US-Ava). One block per step.
 
 ## Step 5 · Access Tiers
 
-[confident] For block blobs, an access tier trades storage cost against read cost and a minimum retention.
+[confident] For block blobs, access tiers balance storage and retrieval costs. Their minimum durations are billing rules, not deletion locks.
 [600ms]
-[calm] Hot is for frequent access, with no minimum. Cool is infrequent, at least thirty days. Cold is rarely accessed, at least ninety. And Archive is offline and cheapest — at least a hundred and eighty days, and you rehydrate it to read.
+[calm] In a Standard general-purpose version two account, Hot has no minimum duration charge. Cool has thirty days, Cold ninety, and Archive a hundred and eighty. Hot, Cool, and Cold remain online with millisecond access. Archive needs rehydration before reading, which can take hours.
 [600ms]
-[reassuring] Colder tiers store cheaper but read pricier and slower — and deleting early triggers a charge. Or let the new Smart tier move data across Hot, Cool, and Cold automatically, by real usage, with no lifecycle rules to manage.
+[reassuring] Deleting or moving data early can incur a charge. On supported zone-redundant accounts, Smart automatically manages eligible block blobs across Hot, Cool, and Cold, without tiering rules. It does not use Archive, and its billing is different.
 
 ## Step 6 · Recap
 
@@ -52,4 +56,4 @@ Narrated by a female voice (en-US-Ava). One block per step.
 [600ms]
 [calm] Performance — Standard or Premium. Four services — Blob, File, Queue, Table. Three blob types — Block, Append, Page. And five access tiers, from Hot to Archive, plus Smart.
 [600ms]
-[encouraging] Always start with the workload: how fast, what shape of data, and how often you'll read it — and the bill follows. Go deeper on the free Microsoft Learn path, Store data in Azure.
+[encouraging] Start with the workload: required performance, data type, and access frequency. These choices affect features and cost. Go deeper on the free Microsoft Learn path, Store data in Azure.

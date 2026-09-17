@@ -7,6 +7,8 @@ Un bloque por paso de la animación.
 
 ---
 
+**TTS status:** Audio regenerated 2026-09-17 after text review.
+
 ## Step 1 · Overview
 
 [confident] Te presentamos Microsoft Foundry: la consola unificada para crear, implementar y ejecutar agentes de IA a escala.
@@ -65,4 +67,4 @@ Un bloque por paso de la animación.
 
 [encouraging] Un último consejo:
 [600ms]
-[confident] activa la nueva experiencia de Foundry en A I dot Azure dot com, el hogar recomendado para todos tus nuevos proyectos.
+[confident] activa la nueva experiencia de Foundry en a i punto Azure punto com. Allí puedes crear y gestionar tus nuevos proyectos.

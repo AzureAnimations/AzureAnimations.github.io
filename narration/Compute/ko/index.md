@@ -6,10 +6,12 @@ One spoken block — the hub's welcome clip, played when a visitor turns audio o
 
 ---
 
+**TTS status:** Audio regenerated 2026-09-17 after text review.
+
 ## Step 1 · Welcome
 
 Azure PaaS Compute 여정에 오신 것을 환영합니다.
 [500ms]
-짧고 시각적인 네 개의 정거장을 지나며 서버를 전혀 관리하지 않고도 웹 앱과 이벤트 기반 코드를 실행하는 방법을 배웁니다. 먼저 그 아래의 컴퓨팅인 App Service Plan에서 시작해, App Service 자체와 네트워킹, 그리고 서버리스 Functions로 이어집니다.
+네 개의 짧은 애니메이션을 통해 기반 서버를 직접 관리하지 않고 웹 앱과 이벤트 기반 코드를 실행하는 방법을 배웁니다. 실행 리소스를 제공하는 App Service Plan부터 시작해 App Service, 네트워킹, Azure Functions 순서로 살펴봅니다.
 [700ms]
-오디오를 켠 상태로 두시면 각 단계를 안내해 드리겠습니다. 정거장을 하나 골라 시작해 볼까요.
+오디오를 켜 두시면 각 단계의 설명을 들을 수 있습니다. 원하는 학습 항목을 골라 시작해 보세요.

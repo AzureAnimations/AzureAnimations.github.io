@@ -7,12 +7,16 @@ markers. The hub has a single welcome clip.
 
 ---
 
+**TTS status:** Audio regenerated 2026-09-17 after text review.
+
+<!-- Review sources: https://learn.microsoft.com/security/zero-trust/zero-trust-overview ; https://learn.microsoft.com/entra/workload-id/workload-identity-federation -->
+
 ## Step 1 · Welcome to the Azure Security Journey
 
 [warm] Welcome to the Azure Security Journey.
 [500ms]
 [confident] This is Contoso's app on Azure — a browser, an App Service web tier, a Function App, and its data — secured by five building blocks.
 [500ms]
-[calm] Start with Key Vault to get secrets out of your code, then App Configuration for central settings. Managed Identity and Service Principal let your app and your automation sign in without a stored secret — and Zero Trust wraps it all in a private network.
+[calm] Start with Key Vault for secrets and App Configuration for settings. Use a managed identity or a service principal with federation to avoid storing application credentials. Then apply Zero Trust: verify explicitly, use least privilege, and assume breach. A private network is only one part of that design.
 [600ms]
 [encouraging] Follow the numbered badges, one through five, or tap any block to jump straight in.

@@ -7,6 +7,8 @@
 
 ---
 
+**TTS status:** Audio regenerated 2026-09-17 after text review.
+
 ## Step 1 · Overview
 
 [confident] Microsoft Foundry를 소개합니다. AI 에이전트를 대규모로 구축하고 배포하고 실행하는, 하나로 통합된 콘솔입니다.
@@ -65,4 +67,4 @@
 
 [encouraging] 마지막으로 한 가지 팁입니다.
 [600ms]
-[confident] A I dot Azure dot com에서 New Foundry 경험을 켜 보세요. 모든 새 프로젝트에 권장되는 홈입니다.
+[confident] 에이 아이 점 애저 점 컴에서 새로운 Foundry 화면으로 전환하세요. 이곳에서 새 프로젝트를 만들고 관리할 수 있습니다.

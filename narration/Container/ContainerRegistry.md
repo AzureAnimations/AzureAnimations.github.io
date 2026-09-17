@@ -7,13 +7,17 @@ and `[NNNms]` pause markers. One block per animation step, in on-screen order.
 
 ---
 
+<!-- Review source: https://docs.docker.com/docker-hub/repos/ -->
+
+**TTS status:** Audio regenerated 2026-09-17 after text review.
+
 ## Step 1 · dockerhub
 
 [confident] Last chapter you built an image called contoso-orders version one.
 [600ms]
-[curious] So where does it go when you run docker push? If the name has no registry in front of it, Docker sends it to docker dot io — the public Docker Hub.
+[curious] Where does docker push send it? Without a registry hostname in the image name, Docker uses Docker Hub. You still need access to the destination repository.
 [700ms]
-[calm] That's a fine default, but it means your image lands in a public repository — and that's usually not what you want for your own app.
+[calm] Docker Hub supports both public and private repositories. Check the repository's visibility before pushing your own application image.
 
 ## Step 2 · acr
 

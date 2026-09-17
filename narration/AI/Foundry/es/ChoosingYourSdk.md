@@ -6,7 +6,7 @@ Un bloque por paso, emparejado 1:1 con `STEPS[]`. Los `[NNNms]` son pausas.
 
 ---
 
-## Step 1 · Tres SDK, una aplicación
+## Step 1 · Three SDKs, One Application
 
 Azure OpenAI SDK. Foundry SDK. Microsoft Agent Framework.
 [500ms]
@@ -18,7 +18,7 @@ Así que la pregunta no es cuál es mejor. Es detrás de qué endpoint vive la f
 
 ---
 
-## Step 2 · Un recurso, dos endpoints
+## Step 2 · One Resource, Two Endpoints
 
 Todo se deduce de esta imagen.
 [500ms]
@@ -66,7 +66,7 @@ Y cuando estés listo, el mismo código se empaqueta como agente hospedado de Fo
 
 ---
 
-## Step 6 · Cómo encajan entre sí
+## Step 6 · How They Fit Together
 
 Aquí están los mismos tres SDK como diagrama de componentes.
 [500ms]
@@ -78,7 +78,7 @@ Dos rutas al mismo recurso, para dos trabajos distintos.
 
 ---
 
-## Step 7 · En una aplicación real
+## Step 7 · In a Real Application
 
 Ahora colócalo en un sistema desplegado.
 [500ms]
@@ -90,7 +90,7 @@ Usa DefaultAzureCredential, no una clave de API. Las claves siguen funcionando e
 
 ---
 
-## Step 8 · Entonces, ¿cuál uso?
+## Step 8 · So Which One Do I Use?
 
 Aquí está la decisión, como una tabla que puedes usar de verdad.
 [500ms]
@@ -102,7 +102,7 @@ Y donde una fila tenga dos marcas, quédate con la más sencilla. Un guion no si
 
 ---
 
-## Step 9 · Elige tu capa
+## Step 9 · Pick Your Layer
 
 Así que la regla es simple: empieza en la capa más baja que resuelva el trabajo.
 [500ms]

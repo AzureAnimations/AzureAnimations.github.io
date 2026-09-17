@@ -4,19 +4,23 @@
 
 ---
 
+<!-- Review source: https://docs.docker.com/docker-hub/repos/ -->
+
+**TTS status:** Audio regenerated 2026-09-17 after text review.
+
 ## Step 1 · dockerhub
 
-[confident] 지난 장에서 contoso-orders version one 이라는 이미지를 빌드했죠.
+[confident] 지난 장에서는 contoso-orders 이미지의 첫 번째 버전을 만들었습니다.
 [600ms]
-[curious] 그럼 docker push 를 실행하면 그건 어디로 갈까요? 이름 앞에 레지스트리가 없으면 Docker 는 그것을 docker dot io — 공개 Docker Hub 로 보냅니다.
+[curious] docker push는 이미지를 어디로 보낼까요? 이미지 이름에 레지스트리 호스트 이름이 없으면 Docker Hub를 사용합니다. 대상 리포지토리에 이미지를 올릴 권한도 필요합니다.
 [700ms]
-[calm] 편리한 기본값이지만, 여러분의 이미지가 공개 리포지토리에 놓인다는 뜻이기도 합니다. 자기 앱이라면 대개 그건 원하는 바가 아니죠.
+[calm] Docker Hub는 공개 리포지토리와 비공개 리포지토리를 모두 지원합니다. 앱 이미지를 푸시하기 전에 리포지토리의 공개 설정을 확인하세요.
 
 ## Step 2 · acr
 
 [confident] 해결책은 이렇습니다 — 여러분이 소유한 비공개 장소에 이미지를 두세요.
 [600ms]
-[calm] 이름 앞에 레지스트리의 로그인 서버, contoso dot azure-c-r dot io 를 붙이면, 이제 docker push 는 여러분 자신의 Azure Container Registry 로 곧장 업로드합니다.
+[calm] 이미지 이름 앞에 레지스트리의 로그인 서버 이름을 붙입니다. 이 예에서는 콘토소 점 애저 씨 알 점 아이 오입니다. 이제 docker push가 여러분의 Azure Container Registry로 이미지를 바로 올립니다.
 [700ms]
 [reassuring] 먼저 az acr login 으로 로그인하면 ACR 은 Microsoft Entra ID 로 인증합니다 — 공유 암호가 떠돌아다니지 않죠.
 

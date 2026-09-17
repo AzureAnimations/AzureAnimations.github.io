@@ -4,19 +4,23 @@
 
 ---
 
+<!-- Review source: https://docs.docker.com/docker-hub/repos/ -->
+
+**TTS status:** Audio regenerated 2026-09-17 after text review.
+
 ## Step 1 · dockerhub
 
-[confident] No capítulo anterior você construiu uma imagem chamada contoso-orders version one.
+[confident] No capítulo anterior, você criou a primeira versão da imagem contoso-orders.
 [600ms]
-[curious] E para onde ela vai quando você executa docker push? Se o nome não tiver um registro na frente, o Docker a envia para docker dot io — o Docker Hub público.
+[curious] Para onde o comando docker push envia a imagem? Se o nome não incluir o servidor de um registro, o Docker usa o Docker Hub. Você também precisa de permissão no repositório de destino.
 [700ms]
-[calm] É um bom padrão, mas significa que a sua imagem cai num repositório público — e isso quase nunca é o que você quer para o seu próprio app.
+[calm] O Docker Hub oferece repositórios públicos e privados. Confira a visibilidade do repositório antes de enviar a imagem do seu aplicativo.
 
 ## Step 2 · acr
 
 [confident] Aqui está a solução — coloque a sua imagem num lugar privado que seja seu.
 [600ms]
-[calm] Coloque na frente do nome o servidor de login do seu registro, contoso dot azure-c-r dot io, e agora o docker push envia direto para o seu próprio Azure Container Registry.
+[calm] Acrescente ao início do nome o servidor de login do registro: contoso ponto azure cê erre ponto i ó. Agora o comando docker push envia a imagem diretamente para o seu Azure Container Registry.
 [700ms]
 [reassuring] Você entra primeiro com az acr login, e o ACR autentica com o Microsoft Entra ID — sem senhas compartilhadas circulando por aí.
 

@@ -6,13 +6,15 @@
 
 ---
 
+**TTS status:** Audio regenerated 2026-09-17 after text review.
+
 ## Step 1 · Welcome to the Contoso Delivery Journey
 
 [confident] 환영합니다. 이것은 하나의 실제 프로젝트를, 비즈니스 문제부터 Azure에서 돌아가는 코드까지 끝까지 따라가는 여정입니다.
 [450ms]
 [calm] 한 소매업체가 날씨 때문에 조용히 매출을 잃고 있었습니다. 아무도 알아채지 못했습니다. 숫자를 가진 사람이 없었기 때문입니다.
 [350ms]
-[calm] 일곱 개의 짧은 설명을 거치며 그것을 보드 위의 작업으로 바꾸고, 그중 일부를 GitHub Copilot에 맡기고, 의도를 담아 브랜치를 만들고, 병합 전에 모든 변경을 검증하고, 비밀번호를 어디에도 저장하지 않고 Azure에 배포하게 됩니다.
+[calm] 여섯 개의 짧은 설명을 따라 문제를 보드의 작업으로 정리하고, 일부는 GitHub Copilot에 맡깁니다. 목적에 맞게 브랜치를 만들고, 병합 전에 변경 사항을 검증한 뒤, 비밀번호를 저장하지 않고 Azure에 배포합니다.
 [600ms]
 [serious] 그 전에 한 가지만.
 [300ms]

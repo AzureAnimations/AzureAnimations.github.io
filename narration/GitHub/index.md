@@ -5,13 +5,15 @@
 
 # GitHub · Contoso Delivery — hub welcome
 
+**TTS status:** Audio regenerated 2026-09-17 after text review.
+
 ## Step 1 · Welcome to the Contoso Delivery Journey
 
 [confident] Welcome. This is one real project, followed all the way from a business problem to running code on Azure.
 [450ms]
 [calm] A retailer was quietly losing sales to the weather. Nobody had spotted it, because nobody had the numbers.
 [350ms]
-[calm] Across seven short explainers you will turn that into work on a board, hand a piece of it to GitHub Copilot, branch with intent, prove every change before it merges, and ship it to Azure with no password stored anywhere.
+[calm] Across six short explainers you will turn that into work on a board, hand a piece of it to GitHub Copilot, branch with intent, prove every change before it merges, and ship it to Azure with no password stored anywhere.
 [600ms]
 [serious] One thing before any of that.
 [300ms]

@@ -6,7 +6,7 @@ Source animation: `journeys/AI/Foundry/ChoosingYourSdk.html`
 
 ---
 
-## Step 1 · 3 つの SDK、1 つのアプリケーション
+## Step 1 · Three SDKs, One Application
 
 Azure OpenAI SDK。Foundry SDK。Microsoft Agent Framework。
 [500ms]
@@ -18,7 +18,7 @@ Azure OpenAI SDK。Foundry SDK。Microsoft Agent Framework。
 
 ---
 
-## Step 2 · 1 つのリソース、2 つのエンドポイント
+## Step 2 · One Resource, Two Endpoints
 
 すべてはこの図から導かれます。
 [500ms]
@@ -66,7 +66,7 @@ OpenAI SDK は後者と、Foundry SDK は前者と通信します。Agent Framew
 
 ---
 
-## Step 6 · 三者の関係
+## Step 6 · How They Fit Together
 
 同じ 3 つの SDK を、コンポーネント図として見てみましょう。
 [500ms]
@@ -78,7 +78,7 @@ OpenAI SDK は後者と、Foundry SDK は前者と通信します。Agent Framew
 
 ---
 
-## Step 7 · 実際のアプリケーションでは
+## Step 7 · In a Real Application
 
 これを実際にデプロイしたシステムに置いてみます。
 [500ms]
@@ -90,7 +90,7 @@ API キーではなく DefaultAzureCredential を使ってください。OpenAI 
 
 ---
 
-## Step 8 · では、どれを使う？
+## Step 8 · So Which One Do I Use?
 
 判断はこの表のとおりです。実際に使える形にしてあります。
 [500ms]
@@ -102,7 +102,7 @@ API キーではなく DefaultAzureCredential を使ってください。OpenAI 
 
 ---
 
-## Step 9 · 層を選ぶ
+## Step 9 · Pick Your Layer
 
 ルールはシンプルです。仕事をこなせる一番下の層から始めること。
 [500ms]

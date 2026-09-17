@@ -4,19 +4,23 @@
 
 ---
 
+<!-- Review source: https://docs.docker.com/docker-hub/repos/ -->
+
+**TTS status:** Audio regenerated 2026-09-17 after text review.
+
 ## Step 1 · dockerhub
 
-[confident] En el capítulo anterior construiste una imagen llamada contoso-orders version one.
+[confident] En el capítulo anterior creaste la primera versión de la imagen contoso-orders.
 [600ms]
-[curious] ¿Y adónde va cuando ejecutas docker push? Si el nombre no lleva un registro delante, Docker la envía a docker dot io — el Docker Hub público.
+[curious] ¿Adónde la envía docker push? Si el nombre de la imagen no incluye el servidor de un registro, Docker utiliza Docker Hub. Necesitas permiso para subirla al repositorio de destino.
 [700ms]
-[calm] Es un buen valor por defecto, pero significa que tu imagen aterriza en un repositorio público — y eso casi nunca es lo que quieres para tu propia app.
+[calm] Docker Hub admite repositorios públicos y privados. Comprueba la visibilidad del repositorio antes de subir la imagen de tu aplicación.
 
 ## Step 2 · acr
 
 [confident] Aquí está la solución — coloca tu imagen en un lugar privado que sea tuyo.
 [600ms]
-[calm] Antepón al nombre el servidor de inicio de sesión de tu registro, contoso dot azure-c-r dot io, y ahora docker push la sube directo a tu propio Azure Container Registry.
+[calm] Añade al principio del nombre el servidor de tu registro: contoso punto azure ce erre punto i o. Ahora docker push sube la imagen directamente a tu Azure Container Registry.
 [700ms]
 [reassuring] Primero inicias sesión con az acr login, y ACR se autentica con Microsoft Entra ID — sin contraseñas compartidas dando vueltas.
 
@@ -42,7 +46,7 @@
 [600ms]
 [impressed] Asegura el acceso con roles y tokens de Entra, replica entre regiones, y deja que Microsoft Defender analice cada imagen enviada en busca de vulnerabilidades.
 [700ms]
-[intrigued] Y como es un registro OCI, también guarda gráficos de Helm y otros artefactos — no solo imágenes de contenedor.
+[intrigued] Y como es un registro OCI, también guarda charts de Helm y otros artefactos, no solo imágenes de contenedor.
 
 ## Step 6 · advanced
 

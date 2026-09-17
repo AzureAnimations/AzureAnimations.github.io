@@ -6,13 +6,15 @@ Os títulos `## Step N` permanecem em inglês de propósito (o gerador de áudio
 
 ---
 
+**TTS status:** Audio regenerated 2026-09-17 after text review.
+
 ## Step 1 · Welcome to the Contoso Delivery Journey
 
 [confident] Boas-vindas. Este é um projeto real, acompanhado desde um problema de negócio até o código rodando no Azure.
 [450ms]
 [calm] Um varejista estava perdendo vendas por causa do clima, em silêncio. Ninguém tinha percebido, porque ninguém tinha os números.
 [350ms]
-[calm] Ao longo de sete explicações curtas você vai transformar isso em trabalho num quadro, entregar uma parte ao GitHub Copilot, criar branches com intenção, provar cada mudança antes do merge e publicar no Azure sem guardar nenhuma senha.
+[calm] Ao longo de seis explicações curtas, você vai organizar esse problema em tarefas num quadro, delegar algumas ao GitHub Copilot, criar branches com um objetivo claro, testar cada mudança antes do merge e publicar a aplicação no Azure sem guardar nenhuma senha.
 [600ms]
 [serious] Uma coisa antes de tudo isso.
 [300ms]

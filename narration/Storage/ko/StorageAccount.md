@@ -4,29 +4,33 @@
 
 ---
 
+**TTS status:** Audio regenerated 2026-09-17 after text review.
+
+<!-- Review sources: https://learn.microsoft.com/azure/storage/common/storage-account-overview ; https://learn.microsoft.com/azure/storage/blobs/access-tiers-overview ; https://learn.microsoft.com/azure/storage/blobs/access-tiers-smart -->
+
 ## Step 1 · Overview
 
 [warm] Azure Storage의 기초인 스토리지 계정부터 시작해 보겠습니다.
 [600ms]
-[calm] 이것을 Contoso의 모든 클라우드 데이터 —blob, 파일, 큐, 테이블— 를 단일 네임스페이스와 단일 청구서 아래 담는, 내구성 있는 하나의 집이라고 생각하세요.
+[calm] 스토리지 계정은 Contoso의 저장 데이터에 고유한 네임스페이스를 제공합니다. Standard 범용 버전 이 계정에는 blob, 파일, 큐, 테이블을 저장할 수 있습니다.
 [600ms]
-[confident] 모든 것은 contoso 닷 blob 닷 core 닷 windows 닷 net 같은 하나의 계정 엔드포인트 뒤에 있습니다. 하나의 계정, 하나의 청구서, 여러 서비스 —성능 계층을 한 번 선택한 다음, 워크로드가 필요로 하는 것을 저장하세요.
+[confident] 엔드포인트는 서비스마다 다릅니다. 예를 들어 콘토소 점 블롭 점 코어 점 윈도우즈 점 넷은 Blob용 주소이지, 모든 서비스의 공통 주소가 아닙니다. 워크로드에 필요한 기능을 지원하는 계정 유형을 선택하세요.
 
 ## Step 2 · Standard vs Premium
 
-[confident] 먼저 계정이 얼마나 빨라야 하는지 선택하세요.
+[confident] 먼저 필요한 성능과 지원되는 서비스를 비교하세요.
 [600ms]
-[calm] Standard는 하드 디스크에서 실행되며, 모든 서비스와 모든 액세스 계층을 지원하는 비용 효율적인 범용 스토리지입니다. Premium은 솔리드 스테이트 드라이브에서 실행되어, 앱이 요구할 때 한 자릿수 밀리초의 지연 시간을 제공합니다.
+[calm] Standard 범용 버전 이 계정은 여러 용도에서 우선 검토할 수 있습니다. Premium은 SSD를 사용하며, 일관되게 짧은 지연 시간이나 높은 트랜잭션 처리량이 필요한 워크로드에 적합합니다.
 [600ms]
-[reassuring] Premium은 전용 계정 —block blob, page blob 또는 파일 공유— 으로 제공되며, 원시 용량이 아니라 지연 시간을 위해 선택합니다. 그러니 규칙은 간단합니다. 속도는 Premium, 비용은 Standard.
+[reassuring] Premium 계정은 블록 blob, 페이지 blob 또는 파일 공유에 특화되어 있습니다. 네 가지 서비스를 모두 제공하는 계정은 아닙니다. 속도뿐 아니라 기능과 비용도 함께 비교하세요.
 
 ## Step 3 · Four Data Services
 
-[confident] Standard 계정은 데이터를 저장하는 네 가지 방법을 제공합니다. 작업에 맞는 형태를 선택하세요.
+[confident] Azure Storage는 데이터 유형에 맞춰 선택할 수 있는 네 가지 서비스를 제공합니다.
 [600ms]
-[calm] Blob은 이미지, 비디오, 백업, 문서 같은 대용량 비정형 데이터의 주력입니다. Files는 관리형 S-M-B 및 N-F-S 파일 공유를 제공합니다. Queue는 앱 구성 요소 간에 작은 비동기 메시지를 전달합니다. 그리고 Table은 스키마 없는 NoSQL 키-값 저장소입니다.
+[calm] Blob은 이미지, 동영상, 백업, 문서를 저장합니다. Files는 관리형 파일 공유를 제공하며, N-F-S 공유에는 SSD 스토리지가 필요합니다. Queue는 앱 구성 요소 간에 비동기 메시지를 전달합니다. Table은 고정 스키마 없이 구조화된 NoSQL 데이터를 저장합니다.
 [600ms]
-[impressed] 하나의 계정, 네 가지 서비스 —대부분의 워크로드는 Blob에 의존하고, 나머지 셋이 공유, 메시징, NoSQL을 담당합니다.
+[impressed] 데이터에 맞는 서비스를 고른 뒤, 해당 계정 유형에서 필요한 기능을 사용할 수 있는지 확인하세요.
 
 ## Step 4 · Three Kinds of Blob
 
@@ -38,11 +42,11 @@
 
 ## Step 5 · Access Tiers
 
-[confident] block blob의 경우, 액세스 계층은 스토리지 비용을 읽기 비용 및 최소 보존 기간과 맞바꿉니다.
+[confident] 블록 blob의 액세스 계층은 저장 비용과 검색 비용을 조절하는 선택지입니다. 최소 기간은 요금 계산 기준이며, 그동안 삭제할 수 없다는 뜻은 아닙니다.
 [600ms]
-[calm] Hot은 자주 액세스하는 데이터용으로 최소 기간이 없습니다. Cool은 자주 액세스하지 않는 데이터로 최소 삼십 일입니다. Cold는 거의 액세스하지 않는 데이터로 최소 구십 일입니다. 그리고 Archive는 오프라인이며 가장 저렴합니다 —최소 백팔십 일이며, 읽으려면 리하이드레이션해야 합니다.
+[calm] Standard 범용 버전 이 계정에서 Hot에는 최소 기간 요금이 없습니다. Cool은 삼십 일, Cold는 구십 일, Archive는 백팔십 일입니다. Hot, Cool, Cold는 온라인 상태로 밀리초 단위의 액세스를 제공합니다. Archive는 읽기 전에 리하이드레이션이 필요하며, 몇 시간이 걸릴 수 있습니다.
 [600ms]
-[reassuring] 더 차가운 계층은 저장은 더 싸지만 읽기는 더 비싸고 느리며, 일찍 삭제하면 요금이 부과됩니다. 아니면 새로운 Smart 계층이 실제 사용량에 따라 관리할 수명 주기 규칙 없이 Hot, Cool, Cold 사이에서 데이터를 자동으로 이동하도록 두세요.
+[reassuring] 최소 기간 전에 삭제하거나 계층을 바꾸면 요금이 발생할 수 있습니다. 지원되는 영역 중복 계정에서는 Smart가 대상 블록 blob을 Hot, Cool, Cold 사이에서 자동으로 관리하므로 계층 이동 규칙이 필요 없습니다. Archive는 사용하지 않으며, 요금 체계도 다릅니다.
 
 ## Step 6 · Recap
 
@@ -50,4 +54,4 @@
 [600ms]
 [calm] 성능은 Standard 또는 Premium. 네 가지 서비스는 Blob, File, Queue, Table. 세 가지 blob 유형은 Block, Append, Page. 그리고 다섯 가지 액세스 계층, Hot부터 Archive까지, 여기에 Smart.
 [600ms]
-[encouraging] 항상 워크로드에서 시작하세요. 얼마나 빠르게, 어떤 형태의 데이터를, 얼마나 자주 읽을지 —그러면 청구서가 따라옵니다. 무료 Microsoft Learn 경로 'Azure에 데이터 저장'에서 더 깊이 알아보세요.
+[encouraging] 필요한 성능, 데이터 유형, 액세스 빈도부터 살펴보세요. 이 선택에 따라 사용할 수 있는 기능과 비용이 달라집니다. 무료 Microsoft Learn 학습 경로 'Azure에 데이터 저장'에서 더 알아보세요.

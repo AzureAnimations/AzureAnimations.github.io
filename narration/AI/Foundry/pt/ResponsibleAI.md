@@ -6,7 +6,7 @@ Um bloco por etapa, pareado 1:1 com `STEPS[]`. Os `[NNNms]` são pausas.
 
 ---
 
-## Step 1 · Seis pilares, uma pergunta
+## Step 1 · Six Pillars, One Question
 
 A IA não apenas sugere mais. Ela decide.
 [400ms]
@@ -18,7 +18,7 @@ A Microsoft responde a isso com seis princípios. Não uma lista de verificaçã
 
 ---
 
-## Step 2 · Equidade
+## Step 2 · Fairness
 
 Equidade significa que pessoas semelhantes, em situações semelhantes, têm resultados semelhantes.
 [500ms]
@@ -30,7 +30,7 @@ Por isso equidade não se pressupõe. Ela se mede, grupo a grupo.
 
 ---
 
-## Step 3 · Confiabilidade e segurança
+## Step 3 · Reliability and Safety
 
 Um sistema confiável se comporta de forma previsível — inclusive com as entradas que ninguém planejou.
 [500ms]
@@ -42,7 +42,7 @@ Teste os limites. Falhe com segurança, não em silêncio.
 
 ---
 
-## Step 4 · Privacidade e segurança
+## Step 4 · Privacy and Security
 
 Um sistema de IA só deve usar os dados que a pessoa à sua frente pode ver.
 [500ms]
@@ -52,7 +52,7 @@ Por isso um bom assistente de RH responde “quantos dias de férias ainda tenho
 
 ---
 
-## Step 5 · Inclusão
+## Step 5 · Inclusiveness
 
 A inclusão faz uma pergunta direta: para quem isso não funciona?
 [500ms]
@@ -64,7 +64,7 @@ Ou seja, inclusão não é algo que se acrescenta no fim. Ela aparece em com que
 
 ---
 
-## Step 6 · Transparência
+## Step 6 · Transparency
 
 Transparência significa que as pessoas conseguem entender o que o sistema fez, e por quê.
 [500ms]
@@ -76,7 +76,7 @@ A transparência é o que torna os outros cinco verificáveis.
 
 ---
 
-## Step 7 · Responsabilização
+## Step 7 · Accountability
 
 E este é o que sustenta todos os outros.
 [500ms]
@@ -88,7 +88,7 @@ A responsabilização transforma os outros cinco princípios de boas intenções
 
 ---
 
-## Step 8 · Os seis pilares juntos
+## Step 8 · The Six Pillars Together
 
 Equidade. Confiabilidade e segurança. Privacidade e segurança. Inclusão. Transparência. Responsabilização.
 [600ms]

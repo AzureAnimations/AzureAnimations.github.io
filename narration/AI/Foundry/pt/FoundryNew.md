@@ -7,9 +7,13 @@ Um bloco por etapa da animação.
 
 ---
 
+<!-- Review source: https://learn.microsoft.com/azure/foundry/agents/concepts/what-is-foundry-iq -->
+
+**TTS status:** Audio regenerated 2026-09-17 after text review.
+
 ## Step 1 · The New Foundry Experience
 
-[excited] Este é o novo Microsoft Foundry em A I dot Azure dot com: o lar recomendado e mais organizado para cada novo projeto.
+[excited] Esta é a nova experiência do Microsoft Foundry, em a i ponto Azure ponto com. Um ambiente mais organizado para criar seus projetos.
 
 ## Step 2 · Resources
 
@@ -33,7 +37,7 @@ Um bloco por etapa da animação.
 
 [confident] Mas o Foundry é muito mais do que um catálogo.
 [600ms]
-[impressed] Um ranking compara os modelos por qualidade, custo e throughput; um Agent Service cuida da orquestração, das ferramentas e da memória; o Foundry IQ recomenda; e os Workflows encadeiam pipelines de várias etapas.
+[impressed] Os rankings comparam modelos por qualidade, custo e capacidade de processamento. O Agent Service oferece orquestração, ferramentas e memória. O Foundry IQ recupera informações da sua organização para fundamentar as respostas, e o Workflows conecta processos de várias etapas.
 [600ms]
 [intrigued] Há até o Foundry Local, para executar modelos na sua própria máquina.
 
