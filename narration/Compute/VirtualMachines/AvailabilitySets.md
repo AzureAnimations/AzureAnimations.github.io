@@ -2,61 +2,62 @@
 
 **Source animation:** journeys/Compute/VirtualMachines/AvailabilitySets.html
 
+**Script status:** Authored voiceover.
+
 Delivery cues appear in brackets; pauses are on separate lines.
-Generated from scripts/_vm-journeys/content.mjs.
 
 ## Step 1 · One host, one point of failure
 
-[calm] One host, one point of failure.
+[serious] The shop works, and it runs on exactly one virtual machine.
 [600ms]
-The shop depends on a single VM. A host failure can interrupt the application.
-[600ms]
-[serious] A working VM is not a complete high-availability design.
+[curious] So what happens when the host underneath it fails, or the platform needs to take that host down for maintenance?
+[800ms]
+[calm] The shop goes with it. One machine is one point of failure, however carefully it was built.
 
 ## Step 2 · Prepare another application instance
 
-[calm] Prepare another application instance.
+[confident] The first move is a second machine running the same application.
 [600ms]
-Contoso deploys a second VM and configures the application and load balancing separately.
+[serious] Azure will not copy the shop for you. The team deploys the second VM, installs the application, and puts a load balancer in front of the pair.
 [600ms]
-[serious] Application replicas and load balancing are configured separately.
+[reassuring] Two prepared instances are what every idea in this lesson is built on.
 
 ## Step 3 · Separate fault domains
 
-[calm] Separate fault domains.
+[calm] Now we tell Azure to keep those two machines apart.
 [600ms]
-An availability set distributes VMs across groups of shared hardware dependencies.
+[confident] An availability set spreads them across fault domains, and a fault domain is a group of hardware that shares a power source and a network switch.
 [600ms]
-[serious] Fault and update domains are not availability zones.
+[reassuring] When a rack fails it takes one fault domain with it, and the other instance keeps serving.
 
 ## Step 4 · Separate update domains
 
-[calm] Separate update domains.
+[calm] The same set also arranges the machines into update domains.
 [600ms]
-Update domains group VMs for planned platform maintenance; they are not geographic zones.
+[confident] Planned platform maintenance works through those groups one at a time, so a reboot never lands on every instance at once.
 [600ms]
-[serious] Fault and update domains are not availability zones.
+[serious] Neither of these is an availability zone. Fault and update domains sit inside a single datacenter boundary.
 
 ## Step 5 · A hardware failure unfolds
 
-[calm] A hardware failure unfolds.
+[curious] Step the scenario through and watch the order of events.
 [600ms]
-First the VM fails, then probes detect it. New connections use the remaining healthy instance.
+[serious] First the instance goes down, and only then do the health probes notice and take it out of rotation.
 [600ms]
-[serious] Health detection takes time. Existing connections do not transfer intact.
+[calm] New connections go to the healthy machine. The ones already in flight are simply gone, so the application needs to expect a retry.
 
 ## Step 6 · Know the boundary
 
-[calm] Know the boundary.
+[reflective] It is worth being honest about what this does not cover.
 [600ms]
-Availability sets do not protect against a whole zone outage or fix the guest application.
+[serious] An availability set protects against hardware faults and planned maintenance inside one datacenter boundary. It does nothing for a whole zone going dark, and it will not fix a broken application.
 [600ms]
-[serious] Microsoft recommends VMSS Flexible for broader availability capabilities. Availability sets are not deprecated.
+[confident] Microsoft now recommends a Flexible scale set for wider availability options. Availability sets still work and are not deprecated.
 
 ## Step 7 · Availability Sets - All in One
 
-[calm] Availability Sets - All in One.
+[reflective] Put the pieces together.
 [600ms]
-Fault domains separate hardware risk; update domains separate planned maintenance. The app still needs preparation.
+[confident] Fault domains separate the hardware risk, update domains separate the planned maintenance, and the load balancer sends traffic to whatever is healthy.
 [600ms]
-[serious] Application replicas and load balancing are configured separately.
+[determined] The application, its replicas and its data are still your side of the bargain. Zones come next.

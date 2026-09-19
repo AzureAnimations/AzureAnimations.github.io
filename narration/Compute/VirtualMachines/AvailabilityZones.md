@@ -2,61 +2,62 @@
 
 **Source animation:** journeys/Compute/VirtualMachines/AvailabilityZones.html
 
+**Script status:** Authored voiceover.
+
 Delivery cues appear in brackets; pauses are on separate lines.
-Generated from scripts/_vm-journeys/content.mjs.
 
 ## Step 1 · What if a whole zone fails?
 
-[calm] What if a whole zone fails?
+[curious] Fault domains handled a rack. But what if the problem is bigger than a rack?
+[800ms]
+[serious] Power, cooling or networking can take out an entire datacenter location.
 [600ms]
-Contoso needs separation beyond a shared datacenter infrastructure boundary.
-[600ms]
-[serious] A new zonal design, not an in-place availability-set migration.
+[confident] Availability zones give Contoso separation at that level, and reaching for them means designing the shop again, not converting the availability set in place.
 
 ## Step 2 · Place one VM in a zone
 
-[calm] Place one VM in a zone.
+[calm] Start with a single zonal machine.
 [600ms]
-A zonal VM runs in one selected zone. That choice does not create a second VM.
+[confident] Pinning a VM to a zone tells Azure which physically separate location inside the region to run it in.
 [600ms]
-[serious] Selecting a zone does not create another application instance.
+[serious] That is placement, and placement alone. Choosing a zone does not create a second copy of anything.
 
 ## Step 3 · Prepare VMs across zones
 
-[calm] Prepare VMs across zones.
+[determined] So Contoso builds the second one deliberately.
 [600ms]
-Deploy separate VM and disk pairs in separate zones, with the application ready on each.
+[confident] A machine and its disks in one zone, another machine with its own disks in a second zone, and the application installed and ready on both.
 [600ms]
-[serious] Application replicas and load balancing are configured separately.
+[reassuring] Disks are zonal too, which is why each instance gets its own rather than sharing.
 
 ## Step 4 · Configure resilient routing
 
-[calm] Configure resilient routing.
+[curious] Two prepared machines still need traffic to find them.
+[800ms]
+[confident] A Standard Load Balancer with a zone-redundant frontend survives the loss of any one zone, and keeps sending new connections to backends that pass their health probe.
 [600ms]
-A Standard Load Balancer with a zone-redundant frontend sends new connections to healthy backends.
-[600ms]
-[serious] Zone-redundant frontend
+[reassuring] The frontend is the part that has to be zone-redundant, or you have simply moved the single point of failure.
 
 ## Step 5 · Do not forget the data
 
-[calm] Do not forget the data.
+[serious] This is the step people skip.
 [600ms]
-VMs need a separately resilient data dependency. Their ordinary disks do not replicate the application state.
+[calm] The shop's data lives on ordinary managed disks, and those disks do not replicate the application's state from one zone to the other.
 [600ms]
-[serious] Resilience configured separately
+[confident] Whatever holds the orders, a database or shared storage, needs its own resilience decision, made separately and on purpose.
 
 ## Step 6 · A zone goes unavailable
 
-[calm] A zone goes unavailable.
+[curious] Now take the zone away and follow what happens.
 [600ms]
-With spare capacity and healthy data, new connections use the healthy zone after detection.
+[calm] Probes detect the loss, the frontend stops sending work to that zone, and new connections land on the healthy one.
 [600ms]
-[serious] Assumes spare capacity, healthy data dependencies, and configured health probes.
+[serious] That only holds if there is spare capacity to absorb the traffic, the data dependency is still healthy, and the probes were configured properly.
 
 ## Step 7 · Zonal VMs - All in One
 
-[calm] Zonal VMs - All in One.
+[reflective] Four things carry this design, and they only work together.
 [600ms]
-Separate placement, prepared applications, resilient routing, and a data plan work together.
+[confident] Separate placement, prepared application instances, zone-redundant routing, and a data plan.
 [600ms]
-[serious] Application, data and failover must be prepared.
+[proud] Get all four right and a lost zone becomes a quiet event for Contoso, instead of a closed shop.

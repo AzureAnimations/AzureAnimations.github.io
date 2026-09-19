@@ -2,69 +2,70 @@
 
 **Source animation:** journeys/Compute/VirtualMachines/VirtualMachine.html
 
+**Script status:** Authored voiceover.
+
 Delivery cues appear in brackets; pauses are on separate lines.
-Generated from scripts/_vm-journeys/content.mjs.
 
 ## Step 1 · The shop needs OS control
 
-[calm] The shop needs OS control.
+[curious] Contoso Retail wants to run its online shop on its own terms.
 [600ms]
-Contoso chooses a virtual machine to install and manage its own application stack.
+[confident] A virtual machine gives the team a whole operating system to install, tune and patch exactly the way the application expects.
 [600ms]
-[serious] You manage the guest OS and application. Azure manages the underlying hosts.
+[serious] That control comes with a deal: Azure looks after the physical hosts, and everything inside the guest is yours to manage.
 
 ## Step 2 · Start with an image
 
-[calm] Start with an image.
+[calm] Every machine starts from an image.
 [600ms]
-The image supplies the operating system and the initial software on the OS disk.
+[confident] The image supplies the operating system and the first layer of software, and it lands on the OS disk when the machine is created.
 [600ms]
-[serious] Linux in this example; Windows is another image choice.
+[reassuring] We picked Linux for the shop, and Windows would have been an equally ordinary choice here.
 
 ## Step 3 · Choose a size
 
-[calm] Choose a size.
+[calm] Next comes the size, and the size is a completely separate decision from the image.
 [600ms]
-CPU and memory capacity must match the workload; size is separate from the OS image.
+[confident] It sets how much processor and memory the machine gets, so it has to match what the shop actually needs to serve.
 [600ms]
-[serious] Choose size from workload measurements, regional availability, and budget.
+[serious] Pick it from measurements, from what the region offers, and from the budget. Not from a hunch.
 
 ## Step 4 · Give data a durable home
 
-[calm] Give data a durable home.
+[calm] Now the storage, and the three disks here do genuinely different jobs.
 [600ms]
-Managed OS and data disks have different jobs. Temporary storage is not a durable copy.
+[confident] The OS disk boots the machine, data disks keep the catalogue and the orders, and both are managed disks that survive a restart.
 [600ms]
-[serious] Temporary storage, when provided, is not durable storage.
+[serious] The temporary disk is scratch space. When it exists at all, treat it as something you can lose without noticing.
 
 ## Step 5 · Connect the private network
 
-[calm] Connect the private network.
+[calm] The machine still needs to be reachable.
 [600ms]
-A NIC gives the VM a private IP in a subnet of a virtual network.
+[confident] A network interface gives it a private address inside a subnet of the virtual network, which is where the shop talks to the rest of Contoso.
 [600ms]
-[serious] No public IP is required on this VM. Network security rules still apply.
+[reassuring] No public address is needed for this design, and the network security rules apply either way.
 
 ## Step 6 · Connect, then authenticate
 
-[calm] Connect, then authenticate.
+[curious] So how does an administrator actually get in?
+[800ms]
+[confident] Azure Bastion sits in its own subnet and opens a session straight from the portal, so the machine never needs an address on the internet.
 [600ms]
-Bastion provides a management path. An SSH key authenticates the administrator to Linux.
-[600ms]
-[serious] Bastion Basic in its own subnet; SSH key authenticates to Linux. Connectivity is not permission.
+[serious] Bastion gets you to the door. The SSH key proves who you are. Reaching a machine and being allowed in are two different things.
 
 ## Step 7 · Stopped is not deallocated
 
-[calm] Stopped is not deallocated.
+[serious] Here is the one that shows up on the invoice.
 [600ms]
-The power state changes compute billing. Disks and other provisioned resources remain.
+[confident] Shutting down from inside the guest leaves the machine stopped but still allocated on a host, and compute is still billed.
 [600ms]
-[serious] Pay-as-you-go: compute and disks are billed.
+[reassuring] Deallocating it from Azure releases that hardware and the compute charge stops, though the disks and other resources you kept are still there, and still billed.
 
 ## Step 8 · Your VM - All in One
 
-[calm] Your VM - All in One.
+[reflective] Step back, and one virtual machine is really five decisions that hold together.
 [600ms]
-Image, size, disks, network, and access form one VM deployment. Availability comes next.
+[confident] An image, a size, disks, a network path, and a way to authenticate.
 [600ms]
-[serious] A working VM is not a complete high-availability design.
+[determined] It runs the shop, but it is still one machine on one host. Availability is the next thing to design.

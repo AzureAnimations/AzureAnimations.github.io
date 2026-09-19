@@ -2,69 +2,70 @@
 
 **Source animation:** journeys/Compute/VirtualMachines/VirtualMachineScaleSets.html
 
+**Script status:** Authored voiceover.
+
 Delivery cues appear in brackets; pauses are on separate lines.
-Generated from scripts/_vm-journeys/content.mjs.
 
 ## Step 1 · Demand changes
 
-[calm] A demanda muda.
+[curious] O tráfego da Contoso não é constante: manhãs tranquilas, uma promoção movimentada e uma semana mais calma depois.
+[800ms]
+[serious] Escolher uma máquina enorme para a hora mais exigente significa pagar por essa capacidade o mês inteiro, e ainda correr o risco de errar.
 [600ms]
-A Contoso precisa de capacidade que cresça com a demanda; uma VM grande nem sempre basta.
-[600ms]
-[serious] Política ilustrativa; avaliação, espera, provisionamento e prontidão levam tempo.
+[confident] A loja precisa de capacidade que acompanhe a demanda, em vez de depender apenas de previsões.
 
 ## Step 2 · Manage a group of VMs
 
-[calm] Gerencie um grupo de VMs.
+[calm] Um conjunto de dimensionamento muda a unidade que você administra.
 [600ms]
-Um conjunto gerencia instâncias. A aplicação e o balanceador são configurados separadamente.
+[confident] Em vez de criar máquinas uma por vez, você define a configuração e o conjunto cria e gerencia instâncias a partir dela.
 [600ms]
-[serious] Réplicas e balanceamento são configurados separadamente.
+[serious] Ele gerencia as instâncias. A aplicação e o balanceador de carga à frente delas continuam sendo componentes configurados separadamente.
 
 ## Step 3 · Choose an orchestration mode
 
-[calm] Escolha o modo de orquestração.
+[curious] A primeira decisão importante é o modo de orquestração.
+[800ms]
+[confident] As instâncias de Flexible são recursos comuns de máquina virtual, que podem ser inspecionados e gerenciados individualmente. As de Uniform são específicas do conjunto e administradas como grupo.
 [600ms]
-Flexible usa recursos VM padrão; Uniform usa recursos específicos do conjunto. Seguimos com Flexible.
-[600ms]
-[serious] Escolha o modo na criação; não pode ser alterado depois. Aqui usamos Flexible.
+[serious] O modo é escolhido na criação e não pode ser alterado depois. Aqui seguimos com Flexible, o modo recomendado.
 
 ## Step 4 · Configure a bounded scaling policy
 
-[calm] Configure uma política limitada.
+[calm] Agora configure uma regra para o conjunto seguir.
 [600ms]
-Após a avaliação, a meta é de 2 a 4 VMs. Novas instâncias só recebem tráfego quando estão prontas.
+[confident] Este exemplo mantém entre duas e quatro máquinas. A política adiciona ou remove instâncias conforme a demanda muda.
 [600ms]
-[serious] Política ilustrativa; avaliação, espera, provisionamento e prontidão levam tempo.
+[serious] Nada disso é instantâneo. Avaliar a regra, aguardar o intervalo de resfriamento, provisionar a máquina e confirmar sua prontidão leva tempo. Prepare a capacidade antes do pico.
 
 ## Step 5 · Combine scaling with zone placement
 
-[calm] Combine escala e zonas.
+[calm] Capacidade e localização são decisões diferentes, e um conjunto pode atender às duas.
 [600ms]
-Um conjunto pode abranger zonas quando configurado assim. Capacidade e localização são decisões distintas.
+[confident] Quando configurado para abranger zonas de disponibilidade, ele distribui as instâncias entre essas zonas durante a criação.
 [600ms]
-[serious] A distribuição entre zonas é configurada; um conjunto não zonal não a garante.
+[serious] Essa distribuição precisa ser configurada. Um conjunto não zonal não garante distribuição entre zonas.
 
 ## Step 6 · Separate routing health from repair
 
-[calm] Separe roteamento e reparo.
+[curious] Aqui existem dois mecanismos de integridade com funções diferentes.
 [600ms]
-Sondas orientam o tráfego. Reparos no Flexible usam a extensão Application Health e uma política.
+[confident] As sondas do balanceador decidem para onde vai o tráfego novo. Os reparos automáticos decidem quando substituir uma instância com problemas.
 [600ms]
-[serious] Reparos no Flexible exigem a extensão Application Health e política com período de carência.
+[serious] Em Flexible, os reparos exigem a extensão Application Health e uma política habilitada, com um período de carência para não confundir uma inicialização lenta com uma falha. Alterne os estados e observe as duas respostas.
 
 ## Step 7 · Scale in with the application in mind
 
-[calm] Reduza considerando a aplicação.
+[serious] Reduzir a quantidade de instâncias é a metade que costuma ser esquecida.
 [600ms]
-Antes de remover capacidade, planeje drenagem, terminação e estado durável fora da VM.
+[calm] Quando a regra remove uma instância, o que dependia daquela máquina vai junto, incluindo sessões e dados guardados apenas no disco local.
 [600ms]
-[serious] Planeje a terminação, drene o trabalho e mantenha estado durável fora das VMs descartáveis.
+[determined] Projete para essa remoção: conclua o trabalho pendente, trate a notificação de término e mantenha o estado durável fora da máquina.
 
 ## Step 8 · VM Scale Sets - All in One
 
-[calm] VMSS - Visão completa.
+[reflective] Seis decisões formam um único projeto operacional.
 [600ms]
-Configuração, orquestração, escala, zonas, integridade e dados formam um projeto operacional.
+[confident] A configuração da máquina, o modo de orquestração, a política de dimensionamento, as zonas, a integridade e os reparos, e a localização dos dados.
 [600ms]
-[serious] Prepare aplicação, dados e failover.
+[proud] Juntas, elas permitem que a loja da Contoso cresça durante a promoção e diminua depois, sem alguém precisar vigiar um gráfico à meia-noite.

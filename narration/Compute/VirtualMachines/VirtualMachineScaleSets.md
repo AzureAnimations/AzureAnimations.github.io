@@ -2,69 +2,70 @@
 
 **Source animation:** journeys/Compute/VirtualMachines/VirtualMachineScaleSets.html
 
+**Script status:** Authored voiceover.
+
 Delivery cues appear in brackets; pauses are on separate lines.
-Generated from scripts/_vm-journeys/content.mjs.
 
 ## Step 1 · Demand changes
 
-[calm] Demand changes.
+[curious] Contoso's traffic is not a flat line. Quiet mornings, a busy sale, a slow week after it.
+[800ms]
+[serious] Sizing one big machine for the worst hour means paying for that hour all month, and still guessing wrong.
 [600ms]
-Contoso needs capacity that can grow with demand, without assuming one large VM is always enough.
-[600ms]
-[serious] Illustrative policy; evaluation, cooldown, provisioning and readiness take time.
+[confident] What the shop needs is capacity that follows demand instead of predicting it.
 
 ## Step 2 · Manage a group of VMs
 
-[calm] Manage a group of VMs.
+[calm] A scale set changes the unit you work with.
 [600ms]
-A scale set manages VM instances. Application configuration and the load balancer are separate concerns.
+[confident] Instead of building machines one at a time, you describe the machine once and the scale set creates and manages instances from that configuration.
 [600ms]
-[serious] Application replicas and load balancing are configured separately.
+[serious] It manages the instances. The application on them, and the load balancer in front of them, are still separate pieces you configure.
 
 ## Step 3 · Choose an orchestration mode
 
-[calm] Choose an orchestration mode.
+[curious] The first real decision is the orchestration mode.
+[800ms]
+[confident] Flexible instances are ordinary virtual machine resources you can inspect and manage individually. Uniform instances are scale-set specific and managed strictly as a group.
 [600ms]
-Flexible uses standard VM resources; Uniform uses scale-set-specific VM resources. We continue with Flexible.
-[600ms]
-[serious] Choose orchestration mode at creation; it cannot be changed later. This journey follows Flexible.
+[serious] You choose this at creation and cannot change it afterwards, so it matters. We follow Flexible, which is the recommended mode.
 
 ## Step 4 · Configure a bounded scaling policy
 
-[calm] Configure a bounded scaling policy.
+[calm] Now give the set a rule to follow.
 [600ms]
-This example targets 2 to 4 VMs after policy evaluation. New instances serve traffic only when ready.
+[confident] This example holds between two and four machines, and the policy adds or removes instances as demand moves.
 [600ms]
-[serious] Illustrative policy; evaluation, cooldown, provisioning and readiness take time.
+[serious] None of it is instant. Evaluating the rule, waiting out the cooldown, provisioning a machine and passing readiness all take real minutes, so scale ahead of the rush.
 
 ## Step 5 · Combine scaling with zone placement
 
-[calm] Combine scaling with zone placement.
+[calm] Capacity and placement are different questions, and a scale set can answer both.
 [600ms]
-A scale set can span availability zones when configured that way. Capacity and placement are different decisions.
+[confident] Configure the set to span availability zones, and the instances are spread across them as they are created.
 [600ms]
-[serious] Zone spread is configured; a nonzonal scale set does not guarantee it.
+[serious] It only happens if you ask for it. A scale set that was not made zonal gives you no zone spread at all.
 
 ## Step 6 · Separate routing health from repair
 
-[calm] Separate routing health from repair.
+[curious] Two health mechanisms sit here, and they do different jobs.
 [600ms]
-Load-balancer probes guide traffic. Flexible automatic repairs use the Application Health extension and a repair policy.
+[confident] Load balancer probes decide where new traffic goes. Automatic instance repairs decide when a sick machine gets replaced.
 [600ms]
-[serious] Flexible repairs require the Application Health extension and an enabled repair policy with a grace period.
+[serious] With Flexible, repairs need the Application Health extension and a repair policy that is switched on, with a grace period so a slow start is not mistaken for a failure. Switch between the states to watch both react.
 
 ## Step 7 · Scale in with the application in mind
 
-[calm] Scale in with the application in mind.
+[serious] Scaling in is the half people forget.
 [600ms]
-Before removing excess capacity, design for draining, termination, and durable state outside the VM.
+[calm] When the rule removes an instance, whatever that machine was holding goes with it, including sessions and anything written only to its local disk.
 [600ms]
-[serious] Design for termination, drain work, and keep durable state outside disposable VMs.
+[determined] Design for it: drain the work first, handle the termination signal, and keep durable state off the machine entirely.
 
 ## Step 8 · VM Scale Sets - All in One
 
-[calm] VM Scale Sets - All in One.
+[reflective] Six decisions, one operating design.
 [600ms]
-VM configuration, orchestration, scaling, zone placement, health, and data form one operating design.
+[confident] The VM configuration, the orchestration mode, the scaling policy, zone placement, health and repair, and where the data lives.
 [600ms]
-[serious] Application, data and failover must be prepared.
+[proud] Together they give Contoso a shop that grows for the sale and shrinks afterwards, without anybody watching a graph at midnight.

@@ -2,69 +2,70 @@
 
 **Source animation:** journeys/Compute/VirtualMachines/VirtualMachine.html
 
+**Script status:** Authored voiceover.
+
 Delivery cues appear in brackets; pauses are on separate lines.
-Generated from scripts/_vm-journeys/content.mjs.
 
 ## Step 1 · The shop needs OS control
 
-[calm] 店舗には OS の制御が必要。
+[curious] Contoso Retail は、自社の要件に合わせてオンライン店舗を運営したいと考えています。
 [600ms]
-Contoso は自分でアプリ環境を導入して管理するために VM を選びます。
+[confident] 仮想マシンなら、アプリに必要な構成に合わせて、OS のインストール、調整、更新をチームで管理できます。
 [600ms]
-[serious] ゲスト OS とアプリは利用者が管理し、基盤ホストは Azure が管理します。
+[serious] 自由に設定できる分、責任も伴います。物理ホストは Azure が管理し、ゲスト OS の中は利用者が管理します。
 
 ## Step 2 · Start with an image
 
-[calm] イメージから始める。
+[calm] マシンの出発点はイメージです。
 [600ms]
-イメージは OS ディスクのオペレーティングシステムと初期ソフトウェアを提供します。
+[confident] イメージには OS と初期ソフトウェアが含まれ、マシンの作成時に OS ディスクへ展開されます。
 [600ms]
-[serious] この例は Linux。Windows イメージも選択できます。
+[reassuring] この店舗では Linux を選びましたが、Windows も一般的な選択肢です。
 
 ## Step 3 · Choose a size
 
-[calm] サイズを選ぶ。
+[calm] 次にサイズを選びます。これはイメージとは別の判断です。
 [600ms]
-CPU とメモリを負荷に合わせます。サイズは OS イメージとは別の選択です。
+[confident] サイズによって処理能力とメモリ容量が決まるので、店舗の実際の負荷に合わせる必要があります。
 [600ms]
-[serious] 負荷の測定、リージョンの提供状況、予算に基づいてサイズを選びます。
+[serious] 測定結果、リージョンでの提供状況、予算を基に選びましょう。勘だけでは決めません。
 
 ## Step 4 · Give data a durable home
 
-[calm] データを永続的に保存する。
+[calm] 次はストレージです。ここにある三種類のディスクは、それぞれ役割が違います。
 [600ms]
-OS ディスクとデータディスクは役割が異なります。一時ストレージは永続的な複製ではありません。
+[confident] OS ディスクはマシンを起動し、データディスクは商品カタログや注文を保存します。どちらも再起動後にデータが残るマネージドディスクです。
 [600ms]
-[serious] 一時ストレージがある場合も、永続データの保存先にはできません。
+[serious] 一時ディスクは作業用の領域です。搭載されている場合も、失って困らないデータだけを置きましょう。
 
 ## Step 5 · Connect the private network
 
-[calm] プライベートネットワークに接続。
+[calm] マシンには通信経路も必要です。
 [600ms]
-NIC は仮想ネットワークのサブネット内で VM にプライベート IP を与えます。
+[confident] ネットワークインターフェイスによって、仮想ネットワーク内のサブネットにプライベートアドレスを持ちます。店舗はそこから Contoso のほかのシステムと通信します。
 [600ms]
-[serious] この VM にパブリック IP は不要です。ネットワークのセキュリティ規則は必要です。
+[reassuring] この構成では、マシンにパブリックアドレスは不要です。ただし、ネットワークのセキュリティ規則は必要です。
 
 ## Step 6 · Connect, then authenticate
 
-[calm] 接続と認証を分ける。
+[curious] では、管理者はどうやって接続するのでしょうか。
+[800ms]
+[confident] Azure Bastion を専用サブネットに配置すると、ポータルからセッションを開けます。マシン自体をインターネットに公開する必要はありません。
 [600ms]
-Bastion は管理経路を提供します。SSH キーで Linux の管理者を認証します。
-[600ms]
-[serious] 専用サブネットの Bastion Basic を使用。SSH キーで Linux に認証します。接続と権限は別です。
+[serious] Bastion は接続経路を用意し、SSH キーは本人であることを証明します。マシンに到達できることと、ログインを許可されることは別です。
 
 ## Step 7 · Stopped is not deallocated
 
-[calm] 停止と割り当て解除は別。
+[serious] ここは請求額に直結するポイントです。
 [600ms]
-電源状態でコンピューティングの課金が変わります。ディスクなどのリソースは残ります。
+[confident] ゲスト OS からシャットダウンしても、停止したマシンはホストに割り当てられたままです。そのため、コンピューティングの課金は続きます。
 [600ms]
-[serious] 従量課金: コンピューティングとディスクに課金されます。
+[reassuring] Azure で割り当てを解除すると、ハードウェアが解放され、コンピューティングの従量課金が止まります。ただし、残したディスクなどのリソースには引き続き料金が発生します。
 
 ## Step 8 · Your VM - All in One
 
-[calm] VM - 全体像。
+[reflective] 全体を振り返ると、一台の仮想マシンは五つの判断で成り立っています。
 [600ms]
-イメージ、サイズ、ディスク、ネットワーク、アクセスが一つの VM を構成します。次は可用性です。
+[confident] イメージ、サイズ、ディスク、ネットワーク経路、そして認証方法です。
 [600ms]
-[serious] 動作する VM が一台あるだけでは、高可用性の設計は完成しません。
+[determined] 店舗は動くようになりましたが、まだ一台のホスト上の一台のマシンです。次は可用性を設計しましょう。

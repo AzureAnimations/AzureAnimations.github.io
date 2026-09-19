@@ -2,69 +2,70 @@
 
 **Source animation:** journeys/Compute/VirtualMachines/VirtualMachine.html
 
+**Script status:** Authored voiceover.
+
 Delivery cues appear in brackets; pauses are on separate lines.
-Generated from scripts/_vm-journeys/content.mjs.
 
 ## Step 1 · The shop needs OS control
 
-[calm] 상점에 OS 제어가 필요합니다.
+[curious] Contoso Retail은 자체 요구 사항에 맞게 온라인 상점을 운영하려고 합니다.
 [600ms]
-Contoso는 앱 환경을 직접 설치하고 관리하기 위해 VM을 선택합니다.
+[confident] 가상 머신을 사용하면 애플리케이션에 필요한 대로 운영 체제를 설치하고, 조정하고, 패치할 수 있습니다.
 [600ms]
-[serious] 게스트 OS와 앱은 사용자가, 기반 호스트는 Azure가 관리합니다.
+[serious] 그만큼 책임도 따릅니다. 물리 호스트는 Azure가 관리하고, 게스트 운영 체제 내부는 사용자가 관리합니다.
 
 ## Step 2 · Start with an image
 
-[calm] 이미지로 시작.
+[calm] 모든 머신은 이미지에서 시작합니다.
 [600ms]
-이미지는 OS 디스크의 운영 체제와 초기 소프트웨어를 제공합니다.
+[confident] 이미지는 운영 체제와 초기 소프트웨어를 제공하며, 머신을 만들 때 운영 체제 디스크에 배포됩니다.
 [600ms]
-[serious] 이 예제는 Linux이며 Windows 이미지도 선택할 수 있습니다.
+[reassuring] 이 상점에는 Linux를 선택했지만 Windows도 일반적인 선택지입니다.
 
 ## Step 3 · Choose a size
 
-[calm] 크기 선택.
+[calm] 다음은 크기입니다. 크기는 이미지와 별도로 결정합니다.
 [600ms]
-CPU와 메모리는 워크로드에 맞춰야 합니다. 크기는 OS 이미지와 별개입니다.
+[confident] 머신의 처리 능력과 메모리 용량을 정하므로 상점에서 실제로 필요한 용량에 맞춰야 합니다.
 [600ms]
-[serious] 워크로드 측정, 지역 가용성, 예산에 따라 크기를 선택합니다.
+[serious] 측정 결과, 지역별 제공 여부, 예산을 기준으로 선택하세요. 추측만으로 정하지 마세요.
 
 ## Step 4 · Give data a durable home
 
-[calm] 데이터를 영구 저장.
+[calm] 이제 스토리지입니다. 여기 있는 세 종류의 디스크는 역할이 서로 다릅니다.
 [600ms]
-OS 및 데이터 디스크는 역할이 다릅니다. 임시 스토리지는 영구 복사본이 아닙니다.
+[confident] 운영 체제 디스크는 부팅을 담당하고, 데이터 디스크는 상품 목록과 주문을 저장합니다. 둘 다 재시작해도 데이터가 남는 관리 디스크입니다.
 [600ms]
-[serious] 제공되는 임시 스토리지는 영구 저장소가 아닙니다.
+[serious] 임시 디스크는 작업용 공간입니다. 제공되는 경우에도 없어져도 문제가 없는 데이터만 보관하세요.
 
 ## Step 5 · Connect the private network
 
-[calm] 개인 네트워크 연결.
+[calm] 머신에는 통신할 수 있는 경로도 필요합니다.
 [600ms]
-NIC는 가상 네트워크의 서브넷에서 VM에 개인 IP를 제공합니다.
+[confident] 네트워크 인터페이스는 가상 네트워크의 서브넷 안에서 개인 주소를 제공합니다. 상점은 이 경로로 Contoso의 다른 시스템과 통신합니다.
 [600ms]
-[serious] 이 VM에는 공용 IP가 필요하지 않습니다. 네트워크 보안 규칙은 적용됩니다.
+[reassuring] 이 설계에서는 머신에 공용 주소가 필요하지 않습니다. 그래도 네트워크 보안 규칙은 적용됩니다.
 
 ## Step 6 · Connect, then authenticate
 
-[calm] 연결 후 인증.
+[curious] 그렇다면 관리자는 어떻게 접속할까요?
+[800ms]
+[confident] Azure Bastion을 전용 서브넷에 배치하면 포털에서 세션을 열 수 있습니다. 머신 자체에는 인터넷에 노출되는 주소가 필요하지 않습니다.
 [600ms]
-Bastion은 관리 경로를 제공합니다. SSH 키는 Linux 관리자를 인증합니다.
-[600ms]
-[serious] 전용 서브넷의 Bastion Basic을 사용합니다. SSH 키로 Linux에 인증하며 연결과 권한은 별개입니다.
+[serious] Bastion은 접속 경로를 제공하고, SSH 키는 신원을 증명합니다. 머신에 도달하는 것과 접속 권한을 갖는 것은 다릅니다.
 
 ## Step 7 · Stopped is not deallocated
 
-[calm] 중지와 할당 취소는 다릅니다.
+[serious] 이 차이는 청구서에 그대로 나타납니다.
 [600ms]
-전원 상태에 따라 컴퓨팅 요금이 달라집니다. 디스크와 다른 리소스는 남습니다.
+[confident] 게스트 운영 체제에서 종료하면 머신은 중지되지만 호스트에는 여전히 할당되어 있습니다. 그래서 컴퓨팅 요금이 계속 발생합니다.
 [600ms]
-[serious] 종량제: 컴퓨팅과 디스크에 요금이 부과됩니다.
+[reassuring] Azure에서 할당을 취소하면 하드웨어가 해제되고 컴퓨팅 사용 요금이 중단됩니다. 하지만 남겨 둔 디스크와 다른 리소스는 계속 존재하며 요금이 발생할 수 있습니다.
 
 ## Step 8 · Your VM - All in One
 
-[calm] VM - 전체 보기.
+[reflective] 전체를 보면 가상 머신 하나는 서로 연결된 다섯 가지 결정으로 이루어집니다.
 [600ms]
-이미지, 크기, 디스크, 네트워크, 접근 권한으로 VM을 구성합니다. 다음은 가용성입니다.
+[confident] 이미지, 크기, 디스크, 네트워크 경로, 그리고 인증 방법입니다.
 [600ms]
-[serious] VM 하나가 작동한다고 고가용성 설계가 완성되지는 않습니다.
+[determined] 상점은 실행되지만 아직 호스트 하나의 머신 하나에 의존합니다. 다음은 가용성을 설계할 차례입니다.

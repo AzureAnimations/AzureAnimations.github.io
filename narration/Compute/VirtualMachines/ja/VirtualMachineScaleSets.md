@@ -2,69 +2,70 @@
 
 **Source animation:** journeys/Compute/VirtualMachines/VirtualMachineScaleSets.html
 
+**Script status:** Authored voiceover.
+
 Delivery cues appear in brackets; pauses are on separate lines.
-Generated from scripts/_vm-journeys/content.mjs.
 
 ## Step 1 · Demand changes
 
-[calm] 需要は変わる。
+[curious] Contoso のアクセス数は一定ではありません。静かな朝もあれば、セールの混雑や、その後の落ち着いた週もあります。
+[800ms]
+[serious] 最も忙しい一時間に合わせて大きなマシンを用意すると、その容量に一か月分の料金を払い続けます。それでも予測が外れるかもしれません。
 [600ms]
-Contoso には需要に合わせて増やせる容量が必要です。大きな VM 一台で十分とは限りません。
-[600ms]
-[serious] ポリシーの例です。評価、クールダウン、作成、準備には時間がかかります。
+[confident] 店舗に必要なのは、予測に頼るだけでなく、需要の変化に合わせて増減できる容量です。
 
 ## Step 2 · Manage a group of VMs
 
-[calm] VM のグループを管理。
+[calm] スケールセットでは、管理する単位が変わります。
 [600ms]
-スケール セットは VM インスタンスを管理します。アプリと負荷分散は別途構成します。
+[confident] マシンを一台ずつ作る代わりに構成を定義し、それを基にスケールセットがインスタンスを作成して管理します。
 [600ms]
-[serious] アプリの複製と負荷分散は個別に構成します。
+[serious] 管理するのはインスタンスです。そこで動くアプリや、手前のロードバランサーは、それぞれ別に構成します。
 
 ## Step 3 · Choose an orchestration mode
 
-[calm] オーケストレーションを選ぶ。
+[curious] 最初の重要な選択は、オーケストレーションモードです。
+[800ms]
+[confident] Flexible のインスタンスは通常の仮想マシンリソースなので、個別に確認して管理できます。Uniform はスケールセット専用のリソースをグループとして管理します。
 [600ms]
-Flexible は標準 VM、Uniform はスケール セット専用 VM リソースを使います。以降は Flexible です。
-[600ms]
-[serious] 作成時にモードを選び、後から変更はできません。このコースは Flexible を使います。
+[serious] モードは作成時に選び、後から変更できません。このレッスンでは、推奨されている Flexible を使います。
 
 ## Step 4 · Configure a bounded scaling policy
 
-[calm] 上限と下限のあるポリシー。
+[calm] 次に、セットが従うルールを用意します。
 [600ms]
-評価後の目標は VM 2～4 台です。新しい VM は準備が完了してからトラフィックを受けます。
+[confident] この例では二台から四台の範囲を保ち、需要に応じてポリシーがインスタンスを増減させます。
 [600ms]
-[serious] ポリシーの例です。評価、クールダウン、作成、準備には時間がかかります。
+[serious] どの処理も瞬時には終わりません。ルールの評価、クールダウン、作成、準備完了の確認には時間がかかります。混雑する前に容量を確保しましょう。
 
 ## Step 5 · Combine scaling with zone placement
 
-[calm] スケールとゾーン配置を組み合わせる。
+[calm] 容量と配置は別の問題ですが、スケールセットは両方に対応できます。
 [600ms]
-設定により複数ゾーンに展開できます。容量と配置は別の判断です。
+[confident] 複数の可用性ゾーンを使う構成にすると、作成されるインスタンスがそのゾーンに分散されます。
 [600ms]
-[serious] ゾーン分散は構成が必要です。非ゾーン構成では保証されません。
+[serious] ただし、明示的な構成が必要です。ゾーンを指定しないセットでは、ゾーン間の分散は保証されません。
 
 ## Step 6 · Separate routing health from repair
 
-[calm] 経路の正常性と修復を分ける。
+[curious] ここには、役割の違う二つの正常性の仕組みがあります。
 [600ms]
-プローブは経路を制御します。Flexible の自動修復は Application Health 拡張機能とポリシーを使います。
+[confident] ロードバランサーのプローブは新しい通信の送り先を決めます。自動インスタンス修復は、異常なマシンをいつ置き換えるかを判断します。
 [600ms]
-[serious] Flexible の修復には Application Health 拡張機能と猶予期間付きの修復ポリシーが必要です。
+[serious] Flexible の修復には Application Health 拡張機能と、有効な修復ポリシーが必要です。起動の遅れを障害と誤認しないよう猶予期間も設けます。状態を切り替えて、両方の反応を確認しましょう。
 
 ## Step 7 · Scale in with the application in mind
 
-[calm] アプリを考慮してスケールイン。
+[serious] 忘れられがちなのが、台数を減らすスケールインです。
 [600ms]
-余分な VM を削除する前に、ドレイン、終了処理、VM 外の永続状態を設計します。
+[calm] インスタンスが削除されると、そのマシンに依存するセッションや、ローカルディスクだけに保存したデータも失われます。
 [600ms]
-[serious] 終了を考慮し、処理をドレインし、永続状態は使い捨て VM の外に置きます。
+[determined] 削除を前提に設計しましょう。処理中の仕事を終わらせ、終了通知に対応し、永続的な状態はマシンの外に保存します。
 
 ## Step 8 · VM Scale Sets - All in One
 
-[calm] VM スケール セット - 全体像。
+[reflective] 六つの判断が、一つの運用設計につながります。
 [600ms]
-VM 構成、オーケストレーション、スケール、ゾーン、正常性、データを組み合わせます。
+[confident] マシン構成、オーケストレーション、スケーリングポリシー、ゾーン配置、正常性と修復、そしてデータの保存先です。
 [600ms]
-[serious] アプリ、データ、フェールオーバーの準備が必要です。
+[proud] これらを組み合わせれば、Contoso の店舗はセール中に拡大し、その後は縮小できます。誰かが深夜までグラフを見張る必要も減らせます。

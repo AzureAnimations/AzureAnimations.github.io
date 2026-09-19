@@ -2457,8 +2457,7 @@ function cvLabel(cx, nk, ak){
 		`<text class="cv-desc" x="${cx}" y="124" text-anchor="middle">${t(ak)}</text>`;
 }
 // The stations HOVER above the belt (front face 159–255) so the cargo lane at 288–330 is never
-// covered. Source is the odd one out on purpose: a portrait hopper with a chute, because it is the
-// only station that PUTS something on the line rather than acting on what passes under it.
+// covered. Source and Build have chutes for dropping commits and the combined artifact onto the line.
 const CVTOP=159, CVBOT=255, CVBELT=310;
 function conveyorSvg(){
 	let s=`<svg viewBox="0 0 1240 360" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${t('ovDesc')}">`;
@@ -2470,16 +2469,16 @@ function conveyorSvg(){
 	// painted FIRST so the runner zone reads as background, never as a bracket over the machines
 	s+=`<rect class="cv-hi" data-cv="hi" x="382" y="133" width="788" height="131" rx="16"/>`;
 	s+=`<g class="cv-beltg" data-cv="belt">${isoBox(82,330,1076,28,CVDX,CVDY)}`;
-	s+=`<g data-cv="treads" clip-path="url(#cv-beltclip)">`;
-	for(let x=78; x<1160; x+=34) s+=`<line class="cv-tread" x1="${x}" y1="329" x2="${x+CVDX}" y2="${329+CVDY}"/>`;
-	s+=`</g>`;
+	s+=`<g clip-path="url(#cv-beltclip)"><g data-cv="treads">`;
+	for(let x=44; x<1194; x+=34) s+=`<line class="cv-tread" x1="${x}" y1="329" x2="${x+CVDX}" y2="${329+CVDY}"/>`;
+	s+=`</g></g>`;
 	s+=`<circle class="cv-roller" cx="82" cy="344" r="14"/><circle class="cv-roller" cx="1158" cy="344" r="14"/></g>`;
 	// the reach of each processing station, drawn under the cargo so a box rides through it
 	CVM.slice(1).forEach((M,i)=>{
 		s+=`<polygon class="cv-beam" data-cv="beam" data-b="${i}" style="--ac:${M.col}" opacity="0"` +
 			` points="${M.cx-58},${CVBOT} ${M.cx+58},${CVBOT} ${M.cx+70},${CVBELT} ${M.cx-70},${CVBELT}"/>`;
 	});
-	// Cargo rides the belt in full view; only the Source chute ever covers it.
+	// Cargo rides the belt in full view; the Source and Build chutes hide it during loading.
 	CVCODE.forEach((c,i)=>{
 		s+=`<g class="cv-codeg" data-cv="code" data-i="${i}" opacity="0">${isoBox(207,300,54,30,12,-9)}` +
 			`<text class="cv-boxt" x="234" y="320" text-anchor="middle">${t(c)}</text></g>`;
@@ -2492,12 +2491,13 @@ function conveyorSvg(){
 	});
 	CVM.forEach((M,i)=>{
 		const w = i ? 140 : 108, pw = i ? 116 : 88;
+		const chuteBottom = i ? 270 : 285;
 		s+=`<g class="cv-mach" data-m="${i}" style="--ac:${M.col}">`;
 		s+=cvLabel(M.cx, M.n, M.a);
-		// Source gets its chute first so the casing's front face paints over the join. It stops short of
+		// Source and Build get their chutes first so the casing's front face paints over the join. Each stops short of
 		// the cargo lane, so a box is hidden while inside and fully in view the moment it lands.
-		if(!i) s+=`<polygon class="iso-s" points="${M.cx+42},${CVBOT} ${M.cx+72},${CVBOT-20} ${M.cx+66},265 ${M.cx+36},285"/>` +
-			`<polygon class="iso-f" points="${M.cx-42},${CVBOT} ${M.cx+42},${CVBOT} ${M.cx+36},285 ${M.cx-36},285"/>`;
+		if(i<2) s+=`<polygon class="iso-s" points="${M.cx+42},${CVBOT} ${M.cx+72},${CVBOT-20} ${M.cx+66},${chuteBottom-20} ${M.cx+36},${chuteBottom}"/>` +
+			`<polygon class="iso-f" points="${M.cx-42},${CVBOT} ${M.cx+42},${CVBOT} ${M.cx+36},${chuteBottom} ${M.cx-36},${chuteBottom}"/>`;
 		s+=isoBox(M.cx-w/2, CVTOP, w, 96, CVDX, CVDY);
 		// light control panel on the casing, so the icon and command stay legible
 		s+=`<rect class="cv-panel" x="${M.cx-pw/2}" y="167" width="${pw}" height="80" rx="7"/>`;
@@ -2528,13 +2528,8 @@ function svgType(tl, node, text, pos, dur){
 	tl.to(o, {n:text.length, duration:dur, ease:'none',
 		onUpdate:()=>{ node.textContent=text.slice(0, Math.round(o.n)); }}, pos);
 }
-// ambient loops: the belt runs, and the launched rocket holds altitude
-function startCvLoops(treads, rocket, flames){
-	if(treads){
-		const b=gsap.timeline({repeat:-1}); b.timeScale(2.2); liveTimelines.push(b);
-		// one tread pitch per cycle, so the reset is seamless
-		b.fromTo(treads, {x:0}, {x:34, duration:1.2, ease:'none'});
-	}
+// ambient loops: the launched rocket holds altitude
+function startCvLoops(rocket, flames){
 	// it has already delivered and left the pad — it stays up rather than landing to launch again
 	if(rocket){
 		const r=gsap.timeline({repeat:-1, yoyo:true}); r.timeScale(1.6); liveTimelines.push(r);
@@ -2577,7 +2572,16 @@ function renderOverviewStep(){
 	}
 	gsap.set([...belt,...machs,hiRect],{opacity:0});
 	gsap.set(flames,{opacity:0});
-	const tl=gsap.timeline({onComplete:()=>{ animating=false; startCvLoops(treads, rocket, flames); }}); liveTimelines.push(tl);
+	const tl=gsap.timeline({onComplete:()=>{ animating=false; startCvLoops(rocket, flames); }}); liveTimelines.push(tl);
+	let beltOffset=0;
+	const carry=(cargo,fromX,toX,position)=>{
+		const startOffset=beltOffset;
+		const travel=toX-fromX;
+		beltOffset=(beltOffset+travel)%34;
+		tl.to(cargo, {x:toX, duration:0.9, ease:'none'}, position);
+		tl.fromTo(treads, {x:startOffset}, {x:startOffset+travel, duration:0.9, ease:'none',
+			immediateRender:false, modifiers:{x:value=>`${parseFloat(value)%34}px`}}, '<');
+	};
 	// ten narrative beats would run ~55s at the page default; this is a relative speed-up, so it
 	// still tracks the user's speed control
 	tl.timeScale(2.05);
@@ -2597,19 +2601,23 @@ function renderOverviewStep(){
 	// immediateRender:false — the from-state is opacity 1, which would otherwise paint all three
 	// stacked on the empty stage before the rig has even arrived.
 	codes.forEach((c,i)=>{
-		tl.fromTo(c, {opacity:1,y:-75,x:0}, {y:0,duration:0.5,ease:'bounce.out',immediateRender:false}, i?'-=0.5':'+=0.1');
-		tl.to(c, {x:231-i*62, duration:0.9, ease:'none'}, '-=0.24');
+		tl.fromTo(c, {opacity:1,y:-75,x:0}, {y:0,duration:0.5,ease:'bounce.out',immediateRender:false}, '+=0.1');
+		carry(c, 0, 231-i*72, '+=0.12');
+		tl.to(c, {y:-34, duration:0.4, ease:'power2.out'});
 	});
 	// Build takes the three of them and hands back one artifact
-	beamPulse(tl, 0, '-=0.3');
-	tl.to(codes, {opacity:0, duration:0.25, stagger:0.06}, '-=0.2');
-	tl.fromTo(art, {opacity:0,x:0}, {opacity:1,duration:0.3}, '-=0.1');
-	tl.to(art, {x:223, duration:0.9, ease:'none'});
+	tl.addLabel('combine', '+=0.35');
+	beamPulse(tl, 0, 'combine');
+	tl.to(codes, {x:231, y:-75, duration:0.65, stagger:0.08, ease:'power2.inOut'}, 'combine');
+	tl.set(codes, {opacity:0});
+	tl.addLabel('artifactDrop', '+=0.15');
+	tl.fromTo(art, {opacity:1,x:0,y:-75}, {y:0,duration:0.65,ease:'bounce.out',immediateRender:false}, 'artifactDrop');
+	carry(art, 0, 223, '+=0.12');
 	beamPulse(tl, 1, '-=0.3');
 	// a run that fails its tests is dropped off the line
 	tl.fromTo(rejT, {opacity:0,x:0,y:0,rotation:0}, {opacity:1,duration:0.2}, '+=0.05');
 	tl.to(rejT, {y:110, x:42, rotation:38, opacity:0, duration:0.65, ease:'power1.in'});
-	tl.to(art, {x:448, duration:0.9, ease:'none'}, '-=0.35');
+	carry(art, 223, 448, '-=0.35');
 	// the scan reads it like an X-ray at the airport
 	beamPulse(tl, 2, '-=0.2');
 	tl.fromTo(xray, {opacity:0.85,x:0}, {x:118, duration:0.75, ease:'none', immediateRender:false}, '-=0.3');
@@ -2617,7 +2625,7 @@ function renderOverviewStep(){
 	tl.fromTo(rejS, {opacity:0,x:0,y:0,rotation:0}, {opacity:1,duration:0.2}, '-=0.05');
 	tl.to(rejS, {y:110, x:42, rotation:-32, opacity:0, duration:0.65, ease:'power1.in'});
 	// what survives both gates rides to the pad and leaves with the rocket, which stays airborne
-	tl.to(art, {x:638, duration:0.9, ease:'none'}, '-=0.38');
+	carry(art, 448, 638, '-=0.38');
 	tl.addLabel('launch', '+=0.12');
 	tl.to(flames, {opacity:1, duration:0.3}, 'launch-=0.25');
 	tl.to([art, rocket], {y:-84, duration:1.0, ease:'power1.in'}, 'launch');

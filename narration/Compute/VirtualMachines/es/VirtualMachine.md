@@ -2,69 +2,70 @@
 
 **Source animation:** journeys/Compute/VirtualMachines/VirtualMachine.html
 
+**Script status:** Authored voiceover.
+
 Delivery cues appear in brackets; pauses are on separate lines.
-Generated from scripts/_vm-journeys/content.mjs.
 
 ## Step 1 · The shop needs OS control
 
-[calm] La tienda necesita control del SO.
+[curious] Contoso Retail quiere gestionar su tienda online a su manera.
 [600ms]
-Contoso elige una VM para instalar y administrar su aplicación.
+[confident] Una máquina virtual ofrece al equipo un sistema operativo completo que puede instalar, ajustar y actualizar según las necesidades de la aplicación.
 [600ms]
-[serious] Tú administras el SO invitado y la aplicación; Azure, los hosts.
+[serious] Ese control implica una responsabilidad: Azure se ocupa de los hosts físicos, y tú administras lo que hay dentro del sistema invitado.
 
 ## Step 2 · Start with an image
 
-[calm] Empezar con una imagen.
+[calm] Toda máquina empieza con una imagen.
 [600ms]
-La imagen aporta el sistema operativo y software inicial del disco del SO.
+[confident] La imagen aporta el sistema operativo y el software inicial, que se instalan en el disco del sistema al crear la máquina.
 [600ms]
-[serious] Este ejemplo usa Linux; Windows es otra opción.
+[reassuring] Para la tienda elegimos Linux, pero Windows también sería una opción habitual.
 
 ## Step 3 · Choose a size
 
-[calm] Elegir un tamaño.
+[calm] Después viene el tamaño, una decisión totalmente independiente de la imagen.
 [600ms]
-CPU y memoria deben ajustarse a la carga; el tamaño es independiente de la imagen.
+[confident] Define la capacidad de procesamiento y memoria de la máquina, así que debe ajustarse a lo que la tienda necesita para atender a sus clientes.
 [600ms]
-[serious] Elige el tamaño según la carga, la disponibilidad regional y el presupuesto.
+[serious] Elígelo según las mediciones, la disponibilidad en la región y el presupuesto. No por intuición.
 
 ## Step 4 · Give data a durable home
 
-[calm] Guardar datos de forma duradera.
+[calm] Ahora toca el almacenamiento. Los tres tipos de disco cumplen funciones muy distintas.
 [600ms]
-Los discos del SO y de datos tienen funciones distintas. El almacenamiento temporal no es una copia duradera.
+[confident] El disco del sistema operativo permite arrancar la máquina. Los discos de datos guardan el catálogo y los pedidos. Ambos son discos administrados que conservan los datos tras un reinicio.
 [600ms]
-[serious] El almacenamiento temporal, si existe, no es duradero.
+[serious] El disco temporal es espacio de trabajo desechable. Si la máquina dispone de uno, úsalo solo para datos que puedas perder sin consecuencias.
 
 ## Step 5 · Connect the private network
 
-[calm] Conectar la red privada.
+[calm] La máquina también necesita poder comunicarse.
 [600ms]
-Una NIC da a la VM una IP privada en una subred de la red virtual.
+[confident] Una interfaz de red le da una dirección privada dentro de una subred de la red virtual. Por ahí, la tienda se comunica con el resto de Contoso.
 [600ms]
-[serious] Esta VM no necesita IP pública. Las reglas de seguridad siguen aplicándose.
+[reassuring] Este diseño no necesita una dirección pública en la máquina. Las reglas de seguridad de red se aplican igualmente.
 
 ## Step 6 · Connect, then authenticate
 
-[calm] Conectar y autenticar.
+[curious] Entonces, ¿cómo entra el administrador?
+[800ms]
+[confident] Azure Bastion tiene su propia subred y permite abrir una sesión desde el portal. Así, la máquina no necesita una dirección accesible desde internet.
 [600ms]
-Bastion aporta la ruta de administración. Una clave SSH autentica al administrador en Linux.
-[600ms]
-[serious] Bastion Basic en su subred; la clave SSH autentica en Linux. Conectividad no significa permiso.
+[serious] Bastion te lleva hasta la puerta. La clave SSH demuestra quién eres. Poder llegar a una máquina y tener permiso para entrar son cosas distintas.
 
 ## Step 7 · Stopped is not deallocated
 
-[calm] Detener no es desasignar.
+[serious] Este detalle se nota en la factura.
 [600ms]
-El estado cambia la facturación de cómputo. Los discos y otros recursos permanecen.
+[confident] Apagar desde el sistema invitado deja la máquina detenida, pero todavía asignada a un host. La capacidad de cómputo sigue facturándose.
 [600ms]
-[serious] Pago por uso: se facturan cómputo y discos.
+[reassuring] Desasignarla desde Azure libera ese hardware y detiene el cargo por uso de cómputo. Los discos y los demás recursos que conservas siguen existiendo y pueden seguir generando cargos.
 
 ## Step 8 · Your VM - All in One
 
-[calm] Tu VM - Todo junto.
+[reflective] Al mirar el conjunto, una máquina virtual reúne cinco decisiones relacionadas.
 [600ms]
-Imagen, tamaño, discos, red y acceso forman la VM. Después viene la disponibilidad.
+[confident] Una imagen, un tamaño, los discos, una ruta de red y una forma de autenticarse.
 [600ms]
-[serious] Una VM funcional no es un diseño completo de alta disponibilidad.
+[determined] La tienda ya funciona, pero sigue dependiendo de una sola máquina en un solo host. Lo siguiente es diseñar su disponibilidad.
