@@ -1614,8 +1614,33 @@ function renderJourneyStep(index) {
             timeline.fromTo(wire,{strokeDasharray:length,strokeDashoffset:length,opacity:connectedReveal?0:1},{strokeDashoffset:0,opacity:1,duration:.3,ease:'power1.inOut',clearProps:'strokeDasharray,strokeDashoffset'},wireStart);
         }
     }
+    centreJourneyMap();
     fitScene(journeyScene);
     broadcastJourneyState(index);
+}
+
+// The map is a fixed 1160x410 canvas and each step places its cards at authored coordinates, so a
+// step that only uses part of the canvas renders hard against one edge with dead space opposite.
+// Shift the whole canvas (cards AND the connector layer together, so wire geometry is untouched)
+// to sit the step's artwork in the middle of the frame.
+function centreJourneyMap() {
+    const map = journeyScene?.querySelector('.journey-map');
+    // the reading layout is a flow column, not an absolute canvas — nothing to centre
+    if (!map || document.body.classList.contains('fundamentals-reading')) return;
+    map.style.transform = '';
+    const parts = [...map.querySelectorAll('.journey-node,.journey-zone')]
+        .filter(el => el.offsetWidth > 0 && el.offsetHeight > 0 && Number(getComputedStyle(el).opacity) > .01);
+    if (!parts.length) return;
+    let top = Infinity, bottom = -Infinity, left = Infinity, right = -Infinity;
+    for (const el of parts) {
+        top = Math.min(top, el.offsetTop); bottom = Math.max(bottom, el.offsetTop + el.offsetHeight);
+        left = Math.min(left, el.offsetLeft); right = Math.max(right, el.offsetLeft + el.offsetWidth);
+    }
+    // offsetTop/Left are layout px, so this is immune to the fitScene scale applied further up
+    const dy = Math.round((map.offsetHeight - (bottom - top)) / 2 - top);
+    const dx = Math.round((map.offsetWidth - (right - left)) / 2 - left);
+    const shiftX = Math.abs(dx) > 8 ? dx : 0, shiftY = Math.abs(dy) > 8 ? dy : 0;
+    if (shiftX || shiftY) map.style.transform = `translate(${shiftX}px, ${shiftY}px)`;
 }
 
 function journeyChoices(name,keys,value) {
