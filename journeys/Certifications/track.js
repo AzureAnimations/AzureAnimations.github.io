@@ -16,7 +16,7 @@
 	h += '<a class="band-back" href="index.html">&larr;&nbsp; All certification paths</a>';
 	h += '<div class="band-kick">' + esc(T.kicker) + '</div>';
 	h += '<h1>' + esc(T.headline) + '</h1>';
-	h += '<p class="tag">' + esc(T.tagline) + '</p>';
+	h += '<p class="track-tagline">' + esc(T.tagline) + '</p>';
 	h += '<div class="who">' + T.who.map(function (w) { return '<span>' + esc(w) + '</span>'; }).join('') + '</div>';
 	h += '</div><div class="stats">';
 	h += T.stats.map(function (s) { return '<div class="stat"><b>' + esc(s.n) + '</b><span>' + esc(s.l) + '</span></div>'; }).join('');

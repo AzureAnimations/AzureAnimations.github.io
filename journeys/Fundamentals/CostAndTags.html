@@ -1353,14 +1353,16 @@ function buildJourneyMap(frame=LESSON) {
     const lines = document.createElementNS('http://www.w3.org/2000/svg','svg');
     lines.setAttribute('viewBox',`0 0 1160 ${frame.mapHeight||LESSON.mapHeight||410}`);
     lines.setAttribute('aria-hidden','true');
+    // a dot end-marker reads as "belongs to" where an arrowhead would imply flow
+    const journeyDot='<marker id="journey-dot" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" refX="11" refY="6" orient="auto"><circle cx="6" cy="6" r="5" fill="context-stroke" stroke="none"/></marker>';
     lines.innerHTML=LESSON.file.startsWith('journeys/Fundamentals/')
-        ? '<defs><marker id="journey-arrow" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" refX="10" refY="5" orient="auto"><path d="M0 1L10 5L0 9Z" fill="context-stroke" stroke="none"/></marker></defs>'
-        : '<defs><marker id="journey-arrow" markerUnits="userSpaceOnUse" markerWidth="15" markerHeight="15" refX="13" refY="7" orient="auto"><path d="M1 1L13 7L1 13" fill="none" stroke="context-stroke" stroke-width="2"/></marker></defs>';
+        ? '<defs><marker id="journey-arrow" markerUnits="userSpaceOnUse" markerWidth="20" markerHeight="18" refX="18" refY="9" orient="auto"><path d="M2 1L18 9L2 17Z" fill="context-stroke" stroke="none"/></marker>'+journeyDot+'</defs>'
+        : '<defs><marker id="journey-arrow" markerUnits="userSpaceOnUse" markerWidth="15" markerHeight="15" refX="13" refY="7" orient="auto"><path d="M1 1L13 7L1 13" fill="none" stroke="context-stroke" stroke-width="2"/></marker>'+journeyDot+'</defs>';
     for(const wire of frame.wires) {
         const element = document.createElementNS('http://www.w3.org/2000/svg','path');
         element.setAttribute('d',wire.path); element.setAttribute('class','journey-wire');
         if(['modelVm','policyVm','healthVm','imageVm','sizeVm'].includes(wire.id)) element.classList.add('is-config');
-        if(!wire.noArrow) element.setAttribute('marker-end','url(#journey-arrow)');
+        if(!wire.noArrow) element.setAttribute('marker-end','url(#'+(wire.dot?'journey-dot':'journey-arrow')+')');
         element.dataset.part=wire.id;
         lines.appendChild(element);
         if(wire.label) {
@@ -1488,10 +1490,18 @@ function renderJourneyStep(index) {
         const wireStart=connectedReveal?Math.max(.2,.33+Math.max(0,nodes.length-1)*.045):.2;
         const inside=selector=>nodes.flatMap(node=>[...node.querySelectorAll(selector)]);
         const reveal=(targets,from,to,at)=>{if(targets.length) timeline.fromTo(targets,from,{...to,clearProps:'transform'},at);};
+        // An optional `beat` on a part sequences a step by meaning rather than document order, so a
+        // dense closing diagram assembles as a reader would trace it. Steps without beats are unchanged.
+        const beats=new Map([...frame.zones,...frame.nodes,...frame.wires].map(part=>[part.id,part.beat||0]));
+        const beatOf=element=>beats.get(element.dataset.part)||0;
+        const sequenced=fresh.some(element=>beatOf(element));
+        const beatAt=(element,offset)=>beatOf(element)*.09+offset;
         // cards drift in from the side of the frame they occupy, so the diagram assembles outward from the centre
         for(const node of nodes) node.dataset.side=parseFloat(node.style.left||0)+node.offsetWidth/2<580?'-1':'1';
-        reveal(zones,{opacity:0,scale:.94},{opacity:1,scale:1,duration:.3,transformOrigin:'50% 50%',stagger:.045,ease:'power2.out'},0);
-        if(nodes.length) timeline.fromTo(nodes,{opacity:0,y:20,x:(index,target)=>18*Number(target.dataset.side),scale:.97},{opacity:1,y:0,x:0,scale:1,duration:.3,stagger:.045,ease:'back.out(1.3)',clearProps:'transform'},.03);
+        if(sequenced) for(const zone of zones) timeline.fromTo(zone,{opacity:0},{opacity:1,duration:.28,ease:'power2.out',clearProps:'transform'},beatAt(zone,0));
+        else reveal(zones,{opacity:0,scale:LESSON.stableLayout?1:.94},{opacity:1,scale:1,duration:.3,transformOrigin:'50% 50%',stagger:.045,ease:'power2.out'},0);
+        if(sequenced) for(const node of nodes) timeline.fromTo(node,{opacity:0,y:12,scale:.98},{opacity:1,y:0,scale:1,duration:.26,transformOrigin:'50% 50%',ease:'back.out(1.6)',clearProps:'transform'},beatAt(node,.05));
+        else if(nodes.length) timeline.fromTo(nodes,{opacity:0,y:LESSON.stableLayout?0:20,x:(index,target)=>LESSON.stableLayout?0:18*Number(target.dataset.side),scale:LESSON.stableLayout?1:.97},{opacity:1,y:0,x:0,scale:1,duration:.3,stagger:.045,ease:'back.out(1.3)',clearProps:'transform'},.03);
         reveal(inside('.jn-emoji'),{scale:0,rotate:-18},{scale:1,rotate:0,duration:.36,transformOrigin:'50% 50%',stagger:.045,ease:'back.out(2.2)'},.1);
         reveal(inside('.story-emoji>span'),{opacity:0,y:16,scale:.8},{opacity:1,y:0,scale:1,duration:.32,transformOrigin:'50% 50%',stagger:.05,ease:'back.out(1.8)'},.12);
         // the ownership stack builds from the physical layer up, matching how the boundary moves between models
@@ -1507,34 +1517,33 @@ function renderJourneyStep(index) {
         if(LESSON.frames) for(const meter of journeyScene.querySelectorAll('.story-meter>span')) timeline.from(meter,{scaleX:0,transformOrigin:'left',duration:.42,ease:'power2.out'},.15);
         for(const wire of wires) {
             const length=wire.getTotalLength();
-            timeline.fromTo(wire,{strokeDasharray:length,strokeDashoffset:length,opacity:connectedReveal?0:1},{strokeDashoffset:0,opacity:1,duration:.3,ease:'power1.inOut',clearProps:'strokeDasharray,strokeDashoffset'},wireStart);
+            timeline.fromTo(wire,{strokeDasharray:length,strokeDashoffset:length,opacity:connectedReveal?0:1},{strokeDashoffset:0,opacity:1,duration:.3,ease:'power1.inOut',clearProps:'strokeDasharray,strokeDashoffset'},sequenced?beatAt(wire,0):wireStart);
         }
     }
-    centreJourneyMap();
+    centreJourneyMap(frame);
     fitScene(journeyScene);
     broadcastJourneyState(index);
 }
 
-// The map is a fixed 1160x410 canvas and each step places its cards at authored coordinates, so a
-// step that only uses part of the canvas renders hard against one edge with dead space opposite.
-// Shift the whole canvas (cards AND the connector layer together, so wire geometry is untouched)
-// to sit the step's artwork in the middle of the frame.
-function centreJourneyMap() {
+// The map is a fixed 1160-wide canvas and each step places its cards at authored coordinates, so a
+// lesson that only uses part of the canvas renders hard against one edge with dead space opposite.
+// Shift the whole canvas (cards AND the connector layer together, so wire geometry is untouched).
+// The offset comes from EVERY authored part, not the ones visible right now, so it is identical on
+// every step — a card never moves as later cards appear around it.
+function centreJourneyMap(frame) {
     const map = journeyScene?.querySelector('.journey-map');
     // the reading layout is a flow column, not an absolute canvas — nothing to centre
-    if (!map || document.body.classList.contains('fundamentals-reading')) return;
+    if (!map || !frame || document.body.classList.contains('fundamentals-reading')) return;
     map.style.transform = '';
-    const parts = [...map.querySelectorAll('.journey-node,.journey-zone')]
-        .filter(el => el.offsetWidth > 0 && el.offsetHeight > 0 && Number(getComputedStyle(el).opacity) > .01);
+    if (LESSON.stableLayout) return;
+    // the experiment steps hide the map, and a zero-size box would yield a nonsense offset
+    if (!map.offsetWidth || !map.offsetHeight) return;
+    const parts = [...frame.zones, ...frame.nodes].filter(part => [part.x, part.y, part.w, part.h].every(Number.isFinite));
     if (!parts.length) return;
-    let top = Infinity, bottom = -Infinity, left = Infinity, right = -Infinity;
-    for (const el of parts) {
-        top = Math.min(top, el.offsetTop); bottom = Math.max(bottom, el.offsetTop + el.offsetHeight);
-        left = Math.min(left, el.offsetLeft); right = Math.max(right, el.offsetLeft + el.offsetWidth);
-    }
-    // offsetTop/Left are layout px, so this is immune to the fitScene scale applied further up
-    const dy = Math.round((map.offsetHeight - (bottom - top)) / 2 - top);
+    const left = Math.min(...parts.map(part => part.x)), right = Math.max(...parts.map(part => part.x + part.w));
+    const top = Math.min(...parts.map(part => part.y)), bottom = Math.max(...parts.map(part => part.y + part.h));
     const dx = Math.round((map.offsetWidth - (right - left)) / 2 - left);
+    const dy = Math.round((map.offsetHeight - (bottom - top)) / 2 - top);
     const shiftX = Math.abs(dx) > 8 ? dx : 0, shiftY = Math.abs(dy) > 8 ? dy : 0;
     if (shiftX || shiftY) map.style.transform = `translate(${shiftX}px, ${shiftY}px)`;
 }
@@ -1630,6 +1639,7 @@ function applyJourneyState(index) {
 }
 function fitJourneyText() {
     if(LESSON.frames) return;
+    if(LESSON.stableLayout) reserveJourneyLayout();
     for(const element of journeyScene.querySelectorAll('.journey-node')) {
         const content=element.querySelector('div');
         const title=element.querySelector('.jn-title');
@@ -1640,6 +1650,32 @@ function fitJourneyText() {
         const room=element.clientHeight-28;
         while(content.scrollHeight>room&&factor>.78) {factor-=.025;title.style.fontSize=titleSize*factor+'px';sub.style.fontSize=subSize*factor+'px';}
     }
+}
+function reserveJourneyLayout() {
+    const signature=[currentLang,innerWidth,journeyScene.clientWidth,getComputedStyle(document.documentElement).fontSize].join(':');
+    if(journeyScene.dataset.layoutSignature===signature) return;
+    for(const selector of ['.scene-title','.scene-lead','.journey-footer']) {
+        const element=journeyScene.querySelector(selector);
+        element.style.minHeight='';
+        const probe=element.cloneNode(true);
+        probe.setAttribute('aria-hidden','true');
+        Object.assign(probe.style,{position:'absolute',visibility:'hidden',pointerEvents:'none',width:element.offsetWidth+'px',height:'auto',minHeight:'0',transform:'none',animation:'none'});
+        journeyScene.appendChild(probe);
+        let height=element.offsetHeight;
+        for(const [index,step] of STEPS.entries()) {
+            if(selector==='.journey-footer') {
+                const note=probe.querySelector('.journey-note');
+                note.textContent=LESSON.notes[index]===null?'':t(LESSON.notes[index]);
+                note.hidden=!note.textContent;
+                const recap=index===STEPS.length-1;
+                for(const target of probe.querySelectorAll('.journey-upnext,#jn-cta,.journey-source')) target.hidden=!recap;
+            } else probe.textContent=t(selector==='.scene-title'?step.titleKey:step.descKey);
+            height=Math.max(height,probe.offsetHeight);
+        }
+        probe.remove();
+        element.style.minHeight=(height+1)+'px';
+    }
+    journeyScene.dataset.layoutSignature=signature;
 }
 function fitFundamentalsScene(scene) {
     if(!LESSON.frames) return false;
