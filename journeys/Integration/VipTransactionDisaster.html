@@ -1,0 +1,2979 @@
+<!DOCTYPE html>
+<!-- Narration script: /narration/Integration/VipTransactionDisaster.md -->
+<!--
+	Azure Animations — STARTER TEMPLATE
+	====================================
+	Copy this file to <Area>/<Sub>/YourTopic.html (e.g. AI/Foundry/MyTopic.html) and:
+	  1. Set <title>, #page-title, and the back-link href.
+	  2. Rename/expand the sample steps. Each STEPS[] entry pairs with one
+	     render<Xxx>Step(). The samples demonstrate the reusable building blocks —
+	     delete the ones you don't need, they are all optional:
+	       • PROBLEM   — a centered hero .card
+	       • FLOW      — a .ta-flow of .agent-node boxes joined by .ta-arrow (input → process → output)
+	       • CODE      — a VS Code-style .code-card (use .code-duo for a request/response pair)
+	       • USE CASES — a .uc-grid of .uc-card tiles
+	       • RECAP     — a .card + .value-chip row + closing line
+	  3. Fill the English I18N block, then add es/ja/ko/pt (full objects OR the
+	     { ...I18N.en, overrides } spread) and matching <option>s in #lang-select.
+	  4. Prefer Microsoft Fluent icons/emoji over raw OS emoji for anything shown
+	     on a projector. Source priority: Azure service icons (local lib
+	     ../../lib/icons/…) → Fluent System Icons → Fluent UI Emoji → Fluent Emoji
+	     Animated → Twemoji (last resort, CC-BY).
+	  5. Run the Definition-of-Done checklist before publishing.
+
+	DESIGN NOTES
+	  • Accent colour is --theme-tertiary (Microsoft purple #5c2d91); primary blue
+	    and green (#10a37f) act as secondary / positive accents.
+	  • The bottom #controls is a compact translucent "icon dock" of glyph-only
+	    buttons; their localized labels live in the tooltip (title), set in setLanguage().
+	  • Audio narration is optional: list one clip per step (in order) in AUDIO_FILES[]
+	    and an Audio toggle appears automatically. Present mode (dual-window) ships via
+	    aw-present.js at the bottom — it self-installs a "Present" button in the header.
+
+	NOTE: the ../../lib/ and ../../../img/ paths assume this file lives two levels
+	under static/v2/ (e.g. static/v2/AI/Foundry/). Adjust depth if you move it.
+-->
+<html lang="en">
+<head>
+	<script src="/js/tracking.js"></script>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+	<title>Episode 2 · The VIP Transaction Disaster — Azure Animations</title>
+	<meta name="description" content="A VIP order and its cancellation arrive one second apart — and a simple queue processes them backwards. An animated explainer on Azure Service Bus sessions, peek-lock, dead-lettering and topics." />
+
+	<link rel="stylesheet" href="https://unpkg.com/@microsoft/atlas-css/dist/index.css" />
+	<script src="../../lib/vendor/gsap-3.15.0.min.js"></script>
+
+	<!-- AnimationWorks shared lib -->
+	<script src="../../lib/js/aw-easings.js"></script>
+	<script src="../../lib/js/aw-motion.js"></script>
+	<script src="../../lib/js/aw-theme.js"></script>
+	<script src="../../lib/js/aw-keyboard.js"></script>
+	<script src="../../lib/js/aw-captions.js"></script>
+
+<style>
+	/* ── SHELL ─────────────────────────────── */
+	/* Brand palette — reference these tokens; don't hardcode hex */
+	:root {
+		--aw-purple:#5c2d91;   /* primary accent — titles, callouts, arrows, progress, agents */
+		--aw-blue:#0078d4;     /* secondary — inputs, links, "the model", primary button */
+		--aw-green:#0a7a5e;    /* positive — deep enough to read as text and under white on a filled chip */
+		--aw-orange:#c2410c;   /* tools / actions — deep enough to read as border AND as text on white */
+		--aw-pink:#d24aa8;     /* highlight — a fourth category / emphasis */
+		--aw-red:#b3282c;      /* failure ink — deep enough to read as text on a pale red tint */
+	}
+	/* Lifted variants so the same tokens stay legible as text and borders on the dark page. */
+	body.theme-dark {
+		--aw-purple:#c9a5e8;
+		--aw-blue:#5cb3f5;
+		--aw-green:#4fd1a5;
+		--aw-orange:#f0a35e;
+		--aw-pink:#e88cc8;
+		--aw-red:#ff8a80;
+	}
+	html, body { height:100%; margin:0; }
+	html { font-size:100%; }
+	body {
+		display:flex; flex-direction:column; height:100vh;
+		overflow:hidden;
+		font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif;
+		color: var(--theme-text);
+		background: var(--theme-body-background);
+	}
+	.app-header { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:1rem; flex-shrink:0; font-size:16px; }
+	.app-header > :last-child { justify-self:end; }
+
+	/* #stage fills the space between the top bar and the control dock, and centers the fixed 16:9 frame. */
+	#stage {
+		position:relative; flex:1 1 auto; width:100%; min-height:0;
+		display:flex; align-items:center; justify-content:center;
+		overflow:hidden; container-type:size;
+		padding:1.75rem 2.75rem 5rem;   /* breathing room around the frame; bottom clears the fixed #controls dock */
+	}
+	#stage:focus-visible, button:focus-visible, a:focus-visible, select:focus-visible {
+		outline:2px solid var(--theme-primary, #0078d4); outline-offset:3px; border-radius:4px;
+	}
+	/* The visible rectangle: the largest 16:9 box that fits the stage. All scenes are drawn inside it. */
+	#stage-frame {
+		position:relative; overflow:hidden;
+		width: min(100cqw, calc(100cqh * 16 / 9));
+		aspect-ratio: 16 / 9; max-width:100%; max-height:100%;
+		border-radius:16px;
+		background: rgba(0,0,0,0.015);
+		box-shadow: 0 12px 44px rgba(0,0,0,0.22);
+	}
+	body.theme-dark #stage-frame { background: rgba(255,255,255,0.025); }
+	#stage-frame { border:1px solid var(--theme-border); }
+	#fx-svg { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:6; overflow:visible; }
+
+	/* ── SCENE ─────────────────────────────── */
+	.scene {
+		position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+		transform-origin:center center;
+		width:min(1150px, 96%); z-index:10;
+		display:flex; flex-direction:column; align-items:center; gap:1.4rem;
+	}
+	/* 200ms fade in / out between every step */
+	@keyframes awSceneIn { from { opacity:0; } to { opacity:1; } }
+	@keyframes awSceneOut { from { opacity:1; } to { opacity:0; } }
+	.scene.scene-in { animation: awSceneIn 0.2s ease both; }
+	.scene.scene-out { animation: awSceneOut 0.2s ease both; }
+	.scene-title { font-size:2.5rem; font-weight:700; color:var(--theme-tertiary, #5c2d91); margin:0; text-align:center; opacity:0; }
+	body.theme-dark .scene-title { color:#c9a5e8; }
+	/* lead spans wide (near the scene width) to use the side gutters and stay within 2 lines — trim copy if it wraps to 3 */
+	.scene-lead { margin:0; text-align:center; font-size:1.35rem; color:var(--theme-text); max-width:min(1180px,96%); line-height:1.5; opacity:0; }
+
+	/* ── CALLOUT · draggable, slightly see-through so it never fully blocks the diagram ── */
+	.callout {
+		position:absolute; max-width:340px; padding:1rem 1.2rem;
+		background:var(--theme-body-background);
+		background:color-mix(in srgb, var(--theme-body-background) 84%, transparent);
+		-webkit-backdrop-filter:blur(5px); backdrop-filter:blur(5px);
+		border:1px solid var(--theme-border);
+		border-left:4px solid var(--theme-tertiary, #5c2d91); border-radius:6px;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2));
+		font-size:1.05rem; line-height:1.45; z-index:14; opacity:0;
+		cursor:grab; touch-action:none;
+	}
+	.callout:active { cursor:grabbing; }
+
+	/* ── RESET "PIN" · appears on a draggable panel once it has been moved off its home spot ── */
+	.aw-drag-reset {
+		position:absolute; width:24px; height:24px; padding:0; display:none;
+		align-items:center; justify-content:center; border-radius:50%;
+		background:var(--theme-tertiary,#5c2d91); color:#fff;
+		border:2px solid var(--theme-body-background,#fff);
+		box-shadow:0 2px 7px rgba(0,0,0,0.4); cursor:pointer; z-index:6;
+		opacity:0.92; transition:opacity .14s ease, transform .14s ease;
+	}
+	.aw-drag-reset:hover { opacity:1; transform:scale(1.08); }
+	.aw-drag-reset:focus-visible { outline:2px solid #5cc8ff; outline-offset:2px; }
+	.aw-drag-reset svg { width:13px; height:13px; display:block; }
+
+	/* ══════════════════════════════════════════════════════════ */
+	/* ── REUSABLE BUILDING BLOCKS · keep what you use, drop rest ─ */
+	/* ══════════════════════════════════════════════════════════ */
+
+	/* Centered hero card */
+	.card {
+		width:min(680px, 96%); padding:1.6rem 1.8rem; border-radius:16px;
+		background:var(--theme-card-background, #fff); border:2px solid var(--theme-border);
+		box-shadow:0 8px 28px rgba(0,0,0,0.14); opacity:0;
+		display:flex; flex-direction:column; gap:0.6rem; align-items:center; text-align:center;
+	}
+	body.theme-dark .card { background:#2a2b34; }
+	.card .card-icon { font-size:3rem; line-height:1; }
+	.card .card-h { font-size:1.4rem; font-weight:700; }
+	.card .card-p { font-size:1.05rem; color:var(--theme-text-subtle); line-height:1.5; }
+
+	/* Wide info panel */
+	.ta-card {
+		width:min(1080px, 98%); border:1.5px solid var(--theme-border); border-radius:14px;
+		background:var(--theme-card-background, #fff); box-shadow:0 8px 30px rgba(0,0,0,0.16);
+		padding:1.1rem 1.3rem; opacity:0;
+	}
+	body.theme-dark .ta-card { background:#2a2b34; }
+	.ta-card-head {
+		display:flex; align-items:center; gap:0.5rem;
+		font-size:1rem; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;
+		color:var(--theme-text-subtle); margin-bottom:0.6rem;
+	}
+	.ta-card-text { font-size:1.22rem; line-height:1.55; color:var(--theme-text); }
+
+	/* Pills / chips */
+	.chip-row { display:flex; flex-wrap:wrap; gap:0.7rem; justify-content:center; }
+	.pill {
+		display:inline-flex; align-items:center; gap:0.5rem; padding:0.55rem 1.1rem;
+		border-radius:999px; font-size:1.05rem; font-weight:600;
+		border:2px solid var(--theme-tertiary, #5c2d91); background:rgba(92,45,145,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .pill { background:rgba(92,45,145,0.2); }
+	.value-chip {
+		display:inline-flex; align-items:center; gap:0.4rem; padding:0.5rem 1rem;
+		border-radius:999px; font-size:1rem; font-weight:700;
+		border:2px solid #107c10; background:rgba(16,124,16,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .value-chip { background:rgba(16,124,16,0.16); }
+	/* Running recap: what the learner has already covered in this episode, shown on every step so
+	   the story stays followable without scrolling back. Built from each step's `short` label. */
+	.cr-sofar { display:flex; flex-wrap:wrap; justify-content:center; gap:0.4rem; margin-top:0.35rem; }
+	.cr-sofar-item {
+		display:inline-flex; align-items:center; gap:0.3rem; padding:0.2rem 0.7rem;
+		border-radius:999px; font-size:0.82rem; line-height:1.3; white-space:nowrap;
+		border:1.5px solid var(--theme-border); color:var(--theme-text-subtle);
+	}
+	.cr-sofar-item.is-done { border-color:var(--aw-green); color:var(--aw-green); }
+	.cr-sofar-item.is-now { border-color:var(--aw-purple); color:var(--aw-purple); font-weight:600; }
+	.recap-foot { font-size:1.05rem; line-height:1.5; color:var(--theme-text); text-align:center; max-width:760px; opacity:0; }
+
+	.recap-foot .cr-next { display:block; width:fit-content; max-width:100%; margin:0.6rem auto; padding:0.5rem 1.1rem;
+		border-radius:999px; background:var(--aw-purple); color:#fff; font-weight:600;
+		text-decoration:none; border:2px solid var(--aw-purple); }
+	.recap-foot .cr-next:hover { background:transparent; color:var(--aw-purple); }
+	body.theme-dark .recap-foot .cr-next { background:#c9a5e8; border-color:#c9a5e8; color:#2a1640; }
+	body.theme-dark .recap-foot .cr-next:hover { background:transparent; color:#c9a5e8; }
+
+	/* Flow row: input → process → output */
+	.agent-node {
+		display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.2rem;
+		width:160px; height:160px; border-radius:24px;
+		background: linear-gradient(135deg, rgba(92,45,145,0.12), rgba(0,120,212,0.12));
+		border:2.5px solid var(--theme-tertiary, #5c2d91);
+		box-shadow:0 8px 28px rgba(92,45,145,0.2); flex-shrink:0; text-align:center;
+	}
+	.agent-node .an-icon { font-size:3rem; line-height:1; }
+	.agent-node .an-icon img { width:64px; height:64px; display:block; }
+	.agent-node .an-label { font-size:1.05rem; font-weight:700; color:var(--theme-text); }
+	.agent-node .an-sub { font-size:0.85rem; color:var(--theme-text-subtle); }
+	.ta-flow { display:flex; align-items:center; justify-content:center; gap:1.2rem; flex-wrap:wrap; width:100%; }
+	.ta-flow .agent-node { width:140px; height:140px; }
+	.ta-flow .agent-node .an-icon { font-size:2.6rem; }
+	.ta-flow .agent-node .an-icon img { width:54px; height:54px; }
+	.ta-arrow { font-size:1.9rem; color:var(--theme-tertiary,#5c2d91); opacity:0; }
+	.ta-arrow.is-big { font-size:3.2rem; }
+	.ta-arrow.is-down, .ta-arrow.is-up { font-size:2.9rem; line-height:1; }
+	@media (max-width:760px) { .ta-flow .ta-arrow { transform:rotate(90deg); } }
+
+	/* Code card (VS Code style) */
+	.code-card {
+		width:min(560px,96%); border:1px solid #30363d; border-radius:8px;
+		background:#1e1e1e; overflow:hidden; opacity:0;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.25));
+	}
+	.code-head {
+		display:flex; align-items:center; justify-content:space-between; gap:0.5rem;
+		padding:0 0 0 0.85rem; background:#323233; border-bottom:1px solid #1e1e1e;
+	}
+	.code-file { font-size:0.9rem; color:#cccccc; font-weight:500; padding:0.6rem 0; }
+	.code-winctrls { display:flex; align-items:stretch; height:100%; }
+	.code-wbtn {
+		display:flex; align-items:center; justify-content:center; width:2.6rem; padding:0.55rem 0;
+		color:#cccccc; font-family:'Segoe UI Symbol','Segoe MDL2 Assets',sans-serif; font-size:0.7rem;
+	}
+	.code-wbtn.is-close:hover { background:#e81123; color:#fff; }
+	.code-wbtn:hover { background:rgba(255,255,255,0.1); }
+	.code-body {
+		margin:0; padding:0.8rem 1rem;
+		font-family:'Cascadia Code', 'Consolas', 'SFMono-Regular', monospace;
+		font-size:0.86rem; line-height:1.5; color:#d4d4d4;
+		white-space:pre-wrap; overflow-wrap:break-word; word-break:break-word; tab-size:4;
+	}
+	.code-body .tok-com { color:#6a9955; }
+	.code-body .tok-kw  { color:#569cd6; }
+	.code-body .tok-str { color:#ce9178; }
+	.code-body .tok-fn  { color:#dcdcaa; }
+	.code-body .tok-mod { color:#4ec9b0; }
+	.code-body .tok-prop{ color:#9cdcfe; }
+	.code-body .tok-num { color:#b5cea8; }
+	.code-body .tok-punct { color:#d4d4d4; }
+	.code-body .code-hl { border-radius:4px; padding:0 0.15em; box-shadow:0 0 0 1px rgba(96,165,250,0.55); background:rgba(96,165,250,0.22); }
+	.code-duo { display:flex; gap:1.1rem; flex-wrap:wrap; align-items:flex-start; justify-content:center; width:100%; }
+	.code-duo .code-card { flex:1 1 380px; max-width:480px; }
+	.code-duo .code-body { font-size:0.8rem; line-height:1.45; }
+	.code-arrow { align-self:center; font-size:1.8rem; line-height:1; color:var(--theme-tertiary,#5c2d91); opacity:0; flex:none; }
+	.code-arrow.is-big { font-size:2.9rem; }
+	@media (max-width:760px) { .code-arrow { transform:rotate(90deg); } }
+
+	/* Use-case grid */
+	.uc-grid { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:1.1rem; width:min(980px,96%); }
+	@media (max-width:720px) { .uc-grid { grid-template-columns:1fr; } }
+	.uc-card {
+		display:flex; flex-direction:column; gap:0.5rem; padding:1rem 1.15rem;
+		border:2px solid var(--aw-blue);
+		border-radius:14px; background:var(--theme-card-background, #fff);
+		box-shadow:0 6px 22px rgba(0,0,0,0.12); opacity:0;
+		transition:transform 0.2s ease, box-shadow 0.2s ease;
+	}
+	.uc-card:hover { transform:translateY(-4px); box-shadow:0 12px 30px rgba(0,0,0,0.18); }
+	body.theme-dark .uc-card { background:#2a2b34; }
+	.uc-card[data-uc="a"] { border-color:#0078d4; }
+	.uc-card[data-uc="b"] { border-color:#10a37f; }
+	.uc-card[data-uc="c"] { border-color:#e97526; }
+	.uc-card[data-uc="d"] { border-color:#d24aa8; }
+	/* title inherits the card's colour so the category reads without a coloured bar */
+	.uc-card[data-uc="a"] .uc-head { color:#0078d4; }
+	.uc-card[data-uc="b"] .uc-head { color:#10a37f; }
+	.uc-card[data-uc="c"] .uc-head { color:#e97526; }
+	.uc-card[data-uc="d"] .uc-head { color:#d24aa8; }
+	body.theme-dark .uc-card[data-uc="a"] .uc-head { color:#5cb3f5; }
+	body.theme-dark .uc-card[data-uc="b"] .uc-head { color:#4fd1a5; }
+	body.theme-dark .uc-card[data-uc="c"] .uc-head { color:#f0a35e; }
+	body.theme-dark .uc-card[data-uc="d"] .uc-head { color:#e88cc8; }
+	body.theme-dark .uc-card[data-uc="a"] { border-color:#5cb3f5; }
+	body.theme-dark .uc-card[data-uc="b"] { border-color:#4fd1a5; }
+	body.theme-dark .uc-card[data-uc="c"] { border-color:#f0a35e; }
+	body.theme-dark .uc-card[data-uc="d"] { border-color:#e88cc8; }
+	.uc-head { display:flex; align-items:center; gap:0.55rem; font-size:1.25rem; font-weight:700; color:var(--theme-text); }
+	.uc-head .uc-icon { font-size:1.7rem; display:inline-block; }
+	.uc-desc { font-size:0.98rem; line-height:1.55; color:var(--theme-text-subtle); }
+	.uc-caps { display:flex; flex-wrap:wrap; gap:0.4rem; margin-top:0.2rem; }
+	.uc-cap {
+		display:inline-flex; align-items:center; gap:0.3rem; padding:0.25rem 0.7rem;
+		border-radius:999px; font-size:0.88rem; font-weight:700;
+		background:rgba(0,120,212,0.1); color:var(--theme-text);
+		border:1.5px solid rgba(0,120,212,0.4); opacity:0;
+	}
+
+	/* ── CONTROLS · icon dock ──────────────── */
+	#controls {
+		position:fixed; bottom:14px; left:50%; transform:translateX(-50%); z-index:40;
+		display:flex; align-items:center; gap:5px; padding:5px 7px;
+		background:var(--theme-body-background-translucent, rgba(255,255,255,0.82));
+		backdrop-filter:blur(12px) saturate(1.4); -webkit-backdrop-filter:blur(12px) saturate(1.4);
+		border:1px solid var(--theme-border); border-radius:999px;
+		box-shadow: 0 8px 26px rgba(0,0,0,0.18); font-size:13px;
+	}
+	body.theme-dark #controls { background:var(--theme-body-background-translucent, rgba(32,32,36,0.82)); }
+	#controls .ctrl-icon {
+		width:2.15rem; height:2.15rem; min-width:0; padding:0;
+		display:inline-flex; align-items:center; justify-content:center;
+		border-radius:50%; font-size:0.95rem; line-height:1; font-weight:600;
+		transition:background 0.18s ease, color 0.18s ease, transform 0.12s ease, box-shadow 0.18s ease;
+	}
+	#controls .ctrl-icon:hover { transform:translateY(-1px); }
+	#controls .ctrl-icon:active { transform:scale(0.92); }
+	#controls .ctrl-icon-next {
+		width:2.55rem; height:2.55rem; font-size:1.1rem;
+		box-shadow:0 2px 8px var(--theme-primary-translucent, rgba(0,120,212,0.45));
+	}
+	.step-counter {
+		min-width:52px; text-align:center; font-variant-numeric:tabular-nums;
+		font-size:14px; font-weight:700; color:var(--theme-text);
+		padding:0 6px; white-space:nowrap; letter-spacing:0.02em;
+	}
+	.ctrl-sep { width:1px; align-self:stretch; margin:4px 2px; background:var(--theme-border); }
+	/* Movable dock: drag handle + pin-to-center button */
+	.ctrl-grip {
+		display:inline-flex; align-items:center; justify-content:center;
+		width:1.5rem; height:2.15rem; padding:0; border:none; background:transparent;
+		color:var(--theme-text-subtle); border-radius:8px; cursor:grab; touch-action:none;
+		transition:background 0.18s ease, color 0.18s ease;
+	}
+	.ctrl-grip:hover { color:var(--theme-text); background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); }
+	.ctrl-grip:active { cursor:grabbing; }
+	.ctrl-grip svg { width:13px; height:16px; pointer-events:none; }
+	body.controls-floating .ctrl-grip { color:var(--theme-primary,#0078d4); }
+	#controls .ctrl-pin { display:none; color:var(--theme-primary,#0078d4); }
+	#controls .ctrl-pin svg { width:15px; height:15px; pointer-events:none; }
+	body.controls-floating #controls .ctrl-pin { display:inline-flex; }
+	body.controls-floating #controls { box-shadow:0 10px 30px rgba(0,0,0,0.30), 0 0 0 1.5px var(--theme-primary,#0078d4); }
+	.speed-control { display:inline-flex; align-items:center; gap:1px; padding:2px 3px; border:1px solid var(--theme-border); border-radius:999px; }
+	.speed-control .speed-btn {
+		width:1.7rem; height:1.7rem; min-width:0; padding:0;
+		display:inline-flex; align-items:center; justify-content:center;
+		font-size:0.95rem; font-weight:700; border-radius:50%;
+	}
+	.speed-control .speed-btn[disabled] { opacity:0.4; cursor:not-allowed; }
+	.speed-label { min-width:2.4rem; text-align:center; font-variant-numeric:tabular-nums; font-size:0.82rem; font-weight:700; color:var(--theme-text); }
+
+	#callout-toggle, #outline-toggle, #audio-toggle { border:1px solid var(--theme-border); border-radius:4px; transition:background .2s,color .2s,border-color .2s,opacity .2s; }
+	#callout-toggle.toggle-active, #outline-toggle.toggle-active, #audio-toggle.toggle-active {
+		background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary,#0078d4); border-color:var(--theme-primary,#0078d4); font-weight:600;
+	}
+	#callout-toggle:not(.toggle-active), #outline-toggle:not(.toggle-active), #audio-toggle:not(.toggle-active) { opacity:0.6; }
+
+	/* ── HIDE/SHOW TOP BAR ─────────────────── */
+	#header-hide { display:inline-flex; align-items:center; justify-content:center; width:2rem; height:2rem; padding:0; border:1px solid var(--theme-border); border-radius:50%; color:var(--theme-text-subtle); transition:background .2s,color .2s,transform .18s; }
+	#header-hide:hover { color:var(--theme-text); transform:translateY(-1px); }
+	#header-hide svg { width:16px; height:16px; }
+	#header-hide-top { display:inline-flex; align-items:center; justify-content:center; width:2rem; height:2rem; padding:0; border:1px solid var(--theme-border); border-radius:50%; color:var(--theme-text-subtle); background:transparent; cursor:pointer; transition:background .2s,color .2s,transform .18s; }
+	#header-hide-top:hover { color:var(--theme-text); transform:translateY(-1px); }
+	#header-hide-top svg { width:16px; height:16px; }
+	body.chrome-hidden .app-header, body.chrome-hidden .progress-track { display:none; }
+	#header-reveal {
+		position:fixed; top:0; left:50%; transform:translateX(-50%) translateY(-100%); z-index:45;
+		display:inline-flex; align-items:center; gap:0.35rem; padding:5px 14px 6px; font-size:12px; font-weight:600; line-height:1;
+		color:var(--theme-text-subtle); background:var(--theme-body-background-translucent, rgba(255,255,255,0.88));
+		backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border:1px solid var(--theme-border); border-top:none; border-radius:0 0 12px 12px;
+		box-shadow:0 4px 14px rgba(0,0,0,0.14); cursor:pointer; transition:transform .28s cubic-bezier(0.2,0.7,0.3,1), color .2s, background .2s;
+	}
+	body.theme-dark #header-reveal { background:var(--theme-body-background-translucent, rgba(32,32,36,0.88)); }
+	#header-reveal:hover { color:var(--theme-text); }
+	body.chrome-hidden #header-reveal { transform:translateX(-50%) translateY(0); }
+	#header-reveal svg { width:14px; height:14px; }
+
+	/* ── PLAYER OVERLAY · pills inside the stage frame (YouTube-style) ──
+	   Two translucent pills float over the 16:9 frame: LEFT = "view options"
+	   (callout / outline / shortcuts), RIGHT = "player" (audio / captions / hide-bar / fullscreen). */
+	.stage-overlay {
+		position:absolute; right:12px; bottom:10px; z-index:25;
+		display:flex; align-items:center; gap:2px;
+		padding:3px 6px; border-radius:999px;
+		background:rgba(16,18,24,0.58);
+		backdrop-filter:blur(9px) saturate(1.3); -webkit-backdrop-filter:blur(9px) saturate(1.3);
+		box-shadow:0 4px 16px rgba(0,0,0,0.32);
+	}
+	.ovl-btn {
+		-webkit-appearance:none; appearance:none; margin:0; font:inherit;
+		display:inline-flex; align-items:center; justify-content:center; gap:4px;
+		min-width:30px; height:30px; padding:0 8px;
+		border:none !important; border-radius:999px !important;
+		background:transparent !important; color:#fff !important;
+		box-shadow:none !important; cursor:pointer; line-height:1;
+		font-size:0.82rem; font-weight:700; opacity:0.92; transition:background .15s ease, opacity .15s ease;
+	}
+	.ovl-btn:hover { background:rgba(255,255,255,0.16) !important; opacity:1; }
+	.ovl-btn:disabled { opacity:0.4; cursor:not-allowed; }
+	.ovl-btn svg { width:18px; height:18px; fill:currentColor; display:block; }
+	.ovl-btn.on { color:#5cc8ff !important; }
+	.stage-overlay #audio-toggle { opacity:1 !important; }
+	.stage-overlay .aw-audio-ico { font-size:1rem; line-height:1; }
+	.stage-overlay .aw-audio-time { font-size:0.78rem; font-variant-numeric:tabular-nums; letter-spacing:0.02em; opacity:0.95; min-width:2.4em; text-align:left; }
+	#cc-toggle svg { width:20px; height:20px; }
+	.ovl-btn .fs-exit { display:none; }
+	body.is-fs .ovl-btn .fs-enter { display:none; }
+	body.is-fs .ovl-btn .fs-exit { display:block; }
+
+	/* ── LEFT VIEW-OPTIONS PILL · Callout / Outline / Shortcuts (icon + hover tip) ── */
+	.stage-overlay-left { right:auto; left:12px; }
+	#stage-overlay-left .ovl-btn:not(.toggle-active) { opacity:0.86; }
+	#stage-overlay-left .ovl-btn.toggle-active { color:#5cc8ff !important; opacity:1; }
+	#stage-overlay-left .ovl-btn:hover { opacity:1; }
+	/* Hover tooltip shown above the icon (left-anchored so it never clips the frame edge) */
+	.ovl-btn[data-tip] { position:relative; }
+	.ovl-btn[data-tip]::after { content:attr(data-tip); position:absolute; left:0; bottom:calc(100% + 9px); transform:translateY(4px); padding:4px 8px; border-radius:6px; background:rgba(16,18,24,0.96); color:#fff; font-size:0.72rem; font-weight:600; white-space:nowrap; letter-spacing:0.01em; opacity:0; pointer-events:none; box-shadow:0 3px 12px rgba(0,0,0,0.45); transition:opacity .14s ease, transform .14s ease; z-index:40; }
+	.ovl-btn[data-tip]::before { content:''; position:absolute; left:13px; bottom:calc(100% + 4px); border:5px solid transparent; border-top-color:rgba(16,18,24,0.96); opacity:0; pointer-events:none; transition:opacity .14s ease; z-index:40; }
+	.ovl-btn[data-tip]:hover::after { opacity:1; transform:translateY(0); }
+	.ovl-btn[data-tip]:hover::before { opacity:1; }
+
+	/* ── CAPTION · overlaid inside the frame, draggable + resizable, stays solid (not see-through) ── */
+	#aw-caption {
+		position:absolute; left:50%; transform:translateX(-50%); bottom:14px; z-index:24;
+		max-width:92%; min-width:140px; min-height:38px; max-height:86px;
+		display:none; align-items:center; justify-content:center; text-align:center;
+		padding:0.42rem 0.95rem; border-radius:9px;
+		background:rgba(8,9,13,0.8); color:#fff;
+		font-size:1.1rem; line-height:1.36; font-weight:600;
+		box-shadow:0 3px 14px rgba(0,0,0,0.42); pointer-events:auto; cursor:grab; touch-action:none;
+		overflow:auto; resize:both;   /* user can reshape the caption; corner grip = resize */
+	}
+	#aw-caption:active { cursor:grabbing; }
+	#aw-caption::-webkit-resizer { background:linear-gradient(135deg, transparent 45%, rgba(255,255,255,0.55) 45%, rgba(255,255,255,0.55) 55%, transparent 55%); }
+	body.cc-on #aw-caption.has-text { display:flex; }
+	@media (max-width:640px){ #aw-caption { font-size:0.94rem; bottom:14px; max-width:90%; } }
+
+	/* ── OUTLINE PANEL · draggable + slightly see-through ── */
+	#step-outline {
+		position:fixed; top:4.5rem; right:1rem; width:320px; max-height:calc(100vh - 8rem); overflow-y:auto;
+		padding:1.1rem; background:var(--theme-body-background);
+		background:color-mix(in srgb, var(--theme-body-background) 85%, transparent);
+		-webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
+		border:1px solid var(--theme-border);
+		border-radius:6px; box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2)); z-index:35; font-size:1rem; line-height:1.55;
+		cursor:grab; touch-action:none;
+	}
+	#step-outline:active { cursor:grabbing; }
+	#step-outline[hidden] { display:none; }
+	#step-outline h2 { font-size:0.85rem; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--theme-tertiary,#5c2d91); margin-bottom:0.5rem; }
+	#step-outline .outline-section { margin-top:0.6rem; padding-top:0.6rem; border-top:1px solid var(--theme-border); }
+	#step-outline .outline-section:first-child { margin-top:0; padding-top:0; border-top:0; }
+	#step-outline .stat-row { display:flex; justify-content:space-between; align-items:baseline; gap:0.75rem; padding:0.2rem 0; }
+	#step-outline .stat-row span:first-child { color:var(--theme-text-subtle); flex:0 0 auto; max-width:45%; }
+	#step-outline .stat-row span:last-child { text-align:right; font-weight:600; color:var(--theme-tertiary,#5c2d91); flex:1 1 auto; }
+
+	.progress-track { position:relative; height:6px; background:var(--theme-border, #e0e0e0); flex-shrink:0; cursor:pointer; }
+	.progress-fill { position:absolute; left:0; top:0; bottom:0; width:0%; background:var(--aw-purple, #5c2d91); transition:width .5s cubic-bezier(0.2,0.8,0.2,1); pointer-events:none; }
+	.progress-tick { position:absolute; top:0; bottom:0; width:2px; margin-left:-1px; background:var(--theme-body-background); opacity:0.6; pointer-events:none; }
+
+	/* ── THEME / LANG / FONT CONTROLS ──────── */
+	.theme-toggle { display:inline-flex; align-items:center; justify-content:center; width:2.25rem; height:2.25rem; padding:0; margin-inline-start:0.25rem; background:transparent; border:1px solid var(--theme-border); border-radius:999px; color:var(--theme-text); cursor:pointer; transition:background .15s,color .15s,border-color .15s; }
+	.theme-toggle:hover { background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary); border-color:var(--theme-primary); }
+	.theme-toggle .theme-icon { display:none; }
+	.theme-toggle[data-theme="dark"] .icon-sun { display:block; }
+	.theme-toggle[data-theme="light"] .icon-moon { display:block; }
+	.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+	.skip-link { position:absolute; top:-100px; left:0.5rem; z-index:100; padding:0.5rem 1rem; background:var(--theme-primary); color:var(--theme-primary-invert,#fff); border-radius:4px; text-decoration:none; font-weight:600; }
+	.skip-link:focus { top:0.5rem; }
+	.header-back-link { display:inline-flex; align-items:center; gap:0.25rem; padding:0.2rem 0.6rem; font-size:0.8rem; font-weight:600; color:var(--theme-text-subtle); border:1px solid var(--theme-border); border-radius:999px; text-decoration:none; white-space:nowrap; transition:background .15s,color .15s,border-color .15s; }
+	.header-back-link:hover { color:var(--theme-primary); border-color:var(--theme-primary); background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); }
+	.lang-select {
+		appearance:none; -webkit-appearance:none; background:var(--theme-card-background,#fff); color:var(--theme-body-text,#333);
+		border:1px solid var(--theme-border, rgba(0,0,0,0.2)); border-radius:4px; padding:4px 24px 4px 8px;
+		font-size:0.8rem; font-family:'Segoe UI', sans-serif; cursor:pointer;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+		background-repeat:no-repeat; background-position:right 6px center; min-width:80px;
+	}
+	.lang-select:hover { border-color:var(--theme-primary, #0078d4); }
+	.lang-select:focus { outline:2px solid var(--theme-primary, #0078d4); outline-offset:1px; }
+	body.theme-dark .lang-select {
+		background-color:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); border-color:rgba(255,255,255,0.15);
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23aaa' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+	}
+	body.theme-dark .lang-select option { background:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); }
+	.font-size-controls { display:flex; align-items:center; gap:2px; }
+	.font-size-btn { background:var(--theme-card-background,#fff); color:var(--theme-body-text,#333); border:1px solid var(--theme-border, rgba(0,0,0,0.2)); border-radius:4px; padding:3px 8px; font-size:0.8rem; font-weight:700; font-family:'Segoe UI', sans-serif; cursor:pointer; line-height:1.2; transition:background .15s,border-color .15s; }
+	.font-size-btn:hover { border-color:var(--theme-primary, #0078d4); }
+	body.theme-dark .font-size-btn { background:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); border-color:rgba(255,255,255,0.15); }
+
+	/* Inline icons (crisp on any OS/projector — replaces raw emoji on stage) */
+	.ic { display:inline-flex; align-items:center; justify-content:center; vertical-align:-0.125em; }
+	.ic svg { width:1em; height:1em; fill:currentColor; display:block; }
+	.help-toggle svg { width:15px; height:15px; vertical-align:-2px; }
+
+	/* Keyboard shortcut overlay */
+	#shortcut-overlay { position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center; }
+	#shortcut-overlay[hidden] { display:none; }
+	.sc-backdrop { position:absolute; inset:0; background:rgba(0,0,0,0.5); -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px); }
+	.sc-panel { position:relative; z-index:1; width:min(430px,92vw); max-height:82vh; overflow:auto; padding:1.5rem 1.6rem; background:var(--theme-body-background); border:1px solid var(--theme-border); border-radius:16px; box-shadow:0 24px 70px rgba(0,0,0,0.4); }
+	.sc-panel h2 { margin:0 0 1rem; font-size:1.25rem; color:var(--theme-tertiary,#5c2d91); }
+	body.theme-dark .sc-panel h2 { color:#c9a5e8; }
+	.sc-close { position:absolute; top:0.7rem; right:0.7rem; width:2rem; height:2rem; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--theme-border); border-radius:50%; background:transparent; color:var(--theme-text-subtle); cursor:pointer; }
+	.sc-close:hover { color:var(--theme-text); border-color:var(--theme-primary,#0078d4); }
+	.sc-close svg { width:15px; height:15px; }
+	.sc-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:0.55rem; }
+	.sc-list li { display:flex; align-items:center; justify-content:space-between; gap:1rem; font-size:1rem; color:var(--theme-text); }
+	.sc-keys { display:inline-flex; gap:0.3rem; flex:none; }
+	.sc-panel kbd, .sc-hint kbd { font-family:'Cascadia Code','Consolas',monospace; font-size:0.82rem; line-height:1; padding:0.28rem 0.5rem; border-radius:6px; border:1px solid var(--theme-border); border-bottom-width:2px; background:var(--theme-card-background,#fff); color:var(--theme-text); }
+	body.theme-dark .sc-panel kbd, body.theme-dark .sc-hint kbd { background:rgba(255,255,255,0.08); }
+	.sc-hint { margin:1.1rem 0 0; font-size:0.85rem; color:var(--theme-text-subtle); text-align:center; }
+
+	@media (max-width:640px) { .app-header { font-size:0.95rem; } .scene-title { font-size:1.9rem; } #stage { padding:0.9rem 1rem 4.5rem; } }
+	@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition:none !important; animation:none !important; } .progress-fill { transition:none !important; } }
+
+	.az-ic { width:1em; height:1em; display:inline-block; vertical-align:-0.1em; }
+
+	/* ══════════════════════════════════════════════════════════ */
+	/* ── CONTOSO RETAIL · shared scene vocabulary (.cr-*) ─────── */
+	/* ══════════════════════════════════════════════════════════ */
+
+	/* Reserve a stable 2-line lead so the board never jumps between steps */
+	.scene-lead { max-width:1100px; min-height:4.2rem; display:flex; align-items:center; justify-content:center; }
+	/* Fixed scene width so fitScene() measures the real content box and scales instead of clipping */
+	.scene { width:1150px; max-width:none; gap:1.1rem; }
+
+	/* Fixed-coordinate board: every node is placed absolutely, connectors live in one SVG layer */
+	.cr-board { position:relative; flex:none; }
+	.cr-svg { position:absolute; inset:0; width:100%; height:100%; overflow:visible; z-index:1; }
+	.cr-svg path.cr-link { fill:none; stroke-width:4; stroke-linecap:round; stroke-linejoin:round; opacity:0; }
+	.cr-svg path.cr-link.is-flow   { stroke:var(--aw-blue); }
+	.cr-svg path.cr-link.is-accent { stroke:var(--aw-purple); }
+	.cr-svg path.cr-link.is-ok     { stroke:var(--aw-green); }
+	.cr-svg path.cr-link.is-warn   { stroke:var(--aw-orange); }
+	.cr-svg path.cr-link.is-bad    { stroke:#d13438; stroke-dasharray:9 7; }
+	.cr-svg path.cr-link.is-muted  { stroke:var(--theme-text-subtle); opacity:0; }
+	.cr-svg .cr-marker path { opacity:1; }
+
+	/* A node card */
+	.cr-node {
+		position:absolute; z-index:2; box-sizing:border-box; opacity:0;
+		display:flex; flex-direction:column; gap:0.35rem; align-items:center; justify-content:center; text-align:center;
+		padding:0.85rem 0.9rem; border-radius:14px;
+		background:var(--theme-card-background,#fff); border:2px solid var(--aw-blue);
+		box-shadow:0 8px 24px rgba(0,0,0,0.14);
+	}
+	body.theme-dark .cr-node { background:#22222a; }
+	.cr-node.is-accent { border-color:var(--aw-purple); }
+	.cr-node.is-flow   { border-color:var(--aw-blue); }
+	.cr-node.is-ok     { border-color:var(--aw-green); }
+	.cr-node.is-warn   { border-color:var(--aw-orange); }
+	.cr-node.is-bad    { border-color:#d13438; background:rgba(209,52,56,0.07); }
+	body.theme-dark .cr-node.is-bad { background:#2e1f22; }
+	.cr-node.is-muted  { border-style:dashed; opacity:0; }
+	.cr-node.is-left   { align-items:flex-start; text-align:left; }
+	.cr-n-ico { font-size:2.1rem; line-height:1; display:inline-flex; align-items:center; gap:0.35rem; }
+	.cr-n-ico img { width:2.1rem; height:2.1rem; display:block; }
+	.cr-n-title { font-size:1.18rem; font-weight:600; line-height:1.2; color:var(--theme-text); }
+	.cr-n-sub { font-size:1rem; line-height:1.3; color:var(--theme-text-subtle); }
+	.cr-n-rows { display:flex; flex-direction:column; gap:0.3rem; width:100%; margin-top:0.15rem; }
+	.cr-row {
+		display:flex; align-items:center; justify-content:space-between; gap:0.6rem;
+		font-size:0.95rem; line-height:1.25; padding:0.3rem 0.55rem; border-radius:8px;
+		background:rgba(0,120,212,0.08); color:var(--theme-text); text-align:left;
+	}
+	body.theme-dark .cr-row { background:rgba(255,255,255,0.07); }
+	.cr-row b { font-weight:600; }
+	.cr-row span:last-child { color:var(--theme-text-subtle); white-space:normal; min-width:0; overflow-wrap:break-word; text-align:right; }
+	.cr-row.is-ok  { background:rgba(16,163,127,0.13); }
+	.cr-row.is-bad { background:rgba(209,52,56,0.13); }
+
+	/* A floating pill / badge (status, edge label, callout) */
+	.cr-pill {
+		position:absolute; z-index:3; opacity:0; box-sizing:border-box;
+		display:inline-flex; align-items:center; justify-content:center; gap:0.35rem; text-align:center;
+		padding:0.3rem 0.7rem; border-radius:999px;
+		font-size:0.9rem; font-weight:500; line-height:1.2;
+		background:var(--theme-card-background,#fff); color:var(--theme-text);
+		border:1.5px solid var(--aw-blue);
+	}
+	body.theme-dark .cr-pill { background:#22222a; }
+	/* Tints stay OPAQUE: these chips are layered over the striped belt, not inside it. */
+	.cr-pill.is-bad  { border-color:var(--aw-red); color:var(--aw-red); background:#faebeb; }
+	.cr-pill.is-ok   { border-color:var(--aw-green); background:#e2f4f0; }
+	.cr-pill.is-warn { border-color:var(--aw-orange); background:#fceee5; }
+	.cr-pill.is-accent { border-color:var(--aw-purple); background:#ebe6f2; }
+	/* An edge label floating beside a connector — transparent so it never "cuts" the line */
+	.cr-elabel {
+		position:absolute; z-index:3; opacity:0;
+		font-size:0.85rem; font-weight:500; color:var(--theme-text-subtle);
+		white-space:nowrap; text-align:center; pointer-events:none;
+	}
+
+	/* A dashed grouping boundary with a label tab on its top border */
+	.cr-zone {
+		position:absolute; z-index:0; opacity:0; box-sizing:border-box;
+		border:2px dashed color-mix(in srgb, var(--aw-purple) 60%, transparent); border-radius:18px;
+		background:rgba(92,45,145,0.04);
+	}
+	body.theme-dark .cr-zone { background:rgba(255,255,255,0.03); }
+	.cr-zone.is-accent { border-color:color-mix(in srgb, var(--aw-purple) 60%, transparent); }
+	.cr-zone.is-bad { border-color:rgba(209,52,56,0.5); background:rgba(209,52,56,0.05); }
+	.cr-zone.is-ok { border-color:rgba(16,163,127,0.5); background:rgba(16,163,127,0.05); }
+	.cr-zone-tab {
+		position:absolute; top:0; left:50%; transform:translate(-50%,-50%);
+		padding:0.15rem 0.7rem; border-radius:999px; white-space:nowrap;
+		font-size:0.88rem; font-weight:500; letter-spacing:0.02em;
+		background:var(--theme-body-background,#fff); color:var(--theme-text-subtle);
+	}
+	body.theme-dark .cr-zone-tab { background:#1b1b1f; }
+	.cr-zone-tab.at-left { left:1.4rem; transform:translate(0,-50%); }
+
+	/* Conveyor belt (Storage Queue) — the tread loops subtly so it reads as "always moving" */
+	.cr-belt {
+		position:absolute; z-index:2; opacity:0; box-sizing:border-box;
+		border-radius:12px; border:2px solid var(--aw-blue);
+		background:repeating-linear-gradient(115deg, rgba(0,120,212,0.20) 0 14px, rgba(0,120,212,0.06) 14px 28px);
+		background-size:33px 100%;
+		box-shadow:inset 0 2px 10px rgba(0,0,0,0.18);
+	}
+	.cr-belt.is-muted { border-color:var(--theme-text-subtle); background:repeating-linear-gradient(115deg, rgba(120,120,130,0.22) 0 14px, rgba(120,120,130,0.07) 14px 28px); background-size:33px 100%; }
+	.cr-belt.is-accent { border-color:var(--aw-purple); background:repeating-linear-gradient(115deg, rgba(92,45,145,0.22) 0 14px, rgba(92,45,145,0.07) 14px 28px); background-size:33px 100%; }
+	/* A message payload box riding a belt / lane */
+	.cr-msg {
+		position:absolute; z-index:3; opacity:0; box-sizing:border-box;
+		display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.05rem;
+		border-radius:8px; border:2px solid var(--aw-blue); background:var(--theme-card-background,#fff);
+		font-size:0.82rem; font-weight:600; line-height:1.15; color:var(--theme-text);
+		box-shadow:0 4px 12px rgba(0,0,0,0.2); text-align:center; padding:0.15rem 0.2rem;
+	}
+	body.theme-dark .cr-msg { background:#2a2a33; }
+	.cr-msg small { font-size:0.8rem; font-weight:500; color:var(--theme-text-subtle); }
+	.cr-msg.is-accent { border-color:var(--aw-purple); }
+	.cr-msg.is-ok { border-color:var(--aw-green); }
+	.cr-msg.is-warn { border-color:var(--aw-orange); }
+	.cr-msg.is-bad { border-color:var(--aw-red); background:#fae7e7; color:var(--aw-red); }
+	body.theme-dark .cr-msg.is-bad { background:#3a2226; color:#ff9aa0; }
+
+	/* Equal-width horizontal strip of peer cards (anatomy / comparison) */
+	.cr-strip { display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0,1fr); gap:1rem; width:1140px; align-items:stretch; }
+	.cr-strip-card {
+		display:flex; flex-direction:column; gap:0.4rem; opacity:0; box-sizing:border-box;
+		padding:0.9rem 1rem; border-radius:14px; text-align:left;
+		background:var(--theme-card-background,#fff);
+		border:2px solid var(--aw-blue);
+		box-shadow:0 6px 20px rgba(0,0,0,0.12);
+	}
+	body.theme-dark .cr-strip-card { background:#2a2b34; }
+	.cr-strip-card.is-accent { border-color:var(--aw-purple); }
+	.cr-strip-card.is-ok { border-color:var(--aw-green); }
+	.cr-strip-card.is-warn { border-color:var(--aw-orange); }
+	.cr-strip-card.is-pink { border-color:var(--aw-pink); }
+	.cr-strip-card.is-bad { border-color:#d13438; }
+	.cr-sc-head { color:var(--aw-blue); }
+	.cr-strip-card.is-accent .cr-sc-head { color:var(--aw-purple); }
+	.cr-strip-card.is-ok .cr-sc-head { color:var(--aw-green); }
+	.cr-strip-card.is-warn .cr-sc-head { color:var(--aw-orange); }
+	.cr-strip-card.is-pink .cr-sc-head { color:var(--aw-pink); }
+	.cr-strip-card.is-bad .cr-sc-head { color:var(--aw-red); }
+	body.theme-dark .cr-strip-card.is-bad, body.theme-dark .cr-strip-card.is-bad .cr-sc-head { border-color:#f1707a; color:#f1707a; }
+	.cr-sc-head { display:flex; align-items:center; gap:0.5rem; font-size:1.12rem; font-weight:600; line-height:1.2; }
+	.cr-sc-head img { width:1.9rem; height:1.9rem; display:block; flex:none; }
+	.cr-sc-head .ic { font-size:1.6rem; }
+	.cr-sc-desc { font-size:0.95rem; line-height:1.4; color:var(--theme-text-subtle); }
+	.cr-sc-caps { display:flex; flex-wrap:wrap; gap:0.35rem; margin-top:auto; padding-top:0.2rem; }
+	.cr-cap {
+		display:inline-flex; align-items:center; padding:0.2rem 0.6rem; border-radius:999px;
+		font-size:0.82rem; font-weight:500; line-height:1.25;
+		background:rgba(0,120,212,0.1); border:1px solid rgba(0,120,212,0.35); color:var(--theme-text);
+	}
+	.cr-strip-card.is-accent .cr-cap { background:rgba(92,45,145,0.12); border-color:rgba(92,45,145,0.4); }
+	.cr-strip-card.is-ok .cr-cap { background:rgba(16,163,127,0.12); border-color:rgba(16,163,127,0.4); }
+	.cr-strip-card.is-warn .cr-cap { background:rgba(233,117,38,0.12); border-color:rgba(233,117,38,0.4); }
+	.cr-strip-card.is-pink .cr-cap { background:rgba(210,74,168,0.12); border-color:rgba(210,74,168,0.4); }
+	.cr-strip-card.is-bad .cr-cap { background:rgba(209,52,56,0.12); border-color:rgba(209,52,56,0.4); }
+
+	/* Meter bar (load / throughput) */
+	.cr-meter { position:absolute; z-index:3; opacity:0; box-sizing:border-box; }
+	.cr-meter-lbl { display:flex; justify-content:space-between; gap:0.5rem; font-size:0.85rem; font-weight:500; color:var(--theme-text-subtle); margin-bottom:0.2rem; }
+	.cr-meter-val { font-variant-numeric:tabular-nums; min-width:3.6rem; text-align:right; color:var(--theme-text); }
+	.cr-meter-track { height:10px; border-radius:999px; background:rgba(120,120,130,0.25); overflow:hidden; }
+	.cr-meter-fill { display:block; height:100%; width:100%; border-radius:999px; transform-origin:left center; transform:scaleX(0); background:var(--aw-blue); }
+	.cr-meter.is-bad .cr-meter-fill { background:#d13438; }
+	.cr-meter.is-ok .cr-meter-fill { background:var(--aw-green); }
+	.cr-meter.is-warn .cr-meter-fill { background:var(--aw-orange); }
+
+	/* Big ✕ / ✓ stamp over a broken or fixed link */
+	.cr-stamp {
+		position:absolute; z-index:4; opacity:0; display:flex; align-items:center; justify-content:center;
+		width:2.4rem; height:2.4rem; border-radius:50%; font-size:1.3rem; font-weight:700; line-height:1;
+		background:#d13438; color:#fff; box-shadow:0 4px 14px rgba(209,52,56,0.5);
+	}
+	.cr-stamp.is-ok { background:var(--aw-green); box-shadow:0 4px 14px rgba(16,163,127,0.5); }
+
+	/* Bottom summary ribbon inside a board */
+	.cr-ribbon {
+		position:absolute; z-index:3; opacity:0; left:0; right:0;
+		display:flex; flex-wrap:wrap; gap:0.5rem; justify-content:center;
+	}
+	.cr-avatar-row { display:flex; gap:0.3rem; align-items:flex-end; }
+	.cr-avatar { width:1.5rem; height:1.5rem; border-radius:50%; background:var(--aw-blue); opacity:0; display:block; }
+	.cr-avatar.is-bad { background:#d13438; }
+	.cr-avatar.is-ok { background:var(--aw-green); }
+
+	/* A labelled duration / capacity bar placed on the board */
+	.cr-bar {
+		position:absolute; z-index:3; opacity:0; box-sizing:border-box;
+		display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.05rem;
+		border-radius:9px; padding:0.2rem 0.4rem; text-align:center; overflow:hidden;
+		font-size:0.95rem; font-weight:600; line-height:1.15; color:var(--theme-text);
+		background:rgba(0,120,212,0.16); border:2px solid var(--aw-blue);
+	}
+	.cr-bar small { font-size:0.82rem; font-weight:500; color:var(--theme-text-subtle); }
+	.cr-bar.is-bad  { background:rgba(209,52,56,0.16); border-color:#d13438; }
+	.cr-bar.is-ok   { background:rgba(16,163,127,0.16); border-color:var(--aw-green); }
+	.cr-bar.is-warn { background:rgba(233,117,38,0.16); border-color:var(--aw-orange); }
+	.cr-bar.is-accent { background:rgba(92,45,145,0.16); border-color:var(--aw-purple); }
+
+	/* Episode 2 · side-by-side capability table */
+	.cr-cmp { position:absolute; z-index:2; opacity:0; box-sizing:border-box; display:grid; gap:0; }
+	.cr-cmp-h, .cr-cmp-c {
+		display:flex; align-items:center; padding:0.5rem 0.8rem;
+		font-size:0.98rem; line-height:1.3; border-bottom:1px solid var(--theme-border);
+	}
+	.cr-cmp-h { font-weight:600; font-size:1.05rem; border-bottom:2px solid var(--theme-border); }
+	.cr-cmp-c.is-key { font-weight:600; color:var(--theme-text); }
+	.cr-cmp-c.is-a { color:var(--theme-text-subtle); background:rgba(209,52,56,0.06); }
+	.cr-cmp-c.is-b { color:var(--theme-text); background:rgba(16,163,127,0.09); }
+	.cr-cmp-h.is-a { color:var(--aw-red); background:#faebeb; }
+	.cr-cmp-h.is-b { color:var(--aw-green); background:#e9f6f2; }
+	body.theme-dark .cr-cmp-h.is-a { color:var(--aw-red); background:#3a2226; }
+	body.theme-dark .cr-cmp-h.is-b { color:#5fd4b4; background:#123830; }
+	
+</style>
+<style id="integration-reading-style">
+body.int-reading #stage { padding:0.8rem 1rem 5rem; }
+body.int-reading.cc-on #stage { padding-bottom:12rem; }
+body.int-reading #stage-frame { width:100%; height:100%; aspect-ratio:auto; overflow:auto; overscroll-behavior:contain; }
+body.int-reading .scene:not(.scene-out) { position:relative; left:auto; top:auto !important; transform:none !important; width:1240px; margin:20px 24px; }
+body.int-reading #aw-caption { position:fixed; bottom:5.4rem; width:min(1000px,90vw); max-width:90vw; }
+body.int-reading .scene-out { display:none; }
+@media(max-width:760px){
+  .app-header { grid-template-columns:minmax(0,1fr) auto; gap:0.4rem; padding:0.5rem; }
+  .app-header nav { display:none; }
+  .app-header #page-title { display:none; }
+  #controls { max-width:calc(100vw - 16px); overflow-x:auto; }
+}
+</style>
+	<!-- SEO:START -->
+	<link rel="canonical" href="https://azureanimations.github.io/journeys/Integration/VipTransactionDisaster.html" />
+	<meta name="robots" content="index, follow, max-image-preview:large" />
+	<meta property="og:type" content="website" />
+	<meta property="og:site_name" content="Azure Animations" />
+	<meta property="og:title" content="Episode 2 · The VIP Transaction Disaster — Azure Animations" />
+	<meta property="og:description" content="A VIP order and its cancellation arrive one second apart — and a simple queue processes them backwards. An animated explainer on Azure Service Bus sessions, peek-lock, dead-lettering and topics." />
+	<meta property="og:url" content="https://azureanimations.github.io/journeys/Integration/VipTransactionDisaster.html" />
+	<meta property="og:image" content="https://azureanimations.github.io/img/favicon.png" />
+	<meta property="og:image:alt" content="Azure Animations" />
+	<meta name="twitter:card" content="summary" />
+	<meta name="twitter:title" content="Episode 2 · The VIP Transaction Disaster — Azure Animations" />
+	<meta name="twitter:description" content="A VIP order and its cancellation arrive one second apart — and a simple queue processes them backwards. An animated explainer on Azure Service Bus sessions, peek-lock, dead-lettering and topics." />
+	<meta name="twitter:image" content="https://azureanimations.github.io/img/favicon.png" />
+	<meta name="twitter:image:alt" content="Azure Animations" />
+	<script type="application/ld+json">
+	{"@context":"https://schema.org","@type":"WebPage","name":"Episode 2 · The VIP Transaction Disaster — Azure Animations","description":"A VIP order and its cancellation arrive one second apart — and a simple queue processes them backwards. An animated explainer on Azure Service Bus sessions, peek-lock, dead-lettering and topics.","url":"https://azureanimations.github.io/journeys/Integration/VipTransactionDisaster.html","isPartOf":{"@type":"WebSite","name":"Azure Animations","url":"https://azureanimations.github.io/"},"breadcrumb":{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Azure Animations","item":"https://azureanimations.github.io/"},{"@type":"ListItem","position":2,"name":"Azure Integration & Messaging","item":"https://azureanimations.github.io/journeys/Integration/"},{"@type":"ListItem","position":3,"name":"Episode 2 · The VIP Transaction Disaster","item":"https://azureanimations.github.io/journeys/Integration/VipTransactionDisaster.html"}]}}
+	</script>
+	<!-- SEO:END -->
+</head>
+
+<body class="theme-dark" data-theme-preset="atlas">
+
+	<a href="#stage" class="skip-link">Skip to diagram</a>
+
+	<header class="app-header padding-block-xs padding-inline-md border-bottom" role="banner" style="justify-content:space-between;">
+		<div class="display-flex align-items-center gap-xs">
+			<!-- Set href to the previous animation in the journey, or the hub index.html -->
+			<a href="index.html" class="header-back-link" aria-label="Journey" title="Journey">&larr; Journey</a>
+			<span id="page-title" class="font-size-h6 font-weight-semibold">&#10024; Episode 2 &middot; The VIP Transaction Disaster</span>
+		</div>
+		<nav class="display-flex gap-xs align-items-center" aria-label="Primary">
+			<span id="breadcrumb" class="font-size-sm color-text-subtle">Step 1</span>
+		</nav>
+		<div class="display-flex gap-xs align-items-center">
+			<select id="lang-select" class="lang-select" aria-label="Language">
+				<option value="en">English</option>
+				<option value="es">Español</option>
+				<option value="ja">日本語</option>
+				<option value="ko">한국어</option>
+				<option value="pt">Português</option>
+			</select>
+			<div class="font-size-controls">
+				<button id="font-decrease" type="button" class="font-size-btn" aria-label="Decrease font size" title="Smaller text">A&minus;</button>
+				<button id="font-increase" type="button" class="font-size-btn" aria-label="Increase font size" title="Larger text">A+</button>
+			</div>
+			<button id="theme-toggle" type="button" class="theme-toggle" aria-label="Switch theme" title="Switch theme">
+				<svg class="theme-icon icon-moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg>
+				<svg class="theme-icon icon-sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.5" y1="4.5" x2="6.5" y2="6.5"/><line x1="17.5" y1="17.5" x2="19.5" y2="19.5"/><line x1="4.5" y1="19.5" x2="6.5" y2="17.5"/><line x1="17.5" y1="6.5" x2="19.5" y2="4.5"/></g></svg>
+			</button>
+			<button id="header-hide-top" type="button" aria-label="Hide top bar" title="Hide top bar (H)">
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/></svg>
+			</button>
+		</div>
+	</header>
+
+	<button id="header-reveal" type="button" aria-label="Show top bar" title="Show top bar">
+		<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/></svg>
+		<span>Toolbar</span>
+	</button>
+
+	<div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
+
+	<main id="stage" tabindex="0" role="region" aria-labelledby="stage-heading" aria-describedby="stage-instructions">
+		<h1 id="stage-heading" class="sr-only" tabindex="-1">Episode 2 &middot; The VIP Transaction Disaster</h1>
+		<p id="stage-instructions" class="sr-only">Animated explainer. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.</p>
+		<div id="step-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+		<!-- Fixed 16:9 stage. Every scene is drawn INSIDE this box; it always fits the viewport (no scrollbars). -->
+		<div id="stage-frame">
+			<svg id="fx-svg" aria-hidden="true" focusable="false">
+				<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L0,10 L10,5 Z" fill="currentColor"/></marker></defs>
+			</svg>
+			<!-- Caption bar (synced to the step's audio clip by aw-captions.js) -->
+			<div id="aw-caption" class="aw-caption" aria-hidden="true"></div>
+			<!-- LEFT pill · view options: callout / outline / shortcuts (icons; label shows as a hover tooltip) -->
+			<div id="stage-overlay-left" class="stage-overlay stage-overlay-left" role="group" aria-label="View options">
+				<button id="callout-toggle" type="button" class="ovl-btn" aria-label="Toggle callouts" aria-pressed="false" data-tip="Callouts: Off"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M4 5h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H10l-4 3v-3H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></svg></button>
+				<button id="outline-toggle" type="button" class="ovl-btn" aria-controls="step-outline" aria-expanded="false" aria-label="Toggle text outline" data-tip="Outline: Off"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" d="M4 6h16M4 12h16M4 18h10"/></svg></button>
+				<button id="help-toggle" class="ovl-btn help-toggle" type="button" aria-haspopup="dialog" aria-controls="shortcut-overlay" aria-label="Keyboard shortcuts (press ?)" data-tip="Shortcuts"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M11 18h2v-2h-2v2zm1.1-14C9.8 4 8 5.8 8 8h2a2 2 0 1 1 3.2 1.6c-.9.7-2.2 1.5-2.2 3.4h2c0-1 .8-1.5 1.7-2.2A4 4 0 0 0 12.1 4z"/></svg></button>
+			</div>
+			<!-- RIGHT pill · player: audio / captions / hide-top-bar / fullscreen -->
+			<div id="stage-overlay" class="stage-overlay" role="group" aria-label="Player controls">
+				<button id="audio-toggle" class="ovl-btn ovl-audio" type="button" aria-label="Toggle audio narration" aria-pressed="false" title="Narration audio"></button>
+				<button id="cc-toggle" class="ovl-btn" type="button" aria-label="Toggle captions" aria-pressed="false" title="Captions"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9.7 10.2a2.1 2.1 0 1 0 0 3.6M17 10.2a2.1 2.1 0 1 0 0 3.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+				<button id="header-hide" class="ovl-btn" type="button" aria-label="Hide top bar" title="Hide top bar (H)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/></svg></button>
+				<button id="fs-toggle" class="ovl-btn" type="button" aria-label="Toggle full screen" aria-pressed="false" title="Full screen (F)"><svg class="fs-enter" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg><svg class="fs-exit" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg></button>
+			</div>
+		</div>
+	</main>
+
+	<aside id="step-outline" hidden aria-label="Text outline of the current step">
+		<h2 id="outline-title">Step Details</h2>
+		<div id="outline-body"></div>
+	</aside>
+
+	<div id="controls" role="group" aria-label="Diagram navigation">
+		<button id="ctrl-grip" type="button" class="ctrl-grip" aria-label="Drag to move the controls" title="Drag to move">
+			<svg viewBox="0 0 16 16" aria-hidden="true"><g fill="currentColor"><circle cx="5" cy="3" r="1.4"/><circle cx="11" cy="3" r="1.4"/><circle cx="5" cy="8" r="1.4"/><circle cx="11" cy="8" r="1.4"/><circle cx="5" cy="13" r="1.4"/><circle cx="11" cy="13" r="1.4"/></g></svg>
+		</button>
+		<button id="ctrl-pin" type="button" class="button button-clear ctrl-icon ctrl-pin" aria-label="Pin the controls back to the center" title="Pin to center">
+			<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9 2h6a1 1 0 0 1 .8 1.6L14 6v4l3 3v2h-4v5l-1 2-1-2v-5H7v-2l3-3V6L8.2 3.6A1 1 0 0 1 9 2z"/></svg>
+		</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="prev-btn" type="button" class="button ctrl-icon" aria-label="Previous step (left arrow)">&#9664;</button>
+		<div class="step-counter" id="step-counter">0 / 0</div>
+		<button id="next-btn" type="button" class="button button-primary button-filled ctrl-icon ctrl-icon-next" aria-label="Next step (right arrow or space)">&#9654;</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="replay-btn" type="button" class="button ctrl-icon" aria-label="Replay this step's animation (P)">&#8635;</button>
+		<div class="speed-control" role="group" aria-label="Animation speed">
+			<button id="speed-down" type="button" class="button button-clear speed-btn" aria-label="Slower (-)" title="Slower">&minus;</button>
+			<span id="speed-label" class="speed-label" aria-live="polite" aria-label="Current speed">1&times;</span>
+			<button id="speed-up" type="button" class="button button-clear speed-btn" aria-label="Faster (+)" title="Faster">+</button>
+		</div>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="reset-btn" type="button" class="button button-clear ctrl-icon" aria-label="Restart from step 1 (R)">&#9198;</button>
+	</div>
+
+	<div id="shortcut-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="sc-title">
+		<div class="sc-backdrop"></div>
+		<div class="sc-panel">
+			<button id="sc-close" class="sc-close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
+			<h2 id="sc-title">Keyboard shortcuts</h2>
+			<ul id="sc-list" class="sc-list"></ul>
+			<p class="sc-hint">Press <kbd>?</kbd> anytime to toggle this panel.</p>
+		</div>
+	</div>
+
+<script>
+// ── THEME ─────────────────────────────────
+const themeToggleBtn = document.getElementById('theme-toggle');
+function syncThemeBtn(){
+	if (!themeToggleBtn) return;
+	const isDark = document.body.classList.contains('theme-dark');
+	themeToggleBtn.dataset.theme = isDark ? 'dark' : 'light';   // drives which glyph (sun/moon) shows
+	const label = isDark ? 'Switch to light theme' : 'Switch to dark theme';
+	themeToggleBtn.setAttribute('aria-label', label);
+	themeToggleBtn.setAttribute('title', label);
+}
+if (window.AW && AW.theme) {
+	// aw-theme.js owns click handling + persistence; theme recolors via CSS variables, so no re-render/replay.
+	AW.theme.onChange(() => { syncThemeBtn(); });
+	syncThemeBtn();
+} else {
+	// Standalone fallback: toggle .theme-dark / .theme-light on <body> ourselves.
+	syncThemeBtn();
+	if (themeToggleBtn) themeToggleBtn.addEventListener('click', () => {
+		const goingDark = !document.body.classList.contains('theme-dark');
+		document.body.classList.remove('theme-dark', 'theme-light');
+		document.body.classList.add(goingDark ? 'theme-dark' : 'theme-light');
+		try { localStorage.setItem('aw-theme', goingDark ? 'theme-dark' : 'theme-light'); } catch(_){}
+		syncThemeBtn();
+	});
+	// restore a previously chosen theme (standalone only)
+	try { const saved = localStorage.getItem('aw-theme'); if (saved === 'theme-light' || saved === 'theme-dark') { document.body.classList.remove('theme-dark','theme-light'); document.body.classList.add(saved); syncThemeBtn(); } } catch(_){}
+}
+
+// ── i18n ──────────────────────────────────
+// English is the source language. Add sibling objects (es/ja/ko/pt) with the
+// SAME keys + matching <option>s in #lang-select. Keep brand/code/proper-noun
+// sample data untranslated.
+let currentLang = 'en';
+// Source: https://learn.microsoft.com/azure/service-bus-messaging/message-transfers-locks-settlement
+const I18N = {
+	en: {
+	"backJourney":"Integration journey",
+	"short_crisis": "Crisis",
+	"short_gap": "The gap",
+	"short_sessions": "Sessions",
+	"short_lock": "Lock &amp; DLQ",
+	"short_topics": "Topics",
+	"short_recap": "Recap",
+		skipToMain:'Skip to diagram',
+		pageTitle:'Episode 2 · The VIP Transaction Disaster',
+		stageHeading:'Episode 2 · The VIP Transaction Disaster',
+		stageInstructions:'Animated explainer. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.',
+		prev:'\u25C0 Prev', next:'Next \u25B6', replay:'\u21BB Replay', restart:'\u21BB Restart',
+		slower:'Slower', faster:'Faster',
+		calloutOn:'Callouts: On', calloutOff:'Callouts: Off',
+		outlineOn:'Outline: On', outlineOff:'Outline: Off',
+		audioTip:'Narration audio', ccTip:'Captions', shortcutsTip:'Shortcuts',
+		stepDetails:'Step Details', stepOf:'Step',
+		resetPos:'Reset to default position',
+		scTitle:'Keyboard shortcuts',
+		scNext:'Next step', scPrev:'Previous step', scRestart:'Restart', scReplay:'Replay this step',
+		scHide:'Hide / show top bar', scHelp:'Toggle this help',
+		// ── Step captions (breadcrumb) ──
+		capCrisis:'Two messages, one second apart',
+		capGap:'What a simple queue does not give you',
+		capSessions:'Sessions restore the order',
+		capLock:'Peek-lock and the dead-letter queue',
+		capTopics:'One message, three subscribers',
+		capRecap:'Episode 2 recap',
+
+		// ── STEP 1 · crisis ──
+		crisisTitle:'The cancellation beat the order',
+		crisisLead:'A \u00a312,000 VIP order and its cancellation land one second apart. Two workers pick them up at the same time \u2014 and the cancellation wins the race.',
+		crisisCallout:'This is not a bug in the worker. The queue never promised order, and two competing consumers will always be able to overtake each other.',
+		crisisQHead:'Storage queue',
+		crisisQSub:'Two competing workers, best-effort order',
+		crisisM1:'ORDER #8801', crisisM1s:'reserve \u00a312,000',
+		crisisM2:'CANCEL #8801', crisisM2s:'arrives 1 s later',
+		crisisW1Head:'Worker A', crisisW1Sub:'picked up ORDER, waiting on stock',
+		crisisW2Head:'Worker B', crisisW2Sub:'picked up CANCEL, finished first',
+		crisisOutHead:'Result',
+		crisisOutR1:'Cancellation applied to', crisisOutR1v:'nothing',
+		crisisOutR2:'Order then committed', crisisOutR2v:"too late",
+		crisisOutR3:'Inventory', crisisOutR3v:"inconsistent",
+		crisisPill:"Cancellation missed; order still placed",
+
+		// ── STEP 2 · gap ──
+		gapTitle:'What a simple queue does not give you',
+		gapLead:'Queue Storage is excellent at buffering independent work. Money, however, is not independent work \u2014 it needs order, locks you can extend, and somewhere safe to put a broken message.',
+		gapCallout:'Swap in Service Bus when a single message is worth more than the compute that processes it. The premium is the reliability, not the throughput.',
+		gapCol1:'Azure Queue Storage', gapCol2:'Azure Service Bus',
+		gapR1:'Ordering', gapR1a:'Best effort, no guarantee', gapR1b:'FIFO within a session',
+		gapR2:'Message size', gapR2a:'64 KB', gapR2b:'256 KB \u2014 100 MB on Premium',
+		gapR3:'Poison messages', gapR3a:'Your own DequeueCount logic', gapR3b:'Built-in dead-letter queue',
+		gapR4:'Duplicates', gapR4a:'Handle it yourself', gapR4b:'Duplicate detection window',
+		gapR5:'Transactions', gapR5a:'None', gapR5b:'Atomic across entities',
+		gapR6:'Fan-out', gapR6a:'One queue, one consumer group', gapR6b:'Topics with 2,000 subscriptions',
+		gapNote:'Storage queues stay the right answer for cheap, order-insensitive background work \u2014 resizing an image, warming a cache, sending a newsletter.',
+
+		// ── STEP 3 · sessions ──
+		sessTitle:'Sessions put the VIP back in order',
+		sessLead:'Stamp every message with a <code>SessionId</code> \u2014 here the customer id. Service Bus then hands that whole session to exactly one receiver, in the order it arrived.',
+		sessCallout:'A session is a lock on a <em>conversation</em>, not on a message. One receiver owns <code>cust-4417</code> until it releases it, so #8801 can never be overtaken by its own cancellation again.',
+		sessZone:'Session-enabled queue \u00b7 orders',
+		sessS1:'cust-4417', sessS2:'cust-9002',
+		sessS1m1:'1 \u00b7 ORDER #8801', sessS1m2:'2 \u00b7 CANCEL #8801',
+		sessS2m1:'1 \u00b7 ORDER #8802', sessS2m2:'2 \u00b7 ADDRESS #8802',
+		sessR1Head:'Receiver 1', sessR1Sub:'Owns session <code>cust-4417</code>',
+		sessR2Head:'Receiver 2', sessR2Sub:'Owns session <code>cust-9002</code>',
+		sessPill1:'Order first, cancellation second \u2713',
+		sessPill2:'Different customers still run in parallel',
+		sessNote1:'One receiver per session', sessNote2:'Set SessionId on send',
+
+		// ── STEP 4 · lock + DLQ ──
+		lockTitle:'Peek-lock, and a cell for bad messages',
+		lockLead:'A receive does not delete. Service Bus locks the message, waits for you to complete it, and after ten failed deliveries moves it somewhere it can do no more harm.',
+		lockCallout:"The DLQ is a subqueue at <code>&lt;queue&gt;/$deadletterqueue</code>. Inspect the reason, repair the message, and resubmit it deliberately. Monitor the DLQ; it is not automatic recovery.",
+		lockStep1H:'1 \u00b7 Receive (peek-lock)',
+		lockStep1D:'The message is locked, not removed. Default lock is 60 seconds and you can renew it, up to 5 minutes at a time, while a long job runs.',
+		lockStep1C1:'60 s default', lockStep1C2:'5 min max',
+		lockStep2H:'2 \u00b7 Complete or abandon',
+		lockStep2D:"Complete removes the message. Abandon releases its lock immediately. After a crash, redelivery can wait for lock expiry.",
+		lockStep2C1:'at-least-once', lockStep2C2:'crash-safe',
+		lockStep3H:'3 \u00b7 Ten strikes',
+		lockStep3D:'Every delivery increments DeliveryCount. At MaxDeliveryCount \u2014 10 by default \u2014 Service Bus stops trying and moves the message aside.',
+		lockStep3C1:'MaxDeliveryCount 10', lockStep3C2:'auto, not optional',
+		lockStep4H:'4 \u00b7 Dead-letter queue',
+		lockStep4D:'The poison message lands in the DLQ with a reason and description attached. Your pipeline keeps moving; a human or a repair job deals with it later.',
+		lockStep4C1:'$deadletterqueue', lockStep4C2:'reason + description',
+		lockBadMsg:'CANCEL #8801', lockBadMsgS:'malformed JSON',
+		lockDlqLabel:'Dead-letter queue',
+		lockMainLabel:'orders \u00b7 main queue',
+		lockCount:'DeliveryCount',
+
+		// ── STEP 5 · topics ──
+		topicTitle:'One order, three teams, zero coupling',
+		topicLead:'Billing, shipping and loyalty all need the same order. Publish it once to a topic and let each team own a subscription with its own filter, its own backlog and its own dead-letter queue.',
+		topicCallout:'Subscriptions are independent queues. Loyalty can be down for an hour and its messages simply wait \u2014 billing never notices, and nobody has to change the publisher.',
+		topicPubHead:'Order service',
+		topicPubSub:'Publishes once',
+		topicTopicHead:'Service Bus topic',
+		topicTopicSub:'<code>orders</code>',
+		topicTopicR1:'Subscriptions', topicTopicR1v:'up to 2,000',
+		topicTopicR2:'Filters', topicTopicR2v:'SQL or correlation',
+		topicS1Head:'Billing', topicS1Sub:'<code>sub-billing</code>',
+		topicS1Filter:'all orders',
+		topicS2Head:'Shipping', topicS2Sub:'<code>sub-shipping</code>',
+		topicS2Filter:'physical = true',
+		topicS3Head:'Loyalty', topicS3Sub:'<code>sub-loyalty</code>',
+		topicS3Filter:'total &gt; 100',
+		topicPill:'Add a fourth team without touching the publisher',
+
+		// ── STEP 6 · recap ──
+		recapTitle:'Episode 2: Service Bus is the safe lane',
+		recapLead:'When a message represents money, a contract or a promise to a customer, you want ordering, locks, dead-lettering and pub/sub in the broker \u2014 not in your retry code.',
+		recapCallout:'Service Bus is for <em>messages</em>: high-value payloads with a contract between sender and receiver. Next episode we meet the opposite \u2014 millions of tiny events nobody negotiates over.',
+		recapC1H:'Sessions', recapC1D:'Guaranteed FIFO per <code>SessionId</code>, so a conversation can never be processed out of sequence.',
+		recapC1Cap1:'FIFO', recapC1Cap2:'one receiver per session',
+		recapC2H:'Peek-lock', recapC2D:"Receive without deleting. The default lock is 60 seconds; renew it for longer work. After a crash, expect redelivery, not instant recovery.",
+		recapC2Cap1:'60 s default', recapC2Cap2:'5 min max',
+		recapC3H:'Dead-lettering', recapC3D:'Ten failed deliveries and the message moves to <code>$deadletterqueue</code> with a reason \u2014 nothing is lost, nothing blocks.',
+		recapC3Cap1:'MaxDeliveryCount 10', recapC3Cap2:'built in',
+		recapC4H:'Topics', recapC4D:'Publish once, fan out to up to 2,000 filtered subscriptions, each with its own backlog.',
+		recapC4Cap1:'2,000 subscriptions', recapC4Cap2:'SQL + correlation filters',
+		recapVal1:'Order guaranteed where it matters',
+		recapVal2:'Nothing silently lost',
+		recapVal3:'New subscribers cost the publisher nothing',
+		recapFoot:'Next: a hundred thousand sensor readings a second arrive \u2014 and even Service Bus is the wrong tool. <a class="cr-next" href="SensorTsunami.html">Episode 3 \u00b7 The Sensor Tsunami &rarr;</a> <a href="https://learn.microsoft.com/training/paths/az-204-develop-message-based-solutions/" target="_blank" rel="noopener">Develop message-based solutions on Microsoft Learn &rarr;</a>',
+
+		// ── Outline stat labels ──
+		sService:'Service', sServiceV:'Azure Service Bus',
+		sMsg:'Message size', sMsgV:'256 KB, up to 100 MB on Premium',
+		sUse:'Best for', sUseV:'Orders, payments, workflows',
+		sOrder:'Ordering', sOrderV:'FIFO within a session',
+		sLock:'Receive mode', sLockV:'Peek-lock, 60 s renewable to 5 min',
+		sDlq:'Poison messages', sDlqV:'Dead-letter queue after 10 tries',
+		sFan:'Fan-out', sFanV:'Topics, up to 2,000 subscriptions',
+		sDup:'Duplicates', sDupV:'Detection window, 10 min by default',
+		sBefore:'Before', sBeforeV:'Cancellation processed first',
+		sAfter:'After', sAfterV:'Order, then cancellation'
+	},
+"es": {
+	"backJourney":"Recorrido de integración",
+	"short_crisis": "Crisis",
+	"short_gap": "La carencia",
+	"short_sessions": "Sesiones",
+	"short_lock": "Bloqueo y DLQ",
+	"short_topics": "Temas",
+	"short_recap": "Resumen",
+	"skipToMain": "Ir al diagrama",
+	"stageInstructions": "Explicación animada. Usa los botones Siguiente/Anterior o las teclas de flecha para navegar. Pulsa R para reiniciar.",
+	"prev": "◀ Anterior",
+	"next": "Siguiente ▶",
+	"replay": "↻ Repetir",
+	"restart": "↻ Reiniciar",
+	"slower": "Más lento",
+	"faster": "Más rápido",
+	"calloutOn": "Notas: Activadas",
+	"calloutOff": "Notas: Desactivadas",
+	"outlineOn": "Esquema: Activado",
+	"outlineOff": "Esquema: Desactivado",
+	"audioTip": "Audio de narración",
+	"ccTip": "Subtítulos",
+	"shortcutsTip": "Atajos",
+	"stepDetails": "Detalles del paso",
+	"stepOf": "Paso",
+	"resetPos": "Restablecer a la posición predeterminada",
+	"scTitle": "Atajos de teclado",
+	"scNext": "Paso siguiente",
+	"scPrev": "Paso anterior",
+	"scRestart": "Reiniciar",
+	"scReplay": "Repetir este paso",
+	"scHide": "Ocultar / mostrar barra superior",
+	"scHelp": "Alternar esta ayuda",
+	"pageTitle": "Episodio 2 · El desastre de la transacción VIP",
+	"stageHeading": "Episodio 2 · El desastre de la transacción VIP",
+	"capCrisis": "Dos mensajes con un segundo de diferencia",
+	"capGap": "Lo que una cola simple no te da",
+	"capSessions": "Las sesiones restauran el orden",
+	"capLock": "Peek-lock y la cola de mensajes fallidos",
+	"capTopics": "Un mensaje, tres suscriptores",
+	"capRecap": "Resumen del episodio 2",
+	"crisisTitle": "La cancelación se adelantó al pedido",
+	"crisisLead": "Un pedido VIP de 12.000 £ y su cancelación llegan con un segundo de diferencia. Dos trabajadores los recogen a la vez, y la cancelación gana la carrera.",
+	"crisisCallout": "Esto no es un error del trabajador. La cola nunca prometió orden, y dos consumidores que compiten siempre podrán adelantarse el uno al otro.",
+	"crisisQHead": "Cola de Storage",
+	"crisisQSub": "Dos trabajadores compitiendo, orden del mejor modo posible",
+	"crisisM1": "PEDIDO #8801",
+	"crisisM1s": "reservar 12.000 £",
+	"crisisM2": "CANCELAR #8801",
+	"crisisM2s": "llega 1 s después",
+	"crisisW1Head": "Trabajador A",
+	"crisisW1Sub": "cogió el PEDIDO, esperando existencias",
+	"crisisW2Head": "Trabajador B",
+	"crisisW2Sub": "cogió la CANCELACIÓN, terminó antes",
+	"crisisOutHead": "Resultado",
+	"crisisOutR1": "Cancelación aplicada a",
+	"crisisOutR1v": "nada",
+	"crisisOutR2": "Pedido confirmado después",
+	"crisisOutR2v": "demasiado tarde",
+	"crisisOutR3": "Inventario",
+	"crisisOutR3v": "incoherente",
+	"crisisPill": "Cancelación perdida; pedido confirmado",
+	"gapTitle": "Lo que una cola simple no te da",
+	"gapLead": "Queue Storage es excelente para amortiguar trabajo independiente. El dinero, en cambio, no es trabajo independiente: necesita orden, bloqueos que puedas ampliar y un sitio seguro donde dejar un mensaje roto.",
+	"gapCallout": "Cambia a Service Bus cuando un solo mensaje valga más que el proceso que lo trata. Lo que pagas de más es la fiabilidad, no el rendimiento.",
+	"gapCol1": "Azure Queue Storage",
+	"gapCol2": "Azure Service Bus",
+	"gapR1": "Orden",
+	"gapR1a": "Del mejor modo posible, sin garantía",
+	"gapR1b": "FIFO dentro de una sesión",
+	"gapR2": "Tamaño del mensaje",
+	"gapR2a": "64 KB",
+	"gapR2b": "256 KB — 100 MB en Premium",
+	"gapR3": "Mensajes dañados",
+	"gapR3a": "Tu propia lógica con DequeueCount",
+	"gapR3b": "Cola de mensajes fallidos integrada",
+	"gapR4": "Duplicados",
+	"gapR4a": "Los gestionas tú",
+	"gapR4b": "Ventana de detección de duplicados",
+	"gapR5": "Transacciones",
+	"gapR5a": "Ninguna",
+	"gapR5b": "Atómicas entre entidades",
+	"gapR6": "Distribución",
+	"gapR6a": "Una cola, un grupo de consumidores",
+	"gapR6b": "Temas con 2.000 suscripciones",
+	"gapNote": "Las colas de Storage siguen siendo la respuesta correcta para trabajo en segundo plano barato y sin sensibilidad al orden: redimensionar una imagen, precalentar una caché, enviar un boletín.",
+	"sessTitle": "Las sesiones devuelven el orden al VIP",
+	"sessLead": "Marca cada mensaje con un <code>SessionId</code> — aquí, el id del cliente. Service Bus entrega entonces esa sesión completa a un único receptor, en el orden en que llegó.",
+	"sessCallout": "Una sesión es un bloqueo sobre una <em>conversación</em>, no sobre un mensaje. Un receptor posee <code>cust-4417</code> hasta que lo libera, así que el #8801 ya nunca podrá ser adelantado por su propia cancelación.",
+	"sessZone": "Cola con sesiones habilitadas · orders",
+	"sessS1": "cust-4417",
+	"sessS2": "cust-9002",
+	"sessS1m1": "1 · PEDIDO #8801",
+	"sessS1m2": "2 · CANCELAR #8801",
+	"sessS2m1": "1 · PEDIDO #8802",
+	"sessS2m2": "2 · DIRECCIÓN #8802",
+	"sessR1Head": "Receptor 1",
+	"sessR1Sub": "Posee la sesión <code>cust-4417</code>",
+	"sessR2Head": "Receptor 2",
+	"sessR2Sub": "Posee la sesión <code>cust-9002</code>",
+	"sessPill1": "Primero el pedido, después la cancelación ✓",
+	"sessPill2": "Clientes distintos siguen en paralelo",
+	"sessNote1": "Un receptor por sesión",
+	"sessNote2": "Establece SessionId al enviar",
+	"lockTitle": "Peek-lock y una celda para los mensajes malos",
+	"lockLead": "Recibir no elimina. Service Bus bloquea el mensaje, espera a que lo completes y, tras diez entregas fallidas, lo mueve a un lugar donde ya no puede hacer daño.",
+	"lockCallout": "La DLQ está en <code>&lt;queue&gt;/$deadletterqueue</code>. Revisa el motivo, corrige el mensaje y reenvíalo deliberadamente. Supervisa la DLQ: no es recuperación automática.",
+	"lockStep1H": "1 · Recibir (peek-lock)",
+	"lockStep1D": "El mensaje se bloquea, no se quita. El bloqueo predeterminado es de 60 segundos y puedes renovarlo, hasta 5 minutos cada vez, mientras dura un trabajo largo.",
+	"lockStep1C1": "60 s predeterminado",
+	"lockStep1C2": "5 min máx.",
+	"lockStep2H": "2 · Completar o abandonar",
+	"lockStep2D": "Complete elimina el mensaje. Abandon libera el bloqueo de inmediato. Tras un fallo, la reentrega puede esperar a que caduque el bloqueo.",
+	"lockStep2C1": "al menos una vez",
+	"lockStep2C2": "a prueba de fallos",
+	"lockStep3H": "3 · Diez intentos",
+	"lockStep3D": "Cada entrega incrementa DeliveryCount. Al llegar a MaxDeliveryCount —10 de forma predeterminada— Service Bus deja de intentarlo y aparta el mensaje.",
+	"lockStep3C1": "MaxDeliveryCount 10",
+	"lockStep3C2": "automático, no opcional",
+	"lockStep4H": "4 · Cola de mensajes fallidos",
+	"lockStep4D": "El mensaje dañado acaba en la DLQ con un motivo y una descripción adjuntos. Tu canalización sigue avanzando; una persona o un trabajo de reparación se ocupa después.",
+	"lockStep4C1": "$deadletterqueue",
+	"lockStep4C2": "motivo + descripción",
+	"lockBadMsg": "CANCELAR #8801",
+	"lockBadMsgS": "JSON con formato incorrecto",
+	"lockDlqLabel": "Cola de mensajes fallidos",
+	"lockMainLabel": "orders · cola principal",
+	"lockCount": "DeliveryCount",
+	"topicTitle": "Un pedido, tres equipos, cero acoplamiento",
+	"topicLead": "Facturación, envíos y fidelización necesitan el mismo pedido. Publícalo una vez en un tema y deja que cada equipo tenga su suscripción con su propio filtro, su propia acumulación y su propia cola de mensajes fallidos.",
+	"topicCallout": "Las suscripciones son colas independientes. Fidelización puede estar caído una hora y sus mensajes simplemente esperan: facturación ni se entera, y nadie tiene que cambiar al publicador.",
+	"topicPubHead": "Servicio de pedidos",
+	"topicPubSub": "Publica una vez",
+	"topicTopicHead": "Tema de Service Bus",
+	"topicTopicSub": "<code>orders</code>",
+	"topicTopicR1": "Suscripciones",
+	"topicTopicR1v": "hasta 2.000",
+	"topicTopicR2": "Filtros",
+	"topicTopicR2v": "SQL o correlación",
+	"topicS1Head": "Facturación",
+	"topicS1Sub": "<code>sub-billing</code>",
+	"topicS1Filter": "todos los pedidos",
+	"topicS2Head": "Envíos",
+	"topicS2Sub": "<code>sub-shipping</code>",
+	"topicS2Filter": "physical = true",
+	"topicS3Head": "Fidelización",
+	"topicS3Sub": "<code>sub-loyalty</code>",
+	"topicS3Filter": "total &gt; 100",
+	"topicPill": "Añade un cuarto equipo sin tocar al publicador",
+	"recapTitle": "Episodio 2: Service Bus es el carril seguro",
+	"recapLead": "Cuando un mensaje representa dinero, un contrato o una promesa a un cliente, quieres el orden, los bloqueos, los mensajes fallidos y la publicación/suscripción en el agente, no en tu código de reintentos.",
+	"recapCallout": "Service Bus es para <em>mensajes</em>: cargas de alto valor con un contrato entre emisor y receptor. En el próximo episodio veremos lo contrario: millones de eventos diminutos que nadie negocia.",
+	"recapC1H": "Sesiones",
+	"recapC1D": "FIFO garantizado por <code>SessionId</code>, para que una conversación nunca se procese fuera de secuencia.",
+	"recapC1Cap1": "FIFO",
+	"recapC1Cap2": "un receptor por sesión",
+	"recapC2H": "Peek-lock",
+	"recapC2D": "Recibe sin eliminar. El bloqueo dura 60 segundos por defecto; renuévalo para trabajos largos. Un fallo permite reentrega, no recuperación instantánea.",
+	"recapC2Cap1": "60 s predeterminado",
+	"recapC2Cap2": "5 min máx.",
+	"recapC3H": "Mensajes fallidos",
+	"recapC3D": "Diez entregas fallidas y el mensaje pasa a <code>$deadletterqueue</code> con un motivo: no se pierde nada, no se bloquea nada.",
+	"recapC3Cap1": "MaxDeliveryCount 10",
+	"recapC3Cap2": "integrado",
+	"recapC4H": "Temas",
+	"recapC4D": "Publica una vez y distribuye a hasta 2.000 suscripciones filtradas, cada una con su propia acumulación.",
+	"recapC4Cap1": "2.000 suscripciones",
+	"recapC4Cap2": "filtros SQL y de correlación",
+	"recapVal1": "Orden garantizado donde importa",
+	"recapVal2": "Nada se pierde en silencio",
+	"recapVal3": "Los nuevos suscriptores no cuestan nada al publicador",
+	"recapFoot": "Siguiente: llegan cien mil lecturas de sensores por segundo, y hasta Service Bus es la herramienta equivocada. <a class=\"cr-next\" href=\"SensorTsunami.html\">Episodio 3 · El tsunami de sensores &rarr;</a> <a href=\"https://learn.microsoft.com/training/paths/az-204-develop-message-based-solutions/\" target=\"_blank\" rel=\"noopener\">Desarrolla soluciones basadas en mensajes en Microsoft Learn &rarr;</a>",
+	"sService": "Servicio",
+	"sServiceV": "Azure Service Bus",
+	"sMsg": "Tamaño del mensaje",
+	"sMsgV": "256 KB, hasta 100 MB en Premium",
+	"sUse": "Ideal para",
+	"sUseV": "Pedidos, pagos, flujos de trabajo",
+	"sOrder": "Orden",
+	"sOrderV": "FIFO dentro de una sesión",
+	"sLock": "Modo de recepción",
+	"sLockV": "Peek-lock, 60 s renovable a 5 min",
+	"sDlq": "Mensajes dañados",
+	"sDlqV": "Cola de mensajes fallidos tras 10 intentos",
+	"sFan": "Distribución",
+	"sFanV": "Temas, hasta 2.000 suscripciones",
+	"sDup": "Duplicados",
+	"sDupV": "Ventana de detección, 10 min de forma predeterminada",
+	"sBefore": "Antes",
+	"sBeforeV": "Cancelación procesada primero",
+	"sAfter": "Después",
+	"sAfterV": "Pedido y luego cancelación"
+},
+"ja": {
+	"backJourney":"統合の学習",
+	"short_crisis": "危機",
+	"short_gap": "不足",
+	"short_sessions": "セッション",
+	"short_lock": "ロックと DLQ",
+	"short_topics": "トピック",
+	"short_recap": "まとめ",
+	"skipToMain": "図へスキップ",
+	"stageInstructions": "アニメーション解説。次へ/前へボタンまたは矢印キーで移動します。R キーで最初からやり直します。",
+	"prev": "◀ 前へ",
+	"next": "次へ ▶",
+	"replay": "↻ リプレイ",
+	"restart": "↻ 最初から",
+	"slower": "遅く",
+	"faster": "速く",
+	"calloutOn": "注釈: オン",
+	"calloutOff": "注釈: オフ",
+	"outlineOn": "アウトライン: オン",
+	"outlineOff": "アウトライン: オフ",
+	"audioTip": "ナレーション音声",
+	"ccTip": "字幕",
+	"shortcutsTip": "ショートカット",
+	"stepDetails": "ステップの詳細",
+	"stepOf": "ステップ",
+	"resetPos": "既定の位置にリセット",
+	"scTitle": "キーボード ショートカット",
+	"scNext": "次のステップ",
+	"scPrev": "前のステップ",
+	"scRestart": "最初から",
+	"scReplay": "このステップをリプレイ",
+	"scHide": "上部バーの表示 / 非表示",
+	"scHelp": "このヘルプを切り替え",
+	"pageTitle": "エピソード 2 · VIP トランザクションの惨事",
+	"stageHeading": "エピソード 2 · VIP トランザクションの惨事",
+	"capCrisis": "1 秒差で届いた 2 つのメッセージ",
+	"capGap": "単純なキューでは得られないもの",
+	"capSessions": "セッションが順序を取り戻す",
+	"capLock": "ピークロックと配信不能キュー",
+	"capTopics": "1 つのメッセージ、3 つのサブスクライバー",
+	"capRecap": "エピソード 2 のまとめ",
+	"crisisTitle": "キャンセルが注文を追い越した",
+	"crisisLead": "£12,000 の VIP 注文とそのキャンセルが 1 秒差で届きます。2 つのワーカーが同時に取得し、キャンセルが競争に勝ってしまいます。",
+	"crisisCallout": "これはワーカーのバグではありません。キューは順序を約束したことがなく、競合する 2 つのコンシューマーは常に互いを追い越せます。",
+	"crisisQHead": "Storage キュー",
+	"crisisQSub": "競合する 2 つのワーカー、順序はベスト エフォート",
+	"crisisM1": "注文 #8801",
+	"crisisM1s": "£12,000 を確保",
+	"crisisM2": "キャンセル #8801",
+	"crisisM2s": "1 秒後に到着",
+	"crisisW1Head": "ワーカー A",
+	"crisisW1Sub": "注文を取得、在庫を待機中",
+	"crisisW2Head": "ワーカー B",
+	"crisisW2Sub": "キャンセルを取得、先に完了",
+	"crisisOutHead": "結果",
+	"crisisOutR1": "キャンセルの適用先",
+	"crisisOutR1v": "なし",
+	"crisisOutR2": "その後に注文が確定",
+	"crisisOutR2v": "遅すぎた",
+	"crisisOutR3": "在庫",
+	"crisisOutR3v": "不整合",
+	"crisisPill": "キャンセル失敗、注文は成立",
+	"gapTitle": "単純なキューでは得られないもの",
+	"gapLead": "Queue Storage は独立した処理のバッファリングに優れています。しかしお金は独立した処理ではありません。順序と、延長できるロックと、壊れたメッセージを安全に置く場所が必要です。",
+	"gapCallout": "1 通のメッセージが、それを処理するコンピューティングよりも価値がある場合は Service Bus に切り替えましょう。上乗せ分で買っているのはスループットではなく信頼性です。",
+	"gapCol1": "Azure Queue Storage",
+	"gapCol2": "Azure Service Bus",
+	"gapR1": "順序",
+	"gapR1a": "ベスト エフォート、保証なし",
+	"gapR1b": "セッション内で FIFO",
+	"gapR2": "メッセージ サイズ",
+	"gapR2a": "64 KB",
+	"gapR2b": "256 KB — Premium では 100 MB",
+	"gapR3": "有害メッセージ",
+	"gapR3a": "DequeueCount を使った自前のロジック",
+	"gapR3b": "組み込みの配信不能キュー",
+	"gapR4": "重複",
+	"gapR4a": "自分で対処する",
+	"gapR4b": "重複検出ウィンドウ",
+	"gapR5": "トランザクション",
+	"gapR5a": "なし",
+	"gapR5b": "エンティティ間でアトミック",
+	"gapR6": "ファンアウト",
+	"gapR6a": "1 キュー、1 コンシューマー グループ",
+	"gapR6b": "2,000 サブスクリプションのトピック",
+	"gapNote": "画像のリサイズ、キャッシュのウォームアップ、ニュースレターの送信など、安価で順序を問わないバックグラウンド処理には Storage キューが今も最適解です。",
+	"sessTitle": "セッションが VIP の順序を取り戻す",
+	"sessLead": "すべてのメッセージに <code>SessionId</code>（ここでは顧客 ID）を付けます。すると Service Bus はそのセッション全体を、到着順のまま 1 つの受信者だけに引き渡します。",
+	"sessCallout": "セッションとはメッセージではなく <em>会話</em> に対するロックです。1 つの受信者が解放するまで <code>cust-4417</code> を所有するため、#8801 が自分自身のキャンセルに追い越されることは二度とありません。",
+	"sessZone": "セッション有効なキュー · orders",
+	"sessS1": "cust-4417",
+	"sessS2": "cust-9002",
+	"sessS1m1": "1 · 注文 #8801",
+	"sessS1m2": "2 · キャンセル #8801",
+	"sessS2m1": "1 · 注文 #8802",
+	"sessS2m2": "2 · 住所変更 #8802",
+	"sessR1Head": "受信者 1",
+	"sessR1Sub": "セッション <code>cust-4417</code> を所有",
+	"sessR2Head": "受信者 2",
+	"sessR2Sub": "セッション <code>cust-9002</code> を所有",
+	"sessPill1": "注文が先、キャンセルが後 ✓",
+	"sessPill2": "顧客が違えば引き続き並列に処理",
+	"sessNote1": "セッションごとに受信者は 1 つ",
+	"sessNote2": "送信時に SessionId を設定",
+	"lockTitle": "ピークロックと、問題のあるメッセージの隔離先",
+	"lockLead": "受信しても削除されません。Service Bus はメッセージをロックし、完了を待ち、10 回配信に失敗したら、もう害を及ぼせない場所へ移します。",
+	"lockCallout": "DLQ は <code>&lt;queue&gt;/$deadletterqueue</code> にあるサブキューです。理由を確認し、修正して再送信します。自動復旧ではないため監視が必要です。",
+	"lockStep1H": "1 · 受信 (ピークロック)",
+	"lockStep1D": "メッセージはロックされるだけで、取り除かれません。既定のロックは 60 秒で、長い処理の間は 1 回につき最大 5 分まで更新できます。",
+	"lockStep1C1": "既定 60 秒",
+	"lockStep1C2": "最大 5 分",
+	"lockStep2H": "2 · 完了または破棄",
+	"lockStep2D": "Complete はメッセージを削除します。Abandon はロックを即座に解放します。クラッシュ後の再配信はロックの期限切れまで待つ場合があります。",
+	"lockStep2C1": "最低 1 回",
+	"lockStep2C2": "クラッシュに強い",
+	"lockStep3H": "3 · 10 回まで",
+	"lockStep3D": "配信のたびに DeliveryCount が増えます。MaxDeliveryCount (既定は 10) に達すると、Service Bus は再試行をやめてメッセージを脇へ移します。",
+	"lockStep3C1": "MaxDeliveryCount 10",
+	"lockStep3C2": "自動、省略不可",
+	"lockStep4H": "4 · 配信不能キュー",
+	"lockStep4D": "有害メッセージは理由と説明が付いた状態で DLQ に入ります。パイプラインは動き続け、後から担当者や修復ジョブが対処します。",
+	"lockStep4C1": "$deadletterqueue",
+	"lockStep4C2": "理由 + 説明",
+	"lockBadMsg": "キャンセル #8801",
+	"lockBadMsgS": "不正な形式の JSON",
+	"lockDlqLabel": "配信不能キュー",
+	"lockMainLabel": "orders · メイン キュー",
+	"lockCount": "DeliveryCount",
+	"topicTitle": "1 つの注文、3 つのチーム、結合はゼロ",
+	"topicLead": "請求、配送、ロイヤルティはすべて同じ注文を必要とします。トピックに一度発行すれば、各チームが独自のフィルター、独自のバックログ、独自の配信不能キューを持つサブスクリプションを所有できます。",
+	"topicCallout": "サブスクリプションは独立したキューです。ロイヤルティが 1 時間停止してもメッセージは待っているだけで、請求は気づきもせず、発行側を変更する必要もありません。",
+	"topicPubHead": "注文サービス",
+	"topicPubSub": "一度だけ発行",
+	"topicTopicHead": "Service Bus トピック",
+	"topicTopicSub": "<code>orders</code>",
+	"topicTopicR1": "サブスクリプション",
+	"topicTopicR1v": "最大 2,000",
+	"topicTopicR2": "フィルター",
+	"topicTopicR2v": "SQL または相関",
+	"topicS1Head": "請求",
+	"topicS1Sub": "<code>sub-billing</code>",
+	"topicS1Filter": "すべての注文",
+	"topicS2Head": "配送",
+	"topicS2Sub": "<code>sub-shipping</code>",
+	"topicS2Filter": "physical = true",
+	"topicS3Head": "ロイヤルティ",
+	"topicS3Sub": "<code>sub-loyalty</code>",
+	"topicS3Filter": "total &gt; 100",
+	"topicPill": "発行側に触れずに 4 つ目のチームを追加できる",
+	"recapTitle": "エピソード 2: Service Bus は安全な車線",
+	"recapLead": "メッセージがお金、契約、顧客への約束を表すなら、順序、ロック、配信不能処理、発行/サブスクライブは自分の再試行コードではなくブローカー側に置きたいところです。",
+	"recapCallout": "Service Bus は <em>メッセージ</em> のためのものです。送信者と受信者の間に契約がある、価値の高いペイロードです。次のエピソードでは正反対のもの、つまり誰も交渉しない何百万もの小さなイベントを扱います。",
+	"recapC1H": "セッション",
+	"recapC1D": "<code>SessionId</code> ごとに FIFO を保証するため、1 つの会話が順序を崩して処理されることはありません。",
+	"recapC1Cap1": "FIFO",
+	"recapC1Cap2": "セッションごとに受信者 1 つ",
+	"recapC2H": "ピークロック",
+	"recapC2D": "削除せずに受信します。既定のロックは60秒で、長い処理では更新します。クラッシュ後は再配信に備えます。即時復旧ではありません。",
+	"recapC2Cap1": "既定 60 秒",
+	"recapC2Cap2": "最大 5 分",
+	"recapC3H": "配信不能処理",
+	"recapC3D": "10 回配信に失敗するとメッセージは理由付きで <code>$deadletterqueue</code> へ移ります。失われるものはなく、詰まるものもありません。",
+	"recapC3Cap1": "MaxDeliveryCount 10",
+	"recapC3Cap2": "組み込み",
+	"recapC4H": "トピック",
+	"recapC4D": "一度発行すれば、それぞれ独自のバックログを持つ最大 2,000 のフィルター付きサブスクリプションへ配信されます。",
+	"recapC4Cap1": "2,000 サブスクリプション",
+	"recapC4Cap2": "SQL + 相関フィルター",
+	"recapVal1": "重要なところで順序が保証される",
+	"recapVal2": "黙って失われるものがない",
+	"recapVal3": "サブスクライバーが増えても発行側の負担はゼロ",
+	"recapFoot": "次回: 毎秒 10 万件のセンサー読み取りが届き、Service Bus ですら適切な道具ではなくなります。<a class=\"cr-next\" href=\"SensorTsunami.html\">エピソード 3 · センサーの津波 &rarr;</a> <a href=\"https://learn.microsoft.com/training/paths/az-204-develop-message-based-solutions/\" target=\"_blank\" rel=\"noopener\">Microsoft Learn でメッセージ ベースのソリューションを開発する &rarr;</a>",
+	"sService": "サービス",
+	"sServiceV": "Azure Service Bus",
+	"sMsg": "メッセージ サイズ",
+	"sMsgV": "256 KB、Premium では最大 100 MB",
+	"sUse": "最適な用途",
+	"sUseV": "注文、支払い、ワークフロー",
+	"sOrder": "順序",
+	"sOrderV": "セッション内で FIFO",
+	"sLock": "受信モード",
+	"sLockV": "ピークロック、60 秒 (5 分まで更新可)",
+	"sDlq": "有害メッセージ",
+	"sDlqV": "10 回試行後に配信不能キューへ",
+	"sFan": "ファンアウト",
+	"sFanV": "トピック、最大 2,000 サブスクリプション",
+	"sDup": "重複",
+	"sDupV": "検出ウィンドウ、既定 10 分",
+	"sBefore": "前",
+	"sBeforeV": "キャンセルが先に処理された",
+	"sAfter": "後",
+	"sAfterV": "注文、そしてキャンセル"
+},
+"ko": {
+	"backJourney":"통합 여정",
+	"short_crisis": "위기",
+	"short_gap": "한계",
+	"short_sessions": "세션",
+	"short_lock": "잠금 및 DLQ",
+	"short_topics": "토픽",
+	"short_recap": "요약",
+	"skipToMain": "다이어그램으로 건너뛰기",
+	"stageInstructions": "애니메이션 설명입니다. 다음/이전 버튼이나 화살표 키로 이동하세요. R 키를 누르면 처음부터 다시 시작합니다.",
+	"prev": "◀ 이전",
+	"next": "다음 ▶",
+	"replay": "↻ 다시 재생",
+	"restart": "↻ 처음부터",
+	"slower": "느리게",
+	"faster": "빠르게",
+	"calloutOn": "설명: 켜짐",
+	"calloutOff": "설명: 꺼짐",
+	"outlineOn": "개요: 켜짐",
+	"outlineOff": "개요: 꺼짐",
+	"audioTip": "내레이션 오디오",
+	"ccTip": "자막",
+	"shortcutsTip": "단축키",
+	"stepDetails": "단계 세부 정보",
+	"stepOf": "단계",
+	"resetPos": "기본 위치로 재설정",
+	"scTitle": "키보드 단축키",
+	"scNext": "다음 단계",
+	"scPrev": "이전 단계",
+	"scRestart": "처음부터",
+	"scReplay": "이 단계 다시 재생",
+	"scHide": "상단 바 숨기기 / 표시",
+	"scHelp": "이 도움말 전환",
+	"pageTitle": "에피소드 2 · VIP 트랜잭션 참사",
+	"stageHeading": "에피소드 2 · VIP 트랜잭션 참사",
+	"capCrisis": "1초 차이로 도착한 두 메시지",
+	"capGap": "단순한 큐가 주지 못하는 것",
+	"capSessions": "세션이 순서를 되돌리다",
+	"capLock": "Peek-lock과 배달 못 한 메시지 큐",
+	"capTopics": "메시지 하나, 구독자 셋",
+	"capRecap": "에피소드 2 요약",
+	"crisisTitle": "취소가 주문을 앞질렀다",
+	"crisisLead": "£12,000짜리 VIP 주문과 그 취소가 1초 간격으로 도착합니다. 두 작업자가 동시에 가져가고, 취소가 경주에서 이깁니다.",
+	"crisisCallout": "작업자의 버그가 아닙니다. 큐는 순서를 약속한 적이 없고, 경쟁하는 두 소비자는 언제든 서로를 앞지를 수 있습니다.",
+	"crisisQHead": "Storage 큐",
+	"crisisQSub": "경쟁하는 작업자 둘, 최선 노력 순서",
+	"crisisM1": "주문 #8801",
+	"crisisM1s": "£12,000 예약",
+	"crisisM2": "취소 #8801",
+	"crisisM2s": "1초 뒤 도착",
+	"crisisW1Head": "작업자 A",
+	"crisisW1Sub": "주문을 가져감, 재고 대기 중",
+	"crisisW2Head": "작업자 B",
+	"crisisW2Sub": "취소를 가져감, 먼저 완료",
+	"crisisOutHead": "결과",
+	"crisisOutR1": "취소가 적용된 대상",
+	"crisisOutR1v": "없음",
+	"crisisOutR2": "그 뒤 주문이 확정됨",
+	"crisisOutR2v": "너무 늦음",
+	"crisisOutR3": "재고",
+	"crisisOutR3v": "불일치",
+	"crisisPill": "취소 실패, 주문은 확정",
+	"gapTitle": "단순한 큐가 주지 못하는 것",
+	"gapLead": "Queue Storage는 독립적인 작업을 버퍼링하는 데 탁월합니다. 하지만 돈은 독립적인 작업이 아닙니다. 순서와, 연장할 수 있는 잠금과, 망가진 메시지를 안전하게 둘 곳이 필요합니다.",
+	"gapCallout": "메시지 한 건이 그것을 처리하는 컴퓨팅보다 값질 때는 Service Bus로 바꾸세요. 더 내는 값은 처리량이 아니라 신뢰성입니다.",
+	"gapCol1": "Azure Queue Storage",
+	"gapCol2": "Azure Service Bus",
+	"gapR1": "순서",
+	"gapR1a": "최선 노력, 보장 없음",
+	"gapR1b": "세션 내에서 FIFO",
+	"gapR2": "메시지 크기",
+	"gapR2a": "64KB",
+	"gapR2b": "256KB — Premium에서는 100MB",
+	"gapR3": "포이즌 메시지",
+	"gapR3a": "DequeueCount를 쓰는 직접 만든 로직",
+	"gapR3b": "기본 제공 배달 못 한 메시지 큐",
+	"gapR4": "중복",
+	"gapR4a": "직접 처리",
+	"gapR4b": "중복 검색 기간",
+	"gapR5": "트랜잭션",
+	"gapR5a": "없음",
+	"gapR5b": "엔터티 간 원자적",
+	"gapR6": "팬아웃",
+	"gapR6a": "큐 하나, 소비자 그룹 하나",
+	"gapR6b": "구독 2,000개를 갖는 토픽",
+	"gapNote": "이미지 크기 조정, 캐시 예열, 뉴스레터 발송처럼 저렴하고 순서에 민감하지 않은 백그라운드 작업에는 Storage 큐가 여전히 정답입니다.",
+	"sessTitle": "세션이 VIP의 순서를 되돌리다",
+	"sessLead": "모든 메시지에 <code>SessionId</code>(여기서는 고객 ID)를 찍으세요. 그러면 Service Bus가 그 세션 전체를 도착한 순서 그대로 단 하나의 수신자에게 넘깁니다.",
+	"sessCallout": "세션은 메시지가 아니라 <em>대화</em>에 대한 잠금입니다. 한 수신자가 놓아줄 때까지 <code>cust-4417</code>을 소유하므로, #8801이 자신의 취소에 다시 추월당할 일은 없습니다.",
+	"sessZone": "세션이 활성화된 큐 · orders",
+	"sessS1": "cust-4417",
+	"sessS2": "cust-9002",
+	"sessS1m1": "1 · 주문 #8801",
+	"sessS1m2": "2 · 취소 #8801",
+	"sessS2m1": "1 · 주문 #8802",
+	"sessS2m2": "2 · 주소 변경 #8802",
+	"sessR1Head": "수신자 1",
+	"sessR1Sub": "세션 <code>cust-4417</code> 소유",
+	"sessR2Head": "수신자 2",
+	"sessR2Sub": "세션 <code>cust-9002</code> 소유",
+	"sessPill1": "주문 먼저, 취소 나중 ✓",
+	"sessPill2": "고객이 다르면 여전히 병렬로 처리",
+	"sessNote1": "세션당 수신자 하나",
+	"sessNote2": "보낼 때 SessionId 설정",
+	"lockTitle": "Peek-lock, 그리고 불량 메시지를 위한 격리실",
+	"lockLead": "수신해도 삭제되지 않습니다. Service Bus는 메시지를 잠그고 완료를 기다리며, 열 번 전달에 실패하면 더 이상 해를 끼칠 수 없는 곳으로 옮깁니다.",
+	"lockCallout": "DLQ는 <code>&lt;queue&gt;/$deadletterqueue</code>의 하위 큐입니다. 원인을 확인하고 수정한 뒤 다시 보내세요. 자동 복구가 아니므로 모니터링이 필요합니다.",
+	"lockStep1H": "1 · 수신(peek-lock)",
+	"lockStep1D": "메시지는 잠길 뿐 제거되지 않습니다. 기본 잠금은 60초이며, 오래 걸리는 작업 중에는 한 번에 최대 5분까지 갱신할 수 있습니다.",
+	"lockStep1C1": "기본 60초",
+	"lockStep1C2": "최대 5분",
+	"lockStep2H": "2 · 완료 또는 포기",
+	"lockStep2D": "Complete는 메시지를 삭제합니다. Abandon은 잠금을 즉시 해제합니다. 충돌 후 재전달은 잠금 만료까지 기다릴 수 있습니다.",
+	"lockStep2C1": "최소 한 번",
+	"lockStep2C2": "장애에 안전",
+	"lockStep3H": "3 · 열 번의 기회",
+	"lockStep3D": "전달할 때마다 DeliveryCount가 올라갑니다. MaxDeliveryCount(기본 10)에 도달하면 Service Bus는 시도를 멈추고 메시지를 옆으로 치웁니다.",
+	"lockStep3C1": "MaxDeliveryCount 10",
+	"lockStep3C2": "자동, 선택 불가",
+	"lockStep4H": "4 · 배달 못 한 메시지 큐",
+	"lockStep4D": "포이즌 메시지는 이유와 설명이 붙은 채 DLQ로 들어갑니다. 파이프라인은 계속 움직이고, 사람이나 복구 작업이 나중에 처리합니다.",
+	"lockStep4C1": "$deadletterqueue",
+	"lockStep4C2": "이유 + 설명",
+	"lockBadMsg": "취소 #8801",
+	"lockBadMsgS": "잘못된 형식의 JSON",
+	"lockDlqLabel": "배달 못 한 메시지 큐",
+	"lockMainLabel": "orders · 기본 큐",
+	"lockCount": "DeliveryCount",
+	"topicTitle": "주문 하나, 팀 셋, 결합은 제로",
+	"topicLead": "청구, 배송, 로열티가 모두 같은 주문을 필요로 합니다. 토픽에 한 번 게시하면 각 팀이 자체 필터, 자체 백로그, 자체 배달 못 한 메시지 큐를 가진 구독을 소유합니다.",
+	"topicCallout": "구독은 독립적인 큐입니다. 로열티가 한 시간 down되어도 메시지는 그저 기다립니다. 청구는 눈치채지도 못하고, 게시자를 바꿀 필요도 없습니다.",
+	"topicPubHead": "주문 서비스",
+	"topicPubSub": "한 번 게시",
+	"topicTopicHead": "Service Bus 토픽",
+	"topicTopicSub": "<code>orders</code>",
+	"topicTopicR1": "구독",
+	"topicTopicR1v": "최대 2,000개",
+	"topicTopicR2": "필터",
+	"topicTopicR2v": "SQL 또는 상관 관계",
+	"topicS1Head": "청구",
+	"topicS1Sub": "<code>sub-billing</code>",
+	"topicS1Filter": "모든 주문",
+	"topicS2Head": "배송",
+	"topicS2Sub": "<code>sub-shipping</code>",
+	"topicS2Filter": "physical = true",
+	"topicS3Head": "로열티",
+	"topicS3Sub": "<code>sub-loyalty</code>",
+	"topicS3Filter": "total &gt; 100",
+	"topicPill": "게시자를 건드리지 않고 네 번째 팀을 추가",
+	"recapTitle": "에피소드 2: Service Bus는 안전 차선",
+	"recapLead": "메시지가 돈, 계약, 고객과의 약속을 뜻한다면 순서와 잠금, 배달 못 한 메시지 처리, 게시/구독은 재시도 코드가 아니라 브로커 안에 있어야 합니다.",
+	"recapCallout": "Service Bus는 <em>메시지</em>를 위한 것입니다. 보내는 쪽과 받는 쪽 사이에 계약이 있는 고가치 페이로드죠. 다음 에피소드에서는 그 반대, 아무도 협상하지 않는 수백만 개의 작은 이벤트를 만납니다.",
+	"recapC1H": "세션",
+	"recapC1D": "<code>SessionId</code>별로 FIFO를 보장하므로 하나의 대화가 순서를 벗어나 처리될 수 없습니다.",
+	"recapC1Cap1": "FIFO",
+	"recapC1Cap2": "세션당 수신자 하나",
+	"recapC2H": "Peek-lock",
+	"recapC2D": "삭제하지 않고 수신합니다. 기본 잠금은 60초이며 긴 작업에서는 갱신합니다. 충돌 후에는 즉시 복구가 아니라 재전달에 대비하세요.",
+	"recapC2Cap1": "기본 60초",
+	"recapC2Cap2": "최대 5분",
+	"recapC3H": "배달 못 한 메시지 처리",
+	"recapC3D": "열 번 전달에 실패하면 메시지는 이유와 함께 <code>$deadletterqueue</code>로 옮겨집니다. 잃는 것도, 막히는 것도 없습니다.",
+	"recapC3Cap1": "MaxDeliveryCount 10",
+	"recapC3Cap2": "기본 제공",
+	"recapC4H": "토픽",
+	"recapC4D": "한 번 게시하면 각자 백로그를 가진 최대 2,000개의 필터링된 구독으로 전달됩니다.",
+	"recapC4Cap1": "구독 2,000개",
+	"recapC4Cap2": "SQL + 상관 관계 필터",
+	"recapVal1": "중요한 곳에서 순서가 보장됨",
+	"recapVal2": "조용히 사라지는 것이 없음",
+	"recapVal3": "구독자가 늘어도 게시자 비용은 0",
+	"recapFoot": "다음: 초당 십만 건의 센서 판독값이 도착하고, Service Bus조차 맞지 않는 도구가 됩니다. <a class=\"cr-next\" href=\"SensorTsunami.html\">에피소드 3 · 센서 쓰나미 &rarr;</a> <a href=\"https://learn.microsoft.com/training/paths/az-204-develop-message-based-solutions/\" target=\"_blank\" rel=\"noopener\">Microsoft Learn에서 메시지 기반 솔루션 개발하기 &rarr;</a>",
+	"sService": "서비스",
+	"sServiceV": "Azure Service Bus",
+	"sMsg": "메시지 크기",
+	"sMsgV": "256KB, Premium에서는 최대 100MB",
+	"sUse": "적합한 용도",
+	"sUseV": "주문, 결제, 워크플로",
+	"sOrder": "순서",
+	"sOrderV": "세션 내에서 FIFO",
+	"sLock": "수신 모드",
+	"sLockV": "Peek-lock, 60초(5분까지 갱신)",
+	"sDlq": "포이즌 메시지",
+	"sDlqV": "10회 시도 후 배달 못 한 메시지 큐로",
+	"sFan": "팬아웃",
+	"sFanV": "토픽, 최대 2,000개 구독",
+	"sDup": "중복",
+	"sDupV": "검색 기간, 기본 10분",
+	"sBefore": "이전",
+	"sBeforeV": "취소가 먼저 처리됨",
+	"sAfter": "이후",
+	"sAfterV": "주문 다음에 취소"
+},
+"pt": {
+	"backJourney":"Jornada de integração",
+	"short_crisis": "Crise",
+	"short_gap": "A lacuna",
+	"short_sessions": "Sessões",
+	"short_lock": "Bloqueio e DLQ",
+	"short_topics": "Tópicos",
+	"short_recap": "Resumo",
+	"skipToMain": "Ir para o diagrama",
+	"stageInstructions": "Explicação animada. Use os botões Próximo/Anterior ou as teclas de seta para navegar. Pressione R para reiniciar.",
+	"prev": "◀ Anterior",
+	"next": "Próximo ▶",
+	"replay": "↻ Repetir",
+	"restart": "↻ Reiniciar",
+	"slower": "Mais lento",
+	"faster": "Mais rápido",
+	"calloutOn": "Notas: Ativadas",
+	"calloutOff": "Notas: Desativadas",
+	"outlineOn": "Estrutura: Ativada",
+	"outlineOff": "Estrutura: Desativada",
+	"audioTip": "Áudio de narração",
+	"ccTip": "Legendas",
+	"shortcutsTip": "Atalhos",
+	"stepDetails": "Detalhes do passo",
+	"stepOf": "Passo",
+	"resetPos": "Redefinir para a posição padrão",
+	"scTitle": "Atalhos de teclado",
+	"scNext": "Próximo passo",
+	"scPrev": "Passo anterior",
+	"scRestart": "Reiniciar",
+	"scReplay": "Repetir este passo",
+	"scHide": "Ocultar / mostrar barra superior",
+	"scHelp": "Alternar esta ajuda",
+	"pageTitle": "Episódio 2 · O desastre da transação VIP",
+	"stageHeading": "Episódio 2 · O desastre da transação VIP",
+	"capCrisis": "Duas mensagens com um segundo de diferença",
+	"capGap": "O que uma fila simples não oferece",
+	"capSessions": "As sessões restauram a ordem",
+	"capLock": "Peek-lock e a fila de mensagens mortas",
+	"capTopics": "Uma mensagem, três assinantes",
+	"capRecap": "Resumo do episódio 2",
+	"crisisTitle": "O cancelamento passou na frente do pedido",
+	"crisisLead": "Um pedido VIP de 12.000 £ e o seu cancelamento chegam com um segundo de diferença. Dois trabalhadores os pegam ao mesmo tempo — e o cancelamento vence a corrida.",
+	"crisisCallout": "Isso não é um bug do trabalhador. A fila nunca prometeu ordem, e dois consumidores concorrentes sempre poderão ultrapassar um ao outro.",
+	"crisisQHead": "Fila do Storage",
+	"crisisQSub": "Dois trabalhadores concorrentes, ordem de melhor esforço",
+	"crisisM1": "PEDIDO #8801",
+	"crisisM1s": "reservar 12.000 £",
+	"crisisM2": "CANCELAR #8801",
+	"crisisM2s": "chega 1 s depois",
+	"crisisW1Head": "Trabalhador A",
+	"crisisW1Sub": "pegou o PEDIDO, aguardando estoque",
+	"crisisW2Head": "Trabalhador B",
+	"crisisW2Sub": "pegou o CANCELAMENTO, terminou primeiro",
+	"crisisOutHead": "Resultado",
+	"crisisOutR1": "Cancelamento aplicado a",
+	"crisisOutR1v": "nada",
+	"crisisOutR2": "Pedido confirmado depois",
+	"crisisOutR2v": "tarde demais",
+	"crisisOutR3": "Estoque",
+	"crisisOutR3v": "inconsistente",
+	"crisisPill": "Cancelamento perdido; pedido confirmado",
+	"gapTitle": "O que uma fila simples não oferece",
+	"gapLead": "O Queue Storage é excelente para armazenar em buffer trabalho independente. Dinheiro, porém, não é trabalho independente: precisa de ordem, de bloqueios que você possa estender e de um lugar seguro para colocar uma mensagem quebrada.",
+	"gapCallout": "Troque para o Service Bus quando uma única mensagem valer mais do que a computação que a processa. O que você paga a mais é a confiabilidade, não a taxa de transferência.",
+	"gapCol1": "Azure Queue Storage",
+	"gapCol2": "Azure Service Bus",
+	"gapR1": "Ordenação",
+	"gapR1a": "Melhor esforço, sem garantia",
+	"gapR1b": "FIFO dentro de uma sessão",
+	"gapR2": "Tamanho da mensagem",
+	"gapR2a": "64 KB",
+	"gapR2b": "256 KB — 100 MB no Premium",
+	"gapR3": "Mensagens suspeitas",
+	"gapR3a": "Sua própria lógica com DequeueCount",
+	"gapR3b": "Fila de mensagens mortas integrada",
+	"gapR4": "Duplicatas",
+	"gapR4a": "Você mesmo resolve",
+	"gapR4b": "Janela de detecção de duplicatas",
+	"gapR5": "Transações",
+	"gapR5a": "Nenhuma",
+	"gapR5b": "Atômicas entre entidades",
+	"gapR6": "Distribuição",
+	"gapR6a": "Uma fila, um grupo de consumidores",
+	"gapR6b": "Tópicos com 2.000 assinaturas",
+	"gapNote": "As filas do Storage continuam sendo a resposta certa para trabalho em segundo plano barato e insensível à ordem — redimensionar uma imagem, aquecer um cache, enviar uma newsletter.",
+	"sessTitle": "As sessões colocam o VIP de volta na ordem",
+	"sessLead": "Marque cada mensagem com um <code>SessionId</code> — aqui, o id do cliente. O Service Bus então entrega a sessão inteira a exatamente um receptor, na ordem em que chegou.",
+	"sessCallout": "Uma sessão é um bloqueio sobre uma <em>conversa</em>, não sobre uma mensagem. Um receptor é dono de <code>cust-4417</code> até liberá-lo, então o #8801 nunca mais pode ser ultrapassado pelo próprio cancelamento.",
+	"sessZone": "Fila com sessões habilitadas · orders",
+	"sessS1": "cust-4417",
+	"sessS2": "cust-9002",
+	"sessS1m1": "1 · PEDIDO #8801",
+	"sessS1m2": "2 · CANCELAR #8801",
+	"sessS2m1": "1 · PEDIDO #8802",
+	"sessS2m2": "2 · ENDEREÇO #8802",
+	"sessR1Head": "Receptor 1",
+	"sessR1Sub": "É dono da sessão <code>cust-4417</code>",
+	"sessR2Head": "Receptor 2",
+	"sessR2Sub": "É dono da sessão <code>cust-9002</code>",
+	"sessPill1": "Pedido primeiro, cancelamento depois ✓",
+	"sessPill2": "Clientes diferentes continuam em paralelo",
+	"sessNote1": "Um receptor por sessão",
+	"sessNote2": "Defina o SessionId ao enviar",
+	"lockTitle": "Peek-lock e uma cela para mensagens ruins",
+	"lockLead": "Receber não exclui. O Service Bus bloqueia a mensagem, espera que você a conclua e, depois de dez entregas falhas, a move para onde não pode causar mais dano.",
+	"lockCallout": "A DLQ fica em <code>&lt;queue&gt;/$deadletterqueue</code>. Inspecione o motivo, corrija e reenvie conscientemente. Monitore a DLQ: ela não é recuperação automática.",
+	"lockStep1H": "1 · Receber (peek-lock)",
+	"lockStep1D": "A mensagem é bloqueada, não removida. O bloqueio padrão é de 60 segundos e você pode renová-lo, até 5 minutos por vez, enquanto um trabalho longo é executado.",
+	"lockStep1C1": "60 s padrão",
+	"lockStep1C2": "5 min no máx.",
+	"lockStep2H": "2 · Concluir ou abandonar",
+	"lockStep2D": "Complete remove a mensagem. Abandon libera o bloqueio imediatamente. Após uma falha, a reentrega pode esperar o bloqueio expirar.",
+	"lockStep2C1": "pelo menos uma vez",
+	"lockStep2C2": "seguro contra falhas",
+	"lockStep3H": "3 · Dez tentativas",
+	"lockStep3D": "Cada entrega incrementa o DeliveryCount. Ao atingir o MaxDeliveryCount — 10 por padrão — o Service Bus para de tentar e põe a mensagem de lado.",
+	"lockStep3C1": "MaxDeliveryCount 10",
+	"lockStep3C2": "automático, não opcional",
+	"lockStep4H": "4 · Fila de mensagens mortas",
+	"lockStep4D": "A mensagem problemática vai para a DLQ com um motivo e uma descrição anexados. Seu pipeline continua andando; uma pessoa ou um job de reparo cuida dela depois.",
+	"lockStep4C1": "$deadletterqueue",
+	"lockStep4C2": "motivo + descrição",
+	"lockBadMsg": "CANCELAR #8801",
+	"lockBadMsgS": "JSON malformado",
+	"lockDlqLabel": "Fila de mensagens mortas",
+	"lockMainLabel": "orders · fila principal",
+	"lockCount": "DeliveryCount",
+	"topicTitle": "Um pedido, três times, zero acoplamento",
+	"topicLead": "Faturamento, envio e fidelidade precisam todos do mesmo pedido. Publique-o uma vez em um tópico e deixe cada time ter uma assinatura com o próprio filtro, o próprio acúmulo e a própria fila de mensagens mortas.",
+	"topicCallout": "Assinaturas são filas independentes. Fidelidade pode ficar fora do ar por uma hora e suas mensagens simplesmente esperam — faturamento nem percebe, e ninguém precisa mudar o publicador.",
+	"topicPubHead": "Serviço de pedidos",
+	"topicPubSub": "Publica uma vez",
+	"topicTopicHead": "Tópico do Service Bus",
+	"topicTopicSub": "<code>orders</code>",
+	"topicTopicR1": "Assinaturas",
+	"topicTopicR1v": "até 2.000",
+	"topicTopicR2": "Filtros",
+	"topicTopicR2v": "SQL ou correlação",
+	"topicS1Head": "Faturamento",
+	"topicS1Sub": "<code>sub-billing</code>",
+	"topicS1Filter": "todos os pedidos",
+	"topicS2Head": "Envio",
+	"topicS2Sub": "<code>sub-shipping</code>",
+	"topicS2Filter": "physical = true",
+	"topicS3Head": "Fidelidade",
+	"topicS3Sub": "<code>sub-loyalty</code>",
+	"topicS3Filter": "total &gt; 100",
+	"topicPill": "Adicione um quarto time sem tocar no publicador",
+	"recapTitle": "Episódio 2: o Service Bus é a faixa segura",
+	"recapLead": "Quando uma mensagem representa dinheiro, um contrato ou uma promessa a um cliente, você quer ordenação, bloqueios, mensagens mortas e pub/sub no broker — não no seu código de repetição.",
+	"recapCallout": "O Service Bus é para <em>mensagens</em>: cargas de alto valor com um contrato entre remetente e destinatário. No próximo episódio conhecemos o oposto — milhões de eventos minúsculos sobre os quais ninguém negocia.",
+	"recapC1H": "Sessões",
+	"recapC1D": "FIFO garantido por <code>SessionId</code>, para que uma conversa nunca seja processada fora de sequência.",
+	"recapC1Cap1": "FIFO",
+	"recapC1Cap2": "um receptor por sessão",
+	"recapC2H": "Peek-lock",
+	"recapC2D": "Receba sem excluir. O bloqueio padrão é de 60 segundos; renove-o para trabalhos longos. Após falha, espere reentrega, não recuperação instantânea.",
+	"recapC2Cap1": "60 s padrão",
+	"recapC2Cap2": "5 min no máx.",
+	"recapC3H": "Mensagens mortas",
+	"recapC3D": "Dez entregas falhas e a mensagem vai para <code>$deadletterqueue</code> com um motivo — nada se perde, nada trava.",
+	"recapC3Cap1": "MaxDeliveryCount 10",
+	"recapC3Cap2": "integrado",
+	"recapC4H": "Tópicos",
+	"recapC4D": "Publique uma vez e distribua para até 2.000 assinaturas filtradas, cada uma com o próprio acúmulo.",
+	"recapC4Cap1": "2.000 assinaturas",
+	"recapC4Cap2": "filtros SQL + correlação",
+	"recapVal1": "Ordem garantida onde importa",
+	"recapVal2": "Nada perdido em silêncio",
+	"recapVal3": "Novos assinantes não custam nada ao publicador",
+	"recapFoot": "A seguir: cem mil leituras de sensores por segundo chegam — e até o Service Bus é a ferramenta errada. <a class=\"cr-next\" href=\"SensorTsunami.html\">Episódio 3 · O tsunami de sensores &rarr;</a> <a href=\"https://learn.microsoft.com/training/paths/az-204-develop-message-based-solutions/\" target=\"_blank\" rel=\"noopener\">Desenvolva soluções baseadas em mensagens no Microsoft Learn &rarr;</a>",
+	"sService": "Serviço",
+	"sServiceV": "Azure Service Bus",
+	"sMsg": "Tamanho da mensagem",
+	"sMsgV": "256 KB, até 100 MB no Premium",
+	"sUse": "Ideal para",
+	"sUseV": "Pedidos, pagamentos, fluxos de trabalho",
+	"sOrder": "Ordenação",
+	"sOrderV": "FIFO dentro de uma sessão",
+	"sLock": "Modo de recebimento",
+	"sLockV": "Peek-lock, 60 s renovável até 5 min",
+	"sDlq": "Mensagens suspeitas",
+	"sDlqV": "Fila de mensagens mortas após 10 tentativas",
+	"sFan": "Distribuição",
+	"sFanV": "Tópicos, até 2.000 assinaturas",
+	"sDup": "Duplicatas",
+	"sDupV": "Janela de detecção, 10 min por padrão",
+	"sBefore": "Antes",
+	"sBeforeV": "Cancelamento processado primeiro",
+	"sAfter": "Depois",
+	"sAfterV": "Pedido e depois cancelamento"
+}
+};
+
+function t(key) { return (I18N[currentLang] && I18N[currentLang][key]) || I18N.en[key] || key; }
+
+function setLanguage(lang) {
+	currentLang = lang;
+	document.documentElement.lang = lang;
+	document.getElementById('lang-select').value=lang;
+  document.title=t('pageTitle')+' | Azure Animations';
+  const back=document.querySelector('.header-back-link');
+  back.textContent='\u2190 '+t('backJourney'); back.title=t('backJourney'); back.setAttribute('aria-label',t('backJourney'));
+  back.href='index.html?lang='+encodeURIComponent(lang);
+	try { const u=new URL(location.href); u.searchParams.set('lang', lang); history.replaceState(null,'',u); } catch(_){}
+	document.getElementById('page-title').textContent = '\u2728 ' + t('pageTitle');
+	// icon-only nav buttons: the localized label lives in the tooltip (title)
+	document.getElementById('prev-btn').title = t('prev');
+	document.getElementById('next-btn').title = t('next');
+	document.getElementById('replay-btn').title = t('replay');
+	document.getElementById('reset-btn').title = t('restart');
+	document.getElementById('speed-down').title = t('slower');
+	document.getElementById('speed-up').title = t('faster');
+	document.getElementById('outline-title').textContent = t('stepDetails');
+	document.querySelector('.skip-link').textContent = t('skipToMain');
+	document.getElementById('stage-heading').textContent = t('stageHeading');
+	document.getElementById('stage-instructions').textContent = t('stageInstructions');
+	// localize overlay tooltips (icon buttons show their label on hover / as native title)
+	const _hlp=document.getElementById('help-toggle'); if(_hlp) _hlp.setAttribute('data-tip', t('shortcutsTip'));
+	const _aud=document.getElementById('audio-toggle'); if(_aud) _aud.title=t('audioTip');
+	const _ccb=document.getElementById('cc-toggle'); if(_ccb) _ccb.title=t('ccTip');
+	syncCalloutBtn(); syncOutlineBtn();
+	if (typeof syncAudioBtn === 'function') syncAudioBtn();
+	if (typeof buildShortcuts === 'function') buildShortcuts();
+	document.querySelectorAll('.aw-drag-reset').forEach(b=>{ b.title=t('resetPos'); b.setAttribute('aria-label', t('resetPos')); });
+	try { localStorage.setItem('aw-integration-lang', lang); } catch(_){}
+	if (current >= 0) renderStep(current);
+}
+
+// ── STEPS (journey order) ─────────────────
+const STEPS = [
+	{ id:'crisis', short:'Crisis', titleKey:'crisisTitle', captionKey:'capCrisis', descKey:'crisisLead', calloutKey:'crisisCallout',
+	  stats:[['sBefore','sBeforeV'],['sOrder','sOrderV'],['sUse','sUseV']] },
+	{ id:'gap', short:'The gap', titleKey:'gapTitle', captionKey:'capGap', descKey:'gapLead', calloutKey:'gapCallout',
+	  stats:[['sService','sServiceV'],['sMsg','sMsgV'],['sDup','sDupV']] },
+	{ id:'sessions', short:'Sessions', titleKey:'sessTitle', captionKey:'capSessions', descKey:'sessLead', calloutKey:'sessCallout',
+	  stats:[['sOrder','sOrderV'],['sAfter','sAfterV'],['sUse','sUseV']] },
+	{ id:'lock', short:'Lock &amp; DLQ', titleKey:'lockTitle', captionKey:'capLock', descKey:'lockLead', calloutKey:'lockCallout',
+	  stats:[['sLock','sLockV'],['sDlq','sDlqV'],['sMsg','sMsgV']] },
+	{ id:'topics', short:'Topics', titleKey:'topicTitle', captionKey:'capTopics', descKey:'topicLead', calloutKey:'topicCallout',
+	  stats:[['sFan','sFanV'],['sService','sServiceV'],['sUse','sUseV']] },
+	{ id:'recap', short:'Recap', titleKey:'recapTitle', captionKey:'capRecap', descKey:'recapLead', calloutKey:'recapCallout',
+	  stats:[['sService','sServiceV'],['sOrder','sOrderV'],['sDlq','sDlqV']] }
+];
+
+// ── DOM REFS ──────────────────────────────
+const stage=document.getElementById('stage-frame'), svg=document.getElementById('fx-svg'),
+	counter=document.getElementById('step-counter'), breadcrumb=document.getElementById('breadcrumb'),
+	progress=document.getElementById('progress-fill'), announcer=document.getElementById('step-announcer'),
+	outlineBody=document.getElementById('outline-body'), outlinePanel=document.getElementById('step-outline'),
+	outlineBtn=document.getElementById('outline-toggle'), calloutBtn=document.getElementById('callout-toggle'),
+	langSelect=document.getElementById('lang-select');
+
+langSelect.addEventListener('change', e => setLanguage(e.target.value));
+const urlLang = new URLSearchParams(location.search).get('lang');
+let savedLang=null; try{ savedLang=localStorage.getItem('aw-integration-lang'); }catch(_){}
+if (urlLang && I18N[urlLang]) { currentLang = urlLang; langSelect.value = urlLang; }
+else if (savedLang && I18N[savedLang]) { currentLang = savedLang; langSelect.value = savedLang; }
+
+// ── Font size ─────────────────────────────
+const fontScales=[0.8,0.9,1,1.1,1.2,1.35]; let fontScaleIdx=2, fontRelayout=false;
+const baseFontSize=parseFloat(getComputedStyle(document.documentElement).fontSize);
+function applyFontScale(){
+	document.documentElement.style.fontSize=(baseFontSize*fontScales[fontScaleIdx])+'px';
+	const controls=document.getElementById('controls'); if(controls) controls.style.fontSize=baseFontSize+'px';
+	if(!stage.querySelector('.scene:not(.scene-out)')) return;
+	const wasPaused=motionPaused;
+	motionPaused=true; fontRelayout=true;
+	try{ renderStep(current); }finally{ motionPaused=wasPaused; fontRelayout=false; }
+}
+function saveFont(){ try{ localStorage.setItem('aw-integration-font', String(fontScaleIdx)); }catch(_){} }
+try{ const f=parseInt(localStorage.getItem('aw-integration-font'),10); if(!isNaN(f)&&f>=0&&f<fontScales.length){ fontScaleIdx=f; applyFontScale(); } }catch(_){}
+document.getElementById('font-decrease').addEventListener('click',()=>{ if(fontScaleIdx>0){fontScaleIdx--;applyFontScale();saveFont();} });
+document.getElementById('font-increase').addEventListener('click',()=>{ if(fontScaleIdx<fontScales.length-1){fontScaleIdx++;applyFontScale();saveFont();} });
+
+let current=-1, animating=false, liveEls=[], liveTimelines=[], calloutEnabled=false;
+
+function syncCalloutBtn(){ calloutBtn.classList.toggle('toggle-active',calloutEnabled); calloutBtn.setAttribute('aria-pressed',calloutEnabled?'true':'false'); calloutBtn.setAttribute('data-tip',calloutEnabled?t('calloutOn'):t('calloutOff')); }
+calloutBtn.addEventListener('click',()=>{
+	calloutEnabled=!calloutEnabled; syncCalloutBtn();
+	if(current<0) return;
+	// Toggle just the callout box in place — don't re-render (no animation replay).
+	const existing=stage.querySelectorAll('.callout');
+	if(calloutEnabled){ if(!existing.length){ const c=maybeCallout(STEPS[current]); if(c) gsap.fromTo(c,{opacity:0,y:10},{opacity:1,y:0,duration:0.4,overwrite:true}); } }
+	else { existing.forEach(c=>{ const idx=liveEls.indexOf(c); if(idx>-1) liveEls.splice(idx,1); gsap.killTweensOf(c); c.remove(); }); }
+}); syncCalloutBtn();
+function syncOutlineBtn(){ const on=!outlinePanel.hasAttribute('hidden'); outlineBtn.classList.toggle('toggle-active',on); outlineBtn.setAttribute('aria-expanded',on?'true':'false'); outlineBtn.setAttribute('data-tip',on?t('outlineOn'):t('outlineOff')); }
+outlineBtn.addEventListener('click',()=>{ const showing=!outlinePanel.hasAttribute('hidden'); if(showing){outlinePanel.setAttribute('hidden','');} else {outlinePanel.removeAttribute('hidden');} syncOutlineBtn(); }); syncOutlineBtn();
+
+// ── Audio narration (overlay button · speaker + remaining-time countdown) ──
+// Drop one recorded clip per step (in STEPS order) into AUDIO_FILES for real narration;
+// localized clips live under AUDIO_BASE/<lang>/. With no files, the browser reads each
+// step's title + description aloud (speech synthesis), so the button works with zero assets.
+const AUDIO_BASE = 'assets/audio/VipTransactionDisaster/';
+const AUDIO_FILES = [
+	'step-01.mp3',
+	'step-02.mp3',
+	'step-03.mp3',
+	'step-04.mp3',
+	'step-05.mp3',
+	'step-06.mp3'
+];
+let audioEnabled=false, currentAudio=null, audioTimeout=null, ccPref=false;
+const audioBtn=document.getElementById('audio-toggle');
+if(audioBtn){ audioBtn.innerHTML='<span class="aw-audio-ico" aria-hidden="true">\uD83D\uDD07</span><span class="aw-audio-time" aria-hidden="true">--:--</span>'; }
+const audioIco=audioBtn&&audioBtn.querySelector('.aw-audio-ico'), audioTimeEl=audioBtn&&audioBtn.querySelector('.aw-audio-time');
+// Captions can play WITHOUT sound: when CC is on but audio is off we still play the clip MUTED, so the
+// caption reveals at the same pace — speaker shows 🔇 and the remaining-time countdown keeps running.
+function playbackOn(){ return audioEnabled || ccPref; }
+function audioDir(){ return (currentLang && currentLang!=='en') ? currentLang+'/' : ''; }
+function fmtDur(s){ s=Math.max(0,Math.ceil(s)); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
+function updateAudioTime(){ if(audioTimeEl && currentAudio && isFinite(currentAudio.duration) && currentAudio.duration>0) audioTimeEl.textContent=fmtDur(currentAudio.duration-currentAudio.currentTime); }
+function syncAudioBtn(){ if(!audioBtn) return; if(audioIco) audioIco.textContent=audioEnabled?'\uD83D\uDD0A':'\uD83D\uDD07'; if(audioTimeEl && !playbackOn()) audioTimeEl.textContent='--:--'; audioBtn.classList.toggle('toggle-active',audioEnabled); audioBtn.setAttribute('aria-pressed',audioEnabled?'true':'false'); }
+function speakFallback(i){ if(!window.speechSynthesis) return; const step=STEPS[i]; const u=new SpeechSynthesisUtterance(`${t(step.titleKey)}. ${t(step.descKey)}`); u.lang=currentLang||'en'; try{ speechSynthesis.cancel(); speechSynthesis.speak(u); }catch(_){} }
+function stopAudio(){
+	if(currentAudio){ currentAudio.pause(); currentAudio.currentTime=0; currentAudio=null; }
+	if(audioTimeout){ clearTimeout(audioTimeout); audioTimeout=null; }
+	if(audioTimeEl) audioTimeEl.textContent='--:--';
+	try{ if(window.speechSynthesis) speechSynthesis.cancel(); }catch(_){}
+	if(window.AWCaptions) AWCaptions.clear();
+}
+function playStepAudio(i){
+	if(fontRelayout) return;
+	stopAudio();
+	if(document.body.classList.contains('aw-prestart')) return;   // start gate holds audio too
+	if(!playbackOn() || i<0 || i>=STEPS.length) return;
+	audioTimeout=setTimeout(()=>{
+		audioTimeout=null;
+		const file=AUDIO_FILES[i];
+		if(!file){ if(audioEnabled) speakFallback(i); return; }   // no clip = no timing source for caption-only
+		currentAudio=new Audio(AUDIO_BASE+audioDir()+file);
+		currentAudio.volume = audioEnabled ? 1 : 0;              // caption-only = silent (volume 0) timing source
+		if(window.AWCaptions) AWCaptions.bind(currentAudio,i);
+		currentAudio.addEventListener('loadedmetadata',updateAudioTime);
+		currentAudio.addEventListener('timeupdate',updateAudioTime);
+		currentAudio.addEventListener('ended',()=>{ if(audioTimeEl) audioTimeEl.textContent='0:00'; });
+		currentAudio.addEventListener('error',()=>{ if(audioEnabled) speakFallback(i); });
+		currentAudio.play().catch(()=>{});
+	}, 400);
+}
+if(audioBtn){ audioBtn.addEventListener('click',()=>{
+	audioEnabled=!audioEnabled; try{localStorage.setItem('aw-integration-audio',audioEnabled?'1':'0');}catch(_){} syncAudioBtn();
+	if(current>=0){
+		if(!playbackOn()) stopAudio();
+		else if(currentAudio) currentAudio.volume = audioEnabled ? 1 : 0;   // flip sound without restarting the clip
+		else playStepAudio(current);
+	}
+	if(typeof applyCc==='function') applyCc();
+}); }
+// Initial audio + CC from the ?audio parameter:
+//   on -> audio ON + captions ON  ·  off -> both OFF  ·  (absent) -> audio ON, captions ON (a prior stored choice still wins).
+(function(){
+	var p=null; try{ p=new URLSearchParams(location.search).get('audio'); }catch(_){}
+	if(p==='on'){ audioEnabled=true; ccPref=true; }
+	else if(p==='off'){ audioEnabled=false; ccPref=false; }
+	else {
+		audioEnabled=true; ccPref=true;
+		try{ var a=localStorage.getItem('aw-integration-audio'); if(a==='1') audioEnabled=true; else if(a==='0') audioEnabled=false; }catch(_){}
+		try{ var c=localStorage.getItem('aw-integration-cc'); if(c==='1') ccPref=true; else if(c==='0') ccPref=false; }catch(_){}
+	}
+	try{ localStorage.setItem('aw-integration-audio',audioEnabled?'1':'0'); localStorage.setItem('aw-integration-cc',ccPref?'1':'0'); }catch(_){}
+})();
+syncAudioBtn();
+
+// ── Captions (CC) — overlaid in the frame; play WITH or WITHOUT audio ──
+// Reads the SAME narration Markdown used to synthesize the audio. Set page to THIS file's
+// stem and base to its narration folder (see the path note near the top of the file).
+const ccBtn=document.getElementById('cc-toggle');
+function ccEffective(){ return ccPref; }                          // captions show whenever CC is on (audio not required)
+function syncCcBtn(){ if(!ccBtn) return; ccBtn.classList.toggle('on',ccPref); ccBtn.setAttribute('aria-pressed',ccPref?'true':'false'); }
+function applyCc(){ if(window.AWCaptions) AWCaptions.setEnabled(ccEffective()); if(ccEffective()&&currentAudio&&window.AWCaptions) AWCaptions.bind(currentAudio,current); syncCcBtn(); fitScene(stage.querySelector('.scene:not(.scene-out)')); }
+if(window.AWCaptions){ AWCaptions.configure({ page:'VipTransactionDisaster', base:'../../narration/Integration/', lang:()=>currentLang, fallback:(i)=>(STEPS[i]?t(STEPS[i].descKey):''), reserve:false }); }
+if(ccBtn){ ccBtn.addEventListener('click',()=>{
+	ccPref=!ccPref; try{localStorage.setItem('aw-integration-cc',ccPref?'1':'0');}catch(_){} applyCc();
+	if(current>=0){
+		if(playbackOn() && !currentAudio) playStepAudio(current);   // caption-only: start the muted timing clip
+		else if(!playbackOn() && currentAudio) stopAudio();          // CC off + audio off: nothing left to play
+	}
+}); }
+applyCc();
+
+// ── Full screen ──
+(function(){
+	const fsBtn=document.getElementById('fs-toggle'); if(!fsBtn) return;
+	function inFs(){ return !!(document.fullscreenElement||document.webkitFullscreenElement); }
+	function syncFs(){ document.body.classList.toggle('is-fs',inFs()); fsBtn.setAttribute('aria-pressed',inFs()?'true':'false'); fsBtn.title=inFs()?'Exit full screen (F)':'Full screen (F)'; }
+	function toggle(){ try{ if(inFs()){ (document.exitFullscreen||document.webkitExitFullscreen).call(document); } else { const el=document.documentElement; (el.requestFullscreen||el.webkitRequestFullscreen).call(el); } }catch(_){} }
+	fsBtn.addEventListener('click',e=>{ e.stopPropagation(); toggle(); });
+	document.addEventListener('fullscreenchange',syncFs); document.addEventListener('webkitfullscreenchange',syncFs);
+	document.addEventListener('keydown',e=>{ if(e.code==='KeyF'&&!e.metaKey&&!e.ctrlKey&&!e.altKey){ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return; e.preventDefault(); toggle(); } });
+	syncFs();
+})();
+
+// ── Reduced motion ────────────────────────
+const motionMQ=window.matchMedia('(prefers-reduced-motion: reduce)'); let motionPaused=motionMQ.matches;
+motionMQ.addEventListener('change',e=>{ motionPaused=e.matches; renderStep(current); });
+
+// ── Helpers ───────────────────────────────
+function clearStage(){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; liveEls.forEach(el=>el.remove()); liveEls=[]; Array.from(svg.children).forEach(c=>{ if(c.tagName.toLowerCase()!=='defs') c.remove(); }); }
+function el(cls,html){ const d=document.createElement('div'); if(cls) d.className=cls; if(html!=null) d.innerHTML=html; return d; }
+// Inline SVG icons (monochrome, currentColor) — crisp on any OS/projector. Add your own here.
+const ICONS = {
+	puzzle:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h8v8H3zm10 0h8v8h-8zM3 13h8v8H3zm10 0h8v8h-8z"/></svg>',
+	inbox:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 3h2v5h3l-4 4-4-4h3zM5 14h14v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1z"/></svg>',
+	gear:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M19.14 12.94a7.9 7.9 0 0 0 0-1.88l2-1.56-2-3.46-2.36.96a7.7 7.7 0 0 0-1.62-.94L14.8 2.5h-4l-.36 2.56c-.58.24-1.12.56-1.62.94L6.46 6.04l-2 3.46 2 1.56a7.9 7.9 0 0 0 0 1.88l-2 1.56 2 3.46 2.36-.96c.5.38 1.04.7 1.62.94l.36 2.56h4l.36-2.56c.58-.24 1.12-.56 1.62-.94l2.36.96 2-3.46-2-1.56zM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg>',
+	sparkle:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg>',
+	bulb:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-4 12.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26A7 7 0 0 0 12 2zM9 20h6v1a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1z"/></svg>',
+	check:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.55 17.6 4.4 12.45l1.86-1.86 3.29 3.29 8.19-8.19 1.86 1.86z"/></svg>',
+	bolt:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>',
+	lock:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 10a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1zm3-1V7a4 4 0 1 1 8 0v2h-2V7a2 2 0 1 0-4 0v2z"/></svg>',
+	box:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 3 7v10l9 5 9-5V7zm0 2.3L17.7 7 12 10.2 6.3 7zM5 9.1l6 3.4v6.8l-6-3.3zm14 0v6.9l-6 3.3v-6.8z"/></svg>',
+	key:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M14 2a6 6 0 0 0-5.66 8L2 16.34V22h5.66l.34-.34V20h2v-2h2l.34-.34A6 6 0 1 0 14 2zm2 3a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z"/></svg>',
+	rocket:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2c3 3 4 6 4 9l3 3-4 1-1 4-2-3-2 3-1-4-4-1 3-3c0-3 1-6 4-9zm0 5a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>',
+	health:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 2h6v5h5v6h-5v5H9v-5H4V7h5z"/></svg>',
+	headset:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a8 8 0 0 0-8 8v5a3 3 0 0 0 3 3h1v-7H6v-1a6 6 0 1 1 12 0v1h-2v7h1a3 3 0 0 0 3-3v-5a8 8 0 0 0-8-8z"/></svg>',
+	media:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M4 4h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zm5 4v8l7-4z"/></svg>',
+	book:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v16H6a2 2 0 0 1-2-2zm9 0h7v14a2 2 0 0 1-2 2h-5z"/></svg>',
+	party:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5zm6 11l.9 2.6L21.5 16.5l-2.6.9L18 20l-.9-2.6L14.5 16.5l2.6-.9zM6 14l.7 2 2 .7-2 .7L6 19.4l-.7-2-2-.7 2-.7z"/></svg>',
+	chat:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-4 4v-4H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/></svg>',
+	access:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a2.2 2.2 0 1 1 0 4.4A2.2 2.2 0 0 1 12 2zM4 8h16v2h-5.4l1 12h-2.3l-.7-6h-1.2l-.7 6H8.4l1-12H4z"/></svg>',
+	globe:'<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></g></svg>'
+};
+function icon(name){ return `<span class="ic">${ICONS[name]||''}</span>`; }
+
+// ── Contoso Retail scene helpers ──────────
+// Official Azure service icon (local set) — always an <img>, never an emoji, for a real service.
+function az(p, sz){ return '<img class="az-ic" src="../../lib/icons/Azure_Public_Service_Icons/'+p+'" alt=""'+(sz?' style="width:'+sz+';height:'+sz+'"':'')+' />'; }
+const AZ = {
+	queue:   'general/10840-icon-service-Storage-Queue.svg',
+	storage: 'storage/10086-icon-service-Storage-Accounts.svg',
+	blob:    'general/10839-icon-service-Storage-Container.svg',
+	table:   'general/10841-icon-service-Table.svg',
+	sbus:    'integration/10836-icon-service-Azure-Service-Bus.svg',
+	ehub:    'analytics/00039-icon-service-Event-Hubs.svg',
+	egrid:   'integration/10206-icon-service-Event-Grid-Topics.svg',
+	egsub:   'integration/10221-icon-service-Event-Grid-Subscriptions.svg',
+	func:    'compute/10029-icon-service-Function-Apps.svg',
+	web:     'web/10035-icon-service-App-Services.svg',
+	sql:     'databases/10130-icon-service-SQL-Database.svg',
+	logic:   'integration/02631-icon-service-Logic-Apps.svg',
+	lake:    'analytics/10150-icon-service-Data-Lake-Store-Gen1.svg',
+	stream:  'analytics/00042-icon-service-Stream-Analytics-Jobs.svg',
+	spark:   'analytics/10787-icon-service-Azure-Databricks.svg',
+	iot:     'iot/10182-icon-service-IoT-Hub.svg',
+	iotedge: 'iot/10186-icon-service-IoT-Edge.svg',
+	monitor: 'monitor/00001-icon-service-Monitor.svg',
+	users:   'identity/10223-icon-service-Groups.svg',
+	browser: 'general/10783-icon-service-Browser.svg',
+	mobile:  'general/10822-icon-service-Mobile.svg',
+	error:   'general/10798-icon-service-Error.svg',
+	globeErr:'general/10807-icon-service-Globe-Error.svg',
+	globeOk: 'general/10808-icon-service-Globe-Success.svg',
+	workflow:'general/10852-icon-service-Workflow.svg',
+	gear:    'general/10805-icon-service-Gear.svg',
+	counter: 'general/10794-icon-service-Counter.svg',
+	cache:   'general/10786-icon-service-Cache.svg',
+	powerup: 'general/10826-icon-service-Power-Up.svg',
+	search:  'general/10834-icon-service-Search.svg',
+	notif:   'web/10045-icon-service-Notification-Hubs.svg',
+	apim:    'web/10042-icon-service-API-Management-Services.svg'
+};
+// A fixed-coordinate board + its connector layer. Every scene draws into board coordinates.
+let crBoardSequence=0;
+function board(w, h){
+	const b = el('cr-board');
+	b.__arrowId='cr-arrow-'+(++crBoardSequence);
+	b.style.width = w+'px'; b.style.height = h+'px';
+	// No viewBox on purpose: the board is a px coordinate system, so the overlay maps 1:1. A fixed
+	// viewBox plus preserveAspectRatio="none" let any later height change squash every connector
+	// (flattened arrowheads, elbows missing their cards, vertical strokes thinner than horizontal).
+	b.innerHTML = '<svg class="cr-svg" aria-hidden="true">'
+		+ '<defs><marker id="'+b.__arrowId+'" class="cr-marker" markerUnits="userSpaceOnUse" markerWidth="22" markerHeight="20" refX="14" refY="10" orient="auto">'
+		+ '<path d="M2,2 L20,10 L2,18 Z" fill="context-stroke" /></marker></defs></svg>';
+	b.__svg = b.querySelector('.cr-svg');
+	return b;
+}
+// Place a node card. o = {x,y,w,h,cls,ico,title,sub,rows:[[k,v,cls]]}
+function node(b, o){
+	const rows = (o.rows||[]).map(r=>'<span class="cr-row'+(r[2]?' '+r[2]:'')+'"><b>'+r[0]+'</b><span>'+(r[1]||'')+'</span></span>').join('');
+	const n = el('cr-node'+(o.cls?' '+o.cls:''),
+		(o.ico?'<span class="cr-n-ico">'+o.ico+'</span>':'')
+		+ (o.title?'<span class="cr-n-title">'+o.title+'</span>':'')
+		+ (o.sub?'<span class="cr-n-sub">'+o.sub+'</span>':'')
+		+ (rows?'<span class="cr-n-rows">'+rows+'</span>':''));
+	n.style.left=o.x+'px'; n.style.top=o.y+'px'; n.style.width=o.w+'px';
+	if(o.h) n.style.height=o.h+'px';
+	b.appendChild(n); return n;
+}
+// A generic absolutely-placed box (belt, zone, msg, meter, pill…)
+function box(b, cls, o, html){
+	const d = el(cls, html||'');
+	d.style.left=o.x+'px'; d.style.top=o.y+'px';
+	if(o.w!=null) d.style.width=o.w+'px';
+	if(o.h!=null) d.style.height=o.h+'px';
+	b.appendChild(d); return d;
+}
+function zone(b, o){
+	const z = box(b, 'cr-zone'+(o.cls?' '+o.cls:''), o, o.label?'<span class="cr-zone-tab'+(o.tabLeft?' at-left':'')+'">'+o.label+'</span>':'');
+	return z;
+}
+function pill(b, o){ const p = box(b, 'cr-pill'+(o.cls?' '+o.cls:''), o, '<span>'+(o.html||'')+'</span>'); return p; }
+function elabel(b, o){ const e = box(b, 'cr-elabel', o, o.html); return e; }
+function stamp(b, o){ return box(b, 'cr-stamp'+(o.cls?' '+o.cls:''), o, o.html||'\u2715'); }
+// A message payload box
+function msg(b, o){ return box(b, 'cr-msg'+(o.cls?' '+o.cls:''), {x:o.x,y:o.y,w:o.w||64,h:o.h||44}, o.html); }
+// A labelled bar (durations, capacity). o = {x,y,w,h,cls,label,note}
+function bar(b, o){
+	return box(b, 'cr-bar'+(o.cls?' '+o.cls:''), {x:o.x,y:o.y,w:o.w,h:o.h||44},
+		'<span>'+o.label+'</span>'+(o.note?'<small>'+o.note+'</small>':''));
+}
+// A meter with a count-up value. Returns {root, fill, val, to}
+function meter(b, o){
+	const m = box(b, 'cr-meter'+(o.cls?' '+o.cls:''), {x:o.x,y:o.y,w:o.w},
+		'<span class="cr-meter-lbl"><span>'+o.label+'</span><span class="cr-meter-val">'+(o.zero||'0')+'</span></span>'
+		+ '<span class="cr-meter-track"><span class="cr-meter-fill"></span></span>');
+	return { root:m, fill:m.querySelector('.cr-meter-fill'), val:m.querySelector('.cr-meter-val'), to:o.to, suffix:o.suffix||'', frac:(o.frac==null?1:o.frac) };
+}
+// Land a meter on its final value without animating (reduced motion).
+function meterSet(m){
+	gsap.set(m.root,{opacity:1,y:0}); gsap.set(m.fill,{scaleX:m.frac});
+	m.val.textContent = m.to.toLocaleString() + m.suffix;
+}
+// Tween a meter's bar + digits together so they land on the same beat.
+function meterTween(tl, m, pos, dur){
+	tl.to(m.fill, {scaleX:m.frac, duration:(dur||1.1), ease:'power2.out'}, pos);
+	const proxy = {n:0};
+	tl.to(proxy, {n:m.to, duration:(dur||1.1), ease:'power2.out',
+		onUpdate:()=>{ m.val.textContent = Math.round(proxy.n).toLocaleString() + m.suffix; }}, pos);
+}
+// ── Geometry (read AFTER the scene is in the DOM: offset* are board coordinates) ──
+function rect(n){ return { l:n.offsetLeft, t:n.offsetTop, w:n.offsetWidth, h:n.offsetHeight,
+	r:n.offsetLeft+n.offsetWidth, b:n.offsetTop+n.offsetHeight,
+	cx:n.offsetLeft+n.offsetWidth/2, cy:n.offsetTop+n.offsetHeight/2 }; }
+// Give every node in a row the same height, then centre the row on cy.
+function rowAlign(nodes, cy, equal){
+	if(equal){ const h=Math.max.apply(null, nodes.map(n=>n.offsetHeight)); nodes.forEach(n=>{ n.style.height=h+'px'; }); }
+	nodes.forEach(n=>{ n.style.top = Math.round(cy - n.offsetHeight/2) + 'px'; });
+}
+// Centre an absolutely-placed element under / over a reference element.
+function under(e, ref, dy, w){ const R=rect(ref); if(w) e.style.width=w+'px';
+	e.style.top = Math.round(R.b + (dy==null?18:dy)) + 'px';
+	e.style.left = Math.round(R.cx - e.offsetWidth/2) + 'px'; return e; }
+function over(e, ref, dy, w){ const R=rect(ref); if(w) e.style.width=w+'px';
+	e.style.top = Math.round(R.t - (dy==null?18:dy) - e.offsetHeight) + 'px';
+	e.style.left = Math.round(R.cx - e.offsetWidth/2) + 'px'; return e; }
+// Centre an element horizontally on the board.
+function centre(e, b, y){ e.style.left = Math.round((b.offsetWidth - e.offsetWidth)/2) + 'px'; if(y!=null) e.style.top=y+'px'; return e; }
+
+// Connector path in board coordinates. cls: is-flow | is-accent | is-ok | is-warn | is-bad | is-muted
+function link(b, d, cls, noHead){
+	const p = document.createElementNS('http://www.w3.org/2000/svg','path');
+	p.setAttribute('d', d);
+	p.setAttribute('class', 'cr-link'+(cls?' '+cls:''));
+	if(!noHead) p.setAttribute('marker-end','url(#'+b.__arrowId+')');
+	b.__svg.appendChild(p); return p;
+}
+// Draw connectors in with stroke-dashoffset (reveal inside the tween so a line never outruns its nodes).
+function drawLinks(tl, paths, pos, dur){
+	paths.forEach((p,i)=>{
+		const len = p.getTotalLength();
+		gsap.set(p, { strokeDasharray: len+' '+len, strokeDashoffset: len, markerEnd:'none' });
+		tl.fromTo(p, { strokeDashoffset: len, markerEnd:'none' },
+			{ strokeDashoffset: 0, markerEnd:'none', opacity: 0.95, duration:(dur||0.5), ease:'power2.inOut',
+			  onStart:()=>gsap.set(p,{opacity:0.95}) }, pos!=null ? pos : '>-0.3');
+		// Hand the dash pattern back to CSS: the draw-in borrows stroke-dasharray, so without this a
+		// dashed "is-bad" link finishes SOLID while reduced motion still shows it dashed.
+		tl.set(p, { clearProps:'strokeDasharray,strokeDashoffset,markerEnd' }, '>');
+	});
+}
+// Left→right connector between two placed elements (elbows automatically if their centres differ).
+function hLink(b, a, c, cls, pad, targetPort){
+	const A=rect(a), C=rect(c), p=(pad==null?7:pad);
+	if(targetPort!=null) C.cy=C.t+C.h*targetPort;
+	const x1=A.r+p, x2=C.l-p;
+	// Snap to one y: ends a pixel or two apart render as a visibly tilted line.
+	if(Math.abs(A.cy-C.cy) < 12){ const y=Math.round((A.cy+C.cy)/2); return link(b, 'M '+x1+','+y+' H '+x2, cls); }
+	const mx=Math.round((x1+x2)/2);
+	return link(b, 'M '+x1+','+Math.round(A.cy)+' L '+mx+','+Math.round(A.cy)+' L '+mx+','+Math.round(C.cy)+' L '+x2+','+Math.round(C.cy), cls);
+}
+// Fan one source to N targets (top to bottom). Each link gets its own port and trunk so no stroke is painted twice.
+function fanLinks(b, a, targets, cls){
+	const A=rect(a), trunk=A.r+28;
+	return targets.map((c,i)=>{
+		const C=rect(c), k=Array.isArray(cls)?cls[i]:cls;
+		const ty=Math.round(C.cy), sy=Math.round(A.t+A.h*(i+1)/(targets.length+1));
+		return Math.abs(sy-ty)<12
+			? link(b,'M '+(A.r+7)+','+ty+' H '+(C.l-7),k)
+			: link(b,'M '+(A.r+7)+','+sy+' H '+trunk+' V '+ty+' H '+(C.l-7),k);
+	});
+}
+// Top→bottom connector between two placed elements.
+function vLink(b, a, c, cls, pad){
+	const A=rect(a), C=rect(c), p=(pad==null?7:pad);
+	return link(b, 'M '+Math.round(A.cx)+','+(A.b+p)+' L '+Math.round(C.cx)+','+(C.t-p), cls);
+}
+// Drop a label on the midpoint of a connector without cutting the line.
+function onLink(b, path, html, dy){
+	const pt = path.getPointAtLength(path.getTotalLength()/2);
+	const e = elabel(b, {x:0, y:0, html:html});
+	e.style.top = Math.round(pt.y + (dy==null?-26:dy)) + 'px';
+	e.style.left = Math.round(pt.x - e.offsetWidth/2) + 'px';
+	return e;
+}
+
+// Standard entrances
+function popIn(tl, els, pos, stagger){
+	tl.fromTo(els, {opacity:0,y:18,scale:0.92}, {opacity:1,y:0,scale:1,duration:0.5,stagger:(stagger==null?0.12:stagger),ease:'back.out(1.5)'}, pos!=null?pos:'>-0.2');
+}
+function fadeIn(tl, els, pos, stagger){
+	tl.fromTo(els, {opacity:0,y:8}, {opacity:1,y:0,duration:0.4,stagger:(stagger==null?0.08:stagger),ease:'power2.out'}, pos!=null?pos:'>-0.2');
+}
+// Reduced-motion end state for a whole board (never depends on an animation to be readable).
+function showAll(scene, extra){
+	const all = Array.from(scene.querySelectorAll('.cr-node,.cr-zone,.cr-pill,.cr-elabel,.cr-belt,.cr-msg,.cr-meter,.cr-stamp,.cr-ribbon,.cr-bar,.cr-strip-card,.cr-cap,.cr-avatar,.pill,.value-chip,.recap-foot,.card,.ta-card'));
+	gsap.set([...headerEls(scene), ...all], {opacity:1, y:0, scale:1});
+	scene.querySelectorAll('.cr-svg path.cr-link').forEach(p=>gsap.set(p,{opacity:0.95, strokeDashoffset:0}));
+	if(extra) gsap.set(extra, {opacity:1});
+}
+// Subtle, meaningful idle loops (pushed to liveTimelines so navigation kills them).
+function beltLoop(els){
+	if(!els || !els.length) return;
+	gsap.set(els, { backgroundPositionX:'0px' });
+	const tw = gsap.to(els, { backgroundPositionX:'-34px', duration:1.2, ease:'none', repeat:-1 });
+	liveTimelines.push(tw); return tw;
+}
+function pulseLoop(els, rgb){
+	if(!els || !els.length) return;
+	const c = rgb || '209,52,56';
+	const tw = gsap.fromTo(els, { boxShadow:'0 0 0 0 rgba('+c+',0.5)' },
+		{ boxShadow:'0 0 0 15px rgba('+c+',0)', duration:1.5, ease:'sine.out', repeat:-1, stagger:0.3 });
+	liveTimelines.push(tw); return tw;
+}
+
+function stepById(id){ return STEPS.find(s=>s.id===id); }
+// Scale the current scene down (never up) so it always fits inside the 16:9 frame — no clipping, no scroll.
+document.addEventListener('keydown',event=>{
+  if(document.body.classList.contains('int-reading')&&event.target===stage&&['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space'].includes(event.code)) event.stopPropagation();
+},true);
+function fitScene(scene){
+	if(!scene) return;
+	document.body.classList.remove('int-reading');
+	scene.style.transform='translate(-50%,-50%) scale(1)';
+	const box=stage.getBoundingClientRect();
+	const captionSpace=document.body.classList.contains('cc-on')?112:0;
+	scene.style.top='calc(50% - '+captionSpace/2+'px)';
+	const availW=box.width-32, availH=box.height-28-captionSpace;
+	const sw=scene.offsetWidth, sh=scene.offsetHeight;
+	if(!sw||!sh) return;
+	const k=Math.min(1, availW/sw, availH/sh);
+	const reading=k<0.94&&!document.body.classList.contains('present-mode');
+  document.body.classList.toggle('int-reading',reading);
+  const caption=document.getElementById('aw-caption');
+  if(caption) (reading?document.body:stage).appendChild(caption);
+  stage.tabIndex=0;
+  scene.style.transform=reading?'none':'translate(-50%,-50%) scale('+k+')';
+}
+function headerEls(scene){ return [scene.querySelector('.scene-title'), scene.querySelector('.scene-lead')]; }
+// Running recap strip — appended to every scene so each step also shows what has been covered.
+function sofarStrip(i, scene){
+	if(!scene || scene.querySelector('.cr-sofar')) return;
+	const strip = el('cr-sofar');
+	STEPS.forEach((s, n) => {
+		const state = n < i ? ' is-done' : (n === i ? ' is-now' : '');
+		const k = 'short_' + s.id;
+		const label = (I18N.en && I18N.en[k]) ? t(k) : s.short;
+		strip.appendChild(el('cr-sofar-item' + state, (n < i ? '\u2713 ' : '') + label));
+	});
+	scene.appendChild(strip);
+}
+function buildScene(step){ const s=el('scene'); s.appendChild(el('scene-title', t(step.titleKey))); s.appendChild(el('scene-lead', '<span>'+t(step.descKey)+'</span>')); return s; }
+function maybeCallout(step){ if(!calloutEnabled) return null; const c=el('callout', t(step.calloutKey)); c.style.left='1.5rem'; c.style.top='1.5rem'; stage.appendChild(c); liveEls.push(c); dragify(c, 'aw-integration-callout-pos'); return c; }
+function renderOutline(step,idx){
+	const rows=(step.stats||[]).map(([k,v])=>`<div class="stat-row"><span>${t(k)}</span><span>${t(v)}</span></div>`).join('');
+	outlineBody.innerHTML=`<div class="outline-section"><strong>${t('stepOf')} ${idx+1} / ${STEPS.length}: ${t(step.titleKey)}</strong><p style="margin-top:0.4rem;">${t(step.descKey)}</p></div>${rows?`<div class="outline-section">${rows}</div>`:''}`;
+}
+function announceStep(step,idx){ announcer.textContent=`${t('stepOf')} ${idx+1} / ${STEPS.length}: ${t(step.titleKey)}. ${t(step.descKey)}`; }
+
+// ── RENDER DISPATCH ───────────────────────
+function renderStep(i){
+	if(i<0||i>=STEPS.length) return;
+	if(animating){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; animating=false; }
+	animating=true;
+	const step=STEPS[i];
+	// cross-fade (200ms, CSS keyframes so it's independent of the speed control) — outgoing fades out, incoming fades in, on every step
+	const outgoing=stage.querySelector('.scene:not(.scene-out)');
+	if(outgoing) liveEls=liveEls.filter(x=>x!==outgoing);
+	clearStage();
+	if(outgoing){ outgoing.style.zIndex='5';
+		if(motionPaused){ outgoing.remove(); }
+		else { outgoing.classList.remove('scene-in'); outgoing.classList.add('scene-out'); setTimeout(()=>outgoing.remove(), 240); } }
+	if(step.id==='crisis') renderCrisisStep();
+	else if(step.id==='gap') renderGapStep();
+	else if(step.id==='sessions') renderSessionsStep();
+	else if(step.id==='lock') renderLockStep();
+	else if(step.id==='topics') renderTopicsStep();
+	else if(step.id==='recap') renderRecapStep();
+	const incoming=stage.querySelector('.scene:not(.scene-out)');
+	if(incoming && !motionPaused) incoming.classList.add('scene-in');
+	sofarStrip(i, incoming);
+	stage.scrollTop=0; stage.scrollLeft=0;
+  incoming.querySelectorAll('.cr-next').forEach(link=>{
+    const target=new URL(link.getAttribute('href'),location.href);
+    target.searchParams.set('lang',currentLang);
+    const audioChoice=new URLSearchParams(location.search).get('audio');
+    if(audioChoice) target.searchParams.set('audio',audioChoice);
+    link.href=target.href;
+  });
+	fitScene(incoming);
+	current=i;
+	try{ const u=new URL(location.href); u.searchParams.set('step', String(i+1)); history.replaceState(null,'',u); }catch(_){}
+	counter.textContent=`${t('stepOf')} ${current+1} / ${STEPS.length}`;
+	breadcrumb.textContent=t(step.captionKey);
+	progress.style.width=((current+1)/STEPS.length*100)+'%';
+	renderOutline(step,i); announceStep(step,i);
+	if(typeof playStepAudio==='function') playStepAudio(i);
+}
+
+// ── STEP 1 · CRISIS ───────────────────────
+function renderCrisisStep(){
+	const step=stepById('crisis'); const scene=buildScene(step);
+	const b=board(1140,420); scene.appendChild(b);
+
+	const q=node(b,{x:20,y:0,w:240,cls:'is-warn',ico:az(AZ.queue),title:t('crisisQHead'),sub:t('crisisQSub')});
+	const m1=msg(b,{x:310,y:82,w:190,h:56,cls:'is-warn',html:'<b>'+t('crisisM1')+'</b><small>'+t('crisisM1s')+'</small>'});
+	const m2=msg(b,{x:310,y:206,w:190,h:56,cls:'is-bad',html:'<b>'+t('crisisM2')+'</b><small>'+t('crisisM2s')+'</small>'});
+	const w1=node(b,{x:560,y:40,w:250,ico:az(AZ.func),title:t('crisisW1Head'),sub:t('crisisW1Sub')});
+	const w2=node(b,{x:560,y:216,w:250,cls:'is-bad',ico:az(AZ.func),title:t('crisisW2Head'),sub:t('crisisW2Sub')});
+	const out=node(b,{x:860,y:0,w:260,cls:'is-bad is-left',ico:az(AZ.error),title:t('crisisOutHead'),
+		rows:[[t('crisisOutR1'),t('crisisOutR1v'),'is-bad'],[t('crisisOutR2'),t('crisisOutR2v'),'is-bad'],[t('crisisOutR3'),t('crisisOutR3v'),'is-bad']]});
+	const p=pill(b,{x:0,y:0,cls:'is-bad',html:t('crisisPill')});
+
+	stage.appendChild(scene); liveEls.push(scene);
+	rowAlign([q],160,false); rowAlign([out],160,false);
+	// The queue dispatches both messages, so it needs its own outbound connectors — without them the
+	// queue card reads as unrelated scenery instead of the source of the race.
+	const [q1,q2]=fanLinks(b,q,[m1,m2],'is-warn');
+	const l1=hLink(b,m1,w1,'is-muted'), l2=hLink(b,m2,w2,'is-bad');
+	gsap.set(l1,{opacity:0});
+	const l3=hLink(b,w2,out,'is-bad');
+	under(p,q,30);
+	b.style.height = Math.round(Math.max(out.offsetTop+out.offsetHeight, w2.offsetTop+w2.offsetHeight, p.offsetTop+p.offsetHeight) + 20) + 'px';
+
+	const cEl=maybeCallout(step);
+	if(motionPaused){ showAll(scene); gsap.set(l1,{opacity:0.35,strokeDashoffset:0}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
+
+	const tl=gsap.timeline({onComplete:()=>{ animating=false; pulseLoop([out]); }}); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	popIn(tl,[q],'-=0.1');
+	drawLinks(tl,[q1,q2],'>-0.1',0.45);
+	popIn(tl,[m1,m2],'>-0.25',0.16);
+	popIn(tl,[w1,w2],'>-0.1',0.1);
+	tl.fromTo(l1,{strokeDashoffset:l1.getTotalLength()},{strokeDashoffset:0,opacity:0.35,duration:0.5,ease:'power2.inOut'},'>-0.2');
+	drawLinks(tl,[l2],'<');
+	drawLinks(tl,[l3],'>-0.05');
+	popIn(tl,[out],'>-0.2');
+	fadeIn(tl,[p],'>-0.15');
+	if(cEl) tl.fromTo(cEl,{opacity:0,y:10},{opacity:1,y:0,duration:0.6},'-=0.3');
+}
+
+// ── STEP 2 · THE GAP ──────────────────────
+function renderGapStep(){
+	const step=stepById('gap'); const scene=buildScene(step);
+	const b=board(1140,420); scene.appendChild(b);
+
+	const cmp=box(b,'cr-cmp',{x:20,y:10,w:1100},'');
+	cmp.style.gridTemplateColumns='300px 1fr 1fr';
+	const cells=[['',t('gapCol1'),t('gapCol2')]];
+	[['gapR1','gapR1a','gapR1b'],['gapR2','gapR2a','gapR2b'],['gapR3','gapR3a','gapR3b'],
+	 ['gapR4','gapR4a','gapR4b'],['gapR5','gapR5a','gapR5b'],['gapR6','gapR6a','gapR6b']].forEach(r=>cells.push([t(r[0]),t(r[1]),t(r[2])]));
+	cells.forEach((row,ri)=>{
+		row.forEach((txt,ci)=>{
+			const kind = ri===0 ? 'cr-cmp-h' : 'cr-cmp-c';
+			const mod = ci===0 ? (ri===0?'':' is-key') : (ci===1?' is-a':' is-b');
+			cmp.appendChild(el(kind+mod, txt));
+		});
+	});
+	const note=node(b,{x:20,y:0,w:1100,cls:'is-left',ico:icon('bulb'),title:'',sub:t('gapNote')});
+
+	stage.appendChild(scene); liveEls.push(scene);
+	note.style.top = Math.round(cmp.offsetTop + cmp.offsetHeight + 26) + 'px';
+	b.style.height = Math.round(note.offsetTop + note.offsetHeight + 12) + 'px';
+
+	const cEl=maybeCallout(step);
+	const rows=cmp.querySelectorAll('.cr-cmp-c, .cr-cmp-h');
+	if(motionPaused){ showAll(scene,rows); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
+
+	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	tl.set(cmp,{opacity:1});
+	tl.fromTo(rows,{opacity:0,x:-14},{opacity:1,x:0,duration:0.3,stagger:0.035,ease:'power2.out'},'-=0.1');
+	popIn(tl,[note],'>-0.1');
+	if(cEl) tl.fromTo(cEl,{opacity:0,y:10},{opacity:1,y:0,duration:0.6},'-=0.3');
+}
+
+// ── STEP 3 · SESSIONS ─────────────────────
+function renderSessionsStep(){
+	const step=stepById('sessions'); const scene=buildScene(step);
+	const b=board(1140,400); scene.appendChild(b);
+
+	const z=zone(b,{x:20,y:16,w:700,h:330,cls:'is-accent',label:t('sessZone'),tabLeft:true});
+	const s1=elabel(b,{x:48,y:56,html:'<code>'+t('sessS1')+'</code>'});
+	const lane1=box(b,'cr-belt is-accent',{x:48,y:96,w:644,h:64});
+	const a1=msg(b,{x:70,y:106,w:250,h:44,cls:'is-accent',html:'<b>'+t('sessS1m1')+'</b>'});
+	const a2=msg(b,{x:400,y:106,w:250,h:44,cls:'is-accent',html:'<b>'+t('sessS1m2')+'</b>'});
+	const s2=elabel(b,{x:48,y:208,html:'<code>'+t('sessS2')+'</code>'});
+	const lane2=box(b,'cr-belt',{x:48,y:248,w:644,h:64});
+	const c1=msg(b,{x:70,y:258,w:250,h:44,html:'<b>'+t('sessS2m1')+'</b>'});
+	const c2=msg(b,{x:400,y:258,w:250,h:44,html:'<b>'+t('sessS2m2')+'</b>'});
+
+	const r1=node(b,{x:810,y:60,w:300,cls:'is-ok',ico:az(AZ.func),title:t('sessR1Head'),sub:t('sessR1Sub')});
+	const r2=node(b,{x:810,y:246,w:300,ico:az(AZ.func),title:t('sessR2Head'),sub:t('sessR2Sub')});
+	const p1=pill(b,{x:0,y:0,cls:'is-ok',html:t('sessPill1')});
+	const p2=pill(b,{x:0,y:0,cls:'is-accent',html:t('sessPill2')});
+
+	stage.appendChild(scene); liveEls.push(scene);
+	rowAlign([r1],lane1.offsetTop+lane1.offsetHeight/2,false);
+	rowAlign([r2],lane2.offsetTop+lane2.offsetHeight/2,false);
+	const l1=hLink(b,lane1,r1,'is-ok'), l2=hLink(b,lane2,r2,'is-flow');
+	z.style.height = Math.round(lane2.offsetTop + lane2.offsetHeight + 28 - z.offsetTop) + 'px';
+	under(p1,lane1,-1); p1.style.top = Math.round(z.offsetTop + z.offsetHeight + 22) + 'px';
+	p1.style.left = Math.round(z.offsetLeft + 24) + 'px';
+	p2.style.top = p1.style.top;
+	p2.style.left = Math.round(p1.offsetLeft + p1.offsetWidth + 50) + 'px';
+	b.style.height = Math.round(Math.max(p1.offsetTop+p1.offsetHeight, r2.offsetTop+r2.offsetHeight) + 18) + 'px';
+
+	const cEl=maybeCallout(step);
+	if(motionPaused){ showAll(scene); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
+
+	const tl=gsap.timeline({onComplete:()=>{ animating=false; beltLoop([lane1,lane2]); }}); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	fadeIn(tl,[z],'-=0.1');
+	tl.fromTo([lane1,lane2],{opacity:0,scaleX:0.2},{opacity:1,scaleX:1,duration:0.45,stagger:0.12,ease:'power2.out',transformOrigin:'left center'},'>-0.15');
+	fadeIn(tl,[s1,s2],'<0.15',0.12);
+	popIn(tl,[a1,a2],'>-0.2',0.14);
+	popIn(tl,[c1,c2],'<0.12',0.14);
+	drawLinks(tl,[l1,l2],'>-0.1',0.45);
+	popIn(tl,[r1,r2],'>-0.2',0.12);
+	fadeIn(tl,[p1,p2],'>-0.1',0.12);
+	if(cEl) tl.fromTo(cEl,{opacity:0,y:10},{opacity:1,y:0,duration:0.6},'-=0.3');
+}
+
+// ── STEP 4 · PEEK-LOCK + DLQ ──────────────
+function renderLockStep(){
+	const step=stepById('lock'); const scene=buildScene(step);
+	const b=board(1140,168); scene.appendChild(b);
+
+	const mainLbl=elabel(b,{x:8,y:2,html:'<code>'+t('lockMainLabel')+'</code>'});
+	const lane=box(b,'cr-belt',{x:8,y:32,w:790,h:70});
+	const bad=msg(b,{x:40,y:42,w:210,h:50,cls:'is-bad',html:'<b>'+t('lockBadMsg')+'</b><small>'+t('lockBadMsgS')+'</small>'});
+	const cnt=pill(b,{x:302,y:52,cls:'is-warn',html:t('lockCount')+' 10 / 10'});
+	const dlqLbl=elabel(b,{x:862,y:2,html:t('lockDlqLabel')});
+	const cage=box(b,'cr-belt is-muted',{x:862,y:32,w:270,h:70});
+	const caged=msg(b,{x:890,y:42,w:214,h:50,cls:'is-bad',html:'<b>'+t('lockBadMsg')+'</b><small>$deadletterqueue</small>'});
+
+	const strip=el('cr-strip');
+	[['lockStep1H','lockStep1D','lockStep1C1','lockStep1C2','lock',''],
+	 ['lockStep2H','lockStep2D','lockStep2C1','lockStep2C2','check','is-ok'],
+	 ['lockStep3H','lockStep3D','lockStep3C1','lockStep3C2','bolt','is-warn'],
+	 ['lockStep4H','lockStep4D','lockStep4C1','lockStep4C2','box','is-bad']].forEach(([h,d,c1,c2,ic,cls])=>{
+		strip.appendChild(el('cr-strip-card'+(cls?' '+cls:''),
+			'<span class="cr-sc-head">'+icon(ic)+'<span>'+t(h)+'</span></span>'
+			+'<span class="cr-sc-desc">'+t(d)+'</span>'
+			+'<span class="cr-sc-caps"><span class="cr-cap">'+t(c1)+'</span><span class="cr-cap">'+t(c2)+'</span></span>'));
+	});
+	scene.appendChild(strip);
+
+	stage.appendChild(scene); liveEls.push(scene);
+	const lx=hLink(b,lane,cage,'is-bad');
+	b.style.height = Math.round(Math.max(lane.offsetTop+lane.offsetHeight, cage.offsetTop+cage.offsetHeight) + 14) + 'px';
+
+	const cEl=maybeCallout(step);
+	const cards=strip.querySelectorAll('.cr-strip-card'), caps=strip.querySelectorAll('.cr-cap');
+	if(motionPaused){ showAll(scene); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
+
+	const tl=gsap.timeline({onComplete:()=>{ animating=false; beltLoop([lane]); }}); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	tl.fromTo(lane,{opacity:0,scaleX:0.2},{opacity:1,scaleX:1,duration:0.45,ease:'power2.out',transformOrigin:'left center'},'-=0.1');
+	fadeIn(tl,[mainLbl],'<0.2');
+	popIn(tl,[bad],'>-0.2');
+	fadeIn(tl,[cnt],'>-0.2');
+	fadeIn(tl,[dlqLbl,cage],'>-0.1',0.1);
+	drawLinks(tl,[lx],'>-0.2');
+	popIn(tl,[caged],'>-0.15');
+	tl.to(bad,{opacity:0.25,duration:0.35},'<');
+	tl.fromTo(cards,{opacity:0,y:22,scale:0.94},{opacity:1,y:0,scale:1,duration:0.5,stagger:0.12,ease:'back.out(1.4)'},'>-0.15');
+	tl.fromTo(caps,{opacity:0,scale:0.7},{opacity:1,scale:1,duration:0.3,stagger:0.04,ease:'back.out(1.8)'},'>-0.25');
+	if(cEl) tl.fromTo(cEl,{opacity:0,y:10},{opacity:1,y:0,duration:0.6},'-=0.3');
+}
+
+// ── STEP 5 · TOPICS ───────────────────────
+function renderTopicsStep(){
+	const step=stepById('topics'); const scene=buildScene(step);
+	const b=board(1140,420); scene.appendChild(b);
+
+	const pub=node(b,{x:20,y:0,w:215,cls:'is-flow',ico:az(AZ.web),title:t('topicPubHead'),sub:t('topicPubSub')});
+	const top=node(b,{x:340,y:0,w:270,cls:'is-accent',ico:az(AZ.sbus),title:t('topicTopicHead'),sub:t('topicTopicSub'),
+		rows:[[t('topicTopicR1'),t('topicTopicR1v')],[t('topicTopicR2'),t('topicTopicR2v')]]});
+	const s1=node(b,{x:860,y:14,w:260,cls:'is-ok',ico:az(AZ.func),title:t('topicS1Head'),sub:t('topicS1Sub')});
+	const s2=node(b,{x:860,y:154,w:260,cls:'is-ok',ico:az(AZ.logic),title:t('topicS2Head'),sub:t('topicS2Sub')});
+	const s3=node(b,{x:860,y:294,w:260,cls:'is-ok',ico:az(AZ.func),title:t('topicS3Head'),sub:t('topicS3Sub')});
+	const p=pill(b,{x:0,y:0,cls:'is-accent',html:t('topicPill')});
+
+	stage.appendChild(scene); liveEls.push(scene);
+	rowAlign([s1,s2,s3],0,true);
+	s1.style.top='14px';
+	s2.style.top=Math.round(14 + s1.offsetHeight + 34)+'px';
+	s3.style.top=Math.round(14 + (s1.offsetHeight+34)*2)+'px';
+	const mid = Math.round((s2.offsetTop + s2.offsetHeight/2));
+	rowAlign([pub,top],mid,false);
+	const l0=hLink(b,pub,top,'is-flow');
+	const e0=onLink(b,l0,'<code>orders</code>');
+	e0.style.top=Math.round(rect(pub).cy-e0.offsetHeight-14)+'px';
+	const source=rect(top), branchX=source.r+28;
+	const [la,lb,lc]=fanLinks(b,top,[s1,s2,s3],'is-accent');
+	const [ea,eb,ec]=[s1,s2,s3].map((subscription,index)=>{
+		const target=rect(subscription);
+		const label=elabel(b,{x:0,y:0,html:t('topicS'+(index+1)+'Filter')});
+		label.style.left=Math.round((branchX+target.l-7-label.offsetWidth)/2)+'px';
+		label.style.top=Math.round(target.cy-label.offsetHeight-14)+'px';
+		return label;
+	});
+	under(p,top,34);
+	p.style.left=Math.round((pub.offsetLeft+source.r-p.offsetWidth)/2)+'px';
+	b.style.height = Math.round(Math.max(s3.offsetTop+s3.offsetHeight, p.offsetTop+p.offsetHeight) + 18) + 'px';
+
+	const cEl=maybeCallout(step);
+	if(motionPaused){ showAll(scene); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
+
+	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	popIn(tl,[pub],'-=0.1');
+	drawLinks(tl,[l0],'>-0.15'); fadeIn(tl,[e0],'<0.1');
+	popIn(tl,[top],'>-0.2');
+	drawLinks(tl,[la,lb,lc],'>-0.1',0.5);
+	popIn(tl,[s1,s2,s3],'>-0.35',0.12);
+	fadeIn(tl,[ea,eb,ec],'>-0.25',0.08);
+	fadeIn(tl,[p],'>-0.1');
+	if(cEl) tl.fromTo(cEl,{opacity:0,y:10},{opacity:1,y:0,duration:0.6},'-=0.3');
+}
+
+// ── STEP 6 · RECAP ────────────────────────
+function renderRecapStep(){
+	const step=stepById('recap'); const scene=buildScene(step);
+
+	const strip=el('cr-strip');
+	[['recapC1H','recapC1D','recapC1Cap1','recapC1Cap2','box','is-accent'],
+	 ['recapC2H','recapC2D','recapC2Cap1','recapC2Cap2','lock',''],
+	 ['recapC3H','recapC3D','recapC3Cap1','recapC3Cap2','bolt','is-warn'],
+	 ['recapC4H','recapC4D','recapC4Cap1','recapC4Cap2','rocket','is-ok']].forEach(([h,d,c1,c2,ic,cls])=>{
+		strip.appendChild(el('cr-strip-card'+(cls?' '+cls:''),
+			'<span class="cr-sc-head">'+icon(ic)+'<span>'+t(h)+'</span></span>'
+			+'<span class="cr-sc-desc">'+t(d)+'</span>'
+			+'<span class="cr-sc-caps"><span class="cr-cap">'+t(c1)+'</span><span class="cr-cap">'+t(c2)+'</span></span>'));
+	});
+	const values=el('chip-row');
+	[['recapVal1','check'],['recapVal2','lock'],['recapVal3','rocket']].forEach(([k,ic])=>values.appendChild(el('value-chip', icon(ic)+'<span>'+t(k)+'</span>')));
+	const foot=el('recap-foot', t('recapFoot'));
+	scene.appendChild(strip); scene.appendChild(values); scene.appendChild(foot);
+
+	stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	const cards=strip.querySelectorAll('.cr-strip-card'), caps=strip.querySelectorAll('.cr-cap'), valEls=values.querySelectorAll('.value-chip');
+	if(motionPaused){ showAll(scene,[...valEls,foot]); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
+
+	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	tl.fromTo(cards,{opacity:0,y:22,scale:0.94},{opacity:1,y:0,scale:1,duration:0.5,stagger:0.12,ease:'back.out(1.4)'},'-=0.05');
+	tl.fromTo(caps,{opacity:0,scale:0.7},{opacity:1,scale:1,duration:0.3,stagger:0.04,ease:'back.out(1.8)'},'>-0.25');
+	tl.fromTo(valEls,{opacity:0,y:12,scale:0.85},{opacity:1,y:0,scale:1,duration:0.4,stagger:0.1,ease:'back.out(1.8)'},'>-0.1');
+	tl.fromTo(foot,{opacity:0,y:10},{opacity:1,y:0,duration:0.5,ease:'power2.out'},'>-0.1');
+	if(cEl) tl.fromTo(cEl,{opacity:0,y:10},{opacity:1,y:0,duration:0.6},'-=0.3');
+}
+
+// ── CONTROLS ──────────────────────────────
+function focusHeading(){ const h=document.getElementById('stage-heading'); if(h){ try{ h.focus({preventScroll:true}); }catch(_){ h.focus(); } } }
+function interruptAnimation(){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; animating=false; }
+function next(){ interruptAnimation(); if(current<STEPS.length-1){ renderStep(current+1); focusHeading(); } }
+function prev(){ interruptAnimation(); if(current>0){ renderStep(current-1); focusHeading(); } }
+function reset(){ interruptAnimation(); renderStep(0); focusHeading(); }
+function replay(){ if(current<0) return; interruptAnimation(); renderStep(current); focusHeading(); }
+
+// ── Hide / show top bar (toggle; the ^ chevron flips to v when hidden) ──
+(function(){
+	const hideBtn=document.getElementById('header-hide'), revealBtn=document.getElementById('header-reveal');
+	if(!hideBtn||!revealBtn) return;
+	var hideBtnTop=document.getElementById('header-hide-top'); if(hideBtnTop) hideBtnTop.addEventListener('click',function(e){ e.stopPropagation(); hideBtn.click(); });
+	const hidePath=hideBtn.querySelector('svg path');
+	const UP='M6 15l6-6 6 6', DOWN='M6 9l6 6 6-6';   // ^ points up to hide the bar; flips to v to show it again
+	function setHidden(h){
+		document.body.classList.toggle('chrome-hidden',h);
+		hideBtn.setAttribute('aria-expanded',String(!h));
+		hideBtn.setAttribute('aria-label',h?'Show top bar':'Hide top bar');
+		hideBtn.title=(h?'Show top bar':'Hide top bar')+' (H)';
+		if(hidePath) hidePath.setAttribute('d',h?DOWN:UP);
+		try{localStorage.setItem('aw-integration-chrome-hidden',h?'1':'0');}catch(_){}
+		if(current>=0) requestAnimationFrame(()=>{ const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s); });
+	}
+	hideBtn.addEventListener('click',e=>{e.stopPropagation();setHidden(!document.body.classList.contains('chrome-hidden'));});
+	revealBtn.addEventListener('click',e=>{e.stopPropagation();setHidden(false);});
+	try{ if(localStorage.getItem('aw-integration-chrome-hidden')==='1') setHidden(true); }catch(_){}
+	document.addEventListener('keydown',e=>{ if(e.code==='KeyH'&&!e.metaKey&&!e.ctrlKey&&!e.altKey){ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return; e.preventDefault(); setHidden(!document.body.classList.contains('chrome-hidden')); } });
+})();
+
+document.getElementById('next-btn').addEventListener('click',e=>{e.stopPropagation();next();});
+document.getElementById('prev-btn').addEventListener('click',e=>{e.stopPropagation();prev();});
+document.getElementById('reset-btn').addEventListener('click',e=>{e.stopPropagation();reset();});
+document.getElementById('replay-btn').addEventListener('click',e=>{e.stopPropagation();replay();});
+
+// ── Clickable progress bar + step ticks ──
+(function(){
+	const track=document.querySelector('.progress-track'); if(!track) return;
+	for(let s=1; s<STEPS.length; s++){ const tk=document.createElement('div'); tk.className='progress-tick'; tk.style.left=(s/STEPS.length*100)+'%'; track.appendChild(tk); }
+	track.setAttribute('title','Jump to a step');
+	track.addEventListener('click', e=>{
+		const r=track.getBoundingClientRect(); const frac=(e.clientX-r.left)/r.width;
+		const target=Math.max(0, Math.min(STEPS.length-1, Math.floor(frac*STEPS.length)));
+		if(target!==current){ interruptAnimation(); renderStep(target); focusHeading(); }
+	});
+})();
+
+// ── Movable / pinnable control dock ───────
+(function(){
+	const dock=document.getElementById('controls'), grip=document.getElementById('ctrl-grip'), pin=document.getElementById('ctrl-pin');
+	if(!dock||!grip) return;
+	const KEY='aw-integration-controls-pos';
+	let dragging=false, sx=0, sy=0, bl=0, bt=0, moved=false;
+	function place(left,top){
+		const w=dock.offsetWidth, h=dock.offsetHeight;
+		left=Math.max(6, Math.min(left, window.innerWidth - w - 6));
+		top =Math.max(6, Math.min(top,  window.innerHeight - h - 6));
+		dock.style.left=left+'px'; dock.style.top=top+'px'; dock.style.right='auto'; dock.style.bottom='auto'; dock.style.transform='none';
+		document.body.classList.add('controls-floating');
+	}
+	function recenter(){
+		dock.style.left=dock.style.top=dock.style.right=dock.style.bottom=dock.style.transform='';
+		document.body.classList.remove('controls-floating');
+		try{ localStorage.removeItem(KEY); }catch(_){}
+	}
+	grip.addEventListener('pointerdown', e=>{
+		e.preventDefault(); dragging=true; moved=false;
+		const r=dock.getBoundingClientRect(); bl=r.left; bt=r.top; sx=e.clientX; sy=e.clientY;
+		try{ grip.setPointerCapture(e.pointerId); }catch(_){}
+	});
+	grip.addEventListener('pointermove', e=>{
+		if(!dragging) return;
+		const dx=e.clientX-sx, dy=e.clientY-sy;
+		if(Math.abs(dx)>2||Math.abs(dy)>2) moved=true;
+		place(bl+dx, bt+dy);
+	});
+	function end(e){ if(!dragging) return; dragging=false; try{ grip.releasePointerCapture(e.pointerId); }catch(_){}
+		if(moved){ try{ const r=dock.getBoundingClientRect(); localStorage.setItem(KEY, JSON.stringify({left:r.left, top:r.top})); }catch(_){} } }
+	grip.addEventListener('pointerup', end); grip.addEventListener('pointercancel', end);
+	// keyboard-nudge the dock when the grip is focused (arrow keys; Shift = larger step)
+	grip.addEventListener('keydown', e=>{
+		const d=e.shiftKey?40:12; const r=dock.getBoundingClientRect(); let ok=true;
+		if(e.key==='ArrowLeft') place(r.left-d, r.top);
+		else if(e.key==='ArrowRight') place(r.left+d, r.top);
+		else if(e.key==='ArrowUp') place(r.left, r.top-d);
+		else if(e.key==='ArrowDown') place(r.left, r.top+d);
+		else ok=false;
+		if(ok){ e.preventDefault(); e.stopPropagation(); }
+	});
+	if(pin) pin.addEventListener('click', e=>{ e.stopPropagation(); recenter(); });
+	window.addEventListener('resize', ()=>{ if(document.body.classList.contains('controls-floating')){ const r=dock.getBoundingClientRect(); place(r.left, r.top); } });
+	try{ const s=JSON.parse(localStorage.getItem(KEY)||'null'); if(s && typeof s.left==='number') place(s.left, s.top); }catch(_){}
+})();
+
+// ── Make callout / outline / caption draggable (same pointer-drag as the control dock) ──
+function dragify(el, key){
+	if(!el || el.__awDrag) return; el.__awDrag=true;
+	let dragging=false, sx=0, sy=0, bl=0, bt=0, moved=false;
+	const resizable = getComputedStyle(el).resize !== 'none';
+	const sizeKey = key ? key + '-size' : null;
+	// snapshot the home position + size so the reset pin can restore it exactly
+	const home={ position:el.style.position, left:el.style.left, top:el.style.top,
+		right:el.style.right, bottom:el.style.bottom, margin:el.style.margin, transform:el.style.transform,
+		width:el.style.width, height:el.style.height };
+	// reset "pin" — hidden until the panel is dragged or resized off its home spot
+	const pin=document.createElement('button');
+	pin.type='button'; pin.className='aw-drag-reset';
+	pin.title=t('resetPos'); pin.setAttribute('aria-label', t('resetPos'));
+	pin.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>';
+	// keep the pin inside scrollable / resizable panels so it isn't clipped
+	const oy=getComputedStyle(el).overflowY; const clips=(oy==='auto'||oy==='scroll'||oy==='hidden');
+	pin.style.top=clips?'8px':'-10px'; pin.style.right=clips?'8px':'-10px';
+	el.appendChild(pin);
+	function showPin(on){ pin.style.display=on?'flex':'none'; }
+	pin.addEventListener('pointerdown', e=>{ e.stopPropagation(); });
+	pin.addEventListener('click', e=>{
+		e.preventDefault(); e.stopPropagation();
+		el.style.position=home.position; el.style.left=home.left; el.style.top=home.top;
+		el.style.right=home.right; el.style.bottom=home.bottom; el.style.margin=home.margin; el.style.transform=home.transform;
+		el.style.width=home.width; el.style.height=home.height;
+		if(key){ try{ localStorage.removeItem(key); }catch(_){} }
+		if(sizeKey){ try{ localStorage.removeItem(sizeKey); }catch(_){} }
+		showPin(false);
+	});
+	function fix(left,top){
+		const w=el.offsetWidth, h=el.offsetHeight;
+		left=Math.max(6, Math.min(left, window.innerWidth  - w - 6));
+		top =Math.max(6, Math.min(top,  window.innerHeight - h - 6));
+		el.style.position='fixed'; el.style.left=left+'px'; el.style.top=top+'px';
+		el.style.right='auto'; el.style.bottom='auto'; el.style.margin='0'; el.style.transform='none';
+	}
+	// persist user resizes (the CSS resize grip writes inline width/height; content changes don't)
+	if(resizable && typeof ResizeObserver!=='undefined'){
+		let rt;
+		new ResizeObserver(()=>{
+			if(el.style.width || el.style.height){
+				showPin(true);
+				if(sizeKey){ clearTimeout(rt); rt=setTimeout(()=>{ try{ localStorage.setItem(sizeKey, JSON.stringify({w:el.style.width, h:el.style.height})); }catch(_){} }, 150); }
+			}
+		}).observe(el);
+	}
+	el.addEventListener('pointerdown', e=>{
+		if(e.button!==0 || (e.target.closest && e.target.closest('a,button,select,input,textarea'))) return;
+		if(resizable){ const r=el.getBoundingClientRect(); if(e.clientX>r.right-18 && e.clientY>r.bottom-18) return; } // let the resize grip win
+		dragging=true; moved=false;
+		const r=el.getBoundingClientRect(); bl=r.left; bt=r.top; sx=e.clientX; sy=e.clientY;
+		fix(bl, bt);   // pin at the current spot first, so there's no jump
+		try{ el.setPointerCapture(e.pointerId); }catch(_){}
+		e.preventDefault();
+	});
+	el.addEventListener('pointermove', e=>{
+		if(!dragging) return;
+		const dx=e.clientX-sx, dy=e.clientY-sy;
+		if(Math.abs(dx)>2||Math.abs(dy)>2) moved=true;
+		fix(bl+dx, bt+dy);
+	});
+	function end(e){
+		if(!dragging) return; dragging=false;
+		try{ el.releasePointerCapture(e.pointerId); }catch(_){}
+		if(moved){ showPin(true); if(key){ try{ const r=el.getBoundingClientRect(); localStorage.setItem(key, JSON.stringify({left:r.left, top:r.top})); }catch(_){} } }
+	}
+	el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+	if(sizeKey){ try{ const z=JSON.parse(localStorage.getItem(sizeKey)||'null'); if(z && (z.w||z.h)){ if(z.w) el.style.width=z.w; if(z.h) el.style.height=z.h; showPin(true); } }catch(_){} }
+	if(key){ try{ const s=JSON.parse(localStorage.getItem(key)||'null'); if(s && isFinite(s.left) && isFinite(s.top)){ fix(s.left, s.top); showPin(true); } }catch(_){} }
+}
+dragify(document.getElementById('step-outline'), 'aw-integration-outline-pos');
+dragify(document.getElementById('aw-caption'), 'aw-integration-caption-pos');
+
+// ── Speed ─────────────────────────────────
+const SPEED_STEPS=[0.5,0.75,1,1.25,1.5,2]; const BASE_TIMESCALE=0.25;
+let speedIndex=SPEED_STEPS.indexOf(1);
+try{ const sp=parseInt(localStorage.getItem('aw-integration-speed'),10); if(!isNaN(sp)&&sp>=0&&sp<SPEED_STEPS.length) speedIndex=sp; }catch(_){}
+const speedLabel=document.getElementById('speed-label'), speedDownBtn=document.getElementById('speed-down'), speedUpBtn=document.getElementById('speed-up');
+function saveSpeed(){ try{ localStorage.setItem('aw-integration-speed', String(speedIndex)); }catch(_){} }
+function syncSpeedUI(){ const spd=SPEED_STEPS[speedIndex]; speedLabel.textContent=spd+'\u00d7'; speedDownBtn.disabled=speedIndex===0; speedUpBtn.disabled=speedIndex===SPEED_STEPS.length-1; gsap.globalTimeline.timeScale(spd*BASE_TIMESCALE); }
+syncSpeedUI();
+speedDownBtn.addEventListener('click',e=>{e.stopPropagation(); if(speedIndex>0){speedIndex--;syncSpeedUI();saveSpeed();}});
+speedUpBtn.addEventListener('click',e=>{e.stopPropagation(); if(speedIndex<SPEED_STEPS.length-1){speedIndex++;syncSpeedUI();saveSpeed();}});
+
+// ── Keyboard ──────────────────────────────
+if (window.AW && AW.keyboard) { AW.keyboard.bind({ next, prev, reset, replay }); }
+else { document.addEventListener('keydown', e => {
+	const tag=(e.target&&e.target.tagName||'').toLowerCase();
+	if(tag==='input'||tag==='textarea'||tag==='select') return;
+	// Space/Enter must reach a focused control, otherwise the focused button can never be pressed by keyboard
+	const onControl=!!(e.target&&e.target.closest&&e.target.closest('button,a[href],summary,[role="button"],[role="switch"]'));
+	if (['Space','Enter'].includes(e.code) && onControl) return;
+	if (['Space','ArrowRight','Enter'].includes(e.code)) { e.preventDefault(); next(); }
+	else if (e.code==='ArrowLeft') { e.preventDefault(); prev(); }
+	else if (e.code==='KeyR') { e.preventDefault(); reset(); }
+	else if (e.code==='KeyP') { e.preventDefault(); replay(); }
+}); }
+
+// ── Touch swipe (tablets) ─────────────────
+(function(){
+	const surf=document.getElementById('stage'); if(!surf) return;
+	let x0=null,y0=null,t0=0;
+	surf.addEventListener('touchstart',e=>{ if(document.body.classList.contains('int-reading')){x0=null;return;} if(e.touches.length!==1){x0=null;return;} x0=e.touches[0].clientX; y0=e.touches[0].clientY; t0=Date.now(); },{passive:true});
+	surf.addEventListener('touchend',e=>{
+		if(x0===null) return; const tch=e.changedTouches[0]; const dx=tch.clientX-x0, dy=tch.clientY-y0; x0=null;
+		if(Date.now()-t0>800) return;
+		if(Math.abs(dx)>50 && Math.abs(dx)>Math.abs(dy)*1.6){ if(dx<0) next(); else prev(); }
+	},{passive:true});
+})();
+
+// ── Keyboard shortcut help overlay ────────
+(function(){
+	const overlay=document.getElementById('shortcut-overlay'), btn=document.getElementById('help-toggle'), closeBtn=document.getElementById('sc-close'), list=document.getElementById('sc-list');
+	if(!overlay||!list) return;
+	const ROWS=[[['\u2192','Space'],'scNext'],[['\u2190'],'scPrev'],[['R'],'scRestart'],[['P'],'scReplay'],[['H'],'scHide'],[['?'],'scHelp']];
+	window.buildShortcuts=function(){ const title=document.getElementById('sc-title'); if(title) title.textContent=t('scTitle');
+		list.innerHTML=ROWS.map(([keys,k])=>`<li><span>${t(k)}</span><span class="sc-keys">${keys.map(x=>`<kbd>${x}</kbd>`).join('')}</span></li>`).join(''); };
+	buildShortcuts();
+	function open(){ overlay.removeAttribute('hidden'); if(closeBtn) closeBtn.focus(); }
+	function close(){ overlay.setAttribute('hidden',''); if(btn) btn.focus(); }
+	function toggle(){ overlay.hasAttribute('hidden')?open():close(); }
+	if(btn) btn.addEventListener('click',e=>{e.stopPropagation();toggle();});
+	if(closeBtn) closeBtn.addEventListener('click',e=>{e.stopPropagation();close();});
+	const bd=overlay.querySelector('.sc-backdrop'); if(bd) bd.addEventListener('click',close);
+	document.addEventListener('keydown',e=>{ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return;
+		if(e.key==='?'){ e.preventDefault(); toggle(); }
+		else if(e.key==='Escape' && !overlay.hasAttribute('hidden')){ e.preventDefault(); close(); } });
+})();
+
+// ── Resize (re-fit only — never rebuild or replay the animation) ──
+let resizeTimer, lastStageW=0, lastStageH=0;
+window.addEventListener('resize',()=>{ clearTimeout(resizeTimer); resizeTimer=setTimeout(()=>{
+	if(current<0) return;
+	const box=stage.getBoundingClientRect();
+	if(Math.abs(box.width-lastStageW)<1 && Math.abs(box.height-lastStageH)<1) return;   // ignore no-op reflows (focus/URL-bar) so the animation never restarts
+	lastStageW=box.width; lastStageH=box.height;
+	const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s);
+},200); });
+
+// ── Init ──────────────────────────────────
+setLanguage(currentLang);
+counter.textContent = `1 / ${STEPS.length}`;
+const urlStep = parseInt(new URLSearchParams(location.search).get('step'), 10);   // ?step=N opens on step N
+renderStep((!isNaN(urlStep) && urlStep>=1 && urlStep<=STEPS.length) ? urlStep-1 : 0);
+</script>
+<script>
+// ── Start gate · hold autoplay until the viewer clicks Play (empty stage + centered Play) ──
+(function () {
+	if (new URLSearchParams(location.search).has('present')) return;
+	var stage = document.getElementById('stage');
+	if (!stage) return;
+	function freeze() { try { if (window.gsap && gsap.globalTimeline) gsap.globalTimeline.pause(); } catch (_) {} }
+	freeze(); requestAnimationFrame(freeze);
+	document.body.classList.add('aw-prestart');
+	try { if (typeof stopAudio === 'function') stopAudio(); } catch (_) {}
+	stage.style.transition = 'opacity .55s ease';
+	stage.style.opacity = '0';
+
+	var T = {
+		title: { en:'Ready to begin?', es:'\u00BFTodo listo?', ja:'\u6E96\u5099\u306F\u3044\u3044\u3067\u3059\u304B\uFF1F', ko:'\uC2DC\uC791\uD560 \uC900\uBE44\uAC00 \uB418\uC168\uB098\uC694?', pt:'Tudo pronto?' },
+		sound: { en:'Sound', es:'Sonido', ja:'\u97F3\u58F0', ko:'\uC18C\uB9AC', pt:'Som' },
+		cc:    { en:'Subtitles (CC)', es:'Subt\u00EDtulos (CC)', ja:'\u5B57\u5E55\uFF08CC\uFF09', ko:'\uC790\uB9C9 (CC)', pt:'Legendas (CC)' },
+		start: { en:'Start presentation', es:'Iniciar presentaci\u00F3n', ja:'\u30D7\u30EC\u30BC\u30F3\u3092\u958B\u59CB', ko:'\uD504\uB808\uC820\uD14C\uC774\uC158 \uC2DC\uC791', pt:'Iniciar apresenta\u00E7\u00E3o' }
+	};
+	function L(){ return (typeof currentLang === 'string' && currentLang) || (typeof CURRENT_LANG === 'string' && CURRENT_LANG) || 'en'; }
+	function t(k){ var m = T[k], l = L(); return m[m[l] ? l : 'en']; }
+	function awAudioState(){ try{ if(typeof window.__awAudioOn==='function') return !!window.__awAudioOn(); }catch(_){} return (typeof audioEnabled!=='undefined') && !!audioEnabled; }
+	function awCcState(){ try{ if(typeof window.__awCcOn!=='undefined' && window.__awCcOn!==null) return !!window.__awCcOn; }catch(_){} return (typeof ccPref!=='undefined') && !!ccPref; }
+
+	var style = document.createElement('style');
+	style.textContent =
+		'body.aw-prestart #controls{opacity:.4;pointer-events:none;transition:opacity .4s ease}' +
+		'#aw-play-card{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:50;box-sizing:border-box;width:min(90vw,22rem);padding:1.35rem 1.5rem 1.5rem;border-radius:16px;background:var(--theme-card-background,#fff);color:var(--theme-text,#222);border:1px solid var(--theme-border,rgba(0,0,0,.1));box-shadow:0 24px 60px rgba(0,0,0,.28);transition:opacity .3s ease,transform .3s ease}' +
+		'#aw-play-card.aw-hide{opacity:0;transform:translate(-50%,-50%) scale(.96);pointer-events:none}' +
+		'body.theme-dark #aw-play-card{border-color:rgba(255,255,255,.12);box-shadow:0 24px 60px rgba(0,0,0,.55)}' +
+		'body.present-mode #aw-play-card{display:none!important}' +
+		'.aw-card-title{margin:0 0 1rem;text-align:center;font-size:1.02rem;font-weight:800;letter-spacing:.03em;text-transform:uppercase;opacity:.85}' +
+		'.aw-row{display:flex;align-items:center;gap:.65rem;padding:.6rem 0}' +
+		'.aw-row + .aw-row{border-top:1px solid var(--theme-border,rgba(0,0,0,.08))}' +
+		'.aw-row-ico{flex:none;width:1.5rem;text-align:center;font-size:1.15rem;line-height:1}' +
+		'.aw-row-lbl{flex:1 1 auto;font-size:.9rem;font-weight:600}' +
+		'.aw-row-state{flex:none;min-width:2.5rem;text-align:right;font-size:.68rem;font-weight:800;letter-spacing:.05em;opacity:.5}' +
+		'.aw-row-state.on{color:var(--theme-primary,#0078d4);opacity:1}' +
+		'.aw-switch{position:relative;flex:none;width:44px;height:24px;padding:0;border:none;border-radius:999px;cursor:pointer;background:var(--theme-border,#c7c7d1);transition:background .18s ease}' +
+		'.aw-switch.on{background:var(--theme-primary,#0078d4)}' +
+		'.aw-switch::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.4);transition:transform .18s ease}' +
+		'.aw-switch.on::after{transform:translateX(20px)}' +
+		'#aw-start{margin-top:1.2rem;width:100%;display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:.8rem 1rem;border:none;border-radius:11px;cursor:pointer;background:var(--theme-primary,#0078d4);color:#fff;font-size:.96rem;font-weight:700;letter-spacing:.01em;box-shadow:0 8px 22px var(--theme-primary-translucent,rgba(0,120,212,.45));transition:transform .15s ease}' +
+		'#aw-start:hover{transform:translateY(-2px)}#aw-start:active{transform:scale(.98)}' +
+		'#aw-start svg{width:18px;height:18px;flex:none}';
+	document.head.appendChild(style);
+
+	var card = document.createElement('div');
+	card.id = 'aw-play-card'; card.setAttribute('role', 'dialog'); card.setAttribute('aria-modal', 'true');
+	card.innerHTML =
+		'<div class="aw-card-title"></div>' +
+		'<div class="aw-row" data-k="audio"><span class="aw-row-ico" aria-hidden="true">\uD83D\uDD0A</span><span class="aw-row-lbl"></span><span class="aw-row-state"></span><button type="button" class="aw-switch" role="switch"></button></div>' +
+		'<div class="aw-row" data-k="cc"><span class="aw-row-ico" aria-hidden="true">\uD83D\uDCAC</span><span class="aw-row-lbl"></span><span class="aw-row-state"></span><button type="button" class="aw-switch" role="switch"></button></div>' +
+		'<button type="button" id="aw-start"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 5v14l11-7z"/></svg><span class="aw-start-lbl"></span></button>';
+	document.body.appendChild(card);
+
+	var titleEl = card.querySelector('.aw-card-title');
+	var startBtn = card.querySelector('#aw-start');
+	var ROWS = [ { k:'audio', lbl:'sound', el:card.querySelector('.aw-row[data-k="audio"]'), read:awAudioState, toggle:'audio-toggle' },
+	             { k:'cc',    lbl:'cc',    el:card.querySelector('.aw-row[data-k="cc"]'),    read:awCcState,    toggle:'cc-toggle' } ];
+
+	function render(){
+		titleEl.textContent = t('title'); card.setAttribute('aria-label', t('title'));
+		startBtn.querySelector('.aw-start-lbl').textContent = t('start');
+		ROWS.forEach(function(r){
+			var on = r.read();
+			r.el.querySelector('.aw-row-lbl').textContent = t(r.lbl);
+			var st = r.el.querySelector('.aw-row-state'); st.textContent = on ? 'ON' : 'OFF'; st.classList.toggle('on', on);
+			var sw = r.el.querySelector('.aw-switch'); sw.classList.toggle('on', on); sw.setAttribute('aria-checked', on ? 'true' : 'false');
+			sw.setAttribute('aria-label', t(r.lbl) + ' \u2014 ' + (on ? 'on' : 'off'));
+		});
+	}
+	ROWS.forEach(function(r){
+		r.el.querySelector('.aw-switch').addEventListener('click', function(e){ e.stopPropagation(); var b = document.getElementById(r.toggle); if(b) b.click(); render(); });
+	});
+	render();
+
+	var sel = document.getElementById('lang-select');
+	// Only re-freeze while the gate is still up — after Play, freezing would pause the
+	// global timeline for good and every later scene would stay at opacity 0 (blank stage).
+	if (sel) sel.addEventListener('change', function () { if (done) return; render(); freeze(); });
+
+	function gateKeys(e) {
+		if (done) return;
+		var tag = (e.target && e.target.tagName || '').toLowerCase();
+		if (tag === 'select' || tag === 'input' || tag === 'textarea') return;
+		if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'].indexOf(e.key) >= 0) { e.preventDefault(); e.stopPropagation(); }
+	}
+	document.addEventListener('keydown', gateKeys, true);
+
+	var done = false;
+	function start() {
+		if (done) return; done = true;
+		document.removeEventListener('keydown', gateKeys, true);
+		document.body.classList.remove('aw-prestart');
+		card.classList.add('aw-hide');
+		setTimeout(function () { if (card.parentNode) card.parentNode.removeChild(card); if (style.parentNode) style.parentNode.removeChild(style); }, 420);
+		setTimeout(function () {
+			try { if (window.gsap && gsap.globalTimeline) gsap.globalTimeline.play(); } catch (_) {}
+			stage.style.opacity = '1';
+			try { if (typeof interruptAnimation === 'function') interruptAnimation(); } catch (_) {}
+			try { if (typeof renderStep === 'function') renderStep(typeof current === 'number' && current >= 0 ? current : 0); } catch (_) {}
+		}, 380);
+	}
+	startBtn.addEventListener('click', start);
+	// the gate is aria-modal, so keyboard and screen-reader users must land on it rather than tab the header behind it
+	startBtn.focus({ preventScroll: true });
+}());
+</script>
+<script src="../../lib/js/aw-present.js"></script>
+<script src="../../lib/js/aw-declutter.js"></script>
+<script src="../../lib/js/aw-url-state.js"></script>
+
+</body>
+</html>

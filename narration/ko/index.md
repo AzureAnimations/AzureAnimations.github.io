@@ -2,7 +2,7 @@
 
 **Source page:** `index.html`
 
-Fourteen spoken blocks: welcome, certification study paths, then twelve journey cards. The closing trophy banner is not narrated.
+Fifteen spoken blocks: welcome, certification study paths, then thirteen journey cards. The closing trophy banner is not narrated.
 
 <!-- Practice assessment access: https://learn.microsoft.com/credentials/certifications/practice-assessments-for-microsoft-certifications and https://learn.microsoft.com/credentials/certifications/resources/study-guides/ai-901 -->
 
@@ -60,14 +60,18 @@ Fourteen spoken blocks: welcome, certification study paths, then twelve journey 
 
 [calm] 보안. Key Vault, 관리 ID, 제로 트러스트.
 
-## Step 12 · Identity and governance
+## Step 12 · Integration & Messaging
+
+[calm] 통합 및 메시징. 큐, Service Bus, Event Hubs, Event Grid 그리고 접착제 역할의 Functions.
+
+## Step 13 · Identity and governance
 
 [calm] ID와 거버넌스. 테넌트, 사용자, 게스트, 로그인, 관리 역할, 범위, 정책, 비용 — 모든 조직이 가장 먼저 다지는 토대입니다.
 
-## Step 13 · Azure Fundamentals
+## Step 14 · Azure Fundamentals
 
 [calm] Azure 기본 사항. Contoso Retail의 클라우드 이전: 상점 계획, 구축, 보호 및 운영. AZ-900 시험 목표에 맞춰졌습니다.
 
-## Step 14 · GitHub · Contoso Delivery
+## Step 15 · GitHub · Contoso Delivery
 
 [calm] GitHub · Contoso 딜리버리. 비 오는 오후부터 Azure에서 실행되는 코드까지, 하나의 리테일 프로젝트를 따라갑니다. 이슈와 에픽, 보드, 브랜치 규칙, 자동 검사, 그리고 비밀번호를 어디에도 저장하지 않는 배포.

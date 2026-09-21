@@ -2,7 +2,7 @@
 
 **Source page:** `index.html`
 
-Fourteen spoken blocks: welcome, certification study paths, then twelve journey cards. The closing trophy banner is not narrated.
+Fifteen spoken blocks: welcome, certification study paths, then thirteen journey cards. The closing trophy banner is not narrated.
 
 <!-- Practice assessment access: https://learn.microsoft.com/credentials/certifications/practice-assessments-for-microsoft-certifications and https://learn.microsoft.com/credentials/certifications/resources/study-guides/ai-901 -->
 
@@ -60,14 +60,18 @@ Fourteen spoken blocks: welcome, certification study paths, then twelve journey 
 
 [calm] セキュリティ. Key Vault、マネージド ID、ゼロトラスト。
 
-## Step 12 · Identity and governance
+## Step 12 · Integration & Messaging
+
+[calm] 統合とメッセージング。キュー、Service Bus、Event Hubs、Event Grid、そして接着剤としての Functions。
+
+## Step 13 · Identity and governance
 
 [calm] ID とガバナンス。テナント、ユーザー、ゲスト、サインイン、管理ロール、スコープ、ポリシー、コスト。どの組織も最初に固める土台です。
 
-## Step 13 · Azure Fundamentals
+## Step 14 · Azure Fundamentals
 
 [calm] Azure の基礎. Contoso Retail のクラウド移行。店舗を計画し、構築し、保護し、運用します。AZ-900 試験の出題範囲に沿っています。
 
-## Step 14 · GitHub · Contoso Delivery
+## Step 15 · GitHub · Contoso Delivery
 
 [calm] GitHub · Contoso のデリバリー. 雨の午後から Azure で動くコードまで、一つの小売プロジェクトを追いかけます。イシューとエピック、ボード、ブランチ規則、自動チェック、そしてパスワードをどこにも保存しないデプロイ。

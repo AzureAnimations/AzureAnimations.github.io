@@ -2,7 +2,7 @@
 
 **Source page:** `index.html`
 
-Fourteen spoken blocks: welcome, certification study paths, then twelve journey cards. The closing trophy banner is not narrated.
+Fifteen spoken blocks: welcome, certification study paths, then thirteen journey cards. The closing trophy banner is not narrated.
 
 <!-- Practice assessment access: https://learn.microsoft.com/credentials/certifications/practice-assessments-for-microsoft-certifications and https://learn.microsoft.com/credentials/certifications/resources/study-guides/ai-901 -->
 
@@ -60,14 +60,18 @@ Entre no Microsoft Learn ou no AI Skills Navigator para iniciar a avaliação.
 
 [calm] Segurança. Key Vault, identidade gerenciada e Zero Trust.
 
-## Step 12 · Identity and governance
+## Step 12 · Integration & Messaging
+
+[calm] Integração e mensageria. Filas, Service Bus, Event Hubs, Event Grid e Functions como cola.
+
+## Step 13 · Identity and governance
 
 [calm] Identidade e governança. Locatários, usuários, convidados, entrada, funções, escopos, políticas e custos: a base que toda organização assenta primeiro.
 
-## Step 13 · Azure Fundamentals
+## Step 14 · Azure Fundamentals
 
 [calm] Fundamentos do Azure. A Contoso Retail vai para a nuvem: planejar, construir, proteger e operar a loja. Alinhado aos objetivos do exame AZ-900.
 
-## Step 14 · GitHub · Contoso Delivery
+## Step 15 · GitHub · Contoso Delivery
 
 [calm] GitHub · Entrega na Contoso. Um projeto de varejo de uma tarde chuvosa até código rodando no Azure: issues e épicos, um quadro, regras de branch, verificações automáticas e uma implantação sem guardar nenhuma senha.
