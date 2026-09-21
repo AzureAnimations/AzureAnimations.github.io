@@ -2,7 +2,9 @@
 
 **Source page:** `index.html`
 
-Thirteen spoken blocks — one per stop of the narrated home walkthrough. Stops 2 to 12 mirror each journey card, so the voice and the screen say the same thing.
+Fourteen spoken blocks: welcome, certification study paths, then twelve journey cards. The closing trophy banner is not narrated.
+
+<!-- Practice assessment access: https://learn.microsoft.com/credentials/certifications/practice-assessments-for-microsoft-certifications and https://learn.microsoft.com/credentials/certifications/resources/study-guides/ai-901 -->
 
 ---
 
@@ -10,56 +12,62 @@ Thirteen spoken blocks — one per stop of the narrated home walkthrough. Stops 
 
 [warm] Welcome to Azure Animations.
 [500ms]
-[confident] This is where we learn the cloud the fun way — short, visual, story-driven explainers, refreshingly light on text.
-[500ms]
-[calm] Every journey here is grouped by how much you build yourself, from finished products you simply use, all the way to the cloud you build from scratch. Let me show you around.
+[calm] Learn Azure, AI, Copilot and GitHub through short visual stories.
+Explore a journey by topic, or choose a certification study path.
+Let's find your starting point.
 
-## Step 2 · Microsoft 365 Copilot
+## Step 2 · Certification study paths
+
+[curious] Studying for a certification?
+[500ms]
+[calm] Choose an Azure, AI or GitHub study path.
+Follow the lessons, review the gaps, then try a free official practice assessment where available.
+Sign in to Microsoft Learn or AI Skills Navigator to take the assessment.
+
+## Step 3 · Microsoft 365 Copilot
 
 [calm] Microsoft 365 Copilot. Sign in and it is already there — Copilot across Word, Excel, PowerPoint, Outlook and Teams, plus what it can and cannot see.
 
-## Step 3 · Copilot Studio
+## Step 4 · Copilot Studio
 
 [calm] Copilot Studio. Build an agent by pointing at knowledge and wiring tools — connectors, MCP servers and Logic Apps, all from the browser.
 
-## Step 4 · AI Agents · Microsoft Foundry
+## Step 5 · AI Agents · Microsoft Foundry
 
 [calm] AI Agents · Microsoft Foundry. The pro-code end of AI — your own projects, your own model deployments, and agents that read documents, images, speech and video.
 
-## Step 5 · Virtual Machines
+## Step 6 · Virtual Machines
 
 [calm] Virtual Machines. Build one, then size, scale, back up and monitor it.
 
-## Step 6 · PaaS Compute
+## Step 7 · PaaS Compute
 
 [calm] PaaS Compute. App Service, plans, scaling and Functions.
 
-## Step 7 · Containers
+## Step 8 · Containers
 
 [calm] Containers. Docker, registry, Container Apps and Kubernetes.
 
-## Step 8 · Networking
+## Step 9 · Networking
 
 [calm] Networking. VNets, peering, firewalls and load balancing.
 
-## Step 9 · Storage
+## Step 10 · Storage
 
 [calm] Storage. Accounts, redundancy, SAS and data protection.
 
-## Step 10 · Security
+## Step 11 · Security
 
 [calm] Security. Key Vault, managed identity and Zero Trust.
 
-## Step 11 · Azure Fundamentals
+## Step 12 · Identity and governance
+
+[calm] Identity and governance. Tenants, users, guests, sign-in, admin roles, scopes, policy and cost — the groundwork every organisation lays first.
+
+## Step 13 · Azure Fundamentals
 
 [calm] Azure Fundamentals. Contoso Retail moves to the cloud: plan, build, protect and operate the shop. Aligned to the AZ-900 exam objectives.
 
-## Step 12 · GitHub · Contoso Delivery
+## Step 14 · GitHub · Contoso Delivery
 
 [calm] GitHub · Contoso Delivery. One retail project from a rainy afternoon to running code on Azure — issues and epics, a board, branch rules, automated checks, and a deploy with no password stored anywhere.
-
-## Step 13 · Pick a journey
-
-[calm] That is the whole map — eleven journeys, from your first Copilot prompt to running your own workload on Azure.
-[600ms]
-[encouraging] Every one is free, narrated, and available in five languages. Pick the one closest to what you are working on, and let's begin.

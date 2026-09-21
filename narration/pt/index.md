@@ -2,7 +2,9 @@
 
 **Source page:** `index.html`
 
-Thirteen spoken blocks — one per stop of the narrated home walkthrough. Stops 2 to 12 mirror each journey card, so the voice and the screen say the same thing.
+Fourteen spoken blocks: welcome, certification study paths, then twelve journey cards. The closing trophy banner is not narrated.
+
+<!-- Practice assessment access: https://learn.microsoft.com/credentials/certifications/practice-assessments-for-microsoft-certifications and https://learn.microsoft.com/credentials/certifications/resources/study-guides/ai-901 -->
 
 ---
 
@@ -10,56 +12,62 @@ Thirteen spoken blocks — one per stop of the narrated home walkthrough. Stops 
 
 [warm] Boas-vindas ao Azure Animations.
 [500ms]
-[confident] É aqui que aprendemos a nuvem de um jeito divertido — explicações curtas, visuais e com narrativa, com bem pouco texto.
-[500ms]
-[calm] Cada jornada é agrupada por quanto você mesmo constrói, de produtos prontos que você só usa até a nuvem que você constrói do zero. Deixa eu te mostrar.
+[calm] Aprenda Azure, IA, Copilot e GitHub com histórias visuais curtas.
+Explore uma jornada por assunto ou escolha um caminho de estudo para uma certificação.
+Vamos encontrar seu ponto de partida.
 
-## Step 2 · Microsoft 365 Copilot
+## Step 2 · Certification study paths
+
+[curious] Preparando-se para uma certificação?
+[500ms]
+[calm] Escolha um caminho de estudo de Azure, IA ou GitHub.
+Estude as lições, confira o que falta e faça uma avaliação prática oficial gratuita, quando disponível.
+Entre no Microsoft Learn ou no AI Skills Navigator para iniciar a avaliação.
+
+## Step 3 · Microsoft 365 Copilot
 
 [calm] Microsoft 365 Copilot. Faça login e ele já está lá: Copilot no Word, Excel, PowerPoint, Outlook e Teams, além do que ele pode e não pode ver.
 
-## Step 3 · Copilot Studio
+## Step 4 · Copilot Studio
 
 [calm] Copilot Studio. Crie um agente apontando para o conhecimento e conectando ferramentas: conectores, servidores MCP e Logic Apps, tudo pelo navegador.
 
-## Step 4 · AI Agents · Microsoft Foundry
+## Step 5 · AI Agents · Microsoft Foundry
 
 [calm] Agentes de IA · Microsoft Foundry. O lado pro-code da IA — seus próprios projetos, suas implantações de modelos e agentes que leem documentos, imagens, fala e vídeo.
 
-## Step 5 · Virtual Machines
+## Step 6 · Virtual Machines
 
 [calm] Máquinas virtuais. Crie uma e depois ajuste, escale, faça backup e monitore.
 
-## Step 6 · PaaS Compute
+## Step 7 · PaaS Compute
 
 [calm] Computação PaaS. App Service, planos, escala e Functions.
 
-## Step 7 · Containers
+## Step 8 · Containers
 
 [calm] Contêineres. Docker, registro, Container Apps e Kubernetes.
 
-## Step 8 · Networking
+## Step 9 · Networking
 
 [calm] Redes. VNets, emparelhamento, firewalls e balanceamento de carga.
 
-## Step 9 · Storage
+## Step 10 · Storage
 
 [calm] Armazenamento. Contas, redundância, SAS e proteção de dados.
 
-## Step 10 · Security
+## Step 11 · Security
 
 [calm] Segurança. Key Vault, identidade gerenciada e Zero Trust.
 
-## Step 11 · Azure Fundamentals
+## Step 12 · Identity and governance
+
+[calm] Identidade e governança. Locatários, usuários, convidados, entrada, funções, escopos, políticas e custos: a base que toda organização assenta primeiro.
+
+## Step 13 · Azure Fundamentals
 
 [calm] Fundamentos do Azure. A Contoso Retail vai para a nuvem: planejar, construir, proteger e operar a loja. Alinhado aos objetivos do exame AZ-900.
 
-## Step 12 · GitHub · Contoso Delivery
+## Step 14 · GitHub · Contoso Delivery
 
 [calm] GitHub · Entrega na Contoso. Um projeto de varejo de uma tarde chuvosa até código rodando no Azure: issues e épicos, um quadro, regras de branch, verificações automáticas e uma implantação sem guardar nenhuma senha.
-
-## Step 13 · Pick a journey
-
-[calm] Esse é o mapa inteiro — onze jornadas, do seu primeiro prompt no Copilot até rodar sua própria carga de trabalho no Azure.
-[600ms]
-[encouraging] Todas são gratuitas, narradas e estão em cinco idiomas. Escolha a mais perto do seu trabalho e vamos começar.

@@ -2,7 +2,9 @@
 
 **Source page:** `index.html`
 
-Thirteen spoken blocks — one per stop of the narrated home walkthrough. Stops 2 to 12 mirror each journey card, so the voice and the screen say the same thing.
+Fourteen spoken blocks: welcome, certification study paths, then twelve journey cards. The closing trophy banner is not narrated.
+
+<!-- Practice assessment access: https://learn.microsoft.com/credentials/certifications/practice-assessments-for-microsoft-certifications and https://learn.microsoft.com/credentials/certifications/resources/study-guides/ai-901 -->
 
 ---
 
@@ -10,56 +12,62 @@ Thirteen spoken blocks — one per stop of the narrated home walkthrough. Stops 
 
 [warm] Te damos la bienvenida a Azure Animations.
 [500ms]
-[confident] Aquí aprendemos la nube de una forma divertida: explicaciones breves, visuales y narradas, con muy poco texto.
-[500ms]
-[calm] Cada recorrido está agrupado según cuánto construyes tú mismo, desde productos terminados que solo usas hasta la nube que construyes desde cero. Te lo enseño.
+[calm] Aprende Azure, IA, Copilot y GitHub con historias visuales breves.
+Explora un recorrido por tema o elige una ruta de estudio para una certificación.
+Vamos a encontrar tu punto de partida.
 
-## Step 2 · Microsoft 365 Copilot
+## Step 2 · Certification study paths
+
+[curious] ¿Te preparas para una certificación?
+[500ms]
+[calm] Elige una ruta de estudio de Azure, IA o GitHub.
+Sigue las lecciones, revisa los temas pendientes y prueba una evaluación oficial gratuita cuando esté disponible.
+Inicia sesión en Microsoft Learn o AI Skills Navigator para realizar la evaluación.
+
+## Step 3 · Microsoft 365 Copilot
 
 [calm] Microsoft 365 Copilot. Inicia sesión y ya está ahí: Copilot en Word, Excel, PowerPoint, Outlook y Teams, además de lo que puede y no puede ver.
 
-## Step 3 · Copilot Studio
+## Step 4 · Copilot Studio
 
 [calm] Copilot Studio. Crea un agente apuntando a tu conocimiento y conectando herramientas: conectores, servidores MCP y Logic Apps, todo desde el navegador.
 
-## Step 4 · AI Agents · Microsoft Foundry
+## Step 5 · AI Agents · Microsoft Foundry
 
 [calm] Agentes de IA · Microsoft Foundry. El extremo pro-code de la IA: tus propios proyectos, tus propias implementaciones de modelos y agentes que leen documentos, imágenes, voz y vídeo.
 
-## Step 5 · Virtual Machines
+## Step 6 · Virtual Machines
 
 [calm] Máquinas virtuales. Crea una y luego ajústala, escálala, respáldala y supervísala.
 
-## Step 6 · PaaS Compute
+## Step 7 · PaaS Compute
 
 [calm] Proceso PaaS. App Service, planes, escalado y Functions.
 
-## Step 7 · Containers
+## Step 8 · Containers
 
 [calm] Contenedores. Docker, registro, Container Apps y Kubernetes.
 
-## Step 8 · Networking
+## Step 9 · Networking
 
 [calm] Redes. VNets, emparejamiento, firewalls y balanceo de carga.
 
-## Step 9 · Storage
+## Step 10 · Storage
 
 [calm] Almacenamiento. Cuentas, redundancia, SAS y protección de datos.
 
-## Step 10 · Security
+## Step 11 · Security
 
 [calm] Seguridad. Key Vault, identidad administrada y Zero Trust.
 
-## Step 11 · Azure Fundamentals
+## Step 12 · Identity and governance
+
+[calm] Identidad y gobernanza. Inquilinos, usuarios, invitados, inicio de sesión, roles, ámbitos, directivas y costes: la base que toda organización asienta primero.
+
+## Step 13 · Azure Fundamentals
 
 [calm] Fundamentos de Azure. Contoso Retail pasa a la nube: planificar, construir, proteger y operar la tienda. Alineado con los objetivos del examen AZ-900.
 
-## Step 12 · GitHub · Contoso Delivery
+## Step 14 · GitHub · Contoso Delivery
 
 [calm] GitHub · Entrega en Contoso. Un proyecto de retail desde una tarde lluviosa hasta código funcionando en Azure: issues y épicas, un tablero, reglas de rama, comprobaciones automáticas y un despliegue sin guardar ninguna contraseña.
-
-## Step 13 · Pick a journey
-
-[calm] Ese es el mapa completo: once recorridos, desde tu primer mensaje a Copilot hasta ejecutar tu propia carga de trabajo en Azure.
-[600ms]
-[encouraging] Todos son gratuitos, narrados y están en cinco idiomas. Elige el que más se acerque a lo que estás haciendo y empecemos.
