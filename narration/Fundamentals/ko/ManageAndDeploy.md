@@ -5,52 +5,52 @@
 **Language:** 한국어
 
 대괄호 안의 내용은 읽지 않는 연출 지시입니다. 쉼 표시는 별도 줄에 둡니다. 각 블록은 애니메이션 한 단계에 대응합니다.
-<!-- Sources: https://learn.microsoft.com/azure/azure-resource-manager/management/overview ; https://learn.microsoft.com/azure/azure-resource-manager/bicep/overview ; https://learn.microsoft.com/azure/azure-arc/overview -->
+<!-- Sources: https://learn.microsoft.com/azure/azure-resource-manager/management/overview ; https://learn.microsoft.com/azure/azure-resource-manager/bicep/overview ; https://learn.microsoft.com/azure/cloud-shell/overview ; https://learn.microsoft.com/powershell/module/az.resources/get-azresourcegroup ; https://learn.microsoft.com/azure/azure-arc/servers/overview -->
 
 ## Step 1 · Built by hand, twice
 
-[calm] Contoso는 테스트와 프로덕션을 따로 수동 구축했습니다. 이미 설정이 달라서, 테스트 성공만으로 프로덕션의 동작을 정확하게 설명할 수 없습니다.
+[calm] Contoso에는 테스트용 VM 한 개와 프로덕션용 VM 두 개가 있습니다. 추가 용량은 계획했지만 프로덕션의 Environment 태그 누락은 수동 설정 과정에서 생긴 실수입니다.
 [600ms]
-[confident] 배포할 구성을 반복해서 사용할 수 있는 정의가 필요합니다. 우연한 차이는 숨기지 않고, 의도한 차이는 기록해야 합니다.
+[confident] 검토된 인프라 정의에 설계를 기록하고 매개 변수로 승인된 차이를 명시합니다. 이렇게 하면 의도한 선택과 구성 드리프트를 구분할 수 있습니다.
 
 ## Step 2 · Start in the portal
 
-[calm] Maya는 Azure Portal에서 매장 리소스와 설정을 살펴봅니다. 브라우저 화면을 통해 무엇이 있고 각 리소스가 어떻게 구성되었는지 이해할 수 있습니다.
+[calm] Maya는 브라우저 기반 그래픽 인터페이스인 Azure Portal에서 프로덕션 VM을 확인합니다. 구독, 리소스 그룹, 지역, 크기, 태그를 살펴보고 액세스 제어에서 관리 권한을 확인합니다.
 [600ms]
-[confident] 포털은 탐색과 개별 작업에 유용합니다. 하지만 긴 수동 작업을 반복하면 일관성을 유지하기 어려워집니다.
+[confident] 시각적인 확인이나 개별 작업에는 포털을 선택합니다. 관리 요청은 여전히 Resource Manager를 사용하므로 인터페이스를 바꿔도 권한이나 정책을 우회할 수 없습니다.
 
 ## Step 3 · Repeat it with commands
 
-[calm] Azure CLI와 Azure PowerShell은 저장하고 다시 실행할 수 있는 명령으로 리소스를 관리합니다. Cloud Shell은 브라우저에서 이 도구들을 사용할 환경을 제공합니다.
+[calm] 두 명령은 모두 현재 구독의 리소스 그룹을 나열합니다. Azure CLI는 에이 제트로 시작하는 명령을 사용하고, Azure PowerShell은 개체를 반환하는 Az cmdlet과 파이프라인을 사용합니다.
 [600ms]
-[confident] 저장한 명령으로 작업을 반복할 수 있지만, 팀은 순서와 입력, 권한, 실행 효과를 검토해야 합니다.
+[confident] Cloud Shell은 Bash 또는 PowerShell과 도구가 미리 설치된 브라우저 실행 환경입니다. 도구는 로컬에서도 실행할 수 있습니다. 로그인과 권한이 필요하며 Cloud Shell이 Azure 리소스를 무료로 제공하는 것은 아닙니다.
 
 ## Step 4 · Describe it as code
 
-[calm] 코드형 인프라는 클릭 순서를 기억하는 대신 원하는 리소스를 기술합니다. Bicep이나 Azure Resource Manager 템플릿은 검토하고 버전을 관리할 수 있는 정의를 제공합니다.
+[calm] 코드형 인프라는 원하는 리소스 상태를 기록합니다. Bicep은 간결한 선언적 구문을 제공하고 ARM JSON 템플릿으로 컴파일됩니다. 매개 변수는 입력을, 리소스는 배포할 구성을, 출력은 반환할 값을 나타냅니다.
 [600ms]
-[confident] 이 정의가 설명하는 것은 인프라입니다. 그 자체로 업무 데이터를 복사하거나 앱 코드의 모든 부분을 전달하지는 않습니다.
+[confident] 정의의 버전을 관리하고 변경을 검토합니다. 멱등성은 같은 입력으로 배포를 반복해도 리소스를 중복 생성하지 않고 같은 상태에 도달할 수 있음을 뜻합니다.
 
 ## Step 5 · Same definition, intentional differences
 
-[calm] Contoso는 검토한 하나의 정의를 테스트와 프로덕션에 재사용합니다. 이름과 태그, 용량 같은 의도적인 차이는 매개 변수로 지정해 구조를 이해하기 쉽게 유지합니다.
+[calm] 이 예는 Contoso 상점의 스토리지 부분입니다. 테스트나 프로덕션을 고르고 스토리지 중복성을 선택합니다. 매개 변수 파일은 같은 정의에 값을 전달해 이름, Environment 태그, 스토리지 SKU를 적용합니다.
 [600ms]
-[confident] 두 환경의 크기가 같을 필요는 없습니다. 차이를 명시해야 팀이 설명하고 재현할 수 있습니다.
+[confident] 배포 전에 결과를 미리 확인하세요. 미리 보기는 리소스를 만들지 않습니다. 이 템플릿은 상점 VM을 배포하거나 고객 데이터를 복사하지도 않습니다. 해당 정의와 작업은 별도입니다.
 
-## Step 6 · Everything goes through Resource Manager
+## Step 6 · The management request path
 
-[calm] 포털 작업, 명령, 템플릿 배포는 Azure Resource Manager를 통해 관리 요청을 보냅니다. 권한과 적용 정책을 확인한 뒤, 리소스 공급자가 리소스를 만들거나 업데이트합니다.
+[calm] Contoso가 스토리지 생성을 요청합니다. Reader이면 권한 확인에 실패합니다. Contributor여도 Environment 태그가 없으면 예제 Deny 정책이 차단합니다. 권한과 태그가 있으면 모의 요청이 Microsoft Storage에 도달해 성공합니다.
 [600ms]
-[confident] 이것은 관리 경로입니다. 고객의 결제 요청은 앱과 서비스를 사용하며, 이 리소스 배포 경로를 이용하는 것이 아닙니다.
+[confident] 올바른 코드도 권한이나 정책을 우회하지는 못합니다. 이 시뮬레이션은 Azure의 모든 오류를 재현하지 않습니다. 고객 결제는 관리 배포 경로가 아닌 별도의 데이터 경로를 사용합니다.
 
 ## Step 7 · Reach beyond Azure
 
-[calm] 창고 서버는 Azure로 옮기지 않았습니다. Azure Arc는 다른 곳에서 실행되는 지원 서버를 Azure의 관리 환경에 연결해, 하이브리드 환경 관리를 돕습니다.
+[calm] Contoso는 창고 서버에 Connected Machine 에이전트를 설치해 Azure Arc에 연결합니다. 서버는 인벤토리, 액세스 제어, 지원되는 관리 서비스를 위한 Azure 리소스로 표현됩니다. Arc는 Kubernetes와 SQL Server도 지원합니다.
 [600ms]
-[confident] Arc로 연결해도 서버의 위치는 바뀌지 않습니다. 기존 운영 책임을 유지한 채 창고에서 계속 실행됩니다.
+[confident] 관리는 마이그레이션이 아닙니다. 서버는 창고에 남고 운영 체제 관리도 필요합니다. 연결된 Azure 서비스에는 별도 요금이 발생할 수 있습니다.
 
 ## Step 8 · Manage and Deploy - All in One
 
-[calm] 탐색에는 포털, 작업 반복에는 명령, 일관된 배포에는 검토한 인프라 정의를 사용하세요. Arc는 Azure 밖의 지원 리소스까지 관리를 확장합니다.
+[calm] 각 작업에 맞는 도구를 선택하세요. 시각적 확인은 포털, 명령 반복은 CLI나 PowerShell, 선언적 인프라는 ARM이나 Bicep입니다. Arc는 Azure 밖의 지원 리소스로 관리를 확장합니다.
 [600ms]
-[confident] Contoso는 매장이 어떻게 만들어졌는지 설명할 수 있습니다. 마지막 질문은 고객에게 제대로 작동하는지 어떻게 알 수 있느냐입니다.
+[confident] 도구는 서로 보완하며 어떤 도구도 권한이나 정책을 우회하지 않습니다. Contoso는 관리 선택을 설명할 수 있습니다. 다음은 모니터링으로 상점 운영 상태를 파악합니다.

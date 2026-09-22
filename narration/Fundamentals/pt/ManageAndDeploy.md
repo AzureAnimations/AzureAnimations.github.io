@@ -5,52 +5,52 @@
 **Language:** Português (Brasil)
 
 As indicações entre colchetes não são faladas. As pausas ficam em linhas separadas. Cada bloco corresponde a uma etapa da animação.
-<!-- Sources: https://learn.microsoft.com/azure/azure-resource-manager/management/overview ; https://learn.microsoft.com/azure/azure-resource-manager/bicep/overview ; https://learn.microsoft.com/azure/azure-arc/overview -->
+<!-- Sources: https://learn.microsoft.com/azure/azure-resource-manager/management/overview ; https://learn.microsoft.com/azure/azure-resource-manager/bicep/overview ; https://learn.microsoft.com/azure/cloud-shell/overview ; https://learn.microsoft.com/powershell/module/az.resources/get-azresourcegroup ; https://learn.microsoft.com/azure/azure-arc/servers/overview -->
 
 ## Step 1 · Built by hand, twice
 
-[calm] A Contoso montou teste e produção separadamente, à mão. As configurações já diferem, então um teste bem-sucedido não explica exatamente o que acontecerá em produção.
+[calm] A Contoso tem uma máquina virtual em teste e duas em produção. A capacidade extra foi planejada, mas a marca Environment ausente em produção foi um erro da configuração manual.
 [600ms]
-[confident] A equipe precisa de uma definição repetível do que implanta, registrando diferenças intencionais em vez de esconder diferenças acidentais.
+[confident] Uma definição de infraestrutura revisada registra o projeto. Parâmetros tornam explícitas as diferenças aprovadas, permitindo distinguir uma escolha intencional de um desvio de configuração.
 
 ## Step 2 · Start in the portal
 
-[calm] Maya abre o portal do Azure para inspecionar os recursos e as configurações da loja. A interface no navegador ajuda a entender o que existe e como cada recurso está configurado.
+[calm] Maya usa o portal do Azure, uma interface gráfica no navegador, para consultar a VM de produção. Ela confere assinatura, grupo de recursos, região, tamanho e marcas, e revisa quem pode gerenciá-la em Controle de acesso.
 [600ms]
-[confident] O portal é útil para explorar e executar tarefas individuais. Porém, repetir uma longa sequência manual dificulta manter a consistência.
+[confident] Escolha o portal para inspeção visual e tarefas individuais. As solicitações ainda usam o Resource Manager; a interface não ignora permissões nem políticas.
 
 ## Step 3 · Repeat it with commands
 
-[calm] A interface de linha de comando do Azure e o Azure PowerShell permitem gerenciar recursos com comandos salvos e reutilizáveis. Cloud Shell oferece um ambiente para usar essas ferramentas no navegador.
+[calm] Os dois comandos listam grupos de recursos da assinatura atual. A CLI do Azure usa comandos que começam com a zê. O Azure PowerShell usa cmdlets do Az que retornam objetos para seu pipeline.
 [600ms]
-[confident] Os comandos salvos tornam o trabalho repetível, mas a equipe ainda revisa ordem, entradas, permissões e efeitos.
+[confident] O Cloud Shell é o ambiente hospedado no navegador, com Bash ou PowerShell e ferramentas instaladas. As ferramentas também funcionam localmente. Entrada e permissões continuam necessárias; o Cloud Shell não torna os recursos do Azure gratuitos.
 
 ## Step 4 · Describe it as code
 
-[calm] Infraestrutura como código descreve os recursos desejados, em vez de depender da memória de cliques. Bicep ou um modelo do Azure Resource Manager fornece uma definição que a Contoso pode revisar e versionar.
+[calm] Infraestrutura como código registra o estado desejado. Bicep oferece sintaxe declarativa concisa e é compilado em um modelo ARM JSON. Parâmetros recebem entradas, recursos declaram o que implantar e saídas retornam valores.
 [600ms]
-[confident] Essa definição descreve infraestrutura. Sozinha, não copia dados de negócio nem entrega todas as partes do código da aplicação.
+[confident] Versione e revise a definição. Idempotência significa que repetir a implantação com as mesmas entradas pode chegar ao mesmo estado, em vez de criar recursos duplicados.
 
 ## Step 5 · Same definition, intentional differences
 
-[calm] A Contoso reutiliza uma definição revisada em teste e produção. Parâmetros fornecem diferenças deliberadas, como nomes, tags e capacidade, mantendo a estrutura compreensível.
+[calm] Este exemplo cobre o armazenamento da Contoso. Escolha teste ou produção e selecione a redundância. O arquivo de parâmetros fornece os valores à mesma definição, que aplica nome, marca Environment e SKU de armazenamento.
 [600ms]
-[confident] Os ambientes não precisam ter o mesmo tamanho. Suas diferenças devem ficar explícitas para que a equipe consiga explicá-las e reproduzi-las.
+[confident] Confira a prévia antes de implantar. A prévia não cria recursos, e este modelo não implanta as VMs da loja nem copia dados de clientes. Essas definições e tarefas são separadas.
 
-## Step 6 · Everything goes through Resource Manager
+## Step 6 · The management request path
 
-[calm] Ações do portal, comandos e implantações de modelos enviam solicitações de gerenciamento ao Azure Resource Manager. Permissões e políticas aplicáveis são verificadas antes de os provedores criarem ou atualizarem recursos.
+[calm] A Contoso solicita a criação de armazenamento. Com Reader, a autorização falha. Com Contributor sem a marca Environment, a política Deny do exemplo bloqueia. Com permissão e marca, a solicitação simulada chega ao Microsoft Storage e é concluída.
 [600ms]
-[confident] Esse é o caminho de gerenciamento. O pagamento do cliente usa a aplicação e seus serviços, não esse caminho de implantação de recursos.
+[confident] Código válido não ignora autorização nem política. Esta simulação não reproduz todos os erros do Azure. A compra do cliente segue um caminho de dados separado, não a implantação pelo Resource Manager.
 
 ## Step 7 · Reach beyond Azure
 
-[calm] O servidor do depósito não foi movido para o Azure. Azure Arc pode trazer servidores compatíveis que funcionam em outros lugares para a experiência de gerenciamento do Azure, apoiando o ambiente híbrido.
+[calm] A Contoso instala o agente Connected Machine no servidor do depósito para conectá-lo ao Azure Arc. O servidor passa a ser representado como recurso do Azure para inventário, acesso e serviços de gestão compatíveis. O Arc também suporta Kubernetes e SQL Server.
 [600ms]
-[confident] Conectar o servidor ao Arc não o muda de lugar. Ele continua funcionando no depósito, com suas responsabilidades operacionais existentes.
+[confident] Gerenciar não é migrar. O servidor continua no depósito, o sistema operacional precisa de cuidados e os serviços conectados podem ter cobranças próprias.
 
 ## Step 8 · Manage and Deploy - All in One
 
-[calm] Use o portal para explorar, comandos para repetir operações e definições de infraestrutura revisadas para implantar com consistência. Arc amplia o gerenciamento a recursos compatíveis fora do Azure.
+[calm] Escolha a ferramenta adequada: portal para inspeção visual, CLI ou PowerShell para comandos repetíveis, ARM ou Bicep para infraestrutura declarativa. O Arc estende a gestão a recursos compatíveis fora do Azure.
 [600ms]
-[confident] A Contoso já consegue explicar como a loja foi construída. A última pergunta é como saber se ela funciona bem para os clientes.
+[confident] As ferramentas se complementam; nenhuma ignora permissões nem políticas. A Contoso pode explicar suas escolhas de gestão. Depois, o monitoramento ajuda a entender como a loja funciona.
