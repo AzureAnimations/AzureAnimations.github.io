@@ -198,6 +198,7 @@
 	.task-btn:hover { background:color-mix(in srgb, var(--tc) 12%, var(--card)); }
 	.task-btn .tn { font-size:.74rem; font-weight:700; color:var(--tc); }
 
+	.lab-host { width:min(1080px,99%); display:flex; flex-direction:column; align-items:center; justify-content:center; }
 	.panel { width:min(1080px,99%); display:flex; flex-direction:column; gap:.7rem;
 		padding:1rem 1.2rem 1.1rem; border-radius:16px; border:2px solid var(--pc);
 		background:var(--card); box-shadow:var(--shadow); }
@@ -958,19 +959,32 @@ function renderArch(){
 // ── STEP 5 · lab picker (radio) ──
 function renderLabs(){
 	const step=stepById('labs'), scene=buildScene(step);
-	scene.classList.add('is-top');
 	const picker=el('picker');
-	const host=el('');                                   // panel host, swapped in place
-	function paint(){
-		const L=LABS.find(x=>x.n===activeLab)||LABS[0];
+	const host=el('lab-host');                           // panel host, swapped in place
+	function panelHTML(L){
 		const items=L.build.map(b=>`<span class="p-item"><i></i><span>${b}</span></span>`).join('');
-		host.innerHTML=`<div class="panel">
+		return `<div class="panel">
 			<div class="p-top">${trackPill(L.n)}<span class="p-agent">You build: <b>${L.agent}</b></span>
 				<span class="p-agent" style="margin-left:auto;">${L.min} min &middot; ${L.ex} exercises</span></div>
 			<div class="p-build">${items}</div>
 			<div class="ach"><span class="ach-ic">\u2713</span><span class="ach-tx">${L.ach}</span></div>
 			<p class="task-note"><b>Watch out</b><span>${L.note}</span></p>
 		</div>`;
+	}
+	// Reserve the TALLEST panel's height so the centred scene never changes size between labs —
+	// that is what keeps the picker still. Stored in rem so the A−/A+ font buttons scale it too.
+	function reserveHeight(){
+		host.style.minHeight='';
+		let max=0;
+		LABS.forEach(L=>{ host.innerHTML=panelHTML(L);
+			host.querySelector('.panel').style.setProperty('--pc',L.c);   // border width depends on --pc
+			max=Math.max(max, host.offsetHeight); });
+		const rootPx=parseFloat(getComputedStyle(document.documentElement).fontSize)||16;
+		host.style.minHeight=(max/rootPx)+'rem';
+	}
+	function paint(){
+		const L=LABS.find(x=>x.n===activeLab)||LABS[0];
+		host.innerHTML=panelHTML(L);
 		host.querySelector('.panel').style.setProperty('--pc',L.c);
 		picker.querySelectorAll('.task-btn').forEach(b=>b.setAttribute('aria-pressed', parseInt(b.dataset.lab,10)===activeLab?'true':'false'));
 		announcer.textContent='Lab '+L.n+': '+L.name+'. '+L.ach;
@@ -985,12 +999,11 @@ function renderLabs(){
 		b.addEventListener('click',e=>{ e.stopPropagation(); activeLab=L.n; paint(); });
 		guardKeys(b); picker.appendChild(b);
 	});
-	// picker must be the scene's FIRST child: the scene is top-anchored with transform-origin
-	// top center, so only an element flush with the scene's top edge is immune to the
-	// per-panel scale change that fitScene applies. Anything above it drifts.
+	// the picker sits above the panel host; the host's reserved height keeps it from moving
 	scene.insertBefore(picker, scene.firstChild);
 	scene.appendChild(host); stage.appendChild(scene); liveEls.push(scene);
 	const c=maybeCallout(step);
+	reserveHeight();
 	paint();
 	// presenter mode can't be clicked — walk the panels so the audience still sees all five
 	if(IS_PRESENT&&!motionPaused){
