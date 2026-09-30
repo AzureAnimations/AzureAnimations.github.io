@@ -120,6 +120,6 @@
 [600ms]
 [calm] Un control plane administrado, node pools de VMs Linux o Windows, tu imagen ejecutándose como Pods autorreparables, autoescalado, Services e ingress, y observabilidad completa.
 [700ms]
-[encouraging] Has ido desde un Dockerfile hasta un clúster completo y orquestado — eso completa el viaje de contenedores.
+[encouraging] Has ido desde un Dockerfile hasta un clúster completo y orquestado, y queda una última parada.
 [600ms]
-[optimistic] Ahora ve a construir algo, y deja que Azure haga el trabajo pesado.
+[optimistic] A continuación: Azure Red Hat OpenShift, la plataforma completa sobre el mismo Kubernetes.

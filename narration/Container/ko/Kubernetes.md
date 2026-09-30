@@ -120,6 +120,6 @@
 [600ms]
 [calm] 관리형 control plane, Linux나 Windows VM으로 이루어진 node pools, 자가 치유하는 Pod로 실행되는 여러분의 이미지, 자동 확장, Services와 ingress, 그리고 완전한 관측 가능성.
 [700ms]
-[encouraging] Dockerfile에서 완전히 오케스트레이션된 클러스터까지 쭉 왔습니다. 이것으로 컨테이너 여정이 완성됩니다.
+[encouraging] Dockerfile에서 완전히 오케스트레이션된 클러스터까지 왔습니다. 이제 마지막 정거장 하나가 남았습니다.
 [600ms]
-[optimistic] 이제 무언가를 만들어 보세요. 무거운 일은 Azure에 맡기고요.
+[optimistic] 다음은 Azure Red Hat OpenShift입니다. 같은 Kubernetes 위에 세운 완전한 플랫폼이죠.

@@ -30,6 +30,7 @@
 	<script src="../../../lib/js/aw-theme.js"></script>
 	<script src="../../../lib/js/aw-keyboard.js"></script>
 	<script src="../../../lib/js/aw-captions.js"></script>
+	<script src="../../../lib/js/aw-chooser.js"></script>
 
 <style>
 	/* ── SHELL ─────────────────────────────── */
@@ -523,7 +524,7 @@
 
 	/* endpoint row under the stack */
 	.sdk-ends { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0.8rem; width:100%; max-width:860px; }
-	.sdk-end { padding:0.6rem 0.9rem; text-align:left; opacity:0; border-color:var(--ec,var(--theme-border)); }
+	.sdk-end { display:flex; flex-direction:column; gap:0.2rem; padding:0.6rem 0.9rem; text-align:left; opacity:0; border-color:var(--ec,var(--theme-border)); }
 	.sdk-elab { font-size:0.82rem; font-weight:500; letter-spacing:0.04em; text-transform:uppercase; color:var(--ec); }
 	.sdk-eurl { font-size:0.86rem; color:var(--theme-text); word-break:break-all; line-height:1.4; }
 
@@ -557,7 +558,7 @@
 	/* ── Runtime architecture (step 7) ── */
 	.sdk-arch { display:flex; flex-direction:column; gap:0.55rem; width:100%; max-width:900px; align-items:center; }
 	.sdk-tier { display:flex; align-items:center; justify-content:center; gap:0.7rem; width:100%; opacity:0; }
-	.sdk-node { flex:1 1 0; padding:0.6rem 0.8rem; text-align:center; border-color:var(--nc,var(--theme-border)); }
+	.sdk-node { flex:1 1 0; display:flex; flex-direction:column; align-items:center; gap:0.2rem; padding:0.6rem 0.8rem; text-align:center; border-color:var(--nc,var(--theme-border)); }
 	.sdk-nname { font-size:1rem; font-weight:600; color:var(--nc,var(--theme-text)); line-height:1.2; }
 	.sdk-nsub { font-size:0.9rem; color:var(--theme-text-subtle,#5b6270); line-height:1.35; }
 	.sdk-down { font-size:1.15rem; color:var(--theme-text-subtle,#5b6270); opacity:0; line-height:1; }
@@ -879,6 +880,38 @@ const I18N = {
 		recFdy: 'Need the project? One endpoint, every API.',
 		recMaf: 'Coordinating agents? Let the framework hold the loop.',
 		recFoot: 'Full guidance, endpoints and code in <a href="https://learn.microsoft.com/azure/foundry/how-to/develop/sdk-overview" target="_blank" rel="noopener">Microsoft Foundry SDKs and endpoints</a> on Microsoft Learn.',
+		sdkcAsk: "Which surface does your feature need?",
+		sdkcOpenName: "OpenAI SDK",
+		sdkcOpenNeed: "Model calls, embeddings, compatibility",
+		sdkcOpenKind: "Azure OpenAI endpoint",
+		sdkcOpenLine: "Use the OpenAI-compatible endpoint for direct model work.",
+		sdkcOpenWhen1: "You already have OpenAI-shaped code",
+		sdkcOpenWhen2: "You need embeddings or lowest latency",
+		sdkcOpenWhen3: "You want maximum API compatibility",
+		sdkcOpenWatch: "No project-native agents, tools, evaluations or connections here.",
+		sdkcFoundryName: "Foundry SDK",
+		sdkcFoundryNeed: "Project APIs, tools, evaluations, connections",
+		sdkcFoundryKind: "Foundry project endpoint",
+		sdkcFoundryLine: "Use one project endpoint for Foundry-native capabilities.",
+		sdkcFoundryWhen1: "You need project connections or tracing",
+		sdkcFoundryWhen2: "You are using Foundry tools or evaluations",
+		sdkcFoundryWhen3: "You want the OpenAI-compatible client through the project",
+		sdkcFoundryWatch: "Choose the project endpoint, not the resource OpenAI endpoint.",
+		sdkcAgentName: "Microsoft Agent Framework",
+		sdkcAgentNeed: "Agents, workflows, hosted orchestration",
+		sdkcAgentKind: "Agent orchestration layer",
+		sdkcAgentLine: "Use the framework when the application needs an agent loop.",
+		sdkcAgentWhen1: "Several agents must coordinate",
+		sdkcAgentWhen2: "Instructions and tools belong in an agent",
+		sdkcAgentWhen3: "You plan to publish a hosted agent",
+		sdkcAgentWatch: "It builds on Foundry access; it is not a third endpoint.",
+		sdkcMatrix: "Feature fit",
+		sdkcRowModel: "Direct model calls",
+		sdkcRowProject: "Project APIs and connections",
+		sdkcRowTools: "Tools and evaluations",
+		sdkcRowAgents: "Agent workflows",
+		sdkcWhen: "Choose it when",
+		sdkcWatch: "Watch out:",
 		recStat1: 'Lowest layer', recStat1v: 'OpenAI SDK — the model and nothing else',
 		recStat2: 'Middle layer', recStat2v: 'Foundry SDK — the project and its APIs',
 		recStat3: 'Top layer', recStat3v: 'Agent Framework — agents and workflows'
@@ -1185,27 +1218,39 @@ function buildStack(focus, withApp){
 	return stack;
 }
 
-// ── STEP 1 · THE DECISION ──
+// ── STEP 1 · THE DECISION (lib/js/aw-chooser.js) ──
+// Sources: https://learn.microsoft.com/azure/foundry/how-to/develop/sdk-overview
+//          https://learn.microsoft.com/agent-framework/overview/agent-framework-overview
+let sdkChoice=0;
 function renderDecideStep(){
 	const step=stepById('decide'); const scene=buildScene(step);
-	const row=el('sdk-ends'); row.style.gridTemplateColumns='repeat(3,minmax(0,1fr))';
-	[['oai','decAName','decAPkg','decARole','var(--sdk-oai)'],
-	 ['fdy','decBName','decBPkg','decBRole','var(--sdk-fdy)'],
-	 ['maf','decCName','decCPkg','decCRole','var(--sdk-maf)']].forEach(([k,n,p,r,c])=>{
-		const b=el('sdk-card sdk-end',
-			`<span class="sdk-elab">${t(n)}</span>` +
-			`<span class="sdk-eurl sdk-mono">${t(p)}</span>` +
-			`<span class="sdk-btext" style="margin-top:0.4rem">${t(r)}</span>`);
-		b.style.setProperty('--ec', c); row.appendChild(b);
+	const option=(prefix,tone,icon)=>({tone,icon:`<span aria-hidden="true">${icon}</span>`,need:t(prefix+'Need'),name:t(prefix+'Name'),kind:t(prefix+'Kind'),line:t(prefix+'Line'),when:[1,2,3].map(n=>t(prefix+'When'+n)),watch:t(prefix+'Watch')});
+	const IB='../../../lib/icons/Azure_Public_Service_Icons/', OAI=encodeURI(IB+'ai + machine learning/03438-icon-service-Azure-OpenAI.svg'), AIS=encodeURI(IB+'ai + machine learning/03513-icon-service-AI-Studio.svg'), APP='\uD83D\uDCBB';
+	const ARTS=[
+		{h:130, nodes:[[60,62,APP,'Your app'],[410,62,OAI,'Model endpoint','on']], links:[[84,62,386,62,{t:'OpenAI API'}]]},
+		{h:140, nodes:[[60,64,APP,'Your app'],[230,64,AIS,'Foundry project','on'],[410,26,OAI,'Models'],[410,100,'\uD83D\uDD27','Tools & data']],
+			links:[[84,64,206,64],[254,58,386,32],[254,70,386,94]]},
+		{h:140, nodes:[[60,64,APP,'Your app'],[200,64,'\u2726','Workflow','on'],[360,26,'\uD83E\uDD16','Agent'],[360,100,'\uD83E\uDD16','Agent']],
+			links:[[84,64,176,64],[224,58,336,32],[224,70,336,94],[392,46,392,80,{bi:true,dim:true}]]}
+	];
+	const ch=AWChooser.build({
+		width:1120,label:t('decTitle'),ask:t('sdkcAsk'),start:sdkChoice,reducedMotion:motionPaused,
+		options:[option('sdkcOpen','blue','◉'),option('sdkcFoundry','purple','◆'),option('sdkcAgent','orange','✦')].map((o,i)=>({...o,art:ARTS[i]})),
+		matrix:{rows:[
+			{label:t('sdkcRowModel'),cells:['✓','✓','—']},
+			{label:t('sdkcRowProject'),cells:['—','✓','✓']},
+			{label:t('sdkcRowTools'),cells:['—','✓','✓']},
+			{label:t('sdkcRowAgents'),cells:['—','—','✓']}
+		]},
+		text:{when:t('sdkcWhen'),watch:t('sdkcWatch')},onSelect:i=>{sdkChoice=i;}
 	});
-	scene.appendChild(row); stage.appendChild(scene); liveEls.push(scene);
+	scene.appendChild(ch.el); stage.appendChild(scene); liveEls.push(scene); ch.select(ch.active);
 	const cEl=maybeCallout(step);
-	const cards=row.querySelectorAll('.sdk-end');
-	if(motionPaused){ gsap.set([...headerEls(scene), ...cards], {opacity:1}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
+	if(motionPaused){ gsap.set(headerEls(scene),{opacity:1}); ch.showAll(); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
 	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
 	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
-	tl.fromTo(cards, {opacity:0,y:22,scale:0.95}, {opacity:1,y:0,scale:1,duration:0.5,stagger:0.13,ease:'back.out(1.4)'}, '-=0.05');
-	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.3');
+	ch.play(tl);
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.2');
 }
 
 // ── STEP 2 · THE STACK + ENDPOINTS ──
@@ -1287,11 +1332,11 @@ function renderSdkStep(step){
 	scene.appendChild(rail); scene.appendChild(duo); stage.appendChild(scene); liveEls.push(scene);
 	const cEl=maybeCallout(step);
 	const rungs=rail.querySelectorAll('.sdk-rung');
-	if(motionPaused){ gsap.set([...headerEls(scene), ...rungs, code, yes, no], {opacity:1}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
+	const rungTo=(i,r)=>r.classList.contains('is-dim')?0.4:1;
+	if(motionPaused){ gsap.set([...headerEls(scene), code, yes, no], {opacity:1}); gsap.set(rungs,{opacity:rungTo}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
 	const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl);
 	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
-	tl.fromTo(rungs, {opacity:0,y:-10}, {opacity:1,y:0,duration:0.32,stagger:0.09,ease:'power2.out'}, '-=0.1');
-	tl.set(rungs, {clearProps:'opacity'});
+	tl.fromTo(rungs, {opacity:0,y:-10}, {opacity:rungTo,y:0,duration:0.32,stagger:0.09,ease:'power2.out'}, '-=0.1');
 	tl.fromTo(code, {opacity:0,y:16}, {opacity:1,y:0,duration:0.45,ease:'power2.out'}, '-=0.05');
 	tl.fromTo([yes,no], {opacity:0,x:18}, {opacity:1,x:0,duration:0.42,stagger:0.12,ease:'power2.out'}, '-=0.3');
 	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.3');

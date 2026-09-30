@@ -120,6 +120,6 @@
 [600ms]
 [calm] マネージドな control plane、Linux か Windows の VM からなる node pools、自己修復する Pod として動くあなたのイメージ、自動スケーリング、Services と ingress、そして完全な可観測性。
 [700ms]
-[encouraging] Dockerfile から、完全にオーケストレーションされたクラスターまで、ずっと歩んできました。これでコンテナの旅は完結です。
+[encouraging] Dockerfile から、完全にオーケストレーションされたクラスターまで歩んできました。残るはあと 1 つです。
 [600ms]
-[optimistic] さあ、何かを作りましょう。重い仕事は Azure に任せて。
+[optimistic] 次は Azure Red Hat OpenShift。同じ Kubernetes の上に築かれた完全なプラットフォームです。

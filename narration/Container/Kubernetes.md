@@ -122,6 +122,6 @@ Tags in `[brackets]` are delivery cues — speaking styles (e.g. `[confident]`),
 [600ms]
 [calm] A managed control plane, node pools of Linux or Windows VMs, your image running as self-healing Pods, autoscaling, Services and ingress, and full observability.
 [700ms]
-[encouraging] You've gone all the way from a Dockerfile to a full, orchestrated cluster — that completes the container journey.
+[encouraging] You've gone all the way from a Dockerfile to a full, orchestrated cluster — and there's one stop left.
 [600ms]
-[optimistic] Now go build something, and let Azure do the heavy lifting.
+[optimistic] Next up: Azure Red Hat OpenShift, the complete platform built on the same Kubernetes.
