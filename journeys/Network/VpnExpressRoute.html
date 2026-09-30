@@ -36,6 +36,7 @@
 	<script src="../../lib/js/aw-theme.js"></script>
 	<script src="../../lib/js/aw-keyboard.js"></script>
 	<script src="../../lib/js/aw-captions.js"></script>
+	<script src="../../lib/js/aw-hop-path.js"></script>
 
 <style>
 	/* ── SHELL ─────────────────────────────── */
@@ -1063,6 +1064,45 @@ const I18N = {
 		prDc: 'Your datacentre', prDcS: '10.1.0.0/16 \u00b7 private addresses',
 		prNet: 'The public internet', prNetS: 'anyone in between can read it',
 		prVnet: 'Your Azure virtual network', prVnetS: '10.10.0.0/16 \u00b7 private addresses',
+		vpZOn: 'Your datacentre \u00b7 10.1.0.0/16', vpZAz: 'Azure virtual network \u00b7 10.10.0.0/16',
+		vpNet: 'The public internet', vpNetS: 'untrusted \u2014 plain traffic could be read here',
+		vpHint: 'Select any hop to see what it does \u2014 follow the path from left to right.',
+		vpHop: 'Hop', vpWatch: 'Watch out:',
+		vpH1: 'Servers & users', vpH1S: '10.1.0.0/16 \u00b7 private',
+		vpB1: 'On-premises', vpT1: 'Your datacentre network',
+		vpL1: 'Servers and users keep their private addresses. Anything bound for the VNet range is routed to the VPN device at the edge.',
+		vpP1a: 'The range must not overlap the VNet \u2014 or you add NAT rules on the gateway',
+		vpP1b: 'You tell Azure these prefixes in the local network gateway',
+		vpP1c: 'With BGP, routes are exchanged automatically instead of typed in',
+		vpW1: 'Nothing is encrypted yet. Traffic is plain until it reaches the VPN device.',
+		vpH2: 'VPN device', vpH2S: 'public IP 203.0.113.10',
+		vpB2: 'On-premises \u00b7 the encryption device', vpT2: 'The VPN device encrypts and decrypts',
+		vpL2: 'A firewall or router at the edge of your network \u2014 a validated VPN device, or Windows Server RRAS. It wraps every packet for Azure in IPsec, and unwraps what comes back.',
+		vpP2a: 'Needs an externally facing public IPv4 address',
+		vpP2b: 'Azure models it as a local network gateway: its public IP plus your on-premises prefixes',
+		vpP2c: 'Both ends prove who they are with a shared key',
+		vpW2: 'Its IPsec/IKE settings must match the Azure side, or the tunnel never comes up. Microsoft publishes sample configurations for validated devices.',
+		vpH3: 'IPsec / IKE tunnel', vpH3S: 'encrypted across the internet',
+		vpB3: 'The public internet', vpT3: 'IKE agrees the keys, IPsec encrypts',
+		vpL3: 'IKE (Internet Key Exchange) authenticates both ends and negotiates the keys. IPsec ESP then encrypts every packet, so the internet carries data it cannot read.',
+		vpP3a: 'Route-based gateways use IKEv2 or IKEv1; policy-based gateways use IKEv1 only',
+		vpP3b: 'Default ciphers include AES-256 with SHA-256 \u2014 set a custom IPsec/IKE policy to pin them',
+		vpP3c: 'In Azure, a connection resource links the gateway to the local network gateway',
+		vpW3: 'Encrypted is not private: latency and throughput are whatever the internet gives you. Need them predictable? That is ExpressRoute.',
+		vpH4: 'VPN gateway', vpH4S: 'in GatewaySubnet',
+		vpB4: 'Azure \u00b7 the other end of the tunnel', vpT4: 'The Azure VPN gateway',
+		vpL4: 'The Azure end of the tunnel: managed gateway instances with a public IP, deployed into a dedicated subnet that must be named GatewaySubnet.',
+		vpP4a: 'Make GatewaySubnet /27 or larger, and deploy nothing else into it',
+		vpP4b: 'Route-based SKUs add BGP, active-active and custom IPsec/IKE policies',
+		vpP4c: 'Creating the gateway takes roughly 45 minutes',
+		vpW4: 'Do not attach an NSG to GatewaySubnet \u2014 it can stop the gateway working.',
+		vpH5: 'Workload subnet', vpH5S: 'snet-app \u00b7 VM 10.10.1.4',
+		vpB5: 'Azure \u00b7 where the workload runs', vpT5: 'The route lands in your VNet',
+		vpL5: 'The gateway teaches the VNet your on-premises prefixes. A VM in snet-app reaches 10.1.0.0/16 privately, with no public IP of its own.',
+		vpP5a: 'Effective routes show the next hop as Virtual network gateway',
+		vpP5b: 'Peered VNets can share the same gateway through gateway transit',
+		vpP5c: 'NSGs on the workload subnet still filter VPN traffic',
+		vpW5: 'Encryption covers only the hop between the two devices. Inside each network, traffic travels as normal.',
 
 		// ── Step 2 · SITE-TO-SITE VPN ──
 		s2Title: 'Site-to-site VPN',
@@ -1266,6 +1306,45 @@ const I18N = {
 		prNetS: "cualquiera por el camino puede leerlo",
 		prVnet: "Tu red virtual de Azure",
 		prVnetS: "10.10.0.0/16 \u00b7 direcciones privadas",
+		vpZOn: "Tu centro de datos · 10.1.0.0/16", vpZAz: "Red virtual de Azure · 10.10.0.0/16",
+		vpNet: "El internet público", vpNetS: "no es de fiar: aquí se podría leer el tráfico sin cifrar",
+		vpHint: "Selecciona cualquier salto para ver qué hace; sigue el camino de izquierda a derecha.",
+		vpHop: "Salto", vpWatch: "Ojo:",
+		vpH1: "Servidores y usuarios", vpH1S: "10.1.0.0/16 · privada",
+		vpB1: "Local", vpT1: "La red de tu centro de datos",
+		vpL1: "Servidores y usuarios conservan sus direcciones privadas. Todo lo que va al rango de la VNet se enruta al dispositivo VPN del perímetro.",
+		vpP1a: "El rango no puede solaparse con la VNet, o añades reglas NAT en la gateway",
+		vpP1b: "Estos prefijos se los indicas a Azure en la puerta de enlace de red local",
+		vpP1c: "Con BGP, las rutas se intercambian solas en lugar de escribirlas a mano",
+		vpW1: "Aquí aún no hay nada cifrado. El tráfico va en claro hasta llegar al dispositivo VPN.",
+		vpH2: "Dispositivo VPN", vpH2S: "IP pública 203.0.113.10",
+		vpB2: "Local · el dispositivo que cifra", vpT2: "El dispositivo VPN cifra y descifra",
+		vpL2: "Un firewall o router en el perímetro de tu red: un dispositivo VPN validado o Windows Server RRAS. Envuelve en IPsec cada paquete que va a Azure y desenvuelve lo que vuelve.",
+		vpP2a: "Necesita una dirección IPv4 pública expuesta al exterior",
+		vpP2b: "Azure lo representa como una puerta de enlace de red local: su IP pública más tus prefijos locales",
+		vpP2c: "Ambos extremos se identifican con una clave compartida",
+		vpW2: "Su configuración IPsec/IKE debe coincidir con la de Azure o el túnel nunca se levanta. Microsoft publica configuraciones de ejemplo para los dispositivos validados.",
+		vpH3: "Túnel IPsec / IKE", vpH3S: "cifrado a través de internet",
+		vpB3: "El internet público", vpT3: "IKE acuerda las claves, IPsec cifra",
+		vpL3: "IKE (Internet Key Exchange) autentica ambos extremos y negocia las claves. Después IPsec ESP cifra cada paquete, así que internet transporta datos que no puede leer.",
+		vpP3a: "Las gateways basadas en rutas usan IKEv2 o IKEv1; las basadas en directivas, solo IKEv1",
+		vpP3b: "Los cifrados predeterminados incluyen AES-256 con SHA-256; fija los tuyos con una directiva IPsec/IKE personalizada",
+		vpP3c: "En Azure, un recurso de conexión une la gateway con la puerta de enlace de red local",
+		vpW3: "Cifrado no es privado: la latencia y el rendimiento son los que dé internet. ¿Los necesitas previsibles? Eso es ExpressRoute.",
+		vpH4: "VPN gateway", vpH4S: "en GatewaySubnet",
+		vpB4: "Azure · el otro extremo del túnel", vpT4: "La VPN gateway de Azure",
+		vpL4: "El extremo del túnel en Azure: instancias de gateway administradas con una IP pública, desplegadas en una subred dedicada que debe llamarse GatewaySubnet.",
+		vpP4a: "Dale a GatewaySubnet un /27 o más, y no despliegues nada más en ella",
+		vpP4b: "Las SKU basadas en rutas añaden BGP, activo-activo y directivas IPsec/IKE personalizadas",
+		vpP4c: "Crear la gateway lleva unos 45 minutos",
+		vpW4: "No asocies un NSG a GatewaySubnet: puede impedir que la gateway funcione.",
+		vpH5: "Subred de la carga", vpH5S: "snet-app · VM 10.10.1.4",
+		vpB5: "Azure · donde corre la carga de trabajo", vpT5: "La ruta llega a tu VNet",
+		vpL5: "La gateway enseña a la VNet tus prefijos locales. Una VM de snet-app llega a 10.1.0.0/16 de forma privada, sin IP pública propia.",
+		vpP5a: "Las rutas efectivas muestran como siguiente salto Virtual network gateway",
+		vpP5b: "Las VNets emparejadas pueden compartir la gateway con el tránsito de puerta de enlace",
+		vpP5c: "Los NSG de la subred de la carga siguen filtrando el tráfico VPN",
+		vpW5: "El cifrado solo cubre el tramo entre los dos dispositivos. Dentro de cada red, el tráfico viaja como siempre.",
 		s2Title: "VPN de sitio a sitio",
 		s2Caption: "Cifrada, sobre el internet p\u00fablico",
 		s2Desc: "Una VPN gateway en Azure levanta un t\u00fanel IPsec/IKE hasta el dispositivo VPN de tu centro de datos. Internet sigue llevando los paquetes \u2014 solo que van cifrados todo el trayecto.",
@@ -2652,7 +2731,46 @@ const I18N = {
 		scRestart: "\u6700\u521d\u304b\u3089",
 		scReplay: "\u3053\u306e\u30b9\u30c6\u30c3\u30d7\u3092\u518d\u751f",
 		scHide: "\u4e0a\u90e8\u30d0\u30fc\u306e\u8868\u793a / \u975e\u8868\u793a",
-		scHelp: "\u3053\u306e\u30d8\u30eb\u30d7\u306e\u8868\u793a\u5207\u308a\u66ff\u3048"
+		scHelp: "\u3053\u306e\u30d8\u30eb\u30d7\u306e\u8868\u793a\u5207\u308a\u66ff\u3048",
+		vpZOn: "自社のデータセンター · 10.1.0.0/16", vpZAz: "Azure 仮想ネットワーク · 10.10.0.0/16",
+		vpNet: "公衆インターネット", vpNetS: "信頼できない — 暗号化しない通信はここで読まれうる",
+		vpHint: "各ホップを選ぶと役割が表示されます。左から右へ経路をたどりましょう。",
+		vpHop: "ホップ", vpWatch: "注意:",
+		vpH1: "サーバーとユーザー", vpH1S: "10.1.0.0/16 · プライベート",
+		vpB1: "オンプレミス", vpT1: "データセンターのネットワーク",
+		vpL1: "サーバーとユーザーはプライベート アドレスのまま。VNet の範囲宛ての通信は、境界にある VPN デバイスへルーティングされます。",
+		vpP1a: "アドレス範囲は VNet と重複させない — 重複する場合はゲートウェイで NAT ルールを追加",
+		vpP1b: "これらのプレフィックスは、Azure のローカル ネットワーク ゲートウェイに登録します",
+		vpP1c: "BGP を使えば、経路を手入力せず自動で交換できます",
+		vpW1: "ここではまだ何も暗号化されていません。VPN デバイスに届くまでは平文です。",
+		vpH2: "VPN デバイス", vpH2S: "パブリック IP 203.0.113.10",
+		vpB2: "オンプレミス · 暗号化するデバイス", vpT2: "VPN デバイスが暗号化・復号する",
+		vpL2: "ネットワークの境界にあるファイアウォールやルーター — 検証済みの VPN デバイス、または Windows Server RRAS。Azure 宛てのパケットを IPsec で包み、戻りを解きます。",
+		vpP2a: "外部に公開されたパブリック IPv4 アドレスが必要",
+		vpP2b: "Azure ではローカル ネットワーク ゲートウェイとして表現: パブリック IP とオンプレミスのプレフィックス",
+		vpP2c: "両端は共有キーで互いを認証します",
+		vpW2: "IPsec/IKE の設定が Azure 側と一致しないと、トンネルは確立しません。検証済みデバイス向けの構成サンプルが公開されています。",
+		vpH3: "IPsec / IKE トンネル", vpH3S: "インターネット上を暗号化",
+		vpB3: "公衆インターネット", vpT3: "IKE が鍵を決め、IPsec が暗号化する",
+		vpL3: "IKE (Internet Key Exchange) が両端を認証して鍵をネゴシエートし、IPsec ESP がすべてのパケットを暗号化します。インターネットは読めないデータを運ぶだけです。",
+		vpP3a: "ルートベースのゲートウェイは IKEv2 または IKEv1、ポリシーベースは IKEv1 のみ",
+		vpP3b: "既定の暗号には AES-256 と SHA-256 が含まれます — 固定するならカスタム IPsec/IKE ポリシー",
+		vpP3c: "Azure では、接続リソースがゲートウェイとローカル ネットワーク ゲートウェイを結びます",
+		vpW3: "暗号化されていても専用線ではありません。遅延とスループットはインターネット次第。予測可能にしたいなら ExpressRoute です。",
+		vpH4: "VPN ゲートウェイ", vpH4S: "GatewaySubnet 内",
+		vpB4: "Azure · トンネルのもう一方の端", vpT4: "Azure VPN ゲートウェイ",
+		vpL4: "Azure 側のトンネルの終点。パブリック IP を持つマネージドのゲートウェイ インスタンスで、GatewaySubnet という名前の専用サブネットに配置します。",
+		vpP4a: "GatewaySubnet は /27 以上にし、ほかのものは配置しない",
+		vpP4b: "ルートベースの SKU では BGP、アクティブ/アクティブ、カスタム IPsec/IKE ポリシーが使える",
+		vpP4c: "ゲートウェイの作成にはおよそ 45 分かかります",
+		vpW4: "GatewaySubnet に NSG を関連付けないでください — ゲートウェイが動作しなくなることがあります。",
+		vpH5: "ワークロード サブネット", vpH5S: "snet-app · VM 10.10.1.4",
+		vpB5: "Azure · ワークロードが動く場所", vpT5: "経路が VNet に届く",
+		vpL5: "ゲートウェイがオンプレミスのプレフィックスを VNet に伝えます。snet-app の VM は、自身のパブリック IP なしで 10.1.0.0/16 にプライベートに到達します。",
+		vpP5a: "有効なルートでは、次ホップが Virtual network gateway と表示されます",
+		vpP5b: "ピアリングした VNet は、ゲートウェイ転送で同じゲートウェイを共有できます",
+		vpP5c: "ワークロード サブネットの NSG は VPN 通信にも適用されます",
+		vpW5: "暗号化されるのは 2 台のデバイス間だけ。各ネットワークの内部では通常どおり流れます。"
 	},
 	ko: {
 		pageTitle: "\ud558\uc774\ube0c\ub9ac\ub4dc \uc5f0\uacb0",
@@ -2936,7 +3054,46 @@ const I18N = {
 		scRestart: "\ucc98\uc74c\ubd80\ud130",
 		scReplay: "\uc774 \ub2e8\uacc4 \ub2e4\uc2dc \uc7ac\uc0dd",
 		scHide: "\uc0c1\ub2e8 \ubc14 \ud45c\uc2dc / \uc228\uae30\uae30",
-		scHelp: "\uc774 \ub3c4\uc6c0\ub9d0 \uc804\ud658"
+		scHelp: "\uc774 \ub3c4\uc6c0\ub9d0 \uc804\ud658",
+		vpZOn: "자체 데이터센터 · 10.1.0.0/16", vpZAz: "Azure 가상 네트워크 · 10.10.0.0/16",
+		vpNet: "공용 인터넷", vpNetS: "신뢰할 수 없음 — 암호화하지 않은 트래픽은 여기서 읽힐 수 있음",
+		vpHint: "홉을 선택하면 하는 일을 볼 수 있습니다. 왼쪽에서 오른쪽으로 경로를 따라가 보세요.",
+		vpHop: "홉", vpWatch: "주의:",
+		vpH1: "서버와 사용자", vpH1S: "10.1.0.0/16 · 사설",
+		vpB1: "온프레미스", vpT1: "데이터센터 네트워크",
+		vpL1: "서버와 사용자는 사설 주소를 그대로 씁니다. VNet 범위로 가는 트래픽은 경계에 있는 VPN 장치로 라우팅됩니다.",
+		vpP1a: "주소 범위가 VNet과 겹치면 안 됩니다 — 겹친다면 게이트웨이에 NAT 규칙을 추가",
+		vpP1b: "이 접두사는 Azure의 로컬 네트워크 게이트웨이에 알려 줍니다",
+		vpP1c: "BGP를 쓰면 경로를 직접 입력하지 않고 자동으로 교환합니다",
+		vpW1: "여기서는 아직 아무것도 암호화되지 않습니다. VPN 장치에 닿기 전까지는 평문입니다.",
+		vpH2: "VPN 장치", vpH2S: "공용 IP 203.0.113.10",
+		vpB2: "온프레미스 · 암호화 장치", vpT2: "VPN 장치가 암호화하고 복호화합니다",
+		vpL2: "네트워크 경계의 방화벽이나 라우터 — 검증된 VPN 장치 또는 Windows Server RRAS. Azure로 가는 모든 패킷을 IPsec으로 감싸고, 돌아오는 패킷을 풉니다.",
+		vpP2a: "외부에 노출된 공용 IPv4 주소가 필요합니다",
+		vpP2b: "Azure에서는 로컬 네트워크 게이트웨이로 표현: 공용 IP와 온프레미스 접두사",
+		vpP2c: "양쪽 끝은 공유 키로 서로를 인증합니다",
+		vpW2: "IPsec/IKE 설정이 Azure 쪽과 맞지 않으면 터널이 올라오지 않습니다. 검증된 장치용 구성 예제가 공개되어 있습니다.",
+		vpH3: "IPsec / IKE 터널", vpH3S: "인터넷 구간을 암호화",
+		vpB3: "공용 인터넷", vpT3: "IKE가 키를 정하고, IPsec이 암호화합니다",
+		vpL3: "IKE(Internet Key Exchange)가 양쪽 끝을 인증하고 키를 협상합니다. 그다음 IPsec ESP가 모든 패킷을 암호화하므로, 인터넷은 읽을 수 없는 데이터만 나릅니다.",
+		vpP3a: "경로 기반 게이트웨이는 IKEv2 또는 IKEv1, 정책 기반은 IKEv1만 사용",
+		vpP3b: "기본 암호에는 AES-256과 SHA-256이 포함됩니다 — 고정하려면 사용자 지정 IPsec/IKE 정책",
+		vpP3c: "Azure에서는 연결 리소스가 게이트웨이와 로컬 네트워크 게이트웨이를 잇습니다",
+		vpW3: "암호화되었다고 전용선은 아닙니다. 지연과 처리량은 인터넷에 달려 있습니다. 예측 가능해야 한다면 ExpressRoute입니다.",
+		vpH4: "VPN 게이트웨이", vpH4S: "GatewaySubnet 안",
+		vpB4: "Azure · 터널의 반대쪽 끝", vpT4: "Azure VPN 게이트웨이",
+		vpL4: "Azure 쪽 터널 끝점입니다. 공용 IP를 가진 관리형 게이트웨이 인스턴스로, 이름이 반드시 GatewaySubnet인 전용 서브넷에 배포됩니다.",
+		vpP4a: "GatewaySubnet은 /27 이상으로 하고, 다른 것은 배포하지 않기",
+		vpP4b: "경로 기반 SKU는 BGP, 활성-활성, 사용자 지정 IPsec/IKE 정책을 지원",
+		vpP4c: "게이트웨이 생성에는 약 45분이 걸립니다",
+		vpW4: "GatewaySubnet에 NSG를 연결하지 마세요 — 게이트웨이가 동작하지 않을 수 있습니다.",
+		vpH5: "워크로드 서브넷", vpH5S: "snet-app · VM 10.10.1.4",
+		vpB5: "Azure · 워크로드가 실행되는 곳", vpT5: "경로가 VNet에 도착합니다",
+		vpL5: "게이트웨이가 온프레미스 접두사를 VNet에 알려 줍니다. snet-app의 VM은 자체 공용 IP 없이 10.1.0.0/16에 사설로 도달합니다.",
+		vpP5a: "유효 경로에서 다음 홉이 Virtual network gateway로 표시됩니다",
+		vpP5b: "피어링된 VNet은 게이트웨이 전송으로 같은 게이트웨이를 공유할 수 있습니다",
+		vpP5c: "워크로드 서브넷의 NSG는 VPN 트래픽에도 계속 적용됩니다",
+		vpW5: "암호화는 두 장치 사이 구간에만 적용됩니다. 각 네트워크 안에서는 평소처럼 흐릅니다."
 	},
 	pt: {
 		pageTitle: "Conectividade h\u00edbrida",
@@ -3220,7 +3377,46 @@ const I18N = {
 		scRestart: "Reiniciar",
 		scReplay: "Repetir esta etapa",
 		scHide: "Mostrar / ocultar a barra superior",
-		scHelp: "Alternar esta ajuda"
+		scHelp: "Alternar esta ajuda",
+		vpZOn: "Seu datacenter · 10.1.0.0/16", vpZAz: "Rede virtual do Azure · 10.10.0.0/16",
+		vpNet: "A internet pública", vpNetS: "não confiável — tráfego sem criptografia poderia ser lido aqui",
+		vpHint: "Selecione qualquer salto para ver o que ele faz — siga o caminho da esquerda para a direita.",
+		vpHop: "Salto", vpWatch: "Atenção:",
+		vpH1: "Servidores e usuários", vpH1S: "10.1.0.0/16 · privada",
+		vpB1: "Local", vpT1: "A rede do seu datacenter",
+		vpL1: "Servidores e usuários mantêm seus endereços privados. Tudo o que vai para o intervalo da VNet é roteado para o dispositivo VPN na borda.",
+		vpP1a: "O intervalo não pode se sobrepor à VNet — ou você adiciona regras de NAT no gateway",
+		vpP1b: "Você informa esses prefixos ao Azure no gateway de rede local",
+		vpP1c: "Com BGP, as rotas são trocadas automaticamente em vez de digitadas",
+		vpW1: "Aqui nada está criptografado ainda. O tráfego segue em texto claro até chegar ao dispositivo VPN.",
+		vpH2: "Dispositivo VPN", vpH2S: "IP público 203.0.113.10",
+		vpB2: "Local · o dispositivo que criptografa", vpT2: "O dispositivo VPN criptografa e descriptografa",
+		vpL2: "Um firewall ou roteador na borda da sua rede — um dispositivo VPN validado ou o Windows Server RRAS. Ele envolve em IPsec cada pacote que vai para o Azure e desembrulha o que volta.",
+		vpP2a: "Precisa de um endereço IPv4 público exposto externamente",
+		vpP2b: "O Azure o representa como um gateway de rede local: o IP público mais os seus prefixos locais",
+		vpP2c: "As duas pontas se identificam com uma chave compartilhada",
+		vpW2: "As configurações IPsec/IKE precisam bater com as do Azure, senão o túnel nunca sobe. A Microsoft publica configurações de exemplo para dispositivos validados.",
+		vpH3: "Túnel IPsec / IKE", vpH3S: "criptografado pela internet",
+		vpB3: "A internet pública", vpT3: "O IKE combina as chaves, o IPsec criptografa",
+		vpL3: "O IKE (Internet Key Exchange) autentica as duas pontas e negocia as chaves. Depois o IPsec ESP criptografa cada pacote, então a internet transporta dados que não consegue ler.",
+		vpP3a: "Gateways baseados em rota usam IKEv2 ou IKEv1; os baseados em política, só IKEv1",
+		vpP3b: "As cifras padrão incluem AES-256 com SHA-256 — fixe as suas com uma política IPsec/IKE personalizada",
+		vpP3c: "No Azure, um recurso de conexão liga o gateway ao gateway de rede local",
+		vpW3: "Criptografado não é privado: latência e taxa de transferência são as que a internet der. Precisa delas previsíveis? Isso é ExpressRoute.",
+		vpH4: "Gateway de VPN", vpH4S: "na GatewaySubnet",
+		vpB4: "Azure · a outra ponta do túnel", vpT4: "O gateway de VPN do Azure",
+		vpL4: "A ponta do túnel no Azure: instâncias de gateway gerenciadas com um IP público, implantadas em uma sub-rede dedicada que precisa se chamar GatewaySubnet.",
+		vpP4a: "Deixe a GatewaySubnet com /27 ou maior, e não implante mais nada nela",
+		vpP4b: "SKUs baseadas em rota adicionam BGP, ativo-ativo e políticas IPsec/IKE personalizadas",
+		vpP4c: "Criar o gateway leva cerca de 45 minutos",
+		vpW4: "Não associe um NSG à GatewaySubnet — isso pode fazer o gateway parar de funcionar.",
+		vpH5: "Sub-rede da carga", vpH5S: "snet-app · VM 10.10.1.4",
+		vpB5: "Azure · onde a carga de trabalho roda", vpT5: "A rota chega à sua VNet",
+		vpL5: "O gateway ensina à VNet os seus prefixos locais. Uma VM na snet-app alcança 10.1.0.0/16 de forma privada, sem IP público próprio.",
+		vpP5a: "As rotas efetivas mostram o próximo salto como Virtual network gateway",
+		vpP5b: "VNets emparelhadas podem compartilhar o mesmo gateway com o trânsito de gateway",
+		vpP5c: "Os NSGs da sub-rede da carga continuam filtrando o tráfego da VPN",
+		vpW5: "A criptografia cobre só o trecho entre os dois dispositivos. Dentro de cada rede, o tráfego segue normalmente."
 	}
 };
 function t(key) { return (I18N[currentLang] && I18N[currentLang][key]) || I18N.en[key] || key; }
@@ -3644,19 +3840,6 @@ let arSeq=0;
 
 // Every conceptual step is a fixed-coordinate diagram; the geometry lives here, never in the CSS.
 const ARCH = {
-	// STEP 1 — two private networks, and the thing in between you do not trust
-	problem: { w:1100, h:236,
-		nodes:[
-			{ cls:'is-grey',        x:6,   y:62, w:280, h:112, emoji:'\uD83C\uDFE2', title:'prDc', sub:'prDcS' },
-			{ cls:'is-red is-down', x:400, y:62, w:300, h:112, emoji:'\uD83C\uDF10', title:'prNet', sub:'prNetS' },
-			{ cls:'is-blue',        x:814, y:62, w:280, h:112, icon:AZ.vnet, title:'prVnet', sub:'prVnetS' }
-		],
-		badges:[ { x:321, y:96, s:44 }, { x:735, y:96, s:44 } ],
-		links:[
-			{ c:AR_RED, dash:true, pts:[[286,118],[400,118]] },
-			{ c:AR_RED, dash:true, pts:[[700,118],[814,118]] }
-		] },
-
 	// STEPS 2/3/4 — the four things you configure on each option
 	s2s: { w:1110, h:152,
 		nodes:[
@@ -3842,10 +4025,47 @@ function renderArch(id, panels, extra){
 	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.2');
 }
 
+// ── STEP 1 · TRACE THE PATH ───────────────
+// On-prem → VPN device → IPsec/IKE tunnel → VPN gateway → workload subnet (lib/js/aw-hop-path.js).
+// Sources: learn.microsoft.com/azure/vpn-gateway/vpn-gateway-about-vpn-devices (IKEv1/IKEv2, default ciphers),
+// learn.microsoft.com/azure/architecture/reference-architectures/hybrid-networking/hybrid-vpn-connectivity (GatewaySubnet, local network gateway, connection)
+const IS_PRESENT_VIEW=new URLSearchParams(location.search).has('present');
+let vpActive=0;
+function renderPath(){
+	const step=stepById('problem'); const scene=buildScene(step);
+	const CY=122, TONES=['grey','orange','purple','blue','green'];
+	const card=(n,x,ico)=>({ x, y:CY-66, w:150, h:132, tone:TONES[n-1], icon:ico, title:t('vpH'+n), sub:t('vpH'+n+'S') });
+	const hp=AWHopPath.build({
+		width:1180, height:232, label:t('prTitle'), start:vpActive, reducedMotion:motionPaused,
+		zones:[
+			{ x:0,   y:14, w:372, h:212, tone:'grey', label:t('vpZOn') },
+			{ x:808, y:14, w:372, h:212, tone:'blue', label:t('vpZAz'), icon:az(AZ.vnet,'') }
+		],
+		labels:[ { x:388, y:14, w:404, html:`${ICONS.globe}<b>${t('vpNet')}</b><span>${t('vpNetS')}</span>` } ],
+		hops:[
+			card(1,14,'\uD83D\uDDA5\uFE0F'), card(2,196,'\uD83D\uDD10'),
+			{ shape:'pill', x:408, y:CY-30, w:364, h:60, tone:'purple', icon:ICONS.lock, title:t('vpH3'), sub:t('vpH3S') },
+			card(4,834,az(AZ.vgw,'')), card(5,1016,az(AZ.vm,''))
+		],
+		links:[[164,192],[346,404],[776,830],[984,1012]].map(([a,b])=>({ pts:[[a,CY],[b,CY]] })),
+		panel:i=>{ const n=i+1; return { badge:t('vpB'+n), title:t('vpT'+n), line:t('vpL'+n),
+			points:['a','b','c'].map(k=>t('vpP'+n+k)), watch:t('vpW'+n) }; },
+		text:{ hop:t('vpHop'), watch:t('vpWatch'), hint:t('vpHint') },
+		onSelect:i=>{ vpActive=i; }
+	});
+	scene.appendChild(hp.el); mount(scene); hp.select(vpActive);
+	const cEl=maybeCallout(step);
+	const autoplay=()=>{ if(IS_PRESENT_VIEW) liveTimelines.push(hp.autoplay(4500)); };
+	if(motionPaused){ gsap.set(headerEls(scene),{opacity:1}); hp.showAll(); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; autoplay(); return; }
+	const tl=baseTl();
+	tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.55,stagger:0.12,ease:'power2.out'});
+	hp.play(tl);
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.2');
+	tl.call(autoplay);
+}
+
 const RENDERERS = {
-	problem: ()=>renderArch('problem', [
-		['is-blue',   icon('check'), 'prNeedH', ['prNeed1','prNeed2','prNeed3','prNeed4']],
-		['is-orange', icon('bulb'),  'prDiffH', ['prDiff1','prDiff2','prDiff3']]]),
+	problem: renderPath,
 	s2s: ()=>renderService('s2s', AZ.vgw, 'blue',   's2'),
 	p2s: ()=>renderService('p2s', AZ.vgw, 'orange', 'p2'),
 	er:  ()=>renderService('er',  AZ.er,  'purple', 'er'),
