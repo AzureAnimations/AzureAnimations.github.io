@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<!-- Design concept C · "Mission control" — pick a stop on the timeline, see it in a big panel, track your progress. -->
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<meta name="robots" content="noindex" />
+<title>The AI Agent Journey — Mission control (design C)</title>
+<link rel="icon" href="../../../img/favicon.png" />
+<link rel="stylesheet" href="https://unpkg.com/@microsoft/atlas-css/dist/index.css" />
+<script src="../../../lib/js/aw-theme.js"></script>
+<link rel="stylesheet" href="../../../lib/css/aw-foundry-card-anims.css" />
+<style>
+	:root { --p0:#8a5cd0; --p1:#0078d4; --p2:#00a2ad; --p3:#d24aa8; --ok:#0b7a5d; }
+	body.theme-dark { --p0:#b896ee; --p1:#5cb0ff; --p2:#3fd4dc; --p3:#f07cc8; --ok:#3ecf9a; }
+	html, body { margin:0; }
+	body { min-height:100vh; font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif; color:var(--theme-text); background:var(--theme-body-background); }
+	.top { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:0.8rem 1.6rem; border-bottom:1px solid var(--theme-border); }
+	.top .brand { display:flex; align-items:center; gap:0.55rem; text-decoration:none; font-weight:600; color:inherit; }
+	.top .brand img { width:28px; height:28px; }
+	.theme-toggle { width:2.3rem; height:2.3rem; border-radius:999px; border:1px solid var(--theme-border); background:transparent; color:var(--theme-text); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
+	.theme-toggle .ico { display:none; } .theme-toggle[data-theme="dark"] .sun { display:block; } .theme-toggle[data-theme="light"] .moon { display:block; }
+
+	.wrap { max-width:1200px; margin:0 auto; padding:2.4rem 1.6rem 4rem; }
+	.head { display:flex; justify-content:space-between; align-items:center; gap:2rem; flex-wrap:wrap; }
+	.head h1 { margin:0; font-size:clamp(2rem,4vw,3rem); font-weight:700; line-height:1.1; }
+	.head p { margin:0.5rem 0 0; font-size:1.05rem; color:var(--theme-text-subtle); }
+	.progress { display:flex; align-items:center; gap:0.9rem; }
+	.progress svg { width:68px; height:68px; transform:rotate(-90deg); }
+	.progress .trk { fill:none; stroke:var(--theme-border); stroke-width:7; }
+	.progress .bar { fill:none; stroke:var(--ok); stroke-width:7; stroke-linecap:round; transition:stroke-dashoffset .5s ease; }
+	.progress b { font-size:1.5rem; display:block; } .progress span { font-size:0.9rem; color:var(--theme-text-subtle); }
+	.progress button { font:inherit; font-size:0.8rem; border:none; background:none; color:var(--theme-text-subtle); text-decoration:underline; cursor:pointer; padding:0; }
+
+	/* timeline */
+	.rail { position:relative; margin:2.4rem 0 0; padding:0 0.5rem; }
+	.phases { display:grid; grid-template-columns:2fr 2fr 4fr 2fr; gap:0.5rem; margin-bottom:0.6rem; }
+	.phases span { font-size:0.8rem; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:var(--c); border-bottom:3px solid var(--c); padding-bottom:0.35rem; }
+	.nodes { display:grid; grid-template-columns:repeat(10,1fr); gap:0.5rem; }
+	.node { font:inherit; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:0.4rem; padding:0.6rem 0.2rem; border-radius:14px; border:2px solid transparent; background:transparent; color:var(--theme-text); }
+	.node:hover { background:color-mix(in srgb,var(--c) 10%,transparent); }
+	.node[aria-current="true"] { border-color:var(--c); background:color-mix(in srgb,var(--c) 14%,transparent); }
+	.node .dot { position:relative; width:46px; height:46px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:1rem;
+		color:var(--c); border:3px solid var(--c); background:var(--theme-card-background,#fff); }
+	body.theme-dark .node .dot { background:#22232b; }
+	.node.done .dot { background:var(--c); color:var(--theme-body-background); }
+	.node.done .dot::after { content:'✓'; position:absolute; right:-6px; top:-6px; width:18px; height:18px; border-radius:50%; font-size:11px; display:flex; align-items:center; justify-content:center; background:var(--ok); color:#fff; }
+	.node .lbl { font-size:0.78rem; line-height:1.2; text-align:center; color:var(--theme-text-subtle); }
+
+	/* detail panel */
+	.panel { margin-top:1.6rem; display:grid; grid-template-columns:1.1fr 1fr; gap:2rem; align-items:center; padding:1.6rem; border-radius:22px;
+		border:2px solid var(--c); background:color-mix(in srgb,var(--c) 7%,var(--theme-card-background,#fff)); box-shadow:0 14px 40px rgba(0,0,0,0.14); }
+	body.theme-dark .panel { background:color-mix(in srgb,var(--c) 10%,#202129); }
+	.shot { position:relative; aspect-ratio:16/9; border-radius:16px; overflow:hidden; display:flex; align-items:center; justify-content:center; background:color-mix(in srgb,var(--c) 16%,transparent); }
+	.shot img.cover { width:100%; height:100%; object-fit:cover; } .shot img.icon { width:130px; height:130px; } .shot .glyph { font-size:8rem; }
+	.k { font-size:0.85rem; font-weight:600; letter-spacing:0.12em; text-transform:uppercase; color:var(--c); }
+	.panel h2 { margin:0.4rem 0 0.6rem; font-size:1.9rem; font-weight:700; line-height:1.2; }
+	.panel p { margin:0; font-size:1.05rem; line-height:1.6; color:var(--theme-text-subtle); }
+	.acts { display:flex; gap:0.7rem; margin-top:1.4rem; flex-wrap:wrap; align-items:center; }
+	.go { display:inline-flex; align-items:center; gap:0.45rem; padding:0.7rem 1.3rem; border-radius:999px; font-weight:600; text-decoration:none; color:#fff; background:var(--c); }
+	body.theme-dark .go { color:#111; }
+	.nav { font:inherit; padding:0.65rem 1.1rem; border-radius:999px; border:2px solid var(--theme-border); background:transparent; color:var(--theme-text); cursor:pointer; font-weight:600; }
+	.nav:disabled { opacity:0.4; cursor:default; }
+	.hint { font-size:0.85rem; color:var(--theme-text-subtle); margin-left:auto; }
+
+	@media (max-width:900px) {
+		.phases { display:none; }
+		.nodes { grid-template-columns:repeat(5,1fr); }
+		.panel { grid-template-columns:1fr; }
+	}
+</style>
+</head>
+<body class="theme-dark" data-theme-preset="atlas">
+	<header class="top">
+		<a class="brand" href="index.html"><img src="../../../img/AzureAnimations-Logo.svg" alt="" /><span>AI Agents · Microsoft Foundry</span></a>
+		<button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch theme">
+			<svg class="ico moon" viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg>
+			<svg class="ico sun" viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="5" fill="currentColor"/></svg>
+		</button>
+	</header>
+	<div class="wrap">
+		<div class="head">
+			<div><h1>Mission: your first AI agent</h1><p>Pick a stop on the timeline. Your progress is saved in this browser.</p></div>
+			<div class="progress" aria-live="polite">
+				<svg viewBox="0 0 70 70" aria-hidden="true"><circle class="trk" cx="35" cy="35" r="30"/><circle class="bar" id="bar" cx="35" cy="35" r="30" stroke-dasharray="188.5" stroke-dashoffset="188.5"/></svg>
+				<div><b id="count">0 / 10</b><span>explored</span><br><button type="button" id="reset">Reset progress</button></div>
+			</div>
+		</div>
+		<div class="rail">
+			<div class="phases" id="phases"></div>
+			<div class="nodes" id="nodes" role="tablist" aria-label="Journey stops"></div>
+		</div>
+		<section class="panel" id="panel" role="tabpanel" aria-live="polite"></section>
+	</div>
+<script>
+const AI='../../../lib/icons/Azure_Public_Service_Icons/ai + machine learning/';
+const PHASES=[['Get started','--p0'],['Build agents','--p1'],['Apply AI services','--p2'],['Govern & choose','--p3']];
+const STOPS=[
+	{href:'FoundryHubProject.html',short:'Hub vs Project',kicker:'Foundation · optional',title:'Foundry Hub vs Project',desc:'See how hubs and projects organize your work, share resources, and set the boundaries for everything you build.',img:'../../../images/animations-480thumbnails/ms-foundry-hub-project_thumbnail.gif',ph:0},
+	{href:'FoundryNew.html',short:'New Foundry',kicker:'Orientation',title:'Foundry New Experience',desc:'Tour the redesigned Microsoft Foundry experience and learn where the tools you need actually live.',img:'../../../images/foundry-new-summary.png',ph:0},
+	{href:'ModelDeployment.html',short:'Model vs Agent',kicker:'Build',title:'Model Deployment vs Agent',desc:'Understand the difference between deploying a raw model and composing an agent — and when to reach for each.',img:'../../../images/animations-480thumbnails/Azure%20OpenAI%20-%20AI%20Foundry%20Studio_Provisioning_and_Deployment_Creation_-_thumbnail.gif',ph:1},
+	{href:'WhatMakesAnAgent.html',short:'Agent anatomy',kicker:'Ship',title:'What Makes an Agent',desc:'Break down the anatomy of an AI agent — model, instructions, tools, and memory — and bring it all together.',glyph:'🤖',ph:1},
+	{href:'AgentTextAnalysis.html',short:'Language',kicker:'Apply',title:'Text Analysis with Azure Language',desc:'See how apps and agents call Azure Language over SDK, REST, and MCP — for language detection, key phrases, sentiment, PII, and summarization.',icon:AI+'02876-icon-service-Language.svg',ph:2},
+	{href:'AgentSpeech.html',short:'Speech',kicker:'Apply',title:'Talking Apps with Azure AI Speech',desc:'Explore speech to text, text to speech, speech-to-speech agents, and Voice Live — the building blocks for apps and agents that listen and talk.',icon:AI+'00797-icon-service-Speech-Services.svg',ph:2},
+	{href:'AgentVision.html',short:'Vision',kicker:'Apply',title:'Seeing & Creating with AI Vision',desc:'Explore how multimodal models analyze images, plus generate images and video with GPT-Image and Sora in Foundry.',icon:AI+'00792-icon-service-Computer-Vision.svg',ph:2},
+	{href:'AgentContentUnderstanding.html',short:'Content',kicker:'Apply',title:'Extracting Insights with Content Understanding',desc:'Turn invoices, recordings, and videos into structured JSON with Azure Content Understanding analyzers and schemas in Foundry.',icon:AI+'00819-icon-service-Form-Recognizers.svg',ph:2},
+	{href:'ResponsibleAI.html',short:'Responsible AI',kicker:'Govern',title:'The Six Pillars of Responsible AI',desc:'Fairness, reliability, privacy, inclusiveness, transparency and accountability — what each one means, and a concrete example of it going wrong.',glyph:'🛡️',ph:3},
+	{href:'ChoosingYourSdk.html',short:'Your SDK',kicker:'Build',title:'Choosing Your AI SDK',desc:'Azure OpenAI SDK, Foundry SDK, Agent Framework — the architecture, real code, and a decision matrix so you can pick one.',glyph:'🧩',ph:3}
+];
+// Animated card scenes, same markup as the cards in index.html (styles in aw-foundry-card-anims.css).
+const SCENES={
+	3:`<div class="agent-anim" aria-hidden="true"><span class="agent-grid"></span>
+		<svg class="agent-lines" viewBox="0 0 160 90" preserveAspectRatio="none"><defs><linearGradient id="awLineGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#00b7c3"/><stop offset="0.5" stop-color="#d24aa8"/><stop offset="1" stop-color="#0078d4"/></linearGradient></defs>
+		<line class="l1" x1="29" y1="16" x2="80" y2="45" vector-effect="non-scaling-stroke"/><line class="l2" x1="131" y1="15" x2="80" y2="45" vector-effect="non-scaling-stroke"/><line class="l3" x1="24" y1="58" x2="80" y2="45" vector-effect="non-scaling-stroke"/><line class="l4" x1="133" y1="74" x2="80" y2="45" vector-effect="non-scaling-stroke"/><line class="l5" x1="67" y1="77" x2="80" y2="45" vector-effect="non-scaling-stroke"/></svg>
+		<span class="ingredient i1"><span class="ing-ico">📋</span><span>Instructions</span></span><span class="ingredient i2"><span class="ing-ico">🧠</span><span>Model</span></span><span class="ingredient i3"><span class="ing-ico">🔧</span><span>ƒ() Tools</span></span><span class="ingredient i4"><span class="ing-ico">⚙️</span><span>Compute</span></span><span class="ingredient i5"><span class="ing-ico">🗄️</span><span>Memory</span></span>
+		<span class="agent-core">🤖</span></div>`,
+	4:`<div class="ta-anim" aria-hidden="true"><div class="ta-col-left"><div class="ta-src s1"><span class="ta-ico">🖥️</span><span class="ta-tt"><span class="ta-name">Your App</span><span class="ta-sub">SDK / REST</span></span></div><div class="ta-src s2"><span class="ta-ico">🤖</span><span class="ta-tt"><span class="ta-name">AI Agent</span><span class="ta-sub">MCP tools</span></span></div></div>
+		<div class="ta-stream"><span class="ta-msg m1">Hello world</span><span class="ta-msg m2">こんにちは</span><span class="ta-msg m3">안녕하세요</span><span class="ta-msg m4">Hola, ¿qué tal?</span><span class="ta-msg m5">你好世界</span><span class="ta-msg m6">Olá, tudo bem?</span><span class="ta-msg m7">مرحبا</span><span class="ta-msg m8">Привет</span></div>
+		<div class="ta-target"><img class="ta-tlogo" src="${AI}02876-icon-service-Language.svg" alt=""><span class="ta-tname">Azure Language</span><span class="ta-tsub">One endpoint · every capability</span></div></div>`,
+	5:`<div class="sp-anim" aria-hidden="true"><span class="sp-pulse p1"></span><span class="sp-pulse p2"></span><span class="sp-pulse p3"></span>
+		<div class="sp-bubble q"><span class="b-ico">🎙️</span><span>"Track my order"</span></div><div class="sp-bubble a"><span class="b-ico">🔊</span><span>"On its way 📦"</span></div>
+		<div class="sp-orb"><img src="${AI}00797-icon-service-Speech-Services.svg" alt=""></div><span class="sp-name">Azure AI Speech</span>
+		<div class="sp-eq">${'<span class="sp-bar"></span>'.repeat(17)}</div></div>`,
+	6:`<div class="cv-anim" aria-hidden="true"><span class="cva-grid"></span><div class="cva-stage">
+		<div class="cva-subject s1"><span class="cva-emoji">🧍</span><span class="cva-box" data-label="Person"></span></div><div class="cva-subject s2"><span class="cva-emoji">📦</span><span class="cva-box" data-label="Package"></span></div><div class="cva-subject s3"><span class="cva-emoji">🐕</span><span class="cva-box" data-label="Dog"></span></div></div>
+		<div class="cva-badge"><img src="${AI}00792-icon-service-Computer-Vision.svg" alt=""></div><span class="cva-name">AI Vision</span></div>`,
+	7:`<div class="cu-anim" aria-hidden="true"><div class="cua-doc"><span class="cua-doc-title">INVOICE</span><span class="cua-line l hl"></span><span class="cua-line m"></span><span class="cua-line s"></span><span class="cua-line l"></span><span class="cua-line m hl"></span><span class="cua-line s"></span><span class="cua-line l"></span></div>
+		<span class="cua-scan"></span><span class="cua-arrow">➜</span>
+		<div class="cua-json"><span class="cua-brace">{</span><div class="cua-row r1"><span class="k">"vendor"</span><span class="c">: </span><span class="v">"Contoso"</span><span class="c">,</span></div><div class="cua-row r2"><span class="k">"total"</span><span class="c">: </span><span class="v">"$1,364"</span><span class="c">,</span></div><div class="cua-row r3"><span class="k">"date"</span><span class="c">: </span><span class="v">"2026-05-14"</span></div><span class="cua-brace">}</span></div>
+		<div class="cua-badge"><img src="${AI}00819-icon-service-Form-Recognizers.svg" alt=""></div><span class="cua-name">Content Understanding</span></div>`,
+	8:`<div class="rai-anim" aria-hidden="true"><svg class="raia-svg" viewBox="0 0 120 132" fill="none"><path class="raia-shield" d="M60 6 L108 24 V68 C108 98 86 118 60 126 C34 118 12 98 12 68 V24 Z"/><path class="raia-check" d="M40 66 L54 80 L82 50"/></svg><span class="raia-name">Responsible AI</span></div>`,
+	9:`<div class="sdk-anim" aria-hidden="true"><span class="sdka-row r1"><span class="sdka-n">Agent Framework</span><span class="sdka-p">agent-framework</span></span><span class="sdka-row r2"><span class="sdka-n">Foundry SDK</span><span class="sdka-p">azure-ai-projects</span></span><span class="sdka-row r3"><span class="sdka-n">OpenAI SDK</span><span class="sdka-p">openai</span></span><span class="sdka-name">Pick your layer</span></div>`
+};
+const KEY='aw-foundry-visited';
+let visited=new Set(); try{ visited=new Set(JSON.parse(localStorage.getItem(KEY)||'[]')); }catch(_){}
+let cur=0;
+const nodes=document.getElementById('nodes'), panel=document.getElementById('panel');
+document.getElementById('phases').innerHTML=PHASES.map(([n,v])=>`<span style="--c:var(${v})">${n}</span>`).join('');
+const btns=STOPS.map((s,i)=>{
+	const b=document.createElement('button'); b.type='button'; b.className='node'; b.setAttribute('role','tab');
+	b.style.setProperty('--c',`var(${PHASES[s.ph][1]})`);
+	b.innerHTML=`<span class="dot">${i+1}</span><span class="lbl">${s.short}</span>`;
+	b.addEventListener('click',()=>show(i)); nodes.appendChild(b); return b; });
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify([...visited])); }catch(_){} }
+function sync(){
+	btns.forEach((b,i)=>{ b.classList.toggle('done',visited.has(i)); b.setAttribute('aria-current',i===cur?'true':'false'); b.setAttribute('aria-selected',i===cur?'true':'false'); });
+	document.getElementById('count').textContent=visited.size+' / '+STOPS.length;
+	document.getElementById('bar').setAttribute('stroke-dashoffset',(188.5*(1-visited.size/STOPS.length)).toFixed(1));
+}
+function show(i){
+	cur=i; const s=STOPS[i];
+	panel.style.setProperty('--c',`var(${PHASES[s.ph][1]})`);
+	const m=SCENES[i]?SCENES[i]:s.img?`<img class="cover" src="${s.img}" alt="">`:s.icon?`<img class="icon" src="${s.icon}" alt="">`:`<span class="glyph">${s.glyph}</span>`;
+	panel.innerHTML=`<div class="shot">${m}</div><div><span class="k">Stop ${String(i+1).padStart(2,'0')} · ${s.kicker} · ${PHASES[s.ph][0]}</span><h2>${s.title}</h2><p>${s.desc}</p>
+		<div class="acts"><a class="go" href="${s.href}" target="_blank" rel="noopener noreferrer">${visited.has(i)?'Watch again':'Launch explainer'} ↗</a>
+		<button class="nav" type="button" data-d="-1" ${i===0?'disabled':''}>← Back</button><button class="nav" type="button" data-d="1" ${i===STOPS.length-1?'disabled':''}>Next →</button>
+		<span class="hint">Tip: use ← → keys</span></div></div>`;
+	panel.querySelector('.go').addEventListener('click',()=>{ visited.add(i); save(); sync(); });
+	panel.querySelectorAll('.nav').forEach(n=>n.addEventListener('click',()=>show(cur+ +n.dataset.d)));
+	sync();
+}
+document.addEventListener('keydown',e=>{ if(e.key==='ArrowRight'&&cur<STOPS.length-1) show(cur+1); else if(e.key==='ArrowLeft'&&cur>0) show(cur-1); });
+document.getElementById('reset').addEventListener('click',()=>{ visited.clear(); save(); show(cur); });
+// open on the first stop not yet explored
+show(Math.max(0, STOPS.findIndex((_,i)=>!visited.has(i))));
+</script>
+</body>
+</html>
