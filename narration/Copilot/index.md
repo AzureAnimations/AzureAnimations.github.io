@@ -14,10 +14,10 @@ One spoken block — the hub's welcome clip, played when a visitor turns audio o
 
 ## Step 1 · Welcome
 
-[confident] Welcome to the Microsoft 365 Copilot journey — one story, four acts, ten animated stops.
+[confident] Welcome to the Microsoft 365 Copilot journey — one story, five acts, eleven animated stops.
 [600ms]
 [calm] It follows Alex through a first month at Contoso, starting with the free, personal Copilot at copilot dot microsoft dot com — no licence, nothing to install.
 [600ms]
-[impressed] Then Alex joins the company, and one real proposal travels through Word, PowerPoint, Excel, Outlook and Teams.
+[impressed] Then Alex joins the company, and one real proposal travels through Word, PowerPoint, Excel, Outlook and Teams — before whole tasks get handed off to Copilot Cowork.
 [800ms]
 [encouraging] By the end you'll see it was one assistant all along. Pick any stop on the map to begin.

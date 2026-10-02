@@ -58,7 +58,17 @@ One block per animation step.
 [800ms]
 [reassuring] Ninguém precisa virar o anotador em vez de ser participante.
 
-## Step 6 · This is the difference Copilot actually makes
+## Step 6 · Trabalho delegado
+
+[thoughtful] Preparar o piloto significava correr atrás de conversas, achar um horário de reunião, escrever um briefing, um convite e enviar tudo.
+[600ms]
+[calm] Sem o Cowork, são cinco tarefas, cada uma começada e terminada à mão.
+[600ms]
+[confident] Com o Copilot Cowork, é um só pedido. Alex descreve o objetivo, aprova o que sai e revisa o resultado.
+[800ms]
+[reassuring] O Cowork faz o trabalho braçal. Alex fica com as decisões.
+
+## Step 7 · This is the difference Copilot actually makes
 
 [proud] Seis aplicativos, um projeto, um mês na Contoso, e um único assistente por trás de tudo.
 [600ms]

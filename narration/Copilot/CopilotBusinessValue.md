@@ -58,7 +58,17 @@ One block per animation step.
 [800ms]
 [reassuring] Nobody has to be the note-taker instead of a participant.
 
-## Step 6 · This is the difference Copilot actually makes
+## Step 6 · Delegated work
+
+[thoughtful] Getting the pilot ready meant chasing threads, finding a meeting slot, drafting a brief, writing an invite, and sending it all out.
+[600ms]
+[calm] Without Cowork, that's five chores, each one started and finished by hand.
+[600ms]
+[confident] With Copilot Cowork, it's one request. Alex describes the goal, approves what goes out, and reviews the result.
+[800ms]
+[reassuring] Cowork does the legwork. Alex keeps the decisions.
+
+## Step 7 · This is the difference Copilot actually makes
 
 [proud] Six apps, one project, one month at Contoso — and one assistant behind all of it.
 [600ms]

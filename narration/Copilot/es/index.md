@@ -8,10 +8,10 @@ Un solo bloque hablado: el clip de bienvenida del hub, que se reproduce cuando a
 
 ## Step 1 · Welcome
 
-[confident] Te damos la bienvenida al recorrido de Microsoft 365 Copilot: una historia, cuatro actos, diez paradas animadas.
+[confident] Te damos la bienvenida al recorrido de Microsoft 365 Copilot: una historia, cinco actos, once paradas animadas.
 [600ms]
 [calm] Sigue el primer mes de Alex en Contoso y empieza con el Copilot personal y gratuito en copilot punto microsoft punto com: sin licencia y sin instalar nada.
 [600ms]
-[impressed] Después Alex entra en la empresa, y una misma propuesta pasa por Word, PowerPoint, Excel, Outlook y Teams.
+[impressed] Después Alex entra en la empresa, y una misma propuesta pasa por Word, PowerPoint, Excel, Outlook y Teams, antes de delegar tareas completas a Copilot Cowork.
 [800ms]
 [encouraging] Al final verás que siempre fue un solo asistente. Elige cualquier parada del mapa para empezar.

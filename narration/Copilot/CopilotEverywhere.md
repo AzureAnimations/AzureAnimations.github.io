@@ -58,7 +58,17 @@ One block per animation step.
 [800ms]
 [reassuring] A Page is a real file in Alex's Microsoft 365 container — shared as a link, and covered by sensitivity labels, eDiscovery and export.
 
-## Step 6 · One assistant. One week. One body of work
+## Step 6 · Chat or Cowork
+
+[curious] And when the work is bigger than a question?
+[600ms]
+[calm] In Chat, Alex asks where the pilot scope landed, and gets the answer in one turn.
+[600ms]
+[confident] Switch to Cowork, and Alex hands over a whole goal — a brief, the kickoff invite and an agenda for Priya. Cowork plans it, works through it step by step, and stops for Alex's approval.
+[800ms]
+[reassuring] Underneath, nothing changes: the same sign-in, the same work content, the same permissions. It's the same Copilot, given a bigger job.
+
+## Step 7 · One assistant. One week. One body of work
 
 [proud] Five apps, and one week: a proposal, a deck, an analysis, a cleared inbox and a meeting recap.
 [600ms]

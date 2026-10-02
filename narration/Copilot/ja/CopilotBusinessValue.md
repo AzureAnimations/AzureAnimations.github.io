@@ -58,7 +58,17 @@ One block per animation step.
 [800ms]
 [reassuring] 参加者の代わりに書記役をやらされる人は、もう必要ありません。
 
-## Step 6 · This is the difference Copilot actually makes
+## Step 6 · 任せた仕事
+
+[thoughtful] パイロットの準備には、スレッドを追い、会議の枠を探し、概要を書き、招待状を作り、すべてを送る必要がありました。
+[600ms]
+[calm] Cowork がなければ、5 つの作業をどれも手作業で始めて終わらせます。
+[600ms]
+[confident] Copilot Cowork なら、依頼は 1 回。Alex は目標を伝え、外に出るものを承認し、結果を確認します。
+[800ms]
+[reassuring] 手間は Cowork が。判断は Alex が持ち続けます。
+
+## Step 7 · This is the difference Copilot actually makes
 
 [proud] 6 つのアプリ、1 つのプロジェクト、Contoso での 1 か月。その全部の裏側にいるのは、たった 1 つのアシスタントです。
 [600ms]

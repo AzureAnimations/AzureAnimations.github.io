@@ -58,7 +58,17 @@ One block per animation step.
 [800ms]
 [reassuring] 참석자 대신 기록자가 되어야 하는 사람은 이제 없습니다.
 
-## Step 6 · This is the difference Copilot actually makes
+## Step 6 · 맡긴 업무
+
+[thoughtful] 파일럿 준비에는 스레드를 찾고, 회의 시간을 잡고, 요약을 쓰고, 초대장을 만들고, 모두 보내는 일이 필요했습니다.
+[600ms]
+[calm] Cowork 없이는 다섯 가지 일을 하나하나 손으로 시작하고 끝내야 합니다.
+[600ms]
+[confident] Copilot Cowork와 함께라면 요청은 한 번입니다. Alex는 목표를 설명하고, 나가는 것을 승인하고, 결과를 검토합니다.
+[800ms]
+[reassuring] 잡무는 Cowork가. 결정은 Alex가 지킵니다.
+
+## Step 7 · This is the difference Copilot actually makes
 
 [proud] 앱 여섯 개, 프로젝트 하나, Contoso에서의 한 달. 그 전부의 뒤에 어시스턴트는 단 하나입니다.
 [600ms]

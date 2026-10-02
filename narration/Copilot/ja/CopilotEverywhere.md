@@ -58,7 +58,17 @@ One block per animation step.
 [800ms]
 [reassuring] Page は Alex の Microsoft 365 コンテナーにある本物のファイルです。コピーではなくリンクで共有され、秘密度ラベルや eDiscovery、エクスポートの対象になります。
 
-## Step 6 · One assistant. One week. One body of work
+## Step 6 · チャットか Cowork か
+
+[curious] では、質問より大きな仕事のときは?
+[600ms]
+[calm] チャットでは、Alex がパイロットの範囲がどう決まったかを尋ね、1 回で答えを得ます。
+[600ms]
+[confident] Cowork に切り替えると、Alex は目標まるごとを渡します。概要、キックオフの招待、そして Priya 向けの議題。Cowork はそれを計画し、1 ステップずつ進め、Alex の承認を待って止まります。
+[800ms]
+[reassuring] その下は何も変わりません。同じサインイン、同じ仕事のコンテンツ、同じアクセス許可。大きな仕事を任された、同じ Copilot です。
+
+## Step 7 · One assistant. One week. One body of work
 
 [proud] 5 つのアプリ、1 週間。提案書、資料、分析、片づいた受信トレイ、そして会議の要約。
 [600ms]

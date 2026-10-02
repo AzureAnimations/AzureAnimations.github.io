@@ -58,7 +58,17 @@ One block per animation step.
 [800ms]
 [reassuring] Uma Page é um arquivo de verdade no contêiner do Microsoft 365 de Alex — compartilhada por link e coberta por rótulos de confidencialidade, eDiscovery e exportação.
 
-## Step 6 · One assistant. One week. One body of work
+## Step 6 · Chat ou Cowork
+
+[curious] E quando o trabalho é maior que uma pergunta?
+[600ms]
+[calm] No Chat, Alex pergunta onde ficou o escopo do piloto e recebe a resposta em um só turno.
+[600ms]
+[confident] Mude para o Cowork, e Alex entrega um objetivo inteiro: um briefing, o convite de abertura e uma pauta para Priya. O Cowork planeja, trabalha etapa por etapa e para para a aprovação de Alex.
+[800ms]
+[reassuring] Por baixo, nada muda: o mesmo login, o mesmo conteúdo de trabalho, as mesmas permissões. É o mesmo Copilot, com um trabalho maior.
+
+## Step 7 · One assistant. One week. One body of work
 
 [proud] Cinco aplicativos e uma semana: uma proposta, um deck, uma análise, uma caixa de entrada limpa e o resumo de uma reunião.
 [600ms]

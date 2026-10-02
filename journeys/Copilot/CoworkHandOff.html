@@ -1,0 +1,2502 @@
+<!DOCTYPE html>
+<!-- Narration script: /narration/Copilot/CoworkHandOff.md -->
+<!-- Sources: https://learn.microsoft.com/microsoft-365/copilot/cowork/use-cowork · https://learn.microsoft.com/microsoft-365/copilot/cowork/cowork-faq · https://learn.microsoft.com/training/modules/delegate-work-copilot-cowork/ -->
+<!--
+	Azure Animations — STARTER TEMPLATE
+	====================================
+	Copy this file to <Area>/<Sub>/YourTopic.html (e.g. AI/Foundry/MyTopic.html) and:
+	  1. Set <title>, #page-title, and the back-link href.
+	  2. Rename/expand the sample steps. Each STEPS[] entry pairs with one
+	     render<Xxx>Step(). The samples demonstrate the reusable building blocks —
+	     delete the ones you don't need, they are all optional:
+	       • PROBLEM   — a centered hero .card
+	       • FLOW      — a .ta-flow of .agent-node boxes joined by .ta-arrow (input → process → output)
+	       • CODE      — a VS Code-style .code-card (use .code-duo for a request/response pair)
+	       • USE CASES — a .uc-grid of .uc-card tiles
+	       • RECAP     — a .card + .value-chip row + closing line
+	  3. Fill the English I18N block, then add es/ja/ko/pt (full objects OR the
+	     { ...I18N.en, overrides } spread) and matching <option>s in #lang-select.
+	  4. Prefer Microsoft Fluent icons/emoji over raw OS emoji for anything shown
+	     on a projector. Source priority: Azure service icons (local lib
+	     ../lib/icons/…) → Fluent System Icons → Fluent UI Emoji → Fluent Emoji
+	     Animated → Twemoji (last resort, CC-BY).
+	  5. Run the Definition-of-Done checklist before publishing.
+
+	DESIGN NOTES
+	  • Accent colour is --theme-tertiary (Microsoft purple #5c2d91); primary blue
+	    and green (#10a37f) act as secondary / positive accents.
+	  • The bottom #controls is a compact translucent "icon dock" of glyph-only
+	    buttons; their localized labels live in the tooltip (title), set in setLanguage().
+	  • Audio narration is optional: list one clip per step (in order) in AUDIO_FILES[]
+	    and an Audio toggle appears automatically. Present mode (dual-window) ships via
+	    aw-present.js at the bottom — it self-installs a "Present" button in the header.
+
+	NOTE: the ../lib/ and ../../img/ paths assume this file lives two levels
+	under the site root (e.g. AI/Foundry/). Adjust depth if you move it.
+-->
+<html lang="en">
+<head>
+	<script src="/js/tracking.js"></script>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+	<meta name="description" content="Hand off the work with Microsoft Copilot Cowork: when to pick Cowork over Chat or an agent, how to write an outcome-first request, how Cowork plans, asks and waits for your approval, where the results land, what drives Copilot Credits, and the guardrails." />
+	<title>Hand off the work with Copilot Cowork · Azure Animations</title>
+	<link rel="icon" type="image/svg+xml" href="../../lib/icons/brands/Microsoft365Copilot.svg" />
+
+	<link rel="stylesheet" href="https://unpkg.com/@microsoft/atlas-css/dist/index.css" />
+	<script src="../../lib/vendor/gsap-3.15.0.min.js"></script>
+
+	<!-- AnimationWorks shared lib -->
+	<script src="../../lib/js/aw-easings.js"></script>
+	<script src="../../lib/js/aw-motion.js"></script>
+	<script src="../../lib/js/aw-theme.js"></script>
+	<script src="../../lib/js/aw-keyboard.js"></script>
+	<script src="../../lib/js/aw-captions.js"></script>
+	<link rel="stylesheet" href="../../lib/css/aw-cowork-ui.css" />
+	<script src="../../lib/js/aw-cowork-ui.js"></script>
+
+<style>
+	/* ── SHELL ─────────────────────────────── */
+	/* Brand palette — reference these tokens; don't hardcode hex */
+	:root {
+		--aw-purple:#5c2d91;   /* primary accent — titles, callouts, arrows, progress, agents */
+		--aw-blue:#0078d4;     /* secondary — inputs, links, "the model", primary button */
+		--aw-green:#10a37f;    /* positive — success, grounded/correct results, value chips */
+		--aw-orange:#e97526;   /* tools / actions — tool calls, function calling, side-effects */
+		--aw-pink:#d24aa8;     /* highlight — a fourth category / emphasis */
+	}
+	html, body { height:100%; margin:0; }
+	html { font-size:100%; }
+	body {
+		display:flex; flex-direction:column; height:100vh;
+		overflow:hidden;
+		font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif;
+		color: var(--theme-text);
+		background:
+			radial-gradient(circle at 15% 20%, rgba(92,45,145,0.18) 0%, transparent 55%),
+			radial-gradient(circle at 85% 80%, rgba(0,120,212,0.18) 0%, transparent 55%),
+			var(--theme-body-background);
+	}
+	.app-header { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:1rem; flex-shrink:0; font-size:16px; }
+	.app-header > :last-child { justify-self:end; }
+
+	/* #stage fills the space between the top bar and the control dock, and centers the fixed 16:9 frame. */
+	#stage {
+		position:relative; flex:1 1 auto; width:100%; min-height:0;
+		display:flex; align-items:center; justify-content:center;
+		overflow:hidden; container-type:size;
+		padding:1.75rem 2.75rem 5rem;   /* breathing room around the frame; bottom clears the fixed #controls dock */
+	}
+	#stage:focus-visible, button:focus-visible, a:focus-visible, select:focus-visible {
+		outline:2px solid var(--theme-primary, #0078d4); outline-offset:3px; border-radius:4px;
+	}
+	/* The visible rectangle: the largest 16:9 box that fits the stage. All scenes are drawn inside it. */
+	#stage-frame {
+		position:relative; overflow:hidden;
+		width: min(100cqw, calc(100cqh * 16 / 9));
+		aspect-ratio: 16 / 9; max-width:100%; max-height:100%;
+		border-radius:16px;
+		background: rgba(0,0,0,0.015);
+		box-shadow: 0 12px 44px rgba(0,0,0,0.22);
+	}
+	body.theme-dark #stage-frame { background: rgba(255,255,255,0.025); }
+	/* Coloured gradient border (brand purple → blue → pink) drawn as a masked ring — no interior tint. */
+	#stage-frame::before {
+		content:""; position:absolute; inset:0; border-radius:inherit; padding:2.5px;
+		background: linear-gradient(135deg, var(--aw-purple) 0%, var(--aw-blue) 55%, var(--aw-pink) 100%);
+		-webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+		mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+		-webkit-mask-composite: xor; mask-composite: exclude;
+		pointer-events:none; z-index:20;
+	}
+	#fx-svg { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:6; overflow:visible; }
+
+	/* ── SCENE ─────────────────────────────── */
+	.scene {
+		position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+		transform-origin:center center;
+		width:min(1150px, 96%); z-index:10;
+		display:flex; flex-direction:column; align-items:center; gap:1.4rem;
+	}
+	/* 200ms fade in / out between every step */
+	@keyframes awSceneIn { from { opacity:0; } to { opacity:1; } }
+	@keyframes awSceneOut { from { opacity:1; } to { opacity:0; } }
+	.scene.scene-in { animation: awSceneIn 0.2s ease both; }
+	.scene.scene-out { animation: awSceneOut 0.2s ease both; }
+	.scene-title { font-size:2.5rem; font-weight:700; color:var(--theme-tertiary, #5c2d91); margin:0; text-align:center; opacity:0; }
+	body.theme-dark .scene-title { color:#c9a5e8; }
+	/* lead spans wide (near the scene width) to use the side gutters and stay within 2 lines — trim copy if it wraps to 3 */
+	.scene-lead { margin:0; text-align:center; font-size:1.35rem; color:var(--theme-text); max-width:min(1180px,96%); line-height:1.5; opacity:0; }
+
+	/* ── CALLOUT · draggable, slightly see-through so it never fully blocks the diagram ── */
+	.callout {
+		position:absolute; max-width:340px; padding:1rem 1.2rem;
+		background:var(--theme-body-background);
+		background:color-mix(in srgb, var(--theme-body-background) 84%, transparent);
+		-webkit-backdrop-filter:blur(5px); backdrop-filter:blur(5px);
+		border:1px solid var(--theme-border);
+		border-left:4px solid var(--theme-tertiary, #5c2d91); border-radius:6px;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2));
+		font-size:1.05rem; line-height:1.45; z-index:14; opacity:0;
+		cursor:grab; touch-action:none;
+	}
+	.callout:active { cursor:grabbing; }
+
+	/* ── RESET "PIN" · appears on a draggable panel once it has been moved off its home spot ── */
+	.aw-drag-reset {
+		position:absolute; width:24px; height:24px; padding:0; display:none;
+		align-items:center; justify-content:center; border-radius:50%;
+		background:var(--theme-tertiary,#5c2d91); color:#fff;
+		border:2px solid var(--theme-body-background,#fff);
+		box-shadow:0 2px 7px rgba(0,0,0,0.4); cursor:pointer; z-index:6;
+		opacity:0.92; transition:opacity .14s ease, transform .14s ease;
+	}
+	.aw-drag-reset:hover { opacity:1; transform:scale(1.08); }
+	.aw-drag-reset:focus-visible { outline:2px solid #5cc8ff; outline-offset:2px; }
+	.aw-drag-reset svg { width:13px; height:13px; display:block; }
+
+	/* ══════════════════════════════════════════════════════════ */
+	/* ── REUSABLE BUILDING BLOCKS · keep what you use, drop rest ─ */
+	/* ══════════════════════════════════════════════════════════ */
+
+	/* Centered hero card */
+	.card {
+		width:min(680px, 96%); padding:1.6rem 1.8rem; border-radius:16px;
+		background:var(--theme-card-background, #fff); border:2px solid var(--theme-border);
+		box-shadow:0 8px 28px rgba(0,0,0,0.14); opacity:0;
+		display:flex; flex-direction:column; gap:0.6rem; align-items:center; text-align:center;
+	}
+	body.theme-dark .card { background:rgba(255,255,255,0.05); }
+	.card .card-icon { font-size:3rem; line-height:1; }
+	.card .card-h { font-size:1.4rem; font-weight:700; }
+	.card .card-p { font-size:1.05rem; color:var(--theme-text-subtle); line-height:1.5; }
+
+	/* Wide info panel */
+	.ta-card {
+		width:min(1080px, 98%); border:1.5px solid var(--theme-border); border-radius:14px;
+		background:var(--theme-card-background, #fff); box-shadow:0 8px 30px rgba(0,0,0,0.16);
+		padding:1.1rem 1.3rem; opacity:0;
+	}
+	body.theme-dark .ta-card { background:rgba(255,255,255,0.05); }
+	.ta-card-head {
+		display:flex; align-items:center; gap:0.5rem;
+		font-size:1rem; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;
+		color:var(--theme-text-subtle); margin-bottom:0.6rem;
+	}
+	.ta-card-text { font-size:1.22rem; line-height:1.55; color:var(--theme-text); }
+
+	/* Pills / chips */
+	.chip-row { display:flex; flex-wrap:wrap; gap:0.7rem; justify-content:center; }
+	.pill {
+		display:inline-flex; align-items:center; gap:0.5rem; padding:0.55rem 1.1rem;
+		border-radius:999px; font-size:1.05rem; font-weight:600;
+		border:2px solid var(--theme-tertiary, #5c2d91); background:rgba(92,45,145,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .pill { background:rgba(92,45,145,0.2); }
+	.value-chip {
+		display:inline-flex; align-items:center; gap:0.4rem; padding:0.5rem 1rem;
+		border-radius:999px; font-size:1rem; font-weight:700;
+		border:2px solid #107c10; background:rgba(16,124,16,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .value-chip { background:rgba(16,124,16,0.16); }
+	.recap-foot { font-size:1.05rem; color:var(--theme-text); text-align:center; max-width:760px; opacity:0; }
+
+	/* Flow row: input → process → output */
+	.agent-node {
+		display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.2rem;
+		width:160px; height:160px; border-radius:24px;
+		background: linear-gradient(135deg, rgba(92,45,145,0.12), rgba(0,120,212,0.12));
+		border:2.5px solid var(--theme-tertiary, #5c2d91);
+		box-shadow:0 8px 28px rgba(92,45,145,0.2); flex-shrink:0; text-align:center;
+	}
+	.agent-node .an-icon { font-size:3rem; line-height:1; }
+	.agent-node .an-icon img { width:64px; height:64px; display:block; }
+	.agent-node .an-label { font-size:1.05rem; font-weight:700; color:var(--theme-text); }
+	.agent-node .an-sub { font-size:0.85rem; color:var(--theme-text-subtle); }
+	.ta-flow { display:flex; align-items:center; justify-content:center; gap:1.2rem; flex-wrap:wrap; width:100%; }
+	.ta-flow .agent-node { width:140px; height:140px; }
+	.ta-flow .agent-node .an-icon { font-size:2.6rem; }
+	.ta-flow .agent-node .an-icon img { width:54px; height:54px; }
+	.ta-arrow { font-size:1.9rem; color:var(--theme-tertiary,#5c2d91); opacity:0; }
+	.ta-arrow.is-big { font-size:3.2rem; }
+	.ta-arrow.is-down, .ta-arrow.is-up { font-size:2.9rem; line-height:1; }
+	@media (max-width:760px) { .ta-flow .ta-arrow { transform:rotate(90deg); } }
+
+	/* Code card (VS Code style) */
+	.code-card {
+		width:min(560px,96%); border:1px solid #30363d; border-radius:8px;
+		background:#1e1e1e; overflow:hidden; opacity:0;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.25));
+	}
+	.code-head {
+		display:flex; align-items:center; justify-content:space-between; gap:0.5rem;
+		padding:0 0 0 0.85rem; background:#323233; border-bottom:1px solid #1e1e1e;
+	}
+	.code-file { font-size:0.9rem; color:#cccccc; font-weight:500; padding:0.6rem 0; }
+	.code-winctrls { display:flex; align-items:stretch; height:100%; }
+	.code-wbtn {
+		display:flex; align-items:center; justify-content:center; width:2.6rem; padding:0.55rem 0;
+		color:#cccccc; font-family:'Segoe UI Symbol','Segoe MDL2 Assets',sans-serif; font-size:0.7rem;
+	}
+	.code-wbtn.is-close:hover { background:#e81123; color:#fff; }
+	.code-wbtn:hover { background:rgba(255,255,255,0.1); }
+	.code-body {
+		margin:0; padding:0.8rem 1rem;
+		font-family:'Cascadia Code', 'Consolas', 'SFMono-Regular', monospace;
+		font-size:0.86rem; line-height:1.5; color:#d4d4d4;
+		white-space:pre-wrap; overflow-wrap:break-word; word-break:break-word; tab-size:4;
+	}
+	.code-body .tok-com { color:#6a9955; }
+	.code-body .tok-kw  { color:#569cd6; }
+	.code-body .tok-str { color:#ce9178; }
+	.code-body .tok-fn  { color:#dcdcaa; }
+	.code-body .tok-mod { color:#4ec9b0; }
+	.code-body .tok-prop{ color:#9cdcfe; }
+	.code-body .tok-num { color:#b5cea8; }
+	.code-body .tok-punct { color:#d4d4d4; }
+	.code-body .code-hl { border-radius:4px; padding:0 0.15em; box-shadow:0 0 0 1px rgba(96,165,250,0.55); background:rgba(96,165,250,0.22); }
+	.code-duo { display:flex; gap:1.1rem; flex-wrap:wrap; align-items:flex-start; justify-content:center; width:100%; }
+	.code-duo .code-card { flex:1 1 380px; max-width:480px; }
+	.code-duo .code-body { font-size:0.8rem; line-height:1.45; }
+	.code-arrow { align-self:center; font-size:1.8rem; line-height:1; color:var(--theme-tertiary,#5c2d91); opacity:0; flex:none; }
+	.code-arrow.is-big { font-size:2.9rem; }
+	@media (max-width:760px) { .code-arrow { transform:rotate(90deg); } }
+
+	/* Use-case grid */
+	.uc-grid { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:1.1rem; width:min(980px,96%); }
+	@media (max-width:720px) { .uc-grid { grid-template-columns:1fr; } }
+	.uc-card {
+		display:flex; flex-direction:column; gap:0.5rem; padding:1rem 1.15rem;
+		border:1.5px solid var(--theme-border); border-top:4px solid var(--theme-primary,#0078d4);
+		border-radius:14px; background:var(--theme-card-background, #fff);
+		box-shadow:0 6px 22px rgba(0,0,0,0.12); opacity:0;
+		transition:transform 0.2s ease, box-shadow 0.2s ease;
+	}
+	.uc-card:hover { transform:translateY(-4px); box-shadow:0 12px 30px rgba(0,0,0,0.18); }
+	body.theme-dark .uc-card { background:rgba(255,255,255,0.05); }
+	.uc-card[data-uc="a"] { border-top-color:#0078d4; }
+	.uc-card[data-uc="b"] { border-top-color:#10a37f; }
+	.uc-card[data-uc="c"] { border-top-color:#e97526; }
+	.uc-card[data-uc="d"] { border-top-color:#d24aa8; }
+	.uc-head { display:flex; align-items:center; gap:0.55rem; font-size:1.25rem; font-weight:700; color:var(--theme-text); }
+	.uc-head .uc-icon { font-size:1.7rem; display:inline-block; }
+	.uc-desc { font-size:0.98rem; line-height:1.55; color:var(--theme-text-subtle); }
+	.uc-caps { display:flex; flex-wrap:wrap; gap:0.4rem; margin-top:0.2rem; }
+	.uc-cap {
+		display:inline-flex; align-items:center; gap:0.3rem; padding:0.25rem 0.7rem;
+		border-radius:999px; font-size:0.88rem; font-weight:700;
+		background:rgba(0,120,212,0.1); color:var(--theme-text);
+		border:1.5px solid rgba(0,120,212,0.4); opacity:0;
+	}
+
+	/* ── CONTROLS · icon dock ──────────────── */
+	#controls {
+		position:fixed; bottom:14px; left:50%; transform:translateX(-50%); z-index:40;
+		display:flex; align-items:center; gap:5px; padding:5px 7px;
+		background:var(--theme-body-background-translucent, rgba(255,255,255,0.82));
+		backdrop-filter:blur(12px) saturate(1.4); -webkit-backdrop-filter:blur(12px) saturate(1.4);
+		border:1px solid var(--theme-border); border-radius:999px;
+		box-shadow: 0 8px 26px rgba(0,0,0,0.18); font-size:13px;
+	}
+	body.theme-dark #controls { background:var(--theme-body-background-translucent, rgba(32,32,36,0.82)); }
+	#controls .ctrl-icon {
+		width:2.15rem; height:2.15rem; min-width:0; padding:0;
+		display:inline-flex; align-items:center; justify-content:center;
+		border-radius:50%; font-size:0.95rem; line-height:1; font-weight:600;
+		transition:background 0.18s ease, color 0.18s ease, transform 0.12s ease, box-shadow 0.18s ease;
+	}
+	#controls .ctrl-icon:hover { transform:translateY(-1px); }
+	#controls .ctrl-icon:active { transform:scale(0.92); }
+	#controls .ctrl-icon-next {
+		width:2.55rem; height:2.55rem; font-size:1.1rem;
+		box-shadow:0 2px 8px var(--theme-primary-translucent, rgba(0,120,212,0.45));
+	}
+	.step-counter {
+		min-width:52px; text-align:center; font-variant-numeric:tabular-nums;
+		font-size:14px; font-weight:700; color:var(--theme-text);
+		padding:0 6px; white-space:nowrap; letter-spacing:0.02em;
+	}
+	.ctrl-sep { width:1px; align-self:stretch; margin:4px 2px; background:var(--theme-border); }
+	/* Movable dock: drag handle + pin-to-center button */
+	.ctrl-grip {
+		display:inline-flex; align-items:center; justify-content:center;
+		width:1.5rem; height:2.15rem; padding:0; border:none; background:transparent;
+		color:var(--theme-text-subtle); border-radius:8px; cursor:grab; touch-action:none;
+		transition:background 0.18s ease, color 0.18s ease;
+	}
+	.ctrl-grip:hover { color:var(--theme-text); background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); }
+	.ctrl-grip:active { cursor:grabbing; }
+	.ctrl-grip svg { width:13px; height:16px; pointer-events:none; }
+	body.controls-floating .ctrl-grip { color:var(--theme-primary,#0078d4); }
+	#controls .ctrl-pin { display:none; color:var(--theme-primary,#0078d4); }
+	#controls .ctrl-pin svg { width:15px; height:15px; pointer-events:none; }
+	body.controls-floating #controls .ctrl-pin { display:inline-flex; }
+	body.controls-floating #controls { box-shadow:0 10px 30px rgba(0,0,0,0.30), 0 0 0 1.5px var(--theme-primary,#0078d4); }
+	.speed-control { display:inline-flex; align-items:center; gap:1px; padding:2px 3px; border:1px solid var(--theme-border); border-radius:999px; }
+	.speed-control .speed-btn {
+		width:1.7rem; height:1.7rem; min-width:0; padding:0;
+		display:inline-flex; align-items:center; justify-content:center;
+		font-size:0.95rem; font-weight:700; border-radius:50%;
+	}
+	.speed-control .speed-btn[disabled] { opacity:0.4; cursor:not-allowed; }
+	.speed-label { min-width:2.4rem; text-align:center; font-variant-numeric:tabular-nums; font-size:0.82rem; font-weight:700; color:var(--theme-text); }
+
+	#callout-toggle, #outline-toggle, #audio-toggle { border:1px solid var(--theme-border); border-radius:4px; transition:background .2s,color .2s,border-color .2s,opacity .2s; }
+	#callout-toggle.toggle-active, #outline-toggle.toggle-active, #audio-toggle.toggle-active {
+		background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary,#0078d4); border-color:var(--theme-primary,#0078d4); font-weight:600;
+	}
+	#callout-toggle:not(.toggle-active), #outline-toggle:not(.toggle-active), #audio-toggle:not(.toggle-active) { opacity:0.6; }
+
+	/* ── HIDE/SHOW TOP BAR ─────────────────── */
+	#header-hide { display:inline-flex; align-items:center; justify-content:center; width:2rem; height:2rem; padding:0; border:1px solid var(--theme-border); border-radius:50%; color:var(--theme-text-subtle); transition:background .2s,color .2s,transform .18s; }
+	#header-hide:hover { color:var(--theme-text); transform:translateY(-1px); }
+	#header-hide svg { width:16px; height:16px; }
+	#header-hide-top { display:inline-flex; align-items:center; justify-content:center; width:2rem; height:2rem; padding:0; border:1px solid var(--theme-border); border-radius:50%; color:var(--theme-text-subtle); background:transparent; cursor:pointer; transition:background .2s,color .2s,transform .18s; }
+	#header-hide-top:hover { color:var(--theme-text); transform:translateY(-1px); }
+	#header-hide-top svg { width:16px; height:16px; }
+	body.chrome-hidden .app-header, body.chrome-hidden .progress-track { display:none; }
+	#header-reveal {
+		position:fixed; top:0; left:50%; transform:translateX(-50%) translateY(-100%); z-index:45;
+		display:inline-flex; align-items:center; gap:0.35rem; padding:5px 14px 6px; font-size:12px; font-weight:600; line-height:1;
+		color:var(--theme-text-subtle); background:var(--theme-body-background-translucent, rgba(255,255,255,0.88));
+		backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border:1px solid var(--theme-border); border-top:none; border-radius:0 0 12px 12px;
+		box-shadow:0 4px 14px rgba(0,0,0,0.14); cursor:pointer; transition:transform .28s cubic-bezier(0.2,0.7,0.3,1), color .2s, background .2s;
+	}
+	body.theme-dark #header-reveal { background:var(--theme-body-background-translucent, rgba(32,32,36,0.88)); }
+	#header-reveal:hover { color:var(--theme-text); }
+	body.chrome-hidden #header-reveal { transform:translateX(-50%) translateY(0); }
+	#header-reveal svg { width:14px; height:14px; }
+
+	/* ── PLAYER OVERLAY · pills inside the stage frame (YouTube-style) ──
+	   Two translucent pills float over the 16:9 frame: LEFT = "view options"
+	   (callout / outline / shortcuts), RIGHT = "player" (audio / captions / hide-bar / fullscreen). */
+	.stage-overlay {
+		position:absolute; right:12px; bottom:10px; z-index:25;
+		display:flex; align-items:center; gap:2px;
+		padding:3px 6px; border-radius:999px;
+		background:rgba(16,18,24,0.58);
+		backdrop-filter:blur(9px) saturate(1.3); -webkit-backdrop-filter:blur(9px) saturate(1.3);
+		box-shadow:0 4px 16px rgba(0,0,0,0.32);
+	}
+	.ovl-btn {
+		-webkit-appearance:none; appearance:none; margin:0; font:inherit;
+		display:inline-flex; align-items:center; justify-content:center; gap:4px;
+		min-width:30px; height:30px; padding:0 8px;
+		border:none !important; border-radius:999px !important;
+		background:transparent !important; color:#fff !important;
+		box-shadow:none !important; cursor:pointer; line-height:1;
+		font-size:0.82rem; font-weight:700; opacity:0.92; transition:background .15s ease, opacity .15s ease;
+	}
+	.ovl-btn:hover { background:rgba(255,255,255,0.16) !important; opacity:1; }
+	.ovl-btn:disabled { opacity:0.4; cursor:not-allowed; }
+	.ovl-btn svg { width:18px; height:18px; fill:currentColor; display:block; }
+	.ovl-btn.on { color:#5cc8ff !important; }
+	.stage-overlay #audio-toggle { opacity:1 !important; }
+	.stage-overlay .aw-audio-ico { font-size:1rem; line-height:1; }
+	.stage-overlay .aw-audio-time { font-size:0.78rem; font-variant-numeric:tabular-nums; letter-spacing:0.02em; opacity:0.95; min-width:2.4em; text-align:left; }
+	#cc-toggle svg { width:20px; height:20px; }
+	.ovl-btn .fs-exit { display:none; }
+	body.is-fs .ovl-btn .fs-enter { display:none; }
+	body.is-fs .ovl-btn .fs-exit { display:block; }
+
+	/* ── LEFT VIEW-OPTIONS PILL · Callout / Outline / Shortcuts (icon + hover tip) ── */
+	.stage-overlay-left { right:auto; left:12px; }
+	#stage-overlay-left .ovl-btn:not(.toggle-active) { opacity:0.86; }
+	#stage-overlay-left .ovl-btn.toggle-active { color:#5cc8ff !important; opacity:1; }
+	#stage-overlay-left .ovl-btn:hover { opacity:1; }
+	/* Hover tooltip shown above the icon (left-anchored so it never clips the frame edge) */
+	.ovl-btn[data-tip] { position:relative; }
+	.ovl-btn[data-tip]::after { content:attr(data-tip); position:absolute; left:0; bottom:calc(100% + 9px); transform:translateY(4px); padding:4px 8px; border-radius:6px; background:rgba(16,18,24,0.96); color:#fff; font-size:0.72rem; font-weight:600; white-space:nowrap; letter-spacing:0.01em; opacity:0; pointer-events:none; box-shadow:0 3px 12px rgba(0,0,0,0.45); transition:opacity .14s ease, transform .14s ease; z-index:40; }
+	.ovl-btn[data-tip]::before { content:''; position:absolute; left:13px; bottom:calc(100% + 4px); border:5px solid transparent; border-top-color:rgba(16,18,24,0.96); opacity:0; pointer-events:none; transition:opacity .14s ease; z-index:40; }
+	.ovl-btn[data-tip]:hover::after { opacity:1; transform:translateY(0); }
+	.ovl-btn[data-tip]:hover::before { opacity:1; }
+
+	/* ── CAPTION · overlaid inside the frame, draggable + resizable, stays solid (not see-through) ── */
+	#aw-caption {
+		position:absolute; left:50%; transform:translateX(-50%); bottom:56px; z-index:24;
+		max-width:92%; min-width:140px; min-height:38px; max-height:44%;
+		display:none; align-items:center; justify-content:center; text-align:center;
+		padding:0.42rem 0.95rem; border-radius:9px;
+		background:rgba(8,9,13,0.8); color:#fff;
+		font-size:1.1rem; line-height:1.36; font-weight:600;
+		box-shadow:0 3px 14px rgba(0,0,0,0.42); pointer-events:auto; cursor:grab; touch-action:none;
+		overflow:auto; resize:both;   /* user can reshape the caption; corner grip = resize */
+	}
+	#aw-caption:active { cursor:grabbing; }
+	#aw-caption::-webkit-resizer { background:linear-gradient(135deg, transparent 45%, rgba(255,255,255,0.55) 45%, rgba(255,255,255,0.55) 55%, transparent 55%); }
+	body.cc-on #aw-caption.has-text { display:flex; }
+	@media (max-width:640px){ #aw-caption { font-size:0.94rem; bottom:48px; max-width:90%; } }
+
+	/* ── OUTLINE PANEL · draggable + slightly see-through ── */
+	#step-outline {
+		position:fixed; top:4.5rem; right:1rem; width:320px; max-height:calc(100vh - 8rem); overflow-y:auto;
+		padding:1.1rem; background:var(--theme-body-background);
+		background:color-mix(in srgb, var(--theme-body-background) 85%, transparent);
+		-webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
+		border:1px solid var(--theme-border);
+		border-radius:6px; box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2)); z-index:35; font-size:1rem; line-height:1.55;
+		cursor:grab; touch-action:none;
+	}
+	#step-outline:active { cursor:grabbing; }
+	#step-outline[hidden] { display:none; }
+	#step-outline h2 { font-size:0.85rem; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--theme-tertiary,#5c2d91); margin-bottom:0.5rem; }
+	#step-outline .outline-section { margin-top:0.6rem; padding-top:0.6rem; border-top:1px solid var(--theme-border); }
+	#step-outline .outline-section:first-child { margin-top:0; padding-top:0; border-top:0; }
+	#step-outline .stat-row { display:flex; justify-content:space-between; align-items:baseline; gap:0.75rem; padding:0.2rem 0; }
+	#step-outline .stat-row span:first-child { color:var(--theme-text-subtle); flex:0 0 auto; max-width:45%; }
+	#step-outline .stat-row span:last-child { text-align:right; font-weight:600; color:var(--theme-tertiary,#5c2d91); flex:1 1 auto; }
+
+	.progress-track { position:relative; height:6px; background:var(--theme-border, #e0e0e0); flex-shrink:0; cursor:pointer; }
+	.progress-fill { position:absolute; left:0; top:0; bottom:0; width:0%; background:var(--aw-purple, #5c2d91); transition:width .5s cubic-bezier(0.2,0.8,0.2,1); pointer-events:none; }
+	.progress-tick { position:absolute; top:0; bottom:0; width:2px; margin-left:-1px; background:var(--theme-body-background); opacity:0.6; pointer-events:none; }
+
+	/* ── THEME / LANG / FONT CONTROLS ──────── */
+	.theme-toggle { display:inline-flex; align-items:center; justify-content:center; width:2.25rem; height:2.25rem; padding:0; margin-inline-start:0.25rem; background:transparent; border:1px solid var(--theme-border); border-radius:999px; color:var(--theme-text); cursor:pointer; transition:background .15s,color .15s,border-color .15s; }
+	.theme-toggle:hover { background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary); border-color:var(--theme-primary); }
+	.theme-toggle .theme-icon { display:none; }
+	.theme-toggle[data-theme="dark"] .icon-sun { display:block; }
+	.theme-toggle[data-theme="light"] .icon-moon { display:block; }
+	.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+	.skip-link { position:absolute; top:-100px; left:0.5rem; z-index:100; padding:0.5rem 1rem; background:var(--theme-primary); color:var(--theme-primary-invert,#fff); border-radius:4px; text-decoration:none; font-weight:600; }
+	.skip-link:focus { top:0.5rem; }
+	.header-back-link { display:inline-flex; align-items:center; gap:0.25rem; padding:0.2rem 0.6rem; font-size:0.8rem; font-weight:600; color:var(--theme-text-subtle); border:1px solid var(--theme-border); border-radius:999px; text-decoration:none; white-space:nowrap; transition:background .15s,color .15s,border-color .15s; }
+	.header-back-link:hover { color:var(--theme-primary); border-color:var(--theme-primary); background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); }
+	.lang-select {
+		appearance:none; -webkit-appearance:none; background:var(--theme-card-background,#fff); color:var(--theme-body-text,#333);
+		border:1px solid var(--theme-border, rgba(0,0,0,0.2)); border-radius:4px; padding:4px 24px 4px 8px;
+		font-size:0.8rem; font-family:'Segoe UI', sans-serif; cursor:pointer;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+		background-repeat:no-repeat; background-position:right 6px center; min-width:80px;
+	}
+	.lang-select:hover { border-color:var(--theme-primary, #0078d4); }
+	.lang-select:focus { outline:2px solid var(--theme-primary, #0078d4); outline-offset:1px; }
+	body.theme-dark .lang-select {
+		background-color:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); border-color:rgba(255,255,255,0.15);
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23aaa' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+	}
+	body.theme-dark .lang-select option { background:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); }
+	.font-size-controls { display:flex; align-items:center; gap:2px; }
+	.font-size-btn { background:var(--theme-card-background,#fff); color:var(--theme-body-text,#333); border:1px solid var(--theme-border, rgba(0,0,0,0.2)); border-radius:4px; padding:3px 8px; font-size:0.8rem; font-weight:700; font-family:'Segoe UI', sans-serif; cursor:pointer; line-height:1.2; transition:background .15s,border-color .15s; }
+	.font-size-btn:hover { border-color:var(--theme-primary, #0078d4); }
+	body.theme-dark .font-size-btn { background:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); border-color:rgba(255,255,255,0.15); }
+
+	/* Inline icons (crisp on any OS/projector — replaces raw emoji on stage) */
+	.ic { display:inline-flex; align-items:center; justify-content:center; vertical-align:-0.125em; }
+	.ic svg { width:1em; height:1em; fill:currentColor; display:block; }
+	.help-toggle svg { width:15px; height:15px; vertical-align:-2px; }
+
+	/* Keyboard shortcut overlay */
+	#shortcut-overlay { position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center; }
+	#shortcut-overlay[hidden] { display:none; }
+	.sc-backdrop { position:absolute; inset:0; background:rgba(0,0,0,0.5); -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px); }
+	.sc-panel { position:relative; z-index:1; width:min(430px,92vw); max-height:82vh; overflow:auto; padding:1.5rem 1.6rem; background:var(--theme-body-background); border:1px solid var(--theme-border); border-radius:16px; box-shadow:0 24px 70px rgba(0,0,0,0.4); }
+	.sc-panel h2 { margin:0 0 1rem; font-size:1.25rem; color:var(--theme-tertiary,#5c2d91); }
+	body.theme-dark .sc-panel h2 { color:#c9a5e8; }
+	.sc-close { position:absolute; top:0.7rem; right:0.7rem; width:2rem; height:2rem; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--theme-border); border-radius:50%; background:transparent; color:var(--theme-text-subtle); cursor:pointer; }
+	.sc-close:hover { color:var(--theme-text); border-color:var(--theme-primary,#0078d4); }
+	.sc-close svg { width:15px; height:15px; }
+	.sc-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:0.55rem; }
+	.sc-list li { display:flex; align-items:center; justify-content:space-between; gap:1rem; font-size:1rem; color:var(--theme-text); }
+	.sc-keys { display:inline-flex; gap:0.3rem; flex:none; }
+	.sc-panel kbd, .sc-hint kbd { font-family:'Cascadia Code','Consolas',monospace; font-size:0.82rem; line-height:1; padding:0.28rem 0.5rem; border-radius:6px; border:1px solid var(--theme-border); border-bottom-width:2px; background:var(--theme-card-background,#fff); color:var(--theme-text); }
+	body.theme-dark .sc-panel kbd, body.theme-dark .sc-hint kbd { background:rgba(255,255,255,0.08); }
+	.sc-hint { margin:1.1rem 0 0; font-size:0.85rem; color:var(--theme-text-subtle); text-align:center; }
+
+	@media (max-width:640px) { .app-header { font-size:0.95rem; } .scene-title { font-size:1.9rem; } #stage { padding:0.9rem 1rem 4.5rem; } }
+	/* ── "Up next" pill · appears on the last step so learners chain to the next stop ── */
+	#journey-next { position:fixed; z-index:60; right:1.4rem; bottom:1.1rem; max-width:min(32rem,52vw); opacity:0; visibility:hidden; transform:translateY(12px); transition:opacity .5s ease, transform .5s ease, visibility .5s ease; }
+	#journey-next.show { opacity:1; visibility:visible; transform:none; }
+	.jn-card { display:flex; align-items:center; gap:0.7rem; padding:0.5rem 0.55rem 0.5rem 0.8rem; border-radius:14px; background:var(--theme-card-background,#fff); border:1px solid color-mix(in srgb, var(--aw-purple) 30%, var(--theme-border)); box-shadow:0 14px 34px rgba(0,0,0,0.3); }
+	body.theme-dark .jn-card { background:#15151d; }
+	.jn-icon { flex:none; width:2.4rem; height:2.4rem; display:grid; place-items:center; }
+	.jn-icon img { width:100%; height:100%; object-fit:contain; }
+	.jn-text { display:flex; flex-direction:column; line-height:1.2; min-width:0; }
+	.jn-eyebrow { display:inline-flex; align-items:center; gap:0.35rem; font-size:0.7rem; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:var(--aw-purple); }
+	.jn-check { display:grid; place-items:center; width:0.95rem; height:0.95rem; border-radius:50%; background:var(--aw-green); color:#fff; font-size:0.68rem; }
+	.jn-title { font-size:1.11rem; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+	.jn-cta { flex:none; display:inline-flex; align-items:center; gap:0.4rem; padding:0.5rem 0.95rem; border-radius:10px; font-size:1.02rem; font-weight:700; text-decoration:none; color:#fff; background:linear-gradient(120deg, var(--aw-purple), var(--aw-blue)); box-shadow:0 8px 20px rgba(92,45,145,0.4); transition:transform .15s ease, box-shadow .15s ease; }
+	.jn-cta:hover { transform:translateY(-1px); box-shadow:0 12px 26px rgba(92,45,145,0.5); }
+	.jn-close { flex:none; width:1.7rem; height:1.7rem; display:grid; place-items:center; border:none; border-radius:8px; cursor:pointer; background:transparent; color:var(--theme-text); opacity:0.5; }
+	.jn-close:hover { opacity:1; background:color-mix(in srgb, var(--theme-text) 10%, transparent); }
+	.jn-close svg { width:15px; height:15px; }
+	@media (max-width:860px){ #journey-next { right:0.8rem; bottom:5.1rem; max-width:min(22rem,88vw); } }
+	@media (prefers-reduced-motion: reduce){ #journey-next { transition:none !important; transform:none !important; } }
+
+	@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition:none !important; animation:none !important; } .progress-fill { transition:none !important; } }
+
+	/* ══ MICROSOFT 365 SCENES ══ */
+	.m3-logo { display:inline-block; vertical-align:middle; flex:0 0 auto; }
+	.m3-ic { display:block; flex:0 0 auto; }
+	.m3-typing::after { content:''; display:inline-block; width:2px; height:1.05em; background:#5c2d91; margin-left:2px; vertical-align:-2px; animation:m3Blink 0.9s steps(1,end) infinite; }
+	@keyframes m3Blink { 50% { opacity:0; } }
+	/* ══ COWORK · HAND OFF THE WORK (this page) — product surfaces come from lib/css/aw-cowork-ui.css ══ */
+	.scene { padding-bottom:2.6rem; }   /* guard band: keeps content clear of the in-frame player pills */
+	:root { --ho-teal:#0f7b80; --ho-teal-soft:#e3f4f4; --ho-card:#ffffff; --ho-line:#d9d6e3; --ho-ink:#1f1d24; --ho-sub:#5f5b69; --ho-ok:#107c41; --ho-no:#b42a3e; }
+	body.theme-dark { --ho-teal:#5fd3d6; --ho-teal-soft:#1f3a3b; --ho-card:#2e2d37; --ho-line:#4a4854; --ho-ink:#efedf5; --ho-sub:#bcb8c8; --ho-ok:#6fd49a; --ho-no:#ff9aa8; }
+	.ho-row { display:flex; gap:1rem; justify-content:center; align-items:stretch; flex-wrap:wrap; width:100%; }
+	.ho-card { display:flex; flex-direction:column; gap:0.45rem; padding:1rem 1.1rem; border-radius:14px; text-align:left; opacity:0;
+		background:var(--ho-card); border:2px solid var(--ho-line); box-shadow:0 8px 22px rgba(0,0,0,0.12); color:var(--ho-ink); }
+	.ho-card b { font-size:1.05rem; font-weight:600; }
+	.ho-card span { font-size:0.9rem; color:var(--ho-sub); line-height:1.45; }
+	.ho-card .ho-apps { display:flex; gap:0.4rem; margin-top:0.2rem; }
+	.ho-card .ho-apps img { width:22px; height:22px; }
+	.ho-four { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); width:min(1060px,98%); }
+	.ho-card.is-teal { border-color:var(--ho-teal); }
+	.ho-card.is-teal b { color:var(--ho-teal); }
+	.ho-card.is-dim { opacity:0.45 !important; }
+	.ho-tag { align-self:flex-start; font-size:0.8rem; padding:0.15rem 0.6rem; border-radius:999px; border:1px solid var(--ho-line); color:var(--ho-sub); }
+	.ho-tag.is-teal { border-color:var(--ho-teal); color:var(--ho-teal); background:var(--ho-teal-soft); }
+	.ho-tag.is-ok { border-color:var(--ho-ok); color:var(--ho-ok); }
+	.ho-tag.is-no { border-color:var(--ho-no); color:var(--ho-no); }
+	.ho-banner { display:inline-flex; align-items:center; gap:0.6rem; padding:0.6rem 1.2rem; border-radius:12px; font-size:1.05rem; opacity:0;
+		background:var(--ho-teal-soft); border:2px solid var(--ho-teal); color:var(--ho-ink); }
+	.ho-banner b { color:var(--ho-teal); font-weight:600; }
+	.ho-count { font-size:0.9rem; color:var(--ho-sub); opacity:0; }
+
+	/* step 2 · which tool */
+	.ho-tools .ho-card { flex:0 1 300px; }
+	.ho-qs { display:flex; flex-direction:column; gap:0.45rem; width:min(940px,96%); }
+	.ho-q { display:flex; align-items:center; gap:0.7rem; padding:0.5rem 0.9rem; border-radius:10px; font-size:0.95rem; opacity:0;
+		background:var(--ho-card); border:1px solid var(--ho-line); color:var(--ho-ink); }
+	.ho-q .ho-tag { margin-left:auto; }
+
+	/* step 3 · home with callout labels */
+	.ho-win { opacity:0; }
+
+	.ho-home { display:grid; grid-template-columns:minmax(0,1fr) 13.5rem; gap:1.1rem; align-items:center; width:min(1100px,98%); }
+	.ho-home .ho-win { width:100%; }
+	.ho-notes { display:flex; gap:0.6rem; justify-content:center; flex-wrap:wrap; }
+	.ho-home .ho-notes { flex-direction:column; align-items:stretch; }
+	.ho-note { font-size:0.85rem; padding:0.35rem 0.8rem; border-radius:999px; text-align:center; opacity:0; border:1px solid var(--ho-teal); color:var(--ho-teal); background:var(--ho-teal-soft); }
+
+	/* step 4 · three requests, auto-played */
+	.ho-reqs { display:flex; flex-direction:column; gap:0.6rem; width:min(1040px,98%); }
+	.ho-req { display:flex; align-items:flex-start; gap:0.9rem; padding:0.75rem 1rem; border-radius:12px; text-align:left; opacity:0;
+		background:var(--ho-card); border:2px solid var(--ho-line); color:var(--ho-ink); }
+	.ho-req-k { flex:none; width:9.5rem; font-size:0.8rem; font-weight:600; letter-spacing:0.05em; text-transform:uppercase; color:var(--ho-sub); padding-top:0.15rem; }
+	.ho-req-t { flex:1; font-size:0.98rem; line-height:1.5; font-style:italic; }
+	.ho-req .ho-tag { flex:none; }
+	.ho-req.is-best { border-color:var(--ho-ok); }
+	.ho-req.is-best .ho-req-k { color:var(--ho-ok); }
+	.ho-ctx { display:flex; gap:0.5rem; flex-wrap:wrap; justify-content:center; align-items:center; }
+	.ho-ctx-h { font-size:0.9rem; color:var(--ho-sub); }
+
+	/* step 5–8 · the Cowork window steps */
+	.ho-stack { display:flex; flex-direction:column; align-items:center; gap:0.8rem; width:min(1040px,98%); }
+	.ho-stack .cw-win { width:100%; }
+	.ho-split { display:grid; grid-template-columns:minmax(0,1fr) 25rem; gap:1.1rem; align-items:start; width:min(1100px,98%); }
+	.ho-split > .cw-win, .ho-split > .cw-card, .ho-split > .ho-col { opacity:0; }
+	.ho-col { display:flex; flex-direction:column; gap:0.7rem; }
+	.ho-queued { display:inline-flex; align-items:center; gap:0.5rem; align-self:flex-end; opacity:0; }
+	.ho-split .cw-main { min-height:220px; }
+	.ho-split.is-wide { grid-template-columns:minmax(0,1fr) 19rem; }
+	.ho-approve { display:flex; gap:1.1rem; align-items:center; justify-content:center; width:min(1000px,98%); }
+	.ho-approve .cw-approval { flex:0 1 34rem; opacity:0; }
+	.ho-approve .ho-menu { opacity:0; }
+
+	/* step 9 · what drives usage */
+	.ho-cost { display:flex; gap:1.2rem; align-items:center; justify-content:center; flex-wrap:wrap; width:100%; }
+	.ho-drivers { display:flex; flex-direction:column; gap:0.5rem; width:min(430px,96%); }
+	.ho-driver { display:grid; grid-template-columns:10.5rem 1fr; gap:0.6rem; align-items:center; font-size:0.9rem; color:var(--ho-ink); opacity:0; }
+	.ho-bar { height:10px; border-radius:999px; background:var(--ho-line); overflow:hidden; }
+	.ho-bar i { display:block; height:100%; width:0; background:var(--ho-teal); border-radius:999px; }
+	.ho-cost .cw-win { width:min(520px,96%); }
+
+	/* step 10 · the loop + guardrails */
+	.ho-loop { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:0.9rem; width:min(1060px,98%); position:relative; }
+	.ho-loop .ho-card { align-items:center; text-align:center; }
+	.ho-loop .ho-num { width:2rem; height:2rem; border-radius:50%; display:grid; place-items:center; font-size:0.95rem; font-weight:600; color:#fff; background:var(--ho-teal); }
+	body.theme-dark .ho-loop .ho-num { color:#17242a; }
+	.ho-guards { display:flex; gap:0.6rem; flex-wrap:wrap; justify-content:center; }
+	.ho-guard { font-size:0.9rem; padding:0.35rem 0.9rem; border-radius:999px; opacity:0; border:2px solid var(--ho-ok); color:var(--ho-ok); }
+	.ho-limits { display:flex; gap:0.5rem; flex-wrap:wrap; justify-content:center; }
+	.ho-limit { font-size:0.85rem; padding:0.25rem 0.75rem; border-radius:999px; opacity:0; border:1px solid var(--ho-line); color:var(--ho-sub); }
+	.ho-foot { font-size:1rem; color:var(--theme-text); text-align:center; max-width:880px; opacity:0; line-height:1.5; }
+	.ho-foot a { color:var(--ho-teal); font-weight:600; }
+</style>
+	<!-- SEO:START -->
+	<link rel="canonical" href="https://azureanimations.github.io/journeys/Copilot/CoworkHandOff.html" />
+	<meta name="robots" content="index, follow, max-image-preview:large" />
+	<meta property="og:type" content="website" />
+	<meta property="og:site_name" content="Azure Animations" />
+	<meta property="og:title" content="Hand off the work with Copilot Cowork · Azure Animations" />
+	<meta property="og:description" content="Hand off the work with Microsoft Copilot Cowork: when to pick Cowork over Chat or an agent, how to write an outcome-first request, how Cowork plans, asks and waits for your approval, where the results land, what drives Copilot Credits, and the guardrails." />
+	<meta property="og:url" content="https://azureanimations.github.io/journeys/Copilot/CoworkHandOff.html" />
+	<meta property="og:image" content="https://azureanimations.github.io/img/favicon.png" />
+	<meta property="og:image:alt" content="Azure Animations" />
+	<meta name="twitter:card" content="summary" />
+	<meta name="twitter:title" content="Hand off the work with Copilot Cowork · Azure Animations" />
+	<meta name="twitter:description" content="Hand off the work with Microsoft Copilot Cowork: when to pick Cowork over Chat or an agent, how to write an outcome-first request, how Cowork plans, asks and waits for your approval, where the results land, what drives Copilot Credits, and the guardrails." />
+	<meta name="twitter:image" content="https://azureanimations.github.io/img/favicon.png" />
+	<meta name="twitter:image:alt" content="Azure Animations" />
+	<script type="application/ld+json">
+	{"@context":"https://schema.org","@type":"WebPage","name":"Hand off the work with Copilot Cowork · Azure Animations","description":"Hand off the work with Microsoft Copilot Cowork: when to pick Cowork over Chat or an agent, how to write an outcome-first request, how Cowork plans, asks and waits for your approval, where the results land, what drives Copilot Credits, and the guardrails.","url":"https://azureanimations.github.io/journeys/Copilot/CoworkHandOff.html","isPartOf":{"@type":"WebSite","name":"Azure Animations","url":"https://azureanimations.github.io/"},"breadcrumb":{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Azure Animations","item":"https://azureanimations.github.io/"},{"@type":"ListItem","position":2,"name":"Microsoft 365 Copilot","item":"https://azureanimations.github.io/journeys/Copilot/"},{"@type":"ListItem","position":3,"name":"Hand off the work with Copilot Cowork","item":"https://azureanimations.github.io/journeys/Copilot/CoworkHandOff.html"}]}}
+	</script>
+	<!-- SEO:END -->
+</head>
+
+<body class="theme-dark" data-theme-preset="atlas">
+
+	<a href="#stage" class="skip-link">Skip to diagram</a>
+
+	<header class="app-header padding-block-xs padding-inline-md border-bottom" role="banner" style="justify-content:space-between;">
+		<div class="display-flex align-items-center gap-xs">
+			<!-- Set href to the previous animation in the journey, or the hub index.html -->
+			<a href="index.html" class="header-back-link" aria-label="Back to the Copilot journey">&larr; Copilot journey</a>
+			<span id="page-title" class="font-size-h6 font-weight-semibold"><img class="m3-logo" src="../../lib/icons/brands/Microsoft365Copilot.svg" alt="" width="22" height="22" decoding="async"> Microsoft 365 Copilot</span>
+		</div>
+		<nav class="display-flex gap-xs align-items-center" aria-label="Primary">
+			<span id="breadcrumb" class="font-size-sm color-text-subtle">Step 1</span>
+		</nav>
+		<div class="display-flex gap-xs align-items-center">
+			<!-- AW:lang --><select id="lang-select" class="lang-select" aria-label="Language" title="Language"><option value="en">English</option><option value="es">Español</option><option value="ja">日本語</option><option value="ko">한국어</option><option value="pt">Português</option></select><!-- /AW:lang -->
+			<div class="font-size-controls">
+				<button id="font-decrease" type="button" class="font-size-btn" aria-label="Decrease font size" title="Smaller text">A&minus;</button>
+				<button id="font-increase" type="button" class="font-size-btn" aria-label="Increase font size" title="Larger text">A+</button>
+			</div>
+			<!-- AW:theme --><button id="theme-toggle" type="button" class="theme-toggle" aria-label="Switch theme" title="Switch theme"><svg class="theme-icon icon-moon ico ico-moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path fill="currentColor" d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg><svg class="theme-icon icon-sun ico ico-sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.5" y1="4.5" x2="6.5" y2="6.5"/><line x1="17.5" y1="17.5" x2="19.5" y2="19.5"/><line x1="4.5" y1="19.5" x2="6.5" y2="17.5"/><line x1="17.5" y1="6.5" x2="19.5" y2="4.5"/></g></svg></button><!-- /AW:theme -->
+			<button id="header-hide-top" type="button" aria-label="Hide top bar" title="Hide top bar (H)">
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/></svg>
+			</button>
+		</div>
+	</header>
+
+	<button id="header-reveal" type="button" aria-label="Show top bar" title="Show top bar">
+		<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/></svg>
+		<span>Toolbar</span>
+	</button>
+
+	<div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
+
+	<main id="stage" tabindex="0" role="region" aria-labelledby="stage-heading" aria-describedby="stage-instructions">
+		<h1 id="stage-heading" class="sr-only" tabindex="-1">Title Here</h1>
+		<p id="stage-instructions" class="sr-only">Animated explainer. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.</p>
+		<div id="step-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+		<!-- Fixed 16:9 stage. Every scene is drawn INSIDE this box; it always fits the viewport (no scrollbars). -->
+		<div id="stage-frame">
+			<svg id="fx-svg" aria-hidden="true" focusable="false">
+				<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L0,10 L10,5 Z" fill="currentColor"/></marker></defs>
+			</svg>
+			<!-- Caption bar (synced to the step's audio clip by aw-captions.js) -->
+			<div id="aw-caption" class="aw-caption" aria-hidden="true"></div>
+			<!-- LEFT pill · view options: callout / outline / shortcuts (icons; label shows as a hover tooltip) -->
+			<div id="stage-overlay-left" class="stage-overlay stage-overlay-left" role="group" aria-label="View options">
+				<button id="callout-toggle" type="button" class="ovl-btn" aria-label="Toggle callouts" aria-pressed="false" data-tip="Callouts: Off"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M4 5h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H10l-4 3v-3H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></svg></button>
+				<button id="outline-toggle" type="button" class="ovl-btn" aria-controls="step-outline" aria-expanded="false" aria-label="Toggle text outline" data-tip="Outline: Off"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" d="M4 6h16M4 12h16M4 18h10"/></svg></button>
+				<button id="help-toggle" class="ovl-btn help-toggle" type="button" aria-haspopup="dialog" aria-controls="shortcut-overlay" aria-label="Keyboard shortcuts (press ?)" data-tip="Shortcuts"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M11 18h2v-2h-2v2zm1.1-14C9.8 4 8 5.8 8 8h2a2 2 0 1 1 3.2 1.6c-.9.7-2.2 1.5-2.2 3.4h2c0-1 .8-1.5 1.7-2.2A4 4 0 0 0 12.1 4z"/></svg></button>
+			</div>
+			<!-- RIGHT pill · player: audio / captions / hide-top-bar / fullscreen -->
+			<div id="stage-overlay" class="stage-overlay" role="group" aria-label="Player controls">
+				<button id="audio-toggle" class="ovl-btn ovl-audio" type="button" aria-label="Toggle audio narration" aria-pressed="false" title="Narration audio"></button>
+				<button id="cc-toggle" class="ovl-btn" type="button" aria-label="Toggle captions" aria-pressed="false" title="Captions"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9.7 10.2a2.1 2.1 0 1 0 0 3.6M17 10.2a2.1 2.1 0 1 0 0 3.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+				<button id="header-hide" class="ovl-btn" type="button" aria-label="Hide top bar" title="Hide top bar (H)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/></svg></button>
+				<button id="fs-toggle" class="ovl-btn" type="button" aria-label="Toggle full screen" aria-pressed="false" title="Full screen (F)"><svg class="fs-enter" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg><svg class="fs-exit" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg></button>
+			</div>
+		</div>
+	</main>
+
+	<aside id="step-outline" hidden aria-label="Text outline of the current step">
+		<h2 id="outline-title">Step Details</h2>
+		<div id="outline-body"></div>
+	</aside>
+
+	<div id="controls" role="group" aria-label="Diagram navigation">
+		<button id="ctrl-grip" type="button" class="ctrl-grip" aria-label="Drag to move the controls" title="Drag to move">
+			<svg viewBox="0 0 16 16" aria-hidden="true"><g fill="currentColor"><circle cx="5" cy="3" r="1.4"/><circle cx="11" cy="3" r="1.4"/><circle cx="5" cy="8" r="1.4"/><circle cx="11" cy="8" r="1.4"/><circle cx="5" cy="13" r="1.4"/><circle cx="11" cy="13" r="1.4"/></g></svg>
+		</button>
+		<button id="ctrl-pin" type="button" class="button button-clear ctrl-icon ctrl-pin" aria-label="Pin the controls back to the center" title="Pin to center">
+			<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9 2h6a1 1 0 0 1 .8 1.6L14 6v4l3 3v2h-4v5l-1 2-1-2v-5H7v-2l3-3V6L8.2 3.6A1 1 0 0 1 9 2z"/></svg>
+		</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="prev-btn" type="button" class="button ctrl-icon" aria-label="Previous step (left arrow)">&#9664;</button>
+		<div class="step-counter" id="step-counter">0 / 0</div>
+		<button id="next-btn" type="button" class="button button-primary button-filled ctrl-icon ctrl-icon-next" aria-label="Next step (right arrow or space)">&#9654;</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="replay-btn" type="button" class="button ctrl-icon" aria-label="Replay this step's animation (P)">&#8635;</button>
+		<div class="speed-control" role="group" aria-label="Animation speed">
+			<button id="speed-down" type="button" class="button button-clear speed-btn" aria-label="Slower (-)" title="Slower">&minus;</button>
+			<span id="speed-label" class="speed-label" aria-live="polite" aria-label="Current speed">1&times;</span>
+			<button id="speed-up" type="button" class="button button-clear speed-btn" aria-label="Faster (+)" title="Faster">+</button>
+		</div>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="reset-btn" type="button" class="button button-clear ctrl-icon" aria-label="Restart from step 1 (R)">&#9198;</button>
+	</div>
+
+	<!-- "Up next" pill — docked bottom-right on the last step so learners chain to the next stop -->
+	<div id="journey-next" aria-hidden="true">
+		<div class="jn-card" role="group" aria-label="Continue to the next stop">
+			<span class="jn-icon"><img id="jn-icon-img" src="" alt="" decoding="async" /></span>
+			<span class="jn-text">
+				<span class="jn-eyebrow"><span class="jn-check" aria-hidden="true">✓</span><span id="jn-eyebrow-text">Up next</span></span>
+				<span class="jn-title" id="jn-title">Next stop</span>
+			</span>
+			<a id="jn-cta" class="jn-cta" href="#"><span id="jn-cta-text">Continue</span><span aria-hidden="true">→</span></a>
+			<button id="jn-close" class="jn-close" type="button" aria-label="Dismiss"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
+		</div>
+	</div>
+
+	<div id="shortcut-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="sc-title">
+		<div class="sc-backdrop"></div>
+		<div class="sc-panel">
+			<button id="sc-close" class="sc-close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
+			<h2 id="sc-title">Keyboard shortcuts</h2>
+			<ul id="sc-list" class="sc-list"></ul>
+			<p class="sc-hint">Press <kbd>?</kbd> anytime to toggle this panel.</p>
+		</div>
+	</div>
+
+<script>
+// ── THEME ─────────────────────────────────
+const themeToggleBtn = document.getElementById('theme-toggle');
+function syncThemeBtn(){
+	if (!themeToggleBtn) return;
+	const isDark = document.body.classList.contains('theme-dark');
+	themeToggleBtn.dataset.theme = isDark ? 'dark' : 'light';   // drives which glyph (sun/moon) shows
+	const label = isDark ? 'Switch to light theme' : 'Switch to dark theme';
+	themeToggleBtn.setAttribute('aria-label', label);
+	themeToggleBtn.setAttribute('title', label);
+}
+if (window.AW && AW.theme) {
+	// aw-theme.js owns click handling + persistence; theme recolors via CSS variables, so no re-render/replay.
+	AW.theme.onChange(() => { syncThemeBtn(); });
+	syncThemeBtn();
+} else {
+	// Standalone fallback: toggle .theme-dark / .theme-light on <body> ourselves.
+	syncThemeBtn();
+	if (themeToggleBtn) themeToggleBtn.addEventListener('click', () => {
+		const goingDark = !document.body.classList.contains('theme-dark');
+		document.body.classList.remove('theme-dark', 'theme-light');
+		document.body.classList.add(goingDark ? 'theme-dark' : 'theme-light');
+		try { localStorage.setItem('aw-theme', goingDark ? 'theme-dark' : 'theme-light'); } catch(_){}
+		syncThemeBtn();
+	});
+	// restore a previously chosen theme (standalone only)
+	try { const saved = localStorage.getItem('aw-theme'); if (saved === 'theme-light' || saved === 'theme-dark') { document.body.classList.remove('theme-dark','theme-light'); document.body.classList.add(saved); syncThemeBtn(); } } catch(_){}
+}
+
+// ── i18n ──────────────────────────────────
+// English is the source language. Add sibling objects (es/ja/ko/pt) with the
+// SAME keys + matching <option>s in #lang-select. Keep brand/code/proper-noun
+// sample data untranslated.
+let currentLang = 'en';
+const I18N = {
+	en: {
+		skipToMain: 'Skip to diagram',
+		pageTitle: 'Hand off the work',
+		stageHeading: 'Hand off the work with Copilot Cowork',
+		stageInstructions: 'An animated introduction to Microsoft Copilot Cowork \u2014 when to use it, how to write a request, how it works, approvals, results, credits and guardrails. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.',
+		prev: '\u25C0 Prev', next: 'Next \u25B6', replay: '\u21BB Replay', restart: '\u21BB Restart',
+		slower: 'Slower', faster: 'Faster',
+		calloutOn: 'Callouts: On', calloutOff: 'Callouts: Off',
+		outlineOn: 'Outline: On', outlineOff: 'Outline: Off',
+		audioTip: 'Narration audio', ccTip: 'Captions', shortcutsTip: 'Shortcuts',
+		stepDetails: 'Step Details', stepOf: 'Step',
+		resetPos: 'Reset to default position',
+		openNewTab: 'Open in a new tab',
+		scTitle: 'Keyboard shortcuts',
+		scNext: 'Next step', scPrev: 'Previous step', scRestart: 'Restart', scReplay: 'Replay this step', scHide: 'Hide / show top bar', scHelp: 'Toggle this help',
+
+		// shared Cowork surface labels
+		cwChat: 'Chat', cwCowork: 'Cowork', cwBrand: 'Microsoft Copilot', cwRail: 'Copilot', cwModel: 'Auto', cwEffort: 'Medium',
+		cwNew: 'New task', cwMy: 'My tasks', cwAutos: 'Automations', cwCustom: 'Customize', cwWork: 'Work', cwUser: 'Alex', cwOrg: 'Contoso',
+		sdProgress: 'Progress', sdInput: 'Input folder', sdOutput: 'Output folder', sdSkills: 'Skills', sdSchedule: 'Schedule', sdPerm: 'Permissions',
+		skEmail: 'Email', skWord: 'Word', skMeetings: 'Meetings', skSearch: 'Enterprise Search',
+		bestReq: 'Get me ready for Thursday\u2019s Beacon migration review. Pull our recent threads, summarize what we discussed last time, and draft a one-page briefing I can review.',
+
+		// ── Step 1 · THE PROBLEM ──
+		poTitle: 'Alex\u2019s week isn\u2019t one task',
+		poCaption: 'The problem',
+		poDesc: 'Alex leads the Beacon rollout for Northwind Traders. This week brings an overflowing inbox, a double-booked Thursday, a migration review and a Friday status report \u2014 each spread across several apps.',
+		poCallout: 'Most of a week isn\u2019t single tasks \u2014 it\u2019s the coordination between them.',
+		po1T: '40 unread emails', po1S: 'Beacon threads from Isaiah, Cameron and Allan',
+		po2T: 'A double-booked Thursday', po2S: 'Two meetings, one slot',
+		po3T: 'The Beacon migration review', po3S: 'Prep, agenda, notes and follow-ups',
+		po4T: 'The Friday status report', po4S: 'Numbers pulled from three places',
+		poCount: 'In Chat: about a dozen prompts, managed one at a time',
+		poBanner: '<b>Hand off the goal</b>, not the steps \u2014 that\u2019s Copilot Cowork.',
+		poStat1: 'Who', poStat1v: 'Alex at Contoso',
+		poStat2: 'Project', poStat2v: 'Beacon rollout for Northwind Traders',
+		poStat3: 'The pain', poStat3v: 'Coordination across apps',
+
+		// ── Step 2 · PICK THE TOOL ──
+		pkTitle: 'Conversation, specialist or assignment?',
+		pkCaption: 'Pick the right tool',
+		pkDesc: 'Copilot Chat is a conversation you steer. Agents are purpose-built for one scoped job. Cowork is an assignment: you hand off a goal, and it checks in when it needs you.',
+		pkCallout: 'It\u2019s the same Copilot either way \u2014 what changes is your role.',
+		pkChatT: 'Copilot Chat', pkChatS: 'A conversation \u2014 you steer each turn: one prompt, one result.',
+		pkAgT: 'Agents', pkAgS: 'Purpose-built help for a repeatable, scoped job.',
+		pkCwT: 'Cowork', pkCwS: 'An assignment \u2014 it plans, works across your apps and checks in.',
+		pkQ1: 'Is it one task you can describe in a single prompt?',
+		pkQ2: 'Does it fit a specific, repeatable workflow?',
+		pkQ3: 'Are you describing several tasks you\u2019d rather not manage one by one?',
+		pkA1: 'Copilot Chat', pkA2: 'An agent', pkA3: 'Cowork',
+		pkBanner: 'If your prompt reads like a long list of steps, you\u2019re describing a <b>goal</b> \u2014 hand it to Cowork.',
+		pkStat1: 'Chat', pkStat1v: 'You steer each turn',
+		pkStat2: 'Agents', pkStat2v: 'Scoped, repeatable jobs',
+		pkStat3: 'Cowork', pkStat3v: 'You hand off a goal',
+
+		// ── Step 3 · OPEN COWORK ──
+		hmTitle: 'Open Cowork',
+		hmCaption: 'Cowork home',
+		hmDesc: 'Alex opens Microsoft Copilot in the browser and switches from Chat to Cowork. The home page has a task box, workflow suggestions, and the model left on Auto.',
+		hmCallout: 'Cowork lives inside Microsoft Copilot \u2014 in the browser, the desktop app and on mobile.',
+		hmGreet: 'What\u2019s first today?',
+		hmPlaceholder: 'Start a task\u2026',
+		hmTip: 'Tip: Try one of the workflow suggestions below to get started quickly.',
+		hmNext: 'Try these next', hmMore: 'Show more',
+		hmP1: 'Organize my inbox', hmP2: 'Arrange my week', hmP3: 'Create a new business pitch',
+		hmR1: 'Q3 partner briefing', hmDone: 'Complete',
+		hmN1: 'Chat | Cowork switch', hmN2: 'New task \u00b7 My tasks \u00b7 Automations', hmN3: 'Workflow suggestions', hmN4: 'Model: Auto', hmN5: 'Reasoning effort: Medium',
+		hmStat1: 'Open', hmStat1v: 'Select Cowork next to Chat',
+		hmStat2: 'Model', hmStat2v: 'Auto picks one for the task',
+		hmStat3: 'Effort', hmStat3v: 'Medium by default',
+
+		// ── Step 4 · WRITE THE REQUEST ──
+		rqTitle: 'Write a request that works',
+		rqCaption: 'The request',
+		rqDesc: 'Describe the outcome and name the deliverables. Add the people, timeframe, files and audience \u2014 and keep the scope to one clear goal.',
+		rqCallout: 'If you catch yourself writing a list of steps, reframe it as an outcome.',
+		rqK1: 'Step by step', rqT1: '\u201CFirst pull the Beacon threads. Then summarize them. Then find the deck. Then draft a briefing\u2026\u201D', rqV1: 'Too rigid',
+		rqK2: 'Vague outcome', rqT2: '\u201CHelp me get ready for Thursday\u2019s meeting.\u201D', rqV2: 'Too vague',
+		rqK3: 'Outcome + deliverables', rqV3: 'Works',
+		rqCtx: 'Add context:', rqC1: 'People: Isaiah, Cameron, Allan', rqC2: 'Timeframe: last two weeks', rqC3: 'File: Beacon Rollout Plan', rqC4: 'Audience: the review group',
+		rqStat1: 'Lead with', rqStat1v: 'The outcome + deliverables',
+		rqStat2: 'Add', rqStat2v: 'People \u00b7 timeframe \u00b7 files \u00b7 audience',
+		rqStat3: 'Scope', rqStat3v: 'One clear goal',
+
+		// ── Step 5 · IT WORKS ──
+		wkTitle: 'Cowork plans and works',
+		wkCaption: 'Watch it work',
+		wkDesc: 'Cowork breaks the goal into steps and shows each one as it goes. It loads the skills it needs, and the side panel tracks progress, input files and active skills.',
+		wkCallout: 'Cowork draws on Work IQ \u2014 your mail, meetings, files and chats \u2014 always within your permissions.',
+		wkThinking: 'Planning the work\u2026', wkSkill: 'Preparing to compose emails',
+		wkS1: 'Searching Outlook for Beacon threads', wkS2: 'Reading Beacon Rollout Plan.docx', wkS3: 'Summarizing the last review', wkS4: 'Drafting the one-page briefing',
+		wkStat1: 'Shows', wkStat1v: 'Thinking \u00b7 skills \u00b7 each step',
+		wkStat2: 'Side panel', wkStat2v: 'Progress \u00b7 files \u00b7 skills',
+		wkStat3: 'Grounded in', wkStat3v: 'Work IQ, within your permissions',
+
+		// ── Step 6 · IT ASKS ──
+		akTitle: 'It asks when it needs you',
+		akCaption: 'Needs your input',
+		akDesc: 'When something is unclear, Cowork asks a question with choices \u2014 pick one, type your own or select Skip. A follow-up you send while it works is queued and picked up.',
+		akCallout: 'Steer as you go \u2014 the request doesn\u2019t have to be perfect up front.',
+		akQ: 'Who should get the agenda?', akO1: 'Everyone invited to the review', akO2: 'Only Isaiah Langer', akO3: 'Just save a draft',
+		akSubmit: 'Submit', akSkip: 'Skip', akStatus: 'Needs your input',
+		akFollow: 'Also add the dry-run results to the briefing.', akQueued: 'Queued',
+		akStat1: 'Answer', akStat1v: 'Pick, type your own, or Skip',
+		akStat2: 'Steer', akStat2v: 'Send a follow-up anytime',
+		akStat3: 'Status', akStat3v: 'Needs your input',
+
+		// ── Step 7 · YOU APPROVE ──
+		apTitle: 'Nothing sends without you',
+		apCaption: 'Approve',
+		apDesc: 'Before a sensitive action like sending an email, Cowork pauses with a preview. Send approves it once, More options can skip similar prompts for this session, and Cancel stops just that action.',
+		apCallout: 'Always check the recipients and the content before you approve.',
+		apCard: 'Send email', apDraft: 'Draft', apRisk: 'Low risk', apTo: 'To', apSubject: 'Subject',
+		apToV: 'Isaiah Langer; Cameron White; Allan Deyoung', apSubjectV: 'Agenda \u00b7 Beacon migration review',
+		apBody: 'Hi all \u2014 here\u2019s the agenda for Thursday: dry-run results, the record-mapping fix and the GA decision.',
+		apParams: 'Show parameters', apCancel: 'Cancel', apSend: 'Send',
+		apM2: 'Only to Isaiah Langer', apM3: 'Only to contoso.com recipients', apM4: 'Always allow in this session',
+		apStat1: 'Send', apStat1v: 'Approve this one action',
+		apStat2: 'More options', apStat2v: 'Skip similar prompts \u2014 this session only',
+		apStat3: 'Cancel', apStat3v: 'Stop just that action',
+
+		// ── Step 8 · RESULTS ──
+		rsTitle: 'Review the results',
+		rsCaption: 'Results',
+		rsDesc: 'Files Cowork creates land in the output folder \u2014 preview them, download them or open them in OneDrive. Every task stays in My tasks.',
+		rsCallout: 'Treat what Cowork makes as a draft \u2014 review it before you share it.',
+		rsDone: 'Done \u2014 your briefing and the agenda email are ready.',
+		rsFile1: 'Beacon-briefing.docx', rsFile2: 'Agenda - Beacon review.eml',
+		rsTabs1: 'Recent', rsTabs2: 'Automations', rsT1: 'Prep the Beacon migration review', rsT1s: 'Today \u00b7 2 files', rsT2: 'Organize my week', rsT2s: 'Yesterday \u00b7 1 file',
+		rsDownload: 'Download all',
+		rsStat1: 'Output', rsStat1v: 'Side panel \u00b7 OneDrive',
+		rsStat2: 'Preview', rsStat2v: 'Word, Excel, PDF and more',
+		rsStat3: 'Tasks', rsStat3v: 'Reopen any time',
+
+		// ── Step 9 · CREDITS ──
+		crTitle: 'What did that cost?',
+		crCaption: 'Credits',
+		crDesc: 'Cowork is billed by usage, in Copilot Credits. A bigger scope, more sources, more tools and a heavier model all use more. Type /cost to see what a task has used, and leave the model on Auto.',
+		crCallout: 'The goal isn\u2019t to use less \u2014 it\u2019s to match the work to the value of the outcome.',
+		crD1: 'Task scope', crD2: 'Information read', crD3: 'Tools and skills', crD4: 'Model choice', crD5: 'Images and media',
+		crReply: '610.6 credits used for this task so far.',
+		crNote: 'Your admin sets the credit limit \u2014 you can request more from inside Cowork.',
+		crStat1: 'Billed in', crStat1v: 'Copilot Credits',
+		crStat2: 'Check', crStat2v: 'Type /cost in the task',
+		crStat3: 'Model', crStat3v: 'Leave it on Auto',
+
+		// ── Step 10 · ALL IN ONE ──
+		woTitle: 'All in one: hand off the work',
+		woCaption: 'All in One',
+		woDesc: 'Describe the goal, let Cowork plan and work, approve what leaves your hands, then review the results. Cowork carries out the work \u2014 you make the decisions.',
+		woCallout: 'Cowork carries out the work; you make the decisions.',
+		woL1: 'Describe the goal', woL1s: 'Outcome, deliverables, context',
+		woL2: 'Cowork plans and works', woL2s: 'Steps, skills, progress',
+		woL3: 'You approve', woL3s: 'Send \u00b7 More options \u00b7 Cancel',
+		woL4: 'You review', woL4s: 'Files, previews, My tasks',
+		woG1: 'Sees only what you can see', woG2: 'Asks before sensitive actions', woG3: 'Doesn\u2019t train on your data',
+		woX1: 'No files on your device', woX2: 'Can\u2019t delete files', woX3: 'Drafts need your review',
+		woFoot: 'Go deeper with the free Microsoft Learn module <a href="https://learn.microsoft.com/training/modules/delegate-work-copilot-cowork/" target="_blank" rel="noopener">Get more done with Copilot Cowork</a>.',
+		woStat1: 'The loop', woStat1v: 'Describe \u2192 work \u2192 approve \u2192 review',
+		woStat2: 'Guardrails', woStat2v: 'Your permissions, your approval',
+		woStat3: 'Next', woStat3v: 'One Copilot everywhere'
+	},
+	es: {
+		skipToMain: 'Ir al diagrama',
+		pageTitle: 'Delega el trabajo',
+		stageHeading: 'Delega el trabajo con Copilot Cowork',
+		stageInstructions: 'Una introducción animada a Microsoft Copilot Cowork \u2014 cuándo usarlo, cómo escribir una petición, cómo trabaja, las aprobaciones, los resultados, los créditos y las salvaguardas. Usa los botones Siguiente/Anterior o las teclas de flecha para navegar. Pulsa R para reiniciar.',
+		prev: '\u25C0 Anterior', next: 'Siguiente \u25B6', replay: '\u21BB Repetir', restart: '\u21BB Reiniciar',
+		slower: 'Más lento', faster: 'Más rápido',
+		calloutOn: 'Notas: activadas', calloutOff: 'Notas: desactivadas',
+		outlineOn: 'Esquema: activado', outlineOff: 'Esquema: desactivado',
+		audioTip: 'Audio de narración', ccTip: 'Subtítulos', shortcutsTip: 'Atajos',
+		stepDetails: 'Detalles del paso', stepOf: 'Paso',
+		resetPos: 'Restablecer la posición predeterminada',
+		openNewTab: 'Abrir en una pestaña nueva',
+		scTitle: 'Atajos de teclado',
+		scNext: 'Paso siguiente', scPrev: 'Paso anterior', scRestart: 'Reiniciar', scReplay: 'Repetir este paso', scHide: 'Ocultar / mostrar la barra superior', scHelp: 'Mostrar u ocultar esta ayuda',
+
+		cwChat: 'Chat', cwCowork: 'Cowork', cwBrand: 'Microsoft Copilot', cwRail: 'Copilot', cwModel: 'Automático', cwEffort: 'Medio',
+		cwNew: 'Nueva tarea', cwMy: 'Mis tareas', cwAutos: 'Automatizaciones', cwCustom: 'Personalizar', cwWork: 'Trabajo', cwUser: 'Alex', cwOrg: 'Contoso',
+		sdProgress: 'Progreso', sdInput: 'Carpeta de entrada', sdOutput: 'Carpeta de salida', sdSkills: 'Habilidades', sdSchedule: 'Programación', sdPerm: 'Permisos',
+		skEmail: 'Correo', skWord: 'Word', skMeetings: 'Reuniones', skSearch: 'Búsqueda empresarial',
+		bestReq: 'Prepárame para la revisión de migración de Beacon del jueves. Reúne nuestros hilos recientes, resume lo que hablamos la última vez y redacta un informe de una página que pueda revisar.',
+
+		poTitle: 'La semana de Alex no es una sola tarea',
+		poCaption: 'El problema',
+		poDesc: 'Alex dirige el despliegue de Beacon para Northwind Traders. Esta semana trae una bandeja de entrada desbordada, un jueves con dos reuniones a la vez, una revisión de migración y un informe de estado el viernes \u2014 cada cosa repartida entre varias aplicaciones.',
+		poCallout: 'Casi nada de la semana son tareas sueltas \u2014 es la coordinación entre ellas.',
+		po1T: '40 correos sin leer', po1S: 'Hilos de Beacon de Isaiah, Cameron y Allan',
+		po2T: 'Un jueves con dos reuniones a la vez', po2S: 'Dos reuniones, un solo hueco',
+		po3T: 'La revisión de migración de Beacon', po3S: 'Preparación, agenda, notas y seguimientos',
+		po4T: 'El informe de estado del viernes', po4S: 'Cifras sacadas de tres sitios',
+		poCount: 'En Chat: una docena de prompts, gestionados uno a uno',
+		poBanner: '<b>Delega el objetivo</b>, no los pasos \u2014 eso es Copilot Cowork.',
+		poStat1: 'Quién', poStat1v: 'Alex en Contoso',
+		poStat2: 'Proyecto', poStat2v: 'Despliegue de Beacon para Northwind Traders',
+		poStat3: 'El problema', poStat3v: 'Coordinar entre aplicaciones',
+
+		pkTitle: '¿Conversación, especialista o encargo?',
+		pkCaption: 'Elige la herramienta',
+		pkDesc: 'Copilot Chat es una conversación que tú diriges. Los agentes están hechos para un trabajo concreto. Cowork es un encargo: le pasas un objetivo y te consulta cuando te necesita.',
+		pkCallout: 'Es el mismo Copilot en todos los casos \u2014 lo que cambia es tu papel.',
+		pkChatT: 'Copilot Chat', pkChatS: 'Una conversación \u2014 diriges cada turno: un prompt, un resultado.',
+		pkAgT: 'Agentes', pkAgS: 'Ayuda diseñada para un trabajo concreto y repetible.',
+		pkCwT: 'Cowork', pkCwS: 'Un encargo \u2014 planifica, trabaja entre tus aplicaciones y te consulta.',
+		pkQ1: '¿Es una sola tarea que cabe en un prompt?',
+		pkQ2: '¿Encaja en un flujo concreto y repetible?',
+		pkQ3: '¿Describes varias tareas que preferirías no gestionar una a una?',
+		pkA1: 'Copilot Chat', pkA2: 'Un agente', pkA3: 'Cowork',
+		pkBanner: 'Si tu prompt parece una larga lista de pasos, estás describiendo un <b>objetivo</b> \u2014 pásaselo a Cowork.',
+		pkStat1: 'Chat', pkStat1v: 'Diriges cada turno',
+		pkStat2: 'Agentes', pkStat2v: 'Trabajos concretos y repetibles',
+		pkStat3: 'Cowork', pkStat3v: 'Delegas un objetivo',
+
+		hmTitle: 'Abre Cowork',
+		hmCaption: 'Inicio de Cowork',
+		hmDesc: 'Alex abre Microsoft Copilot en el navegador y cambia de Chat a Cowork. La página de inicio tiene un cuadro para la tarea, sugerencias de flujos de trabajo y el modelo en Automático.',
+		hmCallout: 'Cowork vive dentro de Microsoft Copilot \u2014 en el navegador, en la aplicación de escritorio y en el móvil.',
+		hmGreet: '¿Por dónde empezamos hoy?',
+		hmPlaceholder: 'Empieza una tarea\u2026',
+		hmTip: 'Consejo: prueba una de las sugerencias de flujo de trabajo de abajo para empezar rápido.',
+		hmNext: 'Prueba ahora', hmMore: 'Ver más',
+		hmP1: 'Organizar mi bandeja de entrada', hmP2: 'Organizar mi semana', hmP3: 'Crear una nueva propuesta comercial',
+		hmR1: 'Informe de socios del T3', hmDone: 'Completada',
+		hmN1: 'Selector Chat | Cowork', hmN2: 'Nueva tarea \u00b7 Mis tareas \u00b7 Automatizaciones', hmN3: 'Sugerencias de flujos', hmN4: 'Modelo: Automático', hmN5: 'Esfuerzo de razonamiento: Medio',
+		hmStat1: 'Abrir', hmStat1v: 'Elige Cowork junto a Chat',
+		hmStat2: 'Modelo', hmStat2v: 'Automático elige uno para la tarea',
+		hmStat3: 'Esfuerzo', hmStat3v: 'Medio de forma predeterminada',
+
+		rqTitle: 'Escribe una petición que funcione',
+		rqCaption: 'La petición',
+		rqDesc: 'Describe el resultado y nombra los entregables. Añade las personas, el plazo, los archivos y el público \u2014 y limita el alcance a un objetivo claro.',
+		rqCallout: 'Si te descubres escribiendo una lista de pasos, reformúlala como un resultado.',
+		rqK1: 'Paso a paso', rqT1: '\u201CPrimero busca los hilos de Beacon. Luego resúmelos. Luego busca la presentación. Luego redacta un informe\u2026\u201D', rqV1: 'Demasiado rígida',
+		rqK2: 'Resultado vago', rqT2: '\u201CAyúdame a prepararme para la reunión del jueves.\u201D', rqV2: 'Demasiado vaga',
+		rqK3: 'Resultado + entregables', rqV3: 'Funciona',
+		rqCtx: 'Añade contexto:', rqC1: 'Personas: Isaiah, Cameron, Allan', rqC2: 'Plazo: últimas dos semanas', rqC3: 'Archivo: Beacon Rollout Plan', rqC4: 'Público: el grupo de revisión',
+		rqStat1: 'Empieza por', rqStat1v: 'El resultado y los entregables',
+		rqStat2: 'Añade', rqStat2v: 'Personas \u00b7 plazo \u00b7 archivos \u00b7 público',
+		rqStat3: 'Alcance', rqStat3v: 'Un objetivo claro',
+
+		wkTitle: 'Cowork planifica y trabaja',
+		wkCaption: 'Míralo trabajar',
+		wkDesc: 'Cowork divide el objetivo en pasos y muestra cada uno sobre la marcha. Carga las habilidades que necesita, y el panel lateral sigue el progreso, los archivos de entrada y las habilidades activas.',
+		wkCallout: 'Cowork se apoya en Work IQ \u2014 tu correo, reuniones, archivos y chats \u2014 siempre dentro de tus permisos.',
+		wkThinking: 'Planificando el trabajo\u2026', wkSkill: 'Preparándose para redactar correos',
+		wkS1: 'Buscando hilos de Beacon en Outlook', wkS2: 'Leyendo Beacon Rollout Plan.docx', wkS3: 'Resumiendo la última revisión', wkS4: 'Redactando el informe de una página',
+		wkStat1: 'Muestra', wkStat1v: 'Razonamiento \u00b7 habilidades \u00b7 cada paso',
+		wkStat2: 'Panel lateral', wkStat2v: 'Progreso \u00b7 archivos \u00b7 habilidades',
+		wkStat3: 'Se basa en', wkStat3v: 'Work IQ, dentro de tus permisos',
+
+		akTitle: 'Te pregunta cuando te necesita',
+		akCaption: 'Necesita tu respuesta',
+		akDesc: 'Cuando algo no está claro, Cowork hace una pregunta con opciones \u2014 elige una, escribe la tuya u omítela. Si envías una indicación mientras trabaja, queda en cola y la aplica.',
+		akCallout: 'Corrige el rumbo sobre la marcha \u2014 la petición no tiene que ser perfecta desde el principio.',
+		akQ: '¿Quién debe recibir la agenda?', akO1: 'Todos los invitados a la revisión', akO2: 'Solo Isaiah Langer', akO3: 'Solo guardar un borrador',
+		akSubmit: 'Enviar', akSkip: 'Omitir', akStatus: 'Necesita tu respuesta',
+		akFollow: 'Añade también los resultados del ensayo al informe.', akQueued: 'En cola',
+		akStat1: 'Responde', akStat1v: 'Elige, escribe la tuya u omite',
+		akStat2: 'Corrige', akStat2v: 'Envía indicaciones cuando quieras',
+		akStat3: 'Estado', akStat3v: 'Necesita tu respuesta',
+
+		apTitle: 'Nada se envía sin ti',
+		apCaption: 'Aprobar',
+		apDesc: 'Antes de una acción delicada, como enviar un correo, Cowork se detiene con una vista previa. Enviar la aprueba una vez, Más opciones permite omitir avisos parecidos en esta sesión, y Cancelar detiene solo esa acción.',
+		apCallout: 'Revisa siempre los destinatarios y el contenido antes de aprobar.',
+		apCard: 'Enviar correo', apDraft: 'Borrador', apRisk: 'Riesgo bajo', apTo: 'Para', apSubject: 'Asunto',
+		apToV: 'Isaiah Langer; Cameron White; Allan Deyoung', apSubjectV: 'Agenda \u00b7 Revisión de migración de Beacon',
+		apBody: 'Hola a todos \u2014 esta es la agenda del jueves: resultados del ensayo, la corrección del mapeo de registros y la decisión de disponibilidad general.',
+		apParams: 'Mostrar parámetros', apCancel: 'Cancelar', apSend: 'Enviar',
+		apM2: 'Solo a Isaiah Langer', apM3: 'Solo a destinatarios de contoso.com', apM4: 'Permitir siempre en esta sesión',
+		apStat1: 'Enviar', apStat1v: 'Aprueba esta acción',
+		apStat2: 'Más opciones', apStat2v: 'Omite avisos parecidos \u2014 solo esta sesión',
+		apStat3: 'Cancelar', apStat3v: 'Detiene solo esa acción',
+
+		rsTitle: 'Revisa los resultados',
+		rsCaption: 'Resultados',
+		rsDesc: 'Los archivos que crea Cowork llegan a la carpeta de salida \u2014 puedes previsualizarlos, descargarlos o abrirlos en OneDrive. Cada tarea queda en Mis tareas.',
+		rsCallout: 'Trata lo que hace Cowork como un borrador \u2014 revísalo antes de compartirlo.',
+		rsDone: 'Listo \u2014 tu informe y el correo con la agenda están preparados.',
+		rsFile1: 'Beacon-briefing.docx', rsFile2: 'Agenda - Beacon review.eml',
+		rsTabs1: 'Recientes', rsTabs2: 'Automatizaciones', rsT1: 'Preparar la revisión de migración de Beacon', rsT1s: 'Hoy \u00b7 2 archivos', rsT2: 'Organizar mi semana', rsT2s: 'Ayer \u00b7 1 archivo',
+		rsDownload: 'Descargar todo',
+		rsStat1: 'Salida', rsStat1v: 'Panel lateral \u00b7 OneDrive',
+		rsStat2: 'Vista previa', rsStat2v: 'Word, Excel, PDF y más',
+		rsStat3: 'Tareas', rsStat3v: 'Vuelve a abrirlas cuando quieras',
+
+		crTitle: '¿Cuánto ha costado?',
+		crCaption: 'Créditos',
+		crDesc: 'Cowork se factura por uso, en Copilot Credits. Más alcance, más fuentes, más herramientas y un modelo más potente consumen más. Escribe /cost para ver lo que ha usado una tarea, y deja el modelo en Automático.',
+		crCallout: 'El objetivo no es gastar menos \u2014 es ajustar el trabajo al valor del resultado.',
+		crD1: 'Alcance de la tarea', crD2: 'Información leída', crD3: 'Herramientas y habilidades', crD4: 'Elección de modelo', crD5: 'Imágenes y multimedia',
+		crReply: '610,6 créditos usados en esta tarea hasta ahora.',
+		crNote: 'Tu administrador fija el límite de créditos \u2014 puedes pedir más desde Cowork.',
+		crStat1: 'Se factura en', crStat1v: 'Copilot Credits',
+		crStat2: 'Consulta', crStat2v: 'Escribe /cost en la tarea',
+		crStat3: 'Modelo', crStat3v: 'Déjalo en Automático',
+
+		woTitle: 'Todo junto: delega el trabajo',
+		woCaption: 'Todo junto',
+		woDesc: 'Describe el objetivo, deja que Cowork planifique y trabaje, aprueba lo que sale de tus manos y revisa los resultados. Cowork hace el trabajo \u2014 tú tomas las decisiones.',
+		woCallout: 'Cowork hace el trabajo; tú tomas las decisiones.',
+		woL1: 'Describe el objetivo', woL1s: 'Resultado, entregables, contexto',
+		woL2: 'Cowork planifica y trabaja', woL2s: 'Pasos, habilidades, progreso',
+		woL3: 'Tú apruebas', woL3s: 'Enviar \u00b7 Más opciones \u00b7 Cancelar',
+		woL4: 'Tú revisas', woL4s: 'Archivos, vistas previas, Mis tareas',
+		woG1: 'Solo ve lo que tú puedes ver', woG2: 'Pregunta antes de acciones delicadas', woG3: 'No se entrena con tus datos',
+		woX1: 'Sin archivos de tu equipo', woX2: 'No puede eliminar archivos', woX3: 'Los borradores necesitan tu revisión',
+		woFoot: 'Profundiza con el módulo gratuito de Microsoft Learn <a href="https://learn.microsoft.com/training/modules/delegate-work-copilot-cowork/" target="_blank" rel="noopener">Haz más con Copilot Cowork</a>.',
+		woStat1: 'El ciclo', woStat1v: 'Describir \u2192 trabajar \u2192 aprobar \u2192 revisar',
+		woStat2: 'Salvaguardas', woStat2v: 'Tus permisos, tu aprobación',
+		woStat3: 'Siguiente', woStat3v: 'Un solo Copilot en todas partes'
+	},
+	ja: {
+		skipToMain: '図にスキップ',
+		pageTitle: '仕事を任せる',
+		stageHeading: 'Copilot Cowork に仕事を任せる',
+		stageInstructions: 'Microsoft Copilot Cowork をたどるアニメーション解説です。使いどころ、依頼の書き方、作業の進み方、承認、結果、クレジット、安全策を紹介します。次へ / 前へボタンまたは矢印キーで移動し、R キーで最初からやり直せます。',
+		prev: '\u25C0 前へ', next: '次へ \u25B6', replay: '\u21BB 再生', restart: '\u21BB 最初から',
+		slower: '遅く', faster: '速く',
+		calloutOn: '補足: オン', calloutOff: '補足: オフ',
+		outlineOn: 'アウトライン: オン', outlineOff: 'アウトライン: オフ',
+		audioTip: 'ナレーション音声', ccTip: '字幕', shortcutsTip: 'ショートカット',
+		stepDetails: 'ステップの詳細', stepOf: 'ステップ',
+		resetPos: '既定の位置に戻す',
+		openNewTab: '新しいタブで開く',
+		scTitle: 'キーボード ショートカット',
+		scNext: '次のステップ', scPrev: '前のステップ', scRestart: '最初から', scReplay: 'このステップを再生', scHide: '上部バーの表示 / 非表示', scHelp: 'このヘルプの表示切り替え',
+
+		cwChat: 'チャット', cwCowork: 'Cowork', cwBrand: 'Microsoft Copilot', cwRail: 'Copilot', cwModel: '自動', cwEffort: '中',
+		cwNew: '新しいタスク', cwMy: 'マイ タスク', cwAutos: '自動化', cwCustom: 'カスタマイズ', cwWork: '職場', cwUser: 'Alex', cwOrg: 'Contoso',
+		sdProgress: '進捗', sdInput: '入力フォルダー', sdOutput: '出力フォルダー', sdSkills: 'スキル', sdSchedule: 'スケジュール', sdPerm: 'アクセス許可',
+		skEmail: 'メール', skWord: 'Word', skMeetings: '会議', skSearch: 'エンタープライズ検索',
+		bestReq: '木曜日の Beacon 移行レビューの準備をして。最近のスレッドを集めて、前回話し合った内容を要約し、私が確認できる 1 ページのブリーフィングを下書きして。',
+
+		poTitle: 'Alex の 1 週間は 1 つのタスクではない',
+		poCaption: '課題',
+		poDesc: 'Alex は Northwind Traders 向けの Beacon 展開を率いています。今週は、あふれる受信トレイ、予定が重なった木曜日、移行レビュー、金曜日の状況報告 \u2014 どれも複数のアプリにまたがっています。',
+		poCallout: '1 週間の大半は単発のタスクではなく、その間の調整です。',
+		po1T: '未読メール 40 件', po1S: 'Isaiah、Cameron、Allan からの Beacon のスレッド',
+		po2T: '予定が重なった木曜日', po2S: '会議が 2 つ、枠は 1 つ',
+		po3T: 'Beacon 移行レビュー', po3S: '準備、議題、メモ、フォローアップ',
+		po4T: '金曜日の状況報告', po4S: '3 か所から集める数字',
+		poCount: 'チャットなら: 十数回のプロンプトを 1 つずつ管理',
+		poBanner: '手順ではなく<b>目標を任せる</b> \u2014 それが Copilot Cowork です。',
+		poStat1: '誰が', poStat1v: 'Contoso の Alex',
+		poStat2: 'プロジェクト', poStat2v: 'Northwind Traders 向け Beacon 展開',
+		poStat3: '悩み', poStat3v: 'アプリをまたぐ調整',
+
+		pkTitle: '会話か、専門家か、依頼か?',
+		pkCaption: 'ツールを選ぶ',
+		pkDesc: 'Copilot Chat はあなたが舵を取る会話です。エージェントは特定の仕事向けに作られています。Cowork は依頼です。目標を渡せば、必要なときにだけ確認してきます。',
+		pkCallout: 'どれも同じ Copilot \u2014 変わるのはあなたの役割です。',
+		pkChatT: 'Copilot Chat', pkChatS: '会話 \u2014 毎回あなたが舵を取る: 1 つのプロンプトに 1 つの結果。',
+		pkAgT: 'エージェント', pkAgS: '決まった繰り返しの仕事に特化した支援。',
+		pkCwT: 'Cowork', pkCwS: '依頼 \u2014 計画し、アプリをまたいで作業し、確認してくる。',
+		pkQ1: '1 つのプロンプトで書ける単一のタスク?',
+		pkQ2: '決まった繰り返しのワークフローに当てはまる?',
+		pkQ3: '1 つずつ管理したくない複数のタスクを書いている?',
+		pkA1: 'Copilot Chat', pkA2: 'エージェント', pkA3: 'Cowork',
+		pkBanner: 'プロンプトが長い手順リストになっているなら、それは<b>目標</b>です \u2014 Cowork に任せましょう。',
+		pkStat1: 'チャット', pkStat1v: '毎回あなたが舵を取る',
+		pkStat2: 'エージェント', pkStat2v: '決まった繰り返しの仕事',
+		pkStat3: 'Cowork', pkStat3v: '目標を任せる',
+
+		hmTitle: 'Cowork を開く',
+		hmCaption: 'Cowork のホーム',
+		hmDesc: 'Alex はブラウザーで Microsoft Copilot を開き、チャットから Cowork に切り替えます。ホームにはタスクの入力欄とワークフローの候補があり、モデルは自動のままです。',
+		hmCallout: 'Cowork は Microsoft Copilot の中にあります \u2014 ブラウザー、デスクトップ アプリ、モバイルで使えます。',
+		hmGreet: '今日は何から始めますか?',
+		hmPlaceholder: 'タスクを開始\u2026',
+		hmTip: 'ヒント: 下のワークフロー候補から 1 つ選ぶと、すぐに始められます。',
+		hmNext: '次はこちら', hmMore: 'さらに表示',
+		hmP1: '受信トレイを整理する', hmP2: '今週の予定を整える', hmP3: '新しいビジネス提案を作る',
+		hmR1: '第 3 四半期パートナー向けブリーフィング', hmDone: '完了',
+		hmN1: 'チャット | Cowork の切り替え', hmN2: '新しいタスク \u00b7 マイ タスク \u00b7 自動化', hmN3: 'ワークフロー候補', hmN4: 'モデル: 自動', hmN5: '推論の強さ: 中',
+		hmStat1: '開き方', hmStat1v: 'チャットの隣の Cowork を選ぶ',
+		hmStat2: 'モデル', hmStat2v: '自動がタスクに合わせて選ぶ',
+		hmStat3: '推論の強さ', hmStat3v: '既定は中',
+
+		rqTitle: 'うまくいく依頼を書く',
+		rqCaption: '依頼',
+		rqDesc: '求める結果を書き、成果物を明示します。関係者、期間、ファイル、読み手を添え、範囲は 1 つの明確な目標に絞ります。',
+		rqCallout: '手順を並べ始めたら、結果の形に書き直しましょう。',
+		rqK1: '手順を細かく', rqT1: '\u300Cまず Beacon のスレッドを探して。次に要約して。次に資料を探して。次にブリーフィングを書いて\u2026\u300D', rqV1: '硬すぎる',
+		rqK2: 'あいまいな結果', rqT2: '\u300C木曜日の会議の準備を手伝って。\u300D', rqV2: 'あいまいすぎる',
+		rqK3: '結果 + 成果物', rqV3: 'うまくいく',
+		rqCtx: '文脈を添える:', rqC1: '関係者: Isaiah、Cameron、Allan', rqC2: '期間: 直近 2 週間', rqC3: 'ファイル: Beacon Rollout Plan', rqC4: '読み手: レビュー メンバー',
+		rqStat1: '最初に書く', rqStat1v: '結果と成果物',
+		rqStat2: '添える', rqStat2v: '関係者 \u00b7 期間 \u00b7 ファイル \u00b7 読み手',
+		rqStat3: '範囲', rqStat3v: '1 つの明確な目標',
+
+		wkTitle: 'Cowork が計画して作業する',
+		wkCaption: '作業の様子',
+		wkDesc: 'Cowork は目標をステップに分け、進めながら 1 つずつ表示します。必要なスキルを読み込み、サイド パネルで進捗、入力ファイル、使用中のスキルを確認できます。',
+		wkCallout: 'Cowork は Work IQ \u2014 メール、会議、ファイル、チャット \u2014 を使います。常にあなたのアクセス許可の範囲内です。',
+		wkThinking: '作業を計画しています\u2026', wkSkill: 'メールの作成を準備しています',
+		wkS1: 'Outlook で Beacon のスレッドを検索', wkS2: 'Beacon Rollout Plan.docx を読み込み', wkS3: '前回のレビューを要約', wkS4: '1 ページのブリーフィングを下書き',
+		wkStat1: '表示されるもの', wkStat1v: '思考 \u00b7 スキル \u00b7 各ステップ',
+		wkStat2: 'サイド パネル', wkStat2v: '進捗 \u00b7 ファイル \u00b7 スキル',
+		wkStat3: '根拠', wkStat3v: 'Work IQ (アクセス許可の範囲内)',
+
+		akTitle: '必要なときは質問してくる',
+		akCaption: '入力が必要',
+		akDesc: '不明な点があると、Cowork は選択肢付きで質問します。1 つ選ぶ、自分で入力する、スキップする、のいずれかです。作業中に送った追加の指示はキューに入り、反映されます。',
+		akCallout: '進めながら軌道修正 \u2014 最初の依頼が完璧である必要はありません。',
+		akQ: '議題は誰に送りますか?', akO1: 'レビューの招待者全員', akO2: 'Isaiah Langer のみ', akO3: '下書き保存のみ',
+		akSubmit: '送信', akSkip: 'スキップ', akStatus: '入力が必要',
+		akFollow: 'ブリーフィングにリハーサルの結果も加えて。', akQueued: 'キュー済み',
+		akStat1: '答え方', akStat1v: '選ぶ、入力する、またはスキップ',
+		akStat2: '軌道修正', akStat2v: 'いつでも追加の指示を送れる',
+		akStat3: '状態', akStat3v: '入力が必要',
+
+		apTitle: 'あなたなしでは何も送られない',
+		apCaption: '承認',
+		apDesc: 'メール送信のような重要な操作の前に、Cowork はプレビューを出して止まります。送信で 1 回だけ承認、その他のオプションでこのセッション中は同様の確認を省略、キャンセルでその操作だけを止めます。',
+		apCallout: '承認する前に、必ず宛先と内容を確認しましょう。',
+		apCard: 'メールを送信', apDraft: '下書き', apRisk: '低リスク', apTo: '宛先', apSubject: '件名',
+		apToV: 'Isaiah Langer; Cameron White; Allan Deyoung', apSubjectV: '議題 \u00b7 Beacon 移行レビュー',
+		apBody: '皆さん、木曜日の議題です: リハーサルの結果、レコード マッピングの修正、一般提供の判断。',
+		apParams: 'パラメーターを表示', apCancel: 'キャンセル', apSend: '送信',
+		apM2: 'Isaiah Langer にのみ', apM3: 'contoso.com の宛先にのみ', apM4: 'このセッションでは常に許可',
+		apStat1: '送信', apStat1v: 'この操作を 1 回承認',
+		apStat2: 'その他のオプション', apStat2v: '同様の確認を省略 \u2014 このセッションのみ',
+		apStat3: 'キャンセル', apStat3v: 'その操作だけを止める',
+
+		rsTitle: '結果を確認する',
+		rsCaption: '結果',
+		rsDesc: 'Cowork が作ったファイルは出力フォルダーに入ります \u2014 プレビュー、ダウンロード、OneDrive で開くことができます。タスクはすべてマイ タスクに残ります。',
+		rsCallout: 'Cowork の成果物は下書きとして扱い、共有する前に確認しましょう。',
+		rsDone: '完了しました \u2014 ブリーフィングと議題のメールの準備ができています。',
+		rsFile1: 'Beacon-briefing.docx', rsFile2: 'Agenda - Beacon review.eml',
+		rsTabs1: '最近', rsTabs2: '自動化', rsT1: 'Beacon 移行レビューの準備', rsT1s: '今日 \u00b7 ファイル 2 件', rsT2: '今週の予定を整える', rsT2s: '昨日 \u00b7 ファイル 1 件',
+		rsDownload: 'すべてダウンロード',
+		rsStat1: '出力', rsStat1v: 'サイド パネル \u00b7 OneDrive',
+		rsStat2: 'プレビュー', rsStat2v: 'Word、Excel、PDF など',
+		rsStat3: 'タスク', rsStat3v: 'いつでも再び開ける',
+
+		crTitle: 'どれだけ使った?',
+		crCaption: 'クレジット',
+		crDesc: 'Cowork は使用量に応じて Copilot Credits で課金されます。範囲が広いほど、情報源やツールが多いほど、重いモデルほど多く使います。/cost と入力すればタスクの使用量がわかります。モデルは自動のままにしましょう。',
+		crCallout: '目的は使用量を減らすことではなく、成果の価値に見合った作業にすることです。',
+		crD1: 'タスクの範囲', crD2: '読み込む情報', crD3: 'ツールとスキル', crD4: 'モデルの選択', crD5: '画像とメディア',
+		crReply: 'このタスクでこれまでに 610.6 クレジットを使用しました。',
+		crNote: 'クレジットの上限は管理者が設定します \u2014 Cowork の中から追加を申請できます。',
+		crStat1: '課金の単位', crStat1v: 'Copilot Credits',
+		crStat2: '確認方法', crStat2v: 'タスクで /cost と入力',
+		crStat3: 'モデル', crStat3v: '自動のままにする',
+
+		woTitle: 'まとめ: 仕事を任せる',
+		woCaption: 'まとめ',
+		woDesc: '目標を伝え、Cowork に計画と作業を任せ、外に出るものを承認し、結果を確認する。作業は Cowork、判断はあなたです。',
+		woCallout: '作業は Cowork が、判断はあなたが行います。',
+		woL1: '目標を伝える', woL1s: '結果、成果物、文脈',
+		woL2: 'Cowork が計画・作業', woL2s: 'ステップ、スキル、進捗',
+		woL3: 'あなたが承認', woL3s: '送信 \u00b7 その他のオプション \u00b7 キャンセル',
+		woL4: 'あなたが確認', woL4s: 'ファイル、プレビュー、マイ タスク',
+		woG1: 'あなたが見られるものだけを見る', woG2: '重要な操作の前に確認する', woG3: 'あなたのデータで学習しない',
+		woX1: 'デバイス上のファイルは使えない', woX2: 'ファイルを削除できない', woX3: '下書きは確認が必要',
+		woFoot: 'Microsoft Learn の無料モジュール <a href="https://learn.microsoft.com/training/modules/delegate-work-copilot-cowork/" target="_blank" rel="noopener">Copilot Cowork でもっと仕事を進める</a> で詳しく学べます。',
+		woStat1: 'サイクル', woStat1v: '伝える \u2192 作業 \u2192 承認 \u2192 確認',
+		woStat2: '安全策', woStat2v: 'あなたのアクセス許可と承認',
+		woStat3: '次へ', woStat3v: 'どこでも 1 つの Copilot'
+	},
+	ko: {
+		skipToMain: '다이어그램으로 건너뛰기',
+		pageTitle: '업무 맡기기',
+		stageHeading: 'Copilot Cowork에 업무 맡기기',
+		stageInstructions: 'Microsoft Copilot Cowork를 살펴보는 애니메이션 투어입니다. 언제 쓰는지, 요청을 쓰는 법, 작업 방식, 승인, 결과, 크레딧, 안전장치를 다룹니다. 다음 / 이전 버튼이나 화살표 키로 이동하고, R 키를 누르면 처음부터 다시 시작합니다.',
+		prev: '\u25C0 이전', next: '다음 \u25B6', replay: '\u21BB 다시 재생', restart: '\u21BB 처음부터',
+		slower: '느리게', faster: '빠르게',
+		calloutOn: '설명: 켬', calloutOff: '설명: 끔',
+		outlineOn: '개요: 켬', outlineOff: '개요: 끔',
+		audioTip: '내레이션 오디오', ccTip: '자막', shortcutsTip: '단축키',
+		stepDetails: '단계 상세', stepOf: '단계',
+		resetPos: '기본 위치로 되돌리기',
+		openNewTab: '새 탭에서 열기',
+		scTitle: '키보드 단축키',
+		scNext: '다음 단계', scPrev: '이전 단계', scRestart: '처음부터', scReplay: '이 단계 다시 재생', scHide: '상단 바 숨기기 / 표시', scHelp: '이 도움말 표시 전환',
+
+		cwChat: '채팅', cwCowork: 'Cowork', cwBrand: 'Microsoft Copilot', cwRail: 'Copilot', cwModel: '자동', cwEffort: '보통',
+		cwNew: '새 작업', cwMy: '내 작업', cwAutos: '자동화', cwCustom: '사용자 지정', cwWork: '회사', cwUser: 'Alex', cwOrg: 'Contoso',
+		sdProgress: '진행률', sdInput: '입력 폴더', sdOutput: '출력 폴더', sdSkills: '기술', sdSchedule: '일정', sdPerm: '권한',
+		skEmail: '메일', skWord: 'Word', skMeetings: '모임', skSearch: '엔터프라이즈 검색',
+		bestReq: '목요일 Beacon 마이그레이션 검토를 준비해 줘. 최근 스레드를 모으고, 지난번 논의 내용을 요약하고, 내가 검토할 한 페이지 브리핑 초안을 작성해 줘.',
+
+		poTitle: 'Alex의 한 주는 하나의 작업이 아닙니다',
+		poCaption: '문제',
+		poDesc: 'Alex는 Northwind Traders를 위한 Beacon 롤아웃을 이끌고 있습니다. 이번 주에는 넘치는 받은 편지함, 일정이 겹친 목요일, 마이그레이션 검토, 금요일 상태 보고서가 있습니다 \u2014 모두 여러 앱에 흩어져 있죠.',
+		poCallout: '한 주의 대부분은 개별 작업이 아니라 그 사이의 조율입니다.',
+		po1T: '읽지 않은 메일 40통', po1S: 'Isaiah, Cameron, Allan의 Beacon 스레드',
+		po2T: '일정이 겹친 목요일', po2S: '회의 두 개, 시간은 하나',
+		po3T: 'Beacon 마이그레이션 검토', po3S: '준비, 안건, 메모, 후속 조치',
+		po4T: '금요일 상태 보고서', po4S: '세 곳에서 모아야 하는 숫자',
+		poCount: '채팅이라면: 프롬프트 열두 개 남짓을 하나씩 관리',
+		poBanner: '단계가 아니라 <b>목표를 맡기세요</b> \u2014 그게 Copilot Cowork입니다.',
+		poStat1: '누가', poStat1v: 'Contoso의 Alex',
+		poStat2: '프로젝트', poStat2v: 'Northwind Traders용 Beacon 롤아웃',
+		poStat3: '어려움', poStat3v: '앱 사이의 조율',
+
+		pkTitle: '대화, 전문가, 아니면 위임?',
+		pkCaption: '도구 고르기',
+		pkDesc: 'Copilot Chat은 내가 이끄는 대화입니다. 에이전트는 특정 업무를 위해 만들어졌습니다. Cowork는 위임입니다. 목표를 맡기면 필요할 때만 확인을 요청합니다.',
+		pkCallout: '어느 쪽이든 같은 Copilot입니다 \u2014 바뀌는 건 내 역할입니다.',
+		pkChatT: 'Copilot Chat', pkChatS: '대화 \u2014 매 턴을 내가 이끕니다: 프롬프트 하나, 결과 하나.',
+		pkAgT: '에이전트', pkAgS: '반복되는 특정 업무에 맞춘 도움.',
+		pkCwT: 'Cowork', pkCwS: '위임 \u2014 계획하고, 앱을 넘나들며 일하고, 확인을 요청합니다.',
+		pkQ1: '프롬프트 하나로 설명되는 단일 작업인가요?',
+		pkQ2: '정해진 반복 워크플로에 맞나요?',
+		pkQ3: '하나씩 관리하고 싶지 않은 여러 작업을 설명하고 있나요?',
+		pkA1: 'Copilot Chat', pkA2: '에이전트', pkA3: 'Cowork',
+		pkBanner: '프롬프트가 긴 단계 목록처럼 보인다면 <b>목표</b>를 설명하고 있는 것입니다 \u2014 Cowork에 맡기세요.',
+		pkStat1: '채팅', pkStat1v: '매 턴을 내가 이끔',
+		pkStat2: '에이전트', pkStat2v: '정해진 반복 업무',
+		pkStat3: 'Cowork', pkStat3v: '목표를 맡김',
+
+		hmTitle: 'Cowork 열기',
+		hmCaption: 'Cowork 홈',
+		hmDesc: 'Alex는 브라우저에서 Microsoft Copilot을 열고 채팅에서 Cowork로 전환합니다. 홈에는 작업 입력란과 워크플로 제안이 있고, 모델은 자동으로 둡니다.',
+		hmCallout: 'Cowork는 Microsoft Copilot 안에 있습니다 \u2014 브라우저, 데스크톱 앱, 모바일에서 쓸 수 있습니다.',
+		hmGreet: '오늘은 무엇부터 할까요?',
+		hmPlaceholder: '작업 시작\u2026',
+		hmTip: '팁: 아래 워크플로 제안 중 하나로 빠르게 시작해 보세요.',
+		hmNext: '다음으로 해 보기', hmMore: '더 보기',
+		hmP1: '받은 편지함 정리', hmP2: '이번 주 일정 정리', hmP3: '새 비즈니스 제안서 만들기',
+		hmR1: '3분기 파트너 브리핑', hmDone: '완료',
+		hmN1: '채팅 | Cowork 전환', hmN2: '새 작업 \u00b7 내 작업 \u00b7 자동화', hmN3: '워크플로 제안', hmN4: '모델: 자동', hmN5: '추론 강도: 보통',
+		hmStat1: '여는 법', hmStat1v: '채팅 옆의 Cowork 선택',
+		hmStat2: '모델', hmStat2v: '자동이 작업에 맞게 선택',
+		hmStat3: '추론 강도', hmStat3v: '기본값은 보통',
+
+		rqTitle: '잘 통하는 요청 쓰기',
+		rqCaption: '요청',
+		rqDesc: '원하는 결과를 쓰고 산출물을 명시하세요. 관련자, 기간, 파일, 대상 독자를 더하고, 범위는 하나의 분명한 목표로 좁힙니다.',
+		rqCallout: '단계 목록을 쓰고 있다면 결과 중심으로 다시 써 보세요.',
+		rqK1: '단계별 지시', rqT1: '\u201C먼저 Beacon 스레드를 찾아. 그다음 요약해. 그다음 자료를 찾아. 그다음 브리핑을 써\u2026\u201D', rqV1: '너무 경직됨',
+		rqK2: '모호한 결과', rqT2: '\u201C목요일 회의 준비 좀 도와줘.\u201D', rqV2: '너무 모호함',
+		rqK3: '결과 + 산출물', rqV3: '통함',
+		rqCtx: '맥락 추가:', rqC1: '관련자: Isaiah, Cameron, Allan', rqC2: '기간: 최근 2주', rqC3: '파일: Beacon Rollout Plan', rqC4: '대상: 검토 그룹',
+		rqStat1: '먼저 쓸 것', rqStat1v: '결과와 산출물',
+		rqStat2: '더할 것', rqStat2v: '관련자 \u00b7 기간 \u00b7 파일 \u00b7 대상',
+		rqStat3: '범위', rqStat3v: '하나의 분명한 목표',
+
+		wkTitle: 'Cowork가 계획하고 일합니다',
+		wkCaption: '작업 지켜보기',
+		wkDesc: 'Cowork는 목표를 단계로 나누고 진행하면서 하나씩 보여 줍니다. 필요한 기술을 불러오고, 사이드 패널에서 진행률, 입력 파일, 사용 중인 기술을 확인할 수 있습니다.',
+		wkCallout: 'Cowork는 Work IQ \u2014 메일, 모임, 파일, 채팅 \u2014 를 활용하며, 항상 내 권한 안에서만 움직입니다.',
+		wkThinking: '작업을 계획하는 중\u2026', wkSkill: '메일 작성을 준비하는 중',
+		wkS1: 'Outlook에서 Beacon 스레드 검색', wkS2: 'Beacon Rollout Plan.docx 읽기', wkS3: '지난 검토 요약', wkS4: '한 페이지 브리핑 초안 작성',
+		wkStat1: '보여 주는 것', wkStat1v: '생각 \u00b7 기술 \u00b7 각 단계',
+		wkStat2: '사이드 패널', wkStat2v: '진행률 \u00b7 파일 \u00b7 기술',
+		wkStat3: '근거', wkStat3v: 'Work IQ, 내 권한 안에서',
+
+		akTitle: '필요할 때 물어봅니다',
+		akCaption: '입력 필요',
+		akDesc: '불분명한 점이 있으면 Cowork는 선택지와 함께 질문합니다 \u2014 하나를 고르거나, 직접 입력하거나, 건너뛰세요. 작업 중에 보낸 추가 지시는 대기열에 들어갔다가 반영됩니다.',
+		akCallout: '진행하면서 방향을 잡으세요 \u2014 처음부터 요청이 완벽할 필요는 없습니다.',
+		akQ: '안건은 누구에게 보낼까요?', akO1: '검토에 초대된 모든 사람', akO2: 'Isaiah Langer에게만', akO3: '초안만 저장',
+		akSubmit: '제출', akSkip: '건너뛰기', akStatus: '입력 필요',
+		akFollow: '브리핑에 리허설 결과도 추가해 줘.', akQueued: '대기 중',
+		akStat1: '답하기', akStat1v: '고르기, 직접 입력, 또는 건너뛰기',
+		akStat2: '방향 잡기', akStat2v: '언제든 추가 지시 보내기',
+		akStat3: '상태', akStat3v: '입력 필요',
+
+		apTitle: '내 승인 없이는 아무것도 보내지 않습니다',
+		apCaption: '승인',
+		apDesc: '메일 보내기처럼 민감한 작업 전에 Cowork는 미리 보기와 함께 멈춥니다. 보내기는 한 번 승인하고, 추가 옵션은 이 세션 동안 비슷한 확인을 건너뛰며, 취소는 그 작업만 멈춥니다.',
+		apCallout: '승인하기 전에 받는 사람과 내용을 꼭 확인하세요.',
+		apCard: '메일 보내기', apDraft: '초안', apRisk: '낮은 위험', apTo: '받는 사람', apSubject: '제목',
+		apToV: 'Isaiah Langer; Cameron White; Allan Deyoung', apSubjectV: '안건 \u00b7 Beacon 마이그레이션 검토',
+		apBody: '안녕하세요, 목요일 안건입니다: 리허설 결과, 레코드 매핑 수정, 정식 출시 결정.',
+		apParams: '매개 변수 표시', apCancel: '취소', apSend: '보내기',
+		apM2: 'Isaiah Langer에게만', apM3: 'contoso.com 받는 사람에게만', apM4: '이 세션에서 항상 허용',
+		apStat1: '보내기', apStat1v: '이 작업 한 번 승인',
+		apStat2: '추가 옵션', apStat2v: '비슷한 확인 건너뛰기 \u2014 이 세션만',
+		apStat3: '취소', apStat3v: '그 작업만 중지',
+
+		rsTitle: '결과 검토하기',
+		rsCaption: '결과',
+		rsDesc: 'Cowork가 만든 파일은 출력 폴더에 들어갑니다 \u2014 미리 보거나, 다운로드하거나, OneDrive에서 열 수 있습니다. 모든 작업은 내 작업에 남습니다.',
+		rsCallout: 'Cowork가 만든 것은 초안으로 보고, 공유하기 전에 검토하세요.',
+		rsDone: '완료했습니다 \u2014 브리핑과 안건 메일이 준비되었습니다.',
+		rsFile1: 'Beacon-briefing.docx', rsFile2: 'Agenda - Beacon review.eml',
+		rsTabs1: '최근', rsTabs2: '자동화', rsT1: 'Beacon 마이그레이션 검토 준비', rsT1s: '오늘 \u00b7 파일 2개', rsT2: '이번 주 일정 정리', rsT2s: '어제 \u00b7 파일 1개',
+		rsDownload: '모두 다운로드',
+		rsStat1: '출력', rsStat1v: '사이드 패널 \u00b7 OneDrive',
+		rsStat2: '미리 보기', rsStat2v: 'Word, Excel, PDF 등',
+		rsStat3: '작업', rsStat3v: '언제든 다시 열기',
+
+		crTitle: '비용은 얼마였을까요?',
+		crCaption: '크레딧',
+		crDesc: 'Cowork는 사용량에 따라 Copilot Credits로 청구됩니다. 범위가 넓을수록, 정보원과 도구가 많을수록, 무거운 모델일수록 더 씁니다. /cost를 입력하면 작업의 사용량을 볼 수 있고, 모델은 자동으로 두세요.',
+		crCallout: '목표는 덜 쓰는 것이 아니라, 결과의 가치에 맞게 일하는 것입니다.',
+		crD1: '작업 범위', crD2: '읽는 정보', crD3: '도구와 기술', crD4: '모델 선택', crD5: '이미지와 미디어',
+		crReply: '이 작업에 지금까지 610.6 크레딧을 사용했습니다.',
+		crNote: '크레딧 한도는 관리자가 정합니다 \u2014 Cowork 안에서 추가를 요청할 수 있습니다.',
+		crStat1: '청구 단위', crStat1v: 'Copilot Credits',
+		crStat2: '확인', crStat2v: '작업에서 /cost 입력',
+		crStat3: '모델', crStat3v: '자동으로 두기',
+
+		woTitle: '한눈에: 업무 맡기기',
+		woCaption: '한눈에',
+		woDesc: '목표를 설명하고, Cowork가 계획하고 일하게 하고, 밖으로 나가는 것은 승인하고, 결과를 검토하세요. 일은 Cowork가 하고 \u2014 결정은 내가 합니다.',
+		woCallout: '일은 Cowork가, 결정은 내가 합니다.',
+		woL1: '목표 설명', woL1s: '결과, 산출물, 맥락',
+		woL2: 'Cowork가 계획·작업', woL2s: '단계, 기술, 진행률',
+		woL3: '내가 승인', woL3s: '보내기 \u00b7 추가 옵션 \u00b7 취소',
+		woL4: '내가 검토', woL4s: '파일, 미리 보기, 내 작업',
+		woG1: '내가 볼 수 있는 것만 봄', woG2: '민감한 작업 전에 확인', woG3: '내 데이터로 학습하지 않음',
+		woX1: '내 기기의 파일은 사용 불가', woX2: '파일을 삭제할 수 없음', woX3: '초안은 검토가 필요',
+		woFoot: '무료 Microsoft Learn 모듈 <a href="https://learn.microsoft.com/training/modules/delegate-work-copilot-cowork/" target="_blank" rel="noopener">Copilot Cowork로 더 많은 일 해내기</a>에서 더 알아보세요.',
+		woStat1: '순환', woStat1v: '설명 \u2192 작업 \u2192 승인 \u2192 검토',
+		woStat2: '안전장치', woStat2v: '내 권한, 내 승인',
+		woStat3: '다음', woStat3v: '어디서나 하나의 Copilot'
+	},
+	pt: {
+		skipToMain: 'Ir para o diagrama',
+		pageTitle: 'Delegue o trabalho',
+		stageHeading: 'Delegue o trabalho com o Copilot Cowork',
+		stageInstructions: 'Uma introdução animada ao Microsoft Copilot Cowork \u2014 quando usar, como escrever um pedido, como ele trabalha, as aprovações, os resultados, os créditos e as proteções. Use os botões Avançar/Voltar ou as setas para navegar. Pressione R para reiniciar.',
+		prev: '\u25C0 Voltar', next: 'Avançar \u25B6', replay: '\u21BB Repetir', restart: '\u21BB Reiniciar',
+		slower: 'Mais lento', faster: 'Mais rápido',
+		calloutOn: 'Notas: ativadas', calloutOff: 'Notas: desativadas',
+		outlineOn: 'Estrutura: ativada', outlineOff: 'Estrutura: desativada',
+		audioTip: 'Áudio da narração', ccTip: 'Legendas', shortcutsTip: 'Atalhos',
+		stepDetails: 'Detalhes da etapa', stepOf: 'Etapa',
+		resetPos: 'Restaurar a posição padrão',
+		openNewTab: 'Abrir em uma nova guia',
+		scTitle: 'Atalhos de teclado',
+		scNext: 'Próxima etapa', scPrev: 'Etapa anterior', scRestart: 'Reiniciar', scReplay: 'Repetir esta etapa', scHide: 'Ocultar / mostrar a barra superior', scHelp: 'Mostrar ou ocultar esta ajuda',
+
+		cwChat: 'Chat', cwCowork: 'Cowork', cwBrand: 'Microsoft Copilot', cwRail: 'Copilot', cwModel: 'Automático', cwEffort: 'Médio',
+		cwNew: 'Nova tarefa', cwMy: 'Minhas tarefas', cwAutos: 'Automações', cwCustom: 'Personalizar', cwWork: 'Trabalho', cwUser: 'Alex', cwOrg: 'Contoso',
+		sdProgress: 'Progresso', sdInput: 'Pasta de entrada', sdOutput: 'Pasta de saída', sdSkills: 'Habilidades', sdSchedule: 'Agendamento', sdPerm: 'Permissões',
+		skEmail: 'Email', skWord: 'Word', skMeetings: 'Reuniões', skSearch: 'Pesquisa corporativa',
+		bestReq: 'Me prepare para a revisão de migração do Beacon na quinta-feira. Reúna nossas conversas recentes, resuma o que discutimos da última vez e escreva um briefing de uma página para eu revisar.',
+
+		poTitle: 'A semana de Alex não é uma tarefa só',
+		poCaption: 'O problema',
+		poDesc: 'Alex lidera a implantação do Beacon para a Northwind Traders. Esta semana traz uma caixa de entrada lotada, uma quinta-feira com duas reuniões no mesmo horário, uma revisão de migração e um relatório de status na sexta \u2014 cada coisa espalhada por vários aplicativos.',
+		poCallout: 'Quase nada da semana são tarefas isoladas \u2014 é a coordenação entre elas.',
+		po1T: '40 emails não lidos', po1S: 'Conversas do Beacon de Isaiah, Cameron e Allan',
+		po2T: 'Uma quinta-feira com conflito de agenda', po2S: 'Duas reuniões, um horário',
+		po3T: 'A revisão de migração do Beacon', po3S: 'Preparação, pauta, anotações e acompanhamentos',
+		po4T: 'O relatório de status de sexta', po4S: 'Números tirados de três lugares',
+		poCount: 'No Chat: cerca de uma dúzia de prompts, um de cada vez',
+		poBanner: '<b>Delegue o objetivo</b>, não os passos \u2014 isso é o Copilot Cowork.',
+		poStat1: 'Quem', poStat1v: 'Alex na Contoso',
+		poStat2: 'Projeto', poStat2v: 'Implantação do Beacon para a Northwind Traders',
+		poStat3: 'A dor', poStat3v: 'Coordenar entre aplicativos',
+
+		pkTitle: 'Conversa, especialista ou tarefa delegada?',
+		pkCaption: 'Escolha a ferramenta',
+		pkDesc: 'O Copilot Chat é uma conversa que você conduz. Os agentes são feitos para um trabalho específico. O Cowork é uma tarefa delegada: você passa um objetivo e ele consulta você quando precisar.',
+		pkCallout: 'É o mesmo Copilot em todos os casos \u2014 o que muda é o seu papel.',
+		pkChatT: 'Copilot Chat', pkChatS: 'Uma conversa \u2014 você conduz cada turno: um prompt, um resultado.',
+		pkAgT: 'Agentes', pkAgS: 'Ajuda feita para um trabalho específico e repetível.',
+		pkCwT: 'Cowork', pkCwS: 'Uma tarefa delegada \u2014 planeja, trabalha entre seus aplicativos e consulta você.',
+		pkQ1: 'É uma tarefa só, que cabe em um prompt?',
+		pkQ2: 'Encaixa em um fluxo específico e repetível?',
+		pkQ3: 'Você está descrevendo várias tarefas que prefere não gerenciar uma a uma?',
+		pkA1: 'Copilot Chat', pkA2: 'Um agente', pkA3: 'Cowork',
+		pkBanner: 'Se o seu prompt parece uma longa lista de passos, você está descrevendo um <b>objetivo</b> \u2014 entregue ao Cowork.',
+		pkStat1: 'Chat', pkStat1v: 'Você conduz cada turno',
+		pkStat2: 'Agentes', pkStat2v: 'Trabalhos específicos e repetíveis',
+		pkStat3: 'Cowork', pkStat3v: 'Você delega um objetivo',
+
+		hmTitle: 'Abra o Cowork',
+		hmCaption: 'Início do Cowork',
+		hmDesc: 'Alex abre o Microsoft Copilot no navegador e muda de Chat para Cowork. A página inicial tem uma caixa para a tarefa, sugestões de fluxos de trabalho e o modelo deixado em Automático.',
+		hmCallout: 'O Cowork fica dentro do Microsoft Copilot \u2014 no navegador, no aplicativo de desktop e no celular.',
+		hmGreet: 'O que vem primeiro hoje?',
+		hmPlaceholder: 'Comece uma tarefa\u2026',
+		hmTip: 'Dica: experimente uma das sugestões de fluxo de trabalho abaixo para começar rápido.',
+		hmNext: 'Experimente agora', hmMore: 'Mostrar mais',
+		hmP1: 'Organizar minha caixa de entrada', hmP2: 'Organizar minha semana', hmP3: 'Criar uma nova proposta comercial',
+		hmR1: 'Briefing de parceiros do 3º tri', hmDone: 'Concluída',
+		hmN1: 'Alternância Chat | Cowork', hmN2: 'Nova tarefa \u00b7 Minhas tarefas \u00b7 Automações', hmN3: 'Sugestões de fluxos', hmN4: 'Modelo: Automático', hmN5: 'Esforço de raciocínio: Médio',
+		hmStat1: 'Abrir', hmStat1v: 'Escolha Cowork ao lado de Chat',
+		hmStat2: 'Modelo', hmStat2v: 'Automático escolhe um para a tarefa',
+		hmStat3: 'Esforço', hmStat3v: 'Médio por padrão',
+
+		rqTitle: 'Escreva um pedido que funcione',
+		rqCaption: 'O pedido',
+		rqDesc: 'Descreva o resultado e nomeie as entregas. Inclua as pessoas, o período, os arquivos e o público \u2014 e mantenha o escopo em um objetivo claro.',
+		rqCallout: 'Se você se pegar escrevendo uma lista de passos, reescreva como um resultado.',
+		rqK1: 'Passo a passo', rqT1: '\u201CPrimeiro busque as conversas do Beacon. Depois resuma. Depois ache a apresentação. Depois escreva um briefing\u2026\u201D', rqV1: 'Rígido demais',
+		rqK2: 'Resultado vago', rqT2: '\u201CMe ajude a me preparar para a reunião de quinta.\u201D', rqV2: 'Vago demais',
+		rqK3: 'Resultado + entregas', rqV3: 'Funciona',
+		rqCtx: 'Inclua contexto:', rqC1: 'Pessoas: Isaiah, Cameron, Allan', rqC2: 'Período: últimas duas semanas', rqC3: 'Arquivo: Beacon Rollout Plan', rqC4: 'Público: o grupo de revisão',
+		rqStat1: 'Comece por', rqStat1v: 'O resultado e as entregas',
+		rqStat2: 'Inclua', rqStat2v: 'Pessoas \u00b7 período \u00b7 arquivos \u00b7 público',
+		rqStat3: 'Escopo', rqStat3v: 'Um objetivo claro',
+
+		wkTitle: 'O Cowork planeja e trabalha',
+		wkCaption: 'Veja trabalhar',
+		wkDesc: 'O Cowork divide o objetivo em etapas e mostra cada uma enquanto avança. Ele carrega as habilidades de que precisa, e o painel lateral acompanha o progresso, os arquivos de entrada e as habilidades ativas.',
+		wkCallout: 'O Cowork usa o Work IQ \u2014 seus emails, reuniões, arquivos e chats \u2014 sempre dentro das suas permissões.',
+		wkThinking: 'Planejando o trabalho\u2026', wkSkill: 'Preparando para escrever emails',
+		wkS1: 'Procurando conversas do Beacon no Outlook', wkS2: 'Lendo Beacon Rollout Plan.docx', wkS3: 'Resumindo a última revisão', wkS4: 'Escrevendo o briefing de uma página',
+		wkStat1: 'Mostra', wkStat1v: 'Raciocínio \u00b7 habilidades \u00b7 cada etapa',
+		wkStat2: 'Painel lateral', wkStat2v: 'Progresso \u00b7 arquivos \u00b7 habilidades',
+		wkStat3: 'Baseado em', wkStat3v: 'Work IQ, dentro das suas permissões',
+
+		akTitle: 'Ele pergunta quando precisa de você',
+		akCaption: 'Precisa da sua resposta',
+		akDesc: 'Quando algo não está claro, o Cowork faz uma pergunta com opções \u2014 escolha uma, escreva a sua ou pule. Um complemento enviado enquanto ele trabalha entra na fila e é aplicado.',
+		akCallout: 'Ajuste o rumo no caminho \u2014 o pedido não precisa ser perfeito logo de início.',
+		akQ: 'Quem deve receber a pauta?', akO1: 'Todos os convidados da revisão', akO2: 'Só Isaiah Langer', akO3: 'Só salvar um rascunho',
+		akSubmit: 'Enviar', akSkip: 'Pular', akStatus: 'Precisa da sua resposta',
+		akFollow: 'Inclua também os resultados do ensaio no briefing.', akQueued: 'Na fila',
+		akStat1: 'Responda', akStat1v: 'Escolha, escreva a sua ou pule',
+		akStat2: 'Ajuste', akStat2v: 'Envie complementos quando quiser',
+		akStat3: 'Status', akStat3v: 'Precisa da sua resposta',
+
+		apTitle: 'Nada é enviado sem você',
+		apCaption: 'Aprovar',
+		apDesc: 'Antes de uma ação sensível, como enviar um email, o Cowork para com uma prévia. Enviar aprova uma vez, Mais opções pode pular avisos parecidos nesta sessão, e Cancelar interrompe só essa ação.',
+		apCallout: 'Confira sempre os destinatários e o conteúdo antes de aprovar.',
+		apCard: 'Enviar email', apDraft: 'Rascunho', apRisk: 'Risco baixo', apTo: 'Para', apSubject: 'Assunto',
+		apToV: 'Isaiah Langer; Cameron White; Allan Deyoung', apSubjectV: 'Pauta \u00b7 Revisão de migração do Beacon',
+		apBody: 'Olá a todos \u2014 esta é a pauta de quinta: resultados do ensaio, a correção do mapeamento de registros e a decisão de disponibilidade geral.',
+		apParams: 'Mostrar parâmetros', apCancel: 'Cancelar', apSend: 'Enviar',
+		apM2: 'Só para Isaiah Langer', apM3: 'Só para destinatários contoso.com', apM4: 'Sempre permitir nesta sessão',
+		apStat1: 'Enviar', apStat1v: 'Aprova esta ação',
+		apStat2: 'Mais opções', apStat2v: 'Pula avisos parecidos \u2014 só nesta sessão',
+		apStat3: 'Cancelar', apStat3v: 'Interrompe só essa ação',
+
+		rsTitle: 'Revise os resultados',
+		rsCaption: 'Resultados',
+		rsDesc: 'Os arquivos que o Cowork cria vão para a pasta de saída \u2014 você pode visualizar, baixar ou abrir no OneDrive. Cada tarefa fica em Minhas tarefas.',
+		rsCallout: 'Trate o que o Cowork faz como um rascunho \u2014 revise antes de compartilhar.',
+		rsDone: 'Pronto \u2014 seu briefing e o email com a pauta estão prontos.',
+		rsFile1: 'Beacon-briefing.docx', rsFile2: 'Agenda - Beacon review.eml',
+		rsTabs1: 'Recentes', rsTabs2: 'Automações', rsT1: 'Preparar a revisão de migração do Beacon', rsT1s: 'Hoje \u00b7 2 arquivos', rsT2: 'Organizar minha semana', rsT2s: 'Ontem \u00b7 1 arquivo',
+		rsDownload: 'Baixar tudo',
+		rsStat1: 'Saída', rsStat1v: 'Painel lateral \u00b7 OneDrive',
+		rsStat2: 'Prévia', rsStat2v: 'Word, Excel, PDF e mais',
+		rsStat3: 'Tarefas', rsStat3v: 'Reabra quando quiser',
+
+		crTitle: 'Quanto custou?',
+		crCaption: 'Créditos',
+		crDesc: 'O Cowork é cobrado por uso, em Copilot Credits. Escopo maior, mais fontes, mais ferramentas e um modelo mais pesado consomem mais. Digite /cost para ver o que uma tarefa usou, e deixe o modelo em Automático.',
+		crCallout: 'A meta não é gastar menos \u2014 é ajustar o trabalho ao valor do resultado.',
+		crD1: 'Escopo da tarefa', crD2: 'Informação lida', crD3: 'Ferramentas e habilidades', crD4: 'Escolha do modelo', crD5: 'Imagens e mídia',
+		crReply: '610,6 créditos usados nesta tarefa até agora.',
+		crNote: 'O administrador define o limite de créditos \u2014 você pode pedir mais de dentro do Cowork.',
+		crStat1: 'Cobrado em', crStat1v: 'Copilot Credits',
+		crStat2: 'Consulte', crStat2v: 'Digite /cost na tarefa',
+		crStat3: 'Modelo', crStat3v: 'Deixe em Automático',
+
+		woTitle: 'Tudo junto: delegue o trabalho',
+		woCaption: 'Tudo junto',
+		woDesc: 'Descreva o objetivo, deixe o Cowork planejar e trabalhar, aprove o que sai das suas mãos e revise os resultados. O Cowork faz o trabalho \u2014 você toma as decisões.',
+		woCallout: 'O Cowork faz o trabalho; você toma as decisões.',
+		woL1: 'Descreva o objetivo', woL1s: 'Resultado, entregas, contexto',
+		woL2: 'O Cowork planeja e trabalha', woL2s: 'Etapas, habilidades, progresso',
+		woL3: 'Você aprova', woL3s: 'Enviar \u00b7 Mais opções \u00b7 Cancelar',
+		woL4: 'Você revisa', woL4s: 'Arquivos, prévias, Minhas tarefas',
+		woG1: 'Só vê o que você pode ver', woG2: 'Pergunta antes de ações sensíveis', woG3: 'Não treina com seus dados',
+		woX1: 'Sem arquivos do seu dispositivo', woX2: 'Não pode excluir arquivos', woX3: 'Rascunhos precisam da sua revisão',
+		woFoot: 'Aprofunde-se com o módulo gratuito do Microsoft Learn <a href="https://learn.microsoft.com/training/modules/delegate-work-copilot-cowork/" target="_blank" rel="noopener">Faça mais com o Copilot Cowork</a>.',
+		woStat1: 'O ciclo', woStat1v: 'Descrever \u2192 trabalhar \u2192 aprovar \u2192 revisar',
+		woStat2: 'Proteções', woStat2v: 'Suas permissões, sua aprovação',
+		woStat3: 'Próximo', woStat3v: 'Um só Copilot em todo lugar'
+	}
+};
+function t(key) { return (I18N[currentLang] && I18N[currentLang][key]) || I18N.en[key] || key; }
+
+function setLanguage(lang) {
+	currentLang = lang;
+	document.documentElement.lang = lang;
+	try { const u=new URL(location.href); u.searchParams.set('lang', lang); history.replaceState(null,'',u); } catch(_){}
+	document.getElementById('page-title').innerHTML = '<img class="m3-logo" src="../../lib/icons/brands/Microsoft365Copilot.svg" alt="" width="22" height="22" decoding="async"> ' + t('pageTitle');
+	// icon-only nav buttons: the localized label lives in the tooltip (title)
+	document.getElementById('prev-btn').title = t('prev');
+	document.getElementById('next-btn').title = t('next');
+	document.getElementById('replay-btn').title = t('replay');
+	document.getElementById('reset-btn').title = t('restart');
+	document.getElementById('speed-down').title = t('slower');
+	document.getElementById('speed-up').title = t('faster');
+	document.getElementById('outline-title').textContent = t('stepDetails');
+	document.querySelector('.skip-link').textContent = t('skipToMain');
+	document.getElementById('stage-heading').textContent = t('stageHeading');
+	document.getElementById('stage-instructions').textContent = t('stageInstructions');
+	// localize overlay tooltips (icon buttons show their label on hover / as native title)
+	const _hlp=document.getElementById('help-toggle'); if(_hlp) _hlp.setAttribute('data-tip', t('shortcutsTip'));
+	const _aud=document.getElementById('audio-toggle'); if(_aud) _aud.title=t('audioTip');
+	const _ccb=document.getElementById('cc-toggle'); if(_ccb) _ccb.title=t('ccTip');
+	syncCalloutBtn(); syncOutlineBtn();
+	if (typeof syncAudioBtn === 'function') syncAudioBtn();
+	if (typeof buildShortcuts === 'function') buildShortcuts();
+	if (typeof refreshJourneyNext === 'function') refreshJourneyNext();
+	document.querySelectorAll('.aw-drag-reset').forEach(b=>{ b.title=t('resetPos'); b.setAttribute('aria-label', t('resetPos')); });
+	try { localStorage.setItem('aw-cwho-lang', lang); } catch(_){}
+	if (current >= 0) renderStep(current);
+}
+
+// ── STEPS (journey order) ─────────────────
+const STEPS = [
+	{ id:'problem', short:'The problem', titleKey:'poTitle', captionKey:'poCaption', descKey:'poDesc', calloutKey:'poCallout',
+		stats:[['poStat1','poStat1v'],['poStat2','poStat2v'],['poStat3','poStat3v']] },
+	{ id:'pick', short:'Pick the tool', titleKey:'pkTitle', captionKey:'pkCaption', descKey:'pkDesc', calloutKey:'pkCallout',
+		stats:[['pkStat1','pkStat1v'],['pkStat2','pkStat2v'],['pkStat3','pkStat3v']] },
+	{ id:'home', short:'Open Cowork', titleKey:'hmTitle', captionKey:'hmCaption', descKey:'hmDesc', calloutKey:'hmCallout',
+		stats:[['hmStat1','hmStat1v'],['hmStat2','hmStat2v'],['hmStat3','hmStat3v']] },
+	{ id:'ask', short:'The request', titleKey:'rqTitle', captionKey:'rqCaption', descKey:'rqDesc', calloutKey:'rqCallout',
+		stats:[['rqStat1','rqStat1v'],['rqStat2','rqStat2v'],['rqStat3','rqStat3v']] },
+	{ id:'works', short:'It works', titleKey:'wkTitle', captionKey:'wkCaption', descKey:'wkDesc', calloutKey:'wkCallout',
+		stats:[['wkStat1','wkStat1v'],['wkStat2','wkStat2v'],['wkStat3','wkStat3v']] },
+	{ id:'asks', short:'It asks', titleKey:'akTitle', captionKey:'akCaption', descKey:'akDesc', calloutKey:'akCallout',
+		stats:[['akStat1','akStat1v'],['akStat2','akStat2v'],['akStat3','akStat3v']] },
+	{ id:'approve', short:'You approve', titleKey:'apTitle', captionKey:'apCaption', descKey:'apDesc', calloutKey:'apCallout',
+		stats:[['apStat1','apStat1v'],['apStat2','apStat2v'],['apStat3','apStat3v']] },
+	{ id:'results', short:'Results', titleKey:'rsTitle', captionKey:'rsCaption', descKey:'rsDesc', calloutKey:'rsCallout',
+		stats:[['rsStat1','rsStat1v'],['rsStat2','rsStat2v'],['rsStat3','rsStat3v']] },
+	{ id:'credits', short:'Credits', titleKey:'crTitle', captionKey:'crCaption', descKey:'crDesc', calloutKey:'crCallout',
+		stats:[['crStat1','crStat1v'],['crStat2','crStat2v'],['crStat3','crStat3v']] },
+	{ id:'wow', short:'All in One', titleKey:'woTitle', captionKey:'woCaption', descKey:'woDesc', calloutKey:'woCallout',
+		stats:[['woStat1','woStat1v'],['woStat2','woStat2v'],['woStat3','woStat3v']] }
+];
+
+// ── DOM REFS ──────────────────────────────
+const stage=document.getElementById('stage-frame'), svg=document.getElementById('fx-svg'),
+	counter=document.getElementById('step-counter'), breadcrumb=document.getElementById('breadcrumb'),
+	progress=document.getElementById('progress-fill'), announcer=document.getElementById('step-announcer'),
+	outlineBody=document.getElementById('outline-body'), outlinePanel=document.getElementById('step-outline'),
+	outlineBtn=document.getElementById('outline-toggle'), calloutBtn=document.getElementById('callout-toggle'),
+	langSelect=document.getElementById('lang-select');
+
+langSelect.addEventListener('change', e => setLanguage(e.target.value));
+const urlLang = new URLSearchParams(location.search).get('lang');
+let savedLang=null; try{ savedLang=localStorage.getItem('aw-cwho-lang'); }catch(_){}
+if (urlLang && I18N[urlLang]) { currentLang = urlLang; langSelect.value = urlLang; }
+else if (savedLang && I18N[savedLang]) { currentLang = savedLang; langSelect.value = savedLang; }
+
+// ── Font size ─────────────────────────────
+const fontScales=[0.8,0.9,1,1.1,1.2,1.35]; let fontScaleIdx=2;
+const baseFontSize=parseFloat(getComputedStyle(document.documentElement).fontSize);
+function applyFontScale(){ document.documentElement.style.fontSize=(baseFontSize*fontScales[fontScaleIdx])+'px'; const c=document.getElementById('controls'); if(c) c.style.fontSize=baseFontSize+'px'; if(typeof current!=='undefined'&&current>=0){ const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s); } }
+function saveFont(){ try{ localStorage.setItem('aw-cwho-font', String(fontScaleIdx)); }catch(_){} }
+try{ const f=parseInt(localStorage.getItem('aw-cwho-font'),10); if(!isNaN(f)&&f>=0&&f<fontScales.length){ fontScaleIdx=f; applyFontScale(); } }catch(_){}
+document.getElementById('font-decrease').addEventListener('click',()=>{ if(fontScaleIdx>0){fontScaleIdx--;applyFontScale();saveFont();} });
+document.getElementById('font-increase').addEventListener('click',()=>{ if(fontScaleIdx<fontScales.length-1){fontScaleIdx++;applyFontScale();saveFont();} });
+
+let current=-1, animating=false, liveEls=[], liveTimelines=[], calloutEnabled=false;
+
+function syncCalloutBtn(){ calloutBtn.classList.toggle('toggle-active',calloutEnabled); calloutBtn.setAttribute('aria-pressed',calloutEnabled?'true':'false'); calloutBtn.setAttribute('data-tip',calloutEnabled?t('calloutOn'):t('calloutOff')); }
+calloutBtn.addEventListener('click',()=>{
+	calloutEnabled=!calloutEnabled; syncCalloutBtn();
+	if(current<0) return;
+	// Toggle just the callout box in place — don't re-render (no animation replay).
+	const existing=stage.querySelectorAll('.callout');
+	if(calloutEnabled){ if(!existing.length){ const c=maybeCallout(STEPS[current]); if(c) gsap.fromTo(c,{opacity:0,y:10},{opacity:1,y:0,duration:0.4,overwrite:true}); } }
+	else { existing.forEach(c=>{ const idx=liveEls.indexOf(c); if(idx>-1) liveEls.splice(idx,1); gsap.killTweensOf(c); c.remove(); }); }
+}); syncCalloutBtn();
+function syncOutlineBtn(){ const on=!outlinePanel.hasAttribute('hidden'); outlineBtn.classList.toggle('toggle-active',on); outlineBtn.setAttribute('aria-expanded',on?'true':'false'); outlineBtn.setAttribute('data-tip',on?t('outlineOn'):t('outlineOff')); }
+outlineBtn.addEventListener('click',()=>{ const showing=!outlinePanel.hasAttribute('hidden'); if(showing){outlinePanel.setAttribute('hidden','');} else {outlinePanel.removeAttribute('hidden');} syncOutlineBtn(); }); syncOutlineBtn();
+
+// ── Audio narration (overlay button · speaker + remaining-time countdown) ──
+// Drop one recorded clip per step (in STEPS order) into AUDIO_FILES for real narration;
+// localized clips live under AUDIO_BASE/<lang>/. With no files, the browser reads each
+// step's title + description aloud (speech synthesis), so the button works with zero assets.
+const AUDIO_BASE = 'audio/CoworkHandOff/';
+const AUDIO_FILES = [
+	'step-01.mp3','step-02.mp3','step-03.mp3','step-04.mp3','step-05.mp3',
+	'step-06.mp3','step-07.mp3','step-08.mp3','step-09.mp3','step-10.mp3'
+];
+let audioEnabled=false, currentAudio=null, audioTimeout=null, ccPref=false;
+const audioBtn=document.getElementById('audio-toggle');
+if(audioBtn){ audioBtn.innerHTML='<span class="aw-audio-ico" aria-hidden="true">\uD83D\uDD07</span><span class="aw-audio-time" aria-hidden="true">--:--</span>'; }
+const audioIco=audioBtn&&audioBtn.querySelector('.aw-audio-ico'), audioTimeEl=audioBtn&&audioBtn.querySelector('.aw-audio-time');
+// Captions can play WITHOUT sound: when CC is on but audio is off we still play the clip MUTED, so the
+// caption reveals at the same pace — speaker shows 🔇 and the remaining-time countdown keeps running.
+function playbackOn(){ return audioEnabled || ccPref; }
+function audioDir(){ return (currentLang && currentLang!=='en') ? currentLang+'/' : ''; }
+function fmtDur(s){ s=Math.max(0,Math.ceil(s)); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
+function updateAudioTime(){ if(audioTimeEl && currentAudio && isFinite(currentAudio.duration) && currentAudio.duration>0) audioTimeEl.textContent=fmtDur(currentAudio.duration-currentAudio.currentTime); }
+function syncAudioBtn(){ if(!audioBtn) return; if(audioIco) audioIco.textContent=audioEnabled?'\uD83D\uDD0A':'\uD83D\uDD07'; if(audioTimeEl && !playbackOn()) audioTimeEl.textContent='--:--'; audioBtn.classList.toggle('toggle-active',audioEnabled); audioBtn.setAttribute('aria-pressed',audioEnabled?'true':'false'); }
+function speakFallback(i){ if(!window.speechSynthesis) return; const step=STEPS[i]; const u=new SpeechSynthesisUtterance(`${t(step.titleKey)}. ${t(step.descKey)}`); u.lang=currentLang||'en'; try{ speechSynthesis.cancel(); speechSynthesis.speak(u); }catch(_){} }
+function stopAudio(){
+	if(currentAudio){ currentAudio.pause(); currentAudio.currentTime=0; currentAudio=null; }
+	if(audioTimeout){ clearTimeout(audioTimeout); audioTimeout=null; }
+	if(audioTimeEl) audioTimeEl.textContent='--:--';
+	try{ if(window.speechSynthesis) speechSynthesis.cancel(); }catch(_){}
+	if(window.AWCaptions) AWCaptions.clear();
+}
+function playStepAudio(i){
+	stopAudio();
+	if(document.body.classList.contains('aw-prestart')) return;   // start gate holds audio too
+	if(!playbackOn() || i<0 || i>=STEPS.length) return;
+	audioTimeout=setTimeout(()=>{
+		audioTimeout=null;
+		const file=AUDIO_FILES[i];
+		if(!file){ if(audioEnabled) speakFallback(i); return; }   // no clip = no timing source for caption-only
+		currentAudio=new Audio(AUDIO_BASE+audioDir()+file);
+		currentAudio.volume = audioEnabled ? 1 : 0;              // caption-only = silent (volume 0) timing source
+		if(window.AWCaptions) AWCaptions.bind(currentAudio,i);
+		currentAudio.addEventListener('loadedmetadata',updateAudioTime);
+		currentAudio.addEventListener('timeupdate',updateAudioTime);
+		currentAudio.addEventListener('ended',()=>{ if(audioTimeEl) audioTimeEl.textContent='0:00'; });
+		currentAudio.addEventListener('error',()=>{ if(audioEnabled) speakFallback(i); });
+		currentAudio.play().catch(()=>{});
+	}, 400);
+}
+if(audioBtn){ audioBtn.addEventListener('click',()=>{
+	audioEnabled=!audioEnabled; try{localStorage.setItem('aw-cwho-audio',audioEnabled?'1':'0');}catch(_){} syncAudioBtn();
+	if(current>=0){
+		if(!playbackOn()) stopAudio();
+		else if(currentAudio) currentAudio.volume = audioEnabled ? 1 : 0;   // flip sound without restarting the clip
+		else playStepAudio(current);
+	}
+	if(typeof applyCc==='function') applyCc();
+}); }
+// Initial audio + CC from the ?audio parameter:
+//   on -> audio ON + captions ON  ·  off -> both OFF  ·  (absent) -> audio ON, captions OFF (a prior stored choice still wins).
+(function(){
+	var p=null; try{ p=new URLSearchParams(location.search).get('audio'); }catch(_){}
+	if(p==='on'){ audioEnabled=true; ccPref=true; }
+	else if(p==='off'){ audioEnabled=false; ccPref=false; }
+	else {
+		audioEnabled=true; ccPref=true;
+		try{ var a=localStorage.getItem('aw-cwho-audio'); if(a==='1') audioEnabled=true; else if(a==='0') audioEnabled=false; }catch(_){}
+		try{ var c=localStorage.getItem('aw-cwho-cc'); if(c==='1') ccPref=true; else if(c==='0') ccPref=false; }catch(_){}
+	}
+	try{ localStorage.setItem('aw-cwho-audio',audioEnabled?'1':'0'); localStorage.setItem('aw-cwho-cc',ccPref?'1':'0'); }catch(_){}
+})();
+syncAudioBtn();
+
+// ── Captions (CC) — overlaid in the frame; play WITH or WITHOUT audio ──
+// Reads the SAME narration Markdown used to synthesize the audio. Set page to THIS file's
+// stem and base to its narration folder (see the path note near the top of the file).
+const ccBtn=document.getElementById('cc-toggle');
+function ccEffective(){ return ccPref; }                          // captions show whenever CC is on (audio not required)
+function syncCcBtn(){ if(!ccBtn) return; ccBtn.classList.toggle('on',ccPref); ccBtn.setAttribute('aria-pressed',ccPref?'true':'false'); }
+function applyCc(){ if(window.AWCaptions) AWCaptions.setEnabled(ccEffective()); if(ccEffective()&&currentAudio&&window.AWCaptions) AWCaptions.bind(currentAudio,current); syncCcBtn(); }
+if(window.AWCaptions){ AWCaptions.configure({ page:'CoworkHandOff', base:'../../narration/Copilot/', lang:()=>currentLang, fallback:(i)=>(STEPS[i]?t(STEPS[i].descKey):''), reserve:false }); }
+if(ccBtn){ ccBtn.addEventListener('click',()=>{
+	ccPref=!ccPref; try{localStorage.setItem('aw-cwho-cc',ccPref?'1':'0');}catch(_){} applyCc();
+	if(current>=0){
+		if(playbackOn() && !currentAudio) playStepAudio(current);   // caption-only: start the muted timing clip
+		else if(!playbackOn() && currentAudio) stopAudio();          // CC off + audio off: nothing left to play
+	}
+}); }
+applyCc();
+
+// ── Full screen ──
+(function(){
+	const fsBtn=document.getElementById('fs-toggle'); if(!fsBtn) return;
+	function inFs(){ return !!(document.fullscreenElement||document.webkitFullscreenElement); }
+	function syncFs(){ document.body.classList.toggle('is-fs',inFs()); fsBtn.setAttribute('aria-pressed',inFs()?'true':'false'); fsBtn.title=inFs()?'Exit full screen (F)':'Full screen (F)'; }
+	function toggle(){ try{ if(inFs()){ (document.exitFullscreen||document.webkitExitFullscreen).call(document); } else { const el=document.documentElement; (el.requestFullscreen||el.webkitRequestFullscreen).call(el); } }catch(_){} }
+	fsBtn.addEventListener('click',e=>{ e.stopPropagation(); toggle(); });
+	document.addEventListener('fullscreenchange',syncFs); document.addEventListener('webkitfullscreenchange',syncFs);
+	document.addEventListener('keydown',e=>{ if(e.code==='KeyF'&&!e.metaKey&&!e.ctrlKey&&!e.altKey){ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return; e.preventDefault(); toggle(); } });
+	syncFs();
+})();
+
+// ── Reduced motion ────────────────────────
+const motionMQ=window.matchMedia('(prefers-reduced-motion: reduce)'); let motionPaused=motionMQ.matches;
+motionMQ.addEventListener('change',e=>{ motionPaused=e.matches; renderStep(current); });
+
+// ── Helpers ───────────────────────────────
+function clearStage(){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; liveEls.forEach(el=>el.remove()); liveEls=[]; Array.from(svg.children).forEach(c=>{ if(c.tagName.toLowerCase()!=='defs') c.remove(); }); }
+// Product URLs are written as plain text in the i18n strings (so speech + aria read them cleanly);
+// they become real links only here, at render time. Text already inside an <a> is left alone.
+const AW_URL_RE=/\b((?:aka\.ms|copilot\.microsoft\.com|m365\.cloud\.microsoft|microsoft365\.com|office\.com)(?:\/[A-Za-z0-9._~:\/?#@!$&'()*+,;=%-]*)?)/g;
+function linkifyUrls(html){
+	let depth=0;
+	return String(html).split(/(<[^>]+>)/).map(part=>{
+		if(part.startsWith('<')){ if(/^<a\b/i.test(part)) depth++; else if(/^<\/a>/i.test(part)) depth--; return part; }
+		if(depth>0) return part;
+		return part.replace(AW_URL_RE, m=>{ const clean=m.replace(/[.,;:]+$/,''), tail=m.slice(clean.length);
+			return `<a href="https://${clean}" target="_blank" rel="noopener">${clean}</a>${tail}`; });
+	}).join('');
+}
+function el(cls,html){ const d=document.createElement('div'); if(cls) d.className=cls; if(html!=null) d.innerHTML=linkifyUrls(html); return d; }
+// Inline SVG icons (monochrome, currentColor) — crisp on any OS/projector. Add your own here.
+const ICONS = {
+	puzzle:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h8v8H3zm10 0h8v8h-8zM3 13h8v8H3zm10 0h8v8h-8z"/></svg>',
+	inbox:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 3h2v5h3l-4 4-4-4h3zM5 14h14v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1z"/></svg>',
+	gear:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M19.14 12.94a7.9 7.9 0 0 0 0-1.88l2-1.56-2-3.46-2.36.96a7.7 7.7 0 0 0-1.62-.94L14.8 2.5h-4l-.36 2.56c-.58.24-1.12.56-1.62.94L6.46 6.04l-2 3.46 2 1.56a7.9 7.9 0 0 0 0 1.88l-2 1.56 2 3.46 2.36-.96c.5.38 1.04.7 1.62.94l.36 2.56h4l.36-2.56c.58-.24 1.12-.56 1.62-.94l2.36.96 2-3.46-2-1.56zM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg>',
+	sparkle:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg>',
+	bulb:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-4 12.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26A7 7 0 0 0 12 2zM9 20h6v1a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1z"/></svg>',
+	check:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.55 17.6 4.4 12.45l1.86-1.86 3.29 3.29 8.19-8.19 1.86 1.86z"/></svg>',
+	bolt:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>',
+	lock:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 10a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1zm3-1V7a4 4 0 1 1 8 0v2h-2V7a2 2 0 1 0-4 0v2z"/></svg>',
+	box:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 3 7v10l9 5 9-5V7zm0 2.3L17.7 7 12 10.2 6.3 7zM5 9.1l6 3.4v6.8l-6-3.3zm14 0v6.9l-6 3.3v-6.8z"/></svg>',
+	key:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M14 2a6 6 0 0 0-5.66 8L2 16.34V22h5.66l.34-.34V20h2v-2h2l.34-.34A6 6 0 1 0 14 2zm2 3a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z"/></svg>',
+	rocket:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2c3 3 4 6 4 9l3 3-4 1-1 4-2-3-2 3-1-4-4-1 3-3c0-3 1-6 4-9zm0 5a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>',
+	health:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 2h6v5h5v6h-5v5H9v-5H4V7h5z"/></svg>',
+	headset:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a8 8 0 0 0-8 8v5a3 3 0 0 0 3 3h1v-7H6v-1a6 6 0 1 1 12 0v1h-2v7h1a3 3 0 0 0 3-3v-5a8 8 0 0 0-8-8z"/></svg>',
+	media:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M4 4h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zm5 4v8l7-4z"/></svg>',
+	book:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v16H6a2 2 0 0 1-2-2zm9 0h7v14a2 2 0 0 1-2 2h-5z"/></svg>',
+	party:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5zm6 11l.9 2.6L21.5 16.5l-2.6.9L18 20l-.9-2.6L14.5 16.5l2.6-.9zM6 14l.7 2 2 .7-2 .7L6 19.4l-.7-2-2-.7 2-.7z"/></svg>',
+	chat:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-4 4v-4H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/></svg>',
+	access:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a2.2 2.2 0 1 1 0 4.4A2.2 2.2 0 0 1 12 2zM4 8h16v2h-5.4l1 12h-2.3l-.7-6h-1.2l-.7 6H8.4l1-12H4z"/></svg>',
+	globe:'<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></g></svg>'
+};
+function icon(name){ return `<span class="ic">${ICONS[name]||''}</span>`; }
+function stepById(id){ return STEPS.find(s=>s.id===id); }
+// Scale the current scene down (never up) so it always fits inside the 16:9 frame — no clipping, no scroll.
+function fitScene(scene){
+	if(!scene) return;
+	scene.style.transform='translate(-50%,-50%) scale(1)';
+	const box=stage.getBoundingClientRect();
+	const availW=box.width-32, availH=box.height-28;
+	const sw=scene.offsetWidth, sh=scene.offsetHeight;
+	if(!sw||!sh) return;
+	const k=Math.min(1, availW/sw, availH/sh);
+	scene.style.transform='translate(-50%,-50%) scale('+k+')';
+}
+function headerEls(scene){ return [scene.querySelector('.scene-title'), scene.querySelector('.scene-lead')]; }
+function buildScene(step){ const s=el('scene'); s.appendChild(el('scene-title', t(step.titleKey))); s.appendChild(el('scene-lead', t(step.descKey))); return s; }
+function maybeCallout(step){ if(!calloutEnabled) return null; const c=el('callout', t(step.calloutKey)); c.style.left='1.5rem'; c.style.top='1.5rem'; stage.appendChild(c); liveEls.push(c); dragify(c, 'aw-cwho-callout-pos'); return c; }
+function renderOutline(step,idx){
+	const rows=(step.stats||[]).map(([k,v])=>`<div class="stat-row"><span>${t(k)}</span><span>${t(v)}</span></div>`).join('');
+	outlineBody.innerHTML=`<div class="outline-section"><strong>${t('stepOf')} ${idx+1} / ${STEPS.length}: ${t(step.titleKey)}</strong><p style="margin-top:0.4rem;">${t(step.descKey)}</p></div>${rows?`<div class="outline-section">${rows}</div>`:''}`;
+}
+function announceStep(step,idx){ announcer.textContent=`${t('stepOf')} ${idx+1} / ${STEPS.length}: ${t(step.titleKey)}. ${t(step.descKey)}`; }
+
+// ── RENDER DISPATCH ───────────────────────
+function renderStep(i){
+	if(i<0||i>=STEPS.length) return;
+	if(animating){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; animating=false; }
+	animating=true;
+	const step=STEPS[i];
+	// cross-fade (200ms, CSS keyframes so it's independent of the speed control) — outgoing fades out, incoming fades in, on every step
+	const outgoing=stage.querySelector('.scene:not(.scene-out)');
+	if(outgoing) liveEls=liveEls.filter(x=>x!==outgoing);
+	clearStage();
+	if(outgoing){ outgoing.style.zIndex='5';
+		if(motionPaused){ outgoing.remove(); }
+		else { outgoing.classList.remove('scene-in'); outgoing.classList.add('scene-out'); setTimeout(()=>outgoing.remove(), 240); } }
+	// Measure the scene at its FINISHED state first and reserve that height: the scene is
+	// vertically centred, so a box that fills in later would otherwise shift everything up.
+	const build=()=>{
+		const R={ problem:renderProblemStep, pick:renderPickStep, home:renderHomeStep, ask:renderAskStep, works:renderWorksStep,
+			asks:renderAsksStep, approve:renderApproveStep, results:renderResultsStep, credits:renderCreditsStep, wow:renderWowStep };
+		if(R[step.id]) R[step.id]();
+	};
+	const reservedH=(()=>{
+		const wasPaused=motionPaused, keptEls=liveEls, keptTls=liveTimelines;
+		motionPaused=true; liveEls=[]; liveTimelines=[];
+		build();
+		const probe=stage.querySelector('.scene:not(.scene-out)');
+		const h=probe?probe.offsetHeight:0;
+		liveTimelines.forEach(tl=>tl.kill()); liveEls.forEach(e=>e.remove());
+		motionPaused=wasPaused; liveEls=keptEls; liveTimelines=keptTls;
+		return h;
+	})();
+	animating=true;
+	build();
+	const incoming=stage.querySelector('.scene:not(.scene-out)');
+	if(incoming && reservedH) incoming.style.minHeight=reservedH+'px';
+	if(incoming && !motionPaused) incoming.classList.add('scene-in');
+	fitScene(incoming);
+	current=i;
+	try{ const u=new URL(location.href); u.searchParams.set('step', String(i+1)); history.replaceState(null,'',u); }catch(_){}
+	counter.textContent=`${t('stepOf')} ${current+1} / ${STEPS.length}`;
+	breadcrumb.textContent=t(step.captionKey);
+	progress.style.width=((current+1)/STEPS.length*100)+'%';
+	renderOutline(step,i); announceStep(step,i);
+	if(typeof playStepAudio==='function') playStepAudio(i);
+	if(typeof armJourneyNext==='function') armJourneyNext(i);
+}
+
+// ── Microsoft 365 app marks + shared scene helpers ──
+const M3_ICONS='../../lib/icons/brands/m365/';
+function m3ic(name, px){ return `<img class="m3-ic" src="${M3_ICONS}${name}.svg" alt="" width="${px||28}" height="${px||28}" decoding="async">`; }
+const M3_APPS=[['Word'],['Excel'],['PowerPoint'],['Outlook'],['Teams'],['OneDrive']];
+function m3Timeline(){ const tl=gsap.timeline({onComplete:()=>animating=false}); liveTimelines.push(tl); return tl; }
+function m3Header(tl, scene){ tl.fromTo(headerEls(scene), {opacity:0,y:-14}, {opacity:1,y:0,duration:0.5,stagger:0.1,ease:'power2.out'}); }
+// type text into an element (proxy tween — geometry is never measured here)
+function m3Type(tl, elem, text, dur, pos){
+	// Reserve the finished text's height first: the box grows line by line as it types, which would
+	// otherwise push every later sibling in the scene down. The blinking caret is taller than the
+	// text, so measure with it too — capped, in case it forces one extra wrapped line.
+	const keep=elem.textContent;
+	elem.textContent=text; const hPlain=elem.offsetHeight;
+	elem.classList.add('m3-typing'); const hCaret=elem.offsetHeight;
+	elem.classList.remove('m3-typing'); elem.textContent=keep;
+	const held=parseFloat(elem.style.minHeight)||0;   // never shrink a reservation a caller already made
+	if(hPlain) elem.style.minHeight=Math.max(held, Math.min(Math.max(hPlain,hCaret), hPlain+4))+'px';
+	const o={n:0};
+	tl.to(o, {n:text.length, duration:dur, ease:'none',
+		onStart:()=>{ elem.textContent=''; elem.classList.add('m3-typing'); },
+		onUpdate:()=>{ elem.textContent=text.slice(0, Math.ceil(o.n)); },
+		onComplete:()=>{ elem.classList.remove('m3-typing'); elem.textContent=text; }
+	}, pos);
+}
+// keep what is already typed and continue after it
+function m3TypeMore(tl, elem, prefix, extra, dur, pos){
+	const o={n:0};
+	tl.to(o, {n:extra.length, duration:dur, ease:'none',
+		onStart:()=>{ elem.textContent=prefix; elem.classList.add('m3-typing'); },
+		onUpdate:()=>{ elem.textContent=prefix+extra.slice(0, Math.ceil(o.n)); },
+		onComplete:()=>{ elem.classList.remove('m3-typing'); elem.textContent=prefix+extra; }
+	}, pos);
+}
+
+// ── Cowork scene helpers (surfaces come from lib/js/aw-cowork-ui.js) ──
+// Facts: https://learn.microsoft.com/microsoft-365/copilot/cowork/use-cowork
+const CW=window.AWCowork;
+function hoNode(html){ const d=document.createElement('div'); d.innerHTML=html; return d.firstElementChild; }
+function hoMount(scene, step){ stage.appendChild(scene); liveEls.push(scene); return maybeCallout(step); }
+function hoStill(scene, els, cEl){ gsap.set([...headerEls(scene), ...els], {opacity:1}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; }
+function hoSideTitles(){ return { progress:t('sdProgress'), input:t('sdInput'), output:t('sdOutput'), skills:t('sdSkills'), schedule:t('sdSchedule'), permissions:t('sdPerm') }; }
+function hoWin(body, side, cls, o){ o=o||{}; return hoNode(CW.window({ body, side, cls, rail:o.rail==null?true:o.rail, navOn:o.navOn, mode:[t('cwChat'), t('cwCowork')],
+	user:{ name:t('cwUser'), sub:t('cwOrg') }, labels:{ tab:t('cwBrand'), brand:t('cwRail'), nav:[t('cwNew'), t('cwMy'), t('cwAutos'), t('cwCustom')], work:t('cwWork') } })); }
+function hoCallout(tl, cEl){ if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.2'); }
+
+// ── STEP 1 · THE PROBLEM ──
+function renderProblemStep(){
+	const step=stepById('problem'); const scene=buildScene(step);
+	const row=el('ho-row ho-four');
+	const cards=[['po1T','po1S',['Outlook']],['po2T','po2S',['Outlook','Teams']],['po3T','po3S',['Teams','Word']],['po4T','po4S',['Excel','Word']]]
+		.map(([tk,sk,apps])=>{ const c=el('ho-card', `<div class="ho-apps">${apps.map(a=>m3ic(a,22)).join('')}</div><b>${t(tk)}</b><span>${t(sk)}</span>`); row.appendChild(c); return c; });
+	const count=el('ho-count', t('poCount'));
+	const banner=el('ho-banner', t('poBanner'));
+	scene.append(row, count, banner);
+	const cEl=hoMount(scene, step);
+	if(motionPaused){ hoStill(scene, [...cards, count, banner], cEl); return; }
+	const tl=m3Timeline(); m3Header(tl, scene);
+	tl.fromTo(cards, {opacity:0,y:18}, {opacity:1,y:0,duration:0.45,stagger:0.2,ease:'power2.out'}, '+=0.05');
+	tl.fromTo(count, {opacity:0}, {opacity:1,duration:0.4}, '+=0.3');
+	tl.fromTo(banner, {opacity:0,scale:0.94}, {opacity:1,scale:1,duration:0.5,ease:'back.out(1.6)'}, '+=0.4');
+	hoCallout(tl, cEl);
+}
+
+// ── STEP 2 · PICK THE TOOL ── (https://learn.microsoft.com/microsoft-365/copilot/cowork/cowork-faq)
+function renderPickStep(){
+	const step=stepById('pick'); const scene=buildScene(step);
+	const row=el('ho-row ho-tools');
+	const cards=[['pkChatT','pkChatS',''],['pkAgT','pkAgS',''],['pkCwT','pkCwS','is-teal']]
+		.map(([tk,sk,c])=>{ const n=el('ho-card '+c, `<b>${t(tk)}</b><span>${t(sk)}</span>`); row.appendChild(n); return n; });
+	const qs=el('ho-qs');
+	const rows=[['pkQ1','pkA1',''],['pkQ2','pkA2',''],['pkQ3','pkA3','is-teal']]
+		.map(([qk,ak,c])=>{ const n=el('ho-q', `<span>${t(qk)}</span><span class="ho-tag ${c}">${t(ak)}</span>`); qs.appendChild(n); return n; });
+	const banner=el('ho-banner', t('pkBanner'));
+	scene.append(row, qs, banner);
+	const cEl=hoMount(scene, step);
+	if(motionPaused){ hoStill(scene, [...cards, ...rows, banner], cEl); return; }
+	const tl=m3Timeline(); m3Header(tl, scene);
+	tl.fromTo(cards, {opacity:0,y:18}, {opacity:1,y:0,duration:0.45,stagger:0.2,ease:'power2.out'}, '+=0.05');
+	tl.fromTo(rows, {opacity:0,x:-14}, {opacity:1,x:0,duration:0.4,stagger:0.35,ease:'power2.out'}, '+=0.2');
+	tl.fromTo(banner, {opacity:0,scale:0.94}, {opacity:1,scale:1,duration:0.5,ease:'back.out(1.6)'}, '+=0.3');
+	hoCallout(tl, cEl);
+}
+
+// ── STEP 3 · OPEN COWORK ── (https://learn.microsoft.com/microsoft-365/copilot/cowork/use-cowork)
+function renderHomeStep(){
+	const step=stepById('home'); const scene=buildScene(step);
+	const win=hoWin(CW.home({ greet:t('hmGreet'), placeholder:t('hmPlaceholder'), model:t('cwModel'), effort:t('cwEffort'), tip:t('hmTip'),
+		nextTitle:t('hmNext'), more:t('hmMore'), prompts:[t('hmP1'), t('hmP2'), t('hmP3')] }), '', 'ho-win');
+	const notes=el('ho-notes');
+	const ns=['hmN1','hmN2','hmN3','hmN4','hmN5'].map(k=>{ const n=el('ho-note', t(k)); notes.appendChild(n); return n; });
+	const wrap=el('ho-home'); wrap.append(win, notes); scene.appendChild(wrap);
+	const cEl=hoMount(scene, step);
+	if(motionPaused){ hoStill(scene, [win, ...ns], cEl); return; }
+	const tl=m3Timeline(); m3Header(tl, scene);
+	tl.fromTo(win, {opacity:0,y:18,scale:0.98}, {opacity:1,y:0,scale:1,duration:0.5,ease:'power2.out'}, '+=0.05');
+	tl.fromTo(win.querySelectorAll('.cw-prompt'), {opacity:0,y:8}, {opacity:1,y:0,duration:0.3,stagger:0.12}, '+=0.1');
+	tl.fromTo(ns, {opacity:0,y:8}, {opacity:1,y:0,duration:0.35,stagger:0.25,ease:'back.out(1.6)'}, '+=0.2');
+	hoCallout(tl, cEl);
+}
+
+// ── STEP 4 · WRITE THE REQUEST ── (auto-played: weak → better → best)
+function renderAskStep(){
+	const step=stepById('ask'); const scene=buildScene(step);
+	const reqs=el('ho-reqs');
+	const rows=[['rqK1','rqT1','rqV1','is-no',''],['rqK2','rqT2','rqV2','is-no',''],['rqK3',null,'rqV3','is-ok','is-best']]
+		.map(([k,tx,v,tone,c])=>{ const n=el('ho-req '+c, `<span class="ho-req-k">${t(k)}</span><span class="ho-req-t">${tx?t(tx):''}</span><span class="ho-tag ${tone}">${t(v)}</span>`); reqs.appendChild(n); return n; });
+	const best=rows[2].querySelector('.ho-req-t'); const bestText='\u201C'+t('bestReq')+'\u201D';
+	const ctx=el('ho-ctx', `<span class="ho-ctx-h">${t('rqCtx')}</span>`);
+	const chips=['rqC1','rqC2','rqC3','rqC4'].map(k=>{ const n=el('ho-tag is-teal', t(k)); ctx.appendChild(n); return n; });
+	scene.append(reqs, ctx);
+	const cEl=hoMount(scene, step);
+	const tags=rows.map(r=>r.querySelector('.ho-tag'));
+	if(motionPaused){ best.textContent=bestText; hoStill(scene, [...rows, ctx, ...chips], cEl); return; }
+	gsap.set(tags, {opacity:0}); gsap.set(ctx, {opacity:1}); gsap.set(chips, {opacity:0}); ctx.querySelector('.ho-ctx-h').style.opacity='0';
+	const tl=m3Timeline(); m3Header(tl, scene);
+	tl.fromTo(rows[0], {opacity:0,y:12}, {opacity:1,y:0,duration:0.4}, '+=0.05');
+	tl.to(tags[0], {opacity:1,duration:0.3}, '+=0.5');
+	tl.fromTo(rows[1], {opacity:0,y:12}, {opacity:1,y:0,duration:0.4}, '+=0.3');
+	tl.to(tags[1], {opacity:1,duration:0.3}, '+=0.5');
+	tl.to(rows.slice(0,2), {opacity:0.55,duration:0.4}, '+=0.2');
+	tl.fromTo(rows[2], {opacity:0,y:12}, {opacity:1,y:0,duration:0.4}, '<');
+	m3Type(tl, best, bestText, 2.4, '>');
+	tl.to(tags[2], {opacity:1,duration:0.3,ease:'back.out(1.8)'}, '>');
+	tl.to(ctx.querySelector('.ho-ctx-h'), {opacity:1,duration:0.3}, '+=0.2');
+	tl.fromTo(chips, {opacity:0,y:8}, {opacity:1,y:0,duration:0.3,stagger:0.18,ease:'back.out(1.6)'}, '>');
+	hoCallout(tl, cEl);
+}
+
+// ── STEP 5 · IT WORKS ── (thinking, skill messages, step updates, side panel)
+function renderWorksStep(){
+	const step=stepById('works'); const scene=buildScene(step);
+	const plan=[t('wkS1'), t('wkS2'), t('wkS3'), t('wkS4')];
+	const side=CW.side({ title:hoSideTitles(), pct:0, input:['Beacon Rollout Plan.docx'], skills:[t('skEmail'), t('skWord'), t('skMeetings'), t('skSearch')] });
+	const win=hoWin(CW.thinking(t('wkThinking')) + CW.skillMsg(t('wkSkill')) + CW.steps(plan.map(s=>[s,'todo'])), side);
+	const wrap=el('ho-stack'); wrap.appendChild(win); scene.appendChild(wrap);
+	const cEl=hoMount(scene, step);
+	const main=win.querySelector('.cw-main'), think=main.querySelector('.cw-thinking'), skill=main.querySelector('.cw-skillmsg'),
+		mSteps=[...main.querySelectorAll('.cw-step')],
+		bar=win.querySelector('.cw-progress i'), pct=win.querySelector('.cw-progress-pct'), chips=[...win.querySelectorAll('.cw-sec-skills .cw-pill')];
+	bar.style.transition='none';
+	const mark=(i, state)=>{ const s=mSteps[i]; s.className='cw-step is-'+state; s.querySelector('.cw-step-mark').innerHTML = state==='done' ? '&#10003;' : ''; };
+	const setPct=v=>{ bar.style.width=v+'%'; pct.textContent=v+'%'; };
+	if(motionPaused){ plan.forEach((_,i)=>mark(i, i<3?'done':'run')); setPct(75); gsap.set(think, {display:'none'}); hoStill(scene, [win], cEl); return; }
+	gsap.set([skill, ...mSteps, ...chips], {opacity:0});
+	const tl=m3Timeline(); m3Header(tl, scene);
+	tl.fromTo(win, {opacity:0,y:18}, {opacity:1,y:0,duration:0.5,ease:'power2.out'}, '+=0.05');
+	tl.fromTo(think, {opacity:0}, {opacity:1,duration:0.3}, '+=0.2');
+	tl.to(think, {opacity:0,height:0,margin:0,padding:0,duration:0.3}, '+=1.0');
+	tl.to(skill, {opacity:1,duration:0.35}, '>');
+	tl.to(chips, {opacity:1,duration:0.3,stagger:0.15,ease:'back.out(1.6)'}, '<');
+	plan.forEach((_,i)=>{
+		tl.to(mSteps[i], {opacity:1,duration:0.3,onStart:()=>mark(i,'run')}, '+=0.25');
+		if(i<3){ const v=Math.round((i+1)/plan.length*100); tl.to({}, {duration:0.55,onComplete:()=>{ mark(i,'done'); setPct(v); }}); }
+	});
+	hoCallout(tl, cEl);
+}
+
+// ── STEP 6 · IT ASKS ── (question cards + queued follow-ups)
+function renderAsksStep(){
+	const step=stepById('asks'); const scene=buildScene(step);
+	const win=hoWin(CW.steps([[t('wkS1'),'done'],[t('wkS2'),'done'],[t('wkS3'),'done'],[t('wkS4'),'run']])
+		+ '<span class="ho-queued">' + CW.msg('user', t('akFollow')) + CW.pill(t('akQueued'), 'accent') + '</span>', '', '', {rail:'mini'});
+	const col=el('ho-col cw');
+	const status=hoNode(CW.pill(t('akStatus'), 'warn')); status.style.alignSelf='flex-start';
+	const q=hoNode(CW.question({ q:t('akQ'), options:[t('akO1'), t('akO2'), t('akO3')], on:-1, submit:t('akSubmit'), skip:t('akSkip') }));
+	col.append(status, q);
+	const split=el('ho-split'); split.append(win, col); scene.appendChild(split);
+	const cEl=hoMount(scene, step);
+	const queued=win.querySelector('.ho-queued'), opts=[...q.querySelectorAll('.cw-option')];
+	if(motionPaused){ opts[0].classList.add('is-on'); hoStill(scene, [win, col, queued], cEl); return; }
+	const tl=m3Timeline(); m3Header(tl, scene);
+	tl.fromTo(win, {opacity:0,y:18}, {opacity:1,y:0,duration:0.5,ease:'power2.out'}, '+=0.05');
+	tl.fromTo(col, {opacity:0,x:22}, {opacity:1,x:0,duration:0.5,ease:'power2.out'}, '+=0.3');
+	tl.to({}, {duration:0.9,onComplete:()=>opts[0].classList.add('is-on')});
+	tl.fromTo(queued, {opacity:0,y:10}, {opacity:1,y:0,duration:0.45,ease:'power2.out'}, '+=0.5');
+	hoCallout(tl, cEl);
+}
+
+// ── STEP 7 · YOU APPROVE ── (Send · More options · Cancel; session-scoped skip)
+function renderApproveStep(){
+	const step=stepById('approve'); const scene=buildScene(step);
+	const card=hoNode(CW.approval({ title:t('apCard'), tag:t('apDraft'), risk:t('apRisk'), riskTone:'ok',
+		fields:[[t('apTo'), t('apToV')], [t('apSubject'), t('apSubjectV')]], preview:t('apBody'),
+		params:t('apParams'), cancel:t('apCancel'), action:t('apSend'), more:true }));
+	const menu=hoNode(`<div class="cw cw-menu ho-menu">${[t('apSend'), t('apM2'), t('apM3'), t('apM4')].map(m=>`<span>${m}</span>`).join('')}</div>`);
+	const row=el('ho-approve'); row.append(card, menu); scene.appendChild(row);
+	const cEl=hoMount(scene, step);
+	const items=[...menu.querySelectorAll('span')];
+	if(motionPaused){ items[0].classList.add('is-on'); hoStill(scene, [card, menu], cEl); return; }
+	const tl=m3Timeline(); m3Header(tl, scene);
+	tl.fromTo(card, {opacity:0,y:18,scale:0.97}, {opacity:1,y:0,scale:1,duration:0.5,ease:'back.out(1.4)'}, '+=0.05');
+	tl.fromTo(menu, {opacity:0,x:-14}, {opacity:1,x:0,duration:0.4,ease:'power2.out'}, '+=1.2');
+	items.forEach((s,i)=>tl.to({}, {duration:0.45,onStart:()=>{ items.forEach(x=>x.classList.remove('is-on')); s.classList.add('is-on'); }}));
+	tl.to({}, {duration:0.3,onComplete:()=>{ items.forEach(x=>x.classList.remove('is-on')); items[0].classList.add('is-on'); }});
+	hoCallout(tl, cEl);
+}
+
+// ── STEP 8 · RESULTS ── (output folder, preview, My tasks)
+function renderResultsStep(){
+	const step=stepById('results'); const scene=buildScene(step);
+	const side=CW.side({ title:hoSideTitles(), output:[t('rsFile1'), t('rsFile2')], skills:[t('skEmail'), t('skWord')] });
+	const win=hoWin(CW.msg('cowork', t('rsDone')) + '<div class="cw-actions">' + CW.btn(t('rsDownload')) + '</div>', side, '', {rail:'mini', navOn:1});
+	const list=hoNode(CW.list({ tabs:[t('rsTabs1'), t('rsTabs2')], on:0,
+		rows:[[t('rsT1'), t('rsT1s'), t('hmDone'), 'ok'], [t('rsT2'), t('rsT2s'), t('hmDone'), 'ok'], [t('hmR1'), '', t('hmDone'), 'ok']] }));
+	const split=el('ho-split is-wide'); split.append(win, list); scene.appendChild(split);
+	const cEl=hoMount(scene, step);
+	const files=[...win.querySelectorAll('.cw-sec-output .cw-file')], reply=win.querySelector('.cw-msg.is-cowork');
+	if(motionPaused){ hoStill(scene, [win, list], cEl); return; }
+	gsap.set([...files, reply], {opacity:0});
+	const tl=m3Timeline(); m3Header(tl, scene);
+	tl.fromTo(win, {opacity:0,y:18}, {opacity:1,y:0,duration:0.5,ease:'power2.out'}, '+=0.05');
+	tl.fromTo(reply, {opacity:0,y:8}, {opacity:1,y:0,duration:0.4}, '+=0.2');
+	tl.fromTo(files, {opacity:0,x:-10}, {opacity:1,x:0,duration:0.35,stagger:0.25,ease:'back.out(1.6)'}, '+=0.2');
+	tl.fromTo(list, {opacity:0,x:22}, {opacity:1,x:0,duration:0.5,ease:'power2.out'}, '+=0.4');
+	hoCallout(tl, cEl);
+}
+
+// ── STEP 9 · CREDITS ── (https://learn.microsoft.com/microsoft-365/copilot/cowork/cowork-faq ; /cost example from the Learn module)
+function renderCreditsStep(){
+	const step=stepById('credits'); const scene=buildScene(step);
+	const drivers=el('ho-drivers');
+	const rows=[['crD1',85],['crD2',70],['crD3',60],['crD4',50],['crD5',35]]
+		.map(([k,w])=>{ const n=el('ho-driver', `<span>${t(k)}</span><span class="ho-bar"><i data-w="${w}"></i></span>`); drivers.appendChild(n); return n; });
+	const win=hoWin(CW.msg('user', '/cost') + CW.msg('cowork', t('crReply')), '', '', {rail:'mini'});
+	const cost=el('ho-cost'); cost.append(drivers, win);
+	const note=el('ho-count', t('crNote'));
+	scene.append(cost, note);
+	const cEl=hoMount(scene, step);
+	const bars=rows.map(r=>r.querySelector('i')), msgs=[...win.querySelectorAll('.cw-msg')];
+	if(motionPaused){ bars.forEach(b=>b.style.width=b.dataset.w+'%'); hoStill(scene, [...rows, win, note], cEl); return; }
+	gsap.set(msgs, {opacity:0});
+	const tl=m3Timeline(); m3Header(tl, scene);
+	tl.fromTo(rows, {opacity:0,x:-12}, {opacity:1,x:0,duration:0.35,stagger:0.12}, '+=0.05');
+	tl.to(bars, {width:(i,b)=>b.dataset.w+'%',duration:0.7,stagger:0.12,ease:'power2.out'}, '-=0.3');
+	tl.fromTo(win, {opacity:0,x:20}, {opacity:1,x:0,duration:0.5,ease:'power2.out'}, '+=0.2');
+	tl.to(msgs[0], {opacity:1,duration:0.3}, '+=0.2');
+	tl.to(msgs[1], {opacity:1,duration:0.4}, '+=0.6');
+	tl.fromTo(note, {opacity:0}, {opacity:1,duration:0.4}, '+=0.3');
+	hoCallout(tl, cEl);
+}
+
+// ── STEP 10 · ALL IN ONE ── (guardrails + limits: https://learn.microsoft.com/microsoft-365/copilot/cowork/cowork-faq)
+function renderWowStep(){
+	const step=stepById('wow'); const scene=buildScene(step);
+	const loop=el('ho-loop');
+	const cards=[['woL1','woL1s'],['woL2','woL2s'],['woL3','woL3s'],['woL4','woL4s']]
+		.map(([tk,sk],i)=>{ const n=el('ho-card'+(i===1?' is-teal':''), `<span class="ho-num">${i+1}</span><b>${t(tk)}</b><span>${t(sk)}</span>`); loop.appendChild(n); return n; });
+	const guards=el('ho-guards'); const gs=['woG1','woG2','woG3'].map(k=>{ const n=el('ho-guard', '\u2713 '+t(k)); guards.appendChild(n); return n; });
+	const limits=el('ho-limits'); const ls=['woX1','woX2','woX3'].map(k=>{ const n=el('ho-limit', t(k)); limits.appendChild(n); return n; });
+	const foot=el('ho-foot', t('woFoot'));
+	scene.append(loop, guards, limits, foot);
+	const cEl=hoMount(scene, step);
+	if(motionPaused){ hoStill(scene, [...cards, ...gs, ...ls, foot], cEl); return; }
+	const tl=m3Timeline(); m3Header(tl, scene);
+	tl.fromTo(cards, {opacity:0,y:18}, {opacity:1,y:0,duration:0.45,stagger:0.25,ease:'power2.out'}, '+=0.05');
+	tl.fromTo(gs, {opacity:0,scale:0.9}, {opacity:1,scale:1,duration:0.35,stagger:0.15,ease:'back.out(1.6)'}, '+=0.2');
+	tl.fromTo(ls, {opacity:0}, {opacity:1,duration:0.3,stagger:0.1}, '+=0.1');
+	tl.fromTo(foot, {opacity:0}, {opacity:1,duration:0.4}, '+=0.2');
+	hoCallout(tl, cEl);
+}
+// ── CONTROLS ──────────────────────────────
+function focusHeading(){ const h=document.getElementById('stage-heading'); if(h){ try{ h.focus({preventScroll:true}); }catch(_){ h.focus(); } } }
+function interruptAnimation(){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; animating=false; }
+function next(){ interruptAnimation(); if(current<STEPS.length-1){ renderStep(current+1); focusHeading(); } }
+function prev(){ interruptAnimation(); if(current>0){ renderStep(current-1); focusHeading(); } }
+function reset(){ interruptAnimation(); renderStep(0); focusHeading(); }
+function replay(){ if(current<0) return; interruptAnimation(); renderStep(current); focusHeading(); }
+
+// ── Hide / show top bar (toggle; the ^ chevron flips to v when hidden) ──
+(function(){
+	const hideBtn=document.getElementById('header-hide'), revealBtn=document.getElementById('header-reveal');
+	if(!hideBtn||!revealBtn) return;
+	var hideBtnTop=document.getElementById('header-hide-top'); if(hideBtnTop) hideBtnTop.addEventListener('click',function(e){ e.stopPropagation(); hideBtn.click(); });
+	const hidePath=hideBtn.querySelector('svg path');
+	const UP='M6 15l6-6 6 6', DOWN='M6 9l6 6 6-6';   // ^ points up to hide the bar; flips to v to show it again
+	function setHidden(h){
+		document.body.classList.toggle('chrome-hidden',h);
+		hideBtn.setAttribute('aria-expanded',String(!h));
+		hideBtn.setAttribute('aria-label',h?'Show top bar':'Hide top bar');
+		hideBtn.title=(h?'Show top bar':'Hide top bar')+' (H)';
+		if(hidePath) hidePath.setAttribute('d',h?DOWN:UP);
+		try{localStorage.setItem('aw-cwho-chrome-hidden',h?'1':'0');}catch(_){}
+		if(current>=0) requestAnimationFrame(()=>{ const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s); });
+	}
+	hideBtn.addEventListener('click',e=>{e.stopPropagation();setHidden(!document.body.classList.contains('chrome-hidden'));});
+	revealBtn.addEventListener('click',e=>{e.stopPropagation();setHidden(false);});
+	try{ if(localStorage.getItem('aw-cwho-chrome-hidden')==='1') setHidden(true); }catch(_){}
+	document.addEventListener('keydown',e=>{ if(e.code==='KeyH'&&!e.metaKey&&!e.ctrlKey&&!e.altKey){ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return; e.preventDefault(); setHidden(!document.body.classList.contains('chrome-hidden')); } });
+})();
+
+document.getElementById('next-btn').addEventListener('click',e=>{e.stopPropagation();next();});
+document.getElementById('prev-btn').addEventListener('click',e=>{e.stopPropagation();prev();});
+document.getElementById('reset-btn').addEventListener('click',e=>{e.stopPropagation();reset();});
+document.getElementById('replay-btn').addEventListener('click',e=>{e.stopPropagation();replay();});
+
+// ── Clickable progress bar + step ticks ──
+(function(){
+	const track=document.querySelector('.progress-track'); if(!track) return;
+	for(let s=1; s<STEPS.length; s++){ const tk=document.createElement('div'); tk.className='progress-tick'; tk.style.left=(s/STEPS.length*100)+'%'; track.appendChild(tk); }
+	track.setAttribute('title','Jump to a step');
+	track.addEventListener('click', e=>{
+		const r=track.getBoundingClientRect(); const frac=(e.clientX-r.left)/r.width;
+		const target=Math.max(0, Math.min(STEPS.length-1, Math.floor(frac*STEPS.length)));
+		if(target!==current){ interruptAnimation(); renderStep(target); focusHeading(); }
+	});
+})();
+
+// ── Movable / pinnable control dock ───────
+(function(){
+	const dock=document.getElementById('controls'), grip=document.getElementById('ctrl-grip'), pin=document.getElementById('ctrl-pin');
+	if(!dock||!grip) return;
+	const KEY='aw-cwho-controls-pos';
+	let dragging=false, sx=0, sy=0, bl=0, bt=0, moved=false;
+	function place(left,top){
+		const w=dock.offsetWidth, h=dock.offsetHeight;
+		left=Math.max(6, Math.min(left, window.innerWidth - w - 6));
+		top =Math.max(6, Math.min(top,  window.innerHeight - h - 6));
+		dock.style.left=left+'px'; dock.style.top=top+'px'; dock.style.right='auto'; dock.style.bottom='auto'; dock.style.transform='none';
+		document.body.classList.add('controls-floating');
+	}
+	function recenter(){
+		dock.style.left=dock.style.top=dock.style.right=dock.style.bottom=dock.style.transform='';
+		document.body.classList.remove('controls-floating');
+		try{ localStorage.removeItem(KEY); }catch(_){}
+	}
+	grip.addEventListener('pointerdown', e=>{
+		e.preventDefault(); dragging=true; moved=false;
+		const r=dock.getBoundingClientRect(); bl=r.left; bt=r.top; sx=e.clientX; sy=e.clientY;
+		try{ grip.setPointerCapture(e.pointerId); }catch(_){}
+	});
+	grip.addEventListener('pointermove', e=>{
+		if(!dragging) return;
+		const dx=e.clientX-sx, dy=e.clientY-sy;
+		if(Math.abs(dx)>2||Math.abs(dy)>2) moved=true;
+		place(bl+dx, bt+dy);
+	});
+	function end(e){ if(!dragging) return; dragging=false; try{ grip.releasePointerCapture(e.pointerId); }catch(_){}
+		if(moved){ try{ const r=dock.getBoundingClientRect(); localStorage.setItem(KEY, JSON.stringify({left:r.left, top:r.top})); }catch(_){} } }
+	grip.addEventListener('pointerup', end); grip.addEventListener('pointercancel', end);
+	// keyboard-nudge the dock when the grip is focused (arrow keys; Shift = larger step)
+	grip.addEventListener('keydown', e=>{
+		const d=e.shiftKey?40:12; const r=dock.getBoundingClientRect(); let ok=true;
+		if(e.key==='ArrowLeft') place(r.left-d, r.top);
+		else if(e.key==='ArrowRight') place(r.left+d, r.top);
+		else if(e.key==='ArrowUp') place(r.left, r.top-d);
+		else if(e.key==='ArrowDown') place(r.left, r.top+d);
+		else ok=false;
+		if(ok){ e.preventDefault(); e.stopPropagation(); }
+	});
+	if(pin) pin.addEventListener('click', e=>{ e.stopPropagation(); recenter(); });
+	window.addEventListener('resize', ()=>{ if(document.body.classList.contains('controls-floating')){ const r=dock.getBoundingClientRect(); place(r.left, r.top); } });
+	try{ const s=JSON.parse(localStorage.getItem(KEY)||'null'); if(s && typeof s.left==='number') place(s.left, s.top); }catch(_){}
+})();
+
+// ── Make callout / outline / caption draggable (same pointer-drag as the control dock) ──
+function dragify(el, key){
+	if(!el || el.__awDrag) return; el.__awDrag=true;
+	let dragging=false, sx=0, sy=0, bl=0, bt=0, moved=false;
+	const resizable = getComputedStyle(el).resize !== 'none';
+	const sizeKey = key ? key + '-size' : null;
+	// snapshot the home position + size so the reset pin can restore it exactly
+	const home={ position:el.style.position, left:el.style.left, top:el.style.top,
+		right:el.style.right, bottom:el.style.bottom, margin:el.style.margin, transform:el.style.transform,
+		width:el.style.width, height:el.style.height };
+	// reset "pin" — hidden until the panel is dragged or resized off its home spot
+	const pin=document.createElement('button');
+	pin.type='button'; pin.className='aw-drag-reset';
+	pin.title=t('resetPos'); pin.setAttribute('aria-label', t('resetPos'));
+	pin.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>';
+	// keep the pin inside scrollable / resizable panels so it isn't clipped
+	const oy=getComputedStyle(el).overflowY; const clips=(oy==='auto'||oy==='scroll'||oy==='hidden');
+	pin.style.top=clips?'8px':'-10px'; pin.style.right=clips?'8px':'-10px';
+	el.appendChild(pin);
+	function showPin(on){ pin.style.display=on?'flex':'none'; }
+	pin.addEventListener('pointerdown', e=>{ e.stopPropagation(); });
+	pin.addEventListener('click', e=>{
+		e.preventDefault(); e.stopPropagation();
+		el.style.position=home.position; el.style.left=home.left; el.style.top=home.top;
+		el.style.right=home.right; el.style.bottom=home.bottom; el.style.margin=home.margin; el.style.transform=home.transform;
+		el.style.width=home.width; el.style.height=home.height;
+		if(key){ try{ localStorage.removeItem(key); }catch(_){} }
+		if(sizeKey){ try{ localStorage.removeItem(sizeKey); }catch(_){} }
+		showPin(false);
+	});
+	function fix(left,top){
+		const w=el.offsetWidth, h=el.offsetHeight;
+		left=Math.max(6, Math.min(left, window.innerWidth  - w - 6));
+		top =Math.max(6, Math.min(top,  window.innerHeight - h - 6));
+		el.style.position='fixed'; el.style.left=left+'px'; el.style.top=top+'px';
+		el.style.right='auto'; el.style.bottom='auto'; el.style.margin='0'; el.style.transform='none';
+	}
+	// persist user resizes (the CSS resize grip writes inline width/height; content changes don't)
+	if(resizable && typeof ResizeObserver!=='undefined'){
+		let rt;
+		new ResizeObserver(()=>{
+			if(el.style.width || el.style.height){
+				showPin(true);
+				if(sizeKey){ clearTimeout(rt); rt=setTimeout(()=>{ try{ localStorage.setItem(sizeKey, JSON.stringify({w:el.style.width, h:el.style.height})); }catch(_){} }, 150); }
+			}
+		}).observe(el);
+	}
+	el.addEventListener('pointerdown', e=>{
+		if(e.button!==0 || (e.target.closest && e.target.closest('a,button,select,input,textarea'))) return;
+		if(resizable){ const r=el.getBoundingClientRect(); if(e.clientX>r.right-18 && e.clientY>r.bottom-18) return; } // let the resize grip win
+		dragging=true; moved=false;
+		const r=el.getBoundingClientRect(); bl=r.left; bt=r.top; sx=e.clientX; sy=e.clientY;
+		fix(bl, bt);   // pin at the current spot first, so there's no jump
+		try{ el.setPointerCapture(e.pointerId); }catch(_){}
+		e.preventDefault();
+	});
+	el.addEventListener('pointermove', e=>{
+		if(!dragging) return;
+		const dx=e.clientX-sx, dy=e.clientY-sy;
+		if(Math.abs(dx)>2||Math.abs(dy)>2) moved=true;
+		fix(bl+dx, bt+dy);
+	});
+	function end(e){
+		if(!dragging) return; dragging=false;
+		try{ el.releasePointerCapture(e.pointerId); }catch(_){}
+		if(moved){ showPin(true); if(key){ try{ const r=el.getBoundingClientRect(); localStorage.setItem(key, JSON.stringify({left:r.left, top:r.top})); }catch(_){} } }
+	}
+	el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+	if(sizeKey){ try{ const z=JSON.parse(localStorage.getItem(sizeKey)||'null'); if(z && (z.w||z.h)){ if(z.w) el.style.width=z.w; if(z.h) el.style.height=z.h; showPin(true); } }catch(_){} }
+	if(key){ try{ const s=JSON.parse(localStorage.getItem(key)||'null'); if(s && isFinite(s.left) && isFinite(s.top)){ fix(s.left, s.top); showPin(true); } }catch(_){} }
+}
+dragify(document.getElementById('step-outline'), 'aw-cwho-outline-pos');
+dragify(document.getElementById('aw-caption'), 'aw-cwho-caption-pos');
+
+// ── Speed ─────────────────────────────────
+const SPEED_STEPS=[0.5,0.75,1,1.25,1.5,2]; const BASE_TIMESCALE=0.25;
+let speedIndex=SPEED_STEPS.indexOf(1);
+try{ const sp=parseInt(localStorage.getItem('aw-cwho-speed'),10); if(!isNaN(sp)&&sp>=0&&sp<SPEED_STEPS.length) speedIndex=sp; }catch(_){}
+const speedLabel=document.getElementById('speed-label'), speedDownBtn=document.getElementById('speed-down'), speedUpBtn=document.getElementById('speed-up');
+function saveSpeed(){ try{ localStorage.setItem('aw-cwho-speed', String(speedIndex)); }catch(_){} }
+function syncSpeedUI(){ const spd=SPEED_STEPS[speedIndex]; speedLabel.textContent=spd+'\u00d7'; speedDownBtn.disabled=speedIndex===0; speedUpBtn.disabled=speedIndex===SPEED_STEPS.length-1; gsap.globalTimeline.timeScale(spd*BASE_TIMESCALE); }
+syncSpeedUI();
+speedDownBtn.addEventListener('click',e=>{e.stopPropagation(); if(speedIndex>0){speedIndex--;syncSpeedUI();saveSpeed();}});
+speedUpBtn.addEventListener('click',e=>{e.stopPropagation(); if(speedIndex<SPEED_STEPS.length-1){speedIndex++;syncSpeedUI();saveSpeed();}});
+
+// ── Keyboard ──────────────────────────────
+if (window.AW && AW.keyboard) { AW.keyboard.bind({ next, prev, reset, replay }); }
+else { document.addEventListener('keydown', e => {
+	if (['Space','ArrowRight','Enter'].includes(e.code)) { e.preventDefault(); next(); }
+	else if (e.code==='ArrowLeft') { e.preventDefault(); prev(); }
+	else if (e.code==='KeyR') { e.preventDefault(); reset(); }
+	else if (e.code==='KeyP') { e.preventDefault(); replay(); }
+}); }
+
+// ── Touch swipe (tablets) ─────────────────
+(function(){
+	const surf=document.getElementById('stage'); if(!surf) return;
+	let x0=null,y0=null,t0=0;
+	surf.addEventListener('touchstart',e=>{ if(e.touches.length!==1){x0=null;return;} x0=e.touches[0].clientX; y0=e.touches[0].clientY; t0=Date.now(); },{passive:true});
+	surf.addEventListener('touchend',e=>{
+		if(x0===null) return; const tch=e.changedTouches[0]; const dx=tch.clientX-x0, dy=tch.clientY-y0; x0=null;
+		if(Date.now()-t0>800) return;
+		if(Math.abs(dx)>50 && Math.abs(dx)>Math.abs(dy)*1.6){ if(dx<0) next(); else prev(); }
+	},{passive:true});
+})();
+
+// ── Keyboard shortcut help overlay ────────
+(function(){
+	const overlay=document.getElementById('shortcut-overlay'), btn=document.getElementById('help-toggle'), closeBtn=document.getElementById('sc-close'), list=document.getElementById('sc-list');
+	if(!overlay||!list) return;
+	const ROWS=[[['\u2192','Space'],'scNext'],[['\u2190'],'scPrev'],[['R'],'scRestart'],[['P'],'scReplay'],[['H'],'scHide'],[['?'],'scHelp']];
+	window.buildShortcuts=function(){ const title=document.getElementById('sc-title'); if(title) title.textContent=t('scTitle');
+		list.innerHTML=ROWS.map(([keys,k])=>`<li><span>${t(k)}</span><span class="sc-keys">${keys.map(x=>`<kbd>${x}</kbd>`).join('')}</span></li>`).join(''); };
+	buildShortcuts();
+	function open(){ overlay.removeAttribute('hidden'); if(closeBtn) closeBtn.focus(); }
+	function close(){ overlay.setAttribute('hidden',''); if(btn) btn.focus(); }
+	function toggle(){ overlay.hasAttribute('hidden')?open():close(); }
+	if(btn) btn.addEventListener('click',e=>{e.stopPropagation();toggle();});
+	if(closeBtn) closeBtn.addEventListener('click',e=>{e.stopPropagation();close();});
+	const bd=overlay.querySelector('.sc-backdrop'); if(bd) bd.addEventListener('click',close);
+	document.addEventListener('keydown',e=>{ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return;
+		if(e.key==='?'){ e.preventDefault(); toggle(); }
+		else if(e.key==='Escape' && !overlay.hasAttribute('hidden')){ e.preventDefault(); close(); } });
+})();
+
+// ── Resize (re-fit only — never rebuild or replay the animation) ──
+let resizeTimer, lastStageW=0, lastStageH=0;
+window.addEventListener('resize',()=>{ clearTimeout(resizeTimer); resizeTimer=setTimeout(()=>{
+	if(current<0) return;
+	const box=stage.getBoundingClientRect();
+	if(Math.abs(box.width-lastStageW)<1 && Math.abs(box.height-lastStageH)<1) return;   // ignore no-op reflows (focus/URL-bar) so the animation never restarts
+	lastStageW=box.width; lastStageH=box.height;
+	const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s);
+},200); });
+
+// ── "Up next" destination — the next stop in the Copilot journey ──
+var NEXT_STOP = {
+	href: 'CopilotEverywhere.html',
+	iconSrc: '../../lib/icons/brands/Microsoft365Copilot.svg',
+	i18n: {
+		en: { eyebrow: 'Up next', title: 'One Copilot everywhere', cta: 'Continue' },
+		es: { eyebrow: 'A continuación', title: 'Un solo Copilot en todas partes', cta: 'Continuar' },
+		ja: { eyebrow: '次へ', title: 'どこでも 1 つの Copilot', cta: '続ける' },
+		ko: { eyebrow: '다음', title: '어디서나 하나의 Copilot', cta: '계속' },
+		pt: { eyebrow: 'A seguir', title: 'Um só Copilot em todo lugar', cta: 'Continuar' }
+	}
+};
+
+// ── "Up next" pill (last step → next journey stop) ──
+var jnEl = document.getElementById('journey-next');
+var jnTimer = null, jnDismissed = false;
+function refreshJourneyNext(){
+	if(!jnEl || !NEXT_STOP || !NEXT_STOP.href) return;
+	var d = (NEXT_STOP.i18n && (NEXT_STOP.i18n[currentLang] || NEXT_STOP.i18n.en)) || {};
+	var q = '?lang=' + encodeURIComponent(currentLang || 'en');
+	var set = function(id,val){ var e=document.getElementById(id); if(e && val!=null) e.textContent=val; };
+	set('jn-eyebrow-text', d.eyebrow);
+	set('jn-title', d.title);
+	set('jn-cta-text', d.cta);
+	var img=document.getElementById('jn-icon-img'); if(img && NEXT_STOP.iconSrc) img.src=NEXT_STOP.iconSrc;
+	var cta=document.getElementById('jn-cta'); if(cta) cta.setAttribute('href', NEXT_STOP.href + q);
+}
+function hideJourneyNext(){ if(jnEl){ jnEl.classList.remove('show'); jnEl.setAttribute('aria-hidden','true'); } }
+function showJourneyNext(){ if(document.body.classList.contains('aw-prestart')) return; if(jnEl && !jnDismissed){ jnEl.classList.add('show'); jnEl.setAttribute('aria-hidden','false'); } }
+function armJourneyNext(i){
+	if(jnTimer){ clearTimeout(jnTimer); jnTimer=null; }
+	var isLast = (i === STEPS.length-1) && NEXT_STOP && NEXT_STOP.href;
+	if(!isLast){ jnDismissed=false; hideJourneyNext(); return; }
+	jnDismissed=false;
+	jnTimer=setTimeout(function(){ jnTimer=null; showJourneyNext(); }, motionPaused ? 0 : 1100);
+}
+if(jnEl){
+	var jnCloseBtn=document.getElementById('jn-close');
+	if(jnCloseBtn) jnCloseBtn.addEventListener('click', function(e){ e.stopPropagation(); jnDismissed=true; hideJourneyNext(); });
+	document.addEventListener('keydown', function(e){ if(e.key==='Escape' && jnEl.classList.contains('show')){ jnDismissed=true; hideJourneyNext(); } });
+}
+
+// ── Init ──────────────────────────────────
+setLanguage(currentLang);
+counter.textContent = `1 / ${STEPS.length}`;
+const urlStep = parseInt(new URLSearchParams(location.search).get('step'), 10);   // ?step=N opens on step N
+renderStep((!isNaN(urlStep) && urlStep>=1 && urlStep<=STEPS.length) ? urlStep-1 : 0);
+</script>
+<script>
+// ── Start gate · hold autoplay until the viewer clicks Play (empty stage + centered Play) ──
+(function () {
+	if (new URLSearchParams(location.search).has('present')) return;
+	var stage = document.getElementById('stage');
+	if (!stage) return;
+	function freeze() { try { if (window.gsap && gsap.globalTimeline) gsap.globalTimeline.pause(); } catch (_) {} }
+	freeze(); requestAnimationFrame(freeze);
+	document.body.classList.add('aw-prestart');
+	try { if (typeof stopAudio === 'function') stopAudio(); } catch (_) {}
+	stage.style.transition = 'opacity .55s ease';
+	stage.style.opacity = '0';
+
+	var T = {
+		title: { en:'Ready to begin?', es:'\u00BFTodo listo?', ja:'\u6E96\u5099\u306F\u3044\u3044\u3067\u3059\u304B\uFF1F', ko:'\uC2DC\uC791\uD560 \uC900\uBE44\uAC00 \uB418\uC168\uB098\uC694?', pt:'Tudo pronto?' },
+		sound: { en:'Sound', es:'Sonido', ja:'\u97F3\u58F0', ko:'\uC18C\uB9AC', pt:'Som' },
+		cc:    { en:'Subtitles (CC)', es:'Subt\u00EDtulos (CC)', ja:'\u5B57\u5E55\uFF08CC\uFF09', ko:'\uC790\uB9C9 (CC)', pt:'Legendas (CC)' },
+		start: { en:'Start presentation', es:'Iniciar presentaci\u00F3n', ja:'\u30D7\u30EC\u30BC\u30F3\u3092\u958B\u59CB', ko:'\uD504\uB808\uC820\uD14C\uC774\uC158 \uC2DC\uC791', pt:'Iniciar apresenta\u00E7\u00E3o' }
+	};
+	function L(){ return (typeof currentLang === 'string' && currentLang) || (typeof CURRENT_LANG === 'string' && CURRENT_LANG) || 'en'; }
+	function t(k){ var m = T[k], l = L(); return m[m[l] ? l : 'en']; }
+	function awAudioState(){ try{ if(typeof window.__awAudioOn==='function') return !!window.__awAudioOn(); }catch(_){} return (typeof audioEnabled!=='undefined') && !!audioEnabled; }
+	function awCcState(){ try{ if(typeof window.__awCcOn!=='undefined' && window.__awCcOn!==null) return !!window.__awCcOn; }catch(_){} return (typeof ccPref!=='undefined') && !!ccPref; }
+
+	var style = document.createElement('style');
+	style.textContent =
+		'body.aw-prestart #controls{opacity:.4;pointer-events:none;transition:opacity .4s ease}' +
+		'#aw-play-card{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:50;box-sizing:border-box;width:min(90vw,22rem);padding:1.35rem 1.5rem 1.5rem;border-radius:16px;background:var(--theme-card-background,#fff);color:var(--theme-text,#222);border:1px solid var(--theme-border,rgba(0,0,0,.1));box-shadow:0 24px 60px rgba(0,0,0,.28);transition:opacity .3s ease,transform .3s ease}' +
+		'#aw-play-card.aw-hide{opacity:0;transform:translate(-50%,-50%) scale(.96);pointer-events:none}' +
+		'body.theme-dark #aw-play-card{border-color:rgba(255,255,255,.12);box-shadow:0 24px 60px rgba(0,0,0,.55)}' +
+		'body.present-mode #aw-play-card{display:none!important}' +
+		'.aw-card-title{margin:0 0 1rem;text-align:center;font-size:1.02rem;font-weight:800;letter-spacing:.03em;text-transform:uppercase;opacity:.85}' +
+		'.aw-row{display:flex;align-items:center;gap:.65rem;padding:.6rem 0}' +
+		'.aw-row + .aw-row{border-top:1px solid var(--theme-border,rgba(0,0,0,.08))}' +
+		'.aw-row-ico{flex:none;width:1.5rem;text-align:center;font-size:1.15rem;line-height:1}' +
+		'.aw-row-lbl{flex:1 1 auto;font-size:.9rem;font-weight:600}' +
+		'.aw-row-state{flex:none;min-width:2.5rem;text-align:right;font-size:.68rem;font-weight:800;letter-spacing:.05em;opacity:.5}' +
+		'.aw-row-state.on{color:var(--theme-primary,#0078d4);opacity:1}' +
+		'.aw-switch{position:relative;flex:none;width:44px;height:24px;padding:0;border:none;border-radius:999px;cursor:pointer;background:var(--theme-border,#c7c7d1);transition:background .18s ease}' +
+		'.aw-switch.on{background:var(--theme-primary,#0078d4)}' +
+		'.aw-switch::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.4);transition:transform .18s ease}' +
+		'.aw-switch.on::after{transform:translateX(20px)}' +
+		'#aw-start{margin-top:1.2rem;width:100%;display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:.8rem 1rem;border:none;border-radius:11px;cursor:pointer;background:var(--theme-primary,#0078d4);color:#fff;font-size:.96rem;font-weight:700;letter-spacing:.01em;box-shadow:0 8px 22px var(--theme-primary-translucent,rgba(0,120,212,.45));transition:transform .15s ease}' +
+		'#aw-start:hover{transform:translateY(-2px)}#aw-start:active{transform:scale(.98)}' +
+		'#aw-start svg{width:18px;height:18px;flex:none}';
+	document.head.appendChild(style);
+
+	var card = document.createElement('div');
+	card.id = 'aw-play-card'; card.setAttribute('role', 'dialog'); card.setAttribute('aria-modal', 'true');
+	card.innerHTML =
+		'<div class="aw-card-title"></div>' +
+		'<div class="aw-row" data-k="audio"><span class="aw-row-ico" aria-hidden="true">\uD83D\uDD0A</span><span class="aw-row-lbl"></span><span class="aw-row-state"></span><button type="button" class="aw-switch" role="switch"></button></div>' +
+		'<div class="aw-row" data-k="cc"><span class="aw-row-ico" aria-hidden="true">\uD83D\uDCAC</span><span class="aw-row-lbl"></span><span class="aw-row-state"></span><button type="button" class="aw-switch" role="switch"></button></div>' +
+		'<button type="button" id="aw-start"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 5v14l11-7z"/></svg><span class="aw-start-lbl"></span></button>';
+	document.body.appendChild(card);
+
+	var titleEl = card.querySelector('.aw-card-title');
+	var startBtn = card.querySelector('#aw-start');
+	var ROWS = [ { k:'audio', lbl:'sound', el:card.querySelector('.aw-row[data-k="audio"]'), read:awAudioState, toggle:'audio-toggle' },
+	             { k:'cc',    lbl:'cc',    el:card.querySelector('.aw-row[data-k="cc"]'),    read:awCcState,    toggle:'cc-toggle' } ];
+
+	function render(){
+		titleEl.textContent = t('title'); card.setAttribute('aria-label', t('title'));
+		startBtn.querySelector('.aw-start-lbl').textContent = t('start');
+		ROWS.forEach(function(r){
+			var on = r.read();
+			r.el.querySelector('.aw-row-lbl').textContent = t(r.lbl);
+			var st = r.el.querySelector('.aw-row-state'); st.textContent = on ? 'ON' : 'OFF'; st.classList.toggle('on', on);
+			var sw = r.el.querySelector('.aw-switch'); sw.classList.toggle('on', on); sw.setAttribute('aria-checked', on ? 'true' : 'false');
+			sw.setAttribute('aria-label', t(r.lbl) + ' \u2014 ' + (on ? 'on' : 'off'));
+		});
+	}
+	ROWS.forEach(function(r){
+		r.el.querySelector('.aw-switch').addEventListener('click', function(e){ e.stopPropagation(); var b = document.getElementById(r.toggle); if(b) b.click(); render(); });
+	});
+	render();
+
+	var sel = document.getElementById('lang-select');
+	// Only re-freeze while the gate is still up — after Play, freezing would pause the
+	// global timeline for good and every later scene would stay at opacity 0 (blank stage).
+	if (sel) sel.addEventListener('change', function () { if (done) return; render(); freeze(); });
+
+	function gateKeys(e) {
+		if (done) return;
+		var tag = (e.target && e.target.tagName || '').toLowerCase();
+		if (tag === 'select' || tag === 'input' || tag === 'textarea') return;
+		if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'].indexOf(e.key) >= 0) { e.preventDefault(); e.stopPropagation(); }
+	}
+	document.addEventListener('keydown', gateKeys, true);
+
+	var done = false;
+	function start() {
+		if (done) return; done = true;
+		document.removeEventListener('keydown', gateKeys, true);
+		document.body.classList.remove('aw-prestart');
+		card.classList.add('aw-hide');
+		setTimeout(function () { if (card.parentNode) card.parentNode.removeChild(card); if (style.parentNode) style.parentNode.removeChild(style); }, 420);
+		setTimeout(function () {
+			try { if (window.gsap && gsap.globalTimeline) gsap.globalTimeline.play(); } catch (_) {}
+			stage.style.opacity = '1';
+			try { if (typeof interruptAnimation === 'function') interruptAnimation(); } catch (_) {}
+			try { if (typeof renderStep === 'function') renderStep(typeof current === 'number' && current >= 0 ? current : 0); } catch (_) {}
+		}, 380);
+	}
+	startBtn.addEventListener('click', start);
+}());
+</script>
+<script src="../../lib/js/aw-present.js"></script>
+<script src="../../lib/js/aw-declutter.js"></script>
+<script src="../../lib/js/aw-url-state.js"></script>
+
+<script src="../../lib/js/aw-like-dock.js"></script>
+</body>
+</html>

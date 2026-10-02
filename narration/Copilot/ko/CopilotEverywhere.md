@@ -58,7 +58,17 @@ One block per animation step.
 [800ms]
 [reassuring] Page는 Alex의 Microsoft 365 컨테이너에 있는 진짜 파일입니다. 사본이 아니라 링크로 공유되고, 민감도 레이블과 eDiscovery, 내보내기의 적용을 받습니다.
 
-## Step 6 · One assistant. One week. One body of work
+## Step 6 · 채팅 또는 Cowork
+
+[curious] 그럼 질문보다 큰 일이라면요?
+[600ms]
+[calm] 채팅에서 Alex는 파일럿 범위가 어떻게 정해졌는지 묻고, 한 턴 만에 답을 얻습니다.
+[600ms]
+[confident] Cowork로 전환하면 Alex는 목표 전체를 맡깁니다. 요약, 킥오프 초대, 그리고 Priya를 위한 안건. Cowork는 이를 계획하고, 한 단계씩 진행한 뒤, Alex의 승인을 기다리며 멈춥니다.
+[800ms]
+[reassuring] 그 아래는 그대로입니다. 같은 로그인, 같은 업무 콘텐츠, 같은 권한. 더 큰 일을 맡은 같은 Copilot입니다.
+
+## Step 7 · One assistant. One week. One body of work
 
 [proud] 앱 다섯 개, 한 주. 제안서, 발표 자료, 분석, 정리된 받은 편지함, 그리고 회의 요약.
 [600ms]
