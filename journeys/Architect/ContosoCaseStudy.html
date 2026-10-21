@@ -1,0 +1,2932 @@
+<!DOCTYPE html>
+<!-- Narration script: /narration/Architect/ContosoCaseStudy.md -->
+<!--
+	Azure Animations — STARTER TEMPLATE
+	====================================
+	Copy this file to <Area>/<Sub>/YourTopic.html (e.g. AI/Foundry/MyTopic.html) and:
+	  1. Set <title>, #page-title, and the back-link href.
+	  2. Rename/expand the sample steps. Each STEPS[] entry pairs with one
+	     render<Xxx>Step(). The samples demonstrate the reusable building blocks —
+	     delete the ones you don't need, they are all optional:
+	       • PROBLEM   — a centered hero .card
+	       • FLOW      — a .ta-flow of .agent-node boxes joined by .ta-arrow (input → process → output)
+	       • CODE      — a VS Code-style .code-card (use .code-duo for a request/response pair)
+	       • USE CASES — a .uc-grid of .uc-card tiles
+	       • RECAP     — a .card + .value-chip row + closing line
+	  3. Fill the English I18N block, then add es/ja/ko/pt (full objects OR the
+	     { ...I18N.en, overrides } spread) and matching <option>s in #lang-select.
+	  4. Prefer Microsoft Fluent icons/emoji over raw OS emoji for anything shown
+	     on a projector. Source priority: Azure service icons (local lib
+	     ../../lib/icons/…) → Fluent System Icons → Fluent UI Emoji → Fluent Emoji
+	     Animated → Twemoji (last resort, CC-BY).
+	  5. Run the Definition-of-Done checklist before publishing.
+
+	DESIGN NOTES
+	  • Accent colour is --theme-tertiary (Microsoft purple #5c2d91); primary blue
+	    and green (#10a37f) act as secondary / positive accents.
+	  • The bottom #controls is a compact translucent "icon dock" of glyph-only
+	    buttons; their localized labels live in the tooltip (title), set in setLanguage().
+	  • Audio narration is optional: list one clip per step (in order) in AUDIO_FILES[]
+	    and an Audio toggle appears automatically. Present mode (dual-window) ships via
+	    aw-present.js at the bottom — it self-installs a "Present" button in the header.
+
+	NOTE: the ../../lib/ and ../../../img/ paths assume this file lives two levels
+	under static/v2/ (e.g. static/v2/AI/Foundry/). Adjust depth if you move it.
+-->
+<html lang="en">
+<head>
+	<script src="/js/tracking.js"></script>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+	<title>Case study: design the Contoso platform — Azure Animations</title>
+	<link rel="icon" type="image/png" href="../../img/favicon.png" />
+
+	<link rel="stylesheet" href="https://unpkg.com/@microsoft/atlas-css/dist/index.css" />
+	<script src="../../lib/vendor/gsap-3.15.0.min.js"></script>
+
+	<!-- AnimationWorks shared lib -->
+	<script src="../../lib/js/aw-easings.js"></script>
+	<script src="../../lib/js/aw-motion.js"></script>
+	<script src="../../lib/js/aw-theme.js"></script>
+	<script src="../../lib/js/aw-keyboard.js"></script>
+	<script src="../../lib/js/aw-captions.js"></script>
+
+<style>
+	/* ── SHELL ─────────────────────────────── */
+	/* Brand palette — reference these tokens; don't hardcode hex */
+	:root {
+		--aw-purple:#5c2d91;   /* primary accent — titles, callouts, arrows, progress, agents */
+		--aw-blue:#0078d4;     /* secondary — inputs, links, "the model", primary button */
+		--aw-green:#10a37f;    /* positive — success, grounded/correct results, value chips */
+		--aw-orange:#e97526;   /* tools / actions — tool calls, function calling, side-effects */
+		--aw-pink:#d24aa8;     /* highlight — a fourth category / emphasis */
+	}
+	html, body { height:100%; margin:0; }
+	html { font-size:100%; }
+	body {
+		display:flex; flex-direction:column; height:100vh;
+		overflow:hidden;
+		font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif;
+		color: var(--theme-text);
+		background:
+			radial-gradient(circle at 15% 20%, rgba(92,45,145,0.18) 0%, transparent 55%),
+			radial-gradient(circle at 85% 80%, rgba(0,120,212,0.18) 0%, transparent 55%),
+			var(--theme-body-background);
+	}
+	.app-header { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:1rem; flex-shrink:0; font-size:16px; }
+	.app-header > :last-child { justify-self:end; }
+
+	/* #stage fills the space between the top bar and the control dock, and centers the fixed 16:9 frame. */
+	#stage {
+		position:relative; flex:1 1 auto; width:100%; min-height:0;
+		display:flex; align-items:center; justify-content:center;
+		overflow:hidden; container-type:size;
+		padding:1.75rem 2.75rem 5rem;   /* breathing room around the frame; bottom clears the fixed #controls dock */
+	}
+	#stage:focus-visible, button:focus-visible, a:focus-visible, select:focus-visible {
+		outline:2px solid var(--theme-primary, #0078d4); outline-offset:3px; border-radius:4px;
+	}
+	/* The visible rectangle: the largest 16:9 box that fits the stage. All scenes are drawn inside it. */
+	#stage-frame {
+		position:relative; overflow:hidden;
+		width: min(100cqw, calc(100cqh * 16 / 9));
+		aspect-ratio: 16 / 9; max-width:100%; max-height:100%;
+		border-radius:16px;
+		background: rgba(0,0,0,0.015);
+		box-shadow: 0 12px 44px rgba(0,0,0,0.22);
+	}
+	body.theme-dark #stage-frame { background: rgba(255,255,255,0.025); }
+	/* Coloured gradient border (brand purple → blue → pink) drawn as a masked ring — no interior tint. */
+	#stage-frame::before {
+		content:""; position:absolute; inset:0; border-radius:inherit; padding:2.5px;
+		background: linear-gradient(135deg, var(--aw-purple) 0%, var(--aw-blue) 55%, var(--aw-pink) 100%);
+		-webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+		mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+		-webkit-mask-composite: xor; mask-composite: exclude;
+		pointer-events:none; z-index:20;
+	}
+	#fx-svg { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:6; overflow:visible; }
+
+	/* ── SCENE ─────────────────────────────── */
+	.scene {
+		position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+		transform-origin:center center;
+		width:min(1150px, 96%); z-index:10;
+		display:flex; flex-direction:column; align-items:center; gap:1.4rem;
+	}
+	/* 200ms fade in / out between every step */
+	@keyframes awSceneIn { from { opacity:0; } to { opacity:1; } }
+	@keyframes awSceneOut { from { opacity:1; } to { opacity:0; } }
+	.scene.scene-in { animation: awSceneIn 0.2s ease both; }
+	.scene.scene-out { animation: awSceneOut 0.2s ease both; }
+	.scene-title { font-size:2.5rem; font-weight:700; color:var(--theme-tertiary, #5c2d91); margin:0; text-align:center; opacity:0; }
+	body.theme-dark .scene-title { color:#c9a5e8; }
+	/* lead spans wide (near the scene width) to use the side gutters and stay within 2 lines — trim copy if it wraps to 3 */
+	.scene-lead { margin:0; text-align:center; font-size:1.35rem; color:var(--theme-text); max-width:min(1180px,96%); line-height:1.5; opacity:0; }
+
+	/* ── CALLOUT · draggable, slightly see-through so it never fully blocks the diagram ── */
+	.callout {
+		position:absolute; max-width:340px; padding:1rem 1.2rem;
+		background:var(--theme-body-background);
+		background:color-mix(in srgb, var(--theme-body-background) 84%, transparent);
+		-webkit-backdrop-filter:blur(5px); backdrop-filter:blur(5px);
+		border:1px solid var(--theme-border);
+		border-left:4px solid var(--theme-tertiary, #5c2d91); border-radius:6px;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2));
+		font-size:1.05rem; line-height:1.45; z-index:14; opacity:0;
+		cursor:grab; touch-action:none;
+	}
+	.callout:active { cursor:grabbing; }
+
+	/* ── RESET "PIN" · appears on a draggable panel once it has been moved off its home spot ── */
+	.aw-drag-reset {
+		position:absolute; width:24px; height:24px; padding:0; display:none;
+		align-items:center; justify-content:center; border-radius:50%;
+		background:var(--theme-tertiary,#5c2d91); color:#fff;
+		border:2px solid var(--theme-body-background,#fff);
+		box-shadow:0 2px 7px rgba(0,0,0,0.4); cursor:pointer; z-index:6;
+		opacity:0.92; transition:opacity .14s ease, transform .14s ease;
+	}
+	.aw-drag-reset:hover { opacity:1; transform:scale(1.08); }
+	.aw-drag-reset:focus-visible { outline:2px solid #5cc8ff; outline-offset:2px; }
+	.aw-drag-reset svg { width:13px; height:13px; display:block; }
+
+	/* ══════════════════════════════════════════════════════════ */
+	/* ── REUSABLE BUILDING BLOCKS · keep what you use, drop rest ─ */
+	/* ══════════════════════════════════════════════════════════ */
+
+	/* Centered hero card */
+	.card {
+		width:min(680px, 96%); padding:1.6rem 1.8rem; border-radius:16px;
+		background:var(--theme-card-background, #fff); border:2px solid var(--theme-border);
+		box-shadow:0 8px 28px rgba(0,0,0,0.14); opacity:0;
+		display:flex; flex-direction:column; gap:0.6rem; align-items:center; text-align:center;
+	}
+	body.theme-dark .card { background:rgba(255,255,255,0.05); }
+	.card .card-icon { font-size:3rem; line-height:1; }
+	.card .card-h { font-size:1.4rem; font-weight:700; }
+	.card .card-p { font-size:1.05rem; color:var(--theme-text-subtle); line-height:1.5; }
+
+	/* Wide info panel */
+	.ta-card {
+		width:min(1080px, 98%); border:1.5px solid var(--theme-border); border-radius:14px;
+		background:var(--theme-card-background, #fff); box-shadow:0 8px 30px rgba(0,0,0,0.16);
+		padding:1.1rem 1.3rem; opacity:0;
+	}
+	body.theme-dark .ta-card { background:rgba(255,255,255,0.05); }
+	.ta-card-head {
+		display:flex; align-items:center; gap:0.5rem;
+		font-size:1rem; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;
+		color:var(--theme-text-subtle); margin-bottom:0.6rem;
+	}
+	.ta-card-text { font-size:1.22rem; line-height:1.55; color:var(--theme-text); }
+
+	/* Pills / chips */
+	.chip-row { display:flex; flex-wrap:wrap; gap:0.7rem; justify-content:center; }
+	.pill {
+		display:inline-flex; align-items:center; gap:0.5rem; padding:0.55rem 1.1rem;
+		border-radius:999px; font-size:1.05rem; font-weight:600;
+		border:2px solid var(--theme-tertiary, #5c2d91); background:rgba(92,45,145,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .pill { background:rgba(92,45,145,0.2); }
+	.value-chip {
+		display:inline-flex; align-items:center; gap:0.4rem; padding:0.5rem 1rem;
+		border-radius:999px; font-size:1rem; font-weight:700;
+		border:2px solid #107c10; background:rgba(16,124,16,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .value-chip { background:rgba(16,124,16,0.16); }
+	.recap-foot { font-size:1.05rem; color:var(--theme-text); text-align:center; max-width:760px; opacity:0; }
+
+	/* Flow row: input → process → output */
+	.agent-node {
+		display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.2rem;
+		width:160px; height:160px; border-radius:24px;
+		background: linear-gradient(135deg, rgba(92,45,145,0.12), rgba(0,120,212,0.12));
+		border:2.5px solid var(--theme-tertiary, #5c2d91);
+		box-shadow:0 8px 28px rgba(92,45,145,0.2); flex-shrink:0; text-align:center;
+	}
+	.agent-node .an-icon { font-size:3rem; line-height:1; }
+	.agent-node .an-icon img { width:64px; height:64px; display:block; }
+	.agent-node .an-label { font-size:1.05rem; font-weight:700; color:var(--theme-text); }
+	.agent-node .an-sub { font-size:0.85rem; color:var(--theme-text-subtle); }
+	.ta-flow { display:flex; align-items:center; justify-content:center; gap:1.2rem; flex-wrap:wrap; width:100%; }
+	.ta-flow .agent-node { width:140px; height:140px; }
+	.ta-flow .agent-node .an-icon { font-size:2.6rem; }
+	.ta-flow .agent-node .an-icon img { width:54px; height:54px; }
+	.ta-arrow { font-size:1.9rem; color:var(--theme-tertiary,#5c2d91); opacity:0; }
+	.ta-arrow.is-big { font-size:3.2rem; }
+	.ta-arrow.is-down, .ta-arrow.is-up { font-size:2.9rem; line-height:1; }
+	@media (max-width:760px) { .ta-flow .ta-arrow { transform:rotate(90deg); } }
+
+	/* Code card (VS Code style) */
+	.code-card {
+		width:min(560px,96%); border:1px solid #30363d; border-radius:8px;
+		background:#1e1e1e; overflow:hidden; opacity:0;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.25));
+	}
+	.code-head {
+		display:flex; align-items:center; justify-content:space-between; gap:0.5rem;
+		padding:0 0 0 0.85rem; background:#323233; border-bottom:1px solid #1e1e1e;
+	}
+	.code-file { font-size:0.9rem; color:#cccccc; font-weight:500; padding:0.6rem 0; }
+	.code-winctrls { display:flex; align-items:stretch; height:100%; }
+	.code-wbtn {
+		display:flex; align-items:center; justify-content:center; width:2.6rem; padding:0.55rem 0;
+		color:#cccccc; font-family:'Segoe UI Symbol','Segoe MDL2 Assets',sans-serif; font-size:0.7rem;
+	}
+	.code-wbtn.is-close:hover { background:#e81123; color:#fff; }
+	.code-wbtn:hover { background:rgba(255,255,255,0.1); }
+	.code-body {
+		margin:0; padding:0.8rem 1rem;
+		font-family:'Cascadia Code', 'Consolas', 'SFMono-Regular', monospace;
+		font-size:0.86rem; line-height:1.5; color:#d4d4d4;
+		white-space:pre-wrap; overflow-wrap:break-word; word-break:break-word; tab-size:4;
+	}
+	.code-body .tok-com { color:#6a9955; }
+	.code-body .tok-kw  { color:#569cd6; }
+	.code-body .tok-str { color:#ce9178; }
+	.code-body .tok-fn  { color:#dcdcaa; }
+	.code-body .tok-mod { color:#4ec9b0; }
+	.code-body .tok-prop{ color:#9cdcfe; }
+	.code-body .tok-num { color:#b5cea8; }
+	.code-body .tok-punct { color:#d4d4d4; }
+	.code-body .code-hl { border-radius:4px; padding:0 0.15em; box-shadow:0 0 0 1px rgba(96,165,250,0.55); background:rgba(96,165,250,0.22); }
+	.code-duo { display:flex; gap:1.1rem; flex-wrap:wrap; align-items:flex-start; justify-content:center; width:100%; }
+	.code-duo .code-card { flex:1 1 380px; max-width:480px; }
+	.code-duo .code-body { font-size:0.8rem; line-height:1.45; }
+	.code-arrow { align-self:center; font-size:1.8rem; line-height:1; color:var(--theme-tertiary,#5c2d91); opacity:0; flex:none; }
+	.code-arrow.is-big { font-size:2.9rem; }
+	@media (max-width:760px) { .code-arrow { transform:rotate(90deg); } }
+
+	/* Use-case grid */
+	.uc-grid { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:1.1rem; width:min(980px,96%); }
+	@media (max-width:720px) { .uc-grid { grid-template-columns:1fr; } }
+	.uc-card {
+		display:flex; flex-direction:column; gap:0.5rem; padding:1rem 1.15rem;
+		border:1.5px solid var(--theme-border); border-top:4px solid var(--theme-primary,#0078d4);
+		border-radius:14px; background:var(--theme-card-background, #fff);
+		box-shadow:0 6px 22px rgba(0,0,0,0.12); opacity:0;
+		transition:transform 0.2s ease, box-shadow 0.2s ease;
+	}
+	.uc-card:hover { transform:translateY(-4px); box-shadow:0 12px 30px rgba(0,0,0,0.18); }
+	body.theme-dark .uc-card { background:rgba(255,255,255,0.05); }
+	.uc-card[data-uc="a"] { border-top-color:#0078d4; }
+	.uc-card[data-uc="b"] { border-top-color:#10a37f; }
+	.uc-card[data-uc="c"] { border-top-color:#e97526; }
+	.uc-card[data-uc="d"] { border-top-color:#d24aa8; }
+	.uc-head { display:flex; align-items:center; gap:0.55rem; font-size:1.25rem; font-weight:700; color:var(--theme-text); }
+	.uc-head .uc-icon { font-size:1.7rem; display:inline-block; }
+	.uc-desc { font-size:0.98rem; line-height:1.55; color:var(--theme-text-subtle); }
+	.uc-caps { display:flex; flex-wrap:wrap; gap:0.4rem; margin-top:0.2rem; }
+	.uc-cap {
+		display:inline-flex; align-items:center; gap:0.3rem; padding:0.25rem 0.7rem;
+		border-radius:999px; font-size:0.88rem; font-weight:700;
+		background:rgba(0,120,212,0.1); color:var(--theme-text);
+		border:1.5px solid rgba(0,120,212,0.4); opacity:0;
+	}
+
+	/* ── CONTROLS · icon dock ──────────────── */
+	#controls {
+		position:fixed; bottom:14px; left:50%; transform:translateX(-50%); z-index:40;
+		display:flex; align-items:center; gap:5px; padding:5px 7px;
+		background:var(--theme-body-background-translucent, rgba(255,255,255,0.82));
+		backdrop-filter:blur(12px) saturate(1.4); -webkit-backdrop-filter:blur(12px) saturate(1.4);
+		border:1px solid var(--theme-border); border-radius:999px;
+		box-shadow: 0 8px 26px rgba(0,0,0,0.18); font-size:13px;
+	}
+	body.theme-dark #controls { background:var(--theme-body-background-translucent, rgba(32,32,36,0.82)); }
+	#controls .ctrl-icon {
+		width:2.15rem; height:2.15rem; min-width:0; padding:0;
+		display:inline-flex; align-items:center; justify-content:center;
+		border-radius:50%; font-size:0.95rem; line-height:1; font-weight:600;
+		transition:background 0.18s ease, color 0.18s ease, transform 0.12s ease, box-shadow 0.18s ease;
+	}
+	#controls .ctrl-icon:hover { transform:translateY(-1px); }
+	#controls .ctrl-icon:active { transform:scale(0.92); }
+	#controls .ctrl-icon-next {
+		width:2.55rem; height:2.55rem; font-size:1.1rem;
+		box-shadow:0 2px 8px var(--theme-primary-translucent, rgba(0,120,212,0.45));
+	}
+	.step-counter {
+		min-width:52px; text-align:center; font-variant-numeric:tabular-nums;
+		font-size:14px; font-weight:700; color:var(--theme-text);
+		padding:0 6px; white-space:nowrap; letter-spacing:0.02em;
+	}
+	.ctrl-sep { width:1px; align-self:stretch; margin:4px 2px; background:var(--theme-border); }
+	/* Movable dock: drag handle + pin-to-center button */
+	.ctrl-grip {
+		display:inline-flex; align-items:center; justify-content:center;
+		width:1.5rem; height:2.15rem; padding:0; border:none; background:transparent;
+		color:var(--theme-text-subtle); border-radius:8px; cursor:grab; touch-action:none;
+		transition:background 0.18s ease, color 0.18s ease;
+	}
+	.ctrl-grip:hover { color:var(--theme-text); background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); }
+	.ctrl-grip:active { cursor:grabbing; }
+	.ctrl-grip svg { width:13px; height:16px; pointer-events:none; }
+	body.controls-floating .ctrl-grip { color:var(--theme-primary,#0078d4); }
+	#controls .ctrl-pin { display:none; color:var(--theme-primary,#0078d4); }
+	#controls .ctrl-pin svg { width:15px; height:15px; pointer-events:none; }
+	body.controls-floating #controls .ctrl-pin { display:inline-flex; }
+	body.controls-floating #controls { box-shadow:0 10px 30px rgba(0,0,0,0.30), 0 0 0 1.5px var(--theme-primary,#0078d4); }
+	.speed-control { display:inline-flex; align-items:center; gap:1px; padding:2px 3px; border:1px solid var(--theme-border); border-radius:999px; }
+	.speed-control .speed-btn {
+		width:1.7rem; height:1.7rem; min-width:0; padding:0;
+		display:inline-flex; align-items:center; justify-content:center;
+		font-size:0.95rem; font-weight:700; border-radius:50%;
+	}
+	.speed-control .speed-btn[disabled] { opacity:0.4; cursor:not-allowed; }
+	.speed-label { min-width:2.4rem; text-align:center; font-variant-numeric:tabular-nums; font-size:0.82rem; font-weight:700; color:var(--theme-text); }
+
+	#callout-toggle, #outline-toggle, #audio-toggle { border:1px solid var(--theme-border); border-radius:4px; transition:background .2s,color .2s,border-color .2s,opacity .2s; }
+	#callout-toggle.toggle-active, #outline-toggle.toggle-active, #audio-toggle.toggle-active {
+		background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary,#0078d4); border-color:var(--theme-primary,#0078d4); font-weight:600;
+	}
+	#callout-toggle:not(.toggle-active), #outline-toggle:not(.toggle-active), #audio-toggle:not(.toggle-active) { opacity:0.6; }
+
+	/* ── HIDE/SHOW TOP BAR ─────────────────── */
+	#header-hide { display:inline-flex; align-items:center; justify-content:center; width:2rem; height:2rem; padding:0; border:1px solid var(--theme-border); border-radius:50%; color:var(--theme-text-subtle); transition:background .2s,color .2s,transform .18s; }
+	#header-hide:hover { color:var(--theme-text); transform:translateY(-1px); }
+	#header-hide svg { width:16px; height:16px; }
+	#header-hide-top { display:inline-flex; align-items:center; justify-content:center; width:2rem; height:2rem; padding:0; border:1px solid var(--theme-border); border-radius:50%; color:var(--theme-text-subtle); background:transparent; cursor:pointer; transition:background .2s,color .2s,transform .18s; }
+	#header-hide-top:hover { color:var(--theme-text); transform:translateY(-1px); }
+	#header-hide-top svg { width:16px; height:16px; }
+	body.chrome-hidden .app-header, body.chrome-hidden .progress-track { display:none; }
+	#header-reveal {
+		position:fixed; top:0; left:50%; transform:translateX(-50%) translateY(-100%); z-index:45;
+		display:inline-flex; align-items:center; gap:0.35rem; padding:5px 14px 6px; font-size:12px; font-weight:600; line-height:1;
+		color:var(--theme-text-subtle); background:var(--theme-body-background-translucent, rgba(255,255,255,0.88));
+		backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border:1px solid var(--theme-border); border-top:none; border-radius:0 0 12px 12px;
+		box-shadow:0 4px 14px rgba(0,0,0,0.14); cursor:pointer; transition:transform .28s cubic-bezier(0.2,0.7,0.3,1), color .2s, background .2s;
+	}
+	body.theme-dark #header-reveal { background:var(--theme-body-background-translucent, rgba(32,32,36,0.88)); }
+	#header-reveal:hover { color:var(--theme-text); }
+	body.chrome-hidden #header-reveal { transform:translateX(-50%) translateY(0); }
+	#header-reveal svg { width:14px; height:14px; }
+
+	/* ── PLAYER OVERLAY · pills inside the stage frame (YouTube-style) ──
+	   Two translucent pills float over the 16:9 frame: LEFT = "view options"
+	   (callout / outline / shortcuts), RIGHT = "player" (audio / captions / hide-bar / fullscreen). */
+	.stage-overlay {
+		position:absolute; right:12px; bottom:10px; z-index:25;
+		display:flex; align-items:center; gap:2px;
+		padding:3px 6px; border-radius:999px;
+		background:rgba(16,18,24,0.58);
+		backdrop-filter:blur(9px) saturate(1.3); -webkit-backdrop-filter:blur(9px) saturate(1.3);
+		box-shadow:0 4px 16px rgba(0,0,0,0.32);
+	}
+	.ovl-btn {
+		-webkit-appearance:none; appearance:none; margin:0; font:inherit;
+		display:inline-flex; align-items:center; justify-content:center; gap:4px;
+		min-width:30px; height:30px; padding:0 8px;
+		border:none !important; border-radius:999px !important;
+		background:transparent !important; color:#fff !important;
+		box-shadow:none !important; cursor:pointer; line-height:1;
+		font-size:0.82rem; font-weight:700; opacity:0.92; transition:background .15s ease, opacity .15s ease;
+	}
+	.ovl-btn:hover { background:rgba(255,255,255,0.16) !important; opacity:1; }
+	.ovl-btn:disabled { opacity:0.4; cursor:not-allowed; }
+	.ovl-btn svg { width:18px; height:18px; fill:currentColor; display:block; }
+	.ovl-btn.on { color:#5cc8ff !important; }
+	.stage-overlay #audio-toggle { opacity:1 !important; }
+	.stage-overlay .aw-audio-ico { font-size:1rem; line-height:1; }
+	.stage-overlay .aw-audio-time { font-size:0.78rem; font-variant-numeric:tabular-nums; letter-spacing:0.02em; opacity:0.95; min-width:2.4em; text-align:left; }
+	#cc-toggle svg { width:20px; height:20px; }
+	.ovl-btn .fs-exit { display:none; }
+	body.is-fs .ovl-btn .fs-enter { display:none; }
+	body.is-fs .ovl-btn .fs-exit { display:block; }
+
+	/* ── LEFT VIEW-OPTIONS PILL · Callout / Outline / Shortcuts (icon + hover tip) ── */
+	.stage-overlay-left { right:auto; left:12px; }
+	#stage-overlay-left .ovl-btn:not(.toggle-active) { opacity:0.86; }
+	#stage-overlay-left .ovl-btn.toggle-active { color:#5cc8ff !important; opacity:1; }
+	#stage-overlay-left .ovl-btn:hover { opacity:1; }
+	/* Hover tooltip shown above the icon (left-anchored so it never clips the frame edge) */
+	.ovl-btn[data-tip] { position:relative; }
+	.ovl-btn[data-tip]::after { content:attr(data-tip); position:absolute; left:0; bottom:calc(100% + 9px); transform:translateY(4px); padding:4px 8px; border-radius:6px; background:rgba(16,18,24,0.96); color:#fff; font-size:0.72rem; font-weight:600; white-space:nowrap; letter-spacing:0.01em; opacity:0; pointer-events:none; box-shadow:0 3px 12px rgba(0,0,0,0.45); transition:opacity .14s ease, transform .14s ease; z-index:40; }
+	.ovl-btn[data-tip]::before { content:''; position:absolute; left:13px; bottom:calc(100% + 4px); border:5px solid transparent; border-top-color:rgba(16,18,24,0.96); opacity:0; pointer-events:none; transition:opacity .14s ease; z-index:40; }
+	.ovl-btn[data-tip]:hover::after { opacity:1; transform:translateY(0); }
+	.ovl-btn[data-tip]:hover::before { opacity:1; }
+
+	/* ── CAPTION · overlaid inside the frame, draggable + resizable, stays solid (not see-through) ── */
+	#aw-caption {
+		position:absolute; left:50%; transform:translateX(-50%); bottom:56px; z-index:24;
+		max-width:92%; min-width:140px; min-height:38px; max-height:44%;
+		display:none; align-items:center; justify-content:center; text-align:center;
+		padding:0.42rem 0.95rem; border-radius:9px;
+		background:rgba(8,9,13,0.8); color:#fff;
+		font-size:1.1rem; line-height:1.36; font-weight:600;
+		box-shadow:0 3px 14px rgba(0,0,0,0.42); pointer-events:auto; cursor:grab; touch-action:none;
+		overflow:auto; resize:both;   /* user can reshape the caption; corner grip = resize */
+	}
+	#aw-caption:active { cursor:grabbing; }
+	#aw-caption::-webkit-resizer { background:linear-gradient(135deg, transparent 45%, rgba(255,255,255,0.55) 45%, rgba(255,255,255,0.55) 55%, transparent 55%); }
+	body.cc-on #aw-caption.has-text { display:flex; }
+	@media (max-width:640px){ #aw-caption { font-size:0.94rem; bottom:48px; max-width:90%; } }
+
+	/* ── OUTLINE PANEL · draggable + slightly see-through ── */
+	#step-outline {
+		position:fixed; top:4.5rem; right:1rem; width:320px; max-height:calc(100vh - 8rem); overflow-y:auto;
+		padding:1.1rem; background:var(--theme-body-background);
+		background:color-mix(in srgb, var(--theme-body-background) 85%, transparent);
+		-webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
+		border:1px solid var(--theme-border);
+		border-radius:6px; box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2)); z-index:35; font-size:1rem; line-height:1.55;
+		cursor:grab; touch-action:none;
+	}
+	#step-outline:active { cursor:grabbing; }
+	#step-outline[hidden] { display:none; }
+	#step-outline h2 { font-size:0.85rem; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--theme-tertiary,#5c2d91); margin-bottom:0.5rem; }
+	#step-outline .outline-section { margin-top:0.6rem; padding-top:0.6rem; border-top:1px solid var(--theme-border); }
+	#step-outline .outline-section:first-child { margin-top:0; padding-top:0; border-top:0; }
+	#step-outline .stat-row { display:flex; justify-content:space-between; align-items:baseline; gap:0.75rem; padding:0.2rem 0; }
+	#step-outline .stat-row span:first-child { color:var(--theme-text-subtle); flex:0 0 auto; max-width:45%; }
+	#step-outline .stat-row span:last-child { text-align:right; font-weight:600; color:var(--theme-tertiary,#5c2d91); flex:1 1 auto; }
+
+	.progress-track { position:relative; height:6px; background:var(--theme-border, #e0e0e0); flex-shrink:0; cursor:pointer; }
+	.progress-fill { position:absolute; left:0; top:0; bottom:0; width:0%; background:var(--aw-purple, #5c2d91); transition:width .5s cubic-bezier(0.2,0.8,0.2,1); pointer-events:none; }
+	.progress-tick { position:absolute; top:0; bottom:0; width:2px; margin-left:-1px; background:var(--theme-body-background); opacity:0.6; pointer-events:none; }
+
+	/* ── THEME / LANG / FONT CONTROLS ──────── */
+	.theme-toggle { display:inline-flex; align-items:center; justify-content:center; width:2.25rem; height:2.25rem; padding:0; margin-inline-start:0.25rem; background:transparent; border:1px solid var(--theme-border); border-radius:999px; color:var(--theme-text); cursor:pointer; transition:background .15s,color .15s,border-color .15s; }
+	.theme-toggle:hover { background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary); border-color:var(--theme-primary); }
+	.theme-toggle .theme-icon { display:none; }
+	.theme-toggle[data-theme="dark"] .icon-sun { display:block; }
+	.theme-toggle[data-theme="light"] .icon-moon { display:block; }
+	.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+	.skip-link { position:absolute; top:-100px; left:0.5rem; z-index:100; padding:0.5rem 1rem; background:var(--theme-primary); color:var(--theme-primary-invert,#fff); border-radius:4px; text-decoration:none; font-weight:600; }
+	.skip-link:focus { top:0.5rem; }
+	.header-back-link { display:inline-flex; align-items:center; gap:0.25rem; padding:0.2rem 0.6rem; font-size:0.8rem; font-weight:600; color:var(--theme-text-subtle); border:1px solid var(--theme-border); border-radius:999px; text-decoration:none; white-space:nowrap; transition:background .15s,color .15s,border-color .15s; }
+	.header-back-link:hover { color:var(--theme-primary); border-color:var(--theme-primary); background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); }
+	.lang-select {
+		appearance:none; -webkit-appearance:none; background:var(--theme-card-background,#fff); color:var(--theme-body-text,#333);
+		border:1px solid var(--theme-border, rgba(0,0,0,0.2)); border-radius:4px; padding:4px 24px 4px 8px;
+		font-size:0.8rem; font-family:'Segoe UI', sans-serif; cursor:pointer;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+		background-repeat:no-repeat; background-position:right 6px center; min-width:80px;
+	}
+	.lang-select:hover { border-color:var(--theme-primary, #0078d4); }
+	.lang-select:focus { outline:2px solid var(--theme-primary, #0078d4); outline-offset:1px; }
+	body.theme-dark .lang-select {
+		background-color:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); border-color:rgba(255,255,255,0.15);
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23aaa' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+	}
+	body.theme-dark .lang-select option { background:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); }
+	.font-size-controls { display:flex; align-items:center; gap:2px; }
+	.font-size-btn { background:var(--theme-card-background,#fff); color:var(--theme-body-text,#333); border:1px solid var(--theme-border, rgba(0,0,0,0.2)); border-radius:4px; padding:3px 8px; font-size:0.8rem; font-weight:700; font-family:'Segoe UI', sans-serif; cursor:pointer; line-height:1.2; transition:background .15s,border-color .15s; }
+	.font-size-btn:hover { border-color:var(--theme-primary, #0078d4); }
+	body.theme-dark .font-size-btn { background:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); border-color:rgba(255,255,255,0.15); }
+
+	/* Inline icons (crisp on any OS/projector — replaces raw emoji on stage) */
+	.ic { display:inline-flex; align-items:center; justify-content:center; vertical-align:-0.125em; }
+	.ic svg { width:1em; height:1em; fill:currentColor; display:block; }
+	.help-toggle svg { width:15px; height:15px; vertical-align:-2px; }
+
+	/* Keyboard shortcut overlay */
+	#shortcut-overlay { position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center; }
+	#shortcut-overlay[hidden] { display:none; }
+	.sc-backdrop { position:absolute; inset:0; background:rgba(0,0,0,0.5); -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px); }
+	.sc-panel { position:relative; z-index:1; width:min(430px,92vw); max-height:82vh; overflow:auto; padding:1.5rem 1.6rem; background:var(--theme-body-background); border:1px solid var(--theme-border); border-radius:16px; box-shadow:0 24px 70px rgba(0,0,0,0.4); }
+	.sc-panel h2 { margin:0 0 1rem; font-size:1.25rem; color:var(--theme-tertiary,#5c2d91); }
+	body.theme-dark .sc-panel h2 { color:#c9a5e8; }
+	.sc-close { position:absolute; top:0.7rem; right:0.7rem; width:2rem; height:2rem; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--theme-border); border-radius:50%; background:transparent; color:var(--theme-text-subtle); cursor:pointer; }
+	.sc-close:hover { color:var(--theme-text); border-color:var(--theme-primary,#0078d4); }
+	.sc-close svg { width:15px; height:15px; }
+	.sc-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:0.55rem; }
+	.sc-list li { display:flex; align-items:center; justify-content:space-between; gap:1rem; font-size:1rem; color:var(--theme-text); }
+	.sc-keys { display:inline-flex; gap:0.3rem; flex:none; }
+	.sc-panel kbd, .sc-hint kbd { font-family:'Cascadia Code','Consolas',monospace; font-size:0.82rem; line-height:1; padding:0.28rem 0.5rem; border-radius:6px; border:1px solid var(--theme-border); border-bottom-width:2px; background:var(--theme-card-background,#fff); color:var(--theme-text); }
+	body.theme-dark .sc-panel kbd, body.theme-dark .sc-hint kbd { background:rgba(255,255,255,0.08); }
+	.sc-hint { margin:1.1rem 0 0; font-size:0.85rem; color:var(--theme-text-subtle); text-align:center; }
+
+	@media (max-width:640px) { .app-header { font-size:0.95rem; } .scene-title { font-size:1.9rem; } #stage { padding:0.9rem 1rem 4.5rem; } }
+	@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition:none !important; animation:none !important; } .progress-fill { transition:none !important; } }
+	/* ══════════════ AI-500 KIT · shared by every AI-500 page ══════════════ */
+	:root {
+		/* One accent per floor/domain, reused on every page. --fN fills, --fNt text-safe, --fNb deep fills that carry white text */
+		--f1:#0078d4; --f2:#00b7c3; --f3:#8661c5; --f4:#ff8c00;
+		--f1t:#005a9e; --f2t:#00707a; --f3t:#6b46b0; --f4t:#a24f00;
+		--f1b:#0a5299; --f2b:#0a6c76; --f3b:#6240a8; --f4b:#a24f00;
+		--ai5-surface:#ffffff; --ai5-ok:#107c10; --ai5-bad:#c4314b; --ai5-warn:#a24f00;
+		--ai5-line:rgba(60,60,80,0.38);
+	}
+	body.theme-dark {
+		--f1t:#6cb2f5; --f2t:#4fd6e0; --f3t:#b79ce8; --f4t:#ffb066;
+		--ai5-surface:#2a2b34; --ai5-ok:#57d977; --ai5-bad:#ff7a90; --ai5-warn:#ffb066;
+		--ai5-line:rgba(220,220,240,0.42);
+	}
+	.fl1 { --tone:var(--f1); --toneT:var(--f1t); --toneB:var(--f1b); }
+	.fl2 { --tone:var(--f2); --toneT:var(--f2t); --toneB:var(--f2b); }
+	.fl3 { --tone:var(--f3); --toneT:var(--f3t); --toneB:var(--f3b); }
+	.fl4 { --tone:var(--f4); --toneT:var(--f4t); --toneB:var(--f4b); }
+
+	.scene.ai5 { gap:1.1rem; width:1150px; }
+	.scene.ai5 .scene-lead { max-width:1100px; }
+	.scene.ai5 .scene-title { font-weight:600; }
+	.ai5-board { position:relative; flex:none; }
+	.ai5-board > svg { position:absolute; left:0; top:0; width:100%; height:100%; overflow:visible; pointer-events:none; }
+	.ai5-pos { position:absolute; width:0; height:0; }
+	.ai5-in { position:absolute; left:0; top:0; transform:translate(-50%,-50%); }
+
+	/* Agent cast — the same six characters on every page */
+	.ai5-ag { position:relative; width:var(--ag,76px); height:var(--ag,76px); }
+	.ai5-ag-ic { width:100%; height:100%; border-radius:50%; display:grid; place-items:center;
+		background:var(--ai5-surface); border:3px solid var(--ac); color:var(--ac); box-shadow:0 6px 18px rgba(0,0,0,0.2); }
+	.ai5-ag-ic .ic { font-size:calc(var(--ag,76px) * 0.5); }
+	/* the label hangs OUTSIDE the badge so coordinates always refer to the badge centre */
+	.ai5-ag-l { position:absolute; top:100%; left:50%; transform:translateX(-50%); margin-top:0.4rem; white-space:nowrap;
+		font-size:1rem; font-weight:600; text-align:center; line-height:1.2; color:var(--theme-text); }
+	.ai5-ag.is-top .ai5-ag-l { top:auto; bottom:100%; margin-top:0; margin-bottom:0.4rem; }
+	.ag-solo   { --ac:#0067b8; } .ag-orch  { --ac:#6a3fb5; } .ag-intake { --ac:#0067b8; }
+	.ag-policy { --ac:#0b7a60; } .ag-fraud { --ac:#c4314b; } .ag-payout { --ac:#b4530d; } .ag-human { --ac:#b02c8a; }
+	body.theme-dark .ag-solo { --ac:#6cb2f5; } body.theme-dark .ag-orch { --ac:#b79ce8; } body.theme-dark .ag-intake { --ac:#6cb2f5; }
+	body.theme-dark .ag-policy { --ac:#4fd6a8; } body.theme-dark .ag-fraud { --ac:#ff7a90; } body.theme-dark .ag-payout { --ac:#ffb066; } body.theme-dark .ag-human { --ac:#f08ad0; }
+
+	/* On-screen headline pill — the ONE line of burned-in text per step */
+	.ai5-say { display:inline-flex; align-items:center; gap:0.6rem; padding:0.6rem 1.4rem; border-radius:999px; opacity:0;
+		font-size:1.25rem; font-weight:600; color:var(--theme-text); background:var(--ai5-surface);
+		border:2px solid var(--theme-tertiary,#5c2d91); box-shadow:0 6px 20px rgba(0,0,0,0.16); text-align:center; }
+	.ai5-say .ic { font-size:1.4rem; color:var(--theme-tertiary,#5c2d91); }
+	body.theme-dark .ai5-say .ic { color:#c9a5e8; }
+
+	.ai5-pnl { border:1.5px solid var(--theme-border); border-radius:14px; background:var(--theme-card-background,#fff);
+		box-shadow:0 8px 26px rgba(0,0,0,0.14); padding:1rem 1.2rem; opacity:0; }
+	body.theme-dark .ai5-pnl { background:rgba(255,255,255,0.05); }
+	.ai5-pnl-h { font-size:0.95rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--theme-text-subtle); margin:0 0 0.6rem; }
+	.ai5-tag { display:inline-flex; align-items:center; gap:0.4rem; padding:0.3rem 0.85rem; border-radius:999px; font-size:0.92rem; font-weight:500;
+		border:1.5px solid var(--toneT,var(--theme-border)); color:var(--theme-text); background:color-mix(in srgb, var(--tone,#888) 14%, transparent); opacity:0; }
+	.ai5-tag .ic { color:var(--toneT,currentColor); }
+	.ai5-row { display:flex; flex-wrap:wrap; gap:0.55rem; justify-content:center; }
+
+	/* Floor bar — a deep fill that always carries white text */
+	.ai5-fl { position:absolute; display:flex; align-items:center; justify-content:center; gap:1.1rem; border-radius:12px; color:#fff;
+		background:var(--toneB); box-shadow:0 6px 18px rgba(0,0,0,0.22); overflow:hidden; white-space:nowrap; }
+	.ai5-fl .n { font-size:1rem; font-weight:500; padding:0.15rem 0.6rem; border-radius:8px; background:rgba(0,0,0,0.28); }
+	.ai5-fl .v { font-size:1.5rem; font-weight:600; }
+	.ai5-fl .d { font-size:1.02rem; font-weight:400; opacity:0.92; }
+
+	/* Claim card (Contoso Insurance) */
+	.ai5-claim { width:74px; height:52px; border-radius:7px; background:var(--ai5-surface); border:1.5px solid var(--ai5-line);
+		box-shadow:0 3px 8px rgba(0,0,0,0.2); padding:8px 9px; display:flex; flex-direction:column; gap:5px; }
+	.ai5-claim i { display:block; height:5px; border-radius:3px; background:var(--ai5-line); }
+	.ai5-claim i:first-child { width:55%; background:#0078d4; opacity:0.75; }
+	.ai5-claim.is-ok::after { content:'\2713'; position:absolute; right:-9px; top:-9px; width:22px; height:22px; border-radius:50%;
+		background:var(--ai5-ok); color:#fff; font-size:0.9rem; line-height:22px; text-align:center; font-weight:700; }
+	.ai5-claim { position:relative; }
+
+	/* Question marks on connectors */
+	.ai5-q { width:34px; height:34px; border-radius:50%; display:grid; place-items:center; font-size:1.1rem; font-weight:700;
+		background:var(--ai5-surface); color:var(--ai5-warn); border:2px solid var(--ai5-warn); }
+
+	@keyframes ai5Glow { 0%,100% { box-shadow:0 0 0 0 rgba(138,92,214,0.0), 0 8px 24px rgba(0,0,0,0.25); } 50% { box-shadow:0 0 0 10px rgba(138,92,214,0.25), 0 8px 24px rgba(0,0,0,0.25); } }
+	.ai5-glow { animation:ai5Glow 2.2s ease-in-out infinite; }
+	.ai5-next { display:inline-flex; align-items:center; gap:0.6rem; padding:0.55rem 1.3rem; border-radius:999px; text-decoration:none; opacity:0;
+		font-size:1.05rem; font-weight:600; color:#fff; background:var(--aw-purple,#5c2d91); border:2px solid transparent; }
+	.ai5-next:hover { filter:brightness(1.12); }
+	.ai5-foot a { color:var(--f1t); font-weight:600; }
+
+	/* ══════════════ ContosoCaseStudy (p10) · all four domains ══════════════ */
+	.ai5-tag { opacity:1; font-size:0.95rem; white-space:nowrap; }
+	.ai5-tag img { max-width:none; flex:none; }
+	.ai5-tag.p10-solid { background:var(--ai5-surface); }
+	.ai5-tag.p10-struck > span:last-child { text-decoration:line-through; }
+	.p10-az { display:block; flex:none; max-width:none; }
+	.p10-cap { display:inline-block; white-space:nowrap; font-size:0.95rem; font-weight:600; color:var(--theme-text-subtle); }
+	.p10-ch { position:absolute; opacity:0; white-space:nowrap; font-size:0.9rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--theme-text-subtle); }
+	.p10-stack { display:flex; flex-direction:column; align-items:flex-start; gap:0.55rem; }
+	.p10-stack .ai5-tag { font-size:1rem; padding:0.35rem 0.95rem; }
+	.p10-pnl { position:absolute; box-sizing:border-box; }
+	.p10-pnl .ai5-pnl-h { color:var(--toneT, var(--theme-text-subtle)); }
+
+	/* brief */
+	.p10-brief { position:absolute; box-sizing:border-box; display:flex; flex-direction:column; opacity:0; border-radius:16px; background:var(--ai5-surface);
+		border:2px solid var(--theme-border); box-shadow:0 8px 24px rgba(0,0,0,0.16); overflow:hidden; }
+	.p10-bh { display:flex; align-items:center; gap:0.7rem; padding:0 22px; height:60px; flex:none; border-bottom:1.5px solid var(--theme-border); font-size:1.2rem; color:var(--theme-text); }
+	.p10-bh b { font-weight:600; } .p10-bh .ic { font-size:1.6rem; color:var(--f1t); }
+	.p10-bl { flex:1; display:flex; align-items:center; gap:1rem; padding:0 24px 0 22px; font-size:1.1rem; line-height:1.4; color:var(--theme-text); }
+	.p10-bl + .p10-bl { border-top:1px solid color-mix(in srgb, var(--theme-border) 60%, transparent); }
+	.p10-bl > i { flex:none; display:block; width:8px; height:48px; border-radius:4px; background:var(--tone); }
+	u.k { text-decoration:none; font-weight:600; padding-bottom:2px; background:linear-gradient(var(--kc), var(--kc)) no-repeat 0 100% / 0% 3px; }
+	u.k1 { --kc:var(--f1t); } u.k2 { --kc:var(--f2t); } u.k3 { --kc:var(--f3t); } u.k4 { --kc:var(--f4t); }
+
+	/* requirement card / banner */
+	.p10-req { position:absolute; box-sizing:border-box; display:flex; flex-direction:column; justify-content:center; gap:0.45rem; padding:14px 18px; opacity:0; border-radius:14px;
+		background:var(--ai5-surface); border:2px solid var(--toneT); border-left:8px solid var(--tone); box-shadow:0 6px 16px rgba(0,0,0,0.16); }
+	.p10-rl { font-size:0.9rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--toneT); white-space:nowrap; }
+	.p10-rt { font-size:1.15rem; font-weight:600; line-height:1.3; color:var(--theme-text); }
+	.p10-banner { flex-direction:row; align-items:center; gap:1.1rem; } .p10-banner .p10-rt { font-size:1.2rem; }
+	.p10-q { position:absolute; opacity:0; font-size:0.95rem; font-weight:600; color:var(--theme-text-subtle); white-space:nowrap; }
+
+	/* option cards */
+	.p10-opt { position:absolute; box-sizing:border-box; display:flex; align-items:center; gap:1rem; padding:0 1.3rem; opacity:0; border-radius:14px;
+		background:var(--ai5-surface); border:2px solid var(--toneT); box-shadow:0 5px 14px rgba(0,0,0,0.16); }
+	.p10-opt.p10-tall { flex-direction:column; justify-content:center; text-align:center; gap:0.7rem; padding:0 1.2rem; }
+	.p10-oi { flex:none; display:grid; place-items:center; } .p10-oi .ic { font-size:1.9rem; color:var(--toneT); }
+	.p10-ct { display:flex; flex-direction:column; gap:0.2rem; min-width:0; }
+	.p10-tall .p10-ct { align-items:center; gap:0.35rem; }
+	.p10-ct b { font-size:1.1rem; font-weight:600; line-height:1.25; color:var(--theme-text); white-space:nowrap; }
+	.p10-mrow .p10-ct b { white-space:normal; }
+	.p10-ct > span { font-size:0.95rem; line-height:1.3; color:var(--theme-text-subtle); }
+	.p10-vt { display:inline-flex; align-items:center; gap:0.4rem; font-size:1rem; font-weight:600; white-space:nowrap; }
+	.p10-ct > .p10-vt { color:inherit; margin-top:0.15rem; }
+	.p10-vt .ic { font-size:0.95rem; }
+	.p10-vt.ok, .p10-ct > .p10-vt.ok { color:var(--ai5-ok); } .p10-vt.bad, .p10-ct > .p10-vt.bad { color:var(--ai5-bad); }
+	.p10-vt > span { font-size:1rem; color:inherit; }
+	.p10-bdg { position:absolute; top:-12px; right:-12px; width:28px; height:28px; border-radius:50%; display:grid; place-items:center; font-size:0.95rem; color:#fff; }
+	.p10-bdg .ic { font-size:inherit; color:inherit; }
+	.p10-bdg.ok { background:var(--ai5-ok); } .p10-bdg.bad { background:var(--ai5-bad); }
+	body.theme-dark .p10-bdg { color:#0b1a10; }
+
+	/* also in the design */
+	.p10-alsos { display:flex; flex-direction:column; gap:0.8rem; margin-top:0.4rem; }
+	.p10-also { display:flex; align-items:center; gap:0.8rem; padding:0.7rem 0.85rem; border-radius:12px; border:1.5px solid var(--theme-border); background:var(--ai5-surface);
+		font-size:1.02rem; font-weight:600; line-height:1.25; color:var(--theme-text); opacity:0; }
+	.p10-alsoRow { position:absolute; display:flex; align-items:center; justify-content:center; gap:0.8rem; opacity:0; }
+	.p10-alsoRow .ai5-tag { font-size:1rem; padding:0.35rem 0.95rem; }
+
+	/* rows (continuity, compute) */
+	.p10-crow { position:absolute; box-sizing:border-box; display:grid; grid-template-columns:230px 500px 170px 1fr; align-items:center; padding-left:18px; opacity:0; border-radius:14px;
+		background:var(--ai5-surface); border:2px solid var(--toneT); box-shadow:0 5px 14px rgba(0,0,0,0.16); }
+	.p10-cn { display:flex; flex-direction:column; gap:0.2rem; } .p10-cn b { font-size:1.1rem; font-weight:600; color:var(--theme-text); } .p10-cn span { font-size:0.95rem; color:var(--theme-text-subtle); }
+	.p10-trk { position:relative; height:32px; }
+	.p10-bar { position:absolute; left:0; top:0; height:32px; border-radius:8px; background:#0b6a0b; display:flex; align-items:center; justify-content:flex-end; padding-right:14px; box-sizing:border-box; }
+	.p10-bar.is-long { background:repeating-linear-gradient(135deg, #a4262c 0 9px, #8a1f25 9px 18px); }
+	.p10-bar em, .p10-bl2 { font-style:normal; font-size:1rem; font-weight:600; }
+	.p10-bar em { color:#fff; }
+	.p10-bl2 { position:absolute; top:0; height:32px; display:flex; align-items:center; color:var(--theme-text); white-space:nowrap; }
+	.p10-cv { font-size:1.05rem; font-weight:600; color:var(--theme-text); }
+	.p10-tgt { position:absolute; background:repeating-linear-gradient(180deg, var(--f3t) 0 8px, transparent 8px 14px); }
+	.p10-orow { grid-template-columns:70px 580px 200px 1fr; }
+	.p10-pips { display:flex; gap:0.5rem; } .p10-pips i { display:block; width:22px; height:22px; border-radius:50%; border:2px solid var(--toneT); } .p10-pips i.on { background:var(--toneB); }
+
+	/* network */
+	.p10-nd { display:flex; align-items:center; gap:0.8rem; width:200px; box-sizing:border-box; padding:0.7rem 1rem; border-radius:14px; background:var(--ai5-surface); border:2px solid var(--toneT);
+		box-shadow:0 5px 14px rgba(0,0,0,0.16); color:var(--theme-text); }
+	.p10-nd.p10-col { flex-direction:column; width:150px; text-align:center; gap:0.4rem; padding:0.9rem 0.6rem; }
+	.p10-nd.p10-col .ic { font-size:2.6rem; color:var(--toneT); } .p10-nd b { font-size:1.05rem; font-weight:600; }
+	.p10-vnet { position:absolute; box-sizing:border-box; padding:14px 18px; opacity:0; border-radius:16px; border:2.5px solid var(--toneT); background:color-mix(in srgb, var(--tone) 7%, transparent); }
+	.p10-vh { display:flex; align-items:center; gap:0.6rem; margin-bottom:0.8rem; font-size:1.05rem; color:var(--theme-text); } .p10-vh b { font-weight:600; }
+
+	/* migrate */
+	.p10-mrow { position:absolute; box-sizing:border-box; display:flex; align-items:center; gap:0.9rem; padding:0 1.2rem; opacity:0; border-radius:14px;
+		background:var(--ai5-surface); border:2px solid var(--toneT); box-shadow:0 5px 14px rgba(0,0,0,0.16); font-size:1.08rem; color:var(--theme-text); }
+	.p10-mrow > b { font-weight:600; }
+	.p10-pill { display:inline-block; font-size:0.85rem; font-weight:500; padding:0.1rem 0.6rem; border-radius:999px; border:1.5px solid currentColor; }
+	.p10-ct > span > .p10-pill { color:inherit; }
+	.p10-pill.iaas, .p10-ct > span > .p10-pill.iaas { color:var(--f1t); } .p10-pill.paas, .p10-ct > span > .p10-pill.paas { color:var(--f2t); }
+
+	/* whole */
+	.p10-band { position:absolute; box-sizing:border-box; display:flex; align-items:center; overflow:hidden; opacity:0; border-radius:12px; background:var(--ai5-surface);
+		border:2px solid var(--toneT); box-shadow:0 5px 14px rgba(0,0,0,0.14); }
+	.p10-bl3 { align-self:stretch; flex:none; width:176px; display:flex; align-items:center; gap:0.6rem; padding:0 14px; color:#fff; background:var(--toneB); font-size:1.08rem; font-weight:600; }
+	.p10-bl3 .ic { font-size:1.4rem; }
+	.p10-bt { display:grid; grid-template-columns:1fr 1fr; gap:8px 10px; padding:0 14px; flex:1; }
+	.p10-band .ai5-tag { justify-content:flex-start; font-size:0.95rem; padding:0.3rem 0.7rem; }
+	.p10-waf { display:flex; flex-direction:column; gap:0.5rem; padding:0.9rem 1rem; }
+	.p10-waf .ai5-pnl-h { margin:0 0 0.2rem; }
+	.p10-pil { display:flex; align-items:center; gap:0.8rem; flex:1; padding:0 0.8rem; border-radius:12px; border:1.5px solid var(--theme-border); background:var(--ai5-surface); }
+	.p10-pc { flex:none; width:38px; height:38px; border-radius:50%; display:grid; place-items:center; background:var(--f1b); color:#fff; } .p10-pc .ic { font-size:1.2rem; }
+	.p10-pil .p10-ct b { font-size:1.02rem; } .p10-pil .p10-ct > span { font-size:0.92rem; }
+	.p10-pt { margin-left:auto; width:26px; height:26px; border-radius:50%; display:grid; place-items:center; background:var(--ai5-ok); color:#fff; font-size:0.9rem; }
+	.p10-pt .ic { font-size:inherit; } body.theme-dark .p10-pt { color:#0b1a10; }
+	.p10-end { display:flex; align-items:center; justify-content:center; gap:1.1rem; flex-wrap:wrap; max-width:1100px; }
+	.p10-end .ai5-foot { font-size:1.05rem; }
+
+</style>
+	<!-- SEO:START -->
+	<meta name="description" content="Case study: design the Contoso platform. Explore AZ-305 · Design Azure infrastructure solutions with a step-by-step visual guide." />
+	<link rel="canonical" href="https://azureanimations.github.io/journeys/Architect/ContosoCaseStudy.html" />
+	<meta name="robots" content="index, follow, max-image-preview:large" />
+	<meta property="og:type" content="website" />
+	<meta property="og:site_name" content="Azure Animations" />
+	<meta property="og:title" content="Case study: design the Contoso platform — Azure Animations" />
+	<meta property="og:description" content="Case study: design the Contoso platform. Explore AZ-305 · Design Azure infrastructure solutions with a step-by-step visual guide." />
+	<meta property="og:url" content="https://azureanimations.github.io/journeys/Architect/ContosoCaseStudy.html" />
+	<meta property="og:image" content="https://azureanimations.github.io/img/favicon.png" />
+	<meta property="og:image:alt" content="Azure Animations" />
+	<meta name="twitter:card" content="summary" />
+	<meta name="twitter:title" content="Case study: design the Contoso platform — Azure Animations" />
+	<meta name="twitter:description" content="Case study: design the Contoso platform. Explore AZ-305 · Design Azure infrastructure solutions with a step-by-step visual guide." />
+	<meta name="twitter:image" content="https://azureanimations.github.io/img/favicon.png" />
+	<meta name="twitter:image:alt" content="Azure Animations" />
+	<script type="application/ld+json">
+	{"@context":"https://schema.org","@type":"WebPage","name":"Case study: design the Contoso platform — Azure Animations","description":"Case study: design the Contoso platform. Explore AZ-305 · Design Azure infrastructure solutions with a step-by-step visual guide.","url":"https://azureanimations.github.io/journeys/Architect/ContosoCaseStudy.html","isPartOf":{"@type":"WebSite","name":"Azure Animations","url":"https://azureanimations.github.io/"},"breadcrumb":{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Azure Animations","item":"https://azureanimations.github.io/"},{"@type":"ListItem","position":2,"name":"AZ-305 · Design Azure infrastructure solutions","item":"https://azureanimations.github.io/journeys/Architect/"},{"@type":"ListItem","position":3,"name":"Case study: design the Contoso platform","item":"https://azureanimations.github.io/journeys/Architect/ContosoCaseStudy.html"}]}}
+	</script>
+	<!-- SEO:END -->
+</head>
+
+<body class="theme-dark" data-theme-preset="atlas">
+
+	<a href="#stage" class="skip-link">Skip to diagram</a>
+
+	<header class="app-header padding-block-xs padding-inline-md border-bottom" role="banner" style="justify-content:space-between;">
+		<div class="display-flex align-items-center gap-xs">
+			<!-- Set href to the previous animation in the journey, or the hub index.html -->
+			<a href="MigrateToAzure.html" class="header-back-link" aria-label="Design a migration" title="Design a migration">&larr; Design a migration</a>
+			<span id="page-title" class="font-size-h6 font-weight-semibold">&#127970; Case study: design the Contoso platform</span>
+		</div>
+		<nav class="display-flex gap-xs align-items-center" aria-label="Primary">
+			<span id="breadcrumb" class="font-size-sm color-text-subtle">Step 1</span>
+		</nav>
+		<div class="display-flex gap-xs align-items-center">
+			<!-- AW:lang --><select id="lang-select" class="lang-select" aria-label="Language" title="Language"><option value="en">English</option><option value="es">Español</option><option value="ja">日本語</option><option value="ko">한국어</option><option value="pt">Português</option></select><!-- /AW:lang -->
+			<div class="font-size-controls">
+				<button id="font-decrease" type="button" class="font-size-btn" aria-label="Decrease font size" title="Smaller text">A&minus;</button>
+				<button id="font-increase" type="button" class="font-size-btn" aria-label="Increase font size" title="Larger text">A+</button>
+			</div>
+			<!-- AW:theme --><button id="theme-toggle" type="button" class="theme-toggle" aria-label="Switch theme" title="Switch theme"><svg class="theme-icon icon-moon ico ico-moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path fill="currentColor" d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg><svg class="theme-icon icon-sun ico ico-sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.5" y1="4.5" x2="6.5" y2="6.5"/><line x1="17.5" y1="17.5" x2="19.5" y2="19.5"/><line x1="4.5" y1="19.5" x2="6.5" y2="17.5"/><line x1="17.5" y1="6.5" x2="19.5" y2="4.5"/></g></svg></button><!-- /AW:theme -->
+			<button id="header-hide-top" type="button" aria-label="Hide top bar" title="Hide top bar (H)">
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/></svg>
+			</button>
+		</div>
+	</header>
+
+	<button id="header-reveal" type="button" aria-label="Show top bar" title="Show top bar">
+		<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/></svg>
+		<span>Toolbar</span>
+	</button>
+
+	<div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
+
+	<main id="stage" tabindex="0" role="region" aria-labelledby="stage-heading" aria-describedby="stage-instructions">
+		<h1 id="stage-heading" class="sr-only" tabindex="-1">Case study: design the Contoso platform</h1>
+		<p id="stage-instructions" class="sr-only">Animated explainer. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.</p>
+		<div id="step-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+		<!-- Fixed 16:9 stage. Every scene is drawn INSIDE this box; it always fits the viewport (no scrollbars). -->
+		<div id="stage-frame">
+			<svg id="fx-svg" aria-hidden="true" focusable="false">
+				<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L0,10 L10,5 Z" fill="currentColor"/></marker></defs>
+			</svg>
+			<!-- Caption bar (synced to the step's audio clip by aw-captions.js) -->
+			<div id="aw-caption" class="aw-caption" aria-hidden="true"></div>
+			<!-- LEFT pill · view options: callout / outline / shortcuts (icons; label shows as a hover tooltip) -->
+			<div id="stage-overlay-left" class="stage-overlay stage-overlay-left" role="group" aria-label="View options">
+				<button id="callout-toggle" type="button" class="ovl-btn" aria-label="Toggle callouts" aria-pressed="false" data-tip="Callouts: Off"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M4 5h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H10l-4 3v-3H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></svg></button>
+				<button id="outline-toggle" type="button" class="ovl-btn" aria-controls="step-outline" aria-expanded="false" aria-label="Toggle text outline" data-tip="Outline: Off"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" d="M4 6h16M4 12h16M4 18h10"/></svg></button>
+				<button id="help-toggle" class="ovl-btn help-toggle" type="button" aria-haspopup="dialog" aria-controls="shortcut-overlay" aria-label="Keyboard shortcuts (press ?)" data-tip="Shortcuts"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M11 18h2v-2h-2v2zm1.1-14C9.8 4 8 5.8 8 8h2a2 2 0 1 1 3.2 1.6c-.9.7-2.2 1.5-2.2 3.4h2c0-1 .8-1.5 1.7-2.2A4 4 0 0 0 12.1 4z"/></svg></button>
+			</div>
+			<!-- RIGHT pill · player: audio / captions / hide-top-bar / fullscreen -->
+			<div id="stage-overlay" class="stage-overlay" role="group" aria-label="Player controls">
+				<button id="audio-toggle" class="ovl-btn ovl-audio" type="button" aria-label="Toggle audio narration" aria-pressed="false" title="Narration audio"></button>
+				<button id="cc-toggle" class="ovl-btn" type="button" aria-label="Toggle captions" aria-pressed="false" title="Captions"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9.7 10.2a2.1 2.1 0 1 0 0 3.6M17 10.2a2.1 2.1 0 1 0 0 3.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+				<button id="header-hide" class="ovl-btn" type="button" aria-label="Hide top bar" title="Hide top bar (H)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/></svg></button>
+				<button id="fs-toggle" class="ovl-btn" type="button" aria-label="Toggle full screen" aria-pressed="false" title="Full screen (F)"><svg class="fs-enter" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg><svg class="fs-exit" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg></button>
+			</div>
+		</div>
+	</main>
+
+	<aside id="step-outline" hidden aria-label="Text outline of the current step">
+		<h2 id="outline-title">Step Details</h2>
+		<div id="outline-body"></div>
+	</aside>
+
+	<div id="controls" role="group" aria-label="Diagram navigation">
+		<button id="ctrl-grip" type="button" class="ctrl-grip" aria-label="Drag to move the controls" title="Drag to move">
+			<svg viewBox="0 0 16 16" aria-hidden="true"><g fill="currentColor"><circle cx="5" cy="3" r="1.4"/><circle cx="11" cy="3" r="1.4"/><circle cx="5" cy="8" r="1.4"/><circle cx="11" cy="8" r="1.4"/><circle cx="5" cy="13" r="1.4"/><circle cx="11" cy="13" r="1.4"/></g></svg>
+		</button>
+		<button id="ctrl-pin" type="button" class="button button-clear ctrl-icon ctrl-pin" aria-label="Pin the controls back to the center" title="Pin to center">
+			<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9 2h6a1 1 0 0 1 .8 1.6L14 6v4l3 3v2h-4v5l-1 2-1-2v-5H7v-2l3-3V6L8.2 3.6A1 1 0 0 1 9 2z"/></svg>
+		</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="prev-btn" type="button" class="button ctrl-icon" aria-label="Previous step (left arrow)">&#9664;</button>
+		<div class="step-counter" id="step-counter">0 / 0</div>
+		<button id="next-btn" type="button" class="button button-primary button-filled ctrl-icon ctrl-icon-next" aria-label="Next step (right arrow or space)">&#9654;</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="replay-btn" type="button" class="button ctrl-icon" aria-label="Replay this step's animation (P)">&#8635;</button>
+		<div class="speed-control" role="group" aria-label="Animation speed">
+			<button id="speed-down" type="button" class="button button-clear speed-btn" aria-label="Slower (-)" title="Slower">&minus;</button>
+			<span id="speed-label" class="speed-label" aria-live="polite" aria-label="Current speed">1&times;</span>
+			<button id="speed-up" type="button" class="button button-clear speed-btn" aria-label="Faster (+)" title="Faster">+</button>
+		</div>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="reset-btn" type="button" class="button button-clear ctrl-icon" aria-label="Restart from step 1 (R)">&#9198;</button>
+	</div>
+
+	<div id="shortcut-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="sc-title">
+		<div class="sc-backdrop"></div>
+		<div class="sc-panel">
+			<button id="sc-close" class="sc-close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
+			<h2 id="sc-title">Keyboard shortcuts</h2>
+			<ul id="sc-list" class="sc-list"></ul>
+			<p class="sc-hint">Press <kbd>?</kbd> anytime to toggle this panel.</p>
+		</div>
+	</div>
+
+<script>
+// ── THEME ─────────────────────────────────
+const themeToggleBtn = document.getElementById('theme-toggle');
+function syncThemeBtn(){
+	if (!themeToggleBtn) return;
+	const isDark = document.body.classList.contains('theme-dark');
+	themeToggleBtn.dataset.theme = isDark ? 'dark' : 'light';   // drives which glyph (sun/moon) shows
+	const label = isDark ? 'Switch to light theme' : 'Switch to dark theme';
+	themeToggleBtn.setAttribute('aria-label', label);
+	themeToggleBtn.setAttribute('title', label);
+}
+if (window.AW && AW.theme) {
+	// aw-theme.js owns click handling + persistence; theme recolors via CSS variables, so no re-render/replay.
+	AW.theme.onChange(() => { syncThemeBtn(); });
+	syncThemeBtn();
+} else {
+	// Standalone fallback: toggle .theme-dark / .theme-light on <body> ourselves.
+	syncThemeBtn();
+	if (themeToggleBtn) themeToggleBtn.addEventListener('click', () => {
+		const goingDark = !document.body.classList.contains('theme-dark');
+		document.body.classList.remove('theme-dark', 'theme-light');
+		document.body.classList.add(goingDark ? 'theme-dark' : 'theme-light');
+		try { localStorage.setItem('aw-theme', goingDark ? 'theme-dark' : 'theme-light'); } catch(_){}
+		syncThemeBtn();
+	});
+	// restore a previously chosen theme (standalone only)
+	try { const saved = localStorage.getItem('aw-theme'); if (saved === 'theme-light' || saved === 'theme-dark') { document.body.classList.remove('theme-dark','theme-light'); document.body.classList.add(saved); syncThemeBtn(); } } catch(_){}
+}
+
+// ── i18n ──────────────────────────────────
+// English is the source language. Add sibling objects (es/ja/ko/pt) with the
+// SAME keys + matching <option>s in #lang-select. Keep brand/code/proper-noun
+// sample data untranslated.
+let currentLang = 'en';
+		// Study guide (objectives, weights):  https://learn.microsoft.com/credentials/certifications/resources/study-guides/az-305
+		// Well-Architected pillars:           https://learn.microsoft.com/azure/well-architected/what-is-well-architected-framework  (Reliability, Security, Cost Optimization, Operational Excellence, Performance Efficiency)
+		// Hybrid sign-in methods:             https://learn.microsoft.com/entra/identity/hybrid/connect/choose-ad-authn  (PHS simplest, no extra infrastructure; PTA agents validate against on-premises AD; federation hands off to AD FS)
+		// SQL targets:                        https://learn.microsoft.com/azure/azure-sql/azure-sql-iaas-vs-paas-what-is-overview  (MI almost 100% parity, instance-scoped features; SQL on VM OS-level access)
+		// SQL MI continuity:                  https://learn.microsoft.com/azure/azure-sql/managed-instance/business-continuity-high-availability-disaster-recover-hadr-overview  (zone redundancy RTO typically < 30 s; failover groups RTO typically < 60 s; geo-restore RTO 12 h, RPO 1 h; backups geo-redundant by default)
+		// Compute:                            https://learn.microsoft.com/azure/app-service/overview-patch-os-runtime  (Azure patches OS and runtime on App Service)
+		// Load balancing:                     https://learn.microsoft.com/azure/networking/design-guide/app-delivery  (Front Door global L7; Application Gateway regional L7)
+		// ExpressRoute vs VPN:                https://learn.microsoft.com/azure/vpn-gateway/vpn-gateway-about-vpngateways  (ExpressRoute private, not over the public internet; site-to-site VPN encrypted over the public internet)
+		// Hub-spoke:                          https://learn.microsoft.com/azure/architecture/networking/architecture/hub-spoke
+		// Migration:                          https://learn.microsoft.com/azure/cloud-adoption-framework/migrate/plan-migration , https://learn.microsoft.com/azure/dms/dms-overview , https://learn.microsoft.com/azure/storage/common/storage-migration-overview
+const I18N = {
+	"en": {
+		"skipToMain": "Skip to diagram",
+		"pageTitle": "Case study: design the Contoso platform",
+		"stageHeading": "Case study: design the Contoso platform",
+		"stageInstructions": "Animated explainer. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.",
+		"prev": "◀ Prev",
+		"next": "Next ▶",
+		"replay": "↻ Replay",
+		"restart": "↻ Restart",
+		"slower": "Slower",
+		"faster": "Faster",
+		"calloutOn": "Callouts: On",
+		"calloutOff": "Callouts: Off",
+		"outlineOn": "Outline: On",
+		"outlineOff": "Outline: Off",
+		"audioTip": "Narration audio",
+		"ccTip": "Captions",
+		"shortcutsTip": "Shortcuts",
+		"stepDetails": "Step Details",
+		"stepOf": "Step",
+		"resetPos": "Reset to default position",
+		"scTitle": "Keyboard shortcuts",
+		"scNext": "Next step",
+		"scPrev": "Previous step",
+		"scRestart": "Restart",
+		"scReplay": "Replay this step",
+		"scHide": "Hide / show top bar",
+		"scHelp": "Toggle this help",
+		"nextHub": "Back to the AZ-305 hub",
+		"iaas": "IaaS",
+		"paas": "PaaS",
+		"reqL": "Requirement",
+		"decideL": "Deciding question",
+		"alsoL": "Also in the design",
+		"dIdent": "Identity",
+		"dData": "Data",
+		"dCont": "Continuity",
+		"dInfra": "Infrastructure",
+		"briefTitle": "Read the brief: requirements and constraints",
+		"briefCaption": "Case study · the brief",
+		"briefDesc": "Contoso hands you a short brief. Before you design anything, underline the words that will eliminate answers.",
+		"briefCallout": "AZ-305 asks you to recommend solutions that meet requirements. Requirements say what the design must do. Constraints limit how you can do it. Read for both, then let them cross out options before you compare features.",
+		"briefSay": "Underline the words that eliminate.",
+		"briefHead": "Contoso Ltd. · order platform",
+		"brL1": "Staff sign in with their <u class=\"k k1\">on-premises accounts</u>; the datacenter link must be <u class=\"k k4\">private</u>.",
+		"brL2": "The order database needs <u class=\"k k2\">instance-level SQL Server features</u>.",
+		"brL3": "If a region fails: lose at most <u class=\"k k3\">5 minutes</u> of orders, be back within <u class=\"k k3\">1 hour</u>.",
+		"brL4": "A <u class=\"k k4\">small ops team</u> and <u class=\"k k4\">no rewrite</u> before launch.",
+		"reqHead": "Requirements",
+		"conHead": "Constraints",
+		"rq1": "Hybrid sign-in",
+		"rq2": "Instance-level SQL",
+		"rq3": "RPO 5 min · RTO 1 h",
+		"rq4": "Private datacenter link",
+		"cn1": "Small ops team",
+		"cn2": "No rewrite before launch",
+		"identityTitle": "Identity and governance: pick the sign-in method",
+		"identityCaption": "Case study · identity and governance",
+		"identityDesc": "Staff already have on-premises accounts. The deciding question picks the sign-in method, and governance guardrails go around it.",
+		"identityCallout": "AZ-305 · Recommend an authentication solution; Recommend a solution for identity governance. Password hash synchronization is the simplest method and needs no extra infrastructure. Pass-through authentication uses agents that validate against on-premises Active Directory. Federation hands off to a system such as AD FS. Pick the simplest one that meets the requirement.",
+		"identitySay": "Simplest that meets the need.",
+		"idReq": "Staff sign in with on-premises accounts",
+		"idQ": "Must on-premises validate every sign-in? No.",
+		"idPhs": "Password hash sync",
+		"idPhsD": "Simplest, no extra infrastructure",
+		"idPhsV": "Meets the requirement",
+		"idPta": "Pass-through authentication",
+		"idPtaD": "Agents check on-premises AD",
+		"idPtaV": "Extra agents to run",
+		"idFed": "Federation",
+		"idFedD": "Hands off to AD FS",
+		"idFedV": "Extra servers to run",
+		"idAlso1": "Conditional Access + MFA",
+		"idAlso2": "PIM for admin roles",
+		"idAlso3": "Management groups + Policy",
+		"dataTitle": "Data: match the SQL target to the need",
+		"dataCaption": "Case study · data",
+		"dataDesc": "One requirement in the brief points at one target. The other two fail on scope or on effort.",
+		"dataCallout": "AZ-305 · Recommend a solution for storing relational data. SQL Managed Instance offers almost 100% SQL Server feature parity with instance-scoped features. SQL Database is one database at a time. SQL Server on an Azure VM gives OS-level access, and with it, an OS to look after.",
+		"dataSay": "Instance features point to Managed Instance.",
+		"dtReq": "The order database needs instance-level SQL Server features",
+		"dtSqlDb": "Azure SQL Database",
+		"dtSqlDbD": "One cloud-native database",
+		"dtSqlDbV": "Single-database scope",
+		"dtMi": "SQL Managed Instance",
+		"dtMiD": "Almost 100% SQL Server parity",
+		"dtMiV": "Instance-level features kept",
+		"dtVm": "SQL Server on Azure VM",
+		"dtVmD": "OS-level access, full control",
+		"dtVmV": "More to run for a small team",
+		"dtAlso1": "Product images in Blob Storage",
+		"dtAlso2": "Backups geo-redundant by default",
+		"continuityTitle": "Business continuity: meet the RTO and RPO",
+		"continuityCaption": "Case study · continuity",
+		"continuityDesc": "Compare each option with the target. The bars are drawn to scale, and one option fails on a word in the brief.",
+		"continuityCallout": "AZ-305 · Recommend a high availability solution for relational data; Recommend a backup and recovery solution for databases. Per Microsoft Learn for SQL Managed Instance: geo-restore RTO is 12 hours and RPO 1 hour; zone redundancy RTO is typically under 30 seconds with RPO 0, but within one region; failover groups RTO is typically under 60 seconds. Contoso’s targets are example requirements.",
+		"continuitySay": "A region failure needs a second region.",
+		"ctReq": "If a region fails: lose at most 5 minutes, be back within 1 hour",
+		"ctColRto": "RTO · downtime, to scale",
+		"ctColRpo": "RPO · data loss",
+		"ctGeo": "Geo-restore",
+		"ctGeoD": "Backups only",
+		"ctGeoRto": "12 hours",
+		"ctGeoRpo": "1 hour",
+		"ctGeoV": "Too slow",
+		"ctZone": "Zone redundancy",
+		"ctZoneD": "Inside one region",
+		"ctZoneRto": "Under 30 s",
+		"ctZoneRpo": "0",
+		"ctZoneV": "Same region only",
+		"ctFog": "Failover group",
+		"ctFogD": "Pays for a second instance",
+		"ctFogRto": "Under 60 s",
+		"ctFogRpo": "Continuous sync",
+		"ctFogV": "Meets the target",
+		"ctTarget": "1 h target",
+		"computeTitle": "Compute: the least to operate that fits",
+		"computeCaption": "Case study · compute",
+		"computeDesc": "A small ops team and no rewrite point away from servers and clusters, toward a managed platform.",
+		"computeCallout": "AZ-305 · Specify components of a compute solution based on workload requirements. On App Service, Azure updates the operating system and runtime. Pick the simplest service that meets the requirement; the ERP batch job is rehosted on a VM first and can move to a modern service later.",
+		"computeSay": "Least to operate wins.",
+		"cpReq": "A small ops team and no rewrite before launch",
+		"cpEffort": "Ops effort",
+		"cpVm": "Virtual Machines",
+		"cpVmD": "You patch the OS and runtime",
+		"cpVmV": "Too much to operate",
+		"cpAks": "Containers on AKS",
+		"cpAksD": "Containers and a cluster to run",
+		"cpAksV": "Needs containers first",
+		"cpApp": "App Service",
+		"cpAppD": "Azure patches OS and runtime",
+		"cpAppV": "Replatform, no rewrite",
+		"cpAlso1": "Storefront on App Service",
+		"cpAlso2": "ERP batch job: VM now, modernize later",
+		"networkTitle": "Network: private link, global front door",
+		"networkCaption": "Case study · network",
+		"networkDesc": "The datacenter needs a private link, and customers need one front door that survives a region failure.",
+		"networkCallout": "AZ-305 · Recommend a connectivity solution that connects Azure resources to on-premises networks; Recommend a load-balancing and routing solution. ExpressRoute is a private connection that does not use the public internet; a site-to-site VPN is encrypted but travels over the public internet. Front Door is global layer 7 routing with cross-region failover; Application Gateway is regional.",
+		"networkSay": "Private link, global front door.",
+		"ntCust": "Customers",
+		"ntFd": "Front Door",
+		"ntFdD": "Global entry",
+		"ntDc": "Datacenter",
+		"ntEr": "ExpressRoute · private",
+		"ntVpn": "VPN · over the internet",
+		"ntHub": "Hub VNet",
+		"ntGw": "Gateway",
+		"ntFw": "Firewall",
+		"ntProd": "Prod spoke",
+		"ntNon": "Non-prod spoke",
+		"ntStore": "Storefront",
+		"ntDev": "Dev · Test",
+		"migrateTitle": "Migration: the lightest route per workload",
+		"migrateCaption": "Case study · migration",
+		"migrateDesc": "No rewrite means rehost or replatform. Each workload gets a tool that fits, and orders keep flowing during the database move.",
+		"migrateCallout": "AZ-305 · Recommend a solution for migrating workloads to IaaS and PaaS; databases; unstructured data. DMS moves SQL Server to SQL Managed Instance online or offline. Data Box can seed a large dataset offline, then Azure Storage Mover syncs the changes. Azure Migrate migrates servers by replicating, testing, then cutting over.",
+		"migrateSay": "Lightest change, right tool.",
+		"mgStore": "Storefront",
+		"mgOrders": "Order database",
+		"mgErp": "ERP batch job",
+		"mgImg": "Product images",
+		"mtAm": "Azure Migrate",
+		"mtDms": "Database Migration Service",
+		"mtBox": "Data Box, then Storage Mover",
+		"mtStoreD": "Replatform",
+		"mtOrdersD": "Replatform · online",
+		"mtErpD": "Rehost",
+		"mtImgD": "Seed, then deltas",
+		"tgApp": "App Service",
+		"tgMi": "SQL Managed Instance",
+		"tgVm": "Virtual Machine",
+		"tgBlob": "Blob Storage",
+		"wholeTitle": "All in one: the Contoso platform",
+		"wholeCaption": "Recap",
+		"wholeDesc": "Four domains, one design. Each choice answers the brief; the five pillars check the balance.",
+		"wholeCallout": "The five Well-Architected pillars are Reliability, Security, Cost Optimization, Operational Excellence and Performance Efficiency. Good designs balance them against the requirements; they rarely maximise one pillar.",
+		"bdIdent": "Identity",
+		"bdData": "Data",
+		"bdCont": "Continuity",
+		"bdInfra": "Infrastructure",
+		"cEntra": "Entra Connect · hash sync",
+		"cCa": "Conditional Access + MFA",
+		"cPim": "PIM",
+		"cMg": "Management groups + Policy",
+		"cMi": "SQL Managed Instance",
+		"cBlob": "Blob Storage",
+		"cFog": "Failover group",
+		"cGeo": "Geo-redundant backups",
+		"cApp": "App Service",
+		"cEr": "ExpressRoute · hub-spoke",
+		"cFd": "Front Door",
+		"cMigr": "Azure Migrate · DMS",
+		"wafHead": "Well-Architected check",
+		"pRel": "Reliability",
+		"pRelD": "Failover group, second region",
+		"pSec": "Security",
+		"pSecD": "MFA, PIM, private link",
+		"pCost": "Cost Optimization",
+		"pCostD": "PaaS, right-sized",
+		"pOps": "Operational Excellence",
+		"pOpsD": "Policy, little to patch",
+		"pPerf": "Performance Efficiency",
+		"pPerfD": "Front Door edge routing",
+		"wholeFoot": "Official <a href=\"https://learn.microsoft.com/credentials/certifications/resources/study-guides/az-305\" target=\"_blank\" rel=\"noopener\">AZ-305 study guide</a> and <a href=\"https://learn.microsoft.com/azure/well-architected/\" target=\"_blank\" rel=\"noopener\">Azure Well-Architected Framework</a>.",
+		"backLabel": "Design a migration",
+		"short1": "The brief",
+		"short2": "Identity",
+		"short3": "Data",
+		"short4": "Continuity",
+		"short5": "Compute",
+		"short6": "Network",
+		"short7": "Migration",
+		"short8": "All in one",
+		"languageLabel": "Language"
+	},
+	"es": {
+		"skipToMain": "Ir al diagrama",
+		"pageTitle": "Caso práctico: diseñar la plataforma de Contoso",
+		"stageHeading": "Caso práctico: diseñar la plataforma de Contoso",
+		"stageInstructions": "Explicación animada. Usa los botones de Siguiente/Anterior o las flechas para navegar. Pulsa R para reiniciar.",
+		"prev": "◀ Anterior",
+		"next": "Siguiente ▶",
+		"replay": "↻ Repetir",
+		"restart": "↻ Reiniciar",
+		"slower": "Más lento",
+		"faster": "Más rápido",
+		"calloutOn": "Notas: activadas",
+		"calloutOff": "Notas: desactivadas",
+		"outlineOn": "Esquema: activado",
+		"outlineOff": "Esquema: desactivado",
+		"audioTip": "Narración de audio",
+		"ccTip": "Subtítulos",
+		"shortcutsTip": "Atajos",
+		"stepDetails": "Detalles del paso",
+		"stepOf": "Paso",
+		"resetPos": "Restablecer la posición",
+		"scTitle": "Atajos de teclado",
+		"scNext": "Paso siguiente",
+		"scPrev": "Paso anterior",
+		"scRestart": "Reiniciar",
+		"scReplay": "Repetir este paso",
+		"scHide": "Mostrar u ocultar la barra superior",
+		"scHelp": "Mostrar u ocultar esta ayuda",
+		"nextHub": "De vuelta al hub del AZ-305",
+		"iaas": "IaaS",
+		"paas": "PaaS",
+		"reqL": "Requisito",
+		"decideL": "Pregunta decisiva",
+		"alsoL": "También en el diseño",
+		"dIdent": "Identidad",
+		"dData": "Datos",
+		"dCont": "Continuidad",
+		"dInfra": "Infraestructura",
+		"briefTitle": "Lee el resumen: requisitos y restricciones",
+		"briefCaption": "Estudio de caso · El informe",
+		"briefDesc": "Contoso te entrega un breve resumen. Antes de diseñar nada, subraya las palabras que eliminarán las respuestas.",
+		"briefCallout": "AZ-305 te pide que recomiendes soluciones que cumplan con los requisitos. Los requisitos dicen lo que debe hacer el diseño. Las restricciones limitan cómo puedes hacerlo. Lee para ambas opciones y deja que tachen las opciones antes de comparar características.",
+		"briefSay": "Subraya las palabras que eliminan.",
+		"briefHead": "Contoso Ltd. · plataforma de pedidos",
+		"brL1": "El personal inicia sesión con sus <u class=\"k k1\">cuentas locales</u>; el enlace del centro de datos debe ser <u class=\"k k4\">privado</u>.",
+		"brL2": "La base de datos de órdenes necesita <u class=\"k k2\">características de SQL Server a nivel de instancia</u>.",
+		"brL3": "Si una región falla: pierde como <u class=\"k k3\">máximo 5 minutos</u> de pedidos, vuelve en <u class=\"k k3\">menos de 1 hora</u>.",
+		"brL4": "Un <u class=\"k k4\">equipo de operaciones pequeño</u> y <u class=\"k k4\">sin reescritura</u> antes del lanzamiento.",
+		"reqHead": "Requisitos",
+		"conHead": "Restricciones",
+		"rq1": "Inicio de sesión híbrido",
+		"rq2": "SQL a nivel de instancia",
+		"rq3": "RPO 5 min · RTO 1 h",
+		"rq4": "Enlace privado de centro de datos",
+		"cn1": "Equipo de pequeñas operaciones",
+		"cn2": "No hay reescritura antes del lanzamiento",
+		"identityTitle": "Identidad y gobernanza: elige el método de inicio de sesión",
+		"identityCaption": "Estudio de caso · Identidad y gobernanza",
+		"identityDesc": "El personal ya tiene cuentas en las instalaciones. La cuestión decisiva elige el método de inicio de sesión, y las barreras de gobernanza lo rodean.",
+		"identityCallout": "AZ-305 · Recomienda una solución de autenticación; Recomienda una solución para la gobernanza de identidad. La sincronización hash de contraseña es el método más sencillo y no requiere infraestructura adicional. La autenticación de paso utiliza agentes que validan contra Active Directory local. La federación se traslada a un sistema como AD FS. Elige la más sencilla que cumpla con el requisito.",
+		"identitySay": "La más sencilla que se adapte a la necesidad.",
+		"idReq": "El personal inicia sesión con cuentas locales",
+		"idQ": "¿Debe el local validar cada inicio de sesión? No.",
+		"idPhs": "Sincr. de hash",
+		"idPhsD": "Lo más sencillo, sin infraestructura adicional",
+		"idPhsV": "Cumple con el requisito",
+		"idPta": "Autenticación de paso",
+		"idPtaD": "Los agentes revisan el AD en las instalaciones",
+		"idPtaV": "Agentes extra para dirigir",
+		"idFed": "Federación",
+		"idFedD": "Sin manos a AD FS",
+		"idFedV": "Servidores extra para ejecutar",
+		"idAlso1": "Acceso Condicional + MFA",
+		"idAlso2": "PIM para roles administrativos",
+		"idAlso3": "Grupos de gestión + Política",
+		"dataTitle": "Datos: ajustar el objetivo de SQL a la necesidad",
+		"dataCaption": "Estudio de caso · Datos",
+		"dataDesc": "Un requisito en el informe apunta a un objetivo. Los otros dos fallan en alcance o en esfuerzo.",
+		"dataCallout": "AZ-305 · Recomiendo una solución para almacenar datos relacionales. SQL Managed Instance ofrece casi un 100% de paridad de características de SQL Server con funciones con alcance de instancia. SQL Database es una base de datos a la vez. SQL Server en una VM Azure ofrece acceso a nivel de sistema operativo y, con ello, un sistema operativo a cuidar.",
+		"dataSay": "Las características de la instancia apuntan a la Instancia Gestionada.",
+		"dtReq": "La base de datos de orden necesita características de SQL Server a nivel de instancia",
+		"dtSqlDb": "Azure SQL Database",
+		"dtSqlDbD": "Una base de datos nativa en la nube",
+		"dtSqlDbV": "Alcance de base de datos única",
+		"dtMi": "Instancia Gestionada de SQL",
+		"dtMiD": "Casi 100% paridad SQL Server",
+		"dtMiV": "Características a nivel de instancia que se mantienen",
+		"dtVm": "SQL Server en Azure VM",
+		"dtVmD": "Acceso a nivel de sistema operativo, control total",
+		"dtVmV": "Más para un equipo pequeño",
+		"dtAlso1": "Imágenes de productos en Blob Storage",
+		"dtAlso2": "Las copias de seguridad son geo-redundantes por defecto",
+		"continuityTitle": "Continuidad del negocio: cumplir el RTO y el RPO",
+		"continuityCaption": "Estudio de caso · Continuidad",
+		"continuityDesc": "Compara cada opción con el objetivo. Las barras están dibujadas a escala y una opción falla en una palabra del escrito.",
+		"continuityCallout": "AZ-305 · Recomienda una solución de alta disponibilidad para datos relacionales; Recomienda una solución de copia de seguridad y recuperación para bases de datos. Según Microsoft Learn for SQL Managed Instance: el RTO de restauración geográfica dura 12 horas y el RPO 1 hora; el RTO de redundancia de zonas suele ser inferior a 30 segundos con RPO 0, pero dentro de una región; los grupos de conmutación por conmutación RTO suelen estar por debajo de 60 segundos. Los objetivos de Contoso son requisitos de ejemplo.",
+		"continuitySay": "Un fallo regional necesita una segunda región.",
+		"ctReq": "Fallo regional: perder como máximo 5 min de datos y recuperar el servicio en 1 h",
+		"ctColRto": "RTO · tiempo de inactividad, a escala",
+		"ctColRpo": "RPO · pérdida",
+		"ctGeo": "Geo-restauración",
+		"ctGeoD": "Solo copias de seguridad",
+		"ctGeoRto": "12 horas",
+		"ctGeoRpo": "1 hora",
+		"ctGeoV": "Demasiado lento",
+		"ctZone": "Redundancia de zonas",
+		"ctZoneD": "Dentro de una región",
+		"ctZoneRto": "&lt; 30 s",
+		"ctZoneRpo": "0",
+		"ctZoneV": "Solo que en la misma región",
+		"ctFog": "Grupo de conmutación por error",
+		"ctFogD": "Paga por una segunda instancia",
+		"ctFogRto": "&lt; 60 s",
+		"ctFogRpo": "Sincronización continua",
+		"ctFogV": "Cumple el objetivo",
+		"ctTarget": "Objetivo de 1 h",
+		"computeTitle": "Computar: lo menos que se ajusta a operar",
+		"computeCaption": "Estudio de caso · Calcular",
+		"computeDesc": "Un equipo de operaciones pequeño y sin punto de reescritura alejándose de servidores y clústeres, hacia una plataforma gestionada.",
+		"computeCallout": "AZ-305 · Especifica los componentes de una solución de cómputo según los requisitos de carga de trabajo. En App Service, Azure actualiza el sistema operativo y el tiempo de ejecución. Elige el servicio más sencillo que cumpla con el requisito; el trabajo por lotes ERP se realoja primero en una VM y puede pasar a un servicio moderno más adelante.",
+		"computeSay": "Menos para operar gana.",
+		"cpReq": "Un equipo de operaciones pequeñas y sin reescritura antes del lanzamiento",
+		"cpEffort": "Esfuerzo operativo",
+		"cpVm": "Máquinas virtuales",
+		"cpVmD": "Actualizas el sistema operativo y el tiempo de ejecución",
+		"cpVmV": "Demasiado para operar",
+		"cpAks": "Contenedores en AKS",
+		"cpAksD": "Contenedores y un clúster para ejecutar",
+		"cpAksV": "Primero necesita contenedores",
+		"cpApp": "App Service",
+		"cpAppD": "Azure parchea OS y runtime",
+		"cpAppV": "Replatform, sin reescritura",
+		"cpAlso1": "Tienda en App Service",
+		"cpAlso2": "Trabajo por lotes ERP: VM ahora, modernizarlo después",
+		"networkTitle": "Red: enlace privado, puerta principal global",
+		"networkCaption": "Estudio de caso · Red",
+		"networkDesc": "El centro de datos necesita un enlace privado, y los clientes necesitan una puerta principal que sobreviva a un fallo regional.",
+		"networkCallout": "AZ-305 · Recomienda una solución de conectividad que conecte recursos Azure a redes locales; Recomienda una solución de balanceo de carga y enrutamiento. ExpressRoute es una conexión privada que no utiliza internet público; una VPN sitio a sitio está cifrada pero viaja por internet público. Front Door es enrutamiento global de capa 7 con conmutación por error entre regiones; Application Gateway es regional.",
+		"networkSay": "Enlace privado, puerta principal global.",
+		"ntCust": "Clientes",
+		"ntFd": "Front Door",
+		"ntFdD": "Entrada global",
+		"ntDc": "Centro de datos",
+		"ntEr": "ExpressRoute · privado",
+		"ntVpn": "VPN · a través de internet",
+		"ntHub": "Hub VNet",
+		"ntGw": "Puerta de entrada",
+		"ntFw": "Cortafuegos",
+		"ntProd": "Radio de la prod",
+		"ntNon": "Hablaba el no-prod",
+		"ntStore": "Escaparate",
+		"ntDev": "Dev · Test",
+		"migrateTitle": "Migración: la ruta más ligera por carga de trabajo",
+		"migrateCaption": "Estudio de caso · Migración",
+		"migrateDesc": "No reescribir significa realojar o replatformar. Cada carga de trabajo recibe una herramienta que encaja y los pedidos siguen fluyendo durante el traslado de la base de datos.",
+		"migrateCallout": "AZ-305 · Recomienda una solución para migrar cargas de trabajo a IaaS y PaaS; bases de datos; datos no estructurados. DMS mueve SQL Server a instancias gestionadas de SQL online o offline. Data Box puede iniciar un gran conjunto de datos sin conexión, luego Azure Storage Mover sincroniza los cambios. Azure Migrate migra servidores replicando, probando y luego cortando.",
+		"migrateSay": "El cambio más ligero, la herramienta adecuada.",
+		"mgStore": "Escaparate",
+		"mgOrders": "BD de pedidos",
+		"mgErp": "Lote ERP",
+		"mgImg": "Imágenes del producto",
+		"mtAm": "Azure Migrate",
+		"mtDms": "Database Migration Service",
+		"mtBox": "Data Box + Storage Mover",
+		"mtStoreD": "Cambiar de plataforma",
+		"mtOrdersD": "Replataforma · Online",
+		"mtErpD": "Rehospedar",
+		"mtImgD": "Semilla, luego deltas",
+		"tgApp": "App Service",
+		"tgMi": "Instancia Gestionada de SQL",
+		"tgVm": "Máquina virtual",
+		"tgBlob": "Almacenamiento de blobs",
+		"wholeTitle": "Todo en uno: la plataforma Contoso",
+		"wholeCaption": "Resumen",
+		"wholeDesc": "Cuatro dominios, un diseño. Cada elección responde al encargo; los cinco pilares controlan el equilibrio.",
+		"wholeCallout": "Los cinco pilares Well-Architected son Fiabilidad, Seguridad, Optimización de Costes, Excelencia Operativa y Eficiencia en el Rendimiento. Los buenos diseños los equilibran con los requisitos; rara vez maximizan un pilar.",
+		"bdIdent": "Identidad",
+		"bdData": "Datos",
+		"bdCont": "Continuidad",
+		"bdInfra": "Infraestructura",
+		"cEntra": "Entra Connect · sincronización hash",
+		"cCa": "Acceso Condicional + MFA",
+		"cPim": "PIM",
+		"cMg": "Grupos de gestión + Política",
+		"cMi": "Instancia Gestionada de SQL",
+		"cBlob": "Almacenamiento de blobs",
+		"cFog": "Grupo de conmutación por error",
+		"cGeo": "Copias de seguridad geo-redundantes",
+		"cApp": "App Service",
+		"cEr": "ExpressRoute · radios centrales",
+		"cFd": "Front Door",
+		"cMigr": "Azure Migrate · DMS",
+		"wafHead": "Well-Architected check",
+		"pRel": "Fiabilidad",
+		"pRelD": "Grupo de conmutación por error, segunda región",
+		"pSec": "Seguridad",
+		"pSecD": "MFA, PIM, enlace privado",
+		"pCost": "Optimización de costes",
+		"pCostD": "PaaS, tamaño adecuado",
+		"pOps": "Excelencia Operativa",
+		"pOpsD": "Política, poco que corregir",
+		"pPerf": "Eficiencia en el rendimiento",
+		"pPerfD": "Enrutamiento de borde Front Door",
+		"wholeFoot": "<a href=\"https://learn.microsoft.com/credentials/certifications/resources/study-guides/az-305\" target=\"_blank\" rel=\"noopener\">Guía oficial de estudio de AZ-305</a> y <a href=\"https://learn.microsoft.com/azure/well-architected/\" target=\"_blank\" rel=\"noopener\">Azure Well-Architected Framework</a>.",
+		"backLabel": "Diseñar una migración",
+		"short1": "El encargo",
+		"short2": "Identidad",
+		"short3": "Datos",
+		"short4": "Continuidad",
+		"short5": "Calcular",
+		"short6": "Red",
+		"short7": "Migración",
+		"short8": "Todo en uno",
+		"languageLabel": "Idioma"
+	},
+	"ja": {
+		"skipToMain": "図へスキップ",
+		"pageTitle": "ケーススタディ：Contosoのプラットフォームを設計する",
+		"stageHeading": "ケーススタディ：Contosoのプラットフォームを設計する",
+		"stageInstructions": "アニメーション解説。次回/前回ボタンや矢印キーを使ってナビゲート。Rボタンを押して再起動します。",
+		"prev": "◀ 前へ",
+		"next": "次へ ▶",
+		"replay": "↻ 再生",
+		"restart": "↻ 最初から",
+		"slower": "ゆっくり",
+		"faster": "速く",
+		"calloutOn": "吹き出し：オン",
+		"calloutOff": "吹き出し：オフ",
+		"outlineOn": "アウトライン：オン",
+		"outlineOff": "アウトライン：オフ",
+		"audioTip": "音声ナレーション",
+		"ccTip": "字幕",
+		"shortcutsTip": "ショートカット",
+		"stepDetails": "ステップの詳細",
+		"stepOf": "ステップ",
+		"resetPos": "位置を既定に戻す",
+		"scTitle": "キーボード ショートカット",
+		"scNext": "次のステップ",
+		"scPrev": "前のステップ",
+		"scRestart": "最初から",
+		"scReplay": "このステップを再生",
+		"scHide": "上部バーの表示 / 非表示",
+		"scHelp": "このヘルプの表示切り替え",
+		"nextHub": "AZ-305ハブに戻る",
+		"iaas": "IaaS",
+		"paas": "PaaS",
+		"reqL": "要件",
+		"decideL": "決定的な質問",
+		"alsoL": "設計にも影響しています",
+		"dIdent": "アイデンティティ",
+		"dData": "データ",
+		"dCont": "連続性",
+		"dInfra": "インフラ",
+		"briefTitle": "ブリーフをお読みください:要件と制約",
+		"briefCaption": "ケーススタディ ·ブリーフ",
+		"briefDesc": "Contosoは短いブリーフを渡します。何かをデザインする前に、答えを排除する言葉に下線を引いてください。",
+		"briefCallout": "AZ-305は、要件を満たすソリューションを提案するよう求めます。要件は設計が何をすべきかを示しています。制約がそれを行う方法を制限します。両方を読み、その後オプションを除外してから機能を比較してください。",
+		"briefSay": "排除する言葉に下線を引く。",
+		"briefHead": "Contoso Ltd. · 注文プラットフォーム",
+		"brL1": "スタッフはオン <u class=\"k k1\">プレミスのアカウント</u>でサインインします。データセンターのリンクは <u class=\"k k4\">プライベート</u>でなければなりません。",
+		"brL2": "オーダーデータベースには<u class=\"k k2\">インスタンスレベルのSQL Server機能</u>が必要です。",
+		"brL3": "リージョンが失敗した場合:最大 <u class=\"k k3\">5分</u> の注文を失い、 <u class=\"k k3\">1時間</u>以内に戻ります。",
+		"brL4": "<u class=\"k k4\">小規模なオペレーションチーム</u>で、発売前に<u class=\"k k4\">書き直しはありません</u>。",
+		"reqHead": "要件",
+		"conHead": "制約",
+		"rq1": "ハイブリッドサインイン",
+		"rq2": "インスタンスレベルSQL",
+		"rq3": "RPO 5分 ·RTO 1時間",
+		"rq4": "プライベートデータセンターリンク",
+		"cn1": "小作戦チーム",
+		"cn2": "発売前に書き直しはありません",
+		"identityTitle": "アイデンティティとガバナンス:サインイン方式を選ぶ",
+		"identityCaption": "事例研究 ·アイデンティティとガバナンス",
+		"identityDesc": "スタッフはすでにオンプレミスアカウントを持っています。決定的な質問はサインイン方法を選び、それに関わるガバナンスのガードレールが設けられます。",
+		"identityCallout": "AZ-305 ·認証ソリューションを推奨します。アイデンティティガバナンスのためのソリューションを提案します。パスワードハッシュ同期が最もシンプルで、追加のインフラを必要としません。パススルー認証は、オンプレミスのActive Directoryに対して検証するエージェントを使用します。フェデレーションはAD FSのようなシステムに引き継ぎます。要件を満たす最もシンプルなものを選びましょう。",
+		"identitySay": "ニーズに合う最もシンプルなものを選びましょう。",
+		"idReq": "スタッフはオンプレミスアカウントでサインインします",
+		"idQ": "毎回オンプレミスで認証が必要？ いいえ。",
+		"idPhs": "パスワードハッシュ同期",
+		"idPhsD": "一番シンプルで、追加のインフラがありません",
+		"idPhsV": "要件を満たしている",
+		"idPta": "パススルー認証",
+		"idPtaD": "エージェントがオンプレミスのADを確認します",
+		"idPtaV": "追加のエージェントを動かす",
+		"idFed": "連邦",
+		"idFedD": "AD FSに任せてください",
+		"idFedV": "追加サーバーを稼働させる",
+		"idAlso1": "条件付きアクセス + MFA",
+		"idAlso2": "管理職向けのPIM",
+		"idAlso3": "管理グループ+ポリシー",
+		"dataTitle": "データ:SQLターゲットをニーズに合わせて",
+		"dataCaption": "ケーススタディ ·データ",
+		"dataDesc": "ブリーフの一つの要件は一つの目標を指している。残りの二つは範囲や努力で失敗している。",
+		"dataCallout": "AZ-305 ·リレーショナルデータの保存ソリューションを推奨します。SQLマネージドインスタンスは、インスタンススコープ機能とほぼ100%SQL Serverの機能の同等性を提供します。SQLデータベースは一度に一つのデータベースを扱います。Azure VM上のSQL ServerはOSレベルのアクセスを提供し、それに伴い管理すべきOSも提供します。",
+		"dataSay": "インスタンスの特徴はマネージドインスタンスを指しています。",
+		"dtReq": "オーダーデータベースにはインスタンスレベルのSQL Server機能が必要です",
+		"dtSqlDb": "Azure SQL Database",
+		"dtSqlDbD": "クラウドネイティブデータベースを1つ",
+		"dtSqlDbV": "単一データベースの範囲",
+		"dtMi": "SQLマネージドインスタンス",
+		"dtMiD": "ほぼ100%SQL Serverのパリティ",
+		"dtMiV": "インスタンスレベルの機能の維持",
+		"dtVm": "Azure VM 上のSQL Server",
+		"dtVmD": "OSレベルのアクセス、完全な制御",
+		"dtVmV": "小さなチームでももっと多く走ることがあります",
+		"dtAlso1": "Blob Storageにおける製品イメージ",
+		"dtAlso2": "バックアップはデフォルトでジオ冗長になります",
+		"continuityTitle": "事業継続：RTO と RPO の要件を満たす",
+		"continuityCaption": "ケーススタディ ·継続性",
+		"continuityDesc": "各選択肢をターゲットと比較してください。バーは縮尺に合わせて描かれ、ブリーフの単語で一つの選択肢が失敗します。",
+		"continuityCallout": "AZ-305 ·リレーショナルデータには高可用性ソリューションを推奨します。データベースにはバックアップおよびリカバリーソリューションを推奨します。Microsoft Learn for SQL Managed Instanceによると、ジオリストアRTOは12時間、RPOは1時間、ゾーン冗長RTOは通常30秒未満で、RPOは1リージョン内で行われます。フェイルオーバーグループのRTOは通常60秒未満です。 Contosoの目標は例となる要件です。",
+		"continuitySay": "リージョンの失敗には第二のリージョンが必要です。",
+		"ctReq": "リージョン障害時：データ損失は最大5分、サービス復旧は1時間以内",
+		"ctColRto": "RTO · ダウンタイム、スケール",
+		"ctColRpo": "RPO · データ損失",
+		"ctGeo": "ジオリストア",
+		"ctGeoD": "バックアップのみ",
+		"ctGeoRto": "12時間",
+		"ctGeoRpo": "1時間",
+		"ctGeoV": "遅すぎる",
+		"ctZone": "ゾーン冗長性",
+		"ctZoneD": "一つの領域内で",
+		"ctZoneRto": "&lt; 30 s",
+		"ctZoneRpo": "0",
+		"ctZoneV": "同じリージョンのみ",
+		"ctFog": "フェイルオーバーグループ",
+		"ctFogD": "2回目の費用を支払う",
+		"ctFogRto": "&lt; 60 s",
+		"ctFogRpo": "連続同期",
+		"ctFogV": "目標を満たしている",
+		"ctTarget": "1hターゲット",
+		"computeTitle": "計算:適合する最小の動作",
+		"computeCaption": "ケーススタディ ·計算",
+		"computeDesc": "小さなオペレーションチームで、リライトなしでサーバーやクラスターから離れた管理プラットフォームを目指します。",
+		"computeCallout": "AZ-305 ·ワークロード要件に基づいて計算ソリューションのコンポーネントを指定します。App Serviceでは、Azureがオペレーティングシステムとランタイムを更新します。要件を満たす最もシンプルなサービスを選択してください。ERPバッチジョブはまずVM上で再ホストされ、後で最新のサービスに移行できます。",
+		"computeSay": "操作が最も少ない方が勝ちます。",
+		"cpReq": "小規模なオペレーションチームで、発売前に書き直しはありません",
+		"cpEffort": "オペレーションの取り組み",
+		"cpVm": "仮想マシン",
+		"cpVmD": "OSと実行時にパッチを当てます",
+		"cpVmV": "操作するには多すぎる",
+		"cpAks": "AKS上のコンテナ",
+		"cpAksD": "実行するコンテナとクラスタ",
+		"cpAksV": "まずはコンテナが必要です",
+		"cpApp": "App Service",
+		"cpAppD": "Azure patches OS and runtime",
+		"cpAppV": "リプラットフォーム、書き直しなし",
+		"cpAlso1": "App ServiceのStorefront",
+		"cpAlso2": "ERPバッチジョブ:VMは今、後でモダナイズ",
+		"networkTitle": "ネットワーク:プライベートリンク、グローバルフロントドア",
+		"networkCaption": "ケーススタディ ·ネットワーク",
+		"networkDesc": "データセンターにはプライベートリンクが必要であり、顧客はリージョン障害に耐えられる1つの正面玄関を必要としています。",
+		"networkCallout": "AZ-305 ·Azureリソースをオンプレミスネットワークに接続する接続ソリューションを推奨します。負荷分散とルーティングソリューションを推奨します。ExpressRouteはパブリックインターネットを使用しないプライベート接続です。サイト間VPNは暗号化されていますが、パブリックインターネット経由で移動します。Front Doorはグローバルなレイヤー7ルーティングで、リージョン間フェイルオーバーがあります。アプリケーションゲートウェイはリージョナルです。",
+		"networkSay": "プライベートリンク、グローバルフロントドア。",
+		"ntCust": "顧客",
+		"ntFd": "Front Door",
+		"ntFdD": "グローバルエントリー",
+		"ntDc": "データセンター",
+		"ntEr": "ExpressRoute · プライベート",
+		"ntVpn": "VPN · インターネット上の",
+		"ntHub": "Hub VNet",
+		"ntGw": "ゲートウェイ",
+		"ntFw": "ファイアウォール",
+		"ntProd": "プロッドが話した",
+		"ntNon": "非プロダクションスピーク",
+		"ntStore": "店舗フロント",
+		"ntDev": "開発・テスト",
+		"migrateTitle": "移行:ワークロードあたりの最も軽いルート",
+		"migrateCaption": "ケーススタディ ·移行",
+		"migrateDesc": "書き換えがないということは、再ホストや再プラットフォームを意味します。各ワークロードには合ったツールが割り当てられ、データベース移動中も注文は流れ続けます。",
+		"migrateCallout": "AZ-305 ·ワークロードをIaaSやPaaSに移行するためのソリューションを推奨します。データベース、非構造化データ。DMSはSQL ServerをオンラインまたはオフラインのSQL管理インスタンスに移行します。Data Boxはオフラインで大規模なデータセットをシードでき、その後Azure Storage Moverが変更を同期します。Azure Migrateはサーバーをレプリケート、テスト、カットオーバーで移行します。",
+		"migrateSay": "一番小さな変更で、正しい道具。",
+		"mgStore": "店舗フロント",
+		"mgOrders": "注文DB",
+		"mgErp": "ERPバッチジョブ",
+		"mgImg": "製品画像",
+		"mtAm": "Azure Migrate",
+		"mtDms": "Database Migration Service",
+		"mtBox": "Data Box + Storage Mover",
+		"mtStoreD": "リプラットフォーム",
+		"mtOrdersD": "再プラットフォーム ·オンライン",
+		"mtErpD": "リホスト",
+		"mtImgD": "シード、次にデルタ",
+		"tgApp": "App Service",
+		"tgMi": "SQLマネージドインスタンス",
+		"tgVm": "仮想マシン",
+		"tgBlob": "ブロブストレージ",
+		"wholeTitle": "すべてが一つにまとめられる:Contosoプラットフォーム",
+		"wholeCaption": "まとめ",
+		"wholeDesc": "四つの領域、一つのデザイン。それぞれの選択は課題に応える。五つの柱がバランスを測る。",
+		"wholeCallout": "5つのWell-Architectedの柱は、信頼性、セキュリティ、コスト最適化、運用の卓越性、パフォーマンス効率です。良い設計はそれらを要件とバランスよく調整します。しかし、一つの柱を最大化することはほとんどありません。",
+		"bdIdent": "アイデンティティ",
+		"bdData": "データ",
+		"bdCont": "連続性",
+		"bdInfra": "インフラ",
+		"cEntra": "エントラコネクト ·ハッシュ同期",
+		"cCa": "条件付きアクセス + MFA",
+		"cPim": "PIM",
+		"cMg": "管理グループ+ポリシー",
+		"cMi": "SQLマネージドインスタンス",
+		"cBlob": "ブロブストレージ",
+		"cFog": "フェイルオーバーグループ",
+		"cGeo": "ジオ冗長バックアップ",
+		"cApp": "App Service",
+		"cEr": "ExpressRoute · ハブスポーク",
+		"cFd": "Front Door",
+		"cMigr": "Azure Migrate ·DMS",
+		"wafHead": "Well-Architected チェック",
+		"pRel": "信頼性",
+		"pRelD": "フェイルオーバーグループ、第2リージョン",
+		"pSec": "セキュリティ",
+		"pSecD": "MFA、PIM、プライベートリンク",
+		"pCost": "コスト最適化",
+		"pCostD": "PaaS、適正サイズ",
+		"pOps": "運用の卓越性",
+		"pOpsD": "ポリシー、修正する部分はほとんどありません",
+		"pPerf": "性能効率",
+		"pPerfD": "Front Doorエッジルーティング",
+		"wholeFoot": "公式<a href=\"https://learn.microsoft.com/credentials/certifications/resources/study-guides/az-305\" target=\"_blank\" rel=\"noopener\">AZ-305学習ガイド</a>と<a href=\"https://learn.microsoft.com/azure/well-architected/\" target=\"_blank\" rel=\"noopener\">Azure Well-Architected Framework</a>。",
+		"backLabel": "移行の設計",
+		"short1": "概要",
+		"short2": "アイデンティティ",
+		"short3": "データ",
+		"short4": "連続性",
+		"short5": "計算",
+		"short6": "ネットワーク",
+		"short7": "移行",
+		"short8": "すべてが一つに",
+		"languageLabel": "言語"
+	},
+	"ko": {
+		"skipToMain": "다이어그램으로 건너뛰기",
+		"pageTitle": "사례 연구: Contoso 플랫폼 설계",
+		"stageHeading": "사례 연구: Contoso 플랫폼 설계",
+		"stageInstructions": "애니메이션 설명. 다음/이전 버튼이나 방향키를 사용해 탐색하세요. R을 눌러 재시작하세요.",
+		"prev": "◀ 이전",
+		"next": "다음 ▶",
+		"replay": "↻ 다시 재생",
+		"restart": "↻ 처음부터",
+		"slower": "느리게",
+		"faster": "빠르게",
+		"calloutOn": "설명선: 켜짐",
+		"calloutOff": "설명선: 꺼짐",
+		"outlineOn": "개요: 켜짐",
+		"outlineOff": "개요: 꺼짐",
+		"audioTip": "오디오 내레이션",
+		"ccTip": "자막",
+		"shortcutsTip": "단축키",
+		"stepDetails": "단계 상세",
+		"stepOf": "단계",
+		"resetPos": "기본 위치로 되돌리기",
+		"scTitle": "키보드 단축키",
+		"scNext": "다음 단계",
+		"scPrev": "이전 단계",
+		"scRestart": "처음부터",
+		"scReplay": "이 단계 다시 재생",
+		"scHide": "상단 바 표시 / 숨기기",
+		"scHelp": "이 도움말 전환",
+		"nextHub": "AZ-305 허브로 돌아가기",
+		"iaas": "IaaS",
+		"paas": "PaaS",
+		"reqL": "요구 사항",
+		"decideL": "결정 질문",
+		"alsoL": "디자인에도 영향을 미쳤습니다",
+		"dIdent": "정체성",
+		"dData": "데이터",
+		"dCont": "연속성",
+		"dInfra": "인프라",
+		"briefTitle": "브리핑: 요구사항 및 제약 사항 읽기",
+		"briefCaption": "사례 연구 · 브리핑",
+		"briefDesc": "Contoso가 간단한 브리핑을 건네줍니다. 무언가를 디자인하기 전에, 답변을 없앨 단어에 밑줄을 긋으세요.",
+		"briefCallout": "AZ-305는 요구사항을 충족하는 솔루션을 추천해 달라고 요청합니다. 요구사항은 설계가 해야 할 일을 말합니다. 제약 조건은 그 방법을 제한합니다. 두 가지 모두 읽고, 옵션을 지우도록 한 후 기능을 비교하세요.",
+		"briefSay": "제거하는 단어에 밑줄을 긋세요.",
+		"briefHead": "Contoso Ltd. · 주문 플랫폼",
+		"brL1": "직원은 온 <u class=\"k k1\">프레미스 계정</u>으로 로그인하며; 데이터센터 링크는 <u class=\"k k4\">비공개</u>여야 합니다.",
+		"brL2": "주문 데이터베이스는 <u class=\"k k2\">인스턴스 수준의 SQL Server 기능이</u> 필요합니다.",
+		"brL3": "지역이 실패하면: 최대 <u class=\"k k3\">5분</u> 이상 주문을 잃고, <u class=\"k k3\">1시간</u> 이내에 돌아와야 합니다.",
+		"brL4": "<u class=\"k k4\">작전팀이 작</u>고 출시 전 <u class=\"k k4\">재작성은 없</u>었습니다.",
+		"reqHead": "요구 사항",
+		"conHead": "제약 조건",
+		"rq1": "하이브리드 로그인",
+		"rq2": "인스턴스 수준 SQL",
+		"rq3": "RPO 5분 · RTO 1시간",
+		"rq4": "사설 데이터센터 링크",
+		"cn1": "소규모 작전 팀",
+		"cn2": "출시 전 재작성 금지",
+		"identityTitle": "신원과 거버넌스: 로그인 방식을 선택하세요",
+		"identityCaption": "사례 연구 · 정체성과 거버넌스",
+		"identityDesc": "직원들은 이미 온프레미스 계정을 가지고 있습니다. 결정적인 질문은 로그인 방식을 선택하는 것이고, 이를 우회하는 거버넌스 방어선이 있습니다.",
+		"identityCallout": "AZ-305 · 인증 솔루션을 추천합니다; 신원 거버넌스를 위한 솔루션을 추천합니다. 비밀번호 해시 동기화가 가장 간단한 방법이며 추가 인프라가 필요하지 않습니다. 패스스루 인증은 온프레미스 Active Directory와 비교해 검증하는 에이전트를 사용합니다. 페더레이션은 AD FS와 같은 시스템에 핸드오프됩니다. 요구사항을 충족하는 가장 간단한 방식을 선택하세요.",
+		"identitySay": "필요에 가장 만족하는 가장 단순한 것.",
+		"idReq": "직원은 온프레미스 계정으로 로그인합니다",
+		"idQ": "온프레미스가 모든 로그인을 검증해야 하나요? 아니요.",
+		"idPhs": "비밀번호 해시 동기화",
+		"idPhsD": "가장 단순한 방법, 추가 인프라가 필요 없다는 점입니다",
+		"idPhsV": "요건 충족",
+		"idPta": "패스스루 인증",
+		"idPtaD": "에이전트가 온프레미스 AD를 확인합니다",
+		"idPtaV": "추가 요원을 투입해야 한다",
+		"idFed": "연맹",
+		"idFedD": "AD FS에 손을 뗐습니다",
+		"idFedV": "추가 서버 운영",
+		"idAlso1": "조건부 접근 + MFA",
+		"idAlso2": "관리자 역할에 대한 PIM",
+		"idAlso3": "관리 그룹 + 정책",
+		"dataTitle": "데이터: SQL 대상을 필요에 맞게 맞춰",
+		"dataCaption": "사례 연구 · 데이터",
+		"dataDesc": "브리프의 한 요구사항은 한 목표를 가리키고 있습니다. 나머지 두 가지는 범위나 노력 면에서 실패합니다.",
+		"dataCallout": "AZ-305 · 관계형 데이터 저장을 위한 솔루션을 추천합니다. SQL 관리 인스턴스는 인스턴스 범위 기능과 거의 100% SQL Server 기능을 동등하게 제공합니다. SQL 데이터베이스는 한 번에 하나의 데이터베이스로 진행됩니다. Azure VM 위의 SQL Server는 운영체제 수준의 접근 권한을 제공하며, 이를 통해 관리할 운영체제를 제공합니다.",
+		"dataSay": "인스턴스 기능은 관리 인스턴스를 가리킵니다.",
+		"dtReq": "주문 데이터베이스는 인스턴스 수준의 SQL Server 기능이 필요합니다",
+		"dtSqlDb": "Azure SQL Database",
+		"dtSqlDbD": "하나의 클라우드 네이티브 데이터베이스",
+		"dtSqlDbV": "단일 데이터베이스 범위",
+		"dtMi": "SQL 관리 인스턴스",
+		"dtMiD": "거의 100% SQL Server 패리티",
+		"dtMiV": "인스턴스 수준 기능 유지됨",
+		"dtVm": "SQL Server on Azure VM",
+		"dtVmD": "운영체제 수준의 접근, 완전한 제어권",
+		"dtVmV": "작은 팀을 위해 더 많은 것을 운영할 수 있습니다",
+		"dtAlso1": "블롭 저장소 내 제품 이미지",
+		"dtAlso2": "백업은 기본적으로 지리적 중복",
+		"continuityTitle": "비즈니스 연속성: RTO와 RPO 충족",
+		"continuityCaption": "사례 연구 · 연속성",
+		"continuityDesc": "각 옵션을 목표와 비교하세요. 막대는 스케일에 맞춰 그려지고, 브리핑에서 한 단어가 실패합니다.",
+		"continuityCallout": "AZ-305 · 관계형 데이터에 대한 고가용성 솔루션을 권장합니다; 데이터베이스에 대한 백업 및 복구 솔루션을 권장합니다. Microsoft Learn for SQL 관리 인스턴스에 따르면: 지오 복원 RTO는 12시간, RPO는 1시간; 존 중복 RTO는 일반적으로 RPO 0 시 30초 미만이지만 한 지역 내에서 걸립니다; 장애 조치 그룹 RTO는 보통 60초 미만입니다. Contoso의 목표는 예시 요구사항입니다.",
+		"continuitySay": "지역 실패는 두 번째 지역이 필요합니다.",
+		"ctReq": "리전 장애 시: 데이터 손실은 최대 5분, 서비스 복구는 1시간 이내",
+		"ctColRto": "RTO · 다운타임, 스케일에 맞게",
+		"ctColRpo": "RPO · 데이터 손실",
+		"ctGeo": "지오 복원",
+		"ctGeoD": "백업만 가능합니다",
+		"ctGeoRto": "12시간",
+		"ctGeoRpo": "1시간",
+		"ctGeoV": "너무 느려",
+		"ctZone": "존 중복성",
+		"ctZoneD": "한 지역 내에서",
+		"ctZoneRto": "&lt; 30 s",
+		"ctZoneRpo": "0",
+		"ctZoneV": "같은 지역에서만",
+		"ctFog": "장애 조치 그룹",
+		"ctFogD": "두 번째 사건 비용을 지불합니다",
+		"ctFogRto": "&lt; 60 s",
+		"ctFogRpo": "연속 동기화",
+		"ctFogV": "목표 달성",
+		"ctTarget": "1h 표적",
+		"computeTitle": "계산: 가장 적은 연산을 적용해",
+		"computeCaption": "사례 연구 · 계산",
+		"computeDesc": "작은 운영팀과 서버 및 클러스터에서 벗어나 리라이트 지점이 없어서 관리형 플랫폼으로 나아가야 합니다.",
+		"computeCallout": "AZ-305 · 워크로드 요구사항에 따라 컴퓨트 솔루션의 구성 요소를 지정하세요. App Service에서는 Azure가 운영체제와 런타임을 업데이트합니다. 요구사항을 충족하는 가장 단순한 서비스를 선택하세요; ERP 배치 작업은 먼저 VM에 재호스팅되고 나중에 최신 서비스로 옮길 수 있습니다.",
+		"computeSay": "가장 적은 작전이 이깁니다.",
+		"cpReq": "작은 운영팀이고 출시 전 재작성은 없었습니다",
+		"cpEffort": "작전 노력",
+		"cpVm": "가상 머신",
+		"cpVmD": "운영체제와 런타임을 패치하면 됩니다",
+		"cpVmV": "너무 많아서 다루기 힘들었어요",
+		"cpAks": "AKS의 컨테이너",
+		"cpAksD": "컨테이너와 클러스터 실행",
+		"cpAksV": "먼저 컨테이너가 필요합니다",
+		"cpApp": "App Service",
+		"cpAppD": "Azure patches OS and runtime",
+		"cpAppV": "재정립, 재작성 없음",
+		"cpAlso1": "Storefront on App Service",
+		"cpAlso2": "ERP 배치 작업: VM 지금, 나중에 현대화",
+		"networkTitle": "네트워크: 프라이비 링크, 글로벌 정문",
+		"networkCaption": "사례 연구 · 네트워크",
+		"networkDesc": "데이터센터는 사설 링크가 필요하고, 고객은 지역 장애를 견뎌내는 하나의 정문이 필요합니다.",
+		"networkCallout": "AZ-305 · Azure 자원을 온프레미스 네트워크에 연결하는 연결 솔루션을 추천합니다; 부하 분산 및 라우팅 솔루션을 추천합니다. ExpressRoute는 공용 인터넷을 사용하지 않는 사설 연결입니다; 사이트 간 VPN은 암호화되어 있지만 공용 인터넷을 통해 전송됩니다. Front Door는 글로벌 레이어 7 라우팅과 지역 간 장애 전환 기능입니다; 애플리케이션 게이트웨이는 지역별입니다.",
+		"networkSay": "프라이버설 링크, 글로벌 정문.",
+		"ntCust": "고객",
+		"ntFd": "Front Door",
+		"ntFdD": "글로벌 진출",
+		"ntDc": "데이터센터",
+		"ntEr": "ExpressRoute · 개인",
+		"ntVpn": "VPN · 인터넷을 통한",
+		"ntHub": "Hub VNet",
+		"ntGw": "게이트웨이",
+		"ntFw": "방화벽",
+		"ntProd": "프로드가 말했다",
+		"ntNon": "비프로덕션 스톡",
+		"ntStore": "스토어프런트",
+		"ntDev": "데브 · 테스트",
+		"migrateTitle": "마이그레이션: 작업량당 가장 가벼운 경로",
+		"migrateCaption": "사례 연구 · 마이그레이션",
+		"migrateDesc": "리라이트가 없다는 것은 재호스팅이나 재플랫폼이라는 뜻입니다. 각 워크로드는 적합한 도구를 갖게 되고, 데이터베이스 이동 중에도 주문이 계속 흘러갑니다.",
+		"migrateCallout": "AZ-305 · 워크로드를 IaaS 및 PaaS로 마이그레이션하는 솔루션을 추천합니다; 데이터베이스; 비정형 데이터. DMS는 SQL Server를 온라인 또는 오프라인에서 SQL 관리 인스턴스로 옮깁니다. Data Box는 오프라인에서 대규모 데이터셋을 시딩할 수 있고, Azure Storage Mover가 변경 사항을 동기화합니다. Azure Migrate는 복제, 테스트, 그리고 컷오버를 통해 서버를 이전합니다.",
+		"migrateSay": "가장 가벼운 변화, 적절한 도구.",
+		"mgStore": "스토어프런트",
+		"mgOrders": "주문 DB",
+		"mgErp": "ERP 배치 작업",
+		"mgImg": "제품 이미지",
+		"mtAm": "Azure Migrate",
+		"mtDms": "Database Migration Service",
+		"mtBox": "Data Box + Storage Mover",
+		"mtStoreD": "리플랫폼",
+		"mtOrdersD": "리플랫폼 · 온라인",
+		"mtErpD": "리호스트",
+		"mtImgD": "씨앗, 그 다음 델타",
+		"tgApp": "App Service",
+		"tgMi": "SQL 관리 인스턴스",
+		"tgVm": "가상 머신",
+		"tgBlob": "블롭 저장",
+		"wholeTitle": "올인원: Contoso 플랫폼",
+		"wholeCaption": "요약",
+		"wholeDesc": "네 개의 영역, 하나의 설계. 각 선택지는 요구사항에 응답하며; 다섯 기둥은 균형을 점검한다.",
+		"wholeCallout": "Well-Architected의 다섯 가지 기둥은 신뢰성, 보안, 비용 최적화, 운영 우수성, 성과 효율성입니다. 좋은 설계는 요구사항에 맞춰 균형을 이루며; 한 가지 기둥을 극대화하는 경우는 드뭅니다.",
+		"bdIdent": "정체성",
+		"bdData": "데이터",
+		"bdCont": "연속성",
+		"bdInfra": "인프라",
+		"cEntra": "엔트라 커넥트 · 해시 싱크",
+		"cCa": "조건부 접근 + MFA",
+		"cPim": "PIM",
+		"cMg": "관리 그룹 + 정책",
+		"cMi": "SQL 관리 인스턴스",
+		"cBlob": "블롭 저장",
+		"cFog": "장애 조치 그룹",
+		"cGeo": "지리적 중복 백업",
+		"cApp": "App Service",
+		"cEr": "ExpressRoute · 허브스포크",
+		"cFd": "Front Door",
+		"cMigr": "Azure Migrate · DMS",
+		"wafHead": "Well-Architected 수표",
+		"pRel": "신뢰성",
+		"pRelD": "장애 전환 그룹, 두 번째 지역",
+		"pSec": "보안",
+		"pSecD": "MFA, PIM, 프라이버시 링크",
+		"pCost": "비용 최적화",
+		"pCostD": "PaaS, 적정 크기",
+		"pOps": "운영 우수성",
+		"pOpsD": "정책, 패치할 게 별로 없어",
+		"pPerf": "성능 효율성",
+		"pPerfD": "Front Door 엣지 라우팅",
+		"wholeFoot": "공식 <a href=\"https://learn.microsoft.com/credentials/certifications/resources/study-guides/az-305\" target=\"_blank\" rel=\"noopener\">AZ-305 학습 가이드</a>와 <a href=\"https://learn.microsoft.com/azure/well-architected/\" target=\"_blank\" rel=\"noopener\">Azure Well-Architected Framework</a>.",
+		"backLabel": "마이그레이션 설계",
+		"short1": "브리핑",
+		"short2": "정체성",
+		"short3": "데이터",
+		"short4": "연속성",
+		"short5": "컴퓨트",
+		"short6": "네트워크",
+		"short7": "마이그레이션",
+		"short8": "모두 하나로",
+		"languageLabel": "언어"
+	},
+	"pt": {
+		"skipToMain": "Ir para o diagrama",
+		"pageTitle": "Estudo de caso: projetar a plataforma Contoso",
+		"stageHeading": "Estudo de caso: projetar a plataforma Contoso",
+		"stageInstructions": "Explicação animada. Use os botões Próximo/Anterior ou as setas para navegar. Pressione R para reiniciar.",
+		"prev": "◀ Voltar",
+		"next": "Avançar ▶",
+		"replay": "↻ Repetir",
+		"restart": "↻ Reiniciar",
+		"slower": "Mais devagar",
+		"faster": "Mais rápido",
+		"calloutOn": "Balões: ligados",
+		"calloutOff": "Balões: desligados",
+		"outlineOn": "Resumo: ligado",
+		"outlineOff": "Resumo: desligado",
+		"audioTip": "Narração em áudio",
+		"ccTip": "Legendas",
+		"shortcutsTip": "Atalhos",
+		"stepDetails": "Detalhes da etapa",
+		"stepOf": "Etapa",
+		"resetPos": "Restaurar a posição padrão",
+		"scTitle": "Atalhos de teclado",
+		"scNext": "Próxima etapa",
+		"scPrev": "Etapa anterior",
+		"scRestart": "Reiniciar",
+		"scReplay": "Repetir esta etapa",
+		"scHide": "Mostrar / ocultar a barra superior",
+		"scHelp": "Alternar esta ajuda",
+		"nextHub": "De volta ao hub do AZ-305",
+		"iaas": "IaaS",
+		"paas": "PaaS",
+		"reqL": "Requisito",
+		"decideL": "Questão decisiva",
+		"alsoL": "Também no projeto",
+		"dIdent": "Identidade",
+		"dData": "Dados",
+		"dCont": "Continuidade",
+		"dInfra": "Infraestrutura",
+		"briefTitle": "Leia o resumo: requisitos e restrições",
+		"briefCaption": "Estudo de caso · O Resumo",
+		"briefDesc": "Contoso te entrega um resumo curto. Antes de desenhar qualquer coisa, sublinhe as palavras que vão eliminar respostas.",
+		"briefCallout": "O AZ-305 pede que você recomende soluções que atendam aos requisitos. Os requisitos dizem o que o design deve fazer. Restrições limitam como você pode fazer isso. Leia para ambos, depois deixe que eles riscem as opções antes de comparar recursos.",
+		"briefSay": "Enline as palavras que eliminam.",
+		"briefHead": "Contoso Ltd. · plataforma de pedidos",
+		"brL1": "A equipe faz login com suas <u class=\"k k1\">contas locais</u>; o link do datacenter deve ser <u class=\"k k4\">privado</u>.",
+		"brL2": "O banco de dados de ordem precisa <u class=\"k k2\">de recursos do SQL Server em nível de instância</u>.",
+		"brL3": "Se uma região falhar: perca no <u class=\"k k3\">máximo 5 minutos</u> de pedidos, retorne em <u class=\"k k3\">até 1 hora</u>.",
+		"brL4": "Uma <u class=\"k k4\">equipe de operações pequena</u> e <u class=\"k k4\">nenhuma reescrita</u> antes do lançamento.",
+		"reqHead": "Requisitos",
+		"conHead": "Restrições",
+		"rq1": "Login híbrido",
+		"rq2": "SQL em nível de instância",
+		"rq3": "RPO 5 min · RTO 1 h",
+		"rq4": "Link de data center privado",
+		"cn1": "Equipe de pequenas operações",
+		"cn2": "Sem reescrita antes do lançamento",
+		"identityTitle": "Identidade e governança: escolha o método de login",
+		"identityCaption": "Estudo de caso · Identidade e governança",
+		"identityDesc": "Os funcionários já têm contas no local. A questão decisiva escolhe o método de login, e as barreiras de governança contornam isso.",
+		"identityCallout": "AZ-305 · Recomende uma solução de autenticação; Recomende uma solução para governança de identidade. A sincronização de hash de senha é o método mais simples e não requer infraestrutura adicional. A autenticação pass-through utiliza agentes que validam contra o Active Directory local. A federação é transferida para um sistema como o AD FS. Escolha a mais simples que atenda ao requisito.",
+		"identitySay": "O mais simples que atenda à necessidade.",
+		"idReq": "Funcionários fazem login com contas no local",
+		"idQ": "O local precisa validar cada login? Não.",
+		"idPhs": "Sincronização de hash de senha",
+		"idPhsD": "O mais simples, sem infraestrutura extra",
+		"idPhsV": "Atende ao requisito",
+		"idPta": "Autenticação pass-through",
+		"idPtaD": "Agentes verificam o AD no local",
+		"idPtaV": "Agentes extras para rodar",
+		"idFed": "Federação",
+		"idFedD": "Mão fora para AD FS",
+		"idFedV": "Servidores extras para rodar",
+		"idAlso1": "Acesso Condicional + MFA",
+		"idAlso2": "PIM para cargos administrativos",
+		"idAlso3": "Grupos de gestão + Política",
+		"dataTitle": "Dados: corresponder o alvo de SQL à necessidade",
+		"dataCaption": "Estudo de caso · Dados",
+		"dataDesc": "Um requisito no briefing aponta para um alvo. Os outros dois falham no escopo ou no esforço.",
+		"dataCallout": "AZ-305 · Recomende uma solução para armazenar dados relacionais. O SQL Managed Instance oferece quase 100% de paridade de recursos do SQL Server com recursos escopados por instância. O SQL Database é um banco de dados de cada vez. O SQL Server em uma VM Azure oferece acesso ao nível do sistema operacional e, com ele, um sistema operacional para cuidar.",
+		"dataSay": "As funcionalidades da instância apontam para a Instância Gerenciada.",
+		"dtReq": "O banco de dados de ordem precisa de recursos do SQL Server em nível de instância",
+		"dtSqlDb": "Azure SQL Database",
+		"dtSqlDbD": "Um banco de dados nativo em nuvem",
+		"dtSqlDbV": "Escopo de banco de dados único",
+		"dtMi": "Instância Gerenciada em SQL",
+		"dtMiD": "Paridade quase 100% com SQL Server",
+		"dtMiV": "Recursos em nível de instância mantidos",
+		"dtVm": "SQL Server no Azure VM",
+		"dtVmD": "Acesso em nível de sistema operacional, controle total",
+		"dtVmV": "Mais para correr em um time pequeno",
+		"dtAlso1": "Imagens do produto no Blob Storage",
+		"dtAlso2": "Backups são geo-redundantes por padrão",
+		"continuityTitle": "Continuidade dos negócios: atender ao RTO e ao RPO",
+		"continuityCaption": "Estudo de caso · Continuidade",
+		"continuityDesc": "Compare cada opção com o alvo. As barras são desenhadas em escala, e uma opção falha em uma palavra do resumo.",
+		"continuityCallout": "AZ-305 · Recomende uma solução de alta disponibilidade para dados relacionais; Recomende uma solução de backup e recuperação para bancos de dados. Segundo o Microsoft Learn for SQL Managed Instance: o RTO de restauração geográfica é de 12 horas e o RPO de 1 hora; o RTO de redundância de zona normalmente é inferior a 30 segundos com RPO 0, mas dentro de uma região; o RTO dos grupos de failover é tipicamente inferior a 60 segundos. Os alvos de Contoso são requisitos de exemplo.",
+		"continuitySay": "Uma falha de região precisa de uma segunda região.",
+		"ctReq": "Falha regional: perder no máximo 5 min de dados e restaurar o serviço em 1 h",
+		"ctColRto": "RTO · tempo de inatividade, para escala",
+		"ctColRpo": "RPO · perda",
+		"ctGeo": "Restauração geográfica",
+		"ctGeoD": "Apenas backups",
+		"ctGeoRto": "12 horas",
+		"ctGeoRpo": "1 hora",
+		"ctGeoV": "Devagar demais",
+		"ctZone": "Redundância de zona",
+		"ctZoneD": "Dentro de uma região",
+		"ctZoneRto": "&lt; 30 s",
+		"ctZoneRpo": "0",
+		"ctZoneV": "Só na mesma região",
+		"ctFog": "Grupo de failover",
+		"ctFogD": "Paga por uma segunda instância",
+		"ctFogRto": "&lt; 60 s",
+		"ctFogRpo": "Sincronização contínua",
+		"ctFogV": "Alcança o alvo",
+		"ctTarget": "Alvo de 1 h",
+		"computeTitle": "Computação: o mínimo para operar que se encaixa",
+		"computeCaption": "Estudo de caso · calcular",
+		"computeDesc": "Uma equipe de operações pequena e nenhum ponto de reescrita, afastando-se de servidores e clusters, em direção a uma plataforma gerenciada.",
+		"computeCallout": "AZ-305 · Especifique componentes de uma solução de computação com base nos requisitos da carga de trabalho. No App Service, o Azure atualiza o sistema operacional e o tempo de execução. Escolha o serviço mais simples que atenda ao requisito; o trabalho em lote do ERP é rehospedado em uma VM primeiro e pode migrar para um serviço moderno posteriormente.",
+		"computeSay": "O mínimo para operar vence.",
+		"cpReq": "Uma equipe de pequenas operações e nenhuma reescrita antes do lançamento",
+		"cpEffort": "Esforço operacional",
+		"cpVm": "Máquinas Virtuais",
+		"cpVmD": "Você corrige o sistema operacional e o runtime",
+		"cpVmV": "É demais para operar",
+		"cpAks": "Contêineres no AKS",
+		"cpAksD": "Containers e um cluster para rodar",
+		"cpAksV": "Precisa de contêineres primeiro",
+		"cpApp": "App Service",
+		"cpAppD": "O Azure corrige o sistema operacional e o runtime",
+		"cpAppV": "Replatform, sem reescrita",
+		"cpAlso1": "Loja no App Service",
+		"cpAlso2": "Trabalho em lote ERP: VM agora, modernize depois",
+		"networkTitle": "Rede: ligação privada, porta global",
+		"networkCaption": "Estudo de caso · Rede",
+		"networkDesc": "O datacenter precisa de um link privado, e os clientes precisam de uma porta de entrada que sobreviva a uma falha regional.",
+		"networkCallout": "AZ-305 · Recomende uma solução de conectividade que conecte recursos Azure a redes locais; Recomende uma solução de balanceamento de carga e roteamento. ExpressRoute é uma conexão privada que não utiliza a internet pública; uma VPN site-to-site é criptografada, mas viaja pela internet pública. Front Door é roteamento global de camada 7 com failover entre regiões; Application Gateway é regional.",
+		"networkSay": "Ligação privada, porta global da frente.",
+		"ntCust": "Clientes",
+		"ntFd": "Front Door",
+		"ntFdD": "Entrada global",
+		"ntDc": "Centro de dados",
+		"ntEr": "ExpressRoute · privado",
+		"ntVpn": "VPN · pela internet",
+		"ntHub": "Hub VNet",
+		"ntGw": "Gateway",
+		"ntFw": "Firewall",
+		"ntProd": "O prod falou",
+		"ntNon": "Não-prod falou",
+		"ntStore": "Loja",
+		"ntDev": "Dev · Teste",
+		"migrateTitle": "Migração: a rota mais leve por carga de trabalho",
+		"migrateCaption": "Estudo de caso · Migração",
+		"migrateDesc": "Sem reescrita, rehospeda ou replataforma. Cada carga de trabalho recebe uma ferramenta que se encaixa, e os pedidos continuam fluindo durante a movimentação do banco de dados.",
+		"migrateCallout": "AZ-305 · Recomende uma solução para migrar cargas de trabalho para IaaS e PaaS; bancos de dados; dados não estruturados. O DMS move o SQL Server para uma Instância Gerenciada SQL online ou offline. O Data Box pode gerar um grande conjunto de dados offline, então o Azure Storage Mover sincroniza as alterações. Azure Migrate migra servidores replicando, testando e depois cortando.",
+		"migrateSay": "A mudança mais leve, ferramenta certa.",
+		"mgStore": "Loja",
+		"mgOrders": "BD de pedidos",
+		"mgErp": "Lote ERP",
+		"mgImg": "Imagens do produto",
+		"mtAm": "Azure Migrate",
+		"mtDms": "Database Migration Service",
+		"mtBox": "Data Box + Storage Mover",
+		"mtStoreD": "Mudar de plataforma",
+		"mtOrdersD": "Replataforma · Online",
+		"mtErpD": "Rehospedar",
+		"mtImgD": "Semente, depois deltas",
+		"tgApp": "App Service",
+		"tgMi": "Instância Gerenciada em SQL",
+		"tgVm": "Máquina Virtual",
+		"tgBlob": "Armazenamento de Blob",
+		"wholeTitle": "Tudo em um: a plataforma Contoso",
+		"wholeCaption": "Resumo",
+		"wholeDesc": "Quatro domínios, um design. Cada escolha responde ao brief; os cinco pilares verificam o equilíbrio.",
+		"wholeCallout": "Os cinco pilares Well-Architected são Confiabilidade, Segurança, Otimização de Custos, Excelência Operacional e Eficiência de Desempenho. Bons projetos equilibram-nos com os requisitos; raramente maximizam um pilar.",
+		"bdIdent": "Identidade",
+		"bdData": "Dados",
+		"bdCont": "Continuidade",
+		"bdInfra": "Infraestrutura",
+		"cEntra": "Entra Connect · Sincronização de hash",
+		"cCa": "Acesso Condicional + MFA",
+		"cPim": "PIM",
+		"cMg": "Grupos de gestão + Política",
+		"cMi": "Instância Gerenciada em SQL",
+		"cBlob": "Armazenamento de Blob",
+		"cFog": "Grupo de failover",
+		"cGeo": "Backups geo-redundantes",
+		"cApp": "App Service",
+		"cEr": "ExpressRoute · raio central",
+		"cFd": "Front Door",
+		"cMigr": "Azure Migrate · DMS",
+		"wafHead": "Well-Architected check",
+		"pRel": "Confiabilidade",
+		"pRelD": "Grupo de failover, segunda região",
+		"pSec": "Segurança",
+		"pSecD": "MFA, PIM, link privado",
+		"pCost": "Otimização de Custos",
+		"pCostD": "PaaS, tamanho correto",
+		"pOps": "Excelência Operacional",
+		"pOpsD": "Política, pouco para corrigir",
+		"pPerf": "Eficiência de desempenho",
+		"pPerfD": "Front Door Edge Routing",
+		"wholeFoot": "<a href=\"https://learn.microsoft.com/credentials/certifications/resources/study-guides/az-305\" target=\"_blank\" rel=\"noopener\">Guia oficial de estudo do AZ-305</a> e <a href=\"https://learn.microsoft.com/azure/well-architected/\" target=\"_blank\" rel=\"noopener\">Azure Well-Architected Framework</a>.",
+		"backLabel": "Projete uma migração",
+		"short1": "O briefing",
+		"short2": "Identidade",
+		"short3": "Dados",
+		"short4": "Continuidade",
+		"short5": "Compute",
+		"short6": "Rede",
+		"short7": "Migração",
+		"short8": "Tudo em um só",
+		"languageLabel": "Idioma"
+	}
+};
+function t(key) { return (I18N[currentLang] && I18N[currentLang][key]) || I18N.en[key] || key; }
+
+function setLanguage(lang) {
+	currentLang = lang;
+	document.documentElement.lang = lang;
+	try { const u=new URL(location.href); u.searchParams.set('lang', lang); history.replaceState(null,'',u); } catch(_){}
+	document.getElementById('page-title').textContent = '\u2728 ' + t('pageTitle');
+	// icon-only nav buttons: the localized label lives in the tooltip (title)
+	document.getElementById('prev-btn').title = t('prev');
+	document.getElementById('next-btn').title = t('next');
+	document.getElementById('replay-btn').title = t('replay');
+	document.getElementById('reset-btn').title = t('restart');
+	document.getElementById('speed-down').title = t('slower');
+	document.getElementById('speed-up').title = t('faster');
+	document.getElementById('outline-title').textContent = t('stepDetails');
+	document.querySelector('.skip-link').textContent = t('skipToMain');
+	document.getElementById('stage-heading').textContent = t('stageHeading');
+	document.getElementById('stage-instructions').textContent = t('stageInstructions');
+	// localize overlay tooltips (icon buttons show their label on hover / as native title)
+	const _hlp=document.getElementById('help-toggle'); if(_hlp) _hlp.setAttribute('data-tip', t('shortcutsTip'));
+	const _aud=document.getElementById('audio-toggle'); if(_aud) _aud.title=t('audioTip');
+	const _ccb=document.getElementById('cc-toggle'); if(_ccb) _ccb.title=t('ccTip');
+	syncCalloutBtn(); syncOutlineBtn();
+	if (typeof syncAudioBtn === 'function') syncAudioBtn();
+	if (typeof buildShortcuts === 'function') buildShortcuts();
+	document.querySelectorAll('.aw-drag-reset').forEach(b=>{ b.title=t('resetPos'); b.setAttribute('aria-label', t('resetPos')); });
+	try { localStorage.setItem('aw-tmpl-lang', lang); } catch(_){}
+	document.title = t('pageTitle') + ' \u2014 Azure Animations';
+	const back = document.querySelector('.header-back-link');
+	back.textContent = '\u2190 ' + t('backLabel');
+	back.title = t('backLabel'); back.setAttribute('aria-label', t('backLabel'));
+	const url = new URL(back.href); url.searchParams.set('lang', lang); back.href = url;
+	const picker = document.getElementById('lang-select');
+	picker.title = t('languageLabel'); picker.setAttribute('aria-label', t('languageLabel'));
+	for (const [id, key] of [['prev-btn','scPrev'], ['next-btn','scNext'], ['replay-btn','scReplay'], ['reset-btn','scRestart'],
+		['speed-down','slower'], ['speed-up','faster'], ['audio-toggle','audioTip'], ['cc-toggle','ccTip'], ['help-toggle','shortcutsTip']]) {
+		const control = document.getElementById(id); if(control) control.setAttribute('aria-label', t(key));
+	}
+	if (current >= 0) renderStep(current);
+}
+
+// ── STEPS (journey order) ─────────────────
+const S = (id, short) => ({ id, short, titleKey:id+'Title', captionKey:id+'Caption', descKey:id+'Desc', calloutKey:id+'Callout' });
+const STEPS = [
+	S('brief','The brief'), S('identity','Identity'), S('data','Data'), S('continuity','Continuity'),
+	S('compute','Compute'), S('network','Network'), S('migrate','Migration'), S('whole','All in one')
+];
+
+STEPS.forEach((s, i) => { s.shortKey = 'short' + (i + 1); });
+
+// ── DOM REFS ──────────────────────────────
+const stage=document.getElementById('stage-frame'), svg=document.getElementById('fx-svg'),
+	counter=document.getElementById('step-counter'), breadcrumb=document.getElementById('breadcrumb'),
+	progress=document.getElementById('progress-fill'), announcer=document.getElementById('step-announcer'),
+	outlineBody=document.getElementById('outline-body'), outlinePanel=document.getElementById('step-outline'),
+	outlineBtn=document.getElementById('outline-toggle'), calloutBtn=document.getElementById('callout-toggle'),
+	langSelect=document.getElementById('lang-select');
+
+langSelect.addEventListener('change', e => setLanguage(e.target.value));
+const urlLang = new URLSearchParams(location.search).get('lang');
+let savedLang=null; try{ savedLang=localStorage.getItem('aw-tmpl-lang'); }catch(_){}
+if (urlLang && I18N[urlLang]) { currentLang = urlLang; langSelect.value = urlLang; }
+else if (savedLang && I18N[savedLang]) { currentLang = savedLang; langSelect.value = savedLang; }
+
+// ── Font size ─────────────────────────────
+const fontScales=[0.8,0.9,1,1.1,1.2,1.35]; let fontScaleIdx=2;
+const baseFontSize=parseFloat(getComputedStyle(document.documentElement).fontSize);
+function applyFontScale(){ document.documentElement.style.fontSize=(baseFontSize*fontScales[fontScaleIdx])+'px'; const c=document.getElementById('controls'); if(c) c.style.fontSize=baseFontSize+'px'; if(typeof current!=='undefined'&&current>=0){ const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s); } }
+function saveFont(){ try{ localStorage.setItem('aw-tmpl-font', String(fontScaleIdx)); }catch(_){} }
+try{ const f=parseInt(localStorage.getItem('aw-tmpl-font'),10); if(!isNaN(f)&&f>=0&&f<fontScales.length){ fontScaleIdx=f; applyFontScale(); } }catch(_){}
+document.getElementById('font-decrease').addEventListener('click',()=>{ if(fontScaleIdx>0){fontScaleIdx--;applyFontScale();saveFont();} });
+document.getElementById('font-increase').addEventListener('click',()=>{ if(fontScaleIdx<fontScales.length-1){fontScaleIdx++;applyFontScale();saveFont();} });
+
+let current=-1, animating=false, liveEls=[], liveTimelines=[], calloutEnabled=false;
+
+function syncCalloutBtn(){ calloutBtn.classList.toggle('toggle-active',calloutEnabled); calloutBtn.setAttribute('aria-pressed',calloutEnabled?'true':'false'); calloutBtn.setAttribute('data-tip',calloutEnabled?t('calloutOn'):t('calloutOff')); }
+calloutBtn.addEventListener('click',()=>{
+	calloutEnabled=!calloutEnabled; syncCalloutBtn();
+	if(current<0) return;
+	// Toggle just the callout box in place — don't re-render (no animation replay).
+	const existing=stage.querySelectorAll('.callout');
+	if(calloutEnabled){ if(!existing.length){ const c=maybeCallout(STEPS[current]); if(c) gsap.fromTo(c,{opacity:0,y:10},{opacity:1,y:0,duration:0.4,overwrite:true}); } }
+	else { existing.forEach(c=>{ const idx=liveEls.indexOf(c); if(idx>-1) liveEls.splice(idx,1); gsap.killTweensOf(c); c.remove(); }); }
+}); syncCalloutBtn();
+function syncOutlineBtn(){ const on=!outlinePanel.hasAttribute('hidden'); outlineBtn.classList.toggle('toggle-active',on); outlineBtn.setAttribute('aria-expanded',on?'true':'false'); outlineBtn.setAttribute('data-tip',on?t('outlineOn'):t('outlineOff')); }
+outlineBtn.addEventListener('click',()=>{ const showing=!outlinePanel.hasAttribute('hidden'); if(showing){outlinePanel.setAttribute('hidden','');} else {outlinePanel.removeAttribute('hidden');} syncOutlineBtn(); }); syncOutlineBtn();
+
+// ── Audio narration (overlay button · speaker + remaining-time countdown) ──
+// Drop one recorded clip per step (in STEPS order) into AUDIO_FILES for real narration;
+// localized clips live under AUDIO_BASE/<lang>/. With no files, the browser reads each
+// step's title + description aloud (speech synthesis), so the button works with zero assets.
+const AUDIO_BASE = 'audio/ContosoCaseStudy/';
+const AUDIO_FILES = [
+	'step-01.mp3', 'step-02.mp3', 'step-03.mp3', 'step-04.mp3', 'step-05.mp3', 'step-06.mp3', 'step-07.mp3', 'step-08.mp3'
+];
+let audioEnabled=false, currentAudio=null, audioTimeout=null, ccPref=false;
+const audioBtn=document.getElementById('audio-toggle');
+if(audioBtn){ audioBtn.innerHTML='<span class="aw-audio-ico" aria-hidden="true">\uD83D\uDD07</span><span class="aw-audio-time" aria-hidden="true">--:--</span>'; }
+const audioIco=audioBtn&&audioBtn.querySelector('.aw-audio-ico'), audioTimeEl=audioBtn&&audioBtn.querySelector('.aw-audio-time');
+// Captions can play WITHOUT sound: when CC is on but audio is off we still play the clip MUTED, so the
+// caption reveals at the same pace — speaker shows 🔇 and the remaining-time countdown keeps running.
+function playbackOn(){ return audioEnabled || ccPref; }
+function audioDir(){ return (currentLang && currentLang!=='en') ? currentLang+'/' : ''; }
+function fmtDur(s){ s=Math.max(0,Math.ceil(s)); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
+function updateAudioTime(){ if(audioTimeEl && currentAudio && isFinite(currentAudio.duration) && currentAudio.duration>0) audioTimeEl.textContent=fmtDur(currentAudio.duration-currentAudio.currentTime); }
+function syncAudioBtn(){ if(!audioBtn) return; if(audioIco) audioIco.textContent=audioEnabled?'\uD83D\uDD0A':'\uD83D\uDD07'; if(audioTimeEl && !playbackOn()) audioTimeEl.textContent='--:--'; audioBtn.classList.toggle('toggle-active',audioEnabled); audioBtn.setAttribute('aria-pressed',audioEnabled?'true':'false'); }
+function speakFallback(i){ if(!window.speechSynthesis) return; const step=STEPS[i]; const u=new SpeechSynthesisUtterance(`${t(step.titleKey)}. ${t(step.descKey)}`); u.lang=currentLang||'en'; try{ speechSynthesis.cancel(); speechSynthesis.speak(u); }catch(_){} }
+function stopAudio(){
+	if(currentAudio){ currentAudio.pause(); currentAudio.currentTime=0; currentAudio=null; }
+	if(audioTimeout){ clearTimeout(audioTimeout); audioTimeout=null; }
+	if(audioTimeEl) audioTimeEl.textContent='--:--';
+	try{ if(window.speechSynthesis) speechSynthesis.cancel(); }catch(_){}
+	if(window.AWCaptions) AWCaptions.clear();
+}
+function playStepAudio(i){
+	stopAudio();
+	if(document.body.classList.contains('aw-prestart')) return;   // start gate holds audio too
+	if(!playbackOn() || i<0 || i>=STEPS.length) return;
+	audioTimeout=setTimeout(()=>{
+		audioTimeout=null;
+		const file=AUDIO_FILES[i];
+		if(!file){ if(audioEnabled) speakFallback(i); return; }   // no clip = no timing source for caption-only
+		currentAudio=new Audio(AUDIO_BASE+audioDir()+file);
+		currentAudio.volume = audioEnabled ? 1 : 0;              // caption-only = silent (volume 0) timing source
+		if(window.AWCaptions) AWCaptions.bind(currentAudio,i);
+		currentAudio.addEventListener('loadedmetadata',updateAudioTime);
+		currentAudio.addEventListener('timeupdate',updateAudioTime);
+		currentAudio.addEventListener('ended',()=>{ if(audioTimeEl) audioTimeEl.textContent='0:00'; });
+		currentAudio.addEventListener('error',()=>{ if(audioEnabled) speakFallback(i); });
+		currentAudio.play().catch(()=>{});
+	}, 400);
+}
+if(audioBtn){ audioBtn.addEventListener('click',()=>{
+	audioEnabled=!audioEnabled; try{localStorage.setItem('aw-tmpl-audio',audioEnabled?'1':'0');}catch(_){} syncAudioBtn();
+	if(current>=0){
+		if(!playbackOn()) stopAudio();
+		else if(currentAudio) currentAudio.volume = audioEnabled ? 1 : 0;   // flip sound without restarting the clip
+		else playStepAudio(current);
+	}
+	if(typeof applyCc==='function') applyCc();
+}); }
+// Initial audio + CC from the ?audio parameter:
+//   on -> audio ON + captions ON  ·  off -> both OFF  ·  (absent) -> audio ON, captions OFF (a prior stored choice still wins).
+(function(){
+	var p=null; try{ p=new URLSearchParams(location.search).get('audio'); }catch(_){}
+	if(p==='on'){ audioEnabled=true; ccPref=true; }
+	else if(p==='off'){ audioEnabled=false; ccPref=false; }
+	else {
+		audioEnabled=true; ccPref=false;
+		try{ var a=localStorage.getItem('aw-tmpl-audio'); if(a==='1') audioEnabled=true; else if(a==='0') audioEnabled=false; }catch(_){}
+		try{ var c=localStorage.getItem('aw-tmpl-cc'); if(c==='1') ccPref=true; else if(c==='0') ccPref=false; }catch(_){}
+	}
+	try{ localStorage.setItem('aw-tmpl-audio',audioEnabled?'1':'0'); localStorage.setItem('aw-tmpl-cc',ccPref?'1':'0'); }catch(_){}
+})();
+syncAudioBtn();
+
+// ── Captions (CC) — overlaid in the frame; play WITH or WITHOUT audio ──
+// Reads the SAME narration Markdown used to synthesize the audio. Set page to THIS file's
+// stem and base to its narration folder (see the path note near the top of the file).
+const ccBtn=document.getElementById('cc-toggle');
+function ccEffective(){ return ccPref; }                          // captions show whenever CC is on (audio not required)
+function syncCcBtn(){ if(!ccBtn) return; ccBtn.classList.toggle('on',ccPref); ccBtn.setAttribute('aria-pressed',ccPref?'true':'false'); }
+function applyCc(){ if(window.AWCaptions) AWCaptions.setEnabled(ccEffective()); if(ccEffective()&&currentAudio&&window.AWCaptions) AWCaptions.bind(currentAudio,current); syncCcBtn(); }
+if(window.AWCaptions){ AWCaptions.configure({ page:'ContosoCaseStudy', base:'../../narration/Architect/', lang:()=>currentLang, fallback:(i)=>(STEPS[i]?t(STEPS[i].descKey):''), reserve:false }); }
+if(ccBtn){ ccBtn.addEventListener('click',()=>{
+	ccPref=!ccPref; try{localStorage.setItem('aw-tmpl-cc',ccPref?'1':'0');}catch(_){} applyCc();
+	if(current>=0){
+		if(playbackOn() && !currentAudio) playStepAudio(current);   // caption-only: start the muted timing clip
+		else if(!playbackOn() && currentAudio) stopAudio();          // CC off + audio off: nothing left to play
+	}
+}); }
+applyCc();
+
+// ── Full screen ──
+(function(){
+	const fsBtn=document.getElementById('fs-toggle'); if(!fsBtn) return;
+	function inFs(){ return !!(document.fullscreenElement||document.webkitFullscreenElement); }
+	function syncFs(){ document.body.classList.toggle('is-fs',inFs()); fsBtn.setAttribute('aria-pressed',inFs()?'true':'false'); fsBtn.title=inFs()?'Exit full screen (F)':'Full screen (F)'; }
+	function toggle(){ try{ if(inFs()){ (document.exitFullscreen||document.webkitExitFullscreen).call(document); } else { const el=document.documentElement; (el.requestFullscreen||el.webkitRequestFullscreen).call(el); } }catch(_){} }
+	fsBtn.addEventListener('click',e=>{ e.stopPropagation(); toggle(); });
+	document.addEventListener('fullscreenchange',syncFs); document.addEventListener('webkitfullscreenchange',syncFs);
+	document.addEventListener('keydown',e=>{ if(e.code==='KeyF'&&!e.metaKey&&!e.ctrlKey&&!e.altKey){ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return; e.preventDefault(); toggle(); } });
+	syncFs();
+})();
+
+// ── Reduced motion ────────────────────────
+const motionMQ=window.matchMedia('(prefers-reduced-motion: reduce)'); let motionPaused=motionMQ.matches;
+motionMQ.addEventListener('change',e=>{ motionPaused=e.matches; renderStep(current); });
+
+// ── Helpers ───────────────────────────────
+function clearStage(){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; liveEls.forEach(el=>el.remove()); liveEls=[]; Array.from(svg.children).forEach(c=>{ if(c.tagName.toLowerCase()!=='defs') c.remove(); }); }
+function el(cls,html){ const d=document.createElement('div'); if(cls) d.className=cls; if(html!=null) d.innerHTML=html; return d; }
+// Inline SVG icons (monochrome, currentColor) — crisp on any OS/projector. Add your own here.
+const ICONS = {
+	puzzle:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h8v8H3zm10 0h8v8h-8zM3 13h8v8H3zm10 0h8v8h-8z"/></svg>',
+	inbox:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 3h2v5h3l-4 4-4-4h3zM5 14h14v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1z"/></svg>',
+	gear:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M19.14 12.94a7.9 7.9 0 0 0 0-1.88l2-1.56-2-3.46-2.36.96a7.7 7.7 0 0 0-1.62-.94L14.8 2.5h-4l-.36 2.56c-.58.24-1.12.56-1.62.94L6.46 6.04l-2 3.46 2 1.56a7.9 7.9 0 0 0 0 1.88l-2 1.56 2 3.46 2.36-.96c.5.38 1.04.7 1.62.94l.36 2.56h4l.36-2.56c.58-.24 1.12-.56 1.62-.94l2.36.96 2-3.46-2-1.56zM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg>',
+	sparkle:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg>',
+	bulb:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-4 12.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26A7 7 0 0 0 12 2zM9 20h6v1a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1z"/></svg>',
+	check:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.55 17.6 4.4 12.45l1.86-1.86 3.29 3.29 8.19-8.19 1.86 1.86z"/></svg>',
+	bolt:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>',
+	lock:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 10a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1zm3-1V7a4 4 0 1 1 8 0v2h-2V7a2 2 0 1 0-4 0v2z"/></svg>',
+	box:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 3 7v10l9 5 9-5V7zm0 2.3L17.7 7 12 10.2 6.3 7zM5 9.1l6 3.4v6.8l-6-3.3zm14 0v6.9l-6 3.3v-6.8z"/></svg>',
+	key:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M14 2a6 6 0 0 0-5.66 8L2 16.34V22h5.66l.34-.34V20h2v-2h2l.34-.34A6 6 0 1 0 14 2zm2 3a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z"/></svg>',
+	rocket:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2c3 3 4 6 4 9l3 3-4 1-1 4-2-3-2 3-1-4-4-1 3-3c0-3 1-6 4-9zm0 5a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>',
+	health:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 2h6v5h5v6h-5v5H9v-5H4V7h5z"/></svg>',
+	headset:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a8 8 0 0 0-8 8v5a3 3 0 0 0 3 3h1v-7H6v-1a6 6 0 1 1 12 0v1h-2v7h1a3 3 0 0 0 3-3v-5a8 8 0 0 0-8-8z"/></svg>',
+	media:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M4 4h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zm5 4v8l7-4z"/></svg>',
+	book:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v16H6a2 2 0 0 1-2-2zm9 0h7v14a2 2 0 0 1-2 2h-5z"/></svg>',
+	party:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5zm6 11l.9 2.6L21.5 16.5l-2.6.9L18 20l-.9-2.6L14.5 16.5l2.6-.9zM6 14l.7 2 2 .7-2 .7L6 19.4l-.7-2-2-.7 2-.7z"/></svg>',
+	chat:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-4 4v-4H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/></svg>',
+	access:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a2.2 2.2 0 1 1 0 4.4A2.2 2.2 0 0 1 12 2zM4 8h16v2h-5.4l1 12h-2.3l-.7-6h-1.2l-.7 6H8.4l1-12H4z"/></svg>',
+	globe:'<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></g></svg>'
+};
+function icon(name){ return `<span class="ic">${ICONS[name]||''}</span>`; }
+function stepById(id){ return STEPS.find(s=>s.id===id); }
+// Scale the current scene down (never up) so it always fits inside the 16:9 frame — no clipping, no scroll.
+function fitScene(scene){
+	if(!scene) return;
+	scene.style.transform='translate(-50%,-50%) scale(1)';
+	const box=stage.getBoundingClientRect();
+	const availW=box.width-32, availH=box.height-28;
+	const sw=scene.offsetWidth, sh=scene.offsetHeight;
+	if(!sw||!sh) return;
+	const k=Math.min(1, availW/sw, availH/sh);
+	scene.style.transform='translate(-50%,-50%) scale('+k+')';
+}
+function headerEls(scene){ return [scene.querySelector('.scene-title'), scene.querySelector('.scene-lead')]; }
+function buildScene(step){ const s=el('scene'); s.appendChild(el('scene-title', t(step.titleKey))); s.appendChild(el('scene-lead', t(step.descKey))); return s; }
+function maybeCallout(step){ if(!calloutEnabled) return null; const c=el('callout', t(step.calloutKey)); c.style.left='1.5rem'; c.style.top='1.5rem'; stage.appendChild(c); liveEls.push(c); dragify(c, 'aw-tmpl-callout-pos'); return c; }
+function renderOutline(step,idx){
+	const rows=(step.stats||[]).map(([k,v])=>`<div class="stat-row"><span>${t(k)}</span><span>${t(v)}</span></div>`).join('');
+	outlineBody.innerHTML=`<div class="outline-section"><strong>${t('stepOf')} ${idx+1} / ${STEPS.length}: ${t(step.titleKey)}</strong><p style="margin-top:0.4rem;">${t(step.descKey)}</p></div>${rows?`<div class="outline-section">${rows}</div>`:''}`;
+}
+function announceStep(step,idx){ announcer.textContent=`${t('stepOf')} ${idx+1} / ${STEPS.length}: ${t(step.titleKey)}. ${t(step.descKey)}`; }
+
+// ── RENDER DISPATCH ───────────────────────
+function renderStep(i){
+	if(i<0||i>=STEPS.length) return;
+	if(animating){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; animating=false; }
+	animating=true;
+	const step=STEPS[i];
+	// cross-fade (200ms, CSS keyframes so it's independent of the speed control) — outgoing fades out, incoming fades in, on every step
+	const outgoing=stage.querySelector('.scene:not(.scene-out)');
+	if(outgoing) liveEls=liveEls.filter(x=>x!==outgoing);
+	clearStage();
+	if(outgoing){ outgoing.style.zIndex='5';
+		if(motionPaused){ outgoing.remove(); }
+		else { outgoing.classList.remove('scene-in'); outgoing.classList.add('scene-out'); setTimeout(()=>outgoing.remove(), 240); } }
+	(BUILDERS[step.id]||function(){})();
+	const incoming=stage.querySelector('.scene:not(.scene-out)');
+	if(incoming && !motionPaused) incoming.classList.add('scene-in');
+	fitScene(incoming);
+	current=i;
+	try{ const u=new URL(location.href); u.searchParams.set('step', String(i+1)); history.replaceState(null,'',u); }catch(_){}
+	counter.textContent=`${t('stepOf')} ${current+1} / ${STEPS.length}`;
+	breadcrumb.textContent=t(step.captionKey);
+	progress.style.width=((current+1)/STEPS.length*100)+'%';
+	renderOutline(step,i); announceStep(step,i);
+	if(typeof playStepAudio==='function') playStepAudio(i);
+}
+
+// ══════════════ AI-500 KIT · shared helpers (cast, board, connectors, timelines) ══════════════
+Object.assign(ICONS, {
+	robot:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2a1.6 1.6 0 0 1 .8 3V7h4.2a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3v-7a3 3 0 0 1 3-3h4.2V5A1.6 1.6 0 0 1 12 2zM9 11.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 0 0 0-3.2zm6 0a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 0 0 0-3.2z"/></svg>',
+	compass:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16zm3.9 4.1-2.1 5.7-5.7 2.1 2.1-5.7z"/></svg>',
+	doc:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M6 2h8l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm2 6.5v1.6h4V8.5zM8 12v1.6h8V12zm0 3.4V17h8v-1.6z"/></svg>',
+	search:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M10.5 3a7.5 7.5 0 0 1 5.9 12.1l4.3 4.3-1.4 1.4-4.3-4.3A7.5 7.5 0 1 1 10.5 3zm0 2a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11z"/></svg>',
+	coin:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="2"/><text x="12" y="16.8" text-anchor="middle" font-size="12.5" font-weight="700" font-family="Segoe UI,Arial,sans-serif" fill="currentColor">$</text></svg>',
+	person:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9zm0 2c-4.4 0-8 2.2-8 5v2h16v-2c0-2.8-3.6-5-8-5z"/></svg>',
+	clock:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16zm-1 3h2v5.2l3.3 2-1 1.7-4.3-2.6z"/></svg>',
+	chip:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M8 2h2v3h4V2h2v3h1a2 2 0 0 1 2 2v1h3v2h-3v4h3v2h-3v1a2 2 0 0 1-2 2h-1v3h-2v-3h-4v3H8v-3H7a2 2 0 0 1-2-2v-1H2v-2h3v-4H2V8h3V7a2 2 0 0 1 2-2h1zm0 5v10h8V7z"/></svg>',
+	warn:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2 1.5 21h21zM11 9h2v6h-2zm0 8h2v2h-2z"/></svg>',
+	scale:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 3h2v15h-2zM5 20h14v2H5zM3 6h18v2H3zM5 8l3 6a3 3 0 0 1-6 0zm14 0 3 6a3 3 0 0 1-6 0z"/></svg>',
+	code:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.7 6.3 3 12l5.7 5.7 1.4-1.4L5.8 12l4.3-4.3zm6.6 0-1.4 1.4 4.3 4.3-4.3 4.3 1.4 1.4L21 12z"/></svg>',
+	board:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M3 4h18a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1h-7v2h3v2H7v-2h3v-2H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zm1 2v9h16V6z"/></svg>',
+	shield:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2 4 5v6c0 5 3.4 9.3 8 11 4.6-1.7 8-6 8-11V5zm-1.2 13.5L7.5 12.2l1.4-1.4 1.9 1.9 4.3-4.3 1.4 1.4z"/></svg>',
+	star:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l3 6.3 6.9.9-5 4.8 1.2 6.9L12 17.6 5.9 20.9 7.1 14 2.1 9.2 9 8.3z"/></svg>',
+	ruler:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M3 17 17 3l4 4L7 21zm3.2 0 1.3 1.3 1.4-1.4-1.3-1.3zm3.7-3.7 1.3 1.3 1.4-1.4-1.3-1.3zm3.7-3.7 1.3 1.3 1.4-1.4-1.3-1.3z"/></svg>',
+	flask:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 2h6v2h-1v5.2l5.2 8.7A2 2 0 0 1 17.5 21h-11a2 2 0 0 1-1.7-3.1L10 9.2V4H9z"/></svg>',
+	arrowR:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 5l7 7-7 7-1.4-1.4 4.6-4.6H4v-2h12.2l-4.6-4.6z"/></svg>'
+});
+
+const AG = { solo:['robot','agSolo'], orch:['compass','agOrch'], intake:['doc','agIntake'], policy:['book','agPolicy'],
+	fraud:['search','agFraud'], payout:['coin','agPayout'], human:['person','agHuman'] };
+function agent(k, o){ o=o||{}; const a=AG[k];
+	return `<div class="ai5-ag ag-${k}${o.top?' is-top':''}"${o.size?` style="--ag:${o.size}px"`:''}><span class="ai5-ag-ic">${icon(a[0])}</span>${o.nolabel?'':`<span class="ai5-ag-l">${o.label||t(a[1])}</span>`}</div>`; }
+
+// A 0×0 wrapper at the node's CENTRE (animate the wrapper with GSAP; the inner node stays centred on it)
+function pos(cx, cy, html, cls){ const w=el('ai5-pos'+(cls?' '+cls:''), '<div class="ai5-in">'+html+'</div>'); w.style.left=cx+'px'; w.style.top=cy+'px'; return w; }
+
+const SVGNS='http://www.w3.org/2000/svg'; let _ai5id=0;
+// A fixed-size board with an SVG layer behind the nodes (same coordinates) for drawn connectors.
+function board(w, h){
+	const root=el('ai5-board'); root.style.width=w+'px'; root.style.height=h+'px';
+	const svg=document.createElementNS(SVGNS,'svg'); svg.setAttribute('viewBox',`0 0 ${w} ${h}`);
+	const mid='ai5ar'+(++_ai5id);
+	svg.innerHTML=`<defs><marker id="${mid}" viewBox="0 0 12 12" markerWidth="24" markerHeight="24" markerUnits="userSpaceOnUse" refX="11" refY="6" orient="auto"><path d="M1,1 L11,6 L1,11 Z" fill="context-stroke"/></marker></defs>`;
+	root.appendChild(svg);
+	return { root, svg, mid };
+}
+// Draw a connector path. Solid + arrow → draw-in via dash (the global guard hides the arrowhead until it lands). dash:'6 6' → static dashed, fade in.
+// An arrowed line is stopped a little INSIDE its head (flat cap, trimmed end): the head's tip is narrower than the stroke, so a line that
+// runs all the way to the tip (or has a round cap) pokes out in front of it. The marker is untouched, so the tip still lands on the path end.
+function arrowTrim(p, L){ return p.getAttribute('marker-end') ? Math.min((+p.getAttribute('stroke-width')||3)*2, L*0.09) : 0; }
+function line(B, d, color, o){ o=o||{};
+	const p=document.createElementNS(SVGNS,'path'); p.setAttribute('d',d); p.setAttribute('fill','none');
+	const arrowed=!o.dash && o.arrow!==false;
+	p.style.stroke=color||'var(--ai5-line)'; p.setAttribute('stroke-width',o.w||3); p.setAttribute('stroke-linecap',arrowed?'butt':'round'); p.setAttribute('stroke-linejoin','round');
+	if(o.dash) p.setAttribute('stroke-dasharray',o.dash);
+	else if(o.arrow!==false) p.setAttribute('marker-end','url(#'+B.mid+')');
+	B.svg.appendChild(p);
+	if(arrowed){ try{ const L=p.getTotalLength(), t=arrowTrim(p,L); if(L>0&&t>0) p.style.strokeDasharray=(L-t)+' '+(L+t); }catch(e){} }
+	return p; }
+function drawPrep(p){ const L=p.getTotalLength(), t=arrowTrim(p,L); p.style.strokeDasharray=t?(L-t)+' '+(L+t):L; p.style.strokeDashoffset=L; return L; }
+// Tween a solid connector in (call drawPrep first). Dashed connectors just fade.
+function drawIn(tl, p, at, dur){ if(p.getAttribute('stroke-dasharray')){ tl.fromTo(p,{opacity:0},{opacity:1,duration:dur||0.4},at); return; }
+	drawPrep(p); tl.to(p,{strokeDashoffset:0,duration:dur||0.6,ease:'power1.inOut'},at); }
+
+// Timeline helpers — every builder builds its tweens once; reduced motion just jumps to the end frame.
+function mount(scene){ stage.appendChild(scene); liveEls.push(scene); }
+function mkTL(){ return gsap.timeline({ onComplete:()=>{ animating=false; } }); }
+function head(tl, scene){ tl.fromTo(headerEls(scene),{opacity:0,y:-14},{opacity:1,y:0,duration:0.5,stagger:0.1,ease:'power2.out'}); }
+function finish(tl, step){
+	const c=maybeCallout(step); if(c) tl.fromTo(c,{opacity:0,y:10},{opacity:1,y:0,duration:0.5},'>-0.2');
+	if(motionPaused){ tl.progress(1); animating=false; return tl; }
+	liveTimelines.push(tl); return tl; }
+function idle(tw){ if(!motionPaused && tw) liveTimelines.push(tw); return tw; }
+function aiScene(step){ const s=buildScene(step); s.classList.add('ai5'); return s; }
+function say(txt, ic){ return el('ai5-say', (ic?icon(ic):'')+'<span>'+txt+'</span>'); }
+function nextLink(file, labelKey){ const a=document.createElement('a'); a.className='ai5-next'; a.href=file+'?lang='+currentLang; a.innerHTML='<span>'+t(labelKey)+'</span>'+icon('arrowR'); return a; }
+
+
+Object.assign(ICONS, {
+	image:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M4 4h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zm1 2v8.6l3.5-3.5 3 3 4-4.6L19 14V6zm3 1.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z"/></svg>',
+	rewind:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V2L6.5 6.5 12 11V8a5 5 0 1 1-5 5H5a7 7 0 1 0 7-8z"/></svg>',
+	cross:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.7 4.3 12 10.6l6.3-6.3 1.4 1.4-6.3 6.3 6.3 6.3-1.4 1.4-6.3-6.3-6.3 6.3-1.4-1.4 6.3-6.3-6.3-6.3z"/></svg>',
+	dc:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M4 3h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm0 10h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1zM6 5.5v3h2v-3zm0 10v3h2v-3z"/></svg>'
+});
+
+const AZI = '../../lib/icons/Azure_Public_Service_Icons/';
+const AZF = {
+	vm:'compute/10021-icon-service-Virtual-Machine.svg', aks:'compute/10023-icon-service-Kubernetes-Services.svg', app:'compute/10035-icon-service-App-Services.svg',
+	sqldb:'databases/10130-icon-service-SQL-Database.svg', sqlmi:'databases/10136-icon-service-SQL-Managed-Instance.svg', sqlvm:'databases/10132-icon-service-SQL-Server.svg',
+	storage:'storage/10086-icon-service-Storage-Accounts.svg', migrate:'migrate/10281-icon-service-Azure-Migrate.svg', dms:'databases/10133-icon-service-Azure-Database-Migration-Services.svg',
+	databox:'migrate/10094-icon-service-Data-Box.svg', mover:'other/03091-icon-service-Azure-Storage-Mover.svg',
+	fd:'networking/10073-icon-service-Front-Door-and-CDN-Profiles.svg', vnet:'networking/10061-icon-service-Virtual-Networks.svg', gw:'networking/10063-icon-service-Virtual-Network-Gateways.svg',
+	er:'networking/10079-icon-service-ExpressRoute-Circuits.svg', fw:'networking/10084-icon-service-Firewalls.svg',
+	connect:'identity/02854-icon-service-Entra-Connect.svg', pim:'identity/02251-icon-service-Entra-Privleged-Identity-Management.svg', mfa:'identity/03256-icon-service-Multi-Factor-Authentication.svg',
+	mg:'general/10011-icon-service-Management-Groups.svg', policy:'management%20%2B%20governance/10316-icon-service-Policy.svg', vault:'storage/00017-icon-service-Recovery-Services-Vaults.svg'
+};
+function az(k, s){ return `<img class="p10-az" src="${AZI}${AZF[k]}" width="${s || 40}" height="${s || 40}" alt="">`; }
+
+// ── shared helpers ───────────────────────
+function box(cls, x, y, w, h, html){ const e = el(cls, html); e.style.cssText = `left:${x}px;top:${y}px;width:${w}px;height:${h}px;`; return e; }
+function p10Say(scene, B, key, ic){ const s = say(t(key), ic); scene.appendChild(B.root); scene.appendChild(s); return s; }
+function p10Seq(tl, paths, first, dur, gap){ paths.forEach((p, i) => drawIn(tl, p, i ? (gap || '>-0.15') : first, dur || 0.5)); }
+const P10TICK = `<b class="p10-bdg ok">${icon('check')}</b>`, P10X = `<b class="p10-bdg bad">${icon('cross')}</b>`;
+// requirement card: the deciding words from the brief, coloured by domain
+function p10Req(cls, key, x, y, w, h){ return box('p10-req ' + cls, x, y, w, h, `<span class="p10-rl">${t('reqL')}</span><span class="p10-rt">${t(key)}</span>`); }
+// an option card: icon, name, description, verdict line, win/lose badge
+function p10Opt(cls, ic, k, win, o){ o = o || {};
+	return `<span class="p10-oi">${ic}</span><span class="p10-ct"><b>${t(k)}</b><span>${t(k + 'D')}</span><span class="p10-vt ${win ? 'ok' : 'bad'}">${icon(win ? 'check' : 'cross')}<span>${t(k + 'V')}</span></span></span>${win ? P10TICK : P10X}`; }
+
+// ── 1 · BRIEF ────────────────────────────
+function renderBrief(){
+	const step = stepById('brief'), scene = aiScene(step);
+	const B = board(1100, 400);
+	const card = box('p10-brief', 0, 0, 640, 400,
+		`<div class="p10-bh">${icon('doc')}<b>${t('briefHead')}</b></div>` + [1, 2, 3, 4].map(n => `<div class="p10-bl fl${n}"><i></i><span>${t('brL' + n)}</span></div>`).join(''));
+	const chip = (n, k) => `<span class="ai5-tag fl${n}">${t(k)}</span>`;
+	const reqP = box('ai5-pnl p10-pnl', 700, 0, 400, 238, `<div class="ai5-pnl-h">${t('reqHead')}</div><div class="p10-stack">${chip(1, 'rq1')}${chip(2, 'rq2')}${chip(3, 'rq3')}${chip(4, 'rq4')}</div>`);
+	const conP = box('ai5-pnl p10-pnl', 700, 250, 400, 150, `<div class="ai5-pnl-h">${t('conHead')}</div><div class="p10-stack">${chip(4, 'cn1')}${chip(4, 'cn2')}</div>`);
+	const l1 = line(B, 'M642 119 H696', 'var(--theme-text-subtle)', { w:3 }), l2 = line(B, 'M642 325 H696', 'var(--theme-text-subtle)', { w:3 });
+	[card, reqP, conP].forEach(n => B.root.appendChild(n));
+	const sayEl = p10Say(scene, B, 'briefSay', 'search'); mount(scene);
+	const rows = [...card.querySelectorAll('.p10-bl')], us = rows.map(r => [...r.querySelectorAll('u.k')]);
+
+	const tl = mkTL(); head(tl, scene);
+	tl.fromTo(card, { opacity:0, y:30 }, { opacity:1, y:0, duration:0.5, ease:'power3.out' });
+	rows.forEach((r, i) => {
+		tl.fromTo(r, { opacity:0, x:-40 }, { opacity:1, x:0, duration:0.4, ease:'power2.out' }, '>0.05');
+		tl.fromTo(us[i], { backgroundSize:'0% 3px' }, { backgroundSize:'100% 3px', duration:0.5, stagger:0.2, ease:'power1.inOut' }, '>-0.05');
+	});
+	drawIn(tl, l1, '>0.1', 0.4); tl.fromTo(reqP, { opacity:0, x:30 }, { opacity:1, x:0, duration:0.45 }, '>-0.2');
+	tl.fromTo(reqP.querySelectorAll('.ai5-tag'), { opacity:0, scale:0.7 }, { opacity:1, scale:1, duration:0.3, stagger:0.12, ease:'back.out(2)' }, '>-0.1');
+	drawIn(tl, l2, '>0.1', 0.4); tl.fromTo(conP, { opacity:0, x:30 }, { opacity:1, x:0, duration:0.45 }, '>-0.2');
+	tl.fromTo(conP.querySelectorAll('.ai5-tag'), { opacity:0, scale:0.7 }, { opacity:1, scale:1, duration:0.3, stagger:0.12, ease:'back.out(2)' }, '>-0.1');
+	tl.fromTo(sayEl, { opacity:0, y:12 }, { opacity:1, y:0, duration:0.5 }, '>0.1');
+	finish(tl, step);
+}
+
+// ── 2 · IDENTITY ─────────────────────────
+function renderIdentity(){
+	const step = stepById('identity'), scene = aiScene(step);
+	const B = board(1100, 420);
+	const req = p10Req('fl1', 'idReq', 0, 118, 215, 160);
+	const q = box('p10-q', 310, 0, 460, 28, t('idQ'));
+	const OY = [40, 150, 260];
+	const O = [[az('connect', 44), 'idPhs', 1], [icon('key'), 'idPta', 0], [icon('globe'), 'idFed', 0]];
+	const opts = O.map((o, i) => box('p10-opt fl1', 310, OY[i], 460, 96, p10Opt('fl1', o[0], o[1], o[2])));
+	const lines = [0, 1, 2].map(i => line(B, i === 1 ? 'M215 198 H306' : `M215 198 H255 V${OY[i] + 48} H306`, 'var(--f1t)', { w:3 }));
+	const also = box('ai5-pnl p10-pnl fl1', 810, 40, 290, 316,
+		`<div class="ai5-pnl-h">${t('alsoL')}</div><div class="p10-alsos">` +
+		[['mfa', 'idAlso1'], ['pim', 'idAlso2'], ['mg', 'idAlso3']].map(a => `<div class="p10-also">${az(a[0], 36)}<span>${t(a[1])}</span></div>`).join('') + '</div>');
+	[req, q, ...opts, also].forEach(n => B.root.appendChild(n));
+	const sayEl = p10Say(scene, B, 'identitySay', 'key'); mount(scene);
+
+	const tl = mkTL(); head(tl, scene);
+	tl.fromTo(req, { opacity:0, y:-60 }, { opacity:1, y:0, duration:0.6, ease:'bounce.out' });
+	tl.fromTo(q, { opacity:0 }, { opacity:1, duration:0.4 }, '>0');
+	lines.forEach((p, i) => { drawIn(tl, p, i ? '>-0.35' : '>0.05', 0.45); tl.fromTo(opts[i], { opacity:0, x:-40 }, { opacity:1, x:0, duration:0.45, ease:'power3.out' }, '>-0.25'); });
+	tl.to([opts[1], opts[2]], { opacity:0.5, duration:0.5 }, '>0.3');
+	tl.fromTo(opts.map(o => o.querySelector('.p10-bdg')), { scale:0 }, { scale:1, duration:0.4, stagger:0.12, ease:'back.out(2.4)' }, '<0.1');
+	tl.fromTo(also, { opacity:0, x:50 }, { opacity:1, x:0, duration:0.5, ease:'power2.out' }, '>0.05');
+	tl.fromTo(also.querySelectorAll('.p10-also'), { opacity:0, y:12 }, { opacity:1, y:0, duration:0.35, stagger:0.14 }, '>-0.2');
+	tl.fromTo(sayEl, { opacity:0, y:12 }, { opacity:1, y:0, duration:0.5 }, '>0.1');
+	finish(tl, step);
+}
+
+// ── 3 · DATA ─────────────────────────────
+function renderData(){
+	const step = stepById('data'), scene = aiScene(step);
+	const B = board(1100, 420);
+	const ban = box('p10-req p10-banner fl2', 0, 0, 1100, 60, `<span class="p10-rl">${t('reqL')}</span><span class="p10-rt">${t('dtReq')}</span>`);
+	const O = [[az('sqldb', 56), 'dtSqlDb', 0], [az('sqlmi', 56), 'dtMi', 1], [az('sqlvm', 56), 'dtVm', 0]];
+	const cards = O.map((o, i) => box('p10-opt p10-tall fl2', i * 375, 140, 350, 214, p10Opt('fl2', o[0], o[1], o[2])));
+	const lines = [0, 1, 2].map(i => line(B, `M${i * 375 + 175} 64 V136`, 'var(--f2t)', { w:3 }));
+	const also = box('p10-alsoRow', 0, 374, 1100, 40, `<span class="p10-cap">${t('alsoL')}</span><span class="ai5-tag fl2">${az('storage', 22)}<span>${t('dtAlso1')}</span></span><span class="ai5-tag fl2">${icon('shield')}<span>${t('dtAlso2')}</span></span>`);
+	[ban, ...cards, also].forEach(n => B.root.appendChild(n));
+	const sayEl = p10Say(scene, B, 'dataSay', 'bulb'); mount(scene);
+
+	const tl = mkTL(); head(tl, scene);
+	tl.fromTo(ban, { opacity:0, scaleX:0.6, transformOrigin:'0 50%' }, { opacity:1, scaleX:1, duration:0.55, ease:'power3.out' });
+	p10Seq(tl, lines, '>0.05', 0.4, '>-0.3');
+	tl.fromTo(cards, { opacity:0, rotationX:-80, transformOrigin:'50% 0', transformPerspective:800 }, { opacity:1, rotationX:0, duration:0.55, stagger:0.15, ease:'power3.out' }, '>-0.2');
+	tl.to([cards[0], cards[2]], { opacity:0.5, duration:0.5 }, '>0.3');
+	tl.fromTo(cards.map(c => c.querySelector('.p10-bdg')), { scale:0 }, { scale:1, duration:0.4, stagger:0.12, ease:'back.out(2.4)' }, '<0.1');
+	tl.fromTo(also, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.45 }, '>0');
+	tl.fromTo(sayEl, { opacity:0, y:12 }, { opacity:1, y:0, duration:0.5 }, '>0.1');
+	finish(tl, step);
+}
+
+// ── 4 · CONTINUITY ───────────────────────
+function renderContinuity(){
+	const step = stepById('continuity'), scene = aiScene(step);
+	const B = board(1100, 420);
+	const ban = box('p10-req p10-banner fl3', 0, 0, 1100, 56, `<span class="p10-rl">${t('reqL')}</span><span class="p10-rt">${t('ctReq')}</span>`);
+	const h1 = box('p10-ch', 248, 68, 500, 22, t('ctColRto')), h2 = box('p10-ch', 748, 68, 150, 22, t('ctColRpo'));
+	const R = [
+		{ k:'ctGeo', ic:icon('rewind'), w:468, win:0, long:1 },
+		{ k:'ctZone', ic:az('vm', 30), w:12, win:0 },
+		{ k:'ctFog', ic:az('sqlmi', 30), w:12, win:1 }
+	];
+	const rows = R.map((r, i) => box('p10-crow fl3', 0, 98 + i * 98, 1100, 86,
+		`<span class="p10-cn"><b>${t(r.k)}</b><span>${t(r.k + 'D')}</span></span>` +
+		`<span class="p10-trk"><i class="p10-bar${r.long ? ' is-long' : ''}" style="width:${r.w}px">${r.long ? `<em>${t(r.k + 'Rto')}</em>` : ''}</i>${r.long ? '' : `<em class="p10-bl2" style="left:56px">${t(r.k + 'Rto')}</em>`}</span>` +
+		`<span class="p10-cv">${t(r.k + 'Rpo')}</span><span class="p10-vt ${r.win ? 'ok' : 'bad'}">${icon(r.win ? 'check' : 'cross')}<span>${t(r.k + 'V')}</span></span>`));
+	const tgt = box('p10-tgt', 248 + 39, 94, 3, 296, '');
+	const tgl = pos(248 + 40, 404,  `<span class="ai5-tag fl3 p10-solid">${t('ctTarget')}</span>`);
+	[ban, h1, h2, ...rows, tgt, tgl].forEach(n => B.root.appendChild(n));
+	const sayEl = p10Say(scene, B, 'continuitySay', 'shield'); mount(scene);
+	const bars = rows.map(r => r.querySelector('.p10-bar')), lbl = rows.map(r => r.querySelector('.p10-bl2, .p10-bar em')), vts = rows.map(r => r.querySelector('.p10-vt'));
+
+	const tl = mkTL(); head(tl, scene);
+	tl.fromTo(ban, { opacity:0, y:-20 }, { opacity:1, y:0, duration:0.45 });
+	tl.fromTo([h1, h2], { opacity:0 }, { opacity:1, duration:0.3 }, '>0');
+	tl.fromTo(rows, { opacity:0, x:-50 }, { opacity:1, x:0, duration:0.45, stagger:0.15, ease:'power3.out' }, '>0');
+	tl.fromTo(bars[0], { scaleX:0, transformOrigin:'0 50%' }, { scaleX:1, duration:1.1, ease:'power1.in' }, '>0.1');
+	tl.fromTo([bars[1], bars[2]], { scaleX:0, transformOrigin:'0 50%' }, { scaleX:1, duration:0.25 }, '<0.3');
+	tl.fromTo(lbl, { opacity:0 }, { opacity:1, duration:0.3, stagger:0.1 }, '>-0.1');
+	tl.fromTo(tgt, { scaleY:0, transformOrigin:'50% 0' }, { scaleY:1, duration:0.5, ease:'power2.out' }, '>0.1');
+	tl.fromTo(tgl, { opacity:0, y:-8 }, { opacity:1, y:0, duration:0.35 }, '>-0.15');
+	tl.fromTo(vts, { opacity:0, x:12 }, { opacity:1, x:0, duration:0.35, stagger:0.15 }, '>0.1');
+	tl.to([rows[0], rows[1]], { opacity:0.55, duration:0.5 }, '>0.2');
+	tl.fromTo(sayEl, { opacity:0, y:12 }, { opacity:1, y:0, duration:0.5 }, '>0.1');
+	finish(tl, step);
+}
+
+// ── 5 · COMPUTE ──────────────────────────
+function renderCompute(){
+	const step = stepById('compute'), scene = aiScene(step);
+	const B = board(1100, 420);
+	const ban = box('p10-req p10-banner fl4', 0, 0, 1100, 60, `<span class="p10-rl">${t('reqL')}</span><span class="p10-rt">${t('cpReq')}</span>`);
+	const hd = box('p10-ch', 668, 70, 200, 22, t('cpEffort'));
+	const O = [['vm', 'cpVm', 3, 0], ['aks', 'cpAks', 2, 0], ['app', 'cpApp', 1, 1]];
+	const rows = O.map((o, i) => box('p10-crow p10-orow fl4', 0, 100 + i * 94, 1100, 82,
+		`<span class="p10-oi">${az(o[0], 46)}</span><span class="p10-ct"><b>${t(o[1])}</b><span>${t(o[1] + 'D')}</span></span>` +
+		`<span class="p10-pips">${[1, 2, 3].map(n => `<i class="${n <= o[2] ? 'on' : ''}"></i>`).join('')}</span><span class="p10-vt ${o[3] ? 'ok' : 'bad'}">${icon(o[3] ? 'check' : 'cross')}<span>${t(o[1] + 'V')}</span></span>${o[3] ? P10TICK : ''}`));
+	const also = box('p10-alsoRow', 0, 390, 1100, 36, `<span class="p10-cap">${t('alsoL')}</span><span class="ai5-tag fl4">${az('app', 22)}<span>${t('cpAlso1')}</span></span><span class="ai5-tag fl4">${az('vm', 22)}<span>${t('cpAlso2')}</span></span>`);
+	[ban, hd, ...rows, also].forEach(n => B.root.appendChild(n));
+	const sayEl = p10Say(scene, B, 'computeSay', 'gear'); mount(scene);
+
+	const tl = mkTL(); head(tl, scene);
+	tl.fromTo(ban, { opacity:0, x:-60 }, { opacity:1, x:0, duration:0.5, ease:'power3.out' });
+	tl.fromTo(hd, { opacity:0 }, { opacity:1, duration:0.3 }, '>0');
+	rows.forEach((r, i) => {
+		tl.fromTo(r, { opacity:0, x:i % 2 ? -50 : 50 }, { opacity:1, x:0, duration:0.45, ease:'power3.out' }, i ? '>0.05' : '>0');
+		tl.fromTo(r.querySelectorAll('.p10-pips i.on'), { scale:0 }, { scale:1, duration:0.25, stagger:0.12, ease:'back.out(2.4)' }, '>-0.15');
+	});
+	tl.to([rows[0], rows[1]], { opacity:0.55, duration:0.5 }, '>0.3');
+	tl.fromTo(rows[2].querySelector('.p10-bdg'), { scale:0 }, { scale:1, duration:0.4, ease:'back.out(2.4)' }, '<0.1');
+	tl.fromTo(also, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.45 }, '>0');
+	tl.fromTo(sayEl, { opacity:0, y:12 }, { opacity:1, y:0, duration:0.5 }, '>0.1');
+	finish(tl, step);
+}
+
+// ── 6 · NETWORK ──────────────────────────
+function renderNetwork(){
+	const step = stepById('network'), scene = aiScene(step);
+	const B = board(1100, 420);
+	const cust = pos(120, 55, `<span class="ai5-tag fl4 p10-solid">${icon('person')}<span>${t('ntCust')}</span></span>`);
+	const fd = pos(450, 55, `<div class="p10-nd fl4">${az('fd', 40)}<span class="p10-ct"><b>${t('ntFd')}</b><span>${t('ntFdD')}</span></span></div>`);
+	const dc = pos(100, 240, `<div class="p10-nd p10-col fl4">${icon('dc')}<b>${t('ntDc')}</b></div>`);
+	const er = pos(287, 196, `<span class="ai5-tag fl4 p10-solid">${az('er', 22)}<span>${t('ntEr')}</span></span>`);
+	const vpn = pos(287, 284, `<span class="ai5-tag fl4 p10-solid p10-struck">${icon('cross')}<span>${t('ntVpn')}</span></span>`);
+	const hub = box('p10-vnet fl4', 400, 150, 240, 180, `<div class="p10-vh">${az('vnet', 28)}<b>${t('ntHub')}</b></div><div class="p10-stack">` +
+		`<span class="ai5-tag fl4 p10-solid">${az('gw', 22)}<span>${t('ntGw')}</span></span><span class="ai5-tag fl4 p10-solid">${az('fw', 22)}<span>${t('ntFw')}</span></span></div>`);
+	const prod = box('p10-vnet fl4', 760, 10, 340, 180, `<div class="p10-vh">${az('vnet', 28)}<b>${t('ntProd')}</b></div>`);
+	const non = box('p10-vnet fl4', 760, 260, 340, 140, `<div class="p10-vh">${az('vnet', 28)}<b>${t('ntNon')}</b></div>`);
+	const store = pos(930, 135, `<div class="p10-nd fl4">${az('app', 36)}<span class="p10-ct"><b>${t('ntStore')}</b></span></div>`);
+	const dev = pos(930, 346, `<span class="ai5-tag fl4 p10-solid">${az('app', 22)}<span>${t('ntDev')}</span></span>`);
+	const lCust = line(B, 'M184 55 H346', 'var(--f4t)', { w:3 }), lFd = line(B, 'M554 55 H756', 'var(--f4t)', { w:3 });
+	const lEr = line(B, 'M179 240 H396', 'var(--f4t)', { w:4 });
+	const lP = line(B, 'M644 205 H702 V135 H756', 'var(--f4t)', { w:3 }), lN = line(B, 'M644 275 H702 V346 H756', 'var(--f4t)', { w:3 });
+	[hub, prod, non, cust, fd, dc, er, vpn, store, dev].forEach(n => B.root.appendChild(n));
+	const sayEl = p10Say(scene, B, 'networkSay', 'globe'); mount(scene);
+
+	const tl = mkTL(); head(tl, scene);
+	tl.fromTo(dc, { opacity:0, x:-40 }, { opacity:1, x:0, duration:0.45, ease:'power2.out' });
+	tl.fromTo([er, vpn], { opacity:0, y:10 }, { opacity:1, y:0, duration:0.35, stagger:0.15 }, '>0');
+	tl.fromTo(hub, { opacity:0, scale:0.92 }, { opacity:1, scale:1, duration:0.5, ease:'back.out(1.5)' }, '>0');
+	drawIn(tl, lEr, '>-0.2', 0.6);
+	tl.to(vpn, { opacity:0.5, duration:0.4 }, '>0.1');
+	tl.fromTo([prod, non], { opacity:0, x:40 }, { opacity:1, x:0, duration:0.5, stagger:0.15, ease:'power2.out' }, '>0.1');
+	tl.fromTo([store, dev], { opacity:0, scale:0.6 }, { opacity:1, scale:1, duration:0.4, stagger:0.12, ease:'back.out(2)' }, '>-0.2');
+	p10Seq(tl, [lP, lN], '>0', 0.45);
+	tl.fromTo([cust, fd], { opacity:0, y:-20 }, { opacity:1, y:0, duration:0.45, stagger:0.15 }, '>0.1');
+	p10Seq(tl, [lCust, lFd], '>0', 0.4);
+	tl.fromTo(sayEl, { opacity:0, y:12 }, { opacity:1, y:0, duration:0.5 }, '>0.1');
+	finish(tl, step);
+}
+
+// ── 7 · MIGRATE ──────────────────────────
+function renderMigrate(){
+	const step = stepById('migrate'), scene = aiScene(step);
+	const B = board(1100, 420);
+	const R = [
+		['globe', 'mgStore', 'migrate', 'mtAm', 'mtStoreD', 'app', 'tgApp', 'paas'],
+		[az('sqlvm', 34), 'mgOrders', 'dms', 'mtDms', 'mtOrdersD', 'sqlmi', 'tgMi', 'paas'],
+		['gear', 'mgErp', 'migrate', 'mtAm', 'mtErpD', 'vm', 'tgVm', 'iaas'],
+		['image', 'mgImg', 'databox', 'mtBox', 'mtImgD', 'storage', 'tgBlob', 'paas']
+	];
+	const CY = [42, 142, 242, 342];
+	const rows = R.map((r, i) => {
+		const ic = /^<img/.test(r[0]) ? r[0] : icon(r[0]);
+		const src = box('p10-mrow fl4', 0, CY[i] - 42, 300, 84, `<span class="p10-oi">${ic}</span><b>${t(r[1])}</b>`);
+		const tool = box('p10-mrow fl4', 380, CY[i] - 42, 320, 84, `<span class="p10-oi">${az(r[2], 40)}</span><span class="p10-ct"><b>${t(r[3])}</b><span>${t(r[4])}</span></span>`);
+		const dst = box('p10-mrow fl4', 780, CY[i] - 42, 320, 84, `<span class="p10-oi">${az(r[5], 40)}</span><span class="p10-ct"><b>${t(r[6])}</b><span><span class="p10-pill ${r[7]}">${t(r[7])}</span></span></span>`);
+		return [src, tool, dst, line(B, `M304 ${CY[i]} H376`, 'var(--f4t)', { w:3 }), line(B, `M704 ${CY[i]} H776`, 'var(--f4t)', { w:3 })];
+	});
+	rows.forEach(r => r.slice(0, 3).forEach(n => B.root.appendChild(n)));
+	const sayEl = p10Say(scene, B, 'migrateSay', 'rocket'); mount(scene);
+
+	const tl = mkTL(); head(tl, scene);
+	rows.forEach((r, i) => {
+		tl.fromTo(r[0], { opacity:0, x:-50 }, { opacity:1, x:0, duration:0.4, ease:'power3.out' }, i ? '>-0.1' : '>0');
+		drawIn(tl, r[3], '>-0.1', 0.3);
+		tl.fromTo(r[1], { opacity:0, scale:0.85 }, { opacity:1, scale:1, duration:0.35, ease:'back.out(1.6)' }, '>-0.1');
+		drawIn(tl, r[4], '>-0.1', 0.3);
+		tl.fromTo(r[2], { opacity:0, x:50 }, { opacity:1, x:0, duration:0.4, ease:'power3.out' }, '>-0.1');
+	});
+	tl.fromTo(sayEl, { opacity:0, y:12 }, { opacity:1, y:0, duration:0.5 }, '>0.1');
+	finish(tl, step);
+}
+
+// ── 8 · WHOLE ────────────────────────────
+function renderWhole(){
+	const step = stepById('whole'), scene = aiScene(step);
+	const B = board(1100, 386);
+	const T = (ic, k) => `<span class="ai5-tag">${ic}<span>${t(k)}</span></span>`, A = (n, k) => T(az(n, 22), k);
+	const BD = [
+		['fl1', 'bdIdent', 'key', [A('connect', 'cEntra'), A('mfa', 'cCa'), A('pim', 'cPim'), A('mg', 'cMg')]],
+		['fl2', 'bdData', 'box', [A('sqlmi', 'cMi'), A('storage', 'cBlob')]],
+		['fl3', 'bdCont', 'shield', [A('sqlmi', 'cFog'), A('vault', 'cGeo')]],
+		['fl4', 'bdInfra', 'gear', [A('app', 'cApp'), A('er', 'cEr'), A('fd', 'cFd'), A('migrate', 'cMigr')]]
+	];
+	const bands = BD.map((d, i) => box('p10-band ' + d[0], 0, i * 100, 690, 86, `<div class="p10-bl3">${icon(d[2])}<b>${t(d[1])}</b></div><div class="p10-bt">${d[3].join('')}</div>`));
+	const PL = [['pRel', 'shield'], ['pSec', 'lock'], ['pCost', 'coin'], ['pOps', 'gear'], ['pPerf', 'bolt']];
+	const waf = box('ai5-pnl p10-pnl p10-waf', 720, 0, 380, 386, `<div class="ai5-pnl-h">${t('wafHead')}</div>` +
+		PL.map(p => `<div class="p10-pil"><span class="p10-pc">${icon(p[1])}</span><span class="p10-ct"><b>${t(p[0])}</b><span>${t(p[0] + 'D')}</span></span><b class="p10-pt">${icon('check')}</b></div>`).join(''));
+	const foot = el('ai5-foot', t('wholeFoot')), nxt = nextLink('index.html', 'nextHub');
+	const end = el('p10-end'); end.appendChild(foot); end.appendChild(nxt);
+	[...bands, waf].forEach(n => B.root.appendChild(n));
+	scene.appendChild(B.root); scene.appendChild(end); mount(scene);
+
+	const tl = mkTL(); head(tl, scene);
+	bands.forEach((b, i) => {
+		tl.fromTo(b, { opacity:0, x:-50 }, { opacity:1, x:0, duration:0.45, ease:'power3.out' }, i ? '>-0.25' : '>0');
+		tl.fromTo(b.querySelectorAll('.ai5-tag'), { opacity:0, scale:0.8 }, { opacity:1, scale:1, duration:0.3, stagger:0.07, ease:'back.out(1.8)' }, '<0.15');
+	});
+	tl.fromTo(waf, { opacity:0, x:50 }, { opacity:1, x:0, duration:0.5, ease:'power2.out' }, '>-0.1');
+	tl.fromTo(waf.querySelectorAll('.p10-pil'), { opacity:0, y:12 }, { opacity:1, y:0, duration:0.35, stagger:0.12 }, '>-0.2');
+	tl.fromTo(waf.querySelectorAll('.p10-pt'), { scale:0 }, { scale:1, duration:0.35, stagger:0.12, ease:'back.out(2.4)' }, '>-0.3');
+	tl.fromTo(foot, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.5 }, '>0.1');
+	tl.fromTo(nxt, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.5 }, '>-0.2');
+	finish(tl, step);
+}
+
+const BUILDERS = { brief:renderBrief, identity:renderIdentity, data:renderData, continuity:renderContinuity, compute:renderCompute, network:renderNetwork, migrate:renderMigrate, whole:renderWhole };
+
+
+// ── CONTROLS ──────────────────────────────
+function focusHeading(){ const h=document.getElementById('stage-heading'); if(h){ try{ h.focus({preventScroll:true}); }catch(_){ h.focus(); } } }
+function interruptAnimation(){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; animating=false; }
+function next(){ interruptAnimation(); if(current<STEPS.length-1){ renderStep(current+1); focusHeading(); } }
+function prev(){ interruptAnimation(); if(current>0){ renderStep(current-1); focusHeading(); } }
+function reset(){ interruptAnimation(); renderStep(0); focusHeading(); }
+function replay(){ if(current<0) return; interruptAnimation(); renderStep(current); focusHeading(); }
+
+// ── Hide / show top bar (toggle; the ^ chevron flips to v when hidden) ──
+(function(){
+	const hideBtn=document.getElementById('header-hide'), revealBtn=document.getElementById('header-reveal');
+	if(!hideBtn||!revealBtn) return;
+	var hideBtnTop=document.getElementById('header-hide-top'); if(hideBtnTop) hideBtnTop.addEventListener('click',function(e){ e.stopPropagation(); hideBtn.click(); });
+	const hidePath=hideBtn.querySelector('svg path');
+	const UP='M6 15l6-6 6 6', DOWN='M6 9l6 6 6-6';   // ^ points up to hide the bar; flips to v to show it again
+	function setHidden(h){
+		document.body.classList.toggle('chrome-hidden',h);
+		hideBtn.setAttribute('aria-expanded',String(!h));
+		hideBtn.setAttribute('aria-label',h?'Show top bar':'Hide top bar');
+		hideBtn.title=(h?'Show top bar':'Hide top bar')+' (H)';
+		if(hidePath) hidePath.setAttribute('d',h?DOWN:UP);
+		try{localStorage.setItem('aw-tmpl-chrome-hidden',h?'1':'0');}catch(_){}
+		if(current>=0) requestAnimationFrame(()=>{ const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s); });
+	}
+	hideBtn.addEventListener('click',e=>{e.stopPropagation();setHidden(!document.body.classList.contains('chrome-hidden'));});
+	revealBtn.addEventListener('click',e=>{e.stopPropagation();setHidden(false);});
+	try{ if(localStorage.getItem('aw-tmpl-chrome-hidden')==='1') setHidden(true); }catch(_){}
+	document.addEventListener('keydown',e=>{ if(e.code==='KeyH'&&!e.metaKey&&!e.ctrlKey&&!e.altKey){ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return; e.preventDefault(); setHidden(!document.body.classList.contains('chrome-hidden')); } });
+})();
+
+document.getElementById('next-btn').addEventListener('click',e=>{e.stopPropagation();next();});
+document.getElementById('prev-btn').addEventListener('click',e=>{e.stopPropagation();prev();});
+document.getElementById('reset-btn').addEventListener('click',e=>{e.stopPropagation();reset();});
+document.getElementById('replay-btn').addEventListener('click',e=>{e.stopPropagation();replay();});
+
+// ── Clickable progress bar + step ticks ──
+(function(){
+	const track=document.querySelector('.progress-track'); if(!track) return;
+	for(let s=1; s<STEPS.length; s++){ const tk=document.createElement('div'); tk.className='progress-tick'; tk.style.left=(s/STEPS.length*100)+'%'; track.appendChild(tk); }
+	track.setAttribute('title','Jump to a step');
+	track.addEventListener('click', e=>{
+		const r=track.getBoundingClientRect(); const frac=(e.clientX-r.left)/r.width;
+		const target=Math.max(0, Math.min(STEPS.length-1, Math.floor(frac*STEPS.length)));
+		if(target!==current){ interruptAnimation(); renderStep(target); focusHeading(); }
+	});
+})();
+
+// ── Movable / pinnable control dock ───────
+(function(){
+	const dock=document.getElementById('controls'), grip=document.getElementById('ctrl-grip'), pin=document.getElementById('ctrl-pin');
+	if(!dock||!grip) return;
+	const KEY='aw-tmpl-controls-pos';
+	let dragging=false, sx=0, sy=0, bl=0, bt=0, moved=false;
+	function place(left,top){
+		const w=dock.offsetWidth, h=dock.offsetHeight;
+		left=Math.max(6, Math.min(left, window.innerWidth - w - 6));
+		top =Math.max(6, Math.min(top,  window.innerHeight - h - 6));
+		dock.style.left=left+'px'; dock.style.top=top+'px'; dock.style.right='auto'; dock.style.bottom='auto'; dock.style.transform='none';
+		document.body.classList.add('controls-floating');
+	}
+	function recenter(){
+		dock.style.left=dock.style.top=dock.style.right=dock.style.bottom=dock.style.transform='';
+		document.body.classList.remove('controls-floating');
+		try{ localStorage.removeItem(KEY); }catch(_){}
+	}
+	grip.addEventListener('pointerdown', e=>{
+		e.preventDefault(); dragging=true; moved=false;
+		const r=dock.getBoundingClientRect(); bl=r.left; bt=r.top; sx=e.clientX; sy=e.clientY;
+		try{ grip.setPointerCapture(e.pointerId); }catch(_){}
+	});
+	grip.addEventListener('pointermove', e=>{
+		if(!dragging) return;
+		const dx=e.clientX-sx, dy=e.clientY-sy;
+		if(Math.abs(dx)>2||Math.abs(dy)>2) moved=true;
+		place(bl+dx, bt+dy);
+	});
+	function end(e){ if(!dragging) return; dragging=false; try{ grip.releasePointerCapture(e.pointerId); }catch(_){}
+		if(moved){ try{ const r=dock.getBoundingClientRect(); localStorage.setItem(KEY, JSON.stringify({left:r.left, top:r.top})); }catch(_){} } }
+	grip.addEventListener('pointerup', end); grip.addEventListener('pointercancel', end);
+	// keyboard-nudge the dock when the grip is focused (arrow keys; Shift = larger step)
+	grip.addEventListener('keydown', e=>{
+		const d=e.shiftKey?40:12; const r=dock.getBoundingClientRect(); let ok=true;
+		if(e.key==='ArrowLeft') place(r.left-d, r.top);
+		else if(e.key==='ArrowRight') place(r.left+d, r.top);
+		else if(e.key==='ArrowUp') place(r.left, r.top-d);
+		else if(e.key==='ArrowDown') place(r.left, r.top+d);
+		else ok=false;
+		if(ok){ e.preventDefault(); e.stopPropagation(); }
+	});
+	if(pin) pin.addEventListener('click', e=>{ e.stopPropagation(); recenter(); });
+	window.addEventListener('resize', ()=>{ if(document.body.classList.contains('controls-floating')){ const r=dock.getBoundingClientRect(); place(r.left, r.top); } });
+	try{ const s=JSON.parse(localStorage.getItem(KEY)||'null'); if(s && typeof s.left==='number') place(s.left, s.top); }catch(_){}
+})();
+
+// ── Make callout / outline / caption draggable (same pointer-drag as the control dock) ──
+function dragify(el, key){
+	if(!el || el.__awDrag) return; el.__awDrag=true;
+	let dragging=false, sx=0, sy=0, bl=0, bt=0, moved=false;
+	const resizable = getComputedStyle(el).resize !== 'none';
+	const sizeKey = key ? key + '-size' : null;
+	// snapshot the home position + size so the reset pin can restore it exactly
+	const home={ position:el.style.position, left:el.style.left, top:el.style.top,
+		right:el.style.right, bottom:el.style.bottom, margin:el.style.margin, transform:el.style.transform,
+		width:el.style.width, height:el.style.height };
+	// reset "pin" — hidden until the panel is dragged or resized off its home spot
+	const pin=document.createElement('button');
+	pin.type='button'; pin.className='aw-drag-reset';
+	pin.title=t('resetPos'); pin.setAttribute('aria-label', t('resetPos'));
+	pin.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>';
+	// keep the pin inside scrollable / resizable panels so it isn't clipped
+	const oy=getComputedStyle(el).overflowY; const clips=(oy==='auto'||oy==='scroll'||oy==='hidden');
+	pin.style.top=clips?'8px':'-10px'; pin.style.right=clips?'8px':'-10px';
+	el.appendChild(pin);
+	function showPin(on){ pin.style.display=on?'flex':'none'; }
+	pin.addEventListener('pointerdown', e=>{ e.stopPropagation(); });
+	pin.addEventListener('click', e=>{
+		e.preventDefault(); e.stopPropagation();
+		el.style.position=home.position; el.style.left=home.left; el.style.top=home.top;
+		el.style.right=home.right; el.style.bottom=home.bottom; el.style.margin=home.margin; el.style.transform=home.transform;
+		el.style.width=home.width; el.style.height=home.height;
+		if(key){ try{ localStorage.removeItem(key); }catch(_){} }
+		if(sizeKey){ try{ localStorage.removeItem(sizeKey); }catch(_){} }
+		showPin(false);
+	});
+	function fix(left,top){
+		const w=el.offsetWidth, h=el.offsetHeight;
+		left=Math.max(6, Math.min(left, window.innerWidth  - w - 6));
+		top =Math.max(6, Math.min(top,  window.innerHeight - h - 6));
+		el.style.position='fixed'; el.style.left=left+'px'; el.style.top=top+'px';
+		el.style.right='auto'; el.style.bottom='auto'; el.style.margin='0'; el.style.transform='none';
+	}
+	// persist user resizes (the CSS resize grip writes inline width/height; content changes don't)
+	if(resizable && typeof ResizeObserver!=='undefined'){
+		let rt;
+		new ResizeObserver(()=>{
+			if(el.style.width || el.style.height){
+				showPin(true);
+				if(sizeKey){ clearTimeout(rt); rt=setTimeout(()=>{ try{ localStorage.setItem(sizeKey, JSON.stringify({w:el.style.width, h:el.style.height})); }catch(_){} }, 150); }
+			}
+		}).observe(el);
+	}
+	el.addEventListener('pointerdown', e=>{
+		if(e.button!==0 || (e.target.closest && e.target.closest('a,button,select,input,textarea'))) return;
+		if(resizable){ const r=el.getBoundingClientRect(); if(e.clientX>r.right-18 && e.clientY>r.bottom-18) return; } // let the resize grip win
+		dragging=true; moved=false;
+		const r=el.getBoundingClientRect(); bl=r.left; bt=r.top; sx=e.clientX; sy=e.clientY;
+		fix(bl, bt);   // pin at the current spot first, so there's no jump
+		try{ el.setPointerCapture(e.pointerId); }catch(_){}
+		e.preventDefault();
+	});
+	el.addEventListener('pointermove', e=>{
+		if(!dragging) return;
+		const dx=e.clientX-sx, dy=e.clientY-sy;
+		if(Math.abs(dx)>2||Math.abs(dy)>2) moved=true;
+		fix(bl+dx, bt+dy);
+	});
+	function end(e){
+		if(!dragging) return; dragging=false;
+		try{ el.releasePointerCapture(e.pointerId); }catch(_){}
+		if(moved){ showPin(true); if(key){ try{ const r=el.getBoundingClientRect(); localStorage.setItem(key, JSON.stringify({left:r.left, top:r.top})); }catch(_){} } }
+	}
+	el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+	if(sizeKey){ try{ const z=JSON.parse(localStorage.getItem(sizeKey)||'null'); if(z && (z.w||z.h)){ if(z.w) el.style.width=z.w; if(z.h) el.style.height=z.h; showPin(true); } }catch(_){} }
+	if(key){ try{ const s=JSON.parse(localStorage.getItem(key)||'null'); if(s && isFinite(s.left) && isFinite(s.top)){ fix(s.left, s.top); showPin(true); } }catch(_){} }
+}
+dragify(document.getElementById('step-outline'), 'aw-tmpl-outline-pos');
+dragify(document.getElementById('aw-caption'), 'aw-tmpl-caption-pos');
+
+// ── Speed ─────────────────────────────────
+const SPEED_STEPS=[0.5,0.75,1,1.25,1.5,2]; const BASE_TIMESCALE=0.25;
+let speedIndex=SPEED_STEPS.indexOf(1);
+try{ const sp=parseInt(localStorage.getItem('aw-tmpl-speed'),10); if(!isNaN(sp)&&sp>=0&&sp<SPEED_STEPS.length) speedIndex=sp; }catch(_){}
+const speedLabel=document.getElementById('speed-label'), speedDownBtn=document.getElementById('speed-down'), speedUpBtn=document.getElementById('speed-up');
+function saveSpeed(){ try{ localStorage.setItem('aw-tmpl-speed', String(speedIndex)); }catch(_){} }
+function syncSpeedUI(){ const spd=SPEED_STEPS[speedIndex]; speedLabel.textContent=spd+'\u00d7'; speedDownBtn.disabled=speedIndex===0; speedUpBtn.disabled=speedIndex===SPEED_STEPS.length-1; gsap.globalTimeline.timeScale(spd*BASE_TIMESCALE); }
+syncSpeedUI();
+speedDownBtn.addEventListener('click',e=>{e.stopPropagation(); if(speedIndex>0){speedIndex--;syncSpeedUI();saveSpeed();}});
+speedUpBtn.addEventListener('click',e=>{e.stopPropagation(); if(speedIndex<SPEED_STEPS.length-1){speedIndex++;syncSpeedUI();saveSpeed();}});
+
+// ── Keyboard ──────────────────────────────
+if (window.AW && AW.keyboard) { AW.keyboard.bind({ next, prev, reset, replay }); }
+else { document.addEventListener('keydown', e => {
+	const tag=(e.target&&e.target.tagName||'').toLowerCase();
+	if(tag==='input'||tag==='textarea'||tag==='select') return;
+	// Space/Enter must reach a focused control, otherwise the focused button can never be pressed by keyboard
+	const onControl=!!(e.target&&e.target.closest&&e.target.closest('button,a[href],summary,[role="button"],[role="switch"]'));
+	if (['Space','Enter'].includes(e.code) && onControl) return;
+	if (['Space','ArrowRight','Enter'].includes(e.code)) { e.preventDefault(); next(); }
+	else if (e.code==='ArrowLeft') { e.preventDefault(); prev(); }
+	else if (e.code==='KeyR') { e.preventDefault(); reset(); }
+	else if (e.code==='KeyP') { e.preventDefault(); replay(); }
+}); }
+
+// ── Touch swipe (tablets) ─────────────────
+(function(){
+	const surf=document.getElementById('stage'); if(!surf) return;
+	let x0=null,y0=null,t0=0;
+	surf.addEventListener('touchstart',e=>{ if(e.touches.length!==1){x0=null;return;} x0=e.touches[0].clientX; y0=e.touches[0].clientY; t0=Date.now(); },{passive:true});
+	surf.addEventListener('touchend',e=>{
+		if(x0===null) return; const tch=e.changedTouches[0]; const dx=tch.clientX-x0, dy=tch.clientY-y0; x0=null;
+		if(Date.now()-t0>800) return;
+		if(Math.abs(dx)>50 && Math.abs(dx)>Math.abs(dy)*1.6){ if(dx<0) next(); else prev(); }
+	},{passive:true});
+})();
+
+// ── Keyboard shortcut help overlay ────────
+(function(){
+	const overlay=document.getElementById('shortcut-overlay'), btn=document.getElementById('help-toggle'), closeBtn=document.getElementById('sc-close'), list=document.getElementById('sc-list');
+	if(!overlay||!list) return;
+	const ROWS=[[['\u2192','Space'],'scNext'],[['\u2190'],'scPrev'],[['R'],'scRestart'],[['P'],'scReplay'],[['H'],'scHide'],[['?'],'scHelp']];
+	window.buildShortcuts=function(){ const title=document.getElementById('sc-title'); if(title) title.textContent=t('scTitle');
+		list.innerHTML=ROWS.map(([keys,k])=>`<li><span>${t(k)}</span><span class="sc-keys">${keys.map(x=>`<kbd>${x}</kbd>`).join('')}</span></li>`).join(''); };
+	buildShortcuts();
+	function open(){ overlay.removeAttribute('hidden'); if(closeBtn) closeBtn.focus(); }
+	function close(){ overlay.setAttribute('hidden',''); if(btn) btn.focus(); }
+	function toggle(){ overlay.hasAttribute('hidden')?open():close(); }
+	if(btn) btn.addEventListener('click',e=>{e.stopPropagation();toggle();});
+	if(closeBtn) closeBtn.addEventListener('click',e=>{e.stopPropagation();close();});
+	const bd=overlay.querySelector('.sc-backdrop'); if(bd) bd.addEventListener('click',close);
+	document.addEventListener('keydown',e=>{ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return;
+		if(e.key==='?'){ e.preventDefault(); toggle(); }
+		else if(e.key==='Escape' && !overlay.hasAttribute('hidden')){ e.preventDefault(); close(); } });
+})();
+
+// ── Resize (re-fit only — never rebuild or replay the animation) ──
+let resizeTimer, lastStageW=0, lastStageH=0;
+window.addEventListener('resize',()=>{ clearTimeout(resizeTimer); resizeTimer=setTimeout(()=>{
+	if(current<0) return;
+	const box=stage.getBoundingClientRect();
+	if(Math.abs(box.width-lastStageW)<1 && Math.abs(box.height-lastStageH)<1) return;   // ignore no-op reflows (focus/URL-bar) so the animation never restarts
+	lastStageW=box.width; lastStageH=box.height;
+	const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s);
+},200); });
+
+// ── Init ──────────────────────────────────
+setLanguage(currentLang);
+counter.textContent = `1 / ${STEPS.length}`;
+const urlStep = parseInt(new URLSearchParams(location.search).get('step'), 10);   // ?step=N opens on step N
+renderStep((!isNaN(urlStep) && urlStep>=1 && urlStep<=STEPS.length) ? urlStep-1 : 0);
+</script>
+<script>
+// ── Start gate · hold autoplay until the viewer clicks Play (empty stage + centered Play) ──
+(function () {
+	if (new URLSearchParams(location.search).has('present')) return;
+	var stage = document.getElementById('stage');
+	if (!stage) return;
+	function freeze() { try { if (window.gsap && gsap.globalTimeline) gsap.globalTimeline.pause(); } catch (_) {} }
+	freeze(); requestAnimationFrame(freeze);
+	document.body.classList.add('aw-prestart');
+	try { if (typeof stopAudio === 'function') stopAudio(); } catch (_) {}
+	stage.style.transition = 'opacity .55s ease';
+	stage.style.opacity = '0';
+
+	var T = {
+		title: { en:'Ready to begin?', es:'\u00BFTodo listo?', ja:'\u6E96\u5099\u306F\u3044\u3044\u3067\u3059\u304B\uFF1F', ko:'\uC2DC\uC791\uD560 \uC900\uBE44\uAC00 \uB418\uC168\uB098\uC694?', pt:'Tudo pronto?' },
+		sound: { en:'Sound', es:'Sonido', ja:'\u97F3\u58F0', ko:'\uC18C\uB9AC', pt:'Som' },
+		cc:    { en:'Subtitles (CC)', es:'Subt\u00EDtulos (CC)', ja:'\u5B57\u5E55\uFF08CC\uFF09', ko:'\uC790\uB9C9 (CC)', pt:'Legendas (CC)' },
+		start: { en:'Start presentation', es:'Iniciar presentaci\u00F3n', ja:'\u30D7\u30EC\u30BC\u30F3\u3092\u958B\u59CB', ko:'\uD504\uB808\uC820\uD14C\uC774\uC158 \uC2DC\uC791', pt:'Iniciar apresenta\u00E7\u00E3o' }
+	};
+	function L(){ return (typeof currentLang === 'string' && currentLang) || (typeof CURRENT_LANG === 'string' && CURRENT_LANG) || 'en'; }
+	function t(k){ var m = T[k], l = L(); return m[m[l] ? l : 'en']; }
+	function awAudioState(){ try{ if(typeof window.__awAudioOn==='function') return !!window.__awAudioOn(); }catch(_){} return (typeof audioEnabled!=='undefined') && !!audioEnabled; }
+	function awCcState(){ try{ if(typeof window.__awCcOn!=='undefined' && window.__awCcOn!==null) return !!window.__awCcOn; }catch(_){} return (typeof ccPref!=='undefined') && !!ccPref; }
+
+	var style = document.createElement('style');
+	style.textContent =
+		'body.aw-prestart #controls{opacity:.4;pointer-events:none;transition:opacity .4s ease}' +
+		'#aw-play-card{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:50;box-sizing:border-box;width:min(90vw,22rem);padding:1.35rem 1.5rem 1.5rem;border-radius:16px;background:var(--theme-card-background,#fff);color:var(--theme-text,#222);border:1px solid var(--theme-border,rgba(0,0,0,.1));box-shadow:0 24px 60px rgba(0,0,0,.28);transition:opacity .3s ease,transform .3s ease}' +
+		'#aw-play-card.aw-hide{opacity:0;transform:translate(-50%,-50%) scale(.96);pointer-events:none}' +
+		'body.theme-dark #aw-play-card{border-color:rgba(255,255,255,.12);box-shadow:0 24px 60px rgba(0,0,0,.55)}' +
+		'body.present-mode #aw-play-card{display:none!important}' +
+		'.aw-card-title{margin:0 0 1rem;text-align:center;font-size:1.02rem;font-weight:800;letter-spacing:.03em;text-transform:uppercase;opacity:.85}' +
+		'.aw-row{display:flex;align-items:center;gap:.65rem;padding:.6rem 0}' +
+		'.aw-row + .aw-row{border-top:1px solid var(--theme-border,rgba(0,0,0,.08))}' +
+		'.aw-row-ico{flex:none;width:1.5rem;text-align:center;font-size:1.15rem;line-height:1}' +
+		'.aw-row-lbl{flex:1 1 auto;font-size:.9rem;font-weight:600}' +
+		'.aw-row-state{flex:none;min-width:2.5rem;text-align:right;font-size:.68rem;font-weight:800;letter-spacing:.05em;opacity:.5}' +
+		'.aw-row-state.on{color:var(--theme-primary,#0078d4);opacity:1}' +
+		'.aw-switch{position:relative;flex:none;width:44px;height:24px;padding:0;border:none;border-radius:999px;cursor:pointer;background:var(--theme-border,#c7c7d1);transition:background .18s ease}' +
+		'.aw-switch.on{background:var(--theme-primary,#0078d4)}' +
+		'.aw-switch::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.4);transition:transform .18s ease}' +
+		'.aw-switch.on::after{transform:translateX(20px)}' +
+		'#aw-start{margin-top:1.2rem;width:100%;display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:.8rem 1rem;border:none;border-radius:11px;cursor:pointer;background:var(--theme-primary,#0078d4);color:#fff;font-size:.96rem;font-weight:700;letter-spacing:.01em;box-shadow:0 8px 22px var(--theme-primary-translucent,rgba(0,120,212,.45));transition:transform .15s ease}' +
+		'#aw-start:hover{transform:translateY(-2px)}#aw-start:active{transform:scale(.98)}' +
+		'#aw-start svg{width:18px;height:18px;flex:none}';
+	document.head.appendChild(style);
+
+	var card = document.createElement('div');
+	card.id = 'aw-play-card'; card.setAttribute('role', 'dialog'); card.setAttribute('aria-modal', 'true');
+	card.innerHTML =
+		'<div class="aw-card-title"></div>' +
+		'<div class="aw-row" data-k="audio"><span class="aw-row-ico" aria-hidden="true">\uD83D\uDD0A</span><span class="aw-row-lbl"></span><span class="aw-row-state"></span><button type="button" class="aw-switch" role="switch"></button></div>' +
+		'<div class="aw-row" data-k="cc"><span class="aw-row-ico" aria-hidden="true">\uD83D\uDCAC</span><span class="aw-row-lbl"></span><span class="aw-row-state"></span><button type="button" class="aw-switch" role="switch"></button></div>' +
+		'<button type="button" id="aw-start"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 5v14l11-7z"/></svg><span class="aw-start-lbl"></span></button>';
+	document.body.appendChild(card);
+
+	var titleEl = card.querySelector('.aw-card-title');
+	var startBtn = card.querySelector('#aw-start');
+	var ROWS = [ { k:'audio', lbl:'sound', el:card.querySelector('.aw-row[data-k="audio"]'), read:awAudioState, toggle:'audio-toggle' },
+	             { k:'cc',    lbl:'cc',    el:card.querySelector('.aw-row[data-k="cc"]'),    read:awCcState,    toggle:'cc-toggle' } ];
+
+	function render(){
+		titleEl.textContent = t('title'); card.setAttribute('aria-label', t('title'));
+		startBtn.querySelector('.aw-start-lbl').textContent = t('start');
+		ROWS.forEach(function(r){
+			var on = r.read();
+			r.el.querySelector('.aw-row-lbl').textContent = t(r.lbl);
+			var st = r.el.querySelector('.aw-row-state'); st.textContent = on ? 'ON' : 'OFF'; st.classList.toggle('on', on);
+			var sw = r.el.querySelector('.aw-switch'); sw.classList.toggle('on', on); sw.setAttribute('aria-checked', on ? 'true' : 'false');
+			sw.setAttribute('aria-label', t(r.lbl) + ' \u2014 ' + (on ? 'on' : 'off'));
+		});
+	}
+	ROWS.forEach(function(r){
+		r.el.querySelector('.aw-switch').addEventListener('click', function(e){ e.stopPropagation(); var b = document.getElementById(r.toggle); if(b) b.click(); render(); });
+	});
+	render();
+
+	var sel = document.getElementById('lang-select');
+	// Only re-freeze while the gate is still up — after Play, freezing would pause the
+	// global timeline for good and every later scene would stay at opacity 0 (blank stage).
+	if (sel) sel.addEventListener('change', function () { if (done) return; render(); freeze(); });
+
+	function gateKeys(e) {
+		if (done) return;
+		var tag = (e.target && e.target.tagName || '').toLowerCase();
+		if (tag === 'select' || tag === 'input' || tag === 'textarea') return;
+		if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'].indexOf(e.key) >= 0) { e.preventDefault(); e.stopPropagation(); }
+	}
+	document.addEventListener('keydown', gateKeys, true);
+
+	var done = false;
+	function start() {
+		if (done) return; done = true;
+		document.removeEventListener('keydown', gateKeys, true);
+		document.body.classList.remove('aw-prestart');
+		card.classList.add('aw-hide');
+		setTimeout(function () { if (card.parentNode) card.parentNode.removeChild(card); if (style.parentNode) style.parentNode.removeChild(style); }, 420);
+		setTimeout(function () {
+			try { if (window.gsap && gsap.globalTimeline) gsap.globalTimeline.play(); } catch (_) {}
+			stage.style.opacity = '1';
+			try { if (typeof interruptAnimation === 'function') interruptAnimation(); } catch (_) {}
+			try { if (typeof renderStep === 'function') renderStep(typeof current === 'number' && current >= 0 ? current : 0); } catch (_) {}
+		}, 380);
+	}
+	startBtn.addEventListener('click', start);
+	// the gate is aria-modal, so keyboard and screen-reader users must land on it rather than tab the header behind it
+	startBtn.focus({ preventScroll: true });
+}());
+</script>
+<script>
+/* ── Audio-synced animation speed ──────────────────────────────────────────────────────────
+   ANIM[i]       = real seconds step i takes at the 1x speed (measured with BASE_TIMESCALE applied)
+   AUDIO_SECS[l] = length of each recorded clip per language (from the generated MP3s)
+   With narration ON the animation runs at clamp(ANIM/clip, 0.6, 2.2) x BASE_TIMESCALE x the chosen speed, so a step's build
+   finishes about when its voice does. Narration OFF restores the chosen speed. */
+(function () {
+	const ANIM = [33.1,22.2,18.2,24.2,21.6,27,25.2,18.8];
+	const AUDIO_SECS = {"en":[22.2,22.66,27.17,24.65,23.81,26.57,23.95,26.66],"es":[19.46,23.06,25.66,24.41,25.06,26.16,24.6,23.71],"ja":[24.82,28.1,30.26,28.97,30.96,31.66,28.2,28.42],"ko":[19.25,25.3,26.81,25.9,24.86,26.35,26.06,25.75],"pt":[20.06,22.15,26.45,24.31,26.5,25.37,25.2,24.36]};
+	const MIN = 0.6, MAX = 2.2;
+	function clipSecs(i) { const a = AUDIO_SECS[currentLang] || AUDIO_SECS.en; return a && a[i]; }
+	function userSpeed() { try { return SPEED_STEPS[speedIndex]; } catch (_) { return 1; } }
+	function apply(i) {
+		try {
+			if (!window.gsap) return;
+			const D = ANIM[i], A = clipSecs(i);
+			if (audioEnabled && D && A) gsap.globalTimeline.timeScale(Math.max(MIN, Math.min(MAX, D / A)) * BASE_TIMESCALE * userSpeed());
+			else gsap.globalTimeline.timeScale(BASE_TIMESCALE * userSpeed());
+		} catch (_) {}
+	}
+	const render = renderStep;
+	renderStep = function (i) { if (typeof i === 'number' && i >= 0) apply(i); return render.apply(this, arguments); };
+	const speedUI = syncSpeedUI;
+	syncSpeedUI = function () { speedUI.apply(this, arguments); if (current >= 0) apply(current); };
+	const audioBtnEl = document.getElementById('audio-toggle');
+	if (audioBtnEl) audioBtnEl.addEventListener('click', function () { if (current >= 0) apply(current); });
+})();
+</script>
+<script src="../../lib/js/aw-present.js"></script>
+<script src="../../lib/js/aw-declutter.js"></script>
+<script src="../../lib/js/aw-url-state.js"></script>
+<script src="../../lib/js/aw-like-dock.js"></script>
+
+</body>
+</html>

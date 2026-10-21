@@ -2,7 +2,7 @@
 
 **Source page:** `index.html`
 
-Fifteen spoken blocks: welcome, certification study paths, then thirteen journey cards. The closing trophy banner is not narrated.
+Seventeen spoken blocks: welcome, certification study paths, then fifteen journey cards, in the order they appear on the page. The closing trophy banner is not narrated.
 
 <!-- Practice assessment access: https://learn.microsoft.com/credentials/certifications/practice-assessments-for-microsoft-certifications and https://learn.microsoft.com/credentials/certifications/resources/study-guides/ai-901 -->
 
@@ -12,7 +12,7 @@ Fifteen spoken blocks: welcome, certification study paths, then thirteen journey
 
 [warm] Azure Animations へようこそ。
 [500ms]
-[calm] 短いビジュアルストーリーで、Azure、AI、Copilot、GitHub を学びましょう。
+[calm] 短いビジュアルストーリーで、Azure、AI、データベース、Copilot、GitHub を学びましょう。
 興味のあるテーマから始めても、認定資格に向けた学習パスを選んでもかまいません。
 自分に合った始め方を見つけましょう。
 
@@ -20,7 +20,7 @@ Fifteen spoken blocks: welcome, certification study paths, then thirteen journey
 
 [curious] 認定資格の取得を目指していますか？
 [500ms]
-[calm] Azure、AI、GitHub の学習パスを選びましょう。
+[calm] Azure、AI、Microsoft 365、GitHub の学習パスを選びましょう。
 レッスンを進め、足りない分野を確認したら、提供されている無料の公式練習用評価で力試しができます。
 評価を受けるには、Microsoft Learn または AI Skills Navigator へのサインインが必要です。
 
@@ -60,18 +60,26 @@ Fifteen spoken blocks: welcome, certification study paths, then thirteen journey
 
 [calm] セキュリティ. Key Vault、マネージド ID、ゼロトラスト。
 
-## Step 12 · Integration & Messaging
+## Step 12 · Databases for AI Apps
+
+[calm] AI アプリのためのデータベース. Cosmos DB と PostgreSQL を最初のクエリからベクトル検索まで。アーキテクト向けの SQL とデータレイクの設計も扱います。
+
+## Step 13 · Integration & Messaging
 
 [calm] 統合とメッセージング。キュー、Service Bus、Event Hubs、Event Grid、そして接着剤としての Functions。
 
-## Step 13 · Identity and governance
+## Step 14 · Identity and governance
 
 [calm] ID とガバナンス。テナント、ユーザー、ゲスト、サインイン、管理ロール、スコープ、ポリシー、コスト。どの組織も最初に固める土台です。
 
-## Step 14 · Azure Fundamentals
+## Step 15 · Azure Fundamentals
 
 [calm] Azure の基礎. Contoso Retail のクラウド移行。店舗を計画し、構築し、保護し、運用します。AZ-900 試験の出題範囲に沿っています。
 
-## Step 15 · GitHub · Contoso Delivery
+## Step 16 · Azure Architect
+
+[calm] Azure アーキテクト. Contoso の課題を一つずつ題材に設計判断を学び、解決策を提案してトレードオフを説明します。AZ-305 試験の出題範囲に沿っています。
+
+## Step 17 · GitHub · Contoso Delivery
 
 [calm] GitHub · Contoso のデリバリー. 雨の午後から Azure で動くコードまで、一つの小売プロジェクトを追いかけます。イシューとエピック、ボード、ブランチ規則、自動チェック、そしてパスワードをどこにも保存しないデプロイ。

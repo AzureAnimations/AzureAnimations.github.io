@@ -1,0 +1,2885 @@
+<!DOCTYPE html>
+<!-- Narration script: /narration/Architect/DataAvailability.md -->
+<!--
+	Azure Animations — STARTER TEMPLATE
+	====================================
+	Copy this file to <Area>/<Sub>/YourTopic.html (e.g. AI/Foundry/MyTopic.html) and:
+	  1. Set <title>, #page-title, and the back-link href.
+	  2. Rename/expand the sample steps. Each STEPS[] entry pairs with one
+	     render<Xxx>Step(). The samples demonstrate the reusable building blocks —
+	     delete the ones you don't need, they are all optional:
+	       • PROBLEM   — a centered hero .card
+	       • FLOW      — a .ta-flow of .agent-node boxes joined by .ta-arrow (input → process → output)
+	       • CODE      — a VS Code-style .code-card (use .code-duo for a request/response pair)
+	       • USE CASES — a .uc-grid of .uc-card tiles
+	       • RECAP     — a .card + .value-chip row + closing line
+	  3. Fill the English I18N block, then add es/ja/ko/pt (full objects OR the
+	     { ...I18N.en, overrides } spread) and matching <option>s in #lang-select.
+	  4. Prefer Microsoft Fluent icons/emoji over raw OS emoji for anything shown
+	     on a projector. Source priority: Azure service icons (local lib
+	     ../../lib/icons/…) → Fluent System Icons → Fluent UI Emoji → Fluent Emoji
+	     Animated → Twemoji (last resort, CC-BY).
+	  5. Run the Definition-of-Done checklist before publishing.
+
+	DESIGN NOTES
+	  • Accent colour is --theme-tertiary (Microsoft purple #5c2d91); primary blue
+	    and green (#10a37f) act as secondary / positive accents.
+	  • The bottom #controls is a compact translucent "icon dock" of glyph-only
+	    buttons; their localized labels live in the tooltip (title), set in setLanguage().
+	  • Audio narration is optional: list one clip per step (in order) in AUDIO_FILES[]
+	    and an Audio toggle appears automatically. Present mode (dual-window) ships via
+	    aw-present.js at the bottom — it self-installs a "Present" button in the header.
+
+	NOTE: the ../../lib/ and ../../../img/ paths assume this file lives two levels
+	under static/v2/ (e.g. static/v2/AI/Foundry/). Adjust depth if you move it.
+-->
+<html lang="en">
+<head>
+	<script src="/js/tracking.js"></script>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+	<title>Keep data available: HA and DR for databases and storage — Azure Animations</title>
+	<link rel="icon" type="image/png" href="../../img/favicon.png" />
+
+	<link rel="stylesheet" href="https://unpkg.com/@microsoft/atlas-css/dist/index.css" />
+	<script src="../../lib/vendor/gsap-3.15.0.min.js"></script>
+
+	<!-- AnimationWorks shared lib -->
+	<script src="../../lib/js/aw-easings.js"></script>
+	<script src="../../lib/js/aw-motion.js"></script>
+	<script src="../../lib/js/aw-theme.js"></script>
+	<script src="../../lib/js/aw-keyboard.js"></script>
+	<script src="../../lib/js/aw-captions.js"></script>
+
+<style>
+	/* ── SHELL ─────────────────────────────── */
+	/* Brand palette — reference these tokens; don't hardcode hex */
+	:root {
+		--aw-purple:#5c2d91;   /* primary accent — titles, callouts, arrows, progress, agents */
+		--aw-blue:#0078d4;     /* secondary — inputs, links, "the model", primary button */
+		--aw-green:#10a37f;    /* positive — success, grounded/correct results, value chips */
+		--aw-orange:#e97526;   /* tools / actions — tool calls, function calling, side-effects */
+		--aw-pink:#d24aa8;     /* highlight — a fourth category / emphasis */
+	}
+	html, body { height:100%; margin:0; }
+	html { font-size:100%; }
+	body {
+		display:flex; flex-direction:column; height:100vh;
+		overflow:hidden;
+		font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif;
+		color: var(--theme-text);
+		background:
+			radial-gradient(circle at 15% 20%, rgba(92,45,145,0.18) 0%, transparent 55%),
+			radial-gradient(circle at 85% 80%, rgba(0,120,212,0.18) 0%, transparent 55%),
+			var(--theme-body-background);
+	}
+	.app-header { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:1rem; flex-shrink:0; font-size:16px; }
+	.app-header > :last-child { justify-self:end; }
+
+	/* #stage fills the space between the top bar and the control dock, and centers the fixed 16:9 frame. */
+	#stage {
+		position:relative; flex:1 1 auto; width:100%; min-height:0;
+		display:flex; align-items:center; justify-content:center;
+		overflow:hidden; container-type:size;
+		padding:1.75rem 2.75rem 5rem;   /* breathing room around the frame; bottom clears the fixed #controls dock */
+	}
+	#stage:focus-visible, button:focus-visible, a:focus-visible, select:focus-visible {
+		outline:2px solid var(--theme-primary, #0078d4); outline-offset:3px; border-radius:4px;
+	}
+	/* The visible rectangle: the largest 16:9 box that fits the stage. All scenes are drawn inside it. */
+	#stage-frame {
+		position:relative; overflow:hidden;
+		width: min(100cqw, calc(100cqh * 16 / 9));
+		aspect-ratio: 16 / 9; max-width:100%; max-height:100%;
+		border-radius:16px;
+		background: rgba(0,0,0,0.015);
+		box-shadow: 0 12px 44px rgba(0,0,0,0.22);
+	}
+	body.theme-dark #stage-frame { background: rgba(255,255,255,0.025); }
+	/* Coloured gradient border (brand purple → blue → pink) drawn as a masked ring — no interior tint. */
+	#stage-frame::before {
+		content:""; position:absolute; inset:0; border-radius:inherit; padding:2.5px;
+		background: linear-gradient(135deg, var(--aw-purple) 0%, var(--aw-blue) 55%, var(--aw-pink) 100%);
+		-webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+		mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+		-webkit-mask-composite: xor; mask-composite: exclude;
+		pointer-events:none; z-index:20;
+	}
+	#fx-svg { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:6; overflow:visible; }
+
+	/* ── SCENE ─────────────────────────────── */
+	.scene {
+		position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+		transform-origin:center center;
+		width:min(1150px, 96%); z-index:10;
+		display:flex; flex-direction:column; align-items:center; gap:1.4rem;
+	}
+	/* 200ms fade in / out between every step */
+	@keyframes awSceneIn { from { opacity:0; } to { opacity:1; } }
+	@keyframes awSceneOut { from { opacity:1; } to { opacity:0; } }
+	.scene.scene-in { animation: awSceneIn 0.2s ease both; }
+	.scene.scene-out { animation: awSceneOut 0.2s ease both; }
+	.scene-title { font-size:2.5rem; font-weight:700; color:var(--theme-tertiary, #5c2d91); margin:0; text-align:center; opacity:0; }
+	body.theme-dark .scene-title { color:#c9a5e8; }
+	/* lead spans wide (near the scene width) to use the side gutters and stay within 2 lines — trim copy if it wraps to 3 */
+	.scene-lead { margin:0; text-align:center; font-size:1.35rem; color:var(--theme-text); max-width:min(1180px,96%); line-height:1.5; opacity:0; }
+
+	/* ── CALLOUT · draggable, slightly see-through so it never fully blocks the diagram ── */
+	.callout {
+		position:absolute; max-width:340px; padding:1rem 1.2rem;
+		background:var(--theme-body-background);
+		background:color-mix(in srgb, var(--theme-body-background) 84%, transparent);
+		-webkit-backdrop-filter:blur(5px); backdrop-filter:blur(5px);
+		border:1px solid var(--theme-border);
+		border-left:4px solid var(--theme-tertiary, #5c2d91); border-radius:6px;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2));
+		font-size:1.05rem; line-height:1.45; z-index:14; opacity:0;
+		cursor:grab; touch-action:none;
+	}
+	.callout:active { cursor:grabbing; }
+
+	/* ── RESET "PIN" · appears on a draggable panel once it has been moved off its home spot ── */
+	.aw-drag-reset {
+		position:absolute; width:24px; height:24px; padding:0; display:none;
+		align-items:center; justify-content:center; border-radius:50%;
+		background:var(--theme-tertiary,#5c2d91); color:#fff;
+		border:2px solid var(--theme-body-background,#fff);
+		box-shadow:0 2px 7px rgba(0,0,0,0.4); cursor:pointer; z-index:6;
+		opacity:0.92; transition:opacity .14s ease, transform .14s ease;
+	}
+	.aw-drag-reset:hover { opacity:1; transform:scale(1.08); }
+	.aw-drag-reset:focus-visible { outline:2px solid #5cc8ff; outline-offset:2px; }
+	.aw-drag-reset svg { width:13px; height:13px; display:block; }
+
+	/* ══════════════════════════════════════════════════════════ */
+	/* ── REUSABLE BUILDING BLOCKS · keep what you use, drop rest ─ */
+	/* ══════════════════════════════════════════════════════════ */
+
+	/* Centered hero card */
+	.card {
+		width:min(680px, 96%); padding:1.6rem 1.8rem; border-radius:16px;
+		background:var(--theme-card-background, #fff); border:2px solid var(--theme-border);
+		box-shadow:0 8px 28px rgba(0,0,0,0.14); opacity:0;
+		display:flex; flex-direction:column; gap:0.6rem; align-items:center; text-align:center;
+	}
+	body.theme-dark .card { background:rgba(255,255,255,0.05); }
+	.card .card-icon { font-size:3rem; line-height:1; }
+	.card .card-h { font-size:1.4rem; font-weight:700; }
+	.card .card-p { font-size:1.05rem; color:var(--theme-text-subtle); line-height:1.5; }
+
+	/* Wide info panel */
+	.ta-card {
+		width:min(1080px, 98%); border:1.5px solid var(--theme-border); border-radius:14px;
+		background:var(--theme-card-background, #fff); box-shadow:0 8px 30px rgba(0,0,0,0.16);
+		padding:1.1rem 1.3rem; opacity:0;
+	}
+	body.theme-dark .ta-card { background:rgba(255,255,255,0.05); }
+	.ta-card-head {
+		display:flex; align-items:center; gap:0.5rem;
+		font-size:1rem; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;
+		color:var(--theme-text-subtle); margin-bottom:0.6rem;
+	}
+	.ta-card-text { font-size:1.22rem; line-height:1.55; color:var(--theme-text); }
+
+	/* Pills / chips */
+	.chip-row { display:flex; flex-wrap:wrap; gap:0.7rem; justify-content:center; }
+	.pill {
+		display:inline-flex; align-items:center; gap:0.5rem; padding:0.55rem 1.1rem;
+		border-radius:999px; font-size:1.05rem; font-weight:600;
+		border:2px solid var(--theme-tertiary, #5c2d91); background:rgba(92,45,145,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .pill { background:rgba(92,45,145,0.2); }
+	.value-chip {
+		display:inline-flex; align-items:center; gap:0.4rem; padding:0.5rem 1rem;
+		border-radius:999px; font-size:1rem; font-weight:700;
+		border:2px solid #107c10; background:rgba(16,124,16,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .value-chip { background:rgba(16,124,16,0.16); }
+	.recap-foot { font-size:1.05rem; color:var(--theme-text); text-align:center; max-width:760px; opacity:0; }
+
+	/* Flow row: input → process → output */
+	.agent-node {
+		display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.2rem;
+		width:160px; height:160px; border-radius:24px;
+		background: linear-gradient(135deg, rgba(92,45,145,0.12), rgba(0,120,212,0.12));
+		border:2.5px solid var(--theme-tertiary, #5c2d91);
+		box-shadow:0 8px 28px rgba(92,45,145,0.2); flex-shrink:0; text-align:center;
+	}
+	.agent-node .an-icon { font-size:3rem; line-height:1; }
+	.agent-node .an-icon img { width:64px; height:64px; display:block; }
+	.agent-node .an-label { font-size:1.05rem; font-weight:700; color:var(--theme-text); }
+	.agent-node .an-sub { font-size:0.85rem; color:var(--theme-text-subtle); }
+	.ta-flow { display:flex; align-items:center; justify-content:center; gap:1.2rem; flex-wrap:wrap; width:100%; }
+	.ta-flow .agent-node { width:140px; height:140px; }
+	.ta-flow .agent-node .an-icon { font-size:2.6rem; }
+	.ta-flow .agent-node .an-icon img { width:54px; height:54px; }
+	.ta-arrow { font-size:1.9rem; color:var(--theme-tertiary,#5c2d91); opacity:0; }
+	.ta-arrow.is-big { font-size:3.2rem; }
+	.ta-arrow.is-down, .ta-arrow.is-up { font-size:2.9rem; line-height:1; }
+	@media (max-width:760px) { .ta-flow .ta-arrow { transform:rotate(90deg); } }
+
+	/* Code card (VS Code style) */
+	.code-card {
+		width:min(560px,96%); border:1px solid #30363d; border-radius:8px;
+		background:#1e1e1e; overflow:hidden; opacity:0;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.25));
+	}
+	.code-head {
+		display:flex; align-items:center; justify-content:space-between; gap:0.5rem;
+		padding:0 0 0 0.85rem; background:#323233; border-bottom:1px solid #1e1e1e;
+	}
+	.code-file { font-size:0.9rem; color:#cccccc; font-weight:500; padding:0.6rem 0; }
+	.code-winctrls { display:flex; align-items:stretch; height:100%; }
+	.code-wbtn {
+		display:flex; align-items:center; justify-content:center; width:2.6rem; padding:0.55rem 0;
+		color:#cccccc; font-family:'Segoe UI Symbol','Segoe MDL2 Assets',sans-serif; font-size:0.7rem;
+	}
+	.code-wbtn.is-close:hover { background:#e81123; color:#fff; }
+	.code-wbtn:hover { background:rgba(255,255,255,0.1); }
+	.code-body {
+		margin:0; padding:0.8rem 1rem;
+		font-family:'Cascadia Code', 'Consolas', 'SFMono-Regular', monospace;
+		font-size:0.86rem; line-height:1.5; color:#d4d4d4;
+		white-space:pre-wrap; overflow-wrap:break-word; word-break:break-word; tab-size:4;
+	}
+	.code-body .tok-com { color:#6a9955; }
+	.code-body .tok-kw  { color:#569cd6; }
+	.code-body .tok-str { color:#ce9178; }
+	.code-body .tok-fn  { color:#dcdcaa; }
+	.code-body .tok-mod { color:#4ec9b0; }
+	.code-body .tok-prop{ color:#9cdcfe; }
+	.code-body .tok-num { color:#b5cea8; }
+	.code-body .tok-punct { color:#d4d4d4; }
+	.code-body .code-hl { border-radius:4px; padding:0 0.15em; box-shadow:0 0 0 1px rgba(96,165,250,0.55); background:rgba(96,165,250,0.22); }
+	.code-duo { display:flex; gap:1.1rem; flex-wrap:wrap; align-items:flex-start; justify-content:center; width:100%; }
+	.code-duo .code-card { flex:1 1 380px; max-width:480px; }
+	.code-duo .code-body { font-size:0.8rem; line-height:1.45; }
+	.code-arrow { align-self:center; font-size:1.8rem; line-height:1; color:var(--theme-tertiary,#5c2d91); opacity:0; flex:none; }
+	.code-arrow.is-big { font-size:2.9rem; }
+	@media (max-width:760px) { .code-arrow { transform:rotate(90deg); } }
+
+	/* Use-case grid */
+	.uc-grid { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:1.1rem; width:min(980px,96%); }
+	@media (max-width:720px) { .uc-grid { grid-template-columns:1fr; } }
+	.uc-card {
+		display:flex; flex-direction:column; gap:0.5rem; padding:1rem 1.15rem;
+		border:1.5px solid var(--theme-border); border-top:4px solid var(--theme-primary,#0078d4);
+		border-radius:14px; background:var(--theme-card-background, #fff);
+		box-shadow:0 6px 22px rgba(0,0,0,0.12); opacity:0;
+		transition:transform 0.2s ease, box-shadow 0.2s ease;
+	}
+	.uc-card:hover { transform:translateY(-4px); box-shadow:0 12px 30px rgba(0,0,0,0.18); }
+	body.theme-dark .uc-card { background:rgba(255,255,255,0.05); }
+	.uc-card[data-uc="a"] { border-top-color:#0078d4; }
+	.uc-card[data-uc="b"] { border-top-color:#10a37f; }
+	.uc-card[data-uc="c"] { border-top-color:#e97526; }
+	.uc-card[data-uc="d"] { border-top-color:#d24aa8; }
+	.uc-head { display:flex; align-items:center; gap:0.55rem; font-size:1.25rem; font-weight:700; color:var(--theme-text); }
+	.uc-head .uc-icon { font-size:1.7rem; display:inline-block; }
+	.uc-desc { font-size:0.98rem; line-height:1.55; color:var(--theme-text-subtle); }
+	.uc-caps { display:flex; flex-wrap:wrap; gap:0.4rem; margin-top:0.2rem; }
+	.uc-cap {
+		display:inline-flex; align-items:center; gap:0.3rem; padding:0.25rem 0.7rem;
+		border-radius:999px; font-size:0.88rem; font-weight:700;
+		background:rgba(0,120,212,0.1); color:var(--theme-text);
+		border:1.5px solid rgba(0,120,212,0.4); opacity:0;
+	}
+
+	/* ── CONTROLS · icon dock ──────────────── */
+	#controls {
+		position:fixed; bottom:14px; left:50%; transform:translateX(-50%); z-index:40;
+		display:flex; align-items:center; gap:5px; padding:5px 7px;
+		background:var(--theme-body-background-translucent, rgba(255,255,255,0.82));
+		backdrop-filter:blur(12px) saturate(1.4); -webkit-backdrop-filter:blur(12px) saturate(1.4);
+		border:1px solid var(--theme-border); border-radius:999px;
+		box-shadow: 0 8px 26px rgba(0,0,0,0.18); font-size:13px;
+	}
+	body.theme-dark #controls { background:var(--theme-body-background-translucent, rgba(32,32,36,0.82)); }
+	#controls .ctrl-icon {
+		width:2.15rem; height:2.15rem; min-width:0; padding:0;
+		display:inline-flex; align-items:center; justify-content:center;
+		border-radius:50%; font-size:0.95rem; line-height:1; font-weight:600;
+		transition:background 0.18s ease, color 0.18s ease, transform 0.12s ease, box-shadow 0.18s ease;
+	}
+	#controls .ctrl-icon:hover { transform:translateY(-1px); }
+	#controls .ctrl-icon:active { transform:scale(0.92); }
+	#controls .ctrl-icon-next {
+		width:2.55rem; height:2.55rem; font-size:1.1rem;
+		box-shadow:0 2px 8px var(--theme-primary-translucent, rgba(0,120,212,0.45));
+	}
+	.step-counter {
+		min-width:52px; text-align:center; font-variant-numeric:tabular-nums;
+		font-size:14px; font-weight:700; color:var(--theme-text);
+		padding:0 6px; white-space:nowrap; letter-spacing:0.02em;
+	}
+	.ctrl-sep { width:1px; align-self:stretch; margin:4px 2px; background:var(--theme-border); }
+	/* Movable dock: drag handle + pin-to-center button */
+	.ctrl-grip {
+		display:inline-flex; align-items:center; justify-content:center;
+		width:1.5rem; height:2.15rem; padding:0; border:none; background:transparent;
+		color:var(--theme-text-subtle); border-radius:8px; cursor:grab; touch-action:none;
+		transition:background 0.18s ease, color 0.18s ease;
+	}
+	.ctrl-grip:hover { color:var(--theme-text); background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); }
+	.ctrl-grip:active { cursor:grabbing; }
+	.ctrl-grip svg { width:13px; height:16px; pointer-events:none; }
+	body.controls-floating .ctrl-grip { color:var(--theme-primary,#0078d4); }
+	#controls .ctrl-pin { display:none; color:var(--theme-primary,#0078d4); }
+	#controls .ctrl-pin svg { width:15px; height:15px; pointer-events:none; }
+	body.controls-floating #controls .ctrl-pin { display:inline-flex; }
+	body.controls-floating #controls { box-shadow:0 10px 30px rgba(0,0,0,0.30), 0 0 0 1.5px var(--theme-primary,#0078d4); }
+	.speed-control { display:inline-flex; align-items:center; gap:1px; padding:2px 3px; border:1px solid var(--theme-border); border-radius:999px; }
+	.speed-control .speed-btn {
+		width:1.7rem; height:1.7rem; min-width:0; padding:0;
+		display:inline-flex; align-items:center; justify-content:center;
+		font-size:0.95rem; font-weight:700; border-radius:50%;
+	}
+	.speed-control .speed-btn[disabled] { opacity:0.4; cursor:not-allowed; }
+	.speed-label { min-width:2.4rem; text-align:center; font-variant-numeric:tabular-nums; font-size:0.82rem; font-weight:700; color:var(--theme-text); }
+
+	#callout-toggle, #outline-toggle, #audio-toggle { border:1px solid var(--theme-border); border-radius:4px; transition:background .2s,color .2s,border-color .2s,opacity .2s; }
+	#callout-toggle.toggle-active, #outline-toggle.toggle-active, #audio-toggle.toggle-active {
+		background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary,#0078d4); border-color:var(--theme-primary,#0078d4); font-weight:600;
+	}
+	#callout-toggle:not(.toggle-active), #outline-toggle:not(.toggle-active), #audio-toggle:not(.toggle-active) { opacity:0.6; }
+
+	/* ── HIDE/SHOW TOP BAR ─────────────────── */
+	#header-hide { display:inline-flex; align-items:center; justify-content:center; width:2rem; height:2rem; padding:0; border:1px solid var(--theme-border); border-radius:50%; color:var(--theme-text-subtle); transition:background .2s,color .2s,transform .18s; }
+	#header-hide:hover { color:var(--theme-text); transform:translateY(-1px); }
+	#header-hide svg { width:16px; height:16px; }
+	#header-hide-top { display:inline-flex; align-items:center; justify-content:center; width:2rem; height:2rem; padding:0; border:1px solid var(--theme-border); border-radius:50%; color:var(--theme-text-subtle); background:transparent; cursor:pointer; transition:background .2s,color .2s,transform .18s; }
+	#header-hide-top:hover { color:var(--theme-text); transform:translateY(-1px); }
+	#header-hide-top svg { width:16px; height:16px; }
+	body.chrome-hidden .app-header, body.chrome-hidden .progress-track { display:none; }
+	#header-reveal {
+		position:fixed; top:0; left:50%; transform:translateX(-50%) translateY(-100%); z-index:45;
+		display:inline-flex; align-items:center; gap:0.35rem; padding:5px 14px 6px; font-size:12px; font-weight:600; line-height:1;
+		color:var(--theme-text-subtle); background:var(--theme-body-background-translucent, rgba(255,255,255,0.88));
+		backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border:1px solid var(--theme-border); border-top:none; border-radius:0 0 12px 12px;
+		box-shadow:0 4px 14px rgba(0,0,0,0.14); cursor:pointer; transition:transform .28s cubic-bezier(0.2,0.7,0.3,1), color .2s, background .2s;
+	}
+	body.theme-dark #header-reveal { background:var(--theme-body-background-translucent, rgba(32,32,36,0.88)); }
+	#header-reveal:hover { color:var(--theme-text); }
+	body.chrome-hidden #header-reveal { transform:translateX(-50%) translateY(0); }
+	#header-reveal svg { width:14px; height:14px; }
+
+	/* ── PLAYER OVERLAY · pills inside the stage frame (YouTube-style) ──
+	   Two translucent pills float over the 16:9 frame: LEFT = "view options"
+	   (callout / outline / shortcuts), RIGHT = "player" (audio / captions / hide-bar / fullscreen). */
+	.stage-overlay {
+		position:absolute; right:12px; bottom:10px; z-index:25;
+		display:flex; align-items:center; gap:2px;
+		padding:3px 6px; border-radius:999px;
+		background:rgba(16,18,24,0.58);
+		backdrop-filter:blur(9px) saturate(1.3); -webkit-backdrop-filter:blur(9px) saturate(1.3);
+		box-shadow:0 4px 16px rgba(0,0,0,0.32);
+	}
+	.ovl-btn {
+		-webkit-appearance:none; appearance:none; margin:0; font:inherit;
+		display:inline-flex; align-items:center; justify-content:center; gap:4px;
+		min-width:30px; height:30px; padding:0 8px;
+		border:none !important; border-radius:999px !important;
+		background:transparent !important; color:#fff !important;
+		box-shadow:none !important; cursor:pointer; line-height:1;
+		font-size:0.82rem; font-weight:700; opacity:0.92; transition:background .15s ease, opacity .15s ease;
+	}
+	.ovl-btn:hover { background:rgba(255,255,255,0.16) !important; opacity:1; }
+	.ovl-btn:disabled { opacity:0.4; cursor:not-allowed; }
+	.ovl-btn svg { width:18px; height:18px; fill:currentColor; display:block; }
+	.ovl-btn.on { color:#5cc8ff !important; }
+	.stage-overlay #audio-toggle { opacity:1 !important; }
+	.stage-overlay .aw-audio-ico { font-size:1rem; line-height:1; }
+	.stage-overlay .aw-audio-time { font-size:0.78rem; font-variant-numeric:tabular-nums; letter-spacing:0.02em; opacity:0.95; min-width:2.4em; text-align:left; }
+	#cc-toggle svg { width:20px; height:20px; }
+	.ovl-btn .fs-exit { display:none; }
+	body.is-fs .ovl-btn .fs-enter { display:none; }
+	body.is-fs .ovl-btn .fs-exit { display:block; }
+
+	/* ── LEFT VIEW-OPTIONS PILL · Callout / Outline / Shortcuts (icon + hover tip) ── */
+	.stage-overlay-left { right:auto; left:12px; }
+	#stage-overlay-left .ovl-btn:not(.toggle-active) { opacity:0.86; }
+	#stage-overlay-left .ovl-btn.toggle-active { color:#5cc8ff !important; opacity:1; }
+	#stage-overlay-left .ovl-btn:hover { opacity:1; }
+	/* Hover tooltip shown above the icon (left-anchored so it never clips the frame edge) */
+	.ovl-btn[data-tip] { position:relative; }
+	.ovl-btn[data-tip]::after { content:attr(data-tip); position:absolute; left:0; bottom:calc(100% + 9px); transform:translateY(4px); padding:4px 8px; border-radius:6px; background:rgba(16,18,24,0.96); color:#fff; font-size:0.72rem; font-weight:600; white-space:nowrap; letter-spacing:0.01em; opacity:0; pointer-events:none; box-shadow:0 3px 12px rgba(0,0,0,0.45); transition:opacity .14s ease, transform .14s ease; z-index:40; }
+	.ovl-btn[data-tip]::before { content:''; position:absolute; left:13px; bottom:calc(100% + 4px); border:5px solid transparent; border-top-color:rgba(16,18,24,0.96); opacity:0; pointer-events:none; transition:opacity .14s ease; z-index:40; }
+	.ovl-btn[data-tip]:hover::after { opacity:1; transform:translateY(0); }
+	.ovl-btn[data-tip]:hover::before { opacity:1; }
+
+	/* ── CAPTION · overlaid inside the frame, draggable + resizable, stays solid (not see-through) ── */
+	#aw-caption {
+		position:absolute; left:50%; transform:translateX(-50%); bottom:56px; z-index:24;
+		max-width:92%; min-width:140px; min-height:38px; max-height:44%;
+		display:none; align-items:center; justify-content:center; text-align:center;
+		padding:0.42rem 0.95rem; border-radius:9px;
+		background:rgba(8,9,13,0.8); color:#fff;
+		font-size:1.1rem; line-height:1.36; font-weight:600;
+		box-shadow:0 3px 14px rgba(0,0,0,0.42); pointer-events:auto; cursor:grab; touch-action:none;
+		overflow:auto; resize:both;   /* user can reshape the caption; corner grip = resize */
+	}
+	#aw-caption:active { cursor:grabbing; }
+	#aw-caption::-webkit-resizer { background:linear-gradient(135deg, transparent 45%, rgba(255,255,255,0.55) 45%, rgba(255,255,255,0.55) 55%, transparent 55%); }
+	body.cc-on #aw-caption.has-text { display:flex; }
+	@media (max-width:640px){ #aw-caption { font-size:0.94rem; bottom:48px; max-width:90%; } }
+
+	/* ── OUTLINE PANEL · draggable + slightly see-through ── */
+	#step-outline {
+		position:fixed; top:4.5rem; right:1rem; width:320px; max-height:calc(100vh - 8rem); overflow-y:auto;
+		padding:1.1rem; background:var(--theme-body-background);
+		background:color-mix(in srgb, var(--theme-body-background) 85%, transparent);
+		-webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
+		border:1px solid var(--theme-border);
+		border-radius:6px; box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2)); z-index:35; font-size:1rem; line-height:1.55;
+		cursor:grab; touch-action:none;
+	}
+	#step-outline:active { cursor:grabbing; }
+	#step-outline[hidden] { display:none; }
+	#step-outline h2 { font-size:0.85rem; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--theme-tertiary,#5c2d91); margin-bottom:0.5rem; }
+	#step-outline .outline-section { margin-top:0.6rem; padding-top:0.6rem; border-top:1px solid var(--theme-border); }
+	#step-outline .outline-section:first-child { margin-top:0; padding-top:0; border-top:0; }
+	#step-outline .stat-row { display:flex; justify-content:space-between; align-items:baseline; gap:0.75rem; padding:0.2rem 0; }
+	#step-outline .stat-row span:first-child { color:var(--theme-text-subtle); flex:0 0 auto; max-width:45%; }
+	#step-outline .stat-row span:last-child { text-align:right; font-weight:600; color:var(--theme-tertiary,#5c2d91); flex:1 1 auto; }
+
+	.progress-track { position:relative; height:6px; background:var(--theme-border, #e0e0e0); flex-shrink:0; cursor:pointer; }
+	.progress-fill { position:absolute; left:0; top:0; bottom:0; width:0%; background:var(--aw-purple, #5c2d91); transition:width .5s cubic-bezier(0.2,0.8,0.2,1); pointer-events:none; }
+	.progress-tick { position:absolute; top:0; bottom:0; width:2px; margin-left:-1px; background:var(--theme-body-background); opacity:0.6; pointer-events:none; }
+
+	/* ── THEME / LANG / FONT CONTROLS ──────── */
+	.theme-toggle { display:inline-flex; align-items:center; justify-content:center; width:2.25rem; height:2.25rem; padding:0; margin-inline-start:0.25rem; background:transparent; border:1px solid var(--theme-border); border-radius:999px; color:var(--theme-text); cursor:pointer; transition:background .15s,color .15s,border-color .15s; }
+	.theme-toggle:hover { background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary); border-color:var(--theme-primary); }
+	.theme-toggle .theme-icon { display:none; }
+	.theme-toggle[data-theme="dark"] .icon-sun { display:block; }
+	.theme-toggle[data-theme="light"] .icon-moon { display:block; }
+	.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+	.skip-link { position:absolute; top:-100px; left:0.5rem; z-index:100; padding:0.5rem 1rem; background:var(--theme-primary); color:var(--theme-primary-invert,#fff); border-radius:4px; text-decoration:none; font-weight:600; }
+	.skip-link:focus { top:0.5rem; }
+	.header-back-link { display:inline-flex; align-items:center; gap:0.25rem; padding:0.2rem 0.6rem; font-size:0.8rem; font-weight:600; color:var(--theme-text-subtle); border:1px solid var(--theme-border); border-radius:999px; text-decoration:none; white-space:nowrap; transition:background .15s,color .15s,border-color .15s; }
+	.header-back-link:hover { color:var(--theme-primary); border-color:var(--theme-primary); background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); }
+	.lang-select {
+		appearance:none; -webkit-appearance:none; background:var(--theme-card-background,#fff); color:var(--theme-body-text,#333);
+		border:1px solid var(--theme-border, rgba(0,0,0,0.2)); border-radius:4px; padding:4px 24px 4px 8px;
+		font-size:0.8rem; font-family:'Segoe UI', sans-serif; cursor:pointer;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+		background-repeat:no-repeat; background-position:right 6px center; min-width:80px;
+	}
+	.lang-select:hover { border-color:var(--theme-primary, #0078d4); }
+	.lang-select:focus { outline:2px solid var(--theme-primary, #0078d4); outline-offset:1px; }
+	body.theme-dark .lang-select {
+		background-color:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); border-color:rgba(255,255,255,0.15);
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23aaa' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+	}
+	body.theme-dark .lang-select option { background:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); }
+	.font-size-controls { display:flex; align-items:center; gap:2px; }
+	.font-size-btn { background:var(--theme-card-background,#fff); color:var(--theme-body-text,#333); border:1px solid var(--theme-border, rgba(0,0,0,0.2)); border-radius:4px; padding:3px 8px; font-size:0.8rem; font-weight:700; font-family:'Segoe UI', sans-serif; cursor:pointer; line-height:1.2; transition:background .15s,border-color .15s; }
+	.font-size-btn:hover { border-color:var(--theme-primary, #0078d4); }
+	body.theme-dark .font-size-btn { background:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); border-color:rgba(255,255,255,0.15); }
+
+	/* Inline icons (crisp on any OS/projector — replaces raw emoji on stage) */
+	.ic { display:inline-flex; align-items:center; justify-content:center; vertical-align:-0.125em; }
+	.ic svg { width:1em; height:1em; fill:currentColor; display:block; }
+	.help-toggle svg { width:15px; height:15px; vertical-align:-2px; }
+
+	/* Keyboard shortcut overlay */
+	#shortcut-overlay { position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center; }
+	#shortcut-overlay[hidden] { display:none; }
+	.sc-backdrop { position:absolute; inset:0; background:rgba(0,0,0,0.5); -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px); }
+	.sc-panel { position:relative; z-index:1; width:min(430px,92vw); max-height:82vh; overflow:auto; padding:1.5rem 1.6rem; background:var(--theme-body-background); border:1px solid var(--theme-border); border-radius:16px; box-shadow:0 24px 70px rgba(0,0,0,0.4); }
+	.sc-panel h2 { margin:0 0 1rem; font-size:1.25rem; color:var(--theme-tertiary,#5c2d91); }
+	body.theme-dark .sc-panel h2 { color:#c9a5e8; }
+	.sc-close { position:absolute; top:0.7rem; right:0.7rem; width:2rem; height:2rem; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--theme-border); border-radius:50%; background:transparent; color:var(--theme-text-subtle); cursor:pointer; }
+	.sc-close:hover { color:var(--theme-text); border-color:var(--theme-primary,#0078d4); }
+	.sc-close svg { width:15px; height:15px; }
+	.sc-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:0.55rem; }
+	.sc-list li { display:flex; align-items:center; justify-content:space-between; gap:1rem; font-size:1rem; color:var(--theme-text); }
+	.sc-keys { display:inline-flex; gap:0.3rem; flex:none; }
+	.sc-panel kbd, .sc-hint kbd { font-family:'Cascadia Code','Consolas',monospace; font-size:0.82rem; line-height:1; padding:0.28rem 0.5rem; border-radius:6px; border:1px solid var(--theme-border); border-bottom-width:2px; background:var(--theme-card-background,#fff); color:var(--theme-text); }
+	body.theme-dark .sc-panel kbd, body.theme-dark .sc-hint kbd { background:rgba(255,255,255,0.08); }
+	.sc-hint { margin:1.1rem 0 0; font-size:0.85rem; color:var(--theme-text-subtle); text-align:center; }
+
+	@media (max-width:640px) { .app-header { font-size:0.95rem; } .scene-title { font-size:1.9rem; } #stage { padding:0.9rem 1rem 4.5rem; } }
+	@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition:none !important; animation:none !important; } .progress-fill { transition:none !important; } }
+	/* ══════════════ AI-500 KIT · shared by every AI-500 page ══════════════ */
+	:root {
+		/* One accent per floor/domain, reused on every page. --fN fills, --fNt text-safe, --fNb deep fills that carry white text */
+		--f1:#0078d4; --f2:#00b7c3; --f3:#8661c5; --f4:#ff8c00;
+		--f1t:#005a9e; --f2t:#00707a; --f3t:#6b46b0; --f4t:#a24f00;
+		--f1b:#0a5299; --f2b:#0a6c76; --f3b:#6240a8; --f4b:#a24f00;
+		--ai5-surface:#ffffff; --ai5-ok:#107c10; --ai5-bad:#c4314b; --ai5-warn:#a24f00;
+		--ai5-line:rgba(60,60,80,0.38);
+	}
+	body.theme-dark {
+		--f1t:#6cb2f5; --f2t:#4fd6e0; --f3t:#b79ce8; --f4t:#ffb066;
+		--ai5-surface:#2a2b34; --ai5-ok:#57d977; --ai5-bad:#ff7a90; --ai5-warn:#ffb066;
+		--ai5-line:rgba(220,220,240,0.42);
+	}
+	.fl1 { --tone:var(--f1); --toneT:var(--f1t); --toneB:var(--f1b); }
+	.fl2 { --tone:var(--f2); --toneT:var(--f2t); --toneB:var(--f2b); }
+	.fl3 { --tone:var(--f3); --toneT:var(--f3t); --toneB:var(--f3b); }
+	.fl4 { --tone:var(--f4); --toneT:var(--f4t); --toneB:var(--f4b); }
+
+	.scene.ai5 { gap:1.1rem; width:1150px; }
+	.scene.ai5 .scene-lead { max-width:1100px; }
+	.scene.ai5 .scene-title { font-weight:600; }
+	.ai5-board { position:relative; flex:none; }
+	.ai5-board > svg { position:absolute; left:0; top:0; width:100%; height:100%; overflow:visible; pointer-events:none; }
+	.ai5-pos { position:absolute; width:0; height:0; }
+	.ai5-in { position:absolute; left:0; top:0; transform:translate(-50%,-50%); }
+
+	/* Agent cast — the same six characters on every page */
+	.ai5-ag { position:relative; width:var(--ag,76px); height:var(--ag,76px); }
+	.ai5-ag-ic { width:100%; height:100%; border-radius:50%; display:grid; place-items:center;
+		background:var(--ai5-surface); border:3px solid var(--ac); color:var(--ac); box-shadow:0 6px 18px rgba(0,0,0,0.2); }
+	.ai5-ag-ic .ic { font-size:calc(var(--ag,76px) * 0.5); }
+	/* the label hangs OUTSIDE the badge so coordinates always refer to the badge centre */
+	.ai5-ag-l { position:absolute; top:100%; left:50%; transform:translateX(-50%); margin-top:0.4rem; white-space:nowrap;
+		font-size:1rem; font-weight:600; text-align:center; line-height:1.2; color:var(--theme-text); }
+	.ai5-ag.is-top .ai5-ag-l { top:auto; bottom:100%; margin-top:0; margin-bottom:0.4rem; }
+	.ag-solo   { --ac:#0067b8; } .ag-orch  { --ac:#6a3fb5; } .ag-intake { --ac:#0067b8; }
+	.ag-policy { --ac:#0b7a60; } .ag-fraud { --ac:#c4314b; } .ag-payout { --ac:#b4530d; } .ag-human { --ac:#b02c8a; }
+	body.theme-dark .ag-solo { --ac:#6cb2f5; } body.theme-dark .ag-orch { --ac:#b79ce8; } body.theme-dark .ag-intake { --ac:#6cb2f5; }
+	body.theme-dark .ag-policy { --ac:#4fd6a8; } body.theme-dark .ag-fraud { --ac:#ff7a90; } body.theme-dark .ag-payout { --ac:#ffb066; } body.theme-dark .ag-human { --ac:#f08ad0; }
+
+	/* On-screen headline pill — the ONE line of burned-in text per step */
+	.ai5-say { display:inline-flex; align-items:center; gap:0.6rem; padding:0.6rem 1.4rem; border-radius:999px; opacity:0;
+		font-size:1.25rem; font-weight:600; color:var(--theme-text); background:var(--ai5-surface);
+		border:2px solid var(--theme-tertiary,#5c2d91); box-shadow:0 6px 20px rgba(0,0,0,0.16); text-align:center; }
+	.ai5-say .ic { font-size:1.4rem; color:var(--theme-tertiary,#5c2d91); }
+	body.theme-dark .ai5-say .ic { color:#c9a5e8; }
+
+	.ai5-pnl { border:1.5px solid var(--theme-border); border-radius:14px; background:var(--theme-card-background,#fff);
+		box-shadow:0 8px 26px rgba(0,0,0,0.14); padding:1rem 1.2rem; opacity:0; }
+	body.theme-dark .ai5-pnl { background:rgba(255,255,255,0.05); }
+	.ai5-pnl-h { font-size:0.95rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--theme-text-subtle); margin:0 0 0.6rem; }
+	.ai5-tag { display:inline-flex; align-items:center; gap:0.4rem; padding:0.3rem 0.85rem; border-radius:999px; font-size:0.92rem; font-weight:500;
+		border:1.5px solid var(--toneT,var(--theme-border)); color:var(--theme-text); background:color-mix(in srgb, var(--tone,#888) 14%, transparent); opacity:0; }
+	.ai5-tag .ic { color:var(--toneT,currentColor); }
+	.ai5-row { display:flex; flex-wrap:wrap; gap:0.55rem; justify-content:center; }
+
+	/* Floor bar — a deep fill that always carries white text */
+	.ai5-fl { position:absolute; display:flex; align-items:center; justify-content:center; gap:1.1rem; border-radius:12px; color:#fff;
+		background:var(--toneB); box-shadow:0 6px 18px rgba(0,0,0,0.22); overflow:hidden; white-space:nowrap; }
+	.ai5-fl .n { font-size:1rem; font-weight:500; padding:0.15rem 0.6rem; border-radius:8px; background:rgba(0,0,0,0.28); }
+	.ai5-fl .v { font-size:1.5rem; font-weight:600; }
+	.ai5-fl .d { font-size:1.02rem; font-weight:400; opacity:0.92; }
+
+	/* Claim card (Contoso Insurance) */
+	.ai5-claim { width:74px; height:52px; border-radius:7px; background:var(--ai5-surface); border:1.5px solid var(--ai5-line);
+		box-shadow:0 3px 8px rgba(0,0,0,0.2); padding:8px 9px; display:flex; flex-direction:column; gap:5px; }
+	.ai5-claim i { display:block; height:5px; border-radius:3px; background:var(--ai5-line); }
+	.ai5-claim i:first-child { width:55%; background:#0078d4; opacity:0.75; }
+	.ai5-claim.is-ok::after { content:'\2713'; position:absolute; right:-9px; top:-9px; width:22px; height:22px; border-radius:50%;
+		background:var(--ai5-ok); color:#fff; font-size:0.9rem; line-height:22px; text-align:center; font-weight:700; }
+	.ai5-claim { position:relative; }
+
+	/* Question marks on connectors */
+	.ai5-q { width:34px; height:34px; border-radius:50%; display:grid; place-items:center; font-size:1.1rem; font-weight:700;
+		background:var(--ai5-surface); color:var(--ai5-warn); border:2px solid var(--ai5-warn); }
+
+	@keyframes ai5Glow { 0%,100% { box-shadow:0 0 0 0 rgba(138,92,214,0.0), 0 8px 24px rgba(0,0,0,0.25); } 50% { box-shadow:0 0 0 10px rgba(138,92,214,0.25), 0 8px 24px rgba(0,0,0,0.25); } }
+	.ai5-glow { animation:ai5Glow 2.2s ease-in-out infinite; }
+	.ai5-next { display:inline-flex; align-items:center; gap:0.6rem; padding:0.55rem 1.3rem; border-radius:999px; text-decoration:none; opacity:0;
+		font-size:1.05rem; font-weight:600; color:#fff; background:var(--aw-purple,#5c2d91); border:2px solid transparent; }
+	.ai5-next:hover { filter:brightness(1.12); }
+	.ai5-foot a { color:var(--f1t); font-weight:600; }
+
+	/* ══════════════ DataAvailability ══════════════ */
+	.ai5-tag { opacity:1; font-size:0.95rem; white-space:nowrap; }
+	.ai5-tag img { max-width:none; flex:none; }
+	.ai5-foot { font-size:1.05rem; }
+	.p6-end { display:flex; align-items:center; justify-content:center; gap:1.1rem; flex-wrap:wrap; max-width:1100px; }
+	.p6-chip { font-size:1rem; padding:0.4rem 1rem; }
+
+	/* shared frames, cards, picks */
+	.p6-reg { position:absolute; box-sizing:border-box; border-radius:16px; border:2px dashed var(--toneT); background:color-mix(in srgb, var(--tone) 7%, transparent); }
+	.p6-reg .h { position:absolute; left:20px; top:14px; font-size:0.95rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--toneT); }
+	.p6-q { position:absolute; box-sizing:border-box; padding:18px 20px; border-radius:16px; border:2px solid var(--toneT); background:var(--ai5-surface); box-shadow:0 6px 18px rgba(0,0,0,0.16);
+		display:flex; flex-direction:column; justify-content:center; gap:0.5rem; }
+	.p6-q .ai5-pnl-h { color:var(--toneT); margin:0; }
+	.p6-q b { font-size:1.45rem; font-weight:600; line-height:1.25; color:var(--theme-text); }
+	.p6-opt { position:absolute; box-sizing:border-box; padding:16px 22px; border-radius:16px; border:2.5px solid var(--toneT); background:var(--ai5-surface); box-shadow:0 6px 18px rgba(0,0,0,0.16);
+		display:flex; flex-direction:column; justify-content:center; gap:0.4rem; }
+	.p6-opt .h { font-size:1.25rem; font-weight:600; color:var(--theme-text); }
+	.p6-opt p { margin:0; font-size:1.02rem; color:var(--theme-text); }
+	.p6-lab { position:absolute; box-sizing:border-box; display:flex; align-items:center; gap:0.7rem; padding:0 16px; border-radius:12px; background:var(--ai5-surface); border:2px solid var(--f3t);
+		font-size:1.05rem; font-weight:600; color:var(--theme-text); }
+	.p6-lab.is-soft { border-style:dashed; }
+	.p6-both { position:absolute; box-sizing:border-box; border-radius:12px; border:2px dashed var(--f3t); background:color-mix(in srgb, var(--f3) 7%, transparent); }
+	.p6-pick { display:inline-flex; align-items:center; gap:0.5rem; padding:0.45rem 1.4rem; border-radius:999px; white-space:nowrap; font-size:1rem; font-weight:500; }
+	.p6-pick.is-on { background:var(--toneB); color:#fff; border:2px solid var(--toneB); }
+	.p6-pick.is-off { border:2px dashed var(--ai5-line); color:var(--theme-text); background:var(--ai5-surface); }
+	.p6-ring { position:absolute; box-sizing:border-box; border-radius:20px; border:4px solid var(--f4t); pointer-events:none; opacity:0; }
+	.p6-pickbadge { display:inline-flex; align-items:center; gap:0.4rem; padding:0.3rem 0.95rem; border-radius:999px; white-space:nowrap; font-size:0.95rem; font-weight:600; color:#fff; background:var(--f3b); box-shadow:0 4px 12px rgba(0,0,0,0.25); }
+	.p6-lchip { display:inline-flex; align-items:center; gap:0.45rem; padding:0.35rem 0.95rem; border-radius:999px; white-space:nowrap; font-size:0.95rem; font-weight:600; color:var(--theme-text); background:var(--ai5-surface); border:2px solid var(--f3t); }
+	.p6-st { display:inline-block; padding:0.15rem 0.8rem; border-radius:999px; font-size:0.95rem; font-weight:600; color:var(--theme-text); background:var(--ai5-surface); border:2px solid var(--ai5-line); }
+	.p6-st.is-serve { color:var(--ai5-ok); border-color:var(--ai5-ok); }
+	.p6-x { width:44px; height:44px; border-radius:50%; display:grid; place-items:center; font-size:1.3rem; background:var(--ai5-surface); border:3px solid var(--ai5-bad); color:var(--ai5-bad); }
+
+	/* 1 · zones */
+	.p6-zone { position:absolute; box-sizing:border-box; border-radius:14px; border:2px solid var(--toneT); background:color-mix(in srgb, var(--tone) 10%, transparent); }
+	.p6-zone .zl { position:absolute; left:16px; top:12px; font-size:0.95rem; font-weight:600; color:var(--toneT); }
+	.p6-db, .p6-vmn { display:flex; flex-direction:column; align-items:center; gap:0.4rem; width:170px; text-align:center; font-size:1rem; color:var(--theme-text); }
+	.p6-db b, .p6-vmn b { font-weight:600; }
+	.p6-db .bx, .p6-vmn .bx { width:76px; height:76px; border-radius:16px; display:grid; place-items:center; background:var(--ai5-surface); border:2px solid var(--toneT); box-shadow:0 5px 14px rgba(0,0,0,0.16); }
+	.p6-front { display:inline-flex; align-items:center; gap:0.55rem; width:max-content; white-space:nowrap; padding:0.4rem 1.1rem; border-radius:999px; font-size:1.05rem; font-weight:600; color:var(--theme-text); background:var(--ai5-surface); border:2px solid var(--toneT); box-shadow:0 4px 12px rgba(0,0,0,0.16); }
+
+	/* 3 · backups */
+	.p6-strip { position:absolute; box-sizing:border-box; padding:12px 22px 14px; border-radius:14px; border:2px solid var(--toneT); background:var(--ai5-surface);
+		box-shadow:0 6px 18px rgba(0,0,0,0.16); display:flex; flex-direction:column; gap:0.55rem; }
+	.p6-strip .ai5-pnl-h { color:var(--toneT); margin:0; }
+	.p6-strip .cs { display:flex; gap:0.8rem; justify-content:center; }
+	.p6-bc { position:absolute; box-sizing:border-box; padding:18px 20px; border-radius:16px; border:2px solid var(--toneT); background:var(--ai5-surface); box-shadow:0 6px 18px rgba(0,0,0,0.16);
+		display:flex; flex-direction:column; gap:0.7rem; align-items:flex-start; }
+	.p6-bc .u { padding:0.2rem 0.85rem; border-radius:999px; font-size:0.95rem; font-weight:600; color:#fff; background:var(--toneB); }
+	.p6-bc .t { display:flex; align-items:center; gap:0.6rem; font-size:1.3rem; color:var(--theme-text); }
+	.p6-bc .t b { font-weight:600; }
+	.p6-bc .t .ic { font-size:1.7rem; color:var(--toneT); }
+	.p6-bc p { margin:0; font-size:1.05rem; line-height:1.4; color:var(--theme-text); }
+	.p6-bc .cs { margin-top:auto; display:flex; flex-wrap:wrap; gap:0.5rem; }
+	.p6-bc .ai5-tag { padding:0.35rem 0.8rem; font-size:0.95rem; }
+
+	/* 4 · availability groups */
+	.p6-cardb { position:absolute; box-sizing:border-box; display:flex; align-items:center; justify-content:center; gap:0.7rem; padding:0 16px; border-radius:14px; border:2px dashed var(--f3t);
+		font-size:1.02rem; color:var(--theme-text); background:var(--ai5-surface); }
+	.p6-cardb b { font-weight:600; }
+	.p6-cardb .ic { font-size:1.5rem; color:var(--f3t); }
+	.p6-cardb.is-pick { border-style:solid; border-width:2.5px; }
+
+	/* 5 · cosmos */
+	.p6-cp { position:absolute; box-sizing:border-box; padding:16px 22px; border-radius:16px; border:2px solid var(--toneT); background:color-mix(in srgb, var(--tone) 6%, transparent); }
+	.p6-cp .h { display:flex; align-items:center; gap:0.7rem; font-size:1.2rem; color:var(--theme-text); }
+	.p6-cp .h b { font-weight:600; }
+	.p6-rn { box-sizing:border-box; width:108px; display:flex; flex-direction:column; align-items:center; gap:0.35rem; padding:0.6rem 0.4rem; border-radius:14px; font-size:1rem; text-align:center;
+		color:var(--theme-text); background:var(--ai5-surface); border:2px solid var(--toneT); box-shadow:0 5px 14px rgba(0,0,0,0.16); }
+	.p6-rn b { font-weight:600; }
+	.p6-role { display:inline-flex; align-items:center; gap:0.3rem; padding:0.1rem 0.65rem; border-radius:999px; font-size:0.92rem; font-weight:600; border:2px solid var(--toneT); color:var(--theme-text); }
+	.p6-role.is-w { background:var(--toneB); border-color:var(--toneB); color:#fff; }
+	.p6-con { position:absolute; box-sizing:border-box; padding:14px 22px 14px; border-radius:16px; border:2px solid var(--toneT); background:var(--ai5-surface); box-shadow:0 6px 18px rgba(0,0,0,0.16);
+		display:flex; flex-direction:column; gap:0.55rem; }
+	.p6-con .ai5-pnl-h { color:var(--toneT); margin:0; }
+	.p6-con .sgs { display:grid; grid-template-columns:1fr 1.2fr 1.6fr; gap:14px; }
+	.p6-con .sg { display:flex; align-items:center; justify-content:space-between; gap:0.6rem; padding:0.5rem 0.9rem; border-radius:12px; border:2px solid var(--toneT); background:color-mix(in srgb, var(--tone) 8%, transparent); }
+	.p6-con .sg .n { font-size:1rem; font-weight:500; color:var(--theme-text); line-height:1.25; }
+	.p6-con .sg b { font-size:1.15rem; font-weight:600; color:var(--toneT); white-space:nowrap; }
+	.p6-con .sg.s3 { border-width:3px; background:var(--toneB); border-color:var(--toneB); }
+	.p6-con .sg.s3 .n, .p6-con .sg.s3 b { color:#fff; }
+	.p6-con .ax { display:flex; align-items:center; gap:0.9rem; font-size:0.95rem; font-weight:600; color:var(--theme-text-subtle); }
+	.p6-con .ax i { flex:1; height:5px; border-radius:3px; background:linear-gradient(90deg, var(--f3b), var(--f3)); opacity:0.7; }
+
+	/* 6 · postgres */
+	.p6-prow, .p6-mrow { position:absolute; box-sizing:border-box; display:grid; align-items:center; }
+	.p6-prow { grid-template-columns:400px 220px 220px 1fr; column-gap:14px; padding:0 22px; border-radius:14px; border:2px solid var(--f3t); background:var(--ai5-surface); box-shadow:0 5px 14px rgba(0,0,0,0.14); }
+	.p6-prow.is-head { border:0; background:none; box-shadow:none; padding:0 22px; font-size:0.95rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--theme-text-subtle); }
+	.p6-prow .n { display:flex; align-items:center; gap:0.8rem; font-size:1.15rem; color:var(--theme-text); }
+	.p6-prow .n b { font-weight:600; }
+	.p6-prow .ic2 .ic { font-size:1.9rem; color:var(--f3t); }
+	.p6-prow .v { font-size:1.35rem; font-weight:600; color:var(--f3t); }
+
+	/* 7 · storage */
+	.p6-sc { position:absolute; box-sizing:border-box; padding:16px 18px; border-radius:16px; border:2px solid var(--f3t); background:var(--ai5-surface); box-shadow:0 6px 18px rgba(0,0,0,0.16);
+		display:flex; flex-direction:column; gap:0.25rem; }
+	.p6-sc .tg { font-size:1.6rem; font-weight:600; color:var(--f3t); }
+	.p6-sc .nm { font-size:1rem; color:var(--theme-text-subtle); margin-bottom:0.35rem; }
+	.p6-sc .k { display:block; font-size:0.9rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--theme-text-subtle); }
+	.p6-sc .sv { padding-top:0.55rem; border-top:1.5px solid var(--theme-border); display:flex; flex-direction:column; gap:0.15rem; min-height:100px; }
+	.p6-sc .sv b { font-size:1.08rem; font-weight:600; line-height:1.3; color:var(--theme-text); }
+	.p6-sc .rd { margin-top:auto; display:flex; flex-direction:column; gap:0.3rem; align-items:flex-start; }
+	.p6-sc .rd .ai5-tag.is-on { background:var(--f3b); border-color:var(--f3b); color:#fff; }
+
+	/* 8 · whole */
+	.p6-mrow { grid-template-columns:560px 270px 270px; border-radius:12px; border:2px solid var(--f3t); background:var(--ai5-surface); box-shadow:0 4px 12px rgba(0,0,0,0.12); overflow:hidden; }
+	.p6-mrow > span { padding:0 18px; }
+	.p6-mrow .n { display:flex; align-items:center; gap:0.8rem; font-size:1.08rem; color:var(--theme-text); }
+	.p6-mrow .n b { font-weight:600; }
+	.p6-mrow .v { font-size:1.2rem; font-weight:600; color:var(--f3t); }
+	.p6-mrow.is-head { height:40px; border:0; background:var(--f3b); box-shadow:none; color:#fff; font-size:0.95rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; }
+	.p6-star { margin-left:auto; display:inline-flex; align-items:center; gap:0.35rem; padding:0.1rem 0.75rem; border-radius:999px; font-size:0.92rem; font-weight:600; color:#fff; background:var(--f3b); }
+	.p6-star .ic { font-size:0.95rem; }
+
+</style>
+	<!-- SEO:START -->
+	<meta name="description" content="Keep data available: HA and DR for databases and storage. Explore AZ-305 · Design Azure infrastructure solutions with a step-by-step visual guide." />
+	<link rel="canonical" href="https://azureanimations.github.io/journeys/Architect/DataAvailability.html" />
+	<meta name="robots" content="index, follow, max-image-preview:large" />
+	<meta property="og:type" content="website" />
+	<meta property="og:site_name" content="Azure Animations" />
+	<meta property="og:title" content="Keep data available: HA and DR for databases and storage — Azure Animations" />
+	<meta property="og:description" content="Keep data available: HA and DR for databases and storage. Explore AZ-305 · Design Azure infrastructure solutions with a step-by-step visual guide." />
+	<meta property="og:url" content="https://azureanimations.github.io/journeys/Architect/DataAvailability.html" />
+	<meta property="og:image" content="https://azureanimations.github.io/img/favicon.png" />
+	<meta property="og:image:alt" content="Azure Animations" />
+	<meta name="twitter:card" content="summary" />
+	<meta name="twitter:title" content="Keep data available: HA and DR for databases and storage — Azure Animations" />
+	<meta name="twitter:description" content="Keep data available: HA and DR for databases and storage. Explore AZ-305 · Design Azure infrastructure solutions with a step-by-step visual guide." />
+	<meta name="twitter:image" content="https://azureanimations.github.io/img/favicon.png" />
+	<meta name="twitter:image:alt" content="Azure Animations" />
+	<script type="application/ld+json">
+	{"@context":"https://schema.org","@type":"WebPage","name":"Keep data available: HA and DR for databases and storage — Azure Animations","description":"Keep data available: HA and DR for databases and storage. Explore AZ-305 · Design Azure infrastructure solutions with a step-by-step visual guide.","url":"https://azureanimations.github.io/journeys/Architect/DataAvailability.html","isPartOf":{"@type":"WebSite","name":"Azure Animations","url":"https://azureanimations.github.io/"},"breadcrumb":{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Azure Animations","item":"https://azureanimations.github.io/"},{"@type":"ListItem","position":2,"name":"AZ-305 · Design Azure infrastructure solutions","item":"https://azureanimations.github.io/journeys/Architect/"},{"@type":"ListItem","position":3,"name":"Keep data available: HA and DR for databases and storage","item":"https://azureanimations.github.io/journeys/Architect/DataAvailability.html"}]}}
+	</script>
+	<!-- SEO:END -->
+</head>
+
+<body class="theme-dark" data-theme-preset="atlas">
+
+	<a href="#stage" class="skip-link">Skip to diagram</a>
+
+	<header class="app-header padding-block-xs padding-inline-md border-bottom" role="banner" style="justify-content:space-between;">
+		<div class="display-flex align-items-center gap-xs">
+			<!-- Set href to the previous animation in the journey, or the hub index.html -->
+			<a href="RecoveryObjectives.html" class="header-back-link" aria-label="Design for recovery" title="Design for recovery">&larr; Design for recovery</a>
+			<span id="page-title" class="font-size-h6 font-weight-semibold">&#128190; Keep data available: HA and DR for databases and storage</span>
+		</div>
+		<nav class="display-flex gap-xs align-items-center" aria-label="Primary">
+			<span id="breadcrumb" class="font-size-sm color-text-subtle">Step 1</span>
+		</nav>
+		<div class="display-flex gap-xs align-items-center">
+			<!-- AW:lang --><select id="lang-select" class="lang-select" aria-label="Language" title="Language"><option value="en">English</option><option value="es">Español</option><option value="ja">日本語</option><option value="ko">한국어</option><option value="pt">Português</option></select><!-- /AW:lang -->
+			<div class="font-size-controls">
+				<button id="font-decrease" type="button" class="font-size-btn" aria-label="Decrease font size" title="Smaller text">A&minus;</button>
+				<button id="font-increase" type="button" class="font-size-btn" aria-label="Increase font size" title="Larger text">A+</button>
+			</div>
+			<!-- AW:theme --><button id="theme-toggle" type="button" class="theme-toggle" aria-label="Switch theme" title="Switch theme"><svg class="theme-icon icon-moon ico ico-moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path fill="currentColor" d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg><svg class="theme-icon icon-sun ico ico-sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.5" y1="4.5" x2="6.5" y2="6.5"/><line x1="17.5" y1="17.5" x2="19.5" y2="19.5"/><line x1="4.5" y1="19.5" x2="6.5" y2="17.5"/><line x1="17.5" y1="6.5" x2="19.5" y2="4.5"/></g></svg></button><!-- /AW:theme -->
+			<button id="header-hide-top" type="button" aria-label="Hide top bar" title="Hide top bar (H)">
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/></svg>
+			</button>
+		</div>
+	</header>
+
+	<button id="header-reveal" type="button" aria-label="Show top bar" title="Show top bar">
+		<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/></svg>
+		<span>Toolbar</span>
+	</button>
+
+	<div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
+
+	<main id="stage" tabindex="0" role="region" aria-labelledby="stage-heading" aria-describedby="stage-instructions">
+		<h1 id="stage-heading" class="sr-only" tabindex="-1">Keep data available: HA and DR for databases and storage</h1>
+		<p id="stage-instructions" class="sr-only">Animated explainer. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.</p>
+		<div id="step-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+		<!-- Fixed 16:9 stage. Every scene is drawn INSIDE this box; it always fits the viewport (no scrollbars). -->
+		<div id="stage-frame">
+			<svg id="fx-svg" aria-hidden="true" focusable="false">
+				<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L0,10 L10,5 Z" fill="currentColor"/></marker></defs>
+			</svg>
+			<!-- Caption bar (synced to the step's audio clip by aw-captions.js) -->
+			<div id="aw-caption" class="aw-caption" aria-hidden="true"></div>
+			<!-- LEFT pill · view options: callout / outline / shortcuts (icons; label shows as a hover tooltip) -->
+			<div id="stage-overlay-left" class="stage-overlay stage-overlay-left" role="group" aria-label="View options">
+				<button id="callout-toggle" type="button" class="ovl-btn" aria-label="Toggle callouts" aria-pressed="false" data-tip="Callouts: Off"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M4 5h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H10l-4 3v-3H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></svg></button>
+				<button id="outline-toggle" type="button" class="ovl-btn" aria-controls="step-outline" aria-expanded="false" aria-label="Toggle text outline" data-tip="Outline: Off"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" d="M4 6h16M4 12h16M4 18h10"/></svg></button>
+				<button id="help-toggle" class="ovl-btn help-toggle" type="button" aria-haspopup="dialog" aria-controls="shortcut-overlay" aria-label="Keyboard shortcuts (press ?)" data-tip="Shortcuts"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M11 18h2v-2h-2v2zm1.1-14C9.8 4 8 5.8 8 8h2a2 2 0 1 1 3.2 1.6c-.9.7-2.2 1.5-2.2 3.4h2c0-1 .8-1.5 1.7-2.2A4 4 0 0 0 12.1 4z"/></svg></button>
+			</div>
+			<!-- RIGHT pill · player: audio / captions / hide-top-bar / fullscreen -->
+			<div id="stage-overlay" class="stage-overlay" role="group" aria-label="Player controls">
+				<button id="audio-toggle" class="ovl-btn ovl-audio" type="button" aria-label="Toggle audio narration" aria-pressed="false" title="Narration audio"></button>
+				<button id="cc-toggle" class="ovl-btn" type="button" aria-label="Toggle captions" aria-pressed="false" title="Captions"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9.7 10.2a2.1 2.1 0 1 0 0 3.6M17 10.2a2.1 2.1 0 1 0 0 3.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+				<button id="header-hide" class="ovl-btn" type="button" aria-label="Hide top bar" title="Hide top bar (H)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/></svg></button>
+				<button id="fs-toggle" class="ovl-btn" type="button" aria-label="Toggle full screen" aria-pressed="false" title="Full screen (F)"><svg class="fs-enter" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg><svg class="fs-exit" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg></button>
+			</div>
+		</div>
+	</main>
+
+	<aside id="step-outline" hidden aria-label="Text outline of the current step">
+		<h2 id="outline-title">Step Details</h2>
+		<div id="outline-body"></div>
+	</aside>
+
+	<div id="controls" role="group" aria-label="Diagram navigation">
+		<button id="ctrl-grip" type="button" class="ctrl-grip" aria-label="Drag to move the controls" title="Drag to move">
+			<svg viewBox="0 0 16 16" aria-hidden="true"><g fill="currentColor"><circle cx="5" cy="3" r="1.4"/><circle cx="11" cy="3" r="1.4"/><circle cx="5" cy="8" r="1.4"/><circle cx="11" cy="8" r="1.4"/><circle cx="5" cy="13" r="1.4"/><circle cx="11" cy="13" r="1.4"/></g></svg>
+		</button>
+		<button id="ctrl-pin" type="button" class="button button-clear ctrl-icon ctrl-pin" aria-label="Pin the controls back to the center" title="Pin to center">
+			<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9 2h6a1 1 0 0 1 .8 1.6L14 6v4l3 3v2h-4v5l-1 2-1-2v-5H7v-2l3-3V6L8.2 3.6A1 1 0 0 1 9 2z"/></svg>
+		</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="prev-btn" type="button" class="button ctrl-icon" aria-label="Previous step (left arrow)">&#9664;</button>
+		<div class="step-counter" id="step-counter">0 / 0</div>
+		<button id="next-btn" type="button" class="button button-primary button-filled ctrl-icon ctrl-icon-next" aria-label="Next step (right arrow or space)">&#9654;</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="replay-btn" type="button" class="button ctrl-icon" aria-label="Replay this step's animation (P)">&#8635;</button>
+		<div class="speed-control" role="group" aria-label="Animation speed">
+			<button id="speed-down" type="button" class="button button-clear speed-btn" aria-label="Slower (-)" title="Slower">&minus;</button>
+			<span id="speed-label" class="speed-label" aria-live="polite" aria-label="Current speed">1&times;</span>
+			<button id="speed-up" type="button" class="button button-clear speed-btn" aria-label="Faster (+)" title="Faster">+</button>
+		</div>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="reset-btn" type="button" class="button button-clear ctrl-icon" aria-label="Restart from step 1 (R)">&#9198;</button>
+	</div>
+
+	<div id="shortcut-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="sc-title">
+		<div class="sc-backdrop"></div>
+		<div class="sc-panel">
+			<button id="sc-close" class="sc-close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
+			<h2 id="sc-title">Keyboard shortcuts</h2>
+			<ul id="sc-list" class="sc-list"></ul>
+			<p class="sc-hint">Press <kbd>?</kbd> anytime to toggle this panel.</p>
+		</div>
+	</div>
+
+<script>
+// ── THEME ─────────────────────────────────
+const themeToggleBtn = document.getElementById('theme-toggle');
+function syncThemeBtn(){
+	if (!themeToggleBtn) return;
+	const isDark = document.body.classList.contains('theme-dark');
+	themeToggleBtn.dataset.theme = isDark ? 'dark' : 'light';   // drives which glyph (sun/moon) shows
+	const label = isDark ? 'Switch to light theme' : 'Switch to dark theme';
+	themeToggleBtn.setAttribute('aria-label', label);
+	themeToggleBtn.setAttribute('title', label);
+}
+if (window.AW && AW.theme) {
+	// aw-theme.js owns click handling + persistence; theme recolors via CSS variables, so no re-render/replay.
+	AW.theme.onChange(() => { syncThemeBtn(); });
+	syncThemeBtn();
+} else {
+	// Standalone fallback: toggle .theme-dark / .theme-light on <body> ourselves.
+	syncThemeBtn();
+	if (themeToggleBtn) themeToggleBtn.addEventListener('click', () => {
+		const goingDark = !document.body.classList.contains('theme-dark');
+		document.body.classList.remove('theme-dark', 'theme-light');
+		document.body.classList.add(goingDark ? 'theme-dark' : 'theme-light');
+		try { localStorage.setItem('aw-theme', goingDark ? 'theme-dark' : 'theme-light'); } catch(_){}
+		syncThemeBtn();
+	});
+	// restore a previously chosen theme (standalone only)
+	try { const saved = localStorage.getItem('aw-theme'); if (saved === 'theme-light' || saved === 'theme-dark') { document.body.classList.remove('theme-dark','theme-light'); document.body.classList.add(saved); syncThemeBtn(); } } catch(_){}
+}
+
+// ── i18n ──────────────────────────────────
+// English is the source language. Add sibling objects (es/ja/ko/pt) with the
+// SAME keys + matching <option>s in #lang-select. Keep brand/code/proper-noun
+// sample data untranslated.
+let currentLang = 'en';
+		//  SQL DB zone redundancy, geo-replication vs failover groups, RTO/RPO table  https://learn.microsoft.com/azure/azure-sql/database/business-continuity-high-availability-disaster-recover-hadr-overview
+		//  SQL Managed Instance zone redundancy + failover groups                       https://learn.microsoft.com/azure/azure-sql/managed-instance/business-continuity-high-availability-disaster-recover-hadr-overview
+		//  SQL DB automated backups (PITR 7 days default, 1-35; LTR up to 10 years; geo-restore)  https://learn.microsoft.com/azure/azure-sql/database/automated-backups-overview
+		//  SQL Server on Azure VMs HADR (availability groups, FCI)                      https://learn.microsoft.com/azure/azure-sql/virtual-machines/windows/business-continuity-high-availability-disaster-recovery-hadr-overview
+		//  Azure Cosmos DB reliability (single vs multiple write regions, RPO by consistency)  https://learn.microsoft.com/azure/cosmos-db/high-availability
+		//  PostgreSQL flexible server business continuity (HA RTO < 120 s / RPO 0, replicas, backups)  https://learn.microsoft.com/azure/postgresql/backup-restore/concepts-business-continuity
+		//  Azure Storage redundancy (LRS/ZRS/GRS/GZRS, read access)                     https://learn.microsoft.com/azure/storage/common/storage-redundancy
+const I18N = {
+	"en": {
+		"skipToMain": "Skip to diagram",
+		"pageTitle": "Keep data available: HA and DR for databases and storage",
+		"stageHeading": "Keep data available: HA and DR for databases and storage",
+		"stageInstructions": "Animated explainer. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.",
+		"prev": "◀ Prev",
+		"next": "Next ▶",
+		"replay": "↻ Replay",
+		"restart": "↻ Restart",
+		"slower": "Slower",
+		"faster": "Faster",
+		"calloutOn": "Callouts: On",
+		"calloutOff": "Callouts: Off",
+		"outlineOn": "Outline: On",
+		"outlineOff": "Outline: Off",
+		"audioTip": "Narration audio",
+		"ccTip": "Captions",
+		"shortcutsTip": "Shortcuts",
+		"stepDetails": "Step Details",
+		"stepOf": "Step",
+		"resetPos": "Reset to default position",
+		"scTitle": "Keyboard shortcuts",
+		"scNext": "Next step",
+		"scPrev": "Previous step",
+		"scRestart": "Restart",
+		"scReplay": "Replay this step",
+		"scHide": "Hide / show top bar",
+		"scHelp": "Toggle this help",
+		"nextCompute": "Up next: pick the right compute",
+		"regA": "Region A",
+		"regB": "Region B",
+		"regC": "Region C",
+		"qH": "Deciding question",
+		"pickOrders": "Contoso orders",
+		"zonesTitle": "Zone redundancy: survive a zone failure",
+		"zonesCaption": "Zone redundancy",
+		"zonesDesc": "The order database is the business. Spread it across availability zones and a zone failure is not an outage.",
+		"zonesCallout": "AZ-305 · Recommend a high availability solution for relational data. For Azure SQL Database and Azure SQL Managed Instance, enable zone redundancy to use availability zones. Recovery is transparent to applications. For Azure SQL Database the documented typical figures are an RTO under 30 seconds and an RPO of 0. The service tiers behind it are covered in the relational design lesson.",
+		"zonesSay": "A zone fails. Orders keep going.",
+		"zRegion": "Region",
+		"zone": "Zone",
+		"storefront": "Storefront",
+		"orderDb": "Order database",
+		"copyL": "Copy",
+		"stServing": "Serving",
+		"stReady": "Ready",
+		"zRto": "RTO · typically &lt; 30 s",
+		"zRpo": "RPO · 0",
+		"groupsTitle": "Across regions: geo-replication or failover group?",
+		"groupsCaption": "Regional failover",
+		"groupsDesc": "A region can fail too. Both options keep a readable copy elsewhere, and they differ in what fails over together.",
+		"groupsCallout": "AZ-305 · Recommend a high availability solution for relational data. Active geo-replication gives a continuously synchronized, readable secondary database in any region. A failover group manages replication and failover for some or all databases on a logical server, and adds read-write and read-only listener endpoints that do not change after failover. For both, the documented typical RTO is under 60 seconds with a customer-managed policy, and RPO is 0 or more depending on changes not yet replicated.",
+		"groupsSay": "Many databases? Use a group.",
+		"qGroups": "One database, or the whole app?",
+		"geoT": "Active geo-replication",
+		"geoD": "A readable copy in any region",
+		"fgT": "Failover group",
+		"fgD": "A set of databases fails over as one",
+		"gr1": "Fail over several databases together",
+		"gr2": "Connection string stays the same",
+		"gr3": "More than one replica",
+		"gr4": "Replica in the same region",
+		"yes": "Yes",
+		"no": "No",
+		"bothL": "Either option",
+		"gRto": "RTO · typically &lt; 60 s",
+		"gRpo": "RPO · 0 or more",
+		"backupsTitle": "Backups: pick the restore for the problem",
+		"backupsCaption": "Backups",
+		"backupsDesc": "SQL Database backs itself up. What changes is the restore you reach for, and how far back or away it goes.",
+		"backupsCallout": "AZ-305 · Recommend a backup and recovery solution for databases. Azure SQL Database takes full backups weekly, differential backups every 12 or 24 hours and transaction log backups every 5 to 10 minutes, stored in geo-redundant storage by default. Point-in-time restore keeps 7 days by default and can be set from 1 to 35 days (Basic: 1 to 7). Long-term retention is off by default and keeps full backups for up to 10 years. Geo-restore creates a database in any Azure region from the geo-replicated backups.",
+		"backupsSay": "Match the restore to the problem.",
+		"autoH": "Automated backups",
+		"bkFull": "Full · weekly",
+		"bkDiff": "Differential · every 12 or 24 h",
+		"bkLog": "Log · every 5 to 10 min",
+		"bkGeo": "Geo-redundant by default",
+		"pitrT": "Point-in-time restore",
+		"pitrU": "Use for: mistakes",
+		"pitrD": "Rewind a database to a moment before the damage.",
+		"pitrC": "7 days by default · up to 35",
+		"ltrT": "Long-term retention",
+		"ltrU": "Use for: compliance",
+		"ltrD": "Keep full backups for years. Off by default.",
+		"ltrC": "Up to 10 years",
+		"ltrC2": "Can be immutable",
+		"gerT": "Geo-restore",
+		"gerU": "Use for: a lost region",
+		"gerD": "Restore the database into any Azure region.",
+		"gerC": "RTO and RPO: minutes or hours",
+		"vmsTitle": "SQL Server on VMs: availability groups",
+		"vmsCaption": "Availability groups",
+		"vmsDesc": "On a VM the platform will not do this for you. You build the replicas, and an availability group keeps them in step.",
+		"vmsCallout": "AZ-305 · Recommend a high availability solution for relational data. Always On availability groups give database-level protection for high availability and disaster recovery on SQL Server in Azure VMs, and data movement between replicas can be synchronous or asynchronous. A failover cluster instance protects the whole instance instead. SQL Server on VMs trades more control for more effort: you build and operate the replicas.",
+		"vmsSay": "More control, more effort.",
+		"vPrimary": "Primary",
+		"vSecondary": "Secondary",
+		"vSync": "Synchronous",
+		"vAsync": "Asynchronous",
+		"agT": "Availability group",
+		"agD": "Protects databases",
+		"fciT": "Failover cluster instance",
+		"fciD": "Protects the whole instance",
+		"cosmosTitle": "Azure Cosmos DB: replicate and choose consistency",
+		"cosmosCaption": "Cosmos DB",
+		"cosmosDesc": "Cosmos DB replicates across regions for you. You choose where writes go and how much consistency to trade.",
+		"cosmosCallout": "AZ-305 · Recommend a high availability solution for semi-structured and unstructured data. With a single write region, other regions serve reads, and service-managed failover (region priorities) can take an hour or more, so a forced failover is faster. With multiple write regions every region accepts writes, Strong consistency is not supported and write conflicts can arise. For a region outage, RPO is 0 for Strong, under 15 minutes for Session, Consistent prefix and Eventual, and set by K and T for Bounded staleness.",
+		"cosmosSay": "Writes in one region, reads everywhere.",
+		"swT": "Single write region",
+		"mwT": "Multiple write regions",
+		"rWrite": "Write",
+		"rRead": "Read",
+		"swChip": "Strong consistency available",
+		"mwChip": "Conflicts possible · no Strong",
+		"conH": "Region outage: data you can lose (RPO)",
+		"cStrong": "Strong",
+		"cStrongV": "0",
+		"cBound": "Bounded staleness",
+		"cBoundV": "K updates or T time",
+		"cSess": "Session · Consistent prefix · Eventual",
+		"cSessV": "&lt; 15 min",
+		"axL": "Consistency",
+		"axR": "Speed and availability",
+		"pickCat": "Contoso catalogue",
+		"postgresTitle": "PostgreSQL flexible server: layers of recovery",
+		"postgresCaption": "PostgreSQL",
+		"postgresDesc": "No single setting does it all. Each layer answers a different failure, with its own RTO and RPO.",
+		"postgresCallout": "AZ-305 · Recommend a high availability solution for relational data. For a typical production workload (General Purpose or Memory Optimized), zone-redundant high availability keeps a synchronous standby in another zone: RTO is under 120 seconds and RPO is 0. A cross-region read replica is asynchronous. Automatic backups keep 7 to 35 days for point-in-time restore, and geo-redundant backup copies them to another region for geo-restore.",
+		"postgresSay": "Faster recovery means more standby.",
+		"pgH1": "Layer",
+		"pgH2": "RTO",
+		"pgH3": "RPO",
+		"pgH4": "Survives",
+		"pgHa": "Zone-redundant HA",
+		"pgRr": "Cross-region read replica",
+		"pgPitr": "Point-in-time restore",
+		"pgGeo": "Geo-restore",
+		"pgRto1": "&lt; 120 s",
+		"pgRto2": "Minutes",
+		"pgRto3": "Varies",
+		"pgRto4": "Varies",
+		"pgRpo1": "0",
+		"pgRpo2": "30 s to 5 min",
+		"pgRpo3": "&lt; 5 min",
+		"pgRpo4": "&lt; 1 hour",
+		"pgS1": "A zone failure",
+		"pgS2": "A region failure",
+		"pgS3": "An accidental delete",
+		"pgS4": "A region failure",
+		"storageTitle": "Storage redundancy: one decision row",
+		"storageCaption": "Storage",
+		"storageDesc": "Blobs, files and backups sit on storage accounts. Pick the redundancy by the biggest failure you must survive.",
+		"storageCallout": "AZ-305 · Recommend a data solution for protection and durability. LRS copies data within one datacenter, ZRS copies it synchronously across availability zones, and GRS and GZRS add an asynchronous copy in a secondary region. That secondary can be read only after a failover, unless you choose a read-access (RA) option. The Storage Redundancy lesson covers each option in depth.",
+		"storageSay": "Keep serving images in an outage.",
+		"stLrs": "Locally redundant",
+		"stZrs": "Zone-redundant",
+		"stGrs": "Geo-redundant",
+		"stGzrs": "Geo-zone-redundant",
+		"stRa": "Read-access GZRS",
+		"sv1": "Hardware failure in one datacenter",
+		"sv2": "Loss of one availability zone",
+		"sv3": "Loss of a whole region",
+		"sv4": "A zone loss and a region loss",
+		"sv5": "Both, and reads from the secondary",
+		"survL": "Survives",
+		"rdL": "Secondary reads",
+		"rd0": "No secondary",
+		"rd1": "After failover",
+		"rd2": "Any time",
+		"axStore": "Survives a bigger failure",
+		"pickImg": "Contoso images",
+		"wholeTitle": "All in one: pick by RTO and RPO",
+		"wholeCaption": "Recap",
+		"wholeDesc": "Start from the target, then choose the layer that meets it. The tighter the target, the more standby you pay for.",
+		"wholeCallout": "Next: pick the right compute for each Contoso workload.",
+		"mH1": "Option",
+		"mH2": "RTO",
+		"mH3": "RPO",
+		"m1": "SQL Database · zone redundancy",
+		"m1a": "&lt; 30 s",
+		"m1b": "0",
+		"m2": "SQL Database · failover group",
+		"m2a": "&lt; 60 s",
+		"m2b": "0 or more",
+		"m3": "PostgreSQL · zone-redundant HA",
+		"m3a": "&lt; 120 s",
+		"m3b": "0",
+		"m4": "PostgreSQL · cross-region replica",
+		"m4a": "Minutes",
+		"m4b": "30 s to 5 min",
+		"m5": "Cosmos DB · multi-region",
+		"m5a": "Failover priority",
+		"m5b": "By consistency level",
+		"m6": "SQL Database · geo-restore",
+		"m6a": "Minutes or hours",
+		"m6b": "Minutes or hours",
+		"wholeFoot": "Official Learn: <a href=\"https://learn.microsoft.com/azure/azure-sql/database/business-continuity-high-availability-disaster-recover-hadr-overview\" target=\"_blank\" rel=\"noopener\">SQL Database</a>, <a href=\"https://learn.microsoft.com/azure/cosmos-db/high-availability\" target=\"_blank\" rel=\"noopener\">Cosmos DB</a> and <a href=\"https://learn.microsoft.com/azure/postgresql/backup-restore/concepts-business-continuity\" target=\"_blank\" rel=\"noopener\">PostgreSQL</a> business continuity.",
+		"backLabel": "Design for recovery",
+		"short1": "Zones",
+		"short2": "Regions",
+		"short3": "Backups",
+		"short4": "SQL on VMs",
+		"short5": "Cosmos DB",
+		"short6": "PostgreSQL",
+		"short7": "Storage",
+		"short8": "All in one",
+		"languageLabel": "Language"
+	},
+	"es": {
+		"skipToMain": "Ir al diagrama",
+		"pageTitle": "Mantener los datos disponibles: alta disponibilidad y recuperación",
+		"stageHeading": "Mantener los datos disponibles: alta disponibilidad y recuperación",
+		"stageInstructions": "Explicación animada. Usa los botones de Siguiente/Anterior o las flechas para navegar. Pulsa R para reiniciar.",
+		"prev": "◀ Anterior",
+		"next": "Siguiente ▶",
+		"replay": "↻ Repetir",
+		"restart": "↻ Reiniciar",
+		"slower": "Más lento",
+		"faster": "Más rápido",
+		"calloutOn": "Notas: activadas",
+		"calloutOff": "Notas: desactivadas",
+		"outlineOn": "Esquema: activado",
+		"outlineOff": "Esquema: desactivado",
+		"audioTip": "Narración de audio",
+		"ccTip": "Subtítulos",
+		"shortcutsTip": "Atajos",
+		"stepDetails": "Detalles del paso",
+		"stepOf": "Paso",
+		"resetPos": "Restablecer la posición",
+		"scTitle": "Atajos de teclado",
+		"scNext": "Paso siguiente",
+		"scPrev": "Paso anterior",
+		"scRestart": "Reiniciar",
+		"scReplay": "Repetir este paso",
+		"scHide": "Mostrar u ocultar la barra superior",
+		"scHelp": "Mostrar u ocultar esta ayuda",
+		"nextCompute": "A continuación: elige el cálculo adecuado",
+		"regA": "Región A",
+		"regB": "Región B",
+		"regC": "Región C",
+		"qH": "Pregunta decisiva",
+		"pickOrders": "Pedidos de Contoso",
+		"zonesTitle": "Redundancia de zonas: sobrevivir a un fallo de zona",
+		"zonesCaption": "Redundancia de zonas",
+		"zonesDesc": "La base de datos de pedidos es el negocio. Si la distribuyen entre zonas de disponibilidad, un fallo de zona no es una interrupción.",
+		"zonesCallout": "AZ-305 · Recomiendo una solución de alta disponibilidad para datos relacionales. Para Azure SQL Database y Azure SQL Managed Instance, activa la redundancia de zonas para usar zonas de disponibilidad. La recuperación es transparente para las aplicaciones. Para Azure SQL Database, las cifras típicas documentadas son un RTO inferior a 30 segundos y un RPO de 0. Los niveles de servicio que hay detrás se cubren en la lección de diseño relacional.",
+		"zonesSay": "Una zona falla. Las órdenes continúan.",
+		"zRegion": "Región",
+		"zone": "Zona",
+		"storefront": "Escaparate",
+		"orderDb": "BD de pedidos",
+		"copyL": "Copiado",
+		"stServing": "Servicio",
+		"stReady": "Listo",
+		"zRto": "RTO · normalmente &lt; 30 s",
+		"zRpo": "RPO · 0",
+		"groupsTitle": "¿En diferentes regiones: geo-replicación o grupo de conmutación por fallo?",
+		"groupsCaption": "Conmutación regional por error",
+		"groupsDesc": "Una región también puede fallar. Ambas opciones mantienen una copia legible en otro lugar, y difieren en lo que se hace por error juntas.",
+		"groupsCallout": "AZ-305 · Recomienda una solución de alta disponibilidad para datos relacionales. La geo-replicación activa proporciona una base de datos secundaria sincronizada y legible de forma continua en cualquier región. Un grupo de conmutación por error gestiona la replicación y la conmutación por error para algunas o todas las bases de datos en un servidor lógico, y añade puntos finales de escucha de lectura, escritura y solo lectura que no cambian tras la conmutación por error. Para ambos, el RTO típico documentado es inferior a 60 segundos con una política gestionada por el cliente, y el RPO es 0 o más dependiendo de los cambios aún no replicados.",
+		"groupsSay": "¿Muchas bases de datos? Usa un grupo.",
+		"qGroups": "¿Una sola base de datos o toda la app?",
+		"geoT": "Geo-replicación activa",
+		"geoD": "Una copia legible en cualquier región",
+		"fgT": "Grupo de conmutación por error",
+		"fgD": "Un conjunto de bases de datos falla como una sola",
+		"gr1": "Hacer conmutación por error de varias bases de datos juntas",
+		"gr2": "La cadena de conexión se mantiene igual",
+		"gr3": "Más de una réplica",
+		"gr4": "Réplica en la misma región",
+		"yes": "Sí",
+		"no": "No",
+		"bothL": "Cualquiera de las dos opciones",
+		"gRto": "RTO · normalmente &lt; 60 s",
+		"gRpo": "RPO · 0 o más",
+		"backupsTitle": "Copias de seguridad: elige la restauración para el problema",
+		"backupsCaption": "Suplentes",
+		"backupsDesc": "La base de datos SQL se respalda sola. Lo que cambia es la restauración a la que aspiras y hasta dónde retrocede o se aleja.",
+		"backupsCallout": "AZ-305 · Recomiendo una solución de copia de seguridad y recuperación para bases de datos. Azure SQL Database acepta copias de seguridad completas semanalmente, copias diferenciales cada 12 o 24 horas y copias de seguridad de los registros de transacciones cada 5 a 10 minutos, almacenadas por defecto en almacenamiento geo-redundante. La restauración en un momento dado mantiene por defecto 7 días y puede configurarse de 1 a 35 días (Básico: 1 a 7). La retención a largo plazo está desactivada por defecto y mantiene copias de seguridad completas hasta 10 años. La restauración geográfica crea una base de datos en cualquier región de Azure a partir de las copias de seguridad geo-replicadas.",
+		"backupsSay": "Ajusta la restauración al problema.",
+		"autoH": "Copias de seguridad automatizadas",
+		"bkFull": "Completo · semanal",
+		"bkDiff": "Diferencial · cada 12 o 24 horas",
+		"bkLog": "Log · cada 5 a 10 minutos",
+		"bkGeo": "Geo-redundante por defecto",
+		"pitrT": "Restauración en un momento en el tiempo",
+		"pitrU": "Uso para: errores",
+		"pitrD": "Rebobina una base de datos hasta un momento antes del daño.",
+		"pitrC": "7 días por defecto · hasta 35",
+		"ltrT": "Retención a largo plazo",
+		"ltrU": "Uso para: cumplimiento normativo",
+		"ltrD": "Guarda copias de seguridad completas durante años. Desactivado por defecto.",
+		"ltrC": "Hasta 10 años",
+		"ltrC2": "Puede ser inmutable",
+		"gerT": "Geo-restauración",
+		"gerU": "Uso para: una región perdida",
+		"gerD": "Restaura la base de datos en cualquier región de Azure.",
+		"gerC": "RTO y RPO: minutos u horas",
+		"vmsTitle": "SQL Server en VMs: grupos de disponibilidad",
+		"vmsCaption": "Grupos de disponibilidad",
+		"vmsDesc": "En una VM la plataforma no hará esto por ti. Construyes las réplicas y un grupo de disponibilidad las mantiene en ritmo.",
+		"vmsCallout": "AZ-305 · Recomiende una solución de alta disponibilidad para datos relacionales. Los grupos de disponibilidad Always On ofrecen protección a nivel de base de datos para alta disponibilidad y recuperación ante desastres en SQL Server en Azure VMs, y el movimiento de datos entre réplicas puede ser síncrono o asíncrono. Una instancia de clúster de conmutación por conmutación protege toda la instancia en su lugar. SQL Server en VMs intercambia más control por más esfuerzo: construyes y operas las réplicas.",
+		"vmsSay": "Más control, más esfuerzo.",
+		"vPrimary": "Primaria",
+		"vSecondary": "Secundaria",
+		"vSync": "Síncrona",
+		"vAsync": "Asíncrono",
+		"agT": "Grupo de disponibilidad",
+		"agD": "Protege las bases de datos",
+		"fciT": "Instancia de clúster de conmutación por conmutación por fallo",
+		"fciD": "Protege toda la instancia",
+		"cosmosTitle": "Azure Cosmos DB: replicar y elegir consistencia",
+		"cosmosCaption": "Cosmos DB",
+		"cosmosDesc": "Cosmos DB replica entre regiones por ti. Tú eliges dónde van las escrituras y cuánta consistencia intercambiar.",
+		"cosmosCallout": "AZ-305 · Recomiendan una solución de alta disponibilidad para datos semiestructurados y no estructurados. Con una sola región de escritura, otras regiones sirven lecturas, y la conmutación por error gestionada por servicios (prioridades regionales) puede tardar una hora o más, por lo que una conmutación por error forzada es más rápida. Con múltiples regiones de escritura, cada región acepta escrituras, no se soporta la consistencia fuerte y pueden surgir conflictos de escritura. Para una interrupción de región, el RPO es 0 para Fuerte, menos de 15 minutos para Sesión, prefijo consistente y eventual, y fijado por K y T para la estadía acotada.",
+		"cosmosSay": "Escribe en una región, lee en todas partes.",
+		"swT": "Región de escritura única",
+		"mwT": "Regiones de escritura múltiples",
+		"rWrite": "Escribe",
+		"rRead": "Lee",
+		"swChip": "Una gran consistencia disponible",
+		"mwChip": "Conflictos posibles · no Fuerte",
+		"conH": "Caída de la región: datos que puedes perder (RPO)",
+		"cStrong": "Fuerte",
+		"cStrongV": "0",
+		"cBound": "Estancamiento acotado",
+		"cBoundV": "Actualizaciones K o tiempo T",
+		"cSess": "Sesión · Prefijo consistente · Eventual",
+		"cSessV": "&lt; 15 min",
+		"axL": "Consistencia",
+		"axR": "Velocidad y disponibilidad",
+		"pickCat": "Catálogo Contoso",
+		"postgresTitle": "Servidor flexible PostgreSQL: capas de recuperación",
+		"postgresCaption": "PostgreSQL",
+		"postgresDesc": "Ningún ajuste lo soluciona todo. Cada capa responde a un fallo diferente, con su propio RTO y RPO.",
+		"postgresCallout": "AZ-305 · Recomiendan una solución de alta disponibilidad para datos relacionales. Para una carga de trabajo típica de producción (de propósito general o optimizada en memoria), la alta disponibilidad redundante por zona mantiene una espera síncrona en otra zona: el RTO es inferior a 120 segundos y el RPO es 0. Una réplica de lectura entre regiones es asincrónica. Las copias de seguridad automáticas mantienen entre 7 y 35 días para la restauración en un momento en el tiempo, y la copia de seguridad geo-redundante las copia a otra región para su restauración geográfica.",
+		"postgresSay": "Una recuperación más rápida significa más espera en espera.",
+		"pgH1": "Capa",
+		"pgH2": "RTO",
+		"pgH3": "RPO",
+		"pgH4": "Sobrevive",
+		"pgHa": "HA redundante por zona",
+		"pgRr": "Réplica de lectura cruzada de regiones",
+		"pgPitr": "Restauración en un momento en el tiempo",
+		"pgGeo": "Geo-restauración",
+		"pgRto1": "&lt; 120 s",
+		"pgRto2": "Actas",
+		"pgRto3": "Varía",
+		"pgRto4": "Varía",
+		"pgRpo1": "0",
+		"pgRpo2": "30 s – 5 min",
+		"pgRpo3": "&lt; 5 min",
+		"pgRpo4": "< 1 hora",
+		"pgS1": "Fallo de zona",
+		"pgS2": "Una falla de región",
+		"pgS3": "Una eliminación accidental",
+		"pgS4": "Una falla de región",
+		"storageTitle": "Redundancia de almacenamiento: una fila de decisiones",
+		"storageCaption": "Almacenamiento",
+		"storageDesc": "Los blobs, archivos y copias de seguridad están en cuentas de almacenamiento. Elige la redundancia según el mayor fallo que debes sobrevivir.",
+		"storageCallout": "AZ-305 · Recomiendo una solución de datos para protección y durabilidad. LRS copia datos dentro de un centro de datos, ZRS los copia de forma sincrónica entre zonas de disponibilidad, y GRS y GZRS añaden una copia asíncrona en una región secundaria. Esa secundaria solo puede leerse tras un conmutamiento por error, a menos que elijas una opción de acceso de lectura (RA). La lección de Redundancia de Almacenamiento cubre cada opción en profundidad.",
+		"storageSay": "Sigue sirviendo imágenes en caso de corte.",
+		"stLrs": "Redundante localmente",
+		"stZrs": "Redundante por zonas",
+		"stGrs": "Geo-redundante",
+		"stGzrs": "Geo-zona redundante",
+		"stRa": "GZRS de acceso de lectura",
+		"sv1": "Fallo de hardware en un centro de datos",
+		"sv2": "Pérdida de una zona de disponibilidad",
+		"sv3": "Pérdida de toda una región",
+		"sv4": "Una pérdida de zona y una pérdida de región",
+		"sv5": "Ambos, y lee desde la secundaria",
+		"survL": "Sobrevive",
+		"rdL": "Lecturas secundarias",
+		"rd0": "Sin secundaria",
+		"rd1": "Después de la falla",
+		"rd2": "Cuando quieras",
+		"axStore": "Sobrevive a un fracaso mayor",
+		"pickImg": "Contoso imágenes",
+		"wholeTitle": "Resumen: elegir según el RTO y el RPO",
+		"wholeCaption": "Resumen",
+		"wholeDesc": "Empieza por el objetivo y luego elige la capa que lo encaje. Cuanto más ajustado sea el objetivo, más espera pagas.",
+		"wholeCallout": "A continuación: elige el cálculo adecuado para cada carga de trabajo de Contoso.",
+		"mH1": "Opción",
+		"mH2": "RTO",
+		"mH3": "RPO",
+		"m1": "Redundancia de zonas en la base de datos SQL",
+		"m1a": "&lt; 30 s",
+		"m1b": "0",
+		"m2": "Grupo de conmutación por error de base de datos SQL",
+		"m2a": "&lt; 60 s",
+		"m2b": "0 o más",
+		"m3": "PostgreSQL · HA redundante por zonas",
+		"m3a": "&lt; 120 s",
+		"m3b": "0",
+		"m4": "PostgreSQL · réplica interregión",
+		"m4a": "Actas",
+		"m4b": "30 s – 5 min",
+		"m5": "Cosmos DB · multirregión",
+		"m5a": "Prioridad de conmutación por error",
+		"m5b": "Por nivel de consistencia",
+		"m6": "Base de datos SQL · restauración geográfica",
+		"m6a": "Minutos u horas",
+		"m6b": "Minutos u horas",
+		"wholeFoot": "Oficial Learn: <a href=\"https://learn.microsoft.com/azure/azure-sql/database/business-continuity-high-availability-disaster-recover-hadr-overview\" target=\"_blank\" rel=\"noopener\">Base de datos SQL</a>, <a href=\"https://learn.microsoft.com/azure/cosmos-db/high-availability\" target=\"_blank\" rel=\"noopener\">continuidad de negocio de Cosmos DB</a> y <a href=\"https://learn.microsoft.com/azure/postgresql/backup-restore/concepts-business-continuity\" target=\"_blank\" rel=\"noopener\">PostgreSQL</a>.",
+		"backLabel": "Diseño para la recuperación",
+		"short1": "Zonas",
+		"short2": "Regiones",
+		"short3": "Suplentes",
+		"short4": "SQL en VMs",
+		"short5": "Cosmos DB",
+		"short6": "PostgreSQL",
+		"short7": "Almacenamiento",
+		"short8": "Todo en uno",
+		"languageLabel": "Idioma"
+	},
+	"ja": {
+		"skipToMain": "図へスキップ",
+		"pageTitle": "データの可用性：データベースとストレージのHA・DR",
+		"stageHeading": "データの可用性：データベースとストレージのHA・DR",
+		"stageInstructions": "アニメーション解説。次回/前回ボタンや矢印キーを使ってナビゲート。Rボタンを押して再起動します。",
+		"prev": "◀ 前へ",
+		"next": "次へ ▶",
+		"replay": "↻ 再生",
+		"restart": "↻ 最初から",
+		"slower": "ゆっくり",
+		"faster": "速く",
+		"calloutOn": "吹き出し：オン",
+		"calloutOff": "吹き出し：オフ",
+		"outlineOn": "アウトライン：オン",
+		"outlineOff": "アウトライン：オフ",
+		"audioTip": "音声ナレーション",
+		"ccTip": "字幕",
+		"shortcutsTip": "ショートカット",
+		"stepDetails": "ステップの詳細",
+		"stepOf": "ステップ",
+		"resetPos": "位置を既定に戻す",
+		"scTitle": "キーボード ショートカット",
+		"scNext": "次のステップ",
+		"scPrev": "前のステップ",
+		"scRestart": "最初から",
+		"scReplay": "このステップを再生",
+		"scHide": "上部バーの表示 / 非表示",
+		"scHelp": "このヘルプの表示切り替え",
+		"nextCompute": "次は、正しい計算方法を選ぶことです",
+		"regA": "リージョンA",
+		"regB": "リージョンB",
+		"regC": "リージョンC",
+		"qH": "決定的な質問",
+		"pickOrders": "Contoso の注文",
+		"zonesTitle": "ゾーン冗長性:ゾーン障害を生き延びる",
+		"zonesCaption": "ゾーン冗長性",
+		"zonesDesc": "注文データベースこそがビジネスです。可用性ゾーンに分散させれば、ゾーン障害は障害とは言えません。",
+		"zonesCallout": "AZ-305 ·リレーショナルデータには高可用性ソリューションを推奨します。Azure SQL DatabaseおよびAzure SQL Managed Instanceでは、可用性ゾーンを利用できるゾーン冗長性を有効にしてください。リカバリーはアプリケーションにとって透過的です。Azure SQL Databaseの文書化された典型的な数値は、RTOが30秒未満、RPOが0です。 その背後にあるサービス層については、リレーションショナルデザインのレッスンで説明されています。",
+		"zonesSay": "ゾーンが失敗する。命令は続く。",
+		"zRegion": "リージョン",
+		"zone": "ゾーン",
+		"storefront": "店舗フロント",
+		"orderDb": "注文DB",
+		"copyL": "了解",
+		"stServing": "サーブ",
+		"stReady": "準備",
+		"zRto": "RTO · 通常 &lt; 30 s",
+		"zRpo": "RPO · 0",
+		"groupsTitle": "リージョン間で:ジオレプリケーションかフェイルオーバーグループか?",
+		"groupsCaption": "リージョンフェイルオーバー",
+		"groupsDesc": "リージョンも失敗することがある。どちらの選択肢も他の場所で読みやすいコピーを保持し、何が同時に失敗するかも異なる。",
+		"groupsCallout": "AZ-305 ·リレーショナルデータには高可用性ソリューションを推奨します。アクティブジオレプリケーションは、どのリージョンでも連続的に同期され読み取れる二次データベースを提供します。フェイルオーバーグループは論理サーバー上の一部またはすべてのデータベースのレプリケーションとフェイルオーバーを管理し、フェイルオーバー後も変更されない読み書き・読み込み専用のリスナーエンドポイントを追加します。両者とも、ドキュメント上の典型的なRTOは顧客管理ポリシーで60秒未満であり、RPOはまだ複製されていない変更によって0以上となります。",
+		"groupsSay": "多くのデータベースを使いますか?グループを使いましょう。",
+		"qGroups": "データベースは一つですか、それともアプリ全体ですか?",
+		"geoT": "アクティブジオレプリケーション",
+		"geoD": "どのリージョンでも読み取れるコピー",
+		"fgT": "フェイルオーバーグループ",
+		"fgD": "複数のデータベースが一つのデータベースとしてフォールオーバーされます",
+		"gr1": "複数のデータベースを同時にフェイルオーバーする",
+		"gr2": "接続線は変わらない",
+		"gr3": "複数のレプリカ",
+		"gr4": "同じリージョン内のレプリカ",
+		"yes": "はい",
+		"no": "いいえ",
+		"bothL": "どちらの選択肢でもいいです",
+		"gRto": "RTO · 通常 &lt; 60 s",
+		"gRpo": "RPO · 0以上",
+		"backupsTitle": "バックアップ:問題の復元を選ぶ",
+		"backupsCaption": "バックアップ",
+		"backupsDesc": "SQLデータベースは自分自身でバックアップします。変わるのは、どのリストアを取るか、どれだけ遡るか、どこまで遠くまで遡るかです。",
+		"backupsCallout": "AZ-305 ·データベース向けのバックアップおよび復旧ソリューションを推奨します。Azure SQL Databaseは毎週フルバックアップを受け付け、差分バックアップは12時間または24時間ごとに、トランザクションログバックアップは5〜10分ごとに行われ、デフォルトで地理的冗長ストレージに保存されます。ポイントインタイム復元はデフォルトで7日間を保持し、1日から35日まで設定可能です(基本では1日から7日)。長期保持はデフォルトでオフにされており、最大10年間フルバックアップを保持できます。ジオリストアは、ジオレプリケートされたバックアップから任意のAzureリージョンにデータベースを作成します。",
+		"backupsSay": "リストアを問題に合わせて調整してください。",
+		"autoH": "自動バックアップ",
+		"bkFull": "全・週ごと",
+		"bkDiff": "ディファレンシャル・12時間または24時間ごとに",
+		"bkLog": "記録 ·5〜10分ごとに",
+		"bkGeo": "デフォルトで地理的冗長",
+		"pitrT": "ポイントインタイム復元",
+		"pitrU": "用途:ミス",
+		"pitrD": "データベースを損傷の直前の瞬間に巻き戻す。",
+		"pitrC": "デフォルトで7日間・最大35日間まで",
+		"ltrT": "長期保持",
+		"ltrU": "用途:コンプライアンス",
+		"ltrD": "何年も完全なバックアップを保持しておく。デフォルトでオフにしている。",
+		"ltrC": "最長10年",
+		"ltrC2": "不変の存在になり得ます",
+		"gerT": "ジオリストア",
+		"gerU": "用途:失われた領域",
+		"gerD": "データベースを任意のAzureリージョンに復元してください。",
+		"gerC": "RTOとRPO:分か時間か",
+		"vmsTitle": "SQL Server on VMs: 可用性グループ",
+		"vmsCaption": "可用性グループ",
+		"vmsDesc": "VM上ではプラットフォームがこれを代わりに行いません。レプリカを構築し、可用性グループがそれらを管理します。",
+		"vmsCallout": "AZ-305 ·リレーショナルデータには高可用性ソリューションを推奨します。Always Onの可用性グループは、Azure VMsのSQL Server上で高可用性および災害復旧のためのデータベースレベルの保護を提供し、レプリカ間のデータ移動は同期または非同期で行えます。フェイルオーバークラスターインスタンスはインスタンス全体を保護します。VMs上のSQL Serverはより多くの制御と労力を交換します:レプリカを構築・運用するだけです。",
+		"vmsSay": "コントロールが増えれば、努力も多くなる。",
+		"vPrimary": "小学校",
+		"vSecondary": "中等教育",
+		"vSync": "同期",
+		"vAsync": "非同期",
+		"agT": "可用性グループ",
+		"agD": "データベースの保護",
+		"fciT": "フェイルオーバークラスタインスタンス",
+		"fciD": "インスタンス全体を保護します",
+		"cosmosTitle": "Azure Cosmos DB: replicate and choose consistency",
+		"cosmosCaption": "Cosmos DB",
+		"cosmosDesc": "Cosmos DBはリージョン間でレプリケーションを行います。書き込みの行き先や取引の一貫性を自分で選びます。",
+		"cosmosCallout": "AZ-305 ·半構造化データおよび非構造化データに対して高可用性ソリューションを推奨します。単一の書き込みリージョンでは、他の領域が読み取りを担当し、サービス管理フェイルオーバー(領域優先度)は1時間以上かかることがあるため、強制フェイルオーバーの方が速いです。複数の書き込みリージョンではすべての領域が書き込みを受け入れ、強い整合性はサポートされておらず、書き込み競合が発生することがあります。リージョン障害時、RPOは強力で0、セッション、コンスタントプレフィックス、最終は15分未満、KとTで限定ステイルネスを示します。",
+		"cosmosSay": "一つのリージョンで書き、どこでも読みます。",
+		"swT": "単一書き込みリージョン",
+		"mwT": "複数書き込みリージョン",
+		"rWrite": "書く",
+		"rRead": "読む",
+		"swChip": "強力な一貫性が確保されています",
+		"mwChip": "対立の可能性 ·ストロングはない",
+		"conH": "リージョン障害:データを失う可能性があります(RPO)",
+		"cStrong": "ストロング",
+		"cStrongV": "0",
+		"cBound": "有界の淀滞",
+		"cBoundV": "Kの更新、またはT時間",
+		"cSess": "セッション ·一貫した接頭辞 ·最終的",
+		"cSessV": "&lt; 15 min",
+		"axL": "一貫性",
+		"axR": "速度と入手可能性",
+		"pickCat": "Contosoカタログ",
+		"postgresTitle": "PostgreSQL フレキシブルサーバー:復旧の層",
+		"postgresCaption": "PostgreSQL",
+		"postgresDesc": "単一の設定ですべてを解決するわけではありません。各レイヤーは異なる故障に対応し、それぞれのRTOとRPOを持っています。",
+		"postgresCallout": "AZ-305 ·リレーショナルデータには高可用性ソリューションを推奨します。典型的な本番作業(汎用またはメモリ最適化)では、ゾーン冗長性高可用性は別のゾーンで同期スタンバイを保持します。RTOは120秒未満、RPOは0です。クロスリージョンのリードレプリカは非同期です。自動バックアップはポイントインタイム復元に7日から35日かかり、ジオ冗長バックアップはジオリストアのために別のリージョンにコピーします。",
+		"postgresSay": "復旧が早いほど、待機時間も増えます。",
+		"pgH1": "層",
+		"pgH2": "RTO",
+		"pgH3": "RPO",
+		"pgH4": "現存",
+		"pgHa": "ゾーン冗長HA",
+		"pgRr": "クロスリージョンリードレプリカ",
+		"pgPitr": "ポイントインタイム復元",
+		"pgGeo": "ジオリストア",
+		"pgRto1": "&lt; 120 s",
+		"pgRto2": "分",
+		"pgRto3": "状況は様々です",
+		"pgRto4": "状況は様々です",
+		"pgRpo1": "0",
+		"pgRpo2": "30 s – 5 min",
+		"pgRpo3": "&lt; 5 min",
+		"pgRpo4": "< 1時間",
+		"pgS1": "ゾーン故障",
+		"pgS2": "リージョンの失敗",
+		"pgS3": "誤って削除してしまった",
+		"pgS4": "リージョンの失敗",
+		"storageTitle": "ストレージ冗長性:1つの決定行",
+		"storageCaption": "保管",
+		"storageDesc": "ブロブ、ファイル、バックアップはストレージアカウントに保存されています。冗長性は最大の失敗で選びましょう。",
+		"storageCallout": "AZ-305 ·保護と耐久性のためにデータソリューションを推奨します。LRSは1つのデータセンター内でデータをコピーし、ZRSは可用性ゾーン間で同期的にコピーし、GRSとGZRSは二次領域に非同期コピーを追加します。その二次領域はフェイルオーバー後のみ読み取りのみ可能ですが、読み取りアクセス(RA)オプションを選択しない限り例外です。ストレージ冗長性のレッスンでは各オプションを詳しく扱っています。",
+		"storageSay": "障害時も画像の提供を続けてください。",
+		"stLrs": "局所的冗長",
+		"stZrs": "ゾーン冗長",
+		"stGrs": "ジオ冗長性",
+		"stGzrs": "ジオゾーン冗長",
+		"stRa": "リードアクセスGZRS",
+		"sv1": "あるデータセンターでのハードウェア故障",
+		"sv2": "1つの可動可能ゾーンの喪失",
+		"sv3": "一つのリージョン全体の喪失",
+		"sv4": "ゾーン損失とリージョン損失",
+		"sv5": "両方で、セカンダリーから読みます",
+		"survL": "現存",
+		"rdL": "二次的な読み取り",
+		"rd0": "二次的なことはない",
+		"rd1": "フェイルオーバー後",
+		"rd2": "いつでもいいよ",
+		"axStore": "より大きな失敗を乗り越えた",
+		"pickImg": "Contoso 画像",
+		"wholeTitle": "全体像：RTO と RPO に基づいて選ぶ",
+		"wholeCaption": "まとめ",
+		"wholeDesc": "ターゲットから始めて、それに合うレイヤーを選びましょう。ターゲットが狭ければ狭いほど、より多くのスタンバイ料金がかかります。",
+		"wholeCallout": "次に:各Contosoワークロードに適した計算方法を選びます。",
+		"mH1": "オプション",
+		"mH2": "RTO",
+		"mH3": "RPO",
+		"m1": "SQL Database · ゾーン冗長",
+		"m1a": "&lt; 30 s",
+		"m1b": "0",
+		"m2": "SQL DB · フェールオーバーグループ",
+		"m2a": "&lt; 60 s",
+		"m2b": "0以上",
+		"m3": "PostgreSQL · zone-redundant HA",
+		"m3a": "&lt; 120 s",
+		"m3b": "0",
+		"m4": "PostgreSQL · クロスリージョンレプリカ",
+		"m4a": "分",
+		"m4b": "30 s – 5 min",
+		"m5": "Cosmos DB · マルチリージョン",
+		"m5a": "フェイルオーバー優先度",
+		"m5b": "整合性レベル別",
+		"m6": "SQL Database · geo-restore",
+		"m6a": "分か時間か",
+		"m6b": "分か時間か",
+		"wholeFoot": "公式学習:<a href=\"https://learn.microsoft.com/azure/azure-sql/database/business-continuity-high-availability-disaster-recover-hadr-overview\" target=\"_blank\" rel=\"noopener\">SQLデータベース</a>、<a href=\"https://learn.microsoft.com/azure/cosmos-db/high-availability\" target=\"_blank\" rel=\"noopener\">Cosmos DB</a>、<a href=\"https://learn.microsoft.com/azure/postgresql/backup-restore/concepts-business-continuity\" target=\"_blank\" rel=\"noopener\">PostgreSQL</a>のビジネス継続性。",
+		"backLabel": "リカバリー設計",
+		"short1": "ゾーン",
+		"short2": "リージョン",
+		"short3": "バックアップ",
+		"short4": "VMs上のSQL",
+		"short5": "Cosmos DB",
+		"short6": "PostgreSQL",
+		"short7": "保管",
+		"short8": "すべてが一つに",
+		"languageLabel": "言語"
+	},
+	"ko": {
+		"skipToMain": "다이어그램으로 건너뛰기",
+		"pageTitle": "데이터 가용성: 데이터베이스 및 스토리지의 HA와 DR",
+		"stageHeading": "데이터 가용성: 데이터베이스 및 스토리지의 HA와 DR",
+		"stageInstructions": "애니메이션 설명. 다음/이전 버튼이나 방향키를 사용해 탐색하세요. R을 눌러 재시작하세요.",
+		"prev": "◀ 이전",
+		"next": "다음 ▶",
+		"replay": "↻ 다시 재생",
+		"restart": "↻ 처음부터",
+		"slower": "느리게",
+		"faster": "빠르게",
+		"calloutOn": "설명선: 켜짐",
+		"calloutOff": "설명선: 꺼짐",
+		"outlineOn": "개요: 켜짐",
+		"outlineOff": "개요: 꺼짐",
+		"audioTip": "오디오 내레이션",
+		"ccTip": "자막",
+		"shortcutsTip": "단축키",
+		"stepDetails": "단계 상세",
+		"stepOf": "단계",
+		"resetPos": "기본 위치로 되돌리기",
+		"scTitle": "키보드 단축키",
+		"scNext": "다음 단계",
+		"scPrev": "이전 단계",
+		"scRestart": "처음부터",
+		"scReplay": "이 단계 다시 재생",
+		"scHide": "상단 바 표시 / 숨기기",
+		"scHelp": "이 도움말 전환",
+		"nextCompute": "다음: 올바른 컴퓨트를 선택하세요",
+		"regA": "A 지역",
+		"regB": "지역 B",
+		"regC": "C 지역",
+		"qH": "결정 질문",
+		"pickOrders": "Contoso 주문",
+		"zonesTitle": "존 중복성: 존 실패 시 생존",
+		"zonesCaption": "존 중복성",
+		"zonesDesc": "주문 데이터베이스가 비즈니스입니다. 가용성 구역에 분산시키면 구역 장애가 장애가 아닙니다.",
+		"zonesCallout": "AZ-305 · 관계형 데이터에 대한 고가용성 솔루션을 권장합니다. Azure SQL Database와 Azure SQL Managed Instance의 경우, 가용성 존을 사용할 수 있도록 존 중복을 활성화하세요. 복구는 애플리케이션에 투명합니다. Azure SQL Database의 문서화된 일반적인 수치는 RTO가 30초 미만이고 RPO가 0입니다. 그 뒤에 있는 서비스 계층은 관계형 설계 수업에서 다루고 있습니다.",
+		"zonesSay": "구역이 실패한다. 명령은 계속 내려간다.",
+		"zRegion": "지역",
+		"zone": "존",
+		"storefront": "스토어프런트",
+		"orderDb": "주문 DB",
+		"copyL": "알겠습니다",
+		"stServing": "서빙",
+		"stReady": "준비됐어",
+		"zRto": "RTO · 일반적으로 &lt; 30 s",
+		"zRpo": "RPO · 0",
+		"groupsTitle": "지역 간: 지오 복제 또는 장애 조치 그룹?",
+		"groupsCaption": "지역 장애 전환",
+		"groupsDesc": "영역도 실패할 수 있습니다. 두 방법 모두 읽기 쉬운 복사본을 다른 곳에 보관하며, 함께 실패하는 방식이 다릅니다.",
+		"groupsCallout": "AZ-305 · 관계형 데이터에 대한 고가용성 솔루션을 권장합니다. 액티브 지리 복제는 어느 지역에서든 연속적으로 동기화되고 읽기 가능한 보조 데이터베이스를 제공합니다. 장애 조치 그룹은 논리 서버의 일부 또는 모든 데이터베이스에 대한 복제 및 장애 조치 관리를 하며, 장애 전환 후 변경되지 않는 읽기-쓰기 및 읽기 전용 리스너 엔드포인트를 추가합니다. 두 경우 모두 문서화된 일반적인 RTO는 고객 관리 정책을 적용하면 60초 미만이며, RPO는 아직 복제되지 않은 변경 사항에 따라 0 이상입니다.",
+		"groupsSay": "데이터베이스가 많나요? 그룹을 사용하세요.",
+		"qGroups": "하나의 데이터베이스인가요, 아니면 전체 앱인가요?",
+		"geoT": "능동 지리 복제",
+		"geoD": "어느 지역에서든 읽을 수 있는 복사본입니다",
+		"fgT": "장애 조치 그룹",
+		"fgD": "여러 데이터베이스가 하나의 집합으로 실패 전환됩니다",
+		"gr1": "여러 데이터베이스를 함께 페일 오버하세요",
+		"gr2": "연결 줄은 동일하게 유지됩니다",
+		"gr3": "복제품 하나 이상입니다",
+		"gr4": "같은 지역 내 복제본입니다",
+		"yes": "네",
+		"no": "아니",
+		"bothL": "어느 쪽이든 상관없어요",
+		"gRto": "RTO · 일반적으로 &lt; 60 s",
+		"gRpo": "RPO · 0 이상",
+		"backupsTitle": "백업: 문제에 맞는 복원 옵션을 선택하세요",
+		"backupsCaption": "백업",
+		"backupsDesc": "SQL 데이터베이스는 스스로 백업을 합니다. 변하는 것은 복원 범위를 얼마나 되돌리느냐와 얼마나 멀리 돌아가느냐입니다.",
+		"backupsCallout": "AZ-305 · 데이터베이스에 대한 백업 및 복구 솔루션을 추천합니다. Azure SQL Database는 매주 전체 백업을 받고, 차등 백업은 12시간 또는 24시간마다, 트랜잭션 로그 백업은 5분에서 10분마다 하며, 기본적으로 지리적 중복 저장소에 저장됩니다. 시점 복원은 기본적으로 7일을 유지하며, 1일에서 35일까지 설정할 수 있습니다(기본: 1일에서 7일). 장기 보존은 기본적으로 꺼져 있으며 최대 10년까지 완전한 백업을 유지합니다. 지오 복원은 지리적 복제된 백업을 통해 모든 Azure 영역에 데이터베이스를 생성합니다.",
+		"backupsSay": "복원 결과를 문제와 맞춰 보세요.",
+		"autoH": "자동 백업",
+		"bkFull": "전체 · 주간",
+		"bkDiff": "디퍼런셜 · 12시간 또는 24시간마다",
+		"bkLog": "기록 · 5분에서 10분마다",
+		"bkGeo": "기본적으로 지리적 중복",
+		"pitrT": "시점 복원",
+		"pitrU": "사용: 실수",
+		"pitrD": "데이터베이스를 피해 직전 순간으로 되감아 보세요.",
+		"pitrC": "기본값으로 7일 · 최대 35일",
+		"ltrT": "장기 유지",
+		"ltrU": "용도: 준수",
+		"ltrD": "수년간 완전한 백업을 유지하세요. 기본적으로 꺼져 있습니다.",
+		"ltrC": "최대 10년간",
+		"ltrC2": "불변할 수 있습니다",
+		"gerT": "지오 복원",
+		"gerU": "용도: 잃어버린 영역",
+		"gerD": "데이터베이스를 아무 Azure 리전에도 복원하세요.",
+		"gerC": "RTO와 RPO: 분 또는 시간",
+		"vmsTitle": "VMs 위의 SQL Server: 가용성 그룹",
+		"vmsCaption": "가용성 그룹",
+		"vmsDesc": "VM에서는 플랫폼이 이 작업을 해주지 않습니다. 복제본을 구축하면 가용성 그룹이 이를 유지합니다.",
+		"vmsCallout": "AZ-305 · 관계형 데이터에 대한 고가용성 솔루션을 권장합니다. Always On 가용성 그룹은 Azure VMs의 SQL Server에서 고가용성과 재해 복구를 위한 데이터베이스 수준의 보호를 제공하며, 복제본 간 데이터 이동은 동기식 또는 비동기식일 수 있습니다. 장애 전환 클러스터 인스턴스는 인스턴스 전체를 보호합니다. VM Server on VMs는 더 많은 제어와 노력을 대신 수행합니다: 복제본을 구축하고 운영하는 방식입니다.",
+		"vmsSay": "더 많은 통제, 더 많은 노력.",
+		"vPrimary": "초등학교",
+		"vSecondary": "중등",
+		"vSync": "동기식",
+		"vAsync": "비동기",
+		"agT": "가용성 그룹",
+		"agD": "데이터베이스 보호",
+		"fciT": "장애 전환 클러스터 인스턴스",
+		"fciD": "전체 인스턴스를 보호합니다",
+		"cosmosTitle": "Azure Cosmos DB: replicate and choose consistency",
+		"cosmosCaption": "Cosmos DB",
+		"cosmosDesc": "Cosmos DB는 지역별로 복제해 줍니다. 쓰기가 어디로 가고 얼마나 일관성을 교환할지 직접 선택할 수 있습니다.",
+		"cosmosCallout": "AZ-305 · 반구조화 및 비정형 데이터에 대해 고가용성 솔루션을 권장합니다. 단일 쓰기 영역에서는 다른 영역이 읽기를 제공하며, 서비스 관리 장애 조치(지역 우선순위)는 1시간 이상 걸릴 수 있으므로 강제 장애 조치가 더 빠릅니다. 여러 쓰기 영역이 모든 영역에서 쓰기를 허용하므로 강한 일관성이 지원되지 않으며 쓰기 충돌이 발생할 수 있습니다. 지역 장애의 경우 RPO는 강함이 0, 세션, 일관성 접두사, 최종 노드는 15분 미만, 제한 정체성은 K와 T로 설정됩니다.",
+		"cosmosSay": "한 지역에서 글을 쓰고, 어디서든 읽습니다.",
+		"swT": "단일 쓰기 영역",
+		"mwT": "다중 쓰기 영역",
+		"rWrite": "쓰기",
+		"rRead": "읽기",
+		"swChip": "강력한 일관성",
+		"mwChip": "충돌 가능성 · 스트롱 없음",
+		"conH": "지역 장애: 데이터 손실 가능성 (RPO)",
+		"cStrong": "강해",
+		"cStrongV": "0",
+		"cBound": "유한한 고상함",
+		"cBoundV": "K 업데이트 또는 T 시간",
+		"cSess": "회기 · 일관된 접두사 · 최종",
+		"cSessV": "&lt; 15 min",
+		"axL": "일관성",
+		"axR": "속도 및 이용 가능성",
+		"pickCat": "Contoso 카탈로그",
+		"postgresTitle": "PostgreSQL 유연 서버: 복구 계층",
+		"postgresCaption": "PostgreSQL",
+		"postgresDesc": "단일 설정이 모든 것을 해결하지는 않습니다. 각 계층은 각기 다른 실패에 대응하며, 고유한 RTO와 RPO를 가지고 있습니다.",
+		"postgresCallout": "AZ-305 · 관계형 데이터에 대한 고가용성 솔루션을 권장합니다. 일반적인 생산 작업(범용 또는 메모리 최적화)의 경우, 존 중복 고가용성은 다른 영역에서 동기식 대기를 유지합니다: RTO는 120초 미만, RPO는 0입니다. 교차 지역 읽기 복제본은 비동기식입니다. 자동 백업은 시점 복원을 위해 7일에서 35일을 유지하며, 지리적 중복 백업은 이를 다른 지역으로 복사하여 복원합니다.",
+		"postgresSay": "빠른 복구는 더 많은 대기 상태를 의미합니다.",
+		"pgH1": "층",
+		"pgH2": "RTO",
+		"pgH3": "RPO",
+		"pgH4": "현재",
+		"pgHa": "존 중복 HA",
+		"pgRr": "교차 지역 읽기 복제",
+		"pgPitr": "시점 복원",
+		"pgGeo": "지오 복원",
+		"pgRto1": "&lt; 120 s",
+		"pgRto2": "회의 시간",
+		"pgRto3": "경우마다 다릅니다",
+		"pgRto4": "경우마다 다릅니다",
+		"pgRpo1": "0",
+		"pgRpo2": "30 s – 5 min",
+		"pgRpo3": "&lt; 5 min",
+		"pgRpo4": "< 1시간",
+		"pgS1": "존 실패",
+		"pgS2": "지역 실패",
+		"pgS3": "실수로 삭제된 경우입니다",
+		"pgS4": "지역 실패",
+		"storageTitle": "스토리지 중복: 하나의 결정 행",
+		"storageCaption": "저장",
+		"storageDesc": "블롭, 파일, 백업은 저장 계정에 저장됩니다. 중복성을 가장 큰 실패 단계로 선택하세요.",
+		"storageCallout": "AZ-305 · 보호와 내구성을 위한 데이터 솔루션을 추천합니다. LRS는 한 데이터센터 내에서 데이터를 복사하고, ZRS는 가용성 존 간에 동기식으로 복사하며, GRS와 GZRS는 보조 영역에 비동기식 복사본을 추가합니다. 보조 영역은 장애 조치 후에만 읽을 수 있으며, 읽기 접근(RA) 옵션을 선택하지 않는 한 가능합니다. 스토리지 중복 수업에서는 각 옵션을 자세히 다룹니다.",
+		"storageSay": "정전 상황에서도 이미지를 계속 제공하세요.",
+		"stLrs": "지역적으로 중복됨",
+		"stZrs": "존 중복",
+		"stGrs": "지리적 중복",
+		"stGzrs": "지오존 중복",
+		"stRa": "읽기 접근 GZRS",
+		"sv1": "한 데이터센터에서의 하드웨어 고장",
+		"sv2": "한 개의 가용성 구역 상실",
+		"sv3": "한 지역 전체의 상실",
+		"sv4": "구역 손실과 지역 손실",
+		"sv5": "둘 다, 그리고 2차 공격에서 읽는다",
+		"survL": "현재",
+		"rdL": "부차적 읽기",
+		"rd0": "보조 기능",
+		"rd1": "장애 조치 후",
+		"rd2": "언제든지",
+		"axStore": "더 큰 실패를 견뎌냈다",
+		"pickImg": "Contoso 이미지",
+		"wholeTitle": "전체 설계: RTO와 RPO에 따라 선택",
+		"wholeCaption": "요약",
+		"wholeDesc": "목표물부터 시작해서, 그에 맞는 레이어를 선택하세요. 목표물이 좁을수록 대기 비용을 더 많이 지불하게 됩니다.",
+		"wholeCallout": "다음으로: 각 Contoso 워크로드에 맞는 컴퓨트를 선택하세요.",
+		"mH1": "옵션",
+		"mH2": "RTO",
+		"mH3": "RPO",
+		"m1": "SQL 데이터베이스 · 존 중복",
+		"m1a": "&lt; 30 s",
+		"m1b": "0",
+		"m2": "SQL Database · failover group",
+		"m2a": "&lt; 60 s",
+		"m2b": "0 이상입니다",
+		"m3": "PostgreSQL · zone-redundant HA",
+		"m3a": "&lt; 120 s",
+		"m3b": "0",
+		"m4": "PostgreSQL · cross-region replica",
+		"m4a": "회의 시간",
+		"m4b": "30 s – 5 min",
+		"m5": "Cosmos DB · 멀티 리전",
+		"m5a": "장애 조치 우선순위",
+		"m5b": "일관성 수준별",
+		"m6": "SQL 데이터베이스 · 지오 복원",
+		"m6a": "몇 분일까, 몇 시간일지",
+		"m6b": "몇 분일까, 몇 시간일지",
+		"wholeFoot": "공식 학습: <a href=\"https://learn.microsoft.com/azure/azure-sql/database/business-continuity-high-availability-disaster-recover-hadr-overview\" target=\"_blank\" rel=\"noopener\">SQL 데이터베이스</a>, <a href=\"https://learn.microsoft.com/azure/cosmos-db/high-availability\" target=\"_blank\" rel=\"noopener\">Cosmos DB</a>, <a href=\"https://learn.microsoft.com/azure/postgresql/backup-restore/concepts-business-continuity\" target=\"_blank\" rel=\"noopener\">PostgreSQL</a> 비즈니스 연속성.",
+		"backLabel": "복구 설계",
+		"short1": "존",
+		"short2": "지역",
+		"short3": "백업",
+		"short4": "VMs 위의 SQL",
+		"short5": "Cosmos DB",
+		"short6": "PostgreSQL",
+		"short7": "저장",
+		"short8": "모두 하나로",
+		"languageLabel": "언어"
+	},
+	"pt": {
+		"skipToMain": "Ir para o diagrama",
+		"pageTitle": "Manter os dados disponíveis: alta disponibilidade e recuperação",
+		"stageHeading": "Manter os dados disponíveis: alta disponibilidade e recuperação",
+		"stageInstructions": "Explicação animada. Use os botões Próximo/Anterior ou as setas para navegar. Pressione R para reiniciar.",
+		"prev": "◀ Voltar",
+		"next": "Avançar ▶",
+		"replay": "↻ Repetir",
+		"restart": "↻ Reiniciar",
+		"slower": "Mais devagar",
+		"faster": "Mais rápido",
+		"calloutOn": "Balões: ligados",
+		"calloutOff": "Balões: desligados",
+		"outlineOn": "Resumo: ligado",
+		"outlineOff": "Resumo: desligado",
+		"audioTip": "Narração em áudio",
+		"ccTip": "Legendas",
+		"shortcutsTip": "Atalhos",
+		"stepDetails": "Detalhes da etapa",
+		"stepOf": "Etapa",
+		"resetPos": "Restaurar a posição padrão",
+		"scTitle": "Atalhos de teclado",
+		"scNext": "Próxima etapa",
+		"scPrev": "Etapa anterior",
+		"scRestart": "Reiniciar",
+		"scReplay": "Repetir esta etapa",
+		"scHide": "Mostrar / ocultar a barra superior",
+		"scHelp": "Alternar esta ajuda",
+		"nextCompute": "A seguir: escolha o cálculo certo",
+		"regA": "Região A",
+		"regB": "Região B",
+		"regC": "Região C",
+		"qH": "Questão decisiva",
+		"pickOrders": "Pedidos da Contoso",
+		"zonesTitle": "Redundância de zona: sobreviver a uma falha de zona",
+		"zonesCaption": "Redundância de zona",
+		"zonesDesc": "O banco de dados de pedidos é o negócio. Espalhe entre as zonas de disponibilidade e uma falha de zona não é uma queda de energia.",
+		"zonesCallout": "AZ-305 · Recomende uma solução de alta disponibilidade para dados relacionais. Para Azure SQL Database e Azure SQL Managed Instance, ative a redundância de zonas para usar zonas de disponibilidade. A recuperação é transparente para as aplicações. Para o Azure SQL Database, os números típicos documentados são um RTO abaixo de 30 segundos e um RPO de 0. Os níveis de serviço atrás dele são abordados na lição de design relacional.",
+		"zonesSay": "Uma zona falha. Ordens continuam.",
+		"zRegion": "Região",
+		"zone": "Zona",
+		"storefront": "Loja",
+		"orderDb": "BD de pedidos",
+		"copyL": "Cópia",
+		"stServing": "Serviço",
+		"stReady": "Pronto",
+		"zRto": "RTO · normalmente &lt; 30 s",
+		"zRpo": "RPO · 0",
+		"groupsTitle": "Em diferentes regiões: geo-replicação ou grupo de failover?",
+		"groupsCaption": "Failover regional",
+		"groupsDesc": "Uma região também pode falhar. Ambas as opções mantêm uma cópia legível em outro lugar, e diferem no que é falhado juntos.",
+		"groupsCallout": "AZ-305 · Recomende uma solução de alta disponibilidade para dados relacionais. A geo-replicação ativa fornece um banco de dados secundário continuamente sincronizado e legível em qualquer região. Um grupo de failover gerencia a replicação e o failover para alguns ou todos os bancos de dados em um servidor lógico, e adiciona endpoints de ouvinte de leitura-escrita e somente leitura que não mudam após o failover. Para ambos, o RTO típico documentado é inferior a 60 segundos com uma política gerenciada pelo cliente, e o RPO é 0 ou mais, dependendo das mudanças ainda não replicadas.",
+		"groupsSay": "Muitos bancos de dados? Use um grupo.",
+		"qGroups": "Um banco de dados ou o app inteiro?",
+		"geoT": "Geo-replicação ativa",
+		"geoD": "Uma cópia legível em qualquer região",
+		"fgT": "Grupo de failover",
+		"fgD": "Um conjunto de bancos de dados faz failover como um só",
+		"gr1": "Fazer fail sobre vários bancos de dados juntos",
+		"gr2": "A corda de conexão permanece a mesma",
+		"gr3": "Mais de uma réplica",
+		"gr4": "Réplica na mesma região",
+		"yes": "Sim",
+		"no": "Não",
+		"bothL": "Qualquer uma das opções",
+		"gRto": "RTO · normalmente &lt; 60 s",
+		"gRpo": "RPO · 0 ou mais",
+		"backupsTitle": "Backups: escolha a restauração para o problema",
+		"backupsCaption": "Reservas",
+		"backupsDesc": "O Banco de Dados SQL faz backup sozinho. O que muda é a restauração que você busca e até onde ela vai para trás ou para longe.",
+		"backupsCallout": "AZ-305 · Recomendo uma solução de backup e recuperação para bancos de dados. Azure SQL Database aceita backups completos semanalmente, backups diferenciais a cada 12 ou 24 horas e backups de log de transações a cada 5 a 10 minutos, armazenados em armazenamento geo-redundante por padrão. A restauração em ponto no tempo mantém 7 dias por padrão e pode ser configurada de 1 a 35 dias (Basic: 1 a 7). A retenção de longo prazo está desligada por padrão e mantém backups completos por até 10 anos. A restauração geográfica cria um banco de dados em qualquer região Azure a partir dos backups geo-replicados.",
+		"backupsSay": "Compare a restauração ao problema.",
+		"autoH": "Backups automatizados",
+		"bkFull": "Completo · semanal",
+		"bkDiff": "Diferencial · a cada 12 ou 24 horas",
+		"bkLog": "Log · a cada 5 a 10 minutos",
+		"bkGeo": "Geo-redundante por padrão",
+		"pitrT": "Restauração em ponto no tempo",
+		"pitrU": "Uso para: erros",
+		"pitrD": "Retroceda um banco de dados para um momento antes do dano.",
+		"pitrC": "7 dias por padrão · até 35",
+		"ltrT": "Retenção a longo prazo",
+		"ltrU": "Uso para: conformidade",
+		"ltrD": "Mantenha backups completos por anos. Desligado por padrão.",
+		"ltrC": "Até 10 anos",
+		"ltrC2": "Pode ser imutável",
+		"gerT": "Restauração geográfica",
+		"gerU": "Uso para: uma região perdida",
+		"gerD": "Restaure o banco de dados em qualquer região Azure.",
+		"gerC": "RTO e RPO: minutos ou horas",
+		"vmsTitle": "SQL Server em VMs: grupos de disponibilidade",
+		"vmsCaption": "Grupos de disponibilidade",
+		"vmsDesc": "Em uma VM, a plataforma não fará isso para você. Você constrói as réplicas, e um grupo de disponibilidade as mantém no ritmo.",
+		"vmsCallout": "AZ-305 · Recomende uma solução de alta disponibilidade para dados relacionais. Grupos de disponibilidade Always On oferecem proteção em nível de banco de dados para alta disponibilidade e recuperação de desastres no SQL Server em VMs Azure, e o movimento de dados entre réplicas pode ser síncrono ou assíncrono. Uma instância de cluster de failover protege toda a instância. SQL Server em VMs troca mais controle por mais esforço: você constrói e opera as réplicas.",
+		"vmsSay": "Mais controle, mais esforço.",
+		"vPrimary": "Primária",
+		"vSecondary": "Ensino Médio",
+		"vSync": "Síncrono",
+		"vAsync": "Assíncrono",
+		"agT": "Grupo de disponibilidade",
+		"agD": "Protege bancos de dados",
+		"fciT": "Instância de cluster de failover",
+		"fciD": "Protege toda a instância",
+		"cosmosTitle": "Azure Cosmos DB: replicar e escolher consistência",
+		"cosmosCaption": "Cosmos DB",
+		"cosmosDesc": "Cosmos DB replica entre regiões para você. Você escolhe para onde vão as escritas e quanta consistência trocar.",
+		"cosmosCallout": "AZ-305 · Recomende uma solução de alta disponibilidade para dados semiestruturados e não estruturados. Com uma única região de escrita, outras regiões atendem leituras, e failover gerenciado por serviços (prioridades regionais) pode levar uma hora ou mais, então um failover forçado é mais rápido. Com múltiplas regiões de escrita, cada região aceita escritas (failover) é mais rápido. Com múltiplas regiões de escrita, Strong Consistency não é suportado e conflitos de escrita podem surgir. Para uma interrupção de região, RPO é 0 para Strong, menos de 15 minutos para Session, Consistent prefixo e Eventual, e definido por K e T para Bounded stagneness.",
+		"cosmosSay": "Escreve em uma região, lê em toda parte.",
+		"swT": "Região de escrita única",
+		"mwT": "Múltiplas regiões de escrita",
+		"rWrite": "Escreva",
+		"rRead": "Leia",
+		"swChip": "Forte consistência disponível",
+		"mwChip": "Conflitos possíveis · sem Forte",
+		"conH": "Queda de região: dados que você pode perder (RPO)",
+		"cStrong": "Forte",
+		"cStrongV": "0",
+		"cBound": "Estagnação limitada",
+		"cBoundV": "Atualizações K ou T time",
+		"cSess": "Sessão · Prefixo consistente · Eventual",
+		"cSessV": "&lt; 15 min",
+		"axL": "Consistência",
+		"axR": "Velocidade e disponibilidade",
+		"pickCat": "Catálogo Contoso",
+		"postgresTitle": "Servidor flexível PostgreSQL: camadas de recuperação",
+		"postgresCaption": "PostgreSQL",
+		"postgresDesc": "Nenhuma configuração única resolve tudo. Cada camada responde a uma falha diferente, com seu próprio RTO e RPO.",
+		"postgresCallout": "AZ-305 · Recomendo uma solução de alta disponibilidade para dados relacionais. Para uma carga de trabalho típica de produção (Uso Geral ou Otimizada para Memória), a alta disponibilidade redundante por zona mantém um standby síncrono em outra zona: RTO é inferior a 120 segundos e RPO é 0. Uma réplica de leitura entre regiões é assíncrona. Backups automáticos mantêm de 7 a 35 dias para restauração pontual, e backup geo-redundante os copia para outra região para restauração geográfica.",
+		"postgresSay": "Recuperação mais rápida significa mais prontidão.",
+		"pgH1": "Camada",
+		"pgH2": "RTO",
+		"pgH3": "RPO",
+		"pgH4": "Sobrevive",
+		"pgHa": "HA redundante de zona",
+		"pgRr": "Réplica de leitura cruzada de região",
+		"pgPitr": "Restauração em ponto no tempo",
+		"pgGeo": "Restauração geográfica",
+		"pgRto1": "&lt; 120 s",
+		"pgRto2": "Ata",
+		"pgRto3": "Variações",
+		"pgRto4": "Variações",
+		"pgRpo1": "0",
+		"pgRpo2": "30 s – 5 min",
+		"pgRpo3": "&lt; 5 min",
+		"pgRpo4": "< 1 hora",
+		"pgS1": "Uma falha de zona",
+		"pgS2": "Uma falha de região",
+		"pgS3": "Uma exclusão acidental",
+		"pgS4": "Uma falha de região",
+		"storageTitle": "Redundância de armazenamento: uma linha de decisão",
+		"storageCaption": "Armazenamento",
+		"storageDesc": "Blobs, arquivos e backups ficam em contas de armazenamento. Escolha a redundância pela maior falha que você deve sobreviver.",
+		"storageCallout": "AZ-305 · Recomende uma solução de dados para proteção e durabilidade. O LRS copia dados dentro de um datacenter, o ZRS os copia sincronamente entre zonas de disponibilidade, e GRS e GZRS adicionam uma cópia assíncrona em uma região secundária. Essa secundária só pode ser lida após um failover, a menos que você escolha uma opção de acesso de leitura (RA). A lição de Redundância de Armazenamento cobre cada opção em detalhe.",
+		"storageSay": "Continue servindo imagens em caso de queda.",
+		"stLrs": "Localmente redundante",
+		"stZrs": "Redundante por zona",
+		"stGrs": "Geo-redundante",
+		"stGzrs": "Geo-zona redundante",
+		"stRa": "GZRS de acesso de leitura",
+		"sv1": "Falha de hardware em um datacenter",
+		"sv2": "Perda de uma zona de disponibilidade",
+		"sv3": "Perda de uma região inteira",
+		"sv4": "Uma perda de zona e uma perda de região",
+		"sv5": "Ambos, e lê do secundário",
+		"survL": "Sobrevive",
+		"rdL": "Leituras secundárias",
+		"rd0": "Sem secundário",
+		"rd1": "Após a falha",
+		"rd2": "A qualquer hora",
+		"axStore": "Sobrevive a um fracasso maior",
+		"pickImg": "Contoso imagens",
+		"wholeTitle": "Resumo: escolher com base no RTO e no RPO",
+		"wholeCaption": "Resumo",
+		"wholeDesc": "Comece pelo alvo e depois escolha a camada que o atende. Quanto mais apertado o alvo, mais standby você paga.",
+		"wholeCallout": "Em seguida: escolha o cálculo certo para cada carga de trabalho da Contoso.",
+		"mH1": "Opção",
+		"mH2": "RTO",
+		"mH3": "RPO",
+		"m1": "Banco de Dados SQL · redundância de zonas",
+		"m1a": "&lt; 30 s",
+		"m1b": "0",
+		"m2": "Grupo de failover do Banco de Dados SQL",
+		"m2a": "&lt; 60 s",
+		"m2b": "0 ou mais",
+		"m3": "PostgreSQL · redundante de zona HA",
+		"m3a": "&lt; 120 s",
+		"m3b": "0",
+		"m4": "PostgreSQL · réplica cruz-região",
+		"m4a": "Ata",
+		"m4b": "30 s – 5 min",
+		"m5": "Cosmos DB · multi-região",
+		"m5a": "Prioridade de failover",
+		"m5b": "Por nível de consistência",
+		"m6": "Banco de Dados SQL · restauração geográfica",
+		"m6a": "Minutos ou horas",
+		"m6b": "Minutos ou horas",
+		"wholeFoot": "Learn oficial: <a href=\"https://learn.microsoft.com/azure/azure-sql/database/business-continuity-high-availability-disaster-recover-hadr-overview\" target=\"_blank\" rel=\"noopener\">Banco de Dados SQL</a>, <a href=\"https://learn.microsoft.com/azure/cosmos-db/high-availability\" target=\"_blank\" rel=\"noopener\">Cosmos DB</a> e continuidade de negócios <a href=\"https://learn.microsoft.com/azure/postgresql/backup-restore/concepts-business-continuity\" target=\"_blank\" rel=\"noopener\">PostgreSQL</a>.",
+		"backLabel": "Projeto para recuperação",
+		"short1": "Zonas",
+		"short2": "Regiões",
+		"short3": "Reservas",
+		"short4": "SQL em VMs",
+		"short5": "Cosmos DB",
+		"short6": "PostgreSQL",
+		"short7": "Armazenamento",
+		"short8": "Tudo em um só",
+		"languageLabel": "Idioma"
+	}
+};
+function t(key) { return (I18N[currentLang] && I18N[currentLang][key]) || I18N.en[key] || key; }
+
+function setLanguage(lang) {
+	currentLang = lang;
+	document.documentElement.lang = lang;
+	try { const u=new URL(location.href); u.searchParams.set('lang', lang); history.replaceState(null,'',u); } catch(_){}
+	document.getElementById('page-title').textContent = '\u2728 ' + t('pageTitle');
+	// icon-only nav buttons: the localized label lives in the tooltip (title)
+	document.getElementById('prev-btn').title = t('prev');
+	document.getElementById('next-btn').title = t('next');
+	document.getElementById('replay-btn').title = t('replay');
+	document.getElementById('reset-btn').title = t('restart');
+	document.getElementById('speed-down').title = t('slower');
+	document.getElementById('speed-up').title = t('faster');
+	document.getElementById('outline-title').textContent = t('stepDetails');
+	document.querySelector('.skip-link').textContent = t('skipToMain');
+	document.getElementById('stage-heading').textContent = t('stageHeading');
+	document.getElementById('stage-instructions').textContent = t('stageInstructions');
+	// localize overlay tooltips (icon buttons show their label on hover / as native title)
+	const _hlp=document.getElementById('help-toggle'); if(_hlp) _hlp.setAttribute('data-tip', t('shortcutsTip'));
+	const _aud=document.getElementById('audio-toggle'); if(_aud) _aud.title=t('audioTip');
+	const _ccb=document.getElementById('cc-toggle'); if(_ccb) _ccb.title=t('ccTip');
+	syncCalloutBtn(); syncOutlineBtn();
+	if (typeof syncAudioBtn === 'function') syncAudioBtn();
+	if (typeof buildShortcuts === 'function') buildShortcuts();
+	document.querySelectorAll('.aw-drag-reset').forEach(b=>{ b.title=t('resetPos'); b.setAttribute('aria-label', t('resetPos')); });
+	try { localStorage.setItem('aw-tmpl-lang', lang); } catch(_){}
+	document.title = t('pageTitle') + ' \u2014 Azure Animations';
+	const back = document.querySelector('.header-back-link');
+	back.textContent = '\u2190 ' + t('backLabel');
+	back.title = t('backLabel'); back.setAttribute('aria-label', t('backLabel'));
+	const url = new URL(back.href); url.searchParams.set('lang', lang); back.href = url;
+	const picker = document.getElementById('lang-select');
+	picker.title = t('languageLabel'); picker.setAttribute('aria-label', t('languageLabel'));
+	for (const [id, key] of [['prev-btn','scPrev'], ['next-btn','scNext'], ['replay-btn','scReplay'], ['reset-btn','scRestart'],
+		['speed-down','slower'], ['speed-up','faster'], ['audio-toggle','audioTip'], ['cc-toggle','ccTip'], ['help-toggle','shortcutsTip']]) {
+		const control = document.getElementById(id); if(control) control.setAttribute('aria-label', t(key));
+	}
+	if (current >= 0) renderStep(current);
+}
+
+// ── STEPS (journey order) ─────────────────
+const S = (id, short) => ({ id, short, titleKey:id+'Title', captionKey:id+'Caption', descKey:id+'Desc', calloutKey:id+'Callout' });
+const STEPS = [
+	S('zones','Zones'), S('groups','Regions'), S('backups','Backups'), S('vms','SQL on VMs'),
+	S('cosmos','Cosmos DB'), S('postgres','PostgreSQL'), S('storage','Storage'), S('whole','All in one')
+];
+
+STEPS.forEach((s, i) => { s.shortKey = 'short' + (i + 1); });
+
+// ── DOM REFS ──────────────────────────────
+const stage=document.getElementById('stage-frame'), svg=document.getElementById('fx-svg'),
+	counter=document.getElementById('step-counter'), breadcrumb=document.getElementById('breadcrumb'),
+	progress=document.getElementById('progress-fill'), announcer=document.getElementById('step-announcer'),
+	outlineBody=document.getElementById('outline-body'), outlinePanel=document.getElementById('step-outline'),
+	outlineBtn=document.getElementById('outline-toggle'), calloutBtn=document.getElementById('callout-toggle'),
+	langSelect=document.getElementById('lang-select');
+
+langSelect.addEventListener('change', e => setLanguage(e.target.value));
+const urlLang = new URLSearchParams(location.search).get('lang');
+let savedLang=null; try{ savedLang=localStorage.getItem('aw-tmpl-lang'); }catch(_){}
+if (urlLang && I18N[urlLang]) { currentLang = urlLang; langSelect.value = urlLang; }
+else if (savedLang && I18N[savedLang]) { currentLang = savedLang; langSelect.value = savedLang; }
+
+// ── Font size ─────────────────────────────
+const fontScales=[0.8,0.9,1,1.1,1.2,1.35]; let fontScaleIdx=2;
+const baseFontSize=parseFloat(getComputedStyle(document.documentElement).fontSize);
+function applyFontScale(){ document.documentElement.style.fontSize=(baseFontSize*fontScales[fontScaleIdx])+'px'; const c=document.getElementById('controls'); if(c) c.style.fontSize=baseFontSize+'px'; if(typeof current!=='undefined'&&current>=0){ const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s); } }
+function saveFont(){ try{ localStorage.setItem('aw-tmpl-font', String(fontScaleIdx)); }catch(_){} }
+try{ const f=parseInt(localStorage.getItem('aw-tmpl-font'),10); if(!isNaN(f)&&f>=0&&f<fontScales.length){ fontScaleIdx=f; applyFontScale(); } }catch(_){}
+document.getElementById('font-decrease').addEventListener('click',()=>{ if(fontScaleIdx>0){fontScaleIdx--;applyFontScale();saveFont();} });
+document.getElementById('font-increase').addEventListener('click',()=>{ if(fontScaleIdx<fontScales.length-1){fontScaleIdx++;applyFontScale();saveFont();} });
+
+let current=-1, animating=false, liveEls=[], liveTimelines=[], calloutEnabled=false;
+
+function syncCalloutBtn(){ calloutBtn.classList.toggle('toggle-active',calloutEnabled); calloutBtn.setAttribute('aria-pressed',calloutEnabled?'true':'false'); calloutBtn.setAttribute('data-tip',calloutEnabled?t('calloutOn'):t('calloutOff')); }
+calloutBtn.addEventListener('click',()=>{
+	calloutEnabled=!calloutEnabled; syncCalloutBtn();
+	if(current<0) return;
+	// Toggle just the callout box in place — don't re-render (no animation replay).
+	const existing=stage.querySelectorAll('.callout');
+	if(calloutEnabled){ if(!existing.length){ const c=maybeCallout(STEPS[current]); if(c) gsap.fromTo(c,{opacity:0,y:10},{opacity:1,y:0,duration:0.4,overwrite:true}); } }
+	else { existing.forEach(c=>{ const idx=liveEls.indexOf(c); if(idx>-1) liveEls.splice(idx,1); gsap.killTweensOf(c); c.remove(); }); }
+}); syncCalloutBtn();
+function syncOutlineBtn(){ const on=!outlinePanel.hasAttribute('hidden'); outlineBtn.classList.toggle('toggle-active',on); outlineBtn.setAttribute('aria-expanded',on?'true':'false'); outlineBtn.setAttribute('data-tip',on?t('outlineOn'):t('outlineOff')); }
+outlineBtn.addEventListener('click',()=>{ const showing=!outlinePanel.hasAttribute('hidden'); if(showing){outlinePanel.setAttribute('hidden','');} else {outlinePanel.removeAttribute('hidden');} syncOutlineBtn(); }); syncOutlineBtn();
+
+// ── Audio narration (overlay button · speaker + remaining-time countdown) ──
+// Drop one recorded clip per step (in STEPS order) into AUDIO_FILES for real narration;
+// localized clips live under AUDIO_BASE/<lang>/. With no files, the browser reads each
+// step's title + description aloud (speech synthesis), so the button works with zero assets.
+const AUDIO_BASE = 'audio/DataAvailability/';
+const AUDIO_FILES = [
+	'step-01.mp3', 'step-02.mp3', 'step-03.mp3', 'step-04.mp3', 'step-05.mp3', 'step-06.mp3', 'step-07.mp3', 'step-08.mp3'
+];
+let audioEnabled=false, currentAudio=null, audioTimeout=null, ccPref=false;
+const audioBtn=document.getElementById('audio-toggle');
+if(audioBtn){ audioBtn.innerHTML='<span class="aw-audio-ico" aria-hidden="true">\uD83D\uDD07</span><span class="aw-audio-time" aria-hidden="true">--:--</span>'; }
+const audioIco=audioBtn&&audioBtn.querySelector('.aw-audio-ico'), audioTimeEl=audioBtn&&audioBtn.querySelector('.aw-audio-time');
+// Captions can play WITHOUT sound: when CC is on but audio is off we still play the clip MUTED, so the
+// caption reveals at the same pace — speaker shows 🔇 and the remaining-time countdown keeps running.
+function playbackOn(){ return audioEnabled || ccPref; }
+function audioDir(){ return (currentLang && currentLang!=='en') ? currentLang+'/' : ''; }
+function fmtDur(s){ s=Math.max(0,Math.ceil(s)); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
+function updateAudioTime(){ if(audioTimeEl && currentAudio && isFinite(currentAudio.duration) && currentAudio.duration>0) audioTimeEl.textContent=fmtDur(currentAudio.duration-currentAudio.currentTime); }
+function syncAudioBtn(){ if(!audioBtn) return; if(audioIco) audioIco.textContent=audioEnabled?'\uD83D\uDD0A':'\uD83D\uDD07'; if(audioTimeEl && !playbackOn()) audioTimeEl.textContent='--:--'; audioBtn.classList.toggle('toggle-active',audioEnabled); audioBtn.setAttribute('aria-pressed',audioEnabled?'true':'false'); }
+function speakFallback(i){ if(!window.speechSynthesis) return; const step=STEPS[i]; const u=new SpeechSynthesisUtterance(`${t(step.titleKey)}. ${t(step.descKey)}`); u.lang=currentLang||'en'; try{ speechSynthesis.cancel(); speechSynthesis.speak(u); }catch(_){} }
+function stopAudio(){
+	if(currentAudio){ currentAudio.pause(); currentAudio.currentTime=0; currentAudio=null; }
+	if(audioTimeout){ clearTimeout(audioTimeout); audioTimeout=null; }
+	if(audioTimeEl) audioTimeEl.textContent='--:--';
+	try{ if(window.speechSynthesis) speechSynthesis.cancel(); }catch(_){}
+	if(window.AWCaptions) AWCaptions.clear();
+}
+function playStepAudio(i){
+	stopAudio();
+	if(document.body.classList.contains('aw-prestart')) return;   // start gate holds audio too
+	if(!playbackOn() || i<0 || i>=STEPS.length) return;
+	audioTimeout=setTimeout(()=>{
+		audioTimeout=null;
+		const file=AUDIO_FILES[i];
+		if(!file){ if(audioEnabled) speakFallback(i); return; }   // no clip = no timing source for caption-only
+		currentAudio=new Audio(AUDIO_BASE+audioDir()+file);
+		currentAudio.volume = audioEnabled ? 1 : 0;              // caption-only = silent (volume 0) timing source
+		if(window.AWCaptions) AWCaptions.bind(currentAudio,i);
+		currentAudio.addEventListener('loadedmetadata',updateAudioTime);
+		currentAudio.addEventListener('timeupdate',updateAudioTime);
+		currentAudio.addEventListener('ended',()=>{ if(audioTimeEl) audioTimeEl.textContent='0:00'; });
+		currentAudio.addEventListener('error',()=>{ if(audioEnabled) speakFallback(i); });
+		currentAudio.play().catch(()=>{});
+	}, 400);
+}
+if(audioBtn){ audioBtn.addEventListener('click',()=>{
+	audioEnabled=!audioEnabled; try{localStorage.setItem('aw-tmpl-audio',audioEnabled?'1':'0');}catch(_){} syncAudioBtn();
+	if(current>=0){
+		if(!playbackOn()) stopAudio();
+		else if(currentAudio) currentAudio.volume = audioEnabled ? 1 : 0;   // flip sound without restarting the clip
+		else playStepAudio(current);
+	}
+	if(typeof applyCc==='function') applyCc();
+}); }
+// Initial audio + CC from the ?audio parameter:
+//   on -> audio ON + captions ON  ·  off -> both OFF  ·  (absent) -> audio ON, captions OFF (a prior stored choice still wins).
+(function(){
+	var p=null; try{ p=new URLSearchParams(location.search).get('audio'); }catch(_){}
+	if(p==='on'){ audioEnabled=true; ccPref=true; }
+	else if(p==='off'){ audioEnabled=false; ccPref=false; }
+	else {
+		audioEnabled=true; ccPref=false;
+		try{ var a=localStorage.getItem('aw-tmpl-audio'); if(a==='1') audioEnabled=true; else if(a==='0') audioEnabled=false; }catch(_){}
+		try{ var c=localStorage.getItem('aw-tmpl-cc'); if(c==='1') ccPref=true; else if(c==='0') ccPref=false; }catch(_){}
+	}
+	try{ localStorage.setItem('aw-tmpl-audio',audioEnabled?'1':'0'); localStorage.setItem('aw-tmpl-cc',ccPref?'1':'0'); }catch(_){}
+})();
+syncAudioBtn();
+
+// ── Captions (CC) — overlaid in the frame; play WITH or WITHOUT audio ──
+// Reads the SAME narration Markdown used to synthesize the audio. Set page to THIS file's
+// stem and base to its narration folder (see the path note near the top of the file).
+const ccBtn=document.getElementById('cc-toggle');
+function ccEffective(){ return ccPref; }                          // captions show whenever CC is on (audio not required)
+function syncCcBtn(){ if(!ccBtn) return; ccBtn.classList.toggle('on',ccPref); ccBtn.setAttribute('aria-pressed',ccPref?'true':'false'); }
+function applyCc(){ if(window.AWCaptions) AWCaptions.setEnabled(ccEffective()); if(ccEffective()&&currentAudio&&window.AWCaptions) AWCaptions.bind(currentAudio,current); syncCcBtn(); }
+if(window.AWCaptions){ AWCaptions.configure({ page:'DataAvailability', base:'../../narration/Architect/', lang:()=>currentLang, fallback:(i)=>(STEPS[i]?t(STEPS[i].descKey):''), reserve:false }); }
+if(ccBtn){ ccBtn.addEventListener('click',()=>{
+	ccPref=!ccPref; try{localStorage.setItem('aw-tmpl-cc',ccPref?'1':'0');}catch(_){} applyCc();
+	if(current>=0){
+		if(playbackOn() && !currentAudio) playStepAudio(current);   // caption-only: start the muted timing clip
+		else if(!playbackOn() && currentAudio) stopAudio();          // CC off + audio off: nothing left to play
+	}
+}); }
+applyCc();
+
+// ── Full screen ──
+(function(){
+	const fsBtn=document.getElementById('fs-toggle'); if(!fsBtn) return;
+	function inFs(){ return !!(document.fullscreenElement||document.webkitFullscreenElement); }
+	function syncFs(){ document.body.classList.toggle('is-fs',inFs()); fsBtn.setAttribute('aria-pressed',inFs()?'true':'false'); fsBtn.title=inFs()?'Exit full screen (F)':'Full screen (F)'; }
+	function toggle(){ try{ if(inFs()){ (document.exitFullscreen||document.webkitExitFullscreen).call(document); } else { const el=document.documentElement; (el.requestFullscreen||el.webkitRequestFullscreen).call(el); } }catch(_){} }
+	fsBtn.addEventListener('click',e=>{ e.stopPropagation(); toggle(); });
+	document.addEventListener('fullscreenchange',syncFs); document.addEventListener('webkitfullscreenchange',syncFs);
+	document.addEventListener('keydown',e=>{ if(e.code==='KeyF'&&!e.metaKey&&!e.ctrlKey&&!e.altKey){ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return; e.preventDefault(); toggle(); } });
+	syncFs();
+})();
+
+// ── Reduced motion ────────────────────────
+const motionMQ=window.matchMedia('(prefers-reduced-motion: reduce)'); let motionPaused=motionMQ.matches;
+motionMQ.addEventListener('change',e=>{ motionPaused=e.matches; renderStep(current); });
+
+// ── Helpers ───────────────────────────────
+function clearStage(){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; liveEls.forEach(el=>el.remove()); liveEls=[]; Array.from(svg.children).forEach(c=>{ if(c.tagName.toLowerCase()!=='defs') c.remove(); }); }
+function el(cls,html){ const d=document.createElement('div'); if(cls) d.className=cls; if(html!=null) d.innerHTML=html; return d; }
+// Inline SVG icons (monochrome, currentColor) — crisp on any OS/projector. Add your own here.
+const ICONS = {
+	puzzle:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h8v8H3zm10 0h8v8h-8zM3 13h8v8H3zm10 0h8v8h-8z"/></svg>',
+	inbox:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 3h2v5h3l-4 4-4-4h3zM5 14h14v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1z"/></svg>',
+	gear:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M19.14 12.94a7.9 7.9 0 0 0 0-1.88l2-1.56-2-3.46-2.36.96a7.7 7.7 0 0 0-1.62-.94L14.8 2.5h-4l-.36 2.56c-.58.24-1.12.56-1.62.94L6.46 6.04l-2 3.46 2 1.56a7.9 7.9 0 0 0 0 1.88l-2 1.56 2 3.46 2.36-.96c.5.38 1.04.7 1.62.94l.36 2.56h4l.36-2.56c.58-.24 1.12-.56 1.62-.94l2.36.96 2-3.46-2-1.56zM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg>',
+	sparkle:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg>',
+	bulb:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-4 12.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26A7 7 0 0 0 12 2zM9 20h6v1a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1z"/></svg>',
+	check:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.55 17.6 4.4 12.45l1.86-1.86 3.29 3.29 8.19-8.19 1.86 1.86z"/></svg>',
+	bolt:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>',
+	lock:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 10a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1zm3-1V7a4 4 0 1 1 8 0v2h-2V7a2 2 0 1 0-4 0v2z"/></svg>',
+	box:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 3 7v10l9 5 9-5V7zm0 2.3L17.7 7 12 10.2 6.3 7zM5 9.1l6 3.4v6.8l-6-3.3zm14 0v6.9l-6 3.3v-6.8z"/></svg>',
+	key:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M14 2a6 6 0 0 0-5.66 8L2 16.34V22h5.66l.34-.34V20h2v-2h2l.34-.34A6 6 0 1 0 14 2zm2 3a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z"/></svg>',
+	rocket:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2c3 3 4 6 4 9l3 3-4 1-1 4-2-3-2 3-1-4-4-1 3-3c0-3 1-6 4-9zm0 5a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>',
+	health:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 2h6v5h5v6h-5v5H9v-5H4V7h5z"/></svg>',
+	headset:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a8 8 0 0 0-8 8v5a3 3 0 0 0 3 3h1v-7H6v-1a6 6 0 1 1 12 0v1h-2v7h1a3 3 0 0 0 3-3v-5a8 8 0 0 0-8-8z"/></svg>',
+	media:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M4 4h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zm5 4v8l7-4z"/></svg>',
+	book:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v16H6a2 2 0 0 1-2-2zm9 0h7v14a2 2 0 0 1-2 2h-5z"/></svg>',
+	party:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5zm6 11l.9 2.6L21.5 16.5l-2.6.9L18 20l-.9-2.6L14.5 16.5l2.6-.9zM6 14l.7 2 2 .7-2 .7L6 19.4l-.7-2-2-.7 2-.7z"/></svg>',
+	chat:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-4 4v-4H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/></svg>',
+	access:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a2.2 2.2 0 1 1 0 4.4A2.2 2.2 0 0 1 12 2zM4 8h16v2h-5.4l1 12h-2.3l-.7-6h-1.2l-.7 6H8.4l1-12H4z"/></svg>',
+	globe:'<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></g></svg>'
+};
+function icon(name){ return `<span class="ic">${ICONS[name]||''}</span>`; }
+function stepById(id){ return STEPS.find(s=>s.id===id); }
+// Scale the current scene down (never up) so it always fits inside the 16:9 frame — no clipping, no scroll.
+function fitScene(scene){
+	if(!scene) return;
+	scene.style.transform='translate(-50%,-50%) scale(1)';
+	const box=stage.getBoundingClientRect();
+	const availW=box.width-32, availH=box.height-28;
+	const sw=scene.offsetWidth, sh=scene.offsetHeight;
+	if(!sw||!sh) return;
+	const k=Math.min(1, availW/sw, availH/sh);
+	scene.style.transform='translate(-50%,-50%) scale('+k+')';
+}
+function headerEls(scene){ return [scene.querySelector('.scene-title'), scene.querySelector('.scene-lead')]; }
+function buildScene(step){ const s=el('scene'); s.appendChild(el('scene-title', t(step.titleKey))); s.appendChild(el('scene-lead', t(step.descKey))); return s; }
+function maybeCallout(step){ if(!calloutEnabled) return null; const c=el('callout', t(step.calloutKey)); c.style.left='1.5rem'; c.style.top='1.5rem'; stage.appendChild(c); liveEls.push(c); dragify(c, 'aw-tmpl-callout-pos'); return c; }
+function renderOutline(step,idx){
+	const rows=(step.stats||[]).map(([k,v])=>`<div class="stat-row"><span>${t(k)}</span><span>${t(v)}</span></div>`).join('');
+	outlineBody.innerHTML=`<div class="outline-section"><strong>${t('stepOf')} ${idx+1} / ${STEPS.length}: ${t(step.titleKey)}</strong><p style="margin-top:0.4rem;">${t(step.descKey)}</p></div>${rows?`<div class="outline-section">${rows}</div>`:''}`;
+}
+function announceStep(step,idx){ announcer.textContent=`${t('stepOf')} ${idx+1} / ${STEPS.length}: ${t(step.titleKey)}. ${t(step.descKey)}`; }
+
+// ── RENDER DISPATCH ───────────────────────
+function renderStep(i){
+	if(i<0||i>=STEPS.length) return;
+	if(animating){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; animating=false; }
+	animating=true;
+	const step=STEPS[i];
+	// cross-fade (200ms, CSS keyframes so it's independent of the speed control) — outgoing fades out, incoming fades in, on every step
+	const outgoing=stage.querySelector('.scene:not(.scene-out)');
+	if(outgoing) liveEls=liveEls.filter(x=>x!==outgoing);
+	clearStage();
+	if(outgoing){ outgoing.style.zIndex='5';
+		if(motionPaused){ outgoing.remove(); }
+		else { outgoing.classList.remove('scene-in'); outgoing.classList.add('scene-out'); setTimeout(()=>outgoing.remove(), 240); } }
+	(BUILDERS[step.id]||function(){})();
+	const incoming=stage.querySelector('.scene:not(.scene-out)');
+	if(incoming && !motionPaused) incoming.classList.add('scene-in');
+	fitScene(incoming);
+	current=i;
+	try{ const u=new URL(location.href); u.searchParams.set('step', String(i+1)); history.replaceState(null,'',u); }catch(_){}
+	counter.textContent=`${t('stepOf')} ${current+1} / ${STEPS.length}`;
+	breadcrumb.textContent=t(step.captionKey);
+	progress.style.width=((current+1)/STEPS.length*100)+'%';
+	renderOutline(step,i); announceStep(step,i);
+	if(typeof playStepAudio==='function') playStepAudio(i);
+}
+
+// ══════════════ AI-500 KIT · shared helpers (cast, board, connectors, timelines) ══════════════
+Object.assign(ICONS, {
+	robot:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2a1.6 1.6 0 0 1 .8 3V7h4.2a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3v-7a3 3 0 0 1 3-3h4.2V5A1.6 1.6 0 0 1 12 2zM9 11.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 0 0 0-3.2zm6 0a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 0 0 0-3.2z"/></svg>',
+	compass:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16zm3.9 4.1-2.1 5.7-5.7 2.1 2.1-5.7z"/></svg>',
+	doc:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M6 2h8l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm2 6.5v1.6h4V8.5zM8 12v1.6h8V12zm0 3.4V17h8v-1.6z"/></svg>',
+	search:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M10.5 3a7.5 7.5 0 0 1 5.9 12.1l4.3 4.3-1.4 1.4-4.3-4.3A7.5 7.5 0 1 1 10.5 3zm0 2a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11z"/></svg>',
+	coin:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="2"/><text x="12" y="16.8" text-anchor="middle" font-size="12.5" font-weight="700" font-family="Segoe UI,Arial,sans-serif" fill="currentColor">$</text></svg>',
+	person:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9zm0 2c-4.4 0-8 2.2-8 5v2h16v-2c0-2.8-3.6-5-8-5z"/></svg>',
+	clock:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16zm-1 3h2v5.2l3.3 2-1 1.7-4.3-2.6z"/></svg>',
+	chip:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M8 2h2v3h4V2h2v3h1a2 2 0 0 1 2 2v1h3v2h-3v4h3v2h-3v1a2 2 0 0 1-2 2h-1v3h-2v-3h-4v3H8v-3H7a2 2 0 0 1-2-2v-1H2v-2h3v-4H2V8h3V7a2 2 0 0 1 2-2h1zm0 5v10h8V7z"/></svg>',
+	warn:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2 1.5 21h21zM11 9h2v6h-2zm0 8h2v2h-2z"/></svg>',
+	scale:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 3h2v15h-2zM5 20h14v2H5zM3 6h18v2H3zM5 8l3 6a3 3 0 0 1-6 0zm14 0 3 6a3 3 0 0 1-6 0z"/></svg>',
+	code:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.7 6.3 3 12l5.7 5.7 1.4-1.4L5.8 12l4.3-4.3zm6.6 0-1.4 1.4 4.3 4.3-4.3 4.3 1.4 1.4L21 12z"/></svg>',
+	board:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M3 4h18a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1h-7v2h3v2H7v-2h3v-2H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zm1 2v9h16V6z"/></svg>',
+	shield:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2 4 5v6c0 5 3.4 9.3 8 11 4.6-1.7 8-6 8-11V5zm-1.2 13.5L7.5 12.2l1.4-1.4 1.9 1.9 4.3-4.3 1.4 1.4z"/></svg>',
+	star:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l3 6.3 6.9.9-5 4.8 1.2 6.9L12 17.6 5.9 20.9 7.1 14 2.1 9.2 9 8.3z"/></svg>',
+	ruler:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M3 17 17 3l4 4L7 21zm3.2 0 1.3 1.3 1.4-1.4-1.3-1.3zm3.7-3.7 1.3 1.3 1.4-1.4-1.3-1.3zm3.7-3.7 1.3 1.3 1.4-1.4-1.3-1.3z"/></svg>',
+	flask:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 2h6v2h-1v5.2l5.2 8.7A2 2 0 0 1 17.5 21h-11a2 2 0 0 1-1.7-3.1L10 9.2V4H9z"/></svg>',
+	arrowR:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 5l7 7-7 7-1.4-1.4 4.6-4.6H4v-2h12.2l-4.6-4.6z"/></svg>'
+});
+
+const AG = { solo:['robot','agSolo'], orch:['compass','agOrch'], intake:['doc','agIntake'], policy:['book','agPolicy'],
+	fraud:['search','agFraud'], payout:['coin','agPayout'], human:['person','agHuman'] };
+function agent(k, o){ o=o||{}; const a=AG[k];
+	return `<div class="ai5-ag ag-${k}${o.top?' is-top':''}"${o.size?` style="--ag:${o.size}px"`:''}><span class="ai5-ag-ic">${icon(a[0])}</span>${o.nolabel?'':`<span class="ai5-ag-l">${o.label||t(a[1])}</span>`}</div>`; }
+
+// A 0×0 wrapper at the node's CENTRE (animate the wrapper with GSAP; the inner node stays centred on it)
+function pos(cx, cy, html, cls){ const w=el('ai5-pos'+(cls?' '+cls:''), '<div class="ai5-in">'+html+'</div>'); w.style.left=cx+'px'; w.style.top=cy+'px'; return w; }
+
+const SVGNS='http://www.w3.org/2000/svg'; let _ai5id=0;
+// A fixed-size board with an SVG layer behind the nodes (same coordinates) for drawn connectors.
+function board(w, h){
+	const root=el('ai5-board'); root.style.width=w+'px'; root.style.height=h+'px';
+	const svg=document.createElementNS(SVGNS,'svg'); svg.setAttribute('viewBox',`0 0 ${w} ${h}`);
+	const mid='ai5ar'+(++_ai5id);
+	svg.innerHTML=`<defs><marker id="${mid}" viewBox="0 0 12 12" markerWidth="24" markerHeight="24" markerUnits="userSpaceOnUse" refX="11" refY="6" orient="auto"><path d="M1,1 L11,6 L1,11 Z" fill="context-stroke"/></marker></defs>`;
+	root.appendChild(svg);
+	return { root, svg, mid };
+}
+// Draw a connector path. Solid + arrow → draw-in via dash (the global guard hides the arrowhead until it lands). dash:'6 6' → static dashed, fade in.
+// An arrowed line is stopped a little INSIDE its head (flat cap, trimmed end): the head's tip is narrower than the stroke, so a line that
+// runs all the way to the tip (or has a round cap) pokes out in front of it. The marker is untouched, so the tip still lands on the path end.
+function arrowTrim(p, L){ return p.getAttribute('marker-end') ? Math.min((+p.getAttribute('stroke-width')||3)*2, L*0.09) : 0; }
+function line(B, d, color, o){ o=o||{};
+	const p=document.createElementNS(SVGNS,'path'); p.setAttribute('d',d); p.setAttribute('fill','none');
+	const arrowed=!o.dash && o.arrow!==false;
+	p.style.stroke=color||'var(--ai5-line)'; p.setAttribute('stroke-width',o.w||3); p.setAttribute('stroke-linecap',arrowed?'butt':'round'); p.setAttribute('stroke-linejoin','round');
+	if(o.dash) p.setAttribute('stroke-dasharray',o.dash);
+	else if(o.arrow!==false) p.setAttribute('marker-end','url(#'+B.mid+')');
+	B.svg.appendChild(p);
+	if(arrowed){ try{ const L=p.getTotalLength(), t=arrowTrim(p,L); if(L>0&&t>0) p.style.strokeDasharray=(L-t)+' '+(L+t); }catch(e){} }
+	return p; }
+function drawPrep(p){ const L=p.getTotalLength(), t=arrowTrim(p,L); p.style.strokeDasharray=t?(L-t)+' '+(L+t):L; p.style.strokeDashoffset=L; return L; }
+// Tween a solid connector in (call drawPrep first). Dashed connectors just fade.
+function drawIn(tl, p, at, dur){ if(p.getAttribute('stroke-dasharray')){ tl.fromTo(p,{opacity:0},{opacity:1,duration:dur||0.4},at); return; }
+	drawPrep(p); tl.to(p,{strokeDashoffset:0,duration:dur||0.6,ease:'power1.inOut'},at); }
+
+// Timeline helpers — every builder builds its tweens once; reduced motion just jumps to the end frame.
+function mount(scene){ stage.appendChild(scene); liveEls.push(scene); }
+function mkTL(){ return gsap.timeline({ onComplete:()=>{ animating=false; } }); }
+function head(tl, scene){ tl.fromTo(headerEls(scene),{opacity:0,y:-14},{opacity:1,y:0,duration:0.5,stagger:0.1,ease:'power2.out'}); }
+function finish(tl, step){
+	const c=maybeCallout(step); if(c) tl.fromTo(c,{opacity:0,y:10},{opacity:1,y:0,duration:0.5},'>-0.2');
+	if(motionPaused){ tl.progress(1); animating=false; return tl; }
+	liveTimelines.push(tl); return tl; }
+function idle(tw){ if(!motionPaused && tw) liveTimelines.push(tw); return tw; }
+function aiScene(step){ const s=buildScene(step); s.classList.add('ai5'); return s; }
+function say(txt, ic){ return el('ai5-say', (ic?icon(ic):'')+'<span>'+txt+'</span>'); }
+function nextLink(file, labelKey){ const a=document.createElement('a'); a.className='ai5-next'; a.href=file+'?lang='+currentLang; a.innerHTML='<span>'+t(labelKey)+'</span>'+icon('arrowR'); return a; }
+
+
+Object.assign(ICONS, {
+	server:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M4 3h16a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm2 2.5a1 1 0 1 0 0 2 1 1 0 0 0 0-2zM4 13h16a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-5a1 1 0 0 1 1-1zm2 2.5a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/></svg>',
+	replicate:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M3 4h10a1 1 0 0 1 1 1v3h-2V6H4v8h2v2H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zm7 6h10a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H10a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1zm1 2v7h8v-7z"/></svg>',
+	cross:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.7 4.3 12 10.6l6.3-6.3 1.4 1.4-6.3 6.3 6.3 6.3-1.4 1.4-6.3-6.3-6.3 6.3-1.4-1.4 6.3-6.3-6.3-6.3z"/></svg>',
+	calendar:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M7 2h2v2h6V2h2v2h2a1 1 0 0 1 1 1v15a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h2zM6 9v10h12V9z"/></svg>',
+	pencil:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.8 9.94l-3.75-3.75zM20.7 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75z"/></svg>'
+});
+
+// ══════════════ DataAvailability · shared scaffold ══════════════
+const AZ6 = '../../lib/icons/Azure_Public_Service_Icons/';
+const IMG6 = {
+	sqldb:'databases/10130-icon-service-SQL-Database.svg', sqlvm:'databases/10124-icon-service-Azure-SQL-VM.svg',
+	pg:'databases/10131-icon-service-Azure-Database-PostgreSQL-Server.svg', cosmos:'databases/10121-icon-service-Azure-Cosmos-DB.svg',
+	vm:'compute/10021-icon-service-Virtual-Machine.svg', blob:'general/10780-icon-service-Blob-Block.svg'
+};
+const im6 = (k, s) => `<img src="${AZ6}${IMG6[k]}" width="${s}" height="${s}" alt="">`;
+function p6Scene(step){ const s = aiScene(step); s.classList.add('fl3'); return s; }
+function p6Box(cls, html, x, y, w, h){ const e = el(cls, html); e.style.cssText = `left:${x}px;top:${y}px;` + (w ? `width:${w}px;` : '') + (h ? `height:${h}px;` : ''); return e; }
+function p6Finish(scene, B, sayKey, ic){ scene.appendChild(B.root); const s = say(t(sayKey), ic); scene.appendChild(s); mount(scene); return s; }
+const p6Pick = (on, cls, txt) => `<span class="p6-pick ${cls}${on ? ' is-on' : ' is-off'}">${icon(on ? 'check' : 'cross')}<span>${txt}</span></span>`;
+const p6Badge = (txt) => `<span class="p6-pickbadge">${icon('star')}<span>${txt}</span></span>`;
+
+// ── 1 · ZONES (a zone fails, the database stays up) ────────────
+function renderZones(){
+	const step = stepById('zones'), scene = p6Scene(step);
+	const B = board(1100, 392), ZX = [180, 550, 920], NY = 206;
+	const frame = p6Box('p6-reg fl3', `<span class="h">${t('zRegion')}</span>`, 0, 60, 1100, 332);
+	const zones = ZX.map((cx, i) => p6Box('p6-zone', `<span class="zl">${t('zone')} ${i + 1}</span>`, cx - 150, 108, 300, 196));
+	const nodes = ZX.map((cx, i) => pos(cx, NY, `<div class="p6-db"><span class="bx">${im6('sqldb', 52)}</span><b>${t(i ? 'copyL' : 'orderDb')}</b></div>`));
+	const tag = (cx, serve) => pos(cx, 282, `<span class="p6-st${serve ? ' is-serve' : ''}">${t(serve ? 'stServing' : 'stReady')}</span>`);
+	const tServe1 = tag(ZX[0], 1), tReady2 = tag(ZX[1], 0), tServe2 = tag(ZX[1], 1), tReady3 = tag(ZX[2], 0);
+	const front = pos(550, 22, `<span class="p6-front">${im6('vm', 30)}<span>${t('storefront')}</span></span>`);
+	const lA = line(B, 'M550 46 V82 H180 V150', 'var(--f3t)', { w:3 }), lB = line(B, 'M550 46 V150', 'var(--f3t)', { w:3 });
+	const xb = pos(318, 112, `<div class="p6-x">${icon('cross')}</div>`);
+	const cR = pos(490, 350, `<span class="ai5-tag p6-chip">${icon('clock')}<span>${t('zRto')}</span></span>`), cP = pos(657, 350, `<span class="ai5-tag p6-chip">${icon('check')}<span>${t('zRpo')}</span></span>`);
+	[frame, ...zones, ...nodes, tServe1, tReady2, tServe2, tReady3, front, xb, cR, cP].forEach(n => B.root.appendChild(n));
+	const sayEl = p6Finish(scene, B, 'zonesSay', 'shield');
+
+	const tl = mkTL(); head(tl, scene);
+	tl.fromTo(frame, { opacity:0, scale:0.97 }, { opacity:1, scale:1, duration:0.5 });
+	tl.fromTo(zones, { opacity:0, y:40 }, { opacity:1, y:0, duration:0.5, stagger:0.14, ease:'power3.out' }, '>-0.1');
+	tl.fromTo(nodes, { opacity:0, scale:0.4 }, { opacity:1, scale:1, duration:0.4, stagger:0.1, ease:'back.out(1.8)' }, '>-0.2');
+	tl.fromTo([tServe1, tReady2, tReady3], { opacity:0 }, { opacity:1, duration:0.3, stagger:0.08 }, '>-0.1');
+	tl.fromTo(front, { opacity:0, y:-30 }, { opacity:1, y:0, duration:0.5, ease:'bounce.out' }, '>0.05');
+	drawIn(tl, lA, '>0', 0.6);
+	tl.fromTo(xb, { opacity:0, scale:2.4 }, { opacity:1, scale:1, duration:0.4, ease:'back.out(2)' }, '>0.5');
+	tl.to([zones[0], nodes[0], tServe1], { opacity:0.35, duration:0.4 }, '<0.1');
+	tl.to(lA, { opacity:0.2, duration:0.3 }, '<');
+	drawIn(tl, lB, '>0.05', 0.5);
+	tl.fromTo(tServe2, { opacity:0, scale:0.6 }, { opacity:1, scale:1, duration:0.35, ease:'back.out(2)' }, '>-0.1');
+	tl.to(tReady2, { opacity:0, duration:0.2 }, '<');
+	tl.fromTo([cR, cP], { opacity:0, y:12 }, { opacity:1, y:0, duration:0.4, stagger:0.12 }, '>0.05');
+	tl.fromTo(sayEl, { opacity:0, y:12 }, { opacity:1, y:0, duration:0.5 }, '>0.05');
+	finish(tl, step);
+}
+
+// ── 2 · GROUPS (geo-replication vs failover group) ─────────────
+function renderGroups(){
+	const step = stepById('groups'), scene = p6Scene(step);
+	const B = board(1100, 430), CX = [570, 930];
+	const q = p6Box('p6-q fl3', `<span class="ai5-pnl-h">${t('qH')}</span><b>${t('qGroups')}</b>`, 0, 0, 380, 120);
+	const opt = (cls, x, k, d) => p6Box('p6-opt ' + cls, `<div class="h">${t(k)}</div><p>${t(d)}</p>`, x, 0, 340, 120);
+	const og = opt('fl1', 400, 'geoT', 'geoD'), of = opt('fl4', 760, 'fgT', 'fgD');
+	const rows = [['gr1', 0, 1], ['gr2', 0, 1], ['gr3', 1, 0], ['gr4', 1, 0]];
+	const labels = [], cellsG = [], cellsF = [];
+	rows.forEach((r, i) => {
+		const y = 138 + i * 58;
+		labels.push(p6Box('p6-lab', `<span>${t(r[0])}</span>`, 0, y, 380, 50));
+		cellsG.push(pos(CX[0], y + 25, p6Pick(r[1], 'fl1', t(r[1] ? 'yes' : 'no'))));
+		cellsF.push(pos(CX[1], y + 25, p6Pick(r[2], 'fl4', t(r[2] ? 'yes' : 'no'))));
+	});
+	const bl = p6Box('p6-lab is-soft', `<span>${t('bothL')}</span>`, 0, 376, 380, 52);
+	const bp = p6Box('p6-both', '', 400, 376, 700, 52);
+	const cR = pos(640, 402, `<span class="ai5-tag p6-chip">${icon('clock')}<span>${t('gRto')}</span></span>`), cP = pos(880, 402, `<span class="ai5-tag p6-chip">${icon('check')}<span>${t('gRpo')}</span></span>`);
+	const ring = p6Box('p6-ring', '', 756, -4, 348, 372);
+	const badge = pos(930, 0, p6Badge(t('pickOrders')));
+	[q, og, of, ...labels, ...cellsG, ...cellsF, bl, bp, cR, cP, ring, badge].forEach(n => B.root.appendChild(n));
+	const sayEl = p6Finish(scene, B, 'groupsSay', 'check');
+
+	const tl = mkTL(); head(tl, scene);
+	tl.fromTo(q, { opacity:0, scale:0.8 }, { opacity:1, scale:1, duration:0.5, ease:'back.out(1.6)' });
+	tl.fromTo(og, { opacity:0, x:-60 }, { opacity:1, x:0, duration:0.5, ease:'power3.out' }, '>-0.05');
+	tl.fromTo(of, { opacity:0, x:60 }, { opacity:1, x:0, duration:0.5, ease:'power3.out' }, '<');
+	rows.forEach((r, i) => {
+		tl.fromTo(labels[i], { opacity:0, x:-24 }, { opacity:1, x:0, duration:0.35 }, i ? '>0.05' : '>0.1');
+		tl.fromTo([cellsG[i], cellsF[i]], { opacity:0, scale:0.7 }, { opacity:1, scale:1, duration:0.35, stagger:0.08, ease:'back.out(1.8)' }, '<0.1');
+	});
+	tl.fromTo([bl, bp], { opacity:0, y:16 }, { opacity:1, y:0, duration:0.4 }, '>0.1');
+	tl.fromTo([cR, cP], { opacity:0, scale:0.7 }, { opacity:1, scale:1, duration:0.35, stagger:0.1, ease:'back.out(1.8)' }, '>-0.1');
+	tl.to([og, ...cellsG], { opacity:0.55, duration:0.4 }, '>0.35');
+	tl.fromTo(ring, { opacity:0, scale:0.97 }, { opacity:1, scale:1, duration:0.4 }, '<');
+	tl.fromTo(badge, { opacity:0, scale:0.5, y:8 }, { opacity:1, scale:1, y:0, duration:0.4, ease:'back.out(2)' }, '>-0.1');
+	tl.fromTo(sayEl, { opacity:0, y:12 }, { opacity:1, y:0, duration:0.5 }, '>0.05');
+	finish(tl, step);
+}
+
+// ── 3 · BACKUPS (PITR · LTR · geo-restore) ─────────────────────
+function renderBackups(){
+	const step = stepById('backups'), scene = p6Scene(step);
+	const B = board(1100, 410);
+	const chips = [['bkFull', 'clock'], ['bkDiff', 'calendar'], ['bkLog', 'clock'], ['bkGeo', 'globe']].map(c => `<span class="ai5-tag p6-chip">${icon(c[1])}<span>${t(c[0])}</span></span>`).join('');
+	const strip = p6Box('p6-strip fl3', `<div class="ai5-pnl-h">${t('autoH')}</div><div class="cs">${chips}</div>`, 0, 0, 1100, 104);
+	const defs = [
+		{ cls:'fl1', ic:'clock', k:'pitr', c:['pitrC'] }, { cls:'fl2', ic:'calendar', k:'ltr', c:['ltrC', 'ltrC2'] }, { cls:'fl4', ic:'globe', k:'ger', c:['gerC'] }];
+	const cards = defs.map((d, i) => p6Box('p6-bc ' + d.cls,
+		`<span class="u">${t(d.k + 'U')}</span><div class="t">${icon(d.ic)}<b>${t(d.k + 'T')}</b></div><p>${t(d.k + 'D')}</p>` +
+		`<div class="cs">${d.c.map(c => `<span class="ai5-tag p6-chip">${t(c)}</span>`).join('')}</div>`, i * 380, 172, 340, 238));
+	const L = [170, 550, 930].map(x => line(B, `M${x} 108 V168`, 'var(--f3t)', { w:3 }));
+	[strip, ...cards].forEach(n => B.root.appendChild(n));
+	const sayEl = p6Finish(scene, B, 'backupsSay', 'clock');
+
+	const tl = mkTL(); head(tl, scene);
+	tl.fromTo(strip, { opacity:0, y:-24 }, { opacity:1, y:0, duration:0.5, ease:'power2.out' });
+	tl.fromTo(strip.querySelectorAll('.ai5-tag'), { opacity:0, scale:0.6 }, { opacity:1, scale:1, duration:0.3, stagger:0.1, ease:'back.out(1.8)' }, '>-0.15');
+	L.forEach((p, i) => {
+		drawIn(tl, p, i ? '<0.15' : '>0.1', 0.4);
+	});
+	cards.forEach((c, i) => {
+		tl.fromTo(c, { opacity:0, y:50 }, { opacity:1, y:0, duration:0.5, ease:'power3.out' }, i ? '>-0.3' : '>-0.1');
+		tl.fromTo(c.querySelectorAll('.ai5-tag'), { opacity:0, x:-16 }, { opacity:1, x:0, duration:0.3, stagger:0.1 }, '>-0.15');
+	});
+	tl.fromTo(sayEl, { opacity:0, y:12 }, { opacity:1, y:0, duration:0.5 }, '>0.1');
+	finish(tl, step);
+}
+
+// ── 4 · SQL ON VMs (Always On availability group) ──────────────
+function renderVms(){
+	const step = stepById('vms'), scene = p6Scene(step);
+	const B = board(1100, 392), NY = 148;
+	const fA = p6Box('p6-reg fl3', `<span class="h">${t('regA')}</span>`, 0, 0, 640, 320), fB = p6Box('p6-reg fl3', `<span class="h">${t('regB')}</span>`, 760, 0, 340, 320);
+	const vm = (x, k) => pos(x, NY, `<div class="p6-vmn"><span class="bx">${im6('sqlvm', 52)}</span><b>${t('orderDb')}</b><span class="p6-st${k === 'vPrimary' ? ' is-serve' : ''}">${t(k)}</span></div>`);
+	const n1 = vm(170, 'vPrimary'), n2 = vm(470, 'vSecondary'), n3 = vm(930, 'vSecondary');
+	const l1 = line(B, 'M258 148 H382', 'var(--f3t)', { w:3 });
+	const l2 = line(B, 'M170 222 V268 H930 V226', 'var(--f3t)', { w:3 });
+	const c1 = pos(320, 116, `<span class="p6-lchip">${t('vSync')}</span>`), c2 = pos(550, 268, `<span class="p6-lchip">${t('vAsync')}</span>`);
+	const ag = p6Box('p6-cardb is-pick', `${icon('shield')}<b>${t('agT')}</b><span>${t('agD')}</span>`, 0, 338, 540, 52);
+	const fci = p6Box('p6-cardb', `${icon('server')}<b>${t('fciT')}</b><span>${t('fciD')}</span>`, 560, 338, 540, 52);
+	[fA, fB, n1, n2, n3, c1, c2, ag, fci].forEach(n => B.root.appendChild(n));
+	const sayEl = p6Finish(scene, B, 'vmsSay', 'gear');
+
+	const tl = mkTL(); head(tl, scene);
+	tl.fromTo([fA, fB], { opacity:0, scale:0.95 }, { opacity:1, scale:1, duration:0.5, stagger:0.12 });
+	tl.fromTo(n1, { opacity:0, y:24 }, { opacity:1, y:0, duration:0.45, ease:'back.out(1.6)' }, '>-0.1');
+	tl.fromTo(n2, { opacity:0, y:24 }, { opacity:1, y:0, duration:0.45, ease:'back.out(1.6)' }, '>0.1');
+	drawIn(tl, l1, '>-0.1', 0.5);
+	tl.fromTo(c1, { opacity:0, scale:0.6 }, { opacity:1, scale:1, duration:0.35, ease:'back.out(2)' }, '>-0.15');
+	tl.fromTo(n3, { opacity:0, x:40 }, { opacity:1, x:0, duration:0.45, ease:'power3.out' }, '>0.1');
+	drawIn(tl, l2, '>-0.1', 0.9);
+	tl.fromTo(c2, { opacity:0, scale:0.6 }, { opacity:1, scale:1, duration:0.35, ease:'back.out(2)' }, '>-0.2');
+	tl.fromTo([ag, fci], { opacity:0, y:20 }, { opacity:1, y:0, duration:0.45, stagger:0.12 }, '>0.1');
+	tl.to(fci, { opacity:0.6, duration:0.35 }, '>0.2');
+	tl.fromTo(sayEl, { opacity:0, y:12 }, { opacity:1, y:0, duration:0.5 }, '>0.05');
+	finish(tl, step);
+}
+
+// ── 5 · COSMOS DB (write regions + consistency) ────────────────
+function renderCosmos(){
+	const step = stepById('cosmos'), scene = p6Scene(step);
+	const B = board(1100, 410);
+	const pn = (cls, x, k) => p6Box('p6-cp ' + cls, `<div class="h">${im6('cosmos', 30)}<b>${t(k)}</b></div>`, x, 0, 530, 250);
+	const pL = pn('fl2', 0, 'swT'), pR = pn('fl4', 570, 'mwT');
+	const rn = (cx, cy, k, write, cls) => pos(cx, cy, `<div class="p6-rn ${cls}"><b>${t(k)}</b><span class="p6-role${write ? ' is-w' : ''}">${write ? icon('pencil') : ''}<span>${t(write ? 'rWrite' : 'rRead')}</span></span></div>`);
+	const a = rn(112, 130, 'regA', 1, 'fl2'), b = rn(420, 82, 'regB', 0, 'fl2'), c = rn(420, 166, 'regC', 0, 'fl2');
+	const lAB = line(B, 'M170 130 H294 V82 H362', 'var(--f2t)', { w:3 }), lAC = line(B, 'M170 130 H294 V166 H362', 'var(--f2t)', { w:3 });
+	const r1 = rn(662, 130, 'regA', 1, 'fl4'), r2 = rn(835, 130, 'regB', 1, 'fl4'), r3 = rn(1008, 130, 'regC', 1, 'fl4');
+	const dA = line(B, 'M718 130 H779', 'var(--f4t)', { w:3, dash:'6 6' }), dB = line(B, 'M891 130 H952', 'var(--f4t)', { w:3, dash:'6 6' });
+	const chL = pos(265, 222, `<span class="ai5-tag p6-chip fl2">${icon('check')}<span>${t('swChip')}</span></span>`), chR = pos(835, 222, `<span class="ai5-tag p6-chip fl4">${icon('warn')}<span>${t('mwChip')}</span></span>`);
+	const badge = pos(430, 0, p6Badge(t('pickCat')));
+	const seg = (k, v, cls) => `<div class="sg ${cls}"><span class="n">${t(k)}</span><b>${t(v)}</b></div>`;
+	const con = p6Box('p6-con fl3', `<div class="ai5-pnl-h">${t('conH')}</div><div class="sgs">${seg('cStrong', 'cStrongV', 's1')}${seg('cBound', 'cBoundV', 's2')}${seg('cSess', 'cSessV', 's3')}</div>` +
+		`<div class="ax"><span>${t('axL')}</span><i></i><span>${t('axR')}</span></div>`, 0, 272, 1100, 138);
+	const segs = con.querySelectorAll('.sg');
+	[pL, pR, a, b, c, r1, r2, r3, chL, chR, con, badge].forEach(n => B.root.appendChild(n));
+	const sayEl = p6Finish(scene, B, 'cosmosSay', 'globe');
+
+	const tl = mkTL(); head(tl, scene);
+	tl.fromTo(pL, { opacity:0, x:-60 }, { opacity:1, x:0, duration:0.5, ease:'power3.out' });
+	tl.fromTo(a, { opacity:0, scale:0.5 }, { opacity:1, scale:1, duration:0.4, ease:'back.out(1.8)' }, '>-0.1');
+	drawIn(tl, lAB, '>0', 0.45); drawIn(tl, lAC, '<0.05', 0.45);
+	tl.fromTo([b, c], { opacity:0, scale:0.5 }, { opacity:1, scale:1, duration:0.4, stagger:0.1, ease:'back.out(1.8)' }, '>-0.1');
+	tl.fromTo(chL, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.35 }, '>0');
+	tl.fromTo(pR, { opacity:0, x:60 }, { opacity:1, x:0, duration:0.5, ease:'power3.out' }, '>0.1');
+	tl.fromTo([r1, r2, r3], { opacity:0, scale:0.5 }, { opacity:1, scale:1, duration:0.4, stagger:0.1, ease:'back.out(1.8)' }, '>-0.1');
+	drawIn(tl, dA, '>-0.1', 0.3); drawIn(tl, dB, '>0', 0.3);
+	tl.fromTo(chR, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.35 }, '>0');
+	tl.fromTo(con, { opacity:0, y:24 }, { opacity:1, y:0, duration:0.5 }, '>0.1');
+	tl.fromTo(segs, { opacity:0, scaleY:0.6 }, { opacity:1, scaleY:1, duration:0.35, stagger:0.12, ease:'back.out(1.6)' }, '>-0.1');
+	tl.to([pR, r1, r2, r3, chR, dA, dB], { opacity:0.55, duration:0.4 }, '>0.3');
+	tl.to([segs[0], segs[1]], { opacity:0.6, duration:0.4 }, '<');
+	tl.fromTo(badge, { opacity:0, scale:0.5, y:8 }, { opacity:1, scale:1, y:0, duration:0.4, ease:'back.out(2)' }, '>-0.1');
+	tl.fromTo(sayEl, { opacity:0, y:12 }, { opacity:1, y:0, duration:0.5 }, '>0.05');
+	finish(tl, step);
+}
+
+// ── 6 · POSTGRESQL (layers of recovery) ────────────────────────
+function renderPostgres(){
+	const step = stepById('postgres'), scene = p6Scene(step);
+	const B = board(1100, 368);
+	const hd = p6Box('p6-prow is-head', ['pgH1', 'pgH2', 'pgH3', 'pgH4'].map(k => `<span>${t(k)}</span>`).join(''), 0, 0, 1100, 32);
+	const R = [['shield', 'pgHa', 'pgRto1', 'pgRpo1', 'pgS1'], ['replicate', 'pgRr', 'pgRto2', 'pgRpo2', 'pgS2'], ['clock', 'pgPitr', 'pgRto3', 'pgRpo3', 'pgS3'], ['globe', 'pgGeo', 'pgRto4', 'pgRpo4', 'pgS4']];
+	const rows = R.map((r, i) => p6Box('p6-prow', `<span class="n"><span class="ic2">${icon(r[0])}</span><b>${t(r[1])}</b></span><span class="v">${t(r[2])}</span><span class="v">${t(r[3])}</span><span><span class="ai5-tag">${t(r[4])}</span></span>`, 0, 44 + i * 84, 1100, 72));
+	[hd, ...rows].forEach(n => B.root.appendChild(n));
+	const sayEl = p6Finish(scene, B, 'postgresSay', 'server');
+
+	const tl = mkTL(); head(tl, scene);
+	tl.fromTo(hd, { opacity:0, y:-16 }, { opacity:1, y:0, duration:0.4 });
+	rows.forEach((r, i) => {
+		tl.fromTo(r, { opacity:0, x:90 }, { opacity:1, x:0, duration:0.5, ease:'power3.out' }, i ? '>-0.3' : '>0');
+		tl.fromTo(r.querySelectorAll('.v'), { opacity:0, scale:0.6 }, { opacity:1, scale:1, duration:0.35, stagger:0.1, ease:'back.out(2)' }, '>-0.25');
+	});
+	tl.fromTo(sayEl, { opacity:0, y:12 }, { opacity:1, y:0, duration:0.5 }, '>0.1');
+	finish(tl, step);
+}
+
+// ── 7 · STORAGE (one decision row) ─────────────────────────────
+function renderStorage(){
+	const step = stepById('storage'), scene = p6Scene(step);
+	const B = board(1100, 352), TOP = 22;
+	const D = [['LRS', 'stLrs', 'sv1', 'rd0'], ['ZRS', 'stZrs', 'sv2', 'rd0'], ['GRS', 'stGrs', 'sv3', 'rd1'], ['GZRS', 'stGzrs', 'sv4', 'rd1'], ['RA-GZRS', 'stRa', 'sv5', 'rd2']];
+	const cards = D.map((d, i) => p6Box('p6-sc', `<b class="tg">${d[0]}</b><span class="nm">${t(d[1])}</span><div class="sv"><span class="k">${t('survL')}</span><b>${t(d[2])}</b></div>` +
+		`<div class="rd"><span class="k">${t('rdL')}</span><span class="ai5-tag${i === 4 ? ' is-on' : ''}">${t(d[3])}</span></div>`, i * 225, TOP, 200, 270));
+	const ring = p6Box('p6-ring', '', 900 - 5, TOP - 5, 210, 280);
+	const badge = pos(1000, TOP, p6Badge(t('pickImg')));
+	const ax = line(B, 'M30 330 H1070', 'var(--f3t)', { w:3 });
+	const axl = pos(550, 330, `<span class="p6-lchip">${t('axStore')}</span>`);
+	[...cards, ring, badge, axl].forEach(n => B.root.appendChild(n));
+	const sayEl = p6Finish(scene, B, 'storageSay', 'shield');
+
+	const tl = mkTL(); head(tl, scene);
+	cards.forEach((c, i) => tl.fromTo(c, { opacity:0, y:-50, rotation:(i - 2) * 2 }, { opacity:1, y:0, rotation:0, duration:0.5, ease:'bounce.out' }, i ? '>-0.38' : '>0'));
+	drawIn(tl, ax, '>0.1', 0.7);
+	tl.fromTo(axl, { opacity:0, scale:0.6 }, { opacity:1, scale:1, duration:0.35, ease:'back.out(2)' }, '>-0.2');
+	tl.to(cards.slice(0, 4), { opacity:0.6, duration:0.45 }, '>0.35');
+	tl.fromTo(ring, { opacity:0, scale:0.97 }, { opacity:1, scale:1, duration:0.4 }, '<');
+	tl.fromTo(badge, { opacity:0, scale:0.5, y:8 }, { opacity:1, scale:1, y:0, duration:0.4, ease:'back.out(2)' }, '>-0.1');
+	tl.fromTo(sayEl, { opacity:0, y:12 }, { opacity:1, y:0, duration:0.5 }, '>0.05');
+	finish(tl, step);
+}
+
+// ── 8 · WHOLE (All in One: pick by RTO/RPO) ────────────────────
+function renderWhole(){
+	const step = stepById('whole'), scene = p6Scene(step);
+	const B = board(1100, 384);
+	const hd = p6Box('p6-mrow is-head', ['mH1', 'mH2', 'mH3'].map(k => `<span>${t(k)}</span>`).join(''), 0, 0, 1100, 40);
+	const R = [['sqldb', 'm1', 1], ['pg', 'm3', 0], ['sqldb', 'm2', 1], ['pg', 'm4', 0], ['cosmos', 'm5', 0], ['sqldb', 'm6', 0]];
+	const num = { m1:['m1a', 'm1b'], m2:['m2a', 'm2b'], m3:['m3a', 'm3b'], m4:['m4a', 'm4b'], m5:['m5a', 'm5b'], m6:['m6a', 'm6b'] };
+	const rows = R.map((r, i) => p6Box('p6-mrow', `<span class="n">${im6(r[0], 28)}<b>${t(r[1])}</b>${r[2] ? `<span class="p6-star">${icon('star')}<span>${t('pickOrders')}</span></span>` : ''}</span><span class="v">${t(num[r[1]][0])}</span><span class="v">${t(num[r[1]][1])}</span>`, 0, 48 + i * 56, 1100, 48));
+	[hd, ...rows].forEach(n => B.root.appendChild(n));
+	const foot = el('ai5-foot', t('wholeFoot')), nxt = nextLink('PickCompute.html', 'nextCompute');
+	const end = el('p6-end'); end.appendChild(foot); end.appendChild(nxt);
+	scene.appendChild(B.root); scene.appendChild(end); mount(scene);
+
+	const tl = mkTL(); head(tl, scene);
+	tl.fromTo(hd, { opacity:0, clipPath:'inset(0 100% 0 0)' }, { opacity:1, clipPath:'inset(0 0% 0 0)', duration:0.5, ease:'power2.out' });
+	rows.forEach((r, i) => tl.fromTo(r, { opacity:0, y:-30 }, { opacity:1, y:0, duration:0.4, ease:'power3.out' }, i ? '>-0.22' : '>0'));
+	tl.fromTo(B.root.querySelectorAll('.p6-star'), { opacity:0, scale:0.5 }, { opacity:1, scale:1, duration:0.4, stagger:0.15, ease:'back.out(2)' }, '>0');
+	tl.fromTo(foot, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.5 }, '>0.1');
+	tl.fromTo(nxt, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.5 }, '>-0.2');
+	finish(tl, step);
+}
+
+const BUILDERS = { zones:renderZones, groups:renderGroups, backups:renderBackups, vms:renderVms, cosmos:renderCosmos, postgres:renderPostgres, storage:renderStorage, whole:renderWhole };
+
+
+// ── CONTROLS ──────────────────────────────
+function focusHeading(){ const h=document.getElementById('stage-heading'); if(h){ try{ h.focus({preventScroll:true}); }catch(_){ h.focus(); } } }
+function interruptAnimation(){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; animating=false; }
+function next(){ interruptAnimation(); if(current<STEPS.length-1){ renderStep(current+1); focusHeading(); } }
+function prev(){ interruptAnimation(); if(current>0){ renderStep(current-1); focusHeading(); } }
+function reset(){ interruptAnimation(); renderStep(0); focusHeading(); }
+function replay(){ if(current<0) return; interruptAnimation(); renderStep(current); focusHeading(); }
+
+// ── Hide / show top bar (toggle; the ^ chevron flips to v when hidden) ──
+(function(){
+	const hideBtn=document.getElementById('header-hide'), revealBtn=document.getElementById('header-reveal');
+	if(!hideBtn||!revealBtn) return;
+	var hideBtnTop=document.getElementById('header-hide-top'); if(hideBtnTop) hideBtnTop.addEventListener('click',function(e){ e.stopPropagation(); hideBtn.click(); });
+	const hidePath=hideBtn.querySelector('svg path');
+	const UP='M6 15l6-6 6 6', DOWN='M6 9l6 6 6-6';   // ^ points up to hide the bar; flips to v to show it again
+	function setHidden(h){
+		document.body.classList.toggle('chrome-hidden',h);
+		hideBtn.setAttribute('aria-expanded',String(!h));
+		hideBtn.setAttribute('aria-label',h?'Show top bar':'Hide top bar');
+		hideBtn.title=(h?'Show top bar':'Hide top bar')+' (H)';
+		if(hidePath) hidePath.setAttribute('d',h?DOWN:UP);
+		try{localStorage.setItem('aw-tmpl-chrome-hidden',h?'1':'0');}catch(_){}
+		if(current>=0) requestAnimationFrame(()=>{ const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s); });
+	}
+	hideBtn.addEventListener('click',e=>{e.stopPropagation();setHidden(!document.body.classList.contains('chrome-hidden'));});
+	revealBtn.addEventListener('click',e=>{e.stopPropagation();setHidden(false);});
+	try{ if(localStorage.getItem('aw-tmpl-chrome-hidden')==='1') setHidden(true); }catch(_){}
+	document.addEventListener('keydown',e=>{ if(e.code==='KeyH'&&!e.metaKey&&!e.ctrlKey&&!e.altKey){ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return; e.preventDefault(); setHidden(!document.body.classList.contains('chrome-hidden')); } });
+})();
+
+document.getElementById('next-btn').addEventListener('click',e=>{e.stopPropagation();next();});
+document.getElementById('prev-btn').addEventListener('click',e=>{e.stopPropagation();prev();});
+document.getElementById('reset-btn').addEventListener('click',e=>{e.stopPropagation();reset();});
+document.getElementById('replay-btn').addEventListener('click',e=>{e.stopPropagation();replay();});
+
+// ── Clickable progress bar + step ticks ──
+(function(){
+	const track=document.querySelector('.progress-track'); if(!track) return;
+	for(let s=1; s<STEPS.length; s++){ const tk=document.createElement('div'); tk.className='progress-tick'; tk.style.left=(s/STEPS.length*100)+'%'; track.appendChild(tk); }
+	track.setAttribute('title','Jump to a step');
+	track.addEventListener('click', e=>{
+		const r=track.getBoundingClientRect(); const frac=(e.clientX-r.left)/r.width;
+		const target=Math.max(0, Math.min(STEPS.length-1, Math.floor(frac*STEPS.length)));
+		if(target!==current){ interruptAnimation(); renderStep(target); focusHeading(); }
+	});
+})();
+
+// ── Movable / pinnable control dock ───────
+(function(){
+	const dock=document.getElementById('controls'), grip=document.getElementById('ctrl-grip'), pin=document.getElementById('ctrl-pin');
+	if(!dock||!grip) return;
+	const KEY='aw-tmpl-controls-pos';
+	let dragging=false, sx=0, sy=0, bl=0, bt=0, moved=false;
+	function place(left,top){
+		const w=dock.offsetWidth, h=dock.offsetHeight;
+		left=Math.max(6, Math.min(left, window.innerWidth - w - 6));
+		top =Math.max(6, Math.min(top,  window.innerHeight - h - 6));
+		dock.style.left=left+'px'; dock.style.top=top+'px'; dock.style.right='auto'; dock.style.bottom='auto'; dock.style.transform='none';
+		document.body.classList.add('controls-floating');
+	}
+	function recenter(){
+		dock.style.left=dock.style.top=dock.style.right=dock.style.bottom=dock.style.transform='';
+		document.body.classList.remove('controls-floating');
+		try{ localStorage.removeItem(KEY); }catch(_){}
+	}
+	grip.addEventListener('pointerdown', e=>{
+		e.preventDefault(); dragging=true; moved=false;
+		const r=dock.getBoundingClientRect(); bl=r.left; bt=r.top; sx=e.clientX; sy=e.clientY;
+		try{ grip.setPointerCapture(e.pointerId); }catch(_){}
+	});
+	grip.addEventListener('pointermove', e=>{
+		if(!dragging) return;
+		const dx=e.clientX-sx, dy=e.clientY-sy;
+		if(Math.abs(dx)>2||Math.abs(dy)>2) moved=true;
+		place(bl+dx, bt+dy);
+	});
+	function end(e){ if(!dragging) return; dragging=false; try{ grip.releasePointerCapture(e.pointerId); }catch(_){}
+		if(moved){ try{ const r=dock.getBoundingClientRect(); localStorage.setItem(KEY, JSON.stringify({left:r.left, top:r.top})); }catch(_){} } }
+	grip.addEventListener('pointerup', end); grip.addEventListener('pointercancel', end);
+	// keyboard-nudge the dock when the grip is focused (arrow keys; Shift = larger step)
+	grip.addEventListener('keydown', e=>{
+		const d=e.shiftKey?40:12; const r=dock.getBoundingClientRect(); let ok=true;
+		if(e.key==='ArrowLeft') place(r.left-d, r.top);
+		else if(e.key==='ArrowRight') place(r.left+d, r.top);
+		else if(e.key==='ArrowUp') place(r.left, r.top-d);
+		else if(e.key==='ArrowDown') place(r.left, r.top+d);
+		else ok=false;
+		if(ok){ e.preventDefault(); e.stopPropagation(); }
+	});
+	if(pin) pin.addEventListener('click', e=>{ e.stopPropagation(); recenter(); });
+	window.addEventListener('resize', ()=>{ if(document.body.classList.contains('controls-floating')){ const r=dock.getBoundingClientRect(); place(r.left, r.top); } });
+	try{ const s=JSON.parse(localStorage.getItem(KEY)||'null'); if(s && typeof s.left==='number') place(s.left, s.top); }catch(_){}
+})();
+
+// ── Make callout / outline / caption draggable (same pointer-drag as the control dock) ──
+function dragify(el, key){
+	if(!el || el.__awDrag) return; el.__awDrag=true;
+	let dragging=false, sx=0, sy=0, bl=0, bt=0, moved=false;
+	const resizable = getComputedStyle(el).resize !== 'none';
+	const sizeKey = key ? key + '-size' : null;
+	// snapshot the home position + size so the reset pin can restore it exactly
+	const home={ position:el.style.position, left:el.style.left, top:el.style.top,
+		right:el.style.right, bottom:el.style.bottom, margin:el.style.margin, transform:el.style.transform,
+		width:el.style.width, height:el.style.height };
+	// reset "pin" — hidden until the panel is dragged or resized off its home spot
+	const pin=document.createElement('button');
+	pin.type='button'; pin.className='aw-drag-reset';
+	pin.title=t('resetPos'); pin.setAttribute('aria-label', t('resetPos'));
+	pin.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>';
+	// keep the pin inside scrollable / resizable panels so it isn't clipped
+	const oy=getComputedStyle(el).overflowY; const clips=(oy==='auto'||oy==='scroll'||oy==='hidden');
+	pin.style.top=clips?'8px':'-10px'; pin.style.right=clips?'8px':'-10px';
+	el.appendChild(pin);
+	function showPin(on){ pin.style.display=on?'flex':'none'; }
+	pin.addEventListener('pointerdown', e=>{ e.stopPropagation(); });
+	pin.addEventListener('click', e=>{
+		e.preventDefault(); e.stopPropagation();
+		el.style.position=home.position; el.style.left=home.left; el.style.top=home.top;
+		el.style.right=home.right; el.style.bottom=home.bottom; el.style.margin=home.margin; el.style.transform=home.transform;
+		el.style.width=home.width; el.style.height=home.height;
+		if(key){ try{ localStorage.removeItem(key); }catch(_){} }
+		if(sizeKey){ try{ localStorage.removeItem(sizeKey); }catch(_){} }
+		showPin(false);
+	});
+	function fix(left,top){
+		const w=el.offsetWidth, h=el.offsetHeight;
+		left=Math.max(6, Math.min(left, window.innerWidth  - w - 6));
+		top =Math.max(6, Math.min(top,  window.innerHeight - h - 6));
+		el.style.position='fixed'; el.style.left=left+'px'; el.style.top=top+'px';
+		el.style.right='auto'; el.style.bottom='auto'; el.style.margin='0'; el.style.transform='none';
+	}
+	// persist user resizes (the CSS resize grip writes inline width/height; content changes don't)
+	if(resizable && typeof ResizeObserver!=='undefined'){
+		let rt;
+		new ResizeObserver(()=>{
+			if(el.style.width || el.style.height){
+				showPin(true);
+				if(sizeKey){ clearTimeout(rt); rt=setTimeout(()=>{ try{ localStorage.setItem(sizeKey, JSON.stringify({w:el.style.width, h:el.style.height})); }catch(_){} }, 150); }
+			}
+		}).observe(el);
+	}
+	el.addEventListener('pointerdown', e=>{
+		if(e.button!==0 || (e.target.closest && e.target.closest('a,button,select,input,textarea'))) return;
+		if(resizable){ const r=el.getBoundingClientRect(); if(e.clientX>r.right-18 && e.clientY>r.bottom-18) return; } // let the resize grip win
+		dragging=true; moved=false;
+		const r=el.getBoundingClientRect(); bl=r.left; bt=r.top; sx=e.clientX; sy=e.clientY;
+		fix(bl, bt);   // pin at the current spot first, so there's no jump
+		try{ el.setPointerCapture(e.pointerId); }catch(_){}
+		e.preventDefault();
+	});
+	el.addEventListener('pointermove', e=>{
+		if(!dragging) return;
+		const dx=e.clientX-sx, dy=e.clientY-sy;
+		if(Math.abs(dx)>2||Math.abs(dy)>2) moved=true;
+		fix(bl+dx, bt+dy);
+	});
+	function end(e){
+		if(!dragging) return; dragging=false;
+		try{ el.releasePointerCapture(e.pointerId); }catch(_){}
+		if(moved){ showPin(true); if(key){ try{ const r=el.getBoundingClientRect(); localStorage.setItem(key, JSON.stringify({left:r.left, top:r.top})); }catch(_){} } }
+	}
+	el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+	if(sizeKey){ try{ const z=JSON.parse(localStorage.getItem(sizeKey)||'null'); if(z && (z.w||z.h)){ if(z.w) el.style.width=z.w; if(z.h) el.style.height=z.h; showPin(true); } }catch(_){} }
+	if(key){ try{ const s=JSON.parse(localStorage.getItem(key)||'null'); if(s && isFinite(s.left) && isFinite(s.top)){ fix(s.left, s.top); showPin(true); } }catch(_){} }
+}
+dragify(document.getElementById('step-outline'), 'aw-tmpl-outline-pos');
+dragify(document.getElementById('aw-caption'), 'aw-tmpl-caption-pos');
+
+// ── Speed ─────────────────────────────────
+const SPEED_STEPS=[0.5,0.75,1,1.25,1.5,2]; const BASE_TIMESCALE=0.25;
+let speedIndex=SPEED_STEPS.indexOf(1);
+try{ const sp=parseInt(localStorage.getItem('aw-tmpl-speed'),10); if(!isNaN(sp)&&sp>=0&&sp<SPEED_STEPS.length) speedIndex=sp; }catch(_){}
+const speedLabel=document.getElementById('speed-label'), speedDownBtn=document.getElementById('speed-down'), speedUpBtn=document.getElementById('speed-up');
+function saveSpeed(){ try{ localStorage.setItem('aw-tmpl-speed', String(speedIndex)); }catch(_){} }
+function syncSpeedUI(){ const spd=SPEED_STEPS[speedIndex]; speedLabel.textContent=spd+'\u00d7'; speedDownBtn.disabled=speedIndex===0; speedUpBtn.disabled=speedIndex===SPEED_STEPS.length-1; gsap.globalTimeline.timeScale(spd*BASE_TIMESCALE); }
+syncSpeedUI();
+speedDownBtn.addEventListener('click',e=>{e.stopPropagation(); if(speedIndex>0){speedIndex--;syncSpeedUI();saveSpeed();}});
+speedUpBtn.addEventListener('click',e=>{e.stopPropagation(); if(speedIndex<SPEED_STEPS.length-1){speedIndex++;syncSpeedUI();saveSpeed();}});
+
+// ── Keyboard ──────────────────────────────
+if (window.AW && AW.keyboard) { AW.keyboard.bind({ next, prev, reset, replay }); }
+else { document.addEventListener('keydown', e => {
+	const tag=(e.target&&e.target.tagName||'').toLowerCase();
+	if(tag==='input'||tag==='textarea'||tag==='select') return;
+	// Space/Enter must reach a focused control, otherwise the focused button can never be pressed by keyboard
+	const onControl=!!(e.target&&e.target.closest&&e.target.closest('button,a[href],summary,[role="button"],[role="switch"]'));
+	if (['Space','Enter'].includes(e.code) && onControl) return;
+	if (['Space','ArrowRight','Enter'].includes(e.code)) { e.preventDefault(); next(); }
+	else if (e.code==='ArrowLeft') { e.preventDefault(); prev(); }
+	else if (e.code==='KeyR') { e.preventDefault(); reset(); }
+	else if (e.code==='KeyP') { e.preventDefault(); replay(); }
+}); }
+
+// ── Touch swipe (tablets) ─────────────────
+(function(){
+	const surf=document.getElementById('stage'); if(!surf) return;
+	let x0=null,y0=null,t0=0;
+	surf.addEventListener('touchstart',e=>{ if(e.touches.length!==1){x0=null;return;} x0=e.touches[0].clientX; y0=e.touches[0].clientY; t0=Date.now(); },{passive:true});
+	surf.addEventListener('touchend',e=>{
+		if(x0===null) return; const tch=e.changedTouches[0]; const dx=tch.clientX-x0, dy=tch.clientY-y0; x0=null;
+		if(Date.now()-t0>800) return;
+		if(Math.abs(dx)>50 && Math.abs(dx)>Math.abs(dy)*1.6){ if(dx<0) next(); else prev(); }
+	},{passive:true});
+})();
+
+// ── Keyboard shortcut help overlay ────────
+(function(){
+	const overlay=document.getElementById('shortcut-overlay'), btn=document.getElementById('help-toggle'), closeBtn=document.getElementById('sc-close'), list=document.getElementById('sc-list');
+	if(!overlay||!list) return;
+	const ROWS=[[['\u2192','Space'],'scNext'],[['\u2190'],'scPrev'],[['R'],'scRestart'],[['P'],'scReplay'],[['H'],'scHide'],[['?'],'scHelp']];
+	window.buildShortcuts=function(){ const title=document.getElementById('sc-title'); if(title) title.textContent=t('scTitle');
+		list.innerHTML=ROWS.map(([keys,k])=>`<li><span>${t(k)}</span><span class="sc-keys">${keys.map(x=>`<kbd>${x}</kbd>`).join('')}</span></li>`).join(''); };
+	buildShortcuts();
+	function open(){ overlay.removeAttribute('hidden'); if(closeBtn) closeBtn.focus(); }
+	function close(){ overlay.setAttribute('hidden',''); if(btn) btn.focus(); }
+	function toggle(){ overlay.hasAttribute('hidden')?open():close(); }
+	if(btn) btn.addEventListener('click',e=>{e.stopPropagation();toggle();});
+	if(closeBtn) closeBtn.addEventListener('click',e=>{e.stopPropagation();close();});
+	const bd=overlay.querySelector('.sc-backdrop'); if(bd) bd.addEventListener('click',close);
+	document.addEventListener('keydown',e=>{ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return;
+		if(e.key==='?'){ e.preventDefault(); toggle(); }
+		else if(e.key==='Escape' && !overlay.hasAttribute('hidden')){ e.preventDefault(); close(); } });
+})();
+
+// ── Resize (re-fit only — never rebuild or replay the animation) ──
+let resizeTimer, lastStageW=0, lastStageH=0;
+window.addEventListener('resize',()=>{ clearTimeout(resizeTimer); resizeTimer=setTimeout(()=>{
+	if(current<0) return;
+	const box=stage.getBoundingClientRect();
+	if(Math.abs(box.width-lastStageW)<1 && Math.abs(box.height-lastStageH)<1) return;   // ignore no-op reflows (focus/URL-bar) so the animation never restarts
+	lastStageW=box.width; lastStageH=box.height;
+	const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s);
+},200); });
+
+// ── Init ──────────────────────────────────
+setLanguage(currentLang);
+counter.textContent = `1 / ${STEPS.length}`;
+const urlStep = parseInt(new URLSearchParams(location.search).get('step'), 10);   // ?step=N opens on step N
+renderStep((!isNaN(urlStep) && urlStep>=1 && urlStep<=STEPS.length) ? urlStep-1 : 0);
+</script>
+<script>
+// ── Start gate · hold autoplay until the viewer clicks Play (empty stage + centered Play) ──
+(function () {
+	if (new URLSearchParams(location.search).has('present')) return;
+	var stage = document.getElementById('stage');
+	if (!stage) return;
+	function freeze() { try { if (window.gsap && gsap.globalTimeline) gsap.globalTimeline.pause(); } catch (_) {} }
+	freeze(); requestAnimationFrame(freeze);
+	document.body.classList.add('aw-prestart');
+	try { if (typeof stopAudio === 'function') stopAudio(); } catch (_) {}
+	stage.style.transition = 'opacity .55s ease';
+	stage.style.opacity = '0';
+
+	var T = {
+		title: { en:'Ready to begin?', es:'\u00BFTodo listo?', ja:'\u6E96\u5099\u306F\u3044\u3044\u3067\u3059\u304B\uFF1F', ko:'\uC2DC\uC791\uD560 \uC900\uBE44\uAC00 \uB418\uC168\uB098\uC694?', pt:'Tudo pronto?' },
+		sound: { en:'Sound', es:'Sonido', ja:'\u97F3\u58F0', ko:'\uC18C\uB9AC', pt:'Som' },
+		cc:    { en:'Subtitles (CC)', es:'Subt\u00EDtulos (CC)', ja:'\u5B57\u5E55\uFF08CC\uFF09', ko:'\uC790\uB9C9 (CC)', pt:'Legendas (CC)' },
+		start: { en:'Start presentation', es:'Iniciar presentaci\u00F3n', ja:'\u30D7\u30EC\u30BC\u30F3\u3092\u958B\u59CB', ko:'\uD504\uB808\uC820\uD14C\uC774\uC158 \uC2DC\uC791', pt:'Iniciar apresenta\u00E7\u00E3o' }
+	};
+	function L(){ return (typeof currentLang === 'string' && currentLang) || (typeof CURRENT_LANG === 'string' && CURRENT_LANG) || 'en'; }
+	function t(k){ var m = T[k], l = L(); return m[m[l] ? l : 'en']; }
+	function awAudioState(){ try{ if(typeof window.__awAudioOn==='function') return !!window.__awAudioOn(); }catch(_){} return (typeof audioEnabled!=='undefined') && !!audioEnabled; }
+	function awCcState(){ try{ if(typeof window.__awCcOn!=='undefined' && window.__awCcOn!==null) return !!window.__awCcOn; }catch(_){} return (typeof ccPref!=='undefined') && !!ccPref; }
+
+	var style = document.createElement('style');
+	style.textContent =
+		'body.aw-prestart #controls{opacity:.4;pointer-events:none;transition:opacity .4s ease}' +
+		'#aw-play-card{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:50;box-sizing:border-box;width:min(90vw,22rem);padding:1.35rem 1.5rem 1.5rem;border-radius:16px;background:var(--theme-card-background,#fff);color:var(--theme-text,#222);border:1px solid var(--theme-border,rgba(0,0,0,.1));box-shadow:0 24px 60px rgba(0,0,0,.28);transition:opacity .3s ease,transform .3s ease}' +
+		'#aw-play-card.aw-hide{opacity:0;transform:translate(-50%,-50%) scale(.96);pointer-events:none}' +
+		'body.theme-dark #aw-play-card{border-color:rgba(255,255,255,.12);box-shadow:0 24px 60px rgba(0,0,0,.55)}' +
+		'body.present-mode #aw-play-card{display:none!important}' +
+		'.aw-card-title{margin:0 0 1rem;text-align:center;font-size:1.02rem;font-weight:800;letter-spacing:.03em;text-transform:uppercase;opacity:.85}' +
+		'.aw-row{display:flex;align-items:center;gap:.65rem;padding:.6rem 0}' +
+		'.aw-row + .aw-row{border-top:1px solid var(--theme-border,rgba(0,0,0,.08))}' +
+		'.aw-row-ico{flex:none;width:1.5rem;text-align:center;font-size:1.15rem;line-height:1}' +
+		'.aw-row-lbl{flex:1 1 auto;font-size:.9rem;font-weight:600}' +
+		'.aw-row-state{flex:none;min-width:2.5rem;text-align:right;font-size:.68rem;font-weight:800;letter-spacing:.05em;opacity:.5}' +
+		'.aw-row-state.on{color:var(--theme-primary,#0078d4);opacity:1}' +
+		'.aw-switch{position:relative;flex:none;width:44px;height:24px;padding:0;border:none;border-radius:999px;cursor:pointer;background:var(--theme-border,#c7c7d1);transition:background .18s ease}' +
+		'.aw-switch.on{background:var(--theme-primary,#0078d4)}' +
+		'.aw-switch::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.4);transition:transform .18s ease}' +
+		'.aw-switch.on::after{transform:translateX(20px)}' +
+		'#aw-start{margin-top:1.2rem;width:100%;display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:.8rem 1rem;border:none;border-radius:11px;cursor:pointer;background:var(--theme-primary,#0078d4);color:#fff;font-size:.96rem;font-weight:700;letter-spacing:.01em;box-shadow:0 8px 22px var(--theme-primary-translucent,rgba(0,120,212,.45));transition:transform .15s ease}' +
+		'#aw-start:hover{transform:translateY(-2px)}#aw-start:active{transform:scale(.98)}' +
+		'#aw-start svg{width:18px;height:18px;flex:none}';
+	document.head.appendChild(style);
+
+	var card = document.createElement('div');
+	card.id = 'aw-play-card'; card.setAttribute('role', 'dialog'); card.setAttribute('aria-modal', 'true');
+	card.innerHTML =
+		'<div class="aw-card-title"></div>' +
+		'<div class="aw-row" data-k="audio"><span class="aw-row-ico" aria-hidden="true">\uD83D\uDD0A</span><span class="aw-row-lbl"></span><span class="aw-row-state"></span><button type="button" class="aw-switch" role="switch"></button></div>' +
+		'<div class="aw-row" data-k="cc"><span class="aw-row-ico" aria-hidden="true">\uD83D\uDCAC</span><span class="aw-row-lbl"></span><span class="aw-row-state"></span><button type="button" class="aw-switch" role="switch"></button></div>' +
+		'<button type="button" id="aw-start"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 5v14l11-7z"/></svg><span class="aw-start-lbl"></span></button>';
+	document.body.appendChild(card);
+
+	var titleEl = card.querySelector('.aw-card-title');
+	var startBtn = card.querySelector('#aw-start');
+	var ROWS = [ { k:'audio', lbl:'sound', el:card.querySelector('.aw-row[data-k="audio"]'), read:awAudioState, toggle:'audio-toggle' },
+	             { k:'cc',    lbl:'cc',    el:card.querySelector('.aw-row[data-k="cc"]'),    read:awCcState,    toggle:'cc-toggle' } ];
+
+	function render(){
+		titleEl.textContent = t('title'); card.setAttribute('aria-label', t('title'));
+		startBtn.querySelector('.aw-start-lbl').textContent = t('start');
+		ROWS.forEach(function(r){
+			var on = r.read();
+			r.el.querySelector('.aw-row-lbl').textContent = t(r.lbl);
+			var st = r.el.querySelector('.aw-row-state'); st.textContent = on ? 'ON' : 'OFF'; st.classList.toggle('on', on);
+			var sw = r.el.querySelector('.aw-switch'); sw.classList.toggle('on', on); sw.setAttribute('aria-checked', on ? 'true' : 'false');
+			sw.setAttribute('aria-label', t(r.lbl) + ' \u2014 ' + (on ? 'on' : 'off'));
+		});
+	}
+	ROWS.forEach(function(r){
+		r.el.querySelector('.aw-switch').addEventListener('click', function(e){ e.stopPropagation(); var b = document.getElementById(r.toggle); if(b) b.click(); render(); });
+	});
+	render();
+
+	var sel = document.getElementById('lang-select');
+	// Only re-freeze while the gate is still up — after Play, freezing would pause the
+	// global timeline for good and every later scene would stay at opacity 0 (blank stage).
+	if (sel) sel.addEventListener('change', function () { if (done) return; render(); freeze(); });
+
+	function gateKeys(e) {
+		if (done) return;
+		var tag = (e.target && e.target.tagName || '').toLowerCase();
+		if (tag === 'select' || tag === 'input' || tag === 'textarea') return;
+		if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'].indexOf(e.key) >= 0) { e.preventDefault(); e.stopPropagation(); }
+	}
+	document.addEventListener('keydown', gateKeys, true);
+
+	var done = false;
+	function start() {
+		if (done) return; done = true;
+		document.removeEventListener('keydown', gateKeys, true);
+		document.body.classList.remove('aw-prestart');
+		card.classList.add('aw-hide');
+		setTimeout(function () { if (card.parentNode) card.parentNode.removeChild(card); if (style.parentNode) style.parentNode.removeChild(style); }, 420);
+		setTimeout(function () {
+			try { if (window.gsap && gsap.globalTimeline) gsap.globalTimeline.play(); } catch (_) {}
+			stage.style.opacity = '1';
+			try { if (typeof interruptAnimation === 'function') interruptAnimation(); } catch (_) {}
+			try { if (typeof renderStep === 'function') renderStep(typeof current === 'number' && current >= 0 ? current : 0); } catch (_) {}
+		}, 380);
+	}
+	startBtn.addEventListener('click', start);
+	// the gate is aria-modal, so keyboard and screen-reader users must land on it rather than tab the header behind it
+	startBtn.focus({ preventScroll: true });
+}());
+</script>
+<script>
+/* ── Audio-synced animation speed ──────────────────────────────────────────────────────────
+   ANIM[i]       = real seconds step i takes at the 1x speed (measured with BASE_TIMESCALE applied)
+   AUDIO_SECS[l] = length of each recorded clip per language (from the generated MP3s)
+   With narration ON the animation runs at clamp(ANIM/clip, 0.6, 2.2) x BASE_TIMESCALE x the chosen speed, so a step's build
+   finishes about when its voice does. Narration OFF restores the chosen speed. */
+(function () {
+	const ANIM = [25.5,25.5,17.2,24.1,29,14,16.5,15.4];
+	const AUDIO_SECS = {"en":[22.85,27.1,26.76,28.56,26.81,27.96,26.4,24.1],"es":[21.82,25.37,29.21,27.26,26.45,25.9,26.26,25.3],"ja":[27.65,29.16,28.66,26.76,29.06,28.37,29.11,28.9],"ko":[22.9,25.01,26.02,25.2,23.45,24.26,28.1,24.7],"pt":[22.46,25.66,29.02,27.41,25.8,25.56,26.21,26.57]};
+	const MIN = 0.6, MAX = 2.2;
+	function clipSecs(i) { const a = AUDIO_SECS[currentLang] || AUDIO_SECS.en; return a && a[i]; }
+	function userSpeed() { try { return SPEED_STEPS[speedIndex]; } catch (_) { return 1; } }
+	function apply(i) {
+		try {
+			if (!window.gsap) return;
+			const D = ANIM[i], A = clipSecs(i);
+			if (audioEnabled && D && A) gsap.globalTimeline.timeScale(Math.max(MIN, Math.min(MAX, D / A)) * BASE_TIMESCALE * userSpeed());
+			else gsap.globalTimeline.timeScale(BASE_TIMESCALE * userSpeed());
+		} catch (_) {}
+	}
+	const render = renderStep;
+	renderStep = function (i) { if (typeof i === 'number' && i >= 0) apply(i); return render.apply(this, arguments); };
+	const speedUI = syncSpeedUI;
+	syncSpeedUI = function () { speedUI.apply(this, arguments); if (current >= 0) apply(current); };
+	const audioBtnEl = document.getElementById('audio-toggle');
+	if (audioBtnEl) audioBtnEl.addEventListener('click', function () { if (current >= 0) apply(current); });
+})();
+</script>
+<script src="../../lib/js/aw-present.js"></script>
+<script src="../../lib/js/aw-declutter.js"></script>
+<script src="../../lib/js/aw-url-state.js"></script>
+<script src="../../lib/js/aw-like-dock.js"></script>
+
+</body>
+</html>

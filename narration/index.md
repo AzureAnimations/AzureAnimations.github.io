@@ -2,7 +2,7 @@
 
 **Source page:** `index.html`
 
-Fifteen spoken blocks: welcome, certification study paths, then thirteen journey cards. The closing trophy banner is not narrated.
+Seventeen spoken blocks: welcome, certification study paths, then fifteen journey cards, in the order they appear on the page. The closing trophy banner is not narrated.
 
 <!-- Practice assessment access: https://learn.microsoft.com/credentials/certifications/practice-assessments-for-microsoft-certifications and https://learn.microsoft.com/credentials/certifications/resources/study-guides/ai-901 -->
 
@@ -12,7 +12,7 @@ Fifteen spoken blocks: welcome, certification study paths, then thirteen journey
 
 [warm] Welcome to Azure Animations.
 [500ms]
-[calm] Learn Azure, AI, Copilot and GitHub through short visual stories.
+[calm] Learn Azure, AI, databases, Copilot and GitHub through short visual stories.
 Explore a journey by topic, or choose a certification study path.
 Let's find your starting point.
 
@@ -20,7 +20,7 @@ Let's find your starting point.
 
 [curious] Studying for a certification?
 [500ms]
-[calm] Choose an Azure, AI or GitHub study path.
+[calm] Choose an Azure, AI, Microsoft 365 or GitHub study path.
 Follow the lessons, review the gaps, then try a free official practice assessment where available.
 Sign in to Microsoft Learn or AI Skills Navigator to take the assessment.
 
@@ -60,18 +60,26 @@ Sign in to Microsoft Learn or AI Skills Navigator to take the assessment.
 
 [calm] Security. Key Vault, managed identity and Zero Trust.
 
-## Step 12 · Integration & Messaging
+## Step 12 · Databases for AI Apps
+
+[calm] Databases for AI Apps. Cosmos DB and PostgreSQL from first query to vector search, plus SQL and data lake design for architects.
+
+## Step 13 · Integration & Messaging
 
 [calm] Integration and Messaging. Queues, Service Bus, Event Hubs, Event Grid and Functions as the glue.
 
-## Step 13 · Identity and governance
+## Step 14 · Identity and governance
 
 [calm] Identity and governance. Tenants, users, guests, sign-in, admin roles, scopes, policy and cost — the groundwork every organisation lays first.
 
-## Step 14 · Azure Fundamentals
+## Step 15 · Azure Fundamentals
 
 [calm] Azure Fundamentals. Contoso Retail moves to the cloud: plan, build, protect and operate the shop. Aligned to the AZ-900 exam objectives.
 
-## Step 15 · GitHub · Contoso Delivery
+## Step 16 · Azure Architect
+
+[calm] Azure Architect. Design decisions, one Contoso problem at a time: recommend a solution and defend the trade-off. Aligned to the AZ-305 exam objectives.
+
+## Step 17 · GitHub · Contoso Delivery
 
 [calm] GitHub · Contoso Delivery. One retail project from a rainy afternoon to running code on Azure — issues and epics, a board, branch rules, automated checks, and a deploy with no password stored anywhere.

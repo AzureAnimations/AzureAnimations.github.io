@@ -1,0 +1,2806 @@
+<!DOCTYPE html>
+<!-- Narration script: /narration/Architect/DesignGovernance.md -->
+<!--
+	Azure Animations — STARTER TEMPLATE
+	====================================
+	Copy this file to <Area>/<Sub>/YourTopic.html (e.g. AI/Foundry/MyTopic.html) and:
+	  1. Set <title>, #page-title, and the back-link href.
+	  2. Rename/expand the sample steps. Each STEPS[] entry pairs with one
+	     render<Xxx>Step(). The samples demonstrate the reusable building blocks —
+	     delete the ones you don't need, they are all optional:
+	       • PROBLEM   — a centered hero .card
+	       • FLOW      — a .ta-flow of .agent-node boxes joined by .ta-arrow (input → process → output)
+	       • CODE      — a VS Code-style .code-card (use .code-duo for a request/response pair)
+	       • USE CASES — a .uc-grid of .uc-card tiles
+	       • RECAP     — a .card + .value-chip row + closing line
+	  3. Fill the English I18N block, then add es/ja/ko/pt (full objects OR the
+	     { ...I18N.en, overrides } spread) and matching <option>s in #lang-select.
+	  4. Prefer Microsoft Fluent icons/emoji over raw OS emoji for anything shown
+	     on a projector. Source priority: Azure service icons (local lib
+	     ../../lib/icons/…) → Fluent System Icons → Fluent UI Emoji → Fluent Emoji
+	     Animated → Twemoji (last resort, CC-BY).
+	  5. Run the Definition-of-Done checklist before publishing.
+
+	DESIGN NOTES
+	  • Accent colour is --theme-tertiary (Microsoft purple #5c2d91); primary blue
+	    and green (#10a37f) act as secondary / positive accents.
+	  • The bottom #controls is a compact translucent "icon dock" of glyph-only
+	    buttons; their localized labels live in the tooltip (title), set in setLanguage().
+	  • Audio narration is optional: list one clip per step (in order) in AUDIO_FILES[]
+	    and an Audio toggle appears automatically. Present mode (dual-window) ships via
+	    aw-present.js at the bottom — it self-installs a "Present" button in the header.
+
+	NOTE: the ../../lib/ and ../../../img/ paths assume this file lives two levels
+	under static/v2/ (e.g. static/v2/AI/Foundry/). Adjust depth if you move it.
+-->
+<html lang="en">
+<head>
+	<script src="/js/tracking.js"></script>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+	<title>Design governance: structure, policy and compliance — Azure Animations</title>
+	<link rel="icon" type="image/png" href="../../img/favicon.png" />
+
+	<link rel="stylesheet" href="https://unpkg.com/@microsoft/atlas-css/dist/index.css" />
+	<script src="../../lib/vendor/gsap-3.15.0.min.js"></script>
+
+	<!-- AnimationWorks shared lib -->
+	<script src="../../lib/js/aw-easings.js"></script>
+	<script src="../../lib/js/aw-motion.js"></script>
+	<script src="../../lib/js/aw-theme.js"></script>
+	<script src="../../lib/js/aw-keyboard.js"></script>
+	<script src="../../lib/js/aw-captions.js"></script>
+
+<style>
+	/* ── SHELL ─────────────────────────────── */
+	/* Brand palette — reference these tokens; don't hardcode hex */
+	:root {
+		--aw-purple:#5c2d91;   /* primary accent — titles, callouts, arrows, progress, agents */
+		--aw-blue:#0078d4;     /* secondary — inputs, links, "the model", primary button */
+		--aw-green:#10a37f;    /* positive — success, grounded/correct results, value chips */
+		--aw-orange:#e97526;   /* tools / actions — tool calls, function calling, side-effects */
+		--aw-pink:#d24aa8;     /* highlight — a fourth category / emphasis */
+	}
+	html, body { height:100%; margin:0; }
+	html { font-size:100%; }
+	body {
+		display:flex; flex-direction:column; height:100vh;
+		overflow:hidden;
+		font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif;
+		color: var(--theme-text);
+		background:
+			radial-gradient(circle at 15% 20%, rgba(92,45,145,0.18) 0%, transparent 55%),
+			radial-gradient(circle at 85% 80%, rgba(0,120,212,0.18) 0%, transparent 55%),
+			var(--theme-body-background);
+	}
+	.app-header { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:1rem; flex-shrink:0; font-size:16px; }
+	.app-header > :last-child { justify-self:end; }
+
+	/* #stage fills the space between the top bar and the control dock, and centers the fixed 16:9 frame. */
+	#stage {
+		position:relative; flex:1 1 auto; width:100%; min-height:0;
+		display:flex; align-items:center; justify-content:center;
+		overflow:hidden; container-type:size;
+		padding:1.75rem 2.75rem 5rem;   /* breathing room around the frame; bottom clears the fixed #controls dock */
+	}
+	#stage:focus-visible, button:focus-visible, a:focus-visible, select:focus-visible {
+		outline:2px solid var(--theme-primary, #0078d4); outline-offset:3px; border-radius:4px;
+	}
+	/* The visible rectangle: the largest 16:9 box that fits the stage. All scenes are drawn inside it. */
+	#stage-frame {
+		position:relative; overflow:hidden;
+		width: min(100cqw, calc(100cqh * 16 / 9));
+		aspect-ratio: 16 / 9; max-width:100%; max-height:100%;
+		border-radius:16px;
+		background: rgba(0,0,0,0.015);
+		box-shadow: 0 12px 44px rgba(0,0,0,0.22);
+	}
+	body.theme-dark #stage-frame { background: rgba(255,255,255,0.025); }
+	/* Coloured gradient border (brand purple → blue → pink) drawn as a masked ring — no interior tint. */
+	#stage-frame::before {
+		content:""; position:absolute; inset:0; border-radius:inherit; padding:2.5px;
+		background: linear-gradient(135deg, var(--aw-purple) 0%, var(--aw-blue) 55%, var(--aw-pink) 100%);
+		-webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+		mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+		-webkit-mask-composite: xor; mask-composite: exclude;
+		pointer-events:none; z-index:20;
+	}
+	#fx-svg { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:6; overflow:visible; }
+
+	/* ── SCENE ─────────────────────────────── */
+	.scene {
+		position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+		transform-origin:center center;
+		width:min(1150px, 96%); z-index:10;
+		display:flex; flex-direction:column; align-items:center; gap:1.4rem;
+	}
+	/* 200ms fade in / out between every step */
+	@keyframes awSceneIn { from { opacity:0; } to { opacity:1; } }
+	@keyframes awSceneOut { from { opacity:1; } to { opacity:0; } }
+	.scene.scene-in { animation: awSceneIn 0.2s ease both; }
+	.scene.scene-out { animation: awSceneOut 0.2s ease both; }
+	.scene-title { font-size:2.5rem; font-weight:700; color:var(--theme-tertiary, #5c2d91); margin:0; text-align:center; opacity:0; }
+	body.theme-dark .scene-title { color:#c9a5e8; }
+	/* lead spans wide (near the scene width) to use the side gutters and stay within 2 lines — trim copy if it wraps to 3 */
+	.scene-lead { margin:0; text-align:center; font-size:1.35rem; color:var(--theme-text); max-width:min(1180px,96%); line-height:1.5; opacity:0; }
+
+	/* ── CALLOUT · draggable, slightly see-through so it never fully blocks the diagram ── */
+	.callout {
+		position:absolute; max-width:340px; padding:1rem 1.2rem;
+		background:var(--theme-body-background);
+		background:color-mix(in srgb, var(--theme-body-background) 84%, transparent);
+		-webkit-backdrop-filter:blur(5px); backdrop-filter:blur(5px);
+		border:1px solid var(--theme-border);
+		border-left:4px solid var(--theme-tertiary, #5c2d91); border-radius:6px;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2));
+		font-size:1.05rem; line-height:1.45; z-index:14; opacity:0;
+		cursor:grab; touch-action:none;
+	}
+	.callout:active { cursor:grabbing; }
+
+	/* ── RESET "PIN" · appears on a draggable panel once it has been moved off its home spot ── */
+	.aw-drag-reset {
+		position:absolute; width:24px; height:24px; padding:0; display:none;
+		align-items:center; justify-content:center; border-radius:50%;
+		background:var(--theme-tertiary,#5c2d91); color:#fff;
+		border:2px solid var(--theme-body-background,#fff);
+		box-shadow:0 2px 7px rgba(0,0,0,0.4); cursor:pointer; z-index:6;
+		opacity:0.92; transition:opacity .14s ease, transform .14s ease;
+	}
+	.aw-drag-reset:hover { opacity:1; transform:scale(1.08); }
+	.aw-drag-reset:focus-visible { outline:2px solid #5cc8ff; outline-offset:2px; }
+	.aw-drag-reset svg { width:13px; height:13px; display:block; }
+
+	/* ══════════════════════════════════════════════════════════ */
+	/* ── REUSABLE BUILDING BLOCKS · keep what you use, drop rest ─ */
+	/* ══════════════════════════════════════════════════════════ */
+
+	/* Centered hero card */
+	.card {
+		width:min(680px, 96%); padding:1.6rem 1.8rem; border-radius:16px;
+		background:var(--theme-card-background, #fff); border:2px solid var(--theme-border);
+		box-shadow:0 8px 28px rgba(0,0,0,0.14); opacity:0;
+		display:flex; flex-direction:column; gap:0.6rem; align-items:center; text-align:center;
+	}
+	body.theme-dark .card { background:rgba(255,255,255,0.05); }
+	.card .card-icon { font-size:3rem; line-height:1; }
+	.card .card-h { font-size:1.4rem; font-weight:700; }
+	.card .card-p { font-size:1.05rem; color:var(--theme-text-subtle); line-height:1.5; }
+
+	/* Wide info panel */
+	.ta-card {
+		width:min(1080px, 98%); border:1.5px solid var(--theme-border); border-radius:14px;
+		background:var(--theme-card-background, #fff); box-shadow:0 8px 30px rgba(0,0,0,0.16);
+		padding:1.1rem 1.3rem; opacity:0;
+	}
+	body.theme-dark .ta-card { background:rgba(255,255,255,0.05); }
+	.ta-card-head {
+		display:flex; align-items:center; gap:0.5rem;
+		font-size:1rem; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;
+		color:var(--theme-text-subtle); margin-bottom:0.6rem;
+	}
+	.ta-card-text { font-size:1.22rem; line-height:1.55; color:var(--theme-text); }
+
+	/* Pills / chips */
+	.chip-row { display:flex; flex-wrap:wrap; gap:0.7rem; justify-content:center; }
+	.pill {
+		display:inline-flex; align-items:center; gap:0.5rem; padding:0.55rem 1.1rem;
+		border-radius:999px; font-size:1.05rem; font-weight:600;
+		border:2px solid var(--theme-tertiary, #5c2d91); background:rgba(92,45,145,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .pill { background:rgba(92,45,145,0.2); }
+	.value-chip {
+		display:inline-flex; align-items:center; gap:0.4rem; padding:0.5rem 1rem;
+		border-radius:999px; font-size:1rem; font-weight:700;
+		border:2px solid #107c10; background:rgba(16,124,16,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .value-chip { background:rgba(16,124,16,0.16); }
+	.recap-foot { font-size:1.05rem; color:var(--theme-text); text-align:center; max-width:760px; opacity:0; }
+
+	/* Flow row: input → process → output */
+	.agent-node {
+		display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.2rem;
+		width:160px; height:160px; border-radius:24px;
+		background: linear-gradient(135deg, rgba(92,45,145,0.12), rgba(0,120,212,0.12));
+		border:2.5px solid var(--theme-tertiary, #5c2d91);
+		box-shadow:0 8px 28px rgba(92,45,145,0.2); flex-shrink:0; text-align:center;
+	}
+	.agent-node .an-icon { font-size:3rem; line-height:1; }
+	.agent-node .an-icon img { width:64px; height:64px; display:block; }
+	.agent-node .an-label { font-size:1.05rem; font-weight:700; color:var(--theme-text); }
+	.agent-node .an-sub { font-size:0.85rem; color:var(--theme-text-subtle); }
+	.ta-flow { display:flex; align-items:center; justify-content:center; gap:1.2rem; flex-wrap:wrap; width:100%; }
+	.ta-flow .agent-node { width:140px; height:140px; }
+	.ta-flow .agent-node .an-icon { font-size:2.6rem; }
+	.ta-flow .agent-node .an-icon img { width:54px; height:54px; }
+	.ta-arrow { font-size:1.9rem; color:var(--theme-tertiary,#5c2d91); opacity:0; }
+	.ta-arrow.is-big { font-size:3.2rem; }
+	.ta-arrow.is-down, .ta-arrow.is-up { font-size:2.9rem; line-height:1; }
+	@media (max-width:760px) { .ta-flow .ta-arrow { transform:rotate(90deg); } }
+
+	/* Code card (VS Code style) */
+	.code-card {
+		width:min(560px,96%); border:1px solid #30363d; border-radius:8px;
+		background:#1e1e1e; overflow:hidden; opacity:0;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.25));
+	}
+	.code-head {
+		display:flex; align-items:center; justify-content:space-between; gap:0.5rem;
+		padding:0 0 0 0.85rem; background:#323233; border-bottom:1px solid #1e1e1e;
+	}
+	.code-file { font-size:0.9rem; color:#cccccc; font-weight:500; padding:0.6rem 0; }
+	.code-winctrls { display:flex; align-items:stretch; height:100%; }
+	.code-wbtn {
+		display:flex; align-items:center; justify-content:center; width:2.6rem; padding:0.55rem 0;
+		color:#cccccc; font-family:'Segoe UI Symbol','Segoe MDL2 Assets',sans-serif; font-size:0.7rem;
+	}
+	.code-wbtn.is-close:hover { background:#e81123; color:#fff; }
+	.code-wbtn:hover { background:rgba(255,255,255,0.1); }
+	.code-body {
+		margin:0; padding:0.8rem 1rem;
+		font-family:'Cascadia Code', 'Consolas', 'SFMono-Regular', monospace;
+		font-size:0.86rem; line-height:1.5; color:#d4d4d4;
+		white-space:pre-wrap; overflow-wrap:break-word; word-break:break-word; tab-size:4;
+	}
+	.code-body .tok-com { color:#6a9955; }
+	.code-body .tok-kw  { color:#569cd6; }
+	.code-body .tok-str { color:#ce9178; }
+	.code-body .tok-fn  { color:#dcdcaa; }
+	.code-body .tok-mod { color:#4ec9b0; }
+	.code-body .tok-prop{ color:#9cdcfe; }
+	.code-body .tok-num { color:#b5cea8; }
+	.code-body .tok-punct { color:#d4d4d4; }
+	.code-body .code-hl { border-radius:4px; padding:0 0.15em; box-shadow:0 0 0 1px rgba(96,165,250,0.55); background:rgba(96,165,250,0.22); }
+	.code-duo { display:flex; gap:1.1rem; flex-wrap:wrap; align-items:flex-start; justify-content:center; width:100%; }
+	.code-duo .code-card { flex:1 1 380px; max-width:480px; }
+	.code-duo .code-body { font-size:0.8rem; line-height:1.45; }
+	.code-arrow { align-self:center; font-size:1.8rem; line-height:1; color:var(--theme-tertiary,#5c2d91); opacity:0; flex:none; }
+	.code-arrow.is-big { font-size:2.9rem; }
+	@media (max-width:760px) { .code-arrow { transform:rotate(90deg); } }
+
+	/* Use-case grid */
+	.uc-grid { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:1.1rem; width:min(980px,96%); }
+	@media (max-width:720px) { .uc-grid { grid-template-columns:1fr; } }
+	.uc-card {
+		display:flex; flex-direction:column; gap:0.5rem; padding:1rem 1.15rem;
+		border:1.5px solid var(--theme-border); border-top:4px solid var(--theme-primary,#0078d4);
+		border-radius:14px; background:var(--theme-card-background, #fff);
+		box-shadow:0 6px 22px rgba(0,0,0,0.12); opacity:0;
+		transition:transform 0.2s ease, box-shadow 0.2s ease;
+	}
+	.uc-card:hover { transform:translateY(-4px); box-shadow:0 12px 30px rgba(0,0,0,0.18); }
+	body.theme-dark .uc-card { background:rgba(255,255,255,0.05); }
+	.uc-card[data-uc="a"] { border-top-color:#0078d4; }
+	.uc-card[data-uc="b"] { border-top-color:#10a37f; }
+	.uc-card[data-uc="c"] { border-top-color:#e97526; }
+	.uc-card[data-uc="d"] { border-top-color:#d24aa8; }
+	.uc-head { display:flex; align-items:center; gap:0.55rem; font-size:1.25rem; font-weight:700; color:var(--theme-text); }
+	.uc-head .uc-icon { font-size:1.7rem; display:inline-block; }
+	.uc-desc { font-size:0.98rem; line-height:1.55; color:var(--theme-text-subtle); }
+	.uc-caps { display:flex; flex-wrap:wrap; gap:0.4rem; margin-top:0.2rem; }
+	.uc-cap {
+		display:inline-flex; align-items:center; gap:0.3rem; padding:0.25rem 0.7rem;
+		border-radius:999px; font-size:0.88rem; font-weight:700;
+		background:rgba(0,120,212,0.1); color:var(--theme-text);
+		border:1.5px solid rgba(0,120,212,0.4); opacity:0;
+	}
+
+	/* ── CONTROLS · icon dock ──────────────── */
+	#controls {
+		position:fixed; bottom:14px; left:50%; transform:translateX(-50%); z-index:40;
+		display:flex; align-items:center; gap:5px; padding:5px 7px;
+		background:var(--theme-body-background-translucent, rgba(255,255,255,0.82));
+		backdrop-filter:blur(12px) saturate(1.4); -webkit-backdrop-filter:blur(12px) saturate(1.4);
+		border:1px solid var(--theme-border); border-radius:999px;
+		box-shadow: 0 8px 26px rgba(0,0,0,0.18); font-size:13px;
+	}
+	body.theme-dark #controls { background:var(--theme-body-background-translucent, rgba(32,32,36,0.82)); }
+	#controls .ctrl-icon {
+		width:2.15rem; height:2.15rem; min-width:0; padding:0;
+		display:inline-flex; align-items:center; justify-content:center;
+		border-radius:50%; font-size:0.95rem; line-height:1; font-weight:600;
+		transition:background 0.18s ease, color 0.18s ease, transform 0.12s ease, box-shadow 0.18s ease;
+	}
+	#controls .ctrl-icon:hover { transform:translateY(-1px); }
+	#controls .ctrl-icon:active { transform:scale(0.92); }
+	#controls .ctrl-icon-next {
+		width:2.55rem; height:2.55rem; font-size:1.1rem;
+		box-shadow:0 2px 8px var(--theme-primary-translucent, rgba(0,120,212,0.45));
+	}
+	.step-counter {
+		min-width:52px; text-align:center; font-variant-numeric:tabular-nums;
+		font-size:14px; font-weight:700; color:var(--theme-text);
+		padding:0 6px; white-space:nowrap; letter-spacing:0.02em;
+	}
+	.ctrl-sep { width:1px; align-self:stretch; margin:4px 2px; background:var(--theme-border); }
+	/* Movable dock: drag handle + pin-to-center button */
+	.ctrl-grip {
+		display:inline-flex; align-items:center; justify-content:center;
+		width:1.5rem; height:2.15rem; padding:0; border:none; background:transparent;
+		color:var(--theme-text-subtle); border-radius:8px; cursor:grab; touch-action:none;
+		transition:background 0.18s ease, color 0.18s ease;
+	}
+	.ctrl-grip:hover { color:var(--theme-text); background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); }
+	.ctrl-grip:active { cursor:grabbing; }
+	.ctrl-grip svg { width:13px; height:16px; pointer-events:none; }
+	body.controls-floating .ctrl-grip { color:var(--theme-primary,#0078d4); }
+	#controls .ctrl-pin { display:none; color:var(--theme-primary,#0078d4); }
+	#controls .ctrl-pin svg { width:15px; height:15px; pointer-events:none; }
+	body.controls-floating #controls .ctrl-pin { display:inline-flex; }
+	body.controls-floating #controls { box-shadow:0 10px 30px rgba(0,0,0,0.30), 0 0 0 1.5px var(--theme-primary,#0078d4); }
+	.speed-control { display:inline-flex; align-items:center; gap:1px; padding:2px 3px; border:1px solid var(--theme-border); border-radius:999px; }
+	.speed-control .speed-btn {
+		width:1.7rem; height:1.7rem; min-width:0; padding:0;
+		display:inline-flex; align-items:center; justify-content:center;
+		font-size:0.95rem; font-weight:700; border-radius:50%;
+	}
+	.speed-control .speed-btn[disabled] { opacity:0.4; cursor:not-allowed; }
+	.speed-label { min-width:2.4rem; text-align:center; font-variant-numeric:tabular-nums; font-size:0.82rem; font-weight:700; color:var(--theme-text); }
+
+	#callout-toggle, #outline-toggle, #audio-toggle { border:1px solid var(--theme-border); border-radius:4px; transition:background .2s,color .2s,border-color .2s,opacity .2s; }
+	#callout-toggle.toggle-active, #outline-toggle.toggle-active, #audio-toggle.toggle-active {
+		background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary,#0078d4); border-color:var(--theme-primary,#0078d4); font-weight:600;
+	}
+	#callout-toggle:not(.toggle-active), #outline-toggle:not(.toggle-active), #audio-toggle:not(.toggle-active) { opacity:0.6; }
+
+	/* ── HIDE/SHOW TOP BAR ─────────────────── */
+	#header-hide { display:inline-flex; align-items:center; justify-content:center; width:2rem; height:2rem; padding:0; border:1px solid var(--theme-border); border-radius:50%; color:var(--theme-text-subtle); transition:background .2s,color .2s,transform .18s; }
+	#header-hide:hover { color:var(--theme-text); transform:translateY(-1px); }
+	#header-hide svg { width:16px; height:16px; }
+	#header-hide-top { display:inline-flex; align-items:center; justify-content:center; width:2rem; height:2rem; padding:0; border:1px solid var(--theme-border); border-radius:50%; color:var(--theme-text-subtle); background:transparent; cursor:pointer; transition:background .2s,color .2s,transform .18s; }
+	#header-hide-top:hover { color:var(--theme-text); transform:translateY(-1px); }
+	#header-hide-top svg { width:16px; height:16px; }
+	body.chrome-hidden .app-header, body.chrome-hidden .progress-track { display:none; }
+	#header-reveal {
+		position:fixed; top:0; left:50%; transform:translateX(-50%) translateY(-100%); z-index:45;
+		display:inline-flex; align-items:center; gap:0.35rem; padding:5px 14px 6px; font-size:12px; font-weight:600; line-height:1;
+		color:var(--theme-text-subtle); background:var(--theme-body-background-translucent, rgba(255,255,255,0.88));
+		backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border:1px solid var(--theme-border); border-top:none; border-radius:0 0 12px 12px;
+		box-shadow:0 4px 14px rgba(0,0,0,0.14); cursor:pointer; transition:transform .28s cubic-bezier(0.2,0.7,0.3,1), color .2s, background .2s;
+	}
+	body.theme-dark #header-reveal { background:var(--theme-body-background-translucent, rgba(32,32,36,0.88)); }
+	#header-reveal:hover { color:var(--theme-text); }
+	body.chrome-hidden #header-reveal { transform:translateX(-50%) translateY(0); }
+	#header-reveal svg { width:14px; height:14px; }
+
+	/* ── PLAYER OVERLAY · pills inside the stage frame (YouTube-style) ──
+	   Two translucent pills float over the 16:9 frame: LEFT = "view options"
+	   (callout / outline / shortcuts), RIGHT = "player" (audio / captions / hide-bar / fullscreen). */
+	.stage-overlay {
+		position:absolute; right:12px; bottom:10px; z-index:25;
+		display:flex; align-items:center; gap:2px;
+		padding:3px 6px; border-radius:999px;
+		background:rgba(16,18,24,0.58);
+		backdrop-filter:blur(9px) saturate(1.3); -webkit-backdrop-filter:blur(9px) saturate(1.3);
+		box-shadow:0 4px 16px rgba(0,0,0,0.32);
+	}
+	.ovl-btn {
+		-webkit-appearance:none; appearance:none; margin:0; font:inherit;
+		display:inline-flex; align-items:center; justify-content:center; gap:4px;
+		min-width:30px; height:30px; padding:0 8px;
+		border:none !important; border-radius:999px !important;
+		background:transparent !important; color:#fff !important;
+		box-shadow:none !important; cursor:pointer; line-height:1;
+		font-size:0.82rem; font-weight:700; opacity:0.92; transition:background .15s ease, opacity .15s ease;
+	}
+	.ovl-btn:hover { background:rgba(255,255,255,0.16) !important; opacity:1; }
+	.ovl-btn:disabled { opacity:0.4; cursor:not-allowed; }
+	.ovl-btn svg { width:18px; height:18px; fill:currentColor; display:block; }
+	.ovl-btn.on { color:#5cc8ff !important; }
+	.stage-overlay #audio-toggle { opacity:1 !important; }
+	.stage-overlay .aw-audio-ico { font-size:1rem; line-height:1; }
+	.stage-overlay .aw-audio-time { font-size:0.78rem; font-variant-numeric:tabular-nums; letter-spacing:0.02em; opacity:0.95; min-width:2.4em; text-align:left; }
+	#cc-toggle svg { width:20px; height:20px; }
+	.ovl-btn .fs-exit { display:none; }
+	body.is-fs .ovl-btn .fs-enter { display:none; }
+	body.is-fs .ovl-btn .fs-exit { display:block; }
+
+	/* ── LEFT VIEW-OPTIONS PILL · Callout / Outline / Shortcuts (icon + hover tip) ── */
+	.stage-overlay-left { right:auto; left:12px; }
+	#stage-overlay-left .ovl-btn:not(.toggle-active) { opacity:0.86; }
+	#stage-overlay-left .ovl-btn.toggle-active { color:#5cc8ff !important; opacity:1; }
+	#stage-overlay-left .ovl-btn:hover { opacity:1; }
+	/* Hover tooltip shown above the icon (left-anchored so it never clips the frame edge) */
+	.ovl-btn[data-tip] { position:relative; }
+	.ovl-btn[data-tip]::after { content:attr(data-tip); position:absolute; left:0; bottom:calc(100% + 9px); transform:translateY(4px); padding:4px 8px; border-radius:6px; background:rgba(16,18,24,0.96); color:#fff; font-size:0.72rem; font-weight:600; white-space:nowrap; letter-spacing:0.01em; opacity:0; pointer-events:none; box-shadow:0 3px 12px rgba(0,0,0,0.45); transition:opacity .14s ease, transform .14s ease; z-index:40; }
+	.ovl-btn[data-tip]::before { content:''; position:absolute; left:13px; bottom:calc(100% + 4px); border:5px solid transparent; border-top-color:rgba(16,18,24,0.96); opacity:0; pointer-events:none; transition:opacity .14s ease; z-index:40; }
+	.ovl-btn[data-tip]:hover::after { opacity:1; transform:translateY(0); }
+	.ovl-btn[data-tip]:hover::before { opacity:1; }
+
+	/* ── CAPTION · overlaid inside the frame, draggable + resizable, stays solid (not see-through) ── */
+	#aw-caption {
+		position:absolute; left:50%; transform:translateX(-50%); bottom:56px; z-index:24;
+		max-width:92%; min-width:140px; min-height:38px; max-height:44%;
+		display:none; align-items:center; justify-content:center; text-align:center;
+		padding:0.42rem 0.95rem; border-radius:9px;
+		background:rgba(8,9,13,0.8); color:#fff;
+		font-size:1.1rem; line-height:1.36; font-weight:600;
+		box-shadow:0 3px 14px rgba(0,0,0,0.42); pointer-events:auto; cursor:grab; touch-action:none;
+		overflow:auto; resize:both;   /* user can reshape the caption; corner grip = resize */
+	}
+	#aw-caption:active { cursor:grabbing; }
+	#aw-caption::-webkit-resizer { background:linear-gradient(135deg, transparent 45%, rgba(255,255,255,0.55) 45%, rgba(255,255,255,0.55) 55%, transparent 55%); }
+	body.cc-on #aw-caption.has-text { display:flex; }
+	@media (max-width:640px){ #aw-caption { font-size:0.94rem; bottom:48px; max-width:90%; } }
+
+	/* ── OUTLINE PANEL · draggable + slightly see-through ── */
+	#step-outline {
+		position:fixed; top:4.5rem; right:1rem; width:320px; max-height:calc(100vh - 8rem); overflow-y:auto;
+		padding:1.1rem; background:var(--theme-body-background);
+		background:color-mix(in srgb, var(--theme-body-background) 85%, transparent);
+		-webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
+		border:1px solid var(--theme-border);
+		border-radius:6px; box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2)); z-index:35; font-size:1rem; line-height:1.55;
+		cursor:grab; touch-action:none;
+	}
+	#step-outline:active { cursor:grabbing; }
+	#step-outline[hidden] { display:none; }
+	#step-outline h2 { font-size:0.85rem; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--theme-tertiary,#5c2d91); margin-bottom:0.5rem; }
+	#step-outline .outline-section { margin-top:0.6rem; padding-top:0.6rem; border-top:1px solid var(--theme-border); }
+	#step-outline .outline-section:first-child { margin-top:0; padding-top:0; border-top:0; }
+	#step-outline .stat-row { display:flex; justify-content:space-between; align-items:baseline; gap:0.75rem; padding:0.2rem 0; }
+	#step-outline .stat-row span:first-child { color:var(--theme-text-subtle); flex:0 0 auto; max-width:45%; }
+	#step-outline .stat-row span:last-child { text-align:right; font-weight:600; color:var(--theme-tertiary,#5c2d91); flex:1 1 auto; }
+
+	.progress-track { position:relative; height:6px; background:var(--theme-border, #e0e0e0); flex-shrink:0; cursor:pointer; }
+	.progress-fill { position:absolute; left:0; top:0; bottom:0; width:0%; background:var(--aw-purple, #5c2d91); transition:width .5s cubic-bezier(0.2,0.8,0.2,1); pointer-events:none; }
+	.progress-tick { position:absolute; top:0; bottom:0; width:2px; margin-left:-1px; background:var(--theme-body-background); opacity:0.6; pointer-events:none; }
+
+	/* ── THEME / LANG / FONT CONTROLS ──────── */
+	.theme-toggle { display:inline-flex; align-items:center; justify-content:center; width:2.25rem; height:2.25rem; padding:0; margin-inline-start:0.25rem; background:transparent; border:1px solid var(--theme-border); border-radius:999px; color:var(--theme-text); cursor:pointer; transition:background .15s,color .15s,border-color .15s; }
+	.theme-toggle:hover { background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary); border-color:var(--theme-primary); }
+	.theme-toggle .theme-icon { display:none; }
+	.theme-toggle[data-theme="dark"] .icon-sun { display:block; }
+	.theme-toggle[data-theme="light"] .icon-moon { display:block; }
+	.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+	.skip-link { position:absolute; top:-100px; left:0.5rem; z-index:100; padding:0.5rem 1rem; background:var(--theme-primary); color:var(--theme-primary-invert,#fff); border-radius:4px; text-decoration:none; font-weight:600; }
+	.skip-link:focus { top:0.5rem; }
+	.header-back-link { display:inline-flex; align-items:center; gap:0.25rem; padding:0.2rem 0.6rem; font-size:0.8rem; font-weight:600; color:var(--theme-text-subtle); border:1px solid var(--theme-border); border-radius:999px; text-decoration:none; white-space:nowrap; transition:background .15s,color .15s,border-color .15s; }
+	.header-back-link:hover { color:var(--theme-primary); border-color:var(--theme-primary); background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); }
+	.lang-select {
+		appearance:none; -webkit-appearance:none; background:var(--theme-card-background,#fff); color:var(--theme-body-text,#333);
+		border:1px solid var(--theme-border, rgba(0,0,0,0.2)); border-radius:4px; padding:4px 24px 4px 8px;
+		font-size:0.8rem; font-family:'Segoe UI', sans-serif; cursor:pointer;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+		background-repeat:no-repeat; background-position:right 6px center; min-width:80px;
+	}
+	.lang-select:hover { border-color:var(--theme-primary, #0078d4); }
+	.lang-select:focus { outline:2px solid var(--theme-primary, #0078d4); outline-offset:1px; }
+	body.theme-dark .lang-select {
+		background-color:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); border-color:rgba(255,255,255,0.15);
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23aaa' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+	}
+	body.theme-dark .lang-select option { background:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); }
+	.font-size-controls { display:flex; align-items:center; gap:2px; }
+	.font-size-btn { background:var(--theme-card-background,#fff); color:var(--theme-body-text,#333); border:1px solid var(--theme-border, rgba(0,0,0,0.2)); border-radius:4px; padding:3px 8px; font-size:0.8rem; font-weight:700; font-family:'Segoe UI', sans-serif; cursor:pointer; line-height:1.2; transition:background .15s,border-color .15s; }
+	.font-size-btn:hover { border-color:var(--theme-primary, #0078d4); }
+	body.theme-dark .font-size-btn { background:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); border-color:rgba(255,255,255,0.15); }
+
+	/* Inline icons (crisp on any OS/projector — replaces raw emoji on stage) */
+	.ic { display:inline-flex; align-items:center; justify-content:center; vertical-align:-0.125em; }
+	.ic svg { width:1em; height:1em; fill:currentColor; display:block; }
+	.help-toggle svg { width:15px; height:15px; vertical-align:-2px; }
+
+	/* Keyboard shortcut overlay */
+	#shortcut-overlay { position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center; }
+	#shortcut-overlay[hidden] { display:none; }
+	.sc-backdrop { position:absolute; inset:0; background:rgba(0,0,0,0.5); -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px); }
+	.sc-panel { position:relative; z-index:1; width:min(430px,92vw); max-height:82vh; overflow:auto; padding:1.5rem 1.6rem; background:var(--theme-body-background); border:1px solid var(--theme-border); border-radius:16px; box-shadow:0 24px 70px rgba(0,0,0,0.4); }
+	.sc-panel h2 { margin:0 0 1rem; font-size:1.25rem; color:var(--theme-tertiary,#5c2d91); }
+	body.theme-dark .sc-panel h2 { color:#c9a5e8; }
+	.sc-close { position:absolute; top:0.7rem; right:0.7rem; width:2rem; height:2rem; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--theme-border); border-radius:50%; background:transparent; color:var(--theme-text-subtle); cursor:pointer; }
+	.sc-close:hover { color:var(--theme-text); border-color:var(--theme-primary,#0078d4); }
+	.sc-close svg { width:15px; height:15px; }
+	.sc-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:0.55rem; }
+	.sc-list li { display:flex; align-items:center; justify-content:space-between; gap:1rem; font-size:1rem; color:var(--theme-text); }
+	.sc-keys { display:inline-flex; gap:0.3rem; flex:none; }
+	.sc-panel kbd, .sc-hint kbd { font-family:'Cascadia Code','Consolas',monospace; font-size:0.82rem; line-height:1; padding:0.28rem 0.5rem; border-radius:6px; border:1px solid var(--theme-border); border-bottom-width:2px; background:var(--theme-card-background,#fff); color:var(--theme-text); }
+	body.theme-dark .sc-panel kbd, body.theme-dark .sc-hint kbd { background:rgba(255,255,255,0.08); }
+	.sc-hint { margin:1.1rem 0 0; font-size:0.85rem; color:var(--theme-text-subtle); text-align:center; }
+
+	@media (max-width:640px) { .app-header { font-size:0.95rem; } .scene-title { font-size:1.9rem; } #stage { padding:0.9rem 1rem 4.5rem; } }
+	@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition:none !important; animation:none !important; } .progress-fill { transition:none !important; } }
+	/* ══════════════ AI-500 KIT · shared by every AI-500 page ══════════════ */
+	:root {
+		/* One accent per floor/domain, reused on every page. --fN fills, --fNt text-safe, --fNb deep fills that carry white text */
+		--f1:#0078d4; --f2:#00b7c3; --f3:#8661c5; --f4:#ff8c00;
+		--f1t:#005a9e; --f2t:#00707a; --f3t:#6b46b0; --f4t:#a24f00;
+		--f1b:#0a5299; --f2b:#0a6c76; --f3b:#6240a8; --f4b:#a24f00;
+		--ai5-surface:#ffffff; --ai5-ok:#107c10; --ai5-bad:#c4314b; --ai5-warn:#a24f00;
+		--ai5-line:rgba(60,60,80,0.38);
+	}
+	body.theme-dark {
+		--f1t:#6cb2f5; --f2t:#4fd6e0; --f3t:#b79ce8; --f4t:#ffb066;
+		--ai5-surface:#2a2b34; --ai5-ok:#57d977; --ai5-bad:#ff7a90; --ai5-warn:#ffb066;
+		--ai5-line:rgba(220,220,240,0.42);
+	}
+	.fl1 { --tone:var(--f1); --toneT:var(--f1t); --toneB:var(--f1b); }
+	.fl2 { --tone:var(--f2); --toneT:var(--f2t); --toneB:var(--f2b); }
+	.fl3 { --tone:var(--f3); --toneT:var(--f3t); --toneB:var(--f3b); }
+	.fl4 { --tone:var(--f4); --toneT:var(--f4t); --toneB:var(--f4b); }
+
+	.scene.ai5 { gap:1.1rem; width:1150px; }
+	.scene.ai5 .scene-lead { max-width:1100px; }
+	.scene.ai5 .scene-title { font-weight:600; }
+	.ai5-board { position:relative; flex:none; }
+	.ai5-board > svg { position:absolute; left:0; top:0; width:100%; height:100%; overflow:visible; pointer-events:none; }
+	.ai5-pos { position:absolute; width:0; height:0; }
+	.ai5-in { position:absolute; left:0; top:0; transform:translate(-50%,-50%); }
+
+	/* Agent cast — the same six characters on every page */
+	.ai5-ag { position:relative; width:var(--ag,76px); height:var(--ag,76px); }
+	.ai5-ag-ic { width:100%; height:100%; border-radius:50%; display:grid; place-items:center;
+		background:var(--ai5-surface); border:3px solid var(--ac); color:var(--ac); box-shadow:0 6px 18px rgba(0,0,0,0.2); }
+	.ai5-ag-ic .ic { font-size:calc(var(--ag,76px) * 0.5); }
+	/* the label hangs OUTSIDE the badge so coordinates always refer to the badge centre */
+	.ai5-ag-l { position:absolute; top:100%; left:50%; transform:translateX(-50%); margin-top:0.4rem; white-space:nowrap;
+		font-size:1rem; font-weight:600; text-align:center; line-height:1.2; color:var(--theme-text); }
+	.ai5-ag.is-top .ai5-ag-l { top:auto; bottom:100%; margin-top:0; margin-bottom:0.4rem; }
+	.ag-solo   { --ac:#0067b8; } .ag-orch  { --ac:#6a3fb5; } .ag-intake { --ac:#0067b8; }
+	.ag-policy { --ac:#0b7a60; } .ag-fraud { --ac:#c4314b; } .ag-payout { --ac:#b4530d; } .ag-human { --ac:#b02c8a; }
+	body.theme-dark .ag-solo { --ac:#6cb2f5; } body.theme-dark .ag-orch { --ac:#b79ce8; } body.theme-dark .ag-intake { --ac:#6cb2f5; }
+	body.theme-dark .ag-policy { --ac:#4fd6a8; } body.theme-dark .ag-fraud { --ac:#ff7a90; } body.theme-dark .ag-payout { --ac:#ffb066; } body.theme-dark .ag-human { --ac:#f08ad0; }
+
+	/* On-screen headline pill — the ONE line of burned-in text per step */
+	.ai5-say { display:inline-flex; align-items:center; gap:0.6rem; padding:0.6rem 1.4rem; border-radius:999px; opacity:0;
+		font-size:1.25rem; font-weight:600; color:var(--theme-text); background:var(--ai5-surface);
+		border:2px solid var(--theme-tertiary,#5c2d91); box-shadow:0 6px 20px rgba(0,0,0,0.16); text-align:center; }
+	.ai5-say .ic { font-size:1.4rem; color:var(--theme-tertiary,#5c2d91); }
+	body.theme-dark .ai5-say .ic { color:#c9a5e8; }
+
+	.ai5-pnl { border:1.5px solid var(--theme-border); border-radius:14px; background:var(--theme-card-background,#fff);
+		box-shadow:0 8px 26px rgba(0,0,0,0.14); padding:1rem 1.2rem; opacity:0; }
+	body.theme-dark .ai5-pnl { background:rgba(255,255,255,0.05); }
+	.ai5-pnl-h { font-size:0.95rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--theme-text-subtle); margin:0 0 0.6rem; }
+	.ai5-tag { display:inline-flex; align-items:center; gap:0.4rem; padding:0.3rem 0.85rem; border-radius:999px; font-size:0.92rem; font-weight:500;
+		border:1.5px solid var(--toneT,var(--theme-border)); color:var(--theme-text); background:color-mix(in srgb, var(--tone,#888) 14%, transparent); opacity:0; }
+	.ai5-tag .ic { color:var(--toneT,currentColor); }
+	.ai5-row { display:flex; flex-wrap:wrap; gap:0.55rem; justify-content:center; }
+
+	/* Floor bar — a deep fill that always carries white text */
+	.ai5-fl { position:absolute; display:flex; align-items:center; justify-content:center; gap:1.1rem; border-radius:12px; color:#fff;
+		background:var(--toneB); box-shadow:0 6px 18px rgba(0,0,0,0.22); overflow:hidden; white-space:nowrap; }
+	.ai5-fl .n { font-size:1rem; font-weight:500; padding:0.15rem 0.6rem; border-radius:8px; background:rgba(0,0,0,0.28); }
+	.ai5-fl .v { font-size:1.5rem; font-weight:600; }
+	.ai5-fl .d { font-size:1.02rem; font-weight:400; opacity:0.92; }
+
+	/* Claim card (Contoso Insurance) */
+	.ai5-claim { width:74px; height:52px; border-radius:7px; background:var(--ai5-surface); border:1.5px solid var(--ai5-line);
+		box-shadow:0 3px 8px rgba(0,0,0,0.2); padding:8px 9px; display:flex; flex-direction:column; gap:5px; }
+	.ai5-claim i { display:block; height:5px; border-radius:3px; background:var(--ai5-line); }
+	.ai5-claim i:first-child { width:55%; background:#0078d4; opacity:0.75; }
+	.ai5-claim.is-ok::after { content:'\2713'; position:absolute; right:-9px; top:-9px; width:22px; height:22px; border-radius:50%;
+		background:var(--ai5-ok); color:#fff; font-size:0.9rem; line-height:22px; text-align:center; font-weight:700; }
+	.ai5-claim { position:relative; }
+
+	/* Question marks on connectors */
+	.ai5-q { width:34px; height:34px; border-radius:50%; display:grid; place-items:center; font-size:1.1rem; font-weight:700;
+		background:var(--ai5-surface); color:var(--ai5-warn); border:2px solid var(--ai5-warn); }
+
+	@keyframes ai5Glow { 0%,100% { box-shadow:0 0 0 0 rgba(138,92,214,0.0), 0 8px 24px rgba(0,0,0,0.25); } 50% { box-shadow:0 0 0 10px rgba(138,92,214,0.25), 0 8px 24px rgba(0,0,0,0.25); } }
+	.ai5-glow { animation:ai5Glow 2.2s ease-in-out infinite; }
+	.ai5-next { display:inline-flex; align-items:center; gap:0.6rem; padding:0.55rem 1.3rem; border-radius:999px; text-decoration:none; opacity:0;
+		font-size:1.05rem; font-weight:600; color:#fff; background:var(--aw-purple,#5c2d91); border:2px solid transparent; }
+	.ai5-next:hover { filter:brightness(1.12); }
+	.ai5-foot a { color:var(--f1t); font-weight:600; }
+
+	/* ══════════════ DesignGovernance ══════════════ */
+	.ai5-tag { opacity:1; font-size:0.95rem; white-space:nowrap; }
+	.ai5-tag img { max-width:none; flex:none; }
+	.gv-az { display:block; flex:none; }
+	.gv-a { position:absolute; box-sizing:border-box; }
+	.gv-itile { flex:none; display:grid; place-items:center; width:30px; height:30px; border-radius:8px; background:#fff; }
+	.gv-badtag { border-color:var(--ai5-bad); background:var(--ai5-surface); }
+	.gv-badtag .ic { color:var(--ai5-bad); }
+	.gv-lbl { font-size:0.95rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--theme-text-subtle); white-space:nowrap; opacity:0; }
+
+	/* 1 · the mess */
+	.gv-wrap { border:2.5px dashed var(--toneT); border-radius:20px; background:color-mix(in srgb, var(--tone) 6%, transparent); opacity:0; }
+	.gv-wrap.is-bad { border-color:var(--ai5-bad); background:color-mix(in srgb, var(--ai5-bad) 5%, transparent); }
+	.gv-wrap-h { position:absolute; left:22px; top:18px; display:flex; align-items:center; gap:0.6rem; font-size:1.1rem; font-weight:600; color:var(--theme-text); }
+	.gv-tile { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.5rem; border-radius:14px; opacity:0;
+		background:var(--ai5-surface); border:2px solid var(--toneT); font-size:1rem; font-weight:600; color:var(--theme-text); box-shadow:0 5px 14px rgba(0,0,0,0.18); }
+	.gv-tile.is-dev { border-color:var(--ai5-warn); }
+	.gv-prob { display:flex; align-items:center; gap:0.9rem; padding:0 22px; border-radius:14px; opacity:0; background:var(--ai5-surface);
+		border:2px solid var(--ai5-bad); font-size:1.15rem; font-weight:600; color:var(--theme-text); box-shadow:0 6px 16px rgba(0,0,0,0.18); }
+	.gv-prob .ic { flex:none; font-size:1.9rem; color:var(--ai5-bad); }
+
+	/* 2 · hierarchy */
+	.gv-node { display:flex; align-items:center; justify-content:center; gap:0.5rem; border-radius:12px; opacity:0; white-space:nowrap; color:#fff;
+		background:var(--toneB); font-size:0.95rem; font-weight:600; box-shadow:0 5px 14px rgba(0,0,0,0.2); }
+	.gv-node.is-root { background:var(--ai5-surface); color:var(--theme-text); border:2px solid var(--toneT); }
+	.gv-node.is-sub { background:var(--ai5-surface); color:var(--theme-text); border:2px solid var(--toneT); }
+	.gv-inh { position:absolute; right:-10px; top:-12px; width:26px; height:26px; border-radius:50%; display:grid; place-items:center; font-size:0.95rem;
+		background:var(--ai5-ok); color:#fff; opacity:0; }
+	body.theme-dark .gv-inh { color:#0b2a12; }
+	.gv-pol { display:flex; align-items:center; justify-content:center; gap:0.5rem; border-radius:999px; opacity:0; white-space:nowrap;
+		background:var(--ai5-surface); border:2px solid var(--toneT); font-size:0.95rem; font-weight:600; color:var(--theme-text); box-shadow:0 5px 14px rgba(0,0,0,0.18); }
+	.gv-note { display:flex; flex-direction:column; justify-content:center; gap:0.55rem; padding:0 22px; border-radius:14px; opacity:0;
+		background:var(--ai5-surface); border:1.5px solid var(--theme-border); box-shadow:0 5px 14px rgba(0,0,0,0.12); }
+	.gv-depth { flex-direction:row; align-items:center; justify-content:center; gap:0.7rem; padding:0 16px; }
+	.gv-good { border-color:var(--ai5-ok); }
+	.gv-good .ic { color:var(--ai5-ok); }
+	.gv-rule { display:flex; align-items:center; gap:0.7rem; font-size:0.98rem; font-weight:500; color:var(--theme-text); white-space:nowrap; }
+	.gv-rule i { flex:none; width:24px; height:24px; border-radius:50%; display:grid; place-items:center; font-style:normal; font-size:0.8rem; color:#fff; }
+	.gv-rule.is-ok i { background:var(--ai5-ok); } .gv-rule.is-no i { background:var(--ai5-bad); }
+	body.theme-dark .gv-rule i { color:#16121a; }
+
+	/* 3 · subscriptions */
+	.gv-bound { display:flex; align-items:center; gap:1rem; padding:0 22px; border-radius:16px; opacity:0; background:var(--ai5-surface);
+		border:2px solid var(--toneT); border-top:6px solid var(--tone); box-shadow:0 6px 16px rgba(0,0,0,0.16); }
+	.gv-bic { flex:none; width:54px; height:54px; border-radius:14px; display:grid; place-items:center; font-size:1.9rem; background:var(--toneB); color:#fff; }
+	.gv-bt { display:flex; flex-direction:column; gap:0.25rem; line-height:1.25; }
+	.gv-bt b { font-size:1.2rem; font-weight:600; color:var(--theme-text); }
+	.gv-bt span { font-size:0.95rem; color:var(--theme-text-subtle); }
+	.gv-sbn { display:flex; align-items:center; justify-content:center; gap:0.7rem; border-radius:14px; opacity:0; white-space:nowrap;
+		background:var(--ai5-surface); border:2px solid var(--toneT); font-size:1.1rem; font-weight:600; color:var(--theme-text); box-shadow:0 5px 14px rgba(0,0,0,0.16); }
+	.gv-sbn.is-src { border-width:3px; }
+
+	/* 4 · resource groups */
+	.gv-rgp { border:2.5px solid var(--toneT); border-radius:18px; background:color-mix(in srgb, var(--tone) 6%, var(--ai5-surface)); opacity:0; box-shadow:0 6px 18px rgba(0,0,0,0.14); }
+	.gv-rgp-h { position:absolute; left:22px; top:16px; display:flex; align-items:center; gap:0.6rem; font-size:1.1rem; font-weight:600; color:var(--theme-text); }
+	.gv-tile-s { font-size:1rem; }
+	.gv-btn { display:flex; align-items:center; justify-content:center; gap:0.5rem; border-radius:999px; opacity:0; font-size:0.95rem; font-weight:600; white-space:nowrap;
+		color:#fff; background:var(--ai5-bad); border:0; }
+	body.theme-dark .gv-btn { color:#2b0a12; }
+	.gv-chiprow { display:flex; justify-content:center; gap:1rem; }
+	.gv-gone { z-index:2; }
+
+	/* 5 · tags */
+	.gv-cat { display:flex; flex-direction:column; justify-content:center; gap:0.2rem; padding:0 22px; border-radius:14px; opacity:0; background:var(--ai5-surface);
+		border:1.5px solid var(--theme-border); border-left:8px solid var(--tone); box-shadow:0 5px 14px rgba(0,0,0,0.14); }
+	.gv-cat b { font-size:1.2rem; font-weight:600; color:var(--theme-text); }
+	.gv-cat span { font-size:1rem; font-weight:500; color:var(--toneT); font-family:Consolas,'Cascadia Mono',monospace; }
+	.gv-rgc, .gv-rc { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.55rem; border-radius:14px; background:var(--ai5-surface);
+		border:2px solid var(--toneT); box-shadow:0 6px 16px rgba(0,0,0,0.16); opacity:0; color:var(--theme-text); }
+	.gv-rgc-r, .gv-rcr { display:flex; align-items:center; gap:0.65rem; font-size:1.1rem; font-weight:600; }
+	.gv-rgc-t, .gv-rct { display:flex; gap:0.5rem; }
+	.gv-rgc-t .ai5-tag { font-size:0.9rem; padding:0.25rem 0.7rem; }
+	.gv-rct { flex-direction:column; align-items:center; gap:0.4rem; }
+	.gv-rct .ai5-tag { font-size:0.9rem; padding:0.25rem 0.7rem; opacity:0; }
+	.gv-bdg { border-radius:50%; display:grid; place-items:center; font-size:1rem; color:#fff; opacity:0; }
+	.gv-bdg.is-bad { background:var(--ai5-bad); } .gv-bdg.is-ok { background:var(--ai5-ok); }
+	body.theme-dark .gv-bdg { color:#16121a; }
+	.gv-slot { justify-content:center; opacity:0; }
+	.gv-polslot { background:var(--ai5-surface); }
+
+	/* 6 · policy */
+	.gv-two { display:flex; flex-direction:column; align-items:flex-start; line-height:1.25; }
+	.gv-two b { font-size:1.1rem; font-weight:600; } .gv-two i { font-style:normal; font-size:0.9rem; font-weight:500; color:var(--theme-text-subtle); }
+	.gv-req { display:flex; align-items:center; padding:0 22px; border-radius:14px; opacity:0; background:var(--ai5-surface); border:2px solid var(--toneT);
+		font-size:1.1rem; font-weight:600; color:var(--theme-text); box-shadow:0 5px 14px rgba(0,0,0,0.16); white-space:nowrap; }
+	.gv-eff { display:flex; align-items:center; gap:0; border-radius:14px; opacity:0; overflow:visible; background:var(--ai5-surface); border:2px solid var(--toneT); box-shadow:0 5px 14px rgba(0,0,0,0.16); }
+	.gv-en { flex:none; width:226px; height:100%; box-sizing:border-box; display:flex; align-items:center; gap:0.6rem; padding:0 16px; border-radius:11px 0 0 11px; background:var(--toneB); color:#fff; }
+	.gv-en b { font-size:1.05rem; font-weight:600; font-family:Consolas,'Cascadia Mono',monospace; }
+	.gv-en .ic { font-size:1.3rem; }
+	.gv-ed { flex:1; padding:0 16px; font-size:1.02rem; font-weight:500; color:var(--theme-text); white-space:nowrap; }
+	.gv-etk { position:absolute; right:-12px; top:-12px; width:28px; height:28px; border-radius:50%; display:grid; place-items:center; font-size:0.95rem; background:var(--ai5-ok); color:#fff; opacity:0; }
+	body.theme-dark .gv-etk { color:#0b2a12; }
+
+	/* 7 · compliance */
+	.gv-cp { display:flex; flex-direction:column; gap:0.7rem; padding:20px 24px; border-radius:18px; opacity:0; background:var(--ai5-surface);
+		border:2px solid var(--toneT); border-top:6px solid var(--tone); box-shadow:0 8px 22px rgba(0,0,0,0.16); }
+	.gv-cp-h { display:flex; align-items:center; gap:0.8rem; font-size:1.3rem; font-weight:600; color:var(--theme-text); }
+	.gv-cp-q { font-size:1.05rem; font-weight:500; color:var(--toneT); padding-bottom:0.3rem; }
+	.gv-std { display:flex; align-items:center; gap:0.7rem; padding:0.7rem 1rem; border-radius:12px; font-size:1rem; font-weight:600; color:#fff; background:var(--toneB); }
+	.gv-std .ic { font-size:1.4rem; }
+	.gv-ctl { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:0.6rem 1rem; min-height:48px; box-sizing:border-box; border-radius:12px; font-size:1.05rem; font-weight:500;
+		color:var(--theme-text); border:1.5px solid var(--theme-border); opacity:0; }
+	.gv-ctl i { flex:none; width:28px; height:28px; border-radius:50%; display:grid; place-items:center; font-style:normal; font-size:0.9rem; color:#fff; }
+	.gv-ctl.is-ok i { background:var(--ai5-ok); }
+	.gv-ctl.is-bad { border-color:var(--ai5-bad); } .gv-ctl.is-bad i { background:var(--ai5-bad); }
+	body.theme-dark .gv-ctl i { color:#16121a; }
+	.gv-ctl.is-ring { padding-top:0.3rem; padding-bottom:0.3rem; }
+
+	/* 8 · all in one */
+	.gv-lz { border:2.5px dashed var(--toneT); border-radius:22px; background:color-mix(in srgb, var(--tone) 5%, transparent); opacity:0; }
+	.gv-lzt { display:flex; align-items:center; gap:0.6rem; font-size:1.1rem; font-weight:600; color:var(--theme-text); opacity:0; }
+	.gv-bar { display:flex; align-items:center; gap:0.9rem; padding:0 16px; border-radius:12px; opacity:0; background:var(--toneB); color:#fff; font-size:1.15rem; font-weight:600; white-space:nowrap; box-shadow:0 5px 14px rgba(0,0,0,0.2); }
+	.gv-bchip { display:flex; align-items:center; padding:0 22px; border-radius:12px; opacity:0; background:var(--ai5-surface); border:2px solid var(--toneT);
+		font-size:1.05rem; font-weight:500; color:var(--theme-text); white-space:nowrap; box-shadow:0 4px 12px rgba(0,0,0,0.12); }
+	.gv-end { display:flex; align-items:center; justify-content:center; gap:1.1rem; flex-wrap:wrap; max-width:1100px; }
+	.gv-end .ai5-foot { font-size:1.05rem; }
+
+</style>
+	<!-- SEO:START -->
+	<meta name="description" content="Design governance: structure, policy and compliance. Explore AZ-305 · Design Azure infrastructure solutions with a step-by-step visual guide." />
+	<link rel="canonical" href="https://azureanimations.github.io/journeys/Architect/DesignGovernance.html" />
+	<meta name="robots" content="index, follow, max-image-preview:large" />
+	<meta property="og:type" content="website" />
+	<meta property="og:site_name" content="Azure Animations" />
+	<meta property="og:title" content="Design governance: structure, policy and compliance — Azure Animations" />
+	<meta property="og:description" content="Design governance: structure, policy and compliance. Explore AZ-305 · Design Azure infrastructure solutions with a step-by-step visual guide." />
+	<meta property="og:url" content="https://azureanimations.github.io/journeys/Architect/DesignGovernance.html" />
+	<meta property="og:image" content="https://azureanimations.github.io/img/favicon.png" />
+	<meta property="og:image:alt" content="Azure Animations" />
+	<meta name="twitter:card" content="summary" />
+	<meta name="twitter:title" content="Design governance: structure, policy and compliance — Azure Animations" />
+	<meta name="twitter:description" content="Design governance: structure, policy and compliance. Explore AZ-305 · Design Azure infrastructure solutions with a step-by-step visual guide." />
+	<meta name="twitter:image" content="https://azureanimations.github.io/img/favicon.png" />
+	<meta name="twitter:image:alt" content="Azure Animations" />
+	<script type="application/ld+json">
+	{"@context":"https://schema.org","@type":"WebPage","name":"Design governance: structure, policy and compliance — Azure Animations","description":"Design governance: structure, policy and compliance. Explore AZ-305 · Design Azure infrastructure solutions with a step-by-step visual guide.","url":"https://azureanimations.github.io/journeys/Architect/DesignGovernance.html","isPartOf":{"@type":"WebSite","name":"Azure Animations","url":"https://azureanimations.github.io/"},"breadcrumb":{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Azure Animations","item":"https://azureanimations.github.io/"},{"@type":"ListItem","position":2,"name":"AZ-305 · Design Azure infrastructure solutions","item":"https://azureanimations.github.io/journeys/Architect/"},{"@type":"ListItem","position":3,"name":"Design governance: structure, policy and compliance","item":"https://azureanimations.github.io/journeys/Architect/DesignGovernance.html"}]}}
+	</script>
+	<!-- SEO:END -->
+</head>
+
+<body class="theme-dark" data-theme-preset="atlas">
+
+	<a href="#stage" class="skip-link">Skip to diagram</a>
+
+	<header class="app-header padding-block-xs padding-inline-md border-bottom" role="banner" style="justify-content:space-between;">
+		<div class="display-flex align-items-center gap-xs">
+			<!-- Set href to the previous animation in the journey, or the hub index.html -->
+			<a href="index.html" class="header-back-link" aria-label="AZ-305 hub" title="AZ-305 hub">&larr; AZ-305 hub</a>
+			<span id="page-title" class="font-size-h6 font-weight-semibold">&#127963; Design governance: structure, policy and compliance</span>
+		</div>
+		<nav class="display-flex gap-xs align-items-center" aria-label="Primary">
+			<span id="breadcrumb" class="font-size-sm color-text-subtle">Step 1</span>
+		</nav>
+		<div class="display-flex gap-xs align-items-center">
+			<!-- AW:lang --><select id="lang-select" class="lang-select" aria-label="Language" title="Language"><option value="en">English</option><option value="es">Español</option><option value="ja">日本語</option><option value="ko">한국어</option><option value="pt">Português</option></select><!-- /AW:lang -->
+			<div class="font-size-controls">
+				<button id="font-decrease" type="button" class="font-size-btn" aria-label="Decrease font size" title="Smaller text">A&minus;</button>
+				<button id="font-increase" type="button" class="font-size-btn" aria-label="Increase font size" title="Larger text">A+</button>
+			</div>
+			<!-- AW:theme --><button id="theme-toggle" type="button" class="theme-toggle" aria-label="Switch theme" title="Switch theme"><svg class="theme-icon icon-moon ico ico-moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path fill="currentColor" d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg><svg class="theme-icon icon-sun ico ico-sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.5" y1="4.5" x2="6.5" y2="6.5"/><line x1="17.5" y1="17.5" x2="19.5" y2="19.5"/><line x1="4.5" y1="19.5" x2="6.5" y2="17.5"/><line x1="17.5" y1="6.5" x2="19.5" y2="4.5"/></g></svg></button><!-- /AW:theme -->
+			<button id="header-hide-top" type="button" aria-label="Hide top bar" title="Hide top bar (H)">
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/></svg>
+			</button>
+		</div>
+	</header>
+
+	<button id="header-reveal" type="button" aria-label="Show top bar" title="Show top bar">
+		<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/></svg>
+		<span>Toolbar</span>
+	</button>
+
+	<div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
+
+	<main id="stage" tabindex="0" role="region" aria-labelledby="stage-heading" aria-describedby="stage-instructions">
+		<h1 id="stage-heading" class="sr-only" tabindex="-1">Design governance: structure, policy and compliance</h1>
+		<p id="stage-instructions" class="sr-only">Animated explainer. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.</p>
+		<div id="step-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+		<!-- Fixed 16:9 stage. Every scene is drawn INSIDE this box; it always fits the viewport (no scrollbars). -->
+		<div id="stage-frame">
+			<svg id="fx-svg" aria-hidden="true" focusable="false">
+				<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L0,10 L10,5 Z" fill="currentColor"/></marker></defs>
+			</svg>
+			<!-- Caption bar (synced to the step's audio clip by aw-captions.js) -->
+			<div id="aw-caption" class="aw-caption" aria-hidden="true"></div>
+			<!-- LEFT pill · view options: callout / outline / shortcuts (icons; label shows as a hover tooltip) -->
+			<div id="stage-overlay-left" class="stage-overlay stage-overlay-left" role="group" aria-label="View options">
+				<button id="callout-toggle" type="button" class="ovl-btn" aria-label="Toggle callouts" aria-pressed="false" data-tip="Callouts: Off"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M4 5h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H10l-4 3v-3H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></svg></button>
+				<button id="outline-toggle" type="button" class="ovl-btn" aria-controls="step-outline" aria-expanded="false" aria-label="Toggle text outline" data-tip="Outline: Off"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" d="M4 6h16M4 12h16M4 18h10"/></svg></button>
+				<button id="help-toggle" class="ovl-btn help-toggle" type="button" aria-haspopup="dialog" aria-controls="shortcut-overlay" aria-label="Keyboard shortcuts (press ?)" data-tip="Shortcuts"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M11 18h2v-2h-2v2zm1.1-14C9.8 4 8 5.8 8 8h2a2 2 0 1 1 3.2 1.6c-.9.7-2.2 1.5-2.2 3.4h2c0-1 .8-1.5 1.7-2.2A4 4 0 0 0 12.1 4z"/></svg></button>
+			</div>
+			<!-- RIGHT pill · player: audio / captions / hide-top-bar / fullscreen -->
+			<div id="stage-overlay" class="stage-overlay" role="group" aria-label="Player controls">
+				<button id="audio-toggle" class="ovl-btn ovl-audio" type="button" aria-label="Toggle audio narration" aria-pressed="false" title="Narration audio"></button>
+				<button id="cc-toggle" class="ovl-btn" type="button" aria-label="Toggle captions" aria-pressed="false" title="Captions"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9.7 10.2a2.1 2.1 0 1 0 0 3.6M17 10.2a2.1 2.1 0 1 0 0 3.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+				<button id="header-hide" class="ovl-btn" type="button" aria-label="Hide top bar" title="Hide top bar (H)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/></svg></button>
+				<button id="fs-toggle" class="ovl-btn" type="button" aria-label="Toggle full screen" aria-pressed="false" title="Full screen (F)"><svg class="fs-enter" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg><svg class="fs-exit" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg></button>
+			</div>
+		</div>
+	</main>
+
+	<aside id="step-outline" hidden aria-label="Text outline of the current step">
+		<h2 id="outline-title">Step Details</h2>
+		<div id="outline-body"></div>
+	</aside>
+
+	<div id="controls" role="group" aria-label="Diagram navigation">
+		<button id="ctrl-grip" type="button" class="ctrl-grip" aria-label="Drag to move the controls" title="Drag to move">
+			<svg viewBox="0 0 16 16" aria-hidden="true"><g fill="currentColor"><circle cx="5" cy="3" r="1.4"/><circle cx="11" cy="3" r="1.4"/><circle cx="5" cy="8" r="1.4"/><circle cx="11" cy="8" r="1.4"/><circle cx="5" cy="13" r="1.4"/><circle cx="11" cy="13" r="1.4"/></g></svg>
+		</button>
+		<button id="ctrl-pin" type="button" class="button button-clear ctrl-icon ctrl-pin" aria-label="Pin the controls back to the center" title="Pin to center">
+			<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9 2h6a1 1 0 0 1 .8 1.6L14 6v4l3 3v2h-4v5l-1 2-1-2v-5H7v-2l3-3V6L8.2 3.6A1 1 0 0 1 9 2z"/></svg>
+		</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="prev-btn" type="button" class="button ctrl-icon" aria-label="Previous step (left arrow)">&#9664;</button>
+		<div class="step-counter" id="step-counter">0 / 0</div>
+		<button id="next-btn" type="button" class="button button-primary button-filled ctrl-icon ctrl-icon-next" aria-label="Next step (right arrow or space)">&#9654;</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="replay-btn" type="button" class="button ctrl-icon" aria-label="Replay this step's animation (P)">&#8635;</button>
+		<div class="speed-control" role="group" aria-label="Animation speed">
+			<button id="speed-down" type="button" class="button button-clear speed-btn" aria-label="Slower (-)" title="Slower">&minus;</button>
+			<span id="speed-label" class="speed-label" aria-live="polite" aria-label="Current speed">1&times;</span>
+			<button id="speed-up" type="button" class="button button-clear speed-btn" aria-label="Faster (+)" title="Faster">+</button>
+		</div>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="reset-btn" type="button" class="button button-clear ctrl-icon" aria-label="Restart from step 1 (R)">&#9198;</button>
+	</div>
+
+	<div id="shortcut-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="sc-title">
+		<div class="sc-backdrop"></div>
+		<div class="sc-panel">
+			<button id="sc-close" class="sc-close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
+			<h2 id="sc-title">Keyboard shortcuts</h2>
+			<ul id="sc-list" class="sc-list"></ul>
+			<p class="sc-hint">Press <kbd>?</kbd> anytime to toggle this panel.</p>
+		</div>
+	</div>
+
+<script>
+// ── THEME ─────────────────────────────────
+const themeToggleBtn = document.getElementById('theme-toggle');
+function syncThemeBtn(){
+	if (!themeToggleBtn) return;
+	const isDark = document.body.classList.contains('theme-dark');
+	themeToggleBtn.dataset.theme = isDark ? 'dark' : 'light';   // drives which glyph (sun/moon) shows
+	const label = isDark ? 'Switch to light theme' : 'Switch to dark theme';
+	themeToggleBtn.setAttribute('aria-label', label);
+	themeToggleBtn.setAttribute('title', label);
+}
+if (window.AW && AW.theme) {
+	// aw-theme.js owns click handling + persistence; theme recolors via CSS variables, so no re-render/replay.
+	AW.theme.onChange(() => { syncThemeBtn(); });
+	syncThemeBtn();
+} else {
+	// Standalone fallback: toggle .theme-dark / .theme-light on <body> ourselves.
+	syncThemeBtn();
+	if (themeToggleBtn) themeToggleBtn.addEventListener('click', () => {
+		const goingDark = !document.body.classList.contains('theme-dark');
+		document.body.classList.remove('theme-dark', 'theme-light');
+		document.body.classList.add(goingDark ? 'theme-dark' : 'theme-light');
+		try { localStorage.setItem('aw-theme', goingDark ? 'theme-dark' : 'theme-light'); } catch(_){}
+		syncThemeBtn();
+	});
+	// restore a previously chosen theme (standalone only)
+	try { const saved = localStorage.getItem('aw-theme'); if (saved === 'theme-light' || saved === 'theme-dark') { document.body.classList.remove('theme-dark','theme-light'); document.body.classList.add(saved); syncThemeBtn(); } } catch(_){}
+}
+
+// ── i18n ──────────────────────────────────
+// English is the source language. Add sibling objects (es/ja/ko/pt) with the
+// SAME keys + matching <option>s in #lang-select. Keep brand/code/proper-noun
+// sample data untranslated.
+let currentLang = 'en';
+		// management groups  https://learn.microsoft.com/azure/governance/management-groups/overview  (up to six levels, excl. root and subscription level; one parent each; policy and RBAC inherit down)
+		// MG design area     https://learn.microsoft.com/azure/cloud-adoption-framework/ready/landing-zone/design-area/resource-org-management-groups  (keep flat, 3-4 levels; do not create MGs per environment; sandbox, platform, landing zones)
+		// subscriptions      https://learn.microsoft.com/azure/cloud-adoption-framework/ready/landing-zone/design-area/resource-org-subscriptions  (boundary for scale, quota, cost, governance, security, identity; not tied to a region)
+		// resource groups    https://learn.microsoft.com/azure/azure-resource-manager/management/overview  (shared lifecycle; delete removes all; one group per resource)
+		// tags               https://learn.microsoft.com/azure/azure-resource-manager/management/tag-resources  (not inherited; not on management groups) and .../tag-policies (inherit-a-tag policies)
+		// tag strategy       https://learn.microsoft.com/azure/cloud-adoption-framework/ready/azure-best-practices/resource-tagging  (functional, classification, accounting, purpose)
+		// policy effects     https://learn.microsoft.com/azure/governance/policy/concepts/effect-basics  (audit, deny, modify, deployIfNotExists; initiatives = policySet; assign at management group)
+		// Defender for Cloud https://learn.microsoft.com/azure/defender-for-cloud/regulatory-compliance-dashboard  (Regulatory compliance dashboard; data surfaces in Compliance Manager)
+		// Compliance Manager https://learn.microsoft.com/purview/compliance-manager  (assessments, improvement actions, compliance score)
+		// landing zones      https://learn.microsoft.com/azure/cloud-adoption-framework/ready/landing-zone/
+const I18N = {
+	"en": {
+		"skipToMain": "Skip to diagram",
+		"pageTitle": "Design governance: structure, policy and compliance",
+		"stageHeading": "Design governance: structure, policy and compliance",
+		"stageInstructions": "Animated explainer. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.",
+		"prev": "◀ Prev",
+		"next": "Next ▶",
+		"replay": "↻ Replay",
+		"restart": "↻ Restart",
+		"slower": "Slower",
+		"faster": "Faster",
+		"calloutOn": "Callouts: On",
+		"calloutOff": "Callouts: Off",
+		"outlineOn": "Outline: On",
+		"outlineOff": "Outline: Off",
+		"audioTip": "Narration audio",
+		"ccTip": "Captions",
+		"shortcutsTip": "Shortcuts",
+		"stepDetails": "Step Details",
+		"stepOf": "Step",
+		"resetPos": "Reset to default position",
+		"scTitle": "Keyboard shortcuts",
+		"scNext": "Next step",
+		"scPrev": "Previous step",
+		"scRestart": "Restart",
+		"scReplay": "Replay this step",
+		"scHide": "Hide / show top bar",
+		"scHelp": "Toggle this help",
+		"nextHybrid": "Up next: hybrid identity",
+		"subName": "Contoso subscription",
+		"mgTenant": "Tenant root group",
+		"mgContoso": "Contoso",
+		"mgPlatform": "Platform",
+		"mgLz": "Landing zones",
+		"mgSandbox": "Sandbox",
+		"mgCorp": "Corp",
+		"mgOnline": "Online",
+		"sbPlatform": "Platform",
+		"sbOrdersProd": "Orders prod",
+		"sbOrdersDev": "Orders dev",
+		"sbStoreProd": "Store prod",
+		"sbSandbox": "Sandbox",
+		"messTitle": "One subscription, no structure",
+		"messCaption": "Governance · the problem",
+		"messDesc": "Contoso runs everything in one subscription: no clear owner, no cost view and no shared rules.",
+		"messCallout": "This is the starting point for the AZ-305 governance objective: recommend a structure for management groups, subscriptions, and resource groups, and a strategy for resource tagging. The next steps give each problem a home.",
+		"messSay": "Where do the rules go?",
+		"tStore": "Storefront",
+		"tOrders": "Orders DB",
+		"tImages": "Images",
+		"tErp": "ERP batch",
+		"tPartner": "Partner API",
+		"tTestVm": "Test VM",
+		"tDevDb": "Dev DB",
+		"tOldDemo": "Old demo",
+		"prob1": "Dev changes reach prod",
+		"prob2": "No cost owner",
+		"prob3": "Every team sets its own rules",
+		"hierarchyTitle": "Management groups: rules that flow down",
+		"hierarchyCaption": "Governance · hierarchy",
+		"hierarchyDesc": "Group subscriptions by the policy they share. Policy and access set on a group apply to everything beneath it.",
+		"hierarchyCallout": "A management group tree supports up to six levels of depth, not counting the root or subscription level, and each group or subscription has one parent. The Cloud Adoption Framework recommends a shallow tree of three to four levels, grouped by workload type (platform, landing zones, sandbox), not by environment. Dev and prod belong in separate subscriptions under the same group. Management groups can’t be tagged.",
+		"hierarchySay": "Policy flows down.",
+		"polAllowed": "Allowed locations",
+		"depthMax": "Up to 6 levels",
+		"depthAim": "Aim for 3–4",
+		"ruleOk1": "Group by shared policy",
+		"ruleNo1": "Mirror the org chart",
+		"ruleNo2": "One group per environment",
+		"subsTitle": "Subscriptions: billing, limits and isolation",
+		"subsCaption": "Governance · subscriptions",
+		"subsDesc": "A subscription is a boundary for cost, scale and access. Add one when a boundary has to be different.",
+		"subsCallout": "Subscriptions are boundaries for scale, quota, cost, governance, security and identity. They are not tied to a region, so you don’t need one per region. Platform teams usually get their own subscriptions for connectivity, identity and management.",
+		"bBill": "Billing",
+		"bBillD": "Cost is tracked per subscription",
+		"bLimit": "Limits and quota",
+		"bLimitD": "Each has its own scale limits",
+		"bIso": "Isolation",
+		"bIsoD": "Its own access and policy edge",
+		"noRegion": "One per region",
+		"rsOrders": "Own budget, tight access",
+		"rsDev": "Safe to break, capped cost",
+		"rsSandbox": "Experiments stay apart",
+		"groupsTitle": "Resource groups: one shared lifecycle",
+		"groupsCaption": "Governance · resource groups",
+		"groupsDesc": "Put resources that are deployed, updated and deleted together in one resource group.",
+		"groupsCallout": "Every resource lives in exactly one resource group, and deleting the group deletes everything in it. A resource can still connect to resources in other groups, such as a shared network with its own lifecycle. A resource group is also a scope for Azure RBAC, Azure Policy and locks.",
+		"groupsSay": "Same lifecycle, same group.",
+		"rgDev": "rg-orders-dev",
+		"rgNet": "rg-network-shared",
+		"lcDeploy": "Deploy",
+		"lcUpdate": "Update",
+		"lcDelete": "Delete",
+		"delGroup": "Delete group",
+		"gone": "Deleted together",
+		"ownLife": "Own lifecycle",
+		"tVnet": "Virtual network",
+		"tApp": "Web app",
+		"tDb": "Database",
+		"tStor": "Storage",
+		"gChip1": "One group per resource",
+		"gChip2": "Scope for access and policy",
+		"tagsTitle": "Tags: decide what, then let policy apply them",
+		"tagsCaption": "Governance · tags",
+		"tagsDesc": "Tags are not inherited from the resource group. Pick the tags that matter, then enforce them with Azure Policy.",
+		"tagsCallout": "Resources don’t inherit tags from a resource group or subscription. Built-in policy definitions such as “Inherit a tag from the resource group” copy them down. Tags go on resources, resource groups and subscriptions, not on management groups. Tags are plain text, so never put secrets in them.",
+		"tagsSay": "Not inherited, unless policy copies them.",
+		"hCats": "What to tag",
+		"catFn": "Functional",
+		"catFnD": "app · tier · env",
+		"catCl": "Classification",
+		"catClD": "confidentiality · SLA",
+		"catAc": "Accounting",
+		"catAcD": "department · cost center",
+		"catPu": "Purpose",
+		"catPuD": "business function",
+		"rgStore": "rg-storefront",
+		"tagEnv": "env: prod",
+		"tagCost": "cost-center: 1042",
+		"notInh": "Not inherited",
+		"polInherit": "Inherit a tag",
+		"policyTitle": "Azure Policy: pick the effect for each rule",
+		"policyCaption": "Governance · policy",
+		"policyDesc": "Bundle rules into an initiative, assign it once at a management group, then choose what happens on a breach.",
+		"policyCallout": "Audit flags a non-compliant resource but doesn’t stop the request. Deny blocks it. Modify changes properties, such as tags, on the way in. DeployIfNotExists deploys a missing related resource, such as diagnostic settings, and uses a managed identity to do it. An initiative groups policy definitions so you manage one assignment.",
+		"policySay": "Choose what happens.",
+		"initName": "Contoso baseline initiative",
+		"assignAt": "Assigned once",
+		"rq1": "Report public storage access",
+		"rq2": "Only approved regions",
+		"rq3": "Cost-center tag on everything",
+		"rq4": "Logs sent to the workspace",
+		"ef1": "audit",
+		"ef1d": "Flags it, allows it",
+		"ef2": "deny",
+		"ef2d": "Blocks the request",
+		"ef3": "modify",
+		"ef3d": "Fixes tags on the way in",
+		"ef4": "deployIfNotExists",
+		"ef4d": "Deploys the missing piece",
+		"complyTitle": "Compliance: who answers which question",
+		"complyCaption": "Governance · compliance",
+		"complyDesc": "Defender for Cloud checks Azure resources against a standard. Compliance Manager tracks the organization.",
+		"complyCallout": "The Regulatory compliance dashboard in Microsoft Defender for Cloud shows the standards assigned to your subscriptions, their controls and the assessments behind them. Microsoft Purview Compliance Manager groups controls into assessments, assigns improvement actions to people and gives a compliance score. Defender for Cloud compliance data is surfaced in Compliance Manager.",
+		"complySay": "Different question, different tool.",
+		"dfc": "Defender for Cloud",
+		"dfcQ": "Are my Azure resources up to standard?",
+		"cm": "Compliance Manager",
+		"cmQ": "What can we prove to an auditor?",
+		"stdMcsb": "Microsoft cloud security benchmark",
+		"ctl1": "Identity management",
+		"ctl2": "Data protection",
+		"ctl3": "Network security",
+		"asmIso": "ISO 27001 assessment",
+		"score": "Compliance score",
+		"act1": "Improvement action",
+		"act2": "Assigned to an owner",
+		"act3": "Evidence attached",
+		"feeds": "Feeds",
+		"wholeTitle": "All in one: Contoso’s landing zone",
+		"wholeCaption": "Recap",
+		"wholeDesc": "Each scope answers one design question. Together they give Contoso rules, cost clarity and proof.",
+		"wholeCallout": "Next: connect the people. Contoso’s staff live in on-premises Active Directory, and the cloud needs the same identities.",
+		"lzTitle": "Azure landing zone",
+		"wMg": "Management group",
+		"wMgD": "Policy and access flow down",
+		"wSub": "Subscription",
+		"wSubD": "Billing, limits, isolation",
+		"wRg": "Resource group",
+		"wRgD": "One shared lifecycle",
+		"wTag": "Tags",
+		"wTagD": "Applied by policy, not by hand",
+		"wPol": "Azure Policy",
+		"wPolD": "Audit, deny, modify, deploy",
+		"wCmp": "Compliance",
+		"wCmpD": "Defender for Cloud · Compliance Manager",
+		"wholeFoot": "Official Learn: <a href=\"https://learn.microsoft.com/azure/cloud-adoption-framework/ready/landing-zone/\" target=\"_blank\" rel=\"noopener\">Azure landing zones</a> · <a href=\"https://learn.microsoft.com/azure/governance/management-groups/overview\" target=\"_blank\" rel=\"noopener\">Management groups</a>",
+		"backLabel": "AZ-305 hub",
+		"short1": "The mess",
+		"short2": "Hierarchy",
+		"short3": "Subscriptions",
+		"short4": "Resource groups",
+		"short5": "Tags",
+		"short6": "Policy",
+		"short7": "Compliance",
+		"short8": "All in one",
+		"languageLabel": "Language"
+	},
+	"es": {
+		"skipToMain": "Ir al diagrama",
+		"pageTitle": "Diseñar la gobernanza: estructura, directivas y cumplimiento",
+		"stageHeading": "Diseñar la gobernanza: estructura, directivas y cumplimiento",
+		"stageInstructions": "Explicación animada. Usa los botones de Siguiente/Anterior o las flechas para navegar. Pulsa R para reiniciar.",
+		"prev": "◀ Anterior",
+		"next": "Siguiente ▶",
+		"replay": "↻ Repetir",
+		"restart": "↻ Reiniciar",
+		"slower": "Más lento",
+		"faster": "Más rápido",
+		"calloutOn": "Notas: activadas",
+		"calloutOff": "Notas: desactivadas",
+		"outlineOn": "Esquema: activado",
+		"outlineOff": "Esquema: desactivado",
+		"audioTip": "Narración de audio",
+		"ccTip": "Subtítulos",
+		"shortcutsTip": "Atajos",
+		"stepDetails": "Detalles del paso",
+		"stepOf": "Paso",
+		"resetPos": "Restablecer la posición",
+		"scTitle": "Atajos de teclado",
+		"scNext": "Paso siguiente",
+		"scPrev": "Paso anterior",
+		"scRestart": "Reiniciar",
+		"scReplay": "Repetir este paso",
+		"scHide": "Mostrar u ocultar la barra superior",
+		"scHelp": "Mostrar u ocultar esta ayuda",
+		"nextHybrid": "A continuación: identidad híbrida",
+		"subName": "Suscripción Contoso",
+		"mgTenant": "Grupo raíz de inquilinos",
+		"mgContoso": "Contoso",
+		"mgPlatform": "Andén",
+		"mgLz": "Zonas de aterrizaje",
+		"mgSandbox": "Sandbox",
+		"mgCorp": "Corp",
+		"mgOnline": "Online",
+		"sbPlatform": "Andén",
+		"sbOrdersProd": "Ordenes de empuje",
+		"sbOrdersDev": "Desarrollo de órdenes",
+		"sbStoreProd": "Producción de tienda",
+		"sbSandbox": "Sandbox",
+		"messTitle": "Una suscripción, sin estructura",
+		"messCaption": "Gobernanza · El problema",
+		"messDesc": "Contoso ejecuta todo en una sola suscripción: sin propietario claro, sin vista de costes y sin reglas compartidas.",
+		"messCallout": "Este es el punto de partida para el objetivo de gobernanza de AZ-305: recomendar una estructura para grupos de gestión, suscripciones y grupos de recursos, y una estrategia para el etiquetado de recursos. Los siguientes pasos dan a cada problema un hogar.",
+		"messSay": "¿Dónde van las reglas?",
+		"tStore": "Escaparate",
+		"tOrders": "Órdenes DB",
+		"tImages": "Imágenes",
+		"tErp": "Lote ERP",
+		"tPartner": "API de socios",
+		"tTestVm": "Test VM",
+		"tDevDb": "Base de Datos de Desarrollo",
+		"tOldDemo": "Demo antigua",
+		"prob1": "Los cambios de desarrollo llegan a la producción",
+		"prob2": "Propietario sin coste",
+		"prob3": "Cada equipo establece sus propias reglas",
+		"hierarchyTitle": "Grupos de gestión: reglas que fluyen hacia abajo",
+		"hierarchyCaption": "Gobernanza · Jerarquía",
+		"hierarchyDesc": "Suscripciones a grupos según la política que comparten. Política y acceso establecidos en un grupo se aplican a todo lo que está por debajo de él.",
+		"hierarchyCallout": "Un árbol de grupo de gestión soporta hasta seis niveles de profundidad, sin contar el nivel raíz o de suscripción, y cada grupo o suscripción tiene un padre. El Cloud Adoption Framework recomienda un árbol superficial de tres a cuatro niveles, agrupados por tipo de carga de trabajo (plataforma, zonas de aterrizaje, sandbox), no por entorno. Desarrollo y producción pertenecen a suscripciones separadas dentro del mismo grupo. Los grupos de gestión no pueden ser etiquetados.",
+		"hierarchySay": "La política fluye hacia abajo.",
+		"polAllowed": "Ubicaciones permitidas",
+		"depthMax": "Hasta 6 niveles",
+		"depthAim": "Apunta a 3–4",
+		"ruleOk1": "Agrupar por política compartida",
+		"ruleNo1": "Imita el organigrama",
+		"ruleNo2": "Un grupo por entorno",
+		"subsTitle": "Suscripciones: facturación, límites y aislamiento",
+		"subsCaption": "Gobernanza · Suscripciones",
+		"subsDesc": "Una suscripción es un límite para coste, escala y acceso. Añade uno cuando un límite tenga que ser diferente.",
+		"subsCallout": "Las suscripciones son límites para escala, cuota, coste, gobernanza, seguridad e identidad. No están vinculadas a una región, así que no necesitas una por región. Los equipos de plataforma suelen tener sus propias suscripciones para conectividad, identidad y gestión.",
+		"bBill": "Facturación",
+		"bBillD": "El coste se registra por suscripción",
+		"bLimit": "Límites y cuota",
+		"bLimitD": "Cada uno tiene sus propios límites de escala",
+		"bIso": "Aislamiento",
+		"bIsoD": "Su propio acceso y ventaja política",
+		"noRegion": "Uno por región",
+		"rsOrders": "Presupuesto propio, acceso limitado",
+		"rsDev": "Seguro de romper, coste máximo",
+		"rsSandbox": "Los experimentos se mantienen separados",
+		"groupsTitle": "Grupos de recursos: un ciclo de vida compartido",
+		"groupsCaption": "Gobernanza · Grupos de recursos",
+		"groupsDesc": "Agrupa los recursos que se despliegan, actualizan y eliminan en un solo grupo de recursos.",
+		"groupsCallout": "Cada recurso vive exactamente en un solo grupo de recursos, y eliminar ese grupo elimina todo lo que hay en él. Un recurso aún puede conectarse a recursos de otros grupos, como una red compartida con su propio ciclo de vida. Un grupo de recursos también es un ámbito para Azure RBAC, Azure Policy y bloqueos.",
+		"groupsSay": "Mismo ciclo de vida, mismo grupo.",
+		"rgDev": "rg-orders-dev",
+		"rgNet": "rg-network-shared",
+		"lcDeploy": "Despliegue",
+		"lcUpdate": "Actualización",
+		"lcDelete": "Borrar",
+		"delGroup": "Eliminar grupo",
+		"gone": "Eliminados juntos",
+		"ownLife": "Ciclo de vida propio",
+		"tVnet": "Red virtual",
+		"tApp": "Aplicación web",
+		"tDb": "Base de datos",
+		"tStor": "Almacenamiento",
+		"gChip1": "Un grupo por recurso",
+		"gChip2": "Alcance de acceso y políticas",
+		"tagsTitle": "Etiquetas: decide qué y luego deja que la política los aplique",
+		"tagsCaption": "Gobernanza · Etiquetas",
+		"tagsDesc": "Las etiquetas no se heredan del grupo de recursos. Elige las etiquetas que importan y luego apóyalas con Azure Policy.",
+		"tagsCallout": "Los recursos no heredan etiquetas de un grupo de recursos o suscripción. Las definiciones de políticas integradas como \"Heredar una etiqueta del grupo de recursos\" las copian. Las etiquetas van en recursos, grupos de recursos y suscripciones, no en grupos de gestión. Las etiquetas son texto plano, así que nunca pongas secretos en ellas.",
+		"tagsSay": "No heredadas, a menos que la póliza los copie.",
+		"hCats": "Qué etiquetar",
+		"catFn": "Funcional",
+		"catFnD": "app · tier · env",
+		"catCl": "Clasificación",
+		"catClD": "confidencialidad · SLA",
+		"catAc": "Contabilidad",
+		"catAcD": "departamento · Centro de costes",
+		"catPu": "Propósito",
+		"catPuD": "Función empresarial",
+		"rgStore": "rg-storefront",
+		"tagEnv": "env: prod",
+		"tagCost": "cost-center: 1042",
+		"notInh": "No heredada",
+		"polInherit": "Heredar una etiqueta",
+		"policyTitle": "Azure Policy: elegir el efecto para cada regla",
+		"policyCaption": "Gobernanza · Política",
+		"policyDesc": "Agrupa las reglas en una iniciativa, asignala una vez en un grupo de gestión y luego elige qué ocurre en caso de incumplimiento.",
+		"policyCallout": "La auditoría marca un recurso no conforme pero no detiene la solicitud. La denegación la bloquea. Modifica las propiedades de cambios, como las etiquetas, al entrar. DeployIfNotExists despliega un recurso relacionado que falta, como la configuración de diagnóstico, y utiliza una identidad gestionada para hacerlo. Una iniciativa agrupa las definiciones de políticas para que gestiones una asignación.",
+		"policySay": "Elige qué pasa.",
+		"initName": "Contoso iniciativa de línea base",
+		"assignAt": "Asignado una vez",
+		"rq1": "Informar acceso al almacenamiento público",
+		"rq2": "Solo regiones aprobadas",
+		"rq3": "Etiqueta de centro de costes en todo",
+		"rq4": "Registros enviados al espacio de trabajo",
+		"ef1": "audit",
+		"ef1d": "Lo marca, lo permite",
+		"ef2": "deny",
+		"ef2d": "Bloquea la solicitud",
+		"ef3": "modify",
+		"ef3d": "Arregla las etiquetas al entrar",
+		"ef4": "deployIfNotExists",
+		"ef4d": "Despliega la pieza que falta",
+		"complyTitle": "Cumplimiento: quién responde a qué pregunta",
+		"complyCaption": "Gobernanza · cumplimiento normativo",
+		"complyDesc": "Defender for Cloud comprueba los recursos de Azure con un estándar. El Responsable de Cumplimiento hace un seguimiento de la organización.",
+		"complyCallout": "El panel de control de cumplimiento normativo en Microsoft Defender for Cloud muestra los estándares asignados a tus suscripciones, sus controles y las evaluaciones que hay detrás. Microsoft Purview Compliance Manager agrupa los controles en evaluaciones, asigna acciones de mejora a las personas y otorga una puntuación de cumplimiento. Los datos de cumplimiento de Defender for Cloud aparecen en Compliance Manager.",
+		"complySay": "Pregunta diferente, herramienta diferente.",
+		"dfc": "Defender para la Nube",
+		"dfcQ": "¿Mis recursos de Azure están al día?",
+		"cm": "Responsable de Cumplimiento",
+		"cmQ": "¿Qué podemos demostrar a un auditor?",
+		"stdMcsb": "Benchmark de seguridad en la nube de Microsoft",
+		"ctl1": "Gestión de identidad",
+		"ctl2": "Protección de datos",
+		"ctl3": "Seguridad de red",
+		"asmIso": "Evaluación ISO 27001",
+		"score": "Puntuación de cumplimiento",
+		"act1": "Acción de mejora",
+		"act2": "Asignado a un propietario",
+		"act3": "Pruebas adjuntas",
+		"feeds": "Fuentes",
+		"wholeTitle": "Todo en uno: la zona de aterrizaje de Contoso",
+		"wholeCaption": "Resumen",
+		"wholeDesc": "Cada ámbito responde a una pregunta de diseño. Juntos proporcionan reglas de Contoso, claridad de costes y pruebas.",
+		"wholeCallout": "A continuación: conectar a las personas. El personal de Contoso vive en Active Directory local, y la nube necesita las mismas identidades.",
+		"lzTitle": "Zona de aterrizaje Azure",
+		"wMg": "Grupo de gestión",
+		"wMgD": "Flujo de políticas y acceso hacia abajo",
+		"wSub": "Suscripción",
+		"wSubD": "Facturación, límites, aislamiento",
+		"wRg": "Grupo de recursos",
+		"wRgD": "Un ciclo de vida compartido",
+		"wTag": "Etiquetas",
+		"wTagD": "Aplicado por la política, no por mano",
+		"wPol": "Azure Policy",
+		"wPolD": "Auditar, negar, modificar, desplegar",
+		"wCmp": "Cumplimiento",
+		"wCmpD": "Defender para la Nube · Gestor de Cumplimiento",
+		"wholeFoot": "Learn oficial: <a href=\"https://learn.microsoft.com/azure/cloud-adoption-framework/ready/landing-zone/\" target=\"_blank\" rel=\"noopener\">zonas de aterrizaje Azure</a> · <a href=\"https://learn.microsoft.com/azure/governance/management-groups/overview\" target=\"_blank\" rel=\"noopener\">Grupos de gestión</a>",
+		"backLabel": "Hub AZ-305",
+		"short1": "El desastre",
+		"short2": "Jerarquía",
+		"short3": "Suscripciones",
+		"short4": "Grupos de recursos",
+		"short5": "Etiquetas",
+		"short6": "Política",
+		"short7": "Cumplimiento",
+		"short8": "Todo en uno",
+		"languageLabel": "Idioma"
+	},
+	"ja": {
+		"skipToMain": "図へスキップ",
+		"pageTitle": "ガバナンス設計：構造、ポリシー、コンプライアンス",
+		"stageHeading": "ガバナンス設計：構造、ポリシー、コンプライアンス",
+		"stageInstructions": "アニメーション解説。次回/前回ボタンや矢印キーを使ってナビゲート。Rボタンを押して再起動します。",
+		"prev": "◀ 前へ",
+		"next": "次へ ▶",
+		"replay": "↻ 再生",
+		"restart": "↻ 最初から",
+		"slower": "ゆっくり",
+		"faster": "速く",
+		"calloutOn": "吹き出し：オン",
+		"calloutOff": "吹き出し：オフ",
+		"outlineOn": "アウトライン：オン",
+		"outlineOff": "アウトライン：オフ",
+		"audioTip": "音声ナレーション",
+		"ccTip": "字幕",
+		"shortcutsTip": "ショートカット",
+		"stepDetails": "ステップの詳細",
+		"stepOf": "ステップ",
+		"resetPos": "位置を既定に戻す",
+		"scTitle": "キーボード ショートカット",
+		"scNext": "次のステップ",
+		"scPrev": "前のステップ",
+		"scRestart": "最初から",
+		"scReplay": "このステップを再生",
+		"scHide": "上部バーの表示 / 非表示",
+		"scHelp": "このヘルプの表示切り替え",
+		"nextHybrid": "次はハイブリッド・アイデンティティ",
+		"subName": "Contosoサブスクリプション",
+		"mgTenant": "テナントルート群",
+		"mgContoso": "Contoso",
+		"mgPlatform": "プラットフォーム",
+		"mgLz": "ランディングゾーン",
+		"mgSandbox": "サンドボックス",
+		"mgCorp": "コープ",
+		"mgOnline": "オンライン",
+		"sbPlatform": "プラットフォーム",
+		"sbOrdersProd": "注文プロッド",
+		"sbOrdersDev": "オーダー開発",
+		"sbStoreProd": "ストアプロダクション",
+		"sbSandbox": "サンドボックス",
+		"messTitle": "サブスクリプションは一つ、構造はなし",
+		"messCaption": "統治 ·問題",
+		"messDesc": "Contosoはすべてを1つのサブスクリプションで運営しています:明確な所有者、コストなし、共有ルールなしです。",
+		"messCallout": "これがAZ-305ガバナンスの目標の出発点であり、管理グループ、サブスクリプション、リソースグループの構造を推奨し、リソースタグ付けの戦略を提案することです。次のステップは、それぞれの問題に居場所を与えます。",
+		"messSay": "ルールはどこに行くのでしょうか?",
+		"tStore": "店舗フロント",
+		"tOrders": "注文DB",
+		"tImages": "画像",
+		"tErp": "ERPバッチ",
+		"tPartner": "パートナーAPI",
+		"tTestVm": "テストVM",
+		"tDevDb": "開発DB",
+		"tOldDemo": "古いデモ",
+		"prob1": "開発の変更が本番に到達しました",
+		"prob2": "ノーコストオーナー",
+		"prob3": "各チームは独自のルールを定めています",
+		"hierarchyTitle": "管理グループ:下に流れていくルール",
+		"hierarchyCaption": "統治 ·階層",
+		"hierarchyDesc": "グループサブスクリプションは共有するポリシーによって決まります。グループに設定されたポリシーとアクセスは、その下のすべてに適用されます。",
+		"hierarchyCallout": "管理グループツリーは、ルートレベルやサブスクリプションレベルを除いて最大6レベルまでサポートし、各グループまたはサブスクリプションには1つの親グループがあります。Cloud Adoption Frameworkは、環境別ではなく、ワークロードタイプ(プラットフォーム、ランディングゾーン、サンドボックス)ごとにグループ分けした3〜4レベルの浅いツリーを推奨しています。開発と本番は同じグループ内の別々のサブスクリプションに分類されます。管理グループにはタグ付けできません。",
+		"hierarchySay": "ポリシーは下に流れていきます。",
+		"polAllowed": "許可されている場所",
+		"depthMax": "最大6レベル",
+		"depthAim": "3〜4を目指す",
+		"ruleOk1": "共有ポリシーによるグループ",
+		"ruleNo1": "組織図をミラーリングする",
+		"ruleNo2": "環境ごとに1グループ",
+		"subsTitle": "サブスクリプション:請求、限度額、隔離",
+		"subsCaption": "運営 ·サブスクリプション",
+		"subsDesc": "サブスクリプションはコスト、規模、アクセスの境界線です。境界が異なる場合は追加してください。",
+		"subsCallout": "サブスクリプションはスケール、クォータ、コスト、ガバナンス、セキュリティ、アイデンティティの境界線です。リージョンごとに紐づいていないため、リージョンごとにサブスクリプションを持つ必要はありません。プラットフォームチームは通常、接続性、アイデンティティ、管理のために独自のサブスクリプションを持っています。",
+		"bBill": "請求",
+		"bBillD": "費用はサブスクリプションごとに追跡されます",
+		"bLimit": "制限とクオータ",
+		"bLimitD": "それぞれにスケールの制限があります",
+		"bIso": "孤立",
+		"bIsoD": "自身のアクセスとポリシーの優位性",
+		"noRegion": "リージョンごとに1つ",
+		"rsOrders": "自家予算、アクセスの限界",
+		"rsDev": "壊しても安全で、コストは上限付きです",
+		"rsSandbox": "実験は離れていろ",
+		"groupsTitle": "リソースグループ:1つの共有ライフサイクル",
+		"groupsCaption": "ガバナンス ·リソースグループ",
+		"groupsDesc": "展開、更新、削除されたリソースを一つのリソースグループにまとめましょう。",
+		"groupsCallout": "すべてのリソースは正確に1つのリソースグループに存在し、そのグループを削除するとそのグループ内のすべてが削除されます。リソースは、独自のライフサイクルを持つ共有ネットワークなど、他のグループのリソースと接続することができます。リソースグループはまた、Azure RBAC、Azure Policy、ロックのスコープでもあります。",
+		"groupsSay": "同じライフサイクル、同じグループ。",
+		"rgDev": "rg-orders-dev",
+		"rgNet": "rg-network-shared",
+		"lcDeploy": "展開",
+		"lcUpdate": "アップデート",
+		"lcDelete": "削除",
+		"delGroup": "グループを削除",
+		"gone": "一緒に削除されました",
+		"ownLife": "独自のライフサイクル",
+		"tVnet": "仮想ネットワーク",
+		"tApp": "ウェブアプリ",
+		"tDb": "データベース",
+		"tStor": "保管",
+		"gChip1": "資源ごとに1グループ",
+		"gChip2": "アクセスの範囲と方針",
+		"tagsTitle": "タグ:何を決めて、ポリシーに適用させるか",
+		"tagsCaption": "ガバナンス ·タグ",
+		"tagsDesc": "タグはリソースグループから継承されるものではありません。重要なタグを選び、Azure Policyで強制してください。",
+		"tagsCallout": "リソースはリソースグループやサブスクリプションからタグを引き継ぎません。「リソースグループからタグを引き継ぐ」などの組み込みポリシー定義がそれらをコピーします。タグはリソース、リソースグループ、サブスクリプションに付けられ、管理グループには載せません。タグはプレーンテキストなので、秘密を入れないでください。",
+		"tagsSay": "ポリシーがコピーしない限り、遺伝はしません。",
+		"hCats": "タグ付けするもの",
+		"catFn": "機能",
+		"catFnD": "アプリ ·ティア ·環境",
+		"catCl": "分類",
+		"catClD": "機密保持 ·SLA",
+		"catAc": "会計",
+		"catAcD": "部門 ·コストセンター",
+		"catPu": "目的",
+		"catPuD": "事業機能",
+		"rgStore": "rg-storefront",
+		"tagEnv": "env: prod",
+		"tagCost": "cost-center: 1042",
+		"notInh": "遺伝ではありません",
+		"polInherit": "タグを継承する",
+		"policyTitle": "Azure Policy: pick the effect for each rules",
+		"policyCaption": "統治 ·ポリシー",
+		"policyDesc": "ルールをイニシアチブにまとめ、管理グループで一度割り当て、その後、侵害時に何が起こるかを選びます。",
+		"policyCallout": "監査は準拠していないリソースをフラグ付けしますが、リクエスト自体は停止しません。拒否はブロックします。Modifyは送信時にタグなどのプロパティを変更します。DeployIfNotExistsは診断設定などの関連リソースが欠けているものを展開し、管理されたアイデンティティを使ってデプロイします。イニシアティブはポリシー定義をグループ化し、1つの割り当てを管理します。",
+		"policySay": "何が起こるか選べ。",
+		"initName": "Contosoベースラインイニシアチブ",
+		"assignAt": "一度割り当てられた",
+		"rq1": "公開ストレージアクセスを報告",
+		"rq2": "承認されたリージョンのみ",
+		"rq3": "すべてのものにコストセンタータグを付けています",
+		"rq4": "作業スペースに送信されたログ",
+		"ef1": "audit",
+		"ef1d": "フラグを立てて、許す",
+		"ef2": "deny",
+		"ef2d": "リクエストをブロックします",
+		"ef3": "modify",
+		"ef3d": "入る途中でタグを修正します",
+		"ef4": "deployIfNotExists",
+		"ef4d": "欠けていたピースを展開する",
+		"complyTitle": "コンプライアンス:誰がどの質問に答えるか",
+		"complyCaption": "ガバナンス ·コンプライアンス",
+		"complyDesc": "Defender for CloudはAzureリソースを標準と照らしてチェックします。コンプライアンスマネージャーは組織を追跡します。",
+		"complyCallout": "Microsoft Defender for Cloudの規制コンプライアンスダッシュボードでは、サブスクリプションに割り当てられた標準、その管理策、そしてその背後にある評価が表示されます。Microsoft Purview Compliance Managerはコントロールを評価にまとめ、改善アクションを担当者に割り当て、コンプライアンススコアを提供します。Defender for CloudのコンプライアンスデータはCompliance Managerに表示されます。",
+		"complySay": "質問は違う、道具も違う。",
+		"dfc": "クラウドのための防御者",
+		"dfcQ": "私のAzureリソースは標準を満たしていますか?",
+		"cm": "コンプライアンスマネージャー",
+		"cmQ": "監査人に何を証明できる?",
+		"stdMcsb": "マイクロソフトクラウドセキュリティベンチマーク",
+		"ctl1": "アイデンティティ管理",
+		"ctl2": "データ保護",
+		"ctl3": "ネットワークセキュリティ",
+		"asmIso": "ISO 27001評価",
+		"score": "コンプライアンススコア",
+		"act1": "改善措置",
+		"act2": "所有者に割り当てられた",
+		"act3": "添付証拠",
+		"feeds": "フィード",
+		"wholeTitle": "全体像：Contoso のランディングゾーン",
+		"wholeCaption": "まとめ",
+		"wholeDesc": "それぞれのスコープは一つの設計上の疑問に答えます。これらが合わさることで、Contosoのルール、コストの明確さ、そして証明が得られます。",
+		"wholeCallout": "次に:人々をつなげること。ContosoのスタッフはオンプレミスのActive Directoryに住んでおり、クラウドも同じアイデンティティを必要とします。",
+		"lzTitle": "アズールランディングゾーン",
+		"wMg": "管理グループ",
+		"wMgD": "ポリシーとアクセスフローダウン",
+		"wSub": "購読",
+		"wSubD": "請求、制限、隔離",
+		"wRg": "リソースグループ",
+		"wRgD": "共有ライフサイクルが一つ",
+		"wTag": "タグ",
+		"wTagD": "手作業ではなくポリシーで適用されるべきです",
+		"wPol": "Azure Policy",
+		"wPolD": "監査、否認、修正、デプロイ",
+		"wCmp": "コンプライアンス",
+		"wCmpD": "クラウドのDefender ·コンプライアンスマネージャー",
+		"wholeFoot": "公式学習: <a href=\"https://learn.microsoft.com/azure/cloud-adoption-framework/ready/landing-zone/\" target=\"_blank\" rel=\"noopener\">Azureランディングゾーン</a> · <a href=\"https://learn.microsoft.com/azure/governance/management-groups/overview\" target=\"_blank\" rel=\"noopener\">管理グループ</a>",
+		"backLabel": "AZ-305ハブ",
+		"short1": "混乱",
+		"short2": "階層",
+		"short3": "購読",
+		"short4": "リソースグループ",
+		"short5": "タグ",
+		"short6": "方針",
+		"short7": "コンプライアンス",
+		"short8": "すべてが一つに",
+		"languageLabel": "言語"
+	},
+	"ko": {
+		"skipToMain": "다이어그램으로 건너뛰기",
+		"pageTitle": "거버넌스 설계: 구조, 정책 및 규정 준수",
+		"stageHeading": "거버넌스 설계: 구조, 정책 및 규정 준수",
+		"stageInstructions": "애니메이션 설명. 다음/이전 버튼이나 방향키를 사용해 탐색하세요. R을 눌러 재시작하세요.",
+		"prev": "◀ 이전",
+		"next": "다음 ▶",
+		"replay": "↻ 다시 재생",
+		"restart": "↻ 처음부터",
+		"slower": "느리게",
+		"faster": "빠르게",
+		"calloutOn": "설명선: 켜짐",
+		"calloutOff": "설명선: 꺼짐",
+		"outlineOn": "개요: 켜짐",
+		"outlineOff": "개요: 꺼짐",
+		"audioTip": "오디오 내레이션",
+		"ccTip": "자막",
+		"shortcutsTip": "단축키",
+		"stepDetails": "단계 상세",
+		"stepOf": "단계",
+		"resetPos": "기본 위치로 되돌리기",
+		"scTitle": "키보드 단축키",
+		"scNext": "다음 단계",
+		"scPrev": "이전 단계",
+		"scRestart": "처음부터",
+		"scReplay": "이 단계 다시 재생",
+		"scHide": "상단 바 표시 / 숨기기",
+		"scHelp": "이 도움말 전환",
+		"nextHybrid": "다음 이야기: 하이브리드 정체성",
+		"subName": "Contoso 구독",
+		"mgTenant": "테넌트 루트 그룹",
+		"mgContoso": "Contoso",
+		"mgPlatform": "강령",
+		"mgLz": "랜딩 존",
+		"mgSandbox": "샌드박스",
+		"mgCorp": "군단",
+		"mgOnline": "온라인",
+		"sbPlatform": "강령",
+		"sbOrdersProd": "주문 제작",
+		"sbOrdersDev": "주문 개발",
+		"sbStoreProd": "스토어 프로덕션",
+		"sbSandbox": "샌드박스",
+		"messTitle": "구독 한 개, 구조 없음",
+		"messCaption": "거버넌스 · 문제",
+		"messDesc": "Contoso는 모든 것을 하나의 구독에서 운영합니다: 명확한 소유자, 비용 없음, 공유 규칙 없음.",
+		"messCallout": "이것이 AZ-305 거버넌스 목표의 출발점입니다: 관리 그룹, 구독, 리소스 그룹에 대한 구조와 자원 태깅 전략을 권고하는 것입니다. 다음 단계들은 각 문제에 안식처를 부여합니다.",
+		"messSay": "규칙은 어디로 가는 걸까요?",
+		"tStore": "스토어프런트",
+		"tOrders": "주문 DB",
+		"tImages": "이미지",
+		"tErp": "ERP 배치",
+		"tPartner": "파트너 API",
+		"tTestVm": "테스트 VM",
+		"tDevDb": "개발 DB",
+		"tOldDemo": "옛 데모",
+		"prob1": "개발 변경 사항이 프로덕션에 도달했습니다",
+		"prob2": "비용 부담 없이 소유주",
+		"prob3": "각 팀은 자체 규칙을 정합니다",
+		"hierarchyTitle": "관리 그룹: 아래로 흐르는 규칙",
+		"hierarchyCaption": "거버넌스 · 계층 구조",
+		"hierarchyDesc": "그룹 구독은 공유하는 정책에 따라 결정됩니다. 그룹에 설정된 정책과 접근 권한은 그 아래 모든 것에 적용됩니다.",
+		"hierarchyCallout": "관리 그룹 트리는 루트 또는 구독 수준을 제외한 최대 6단계의 깊이를 지원하며, 각 그룹이나 구독은 하나의 부모 그룹을 가집니다. Cloud Adoption Framework는 환경별이 아닌 워크로드 유형(플랫폼, 랜딩 존, 샌드박스)별로 그룹화한 3에서 4단계의 얕은 트리를 권장합니다. 개발과 프로덕션은 같은 그룹 내 별도의 구독에 속해야 합니다. 관리 그룹은 태그를 지정할 수 없습니다.",
+		"hierarchySay": "정책은 아래로 흘러갑니다.",
+		"polAllowed": "허용된 장소",
+		"depthMax": "최대 6레벨까지",
+		"depthAim": "3–4를 목표로 하세요",
+		"ruleOk1": "공유 정책에 따른 그룹",
+		"ruleNo1": "조직도를 미러링하세요",
+		"ruleNo2": "환경당 한 그룹씩",
+		"subsTitle": "구독: 청구, 한도 및 격리",
+		"subsCaption": "운영 · 구독",
+		"subsDesc": "구독은 비용, 규모, 접근성의 경계입니다. 경계가 달라야 할 때는 하나를 추가하세요.",
+		"subsCallout": "구독은 규모, 할당량, 비용, 거버넌스, 보안, 신원 정의 경계입니다. 지역별로 묶여 있지 않으므로 지역별로 하나씩 필요하지 않습니다. 플랫폼 팀은 보통 연결성, 신원 및 관리를 위해 자체 구독을 받습니다.",
+		"bBill": "청구",
+		"bBillD": "구독당 비용은 추적됩니다",
+		"bLimit": "한계와 할당량",
+		"bLimitD": "각 기체마다 스케일 한계가 있습니다",
+		"bIso": "고립",
+		"bIsoD": "자체적인 접근성과 정책적 우위가 있습니다",
+		"noRegion": "지역당 한 명씩",
+		"rsOrders": "자체 예산, 좁은 접근성",
+		"rsDev": "고장 내도 안전하고, 비용 한도",
+		"rsSandbox": "실험은 따로 떨어져 있어",
+		"groupsTitle": "리소스 그룹: 하나의 공유 생애주기",
+		"groupsCaption": "거버넌스 · 리소스 그룹",
+		"groupsDesc": "배포, 업데이트, 삭제된 자원을 하나의 리소스 그룹에 함께 모으세요.",
+		"groupsCallout": "모든 리소스는 정확히 하나의 리소스 그룹에 존재하며, 그룹을 삭제하면 그 안에 있는 모든 것이 삭제됩니다. 자원은 자체 라이프사이클을 가진 공유 네트워크와 같은 다른 그룹의 리소스와 여전히 연결할 수 있습니다. 리소스 그룹은 Azure RBAC, Azure Policy, 잠금을 위한 범위이기도 합니다.",
+		"groupsSay": "같은 생애주기, 같은 그룹.",
+		"rgDev": "rg-orders-dev",
+		"rgNet": "rg-network-shared",
+		"lcDeploy": "배치",
+		"lcUpdate": "업데이트",
+		"lcDelete": "삭제",
+		"delGroup": "삭제 그룹",
+		"gone": "함께 삭제됨",
+		"ownLife": "자체 생애 주기",
+		"tVnet": "가상 네트워크",
+		"tApp": "웹 앱",
+		"tDb": "데이터베이스",
+		"tStor": "저장",
+		"gChip1": "자원당 한 그룹씩",
+		"gChip2": "접근 범위와 정책",
+		"tagsTitle": "태그: 무엇을 결정하고 정책을 적용할지 결정하세요",
+		"tagsCaption": "운영 · 태그",
+		"tagsDesc": "태그는 리소스 그룹에서 상속되지 않습니다. 중요한 태그를 선택한 후 Azure Policy로 이를 강제하세요.",
+		"tagsCallout": "리소스는 리소스 그룹이나 구독에서 태그를 상속하지 않습니다. \"리소스 그룹에서 태그를 상속한다\"와 같은 내장 정책 정의가 이를 복사합니다. 태그는 리소스, 리소스 그룹, 구독에 붙이지 않고, 관리 그룹에는 없습니다. 태그는 평문이므로 절대 비밀을 넣지 마세요.",
+		"tagsSay": "정책이 복제하지 않는 한 상속되지 않습니다.",
+		"hCats": "태그할 것들",
+		"catFn": "기능성",
+		"catFnD": "앱 · 등급 · 환경",
+		"catCl": "분류",
+		"catClD": "기밀 유지 · SLA",
+		"catAc": "회계",
+		"catAcD": "부서 · 비용 센터",
+		"catPu": "목적",
+		"catPuD": "사업 기능",
+		"rgStore": "rg-storefront",
+		"tagEnv": "env: prod",
+		"tagCost": "cost-center: 1042",
+		"notInh": "상속되지 않았다",
+		"polInherit": "태그를 상속받으세요",
+		"policyTitle": "Azure Policy: pick the effect for each rules",
+		"policyCaption": "거버넌스 · 정책",
+		"policyDesc": "규칙을 이니셔티브에 묶어 관리 그룹에서 한 번 할당한 뒤, 침해 시 무슨 일이 일어날지 선택하세요.",
+		"policyCallout": "Audit는 비준수 자원을 표시하지만 요청을 중단하지는 않습니다. 거부 기능은 차단합니다. Modify는 접근 중에 태그와 같은 속성을 변경합니다. DeployIfNotExists는 진단 설정 같은 누락된 관련 자원을 배포하며, 관리 식별을 사용합니다. 이니셔티브는 정책 정의를 그룹화하여 하나의 할당을 관리합니다.",
+		"policySay": "어떤 일이 일어나는지 선택하세요.",
+		"initName": "Contoso 기준선 이니셔티브",
+		"assignAt": "한 번 배정됨",
+		"rq1": "공개 저장소 접근 신고",
+		"rq2": "승인된 지역만이",
+		"rq3": "모든 것에 비용 중심 태그가 붙어 있습니다",
+		"rq4": "워크스페이스으로 전송된 로그",
+		"ef1": "audit",
+		"ef1d": "플래그를 찍고, 허용한다",
+		"ef2": "deny",
+		"ef2d": "요청을 차단합니다",
+		"ef3": "modify",
+		"ef3d": "들어오는 길에 태그를 수정합니다",
+		"ef4": "deployIfNotExists",
+		"ef4d": "빠진 조각을 배치한다",
+		"complyTitle": "준수: 누가 어떤 질문에 답하는지요",
+		"complyCaption": "거버넌스 · 준수",
+		"complyDesc": "Defender for Cloud는 Azure 리소스를 표준과 비교해 검증합니다. 컴플라이언스 매니저는 조직을 추적합니다.",
+		"complyCallout": "Microsoft Defender for Cloud의 규제 준수 대시보드는 구독에 할당된 표준, 그 통제 및 그 뒤에 있는 평가를 보여줍니다. Microsoft Purview Compliance Manager는 통제 요소를 평가로 그룹화하고, 개선 조치를 담당자에게 할당하며, 준수 점수를 제공합니다. Defender for Cloud 준수 데이터는 준수 관리자에 표시됩니다.",
+		"complySay": "다른 질문, 다른 도구.",
+		"dfc": "클라우드 포 디펜더",
+		"dfcQ": "제 Azure 리소스가 표준에 맞나요?",
+		"cm": "컴플라이언스 매니저",
+		"cmQ": "감사인에게 무엇을 증명할 수 있을까요?",
+		"stdMcsb": "마이크로소프트 클라우드 보안 벤치마크",
+		"ctl1": "아이덴티티 관리",
+		"ctl2": "데이터 보호",
+		"ctl3": "네트워크 보안",
+		"asmIso": "ISO 27001 평가",
+		"score": "준수 점수",
+		"act1": "개선 조치",
+		"act2": "소유주에게 할당됨",
+		"act3": "첨부된 증거",
+		"feeds": "피드",
+		"wholeTitle": "전체 설계: Contoso 랜딩 존",
+		"wholeCaption": "요약",
+		"wholeDesc": "각 스코프는 하나의 설계 질문에 답합니다. 이들은 함께 Contoso 규칙, 비용 명확성, 증명을 제공합니다.",
+		"wholeCallout": "다음: 사람들을 연결하세요. Contoso 직원들은 온프레미스 Active Directory에 거주하며, 클라우드도 동일한 신원을 필요로 합니다.",
+		"lzTitle": "Azure 착륙 구역",
+		"wMg": "관리 그룹",
+		"wMgD": "정책 및 접근 흐름 하향",
+		"wSub": "구독",
+		"wSubD": "청구, 한도, 격리",
+		"wRg": "리소스 그룹",
+		"wRgD": "하나의 공유 생애주기",
+		"wTag": "태그",
+		"wTagD": "정책에 의해 적용되되, 손으로 적용하는 것이 아닙니다",
+		"wPol": "Azure Policy",
+		"wPolD": "감사, 거부, 수정, 배포",
+		"wCmp": "준수",
+		"wCmpD": "클라우드 디펜더 · 컴플라이언스 매니저",
+		"wholeFoot": "공식 학습: <a href=\"https://learn.microsoft.com/azure/cloud-adoption-framework/ready/landing-zone/\" target=\"_blank\" rel=\"noopener\">Azure 착륙 구역</a> · <a href=\"https://learn.microsoft.com/azure/governance/management-groups/overview\" target=\"_blank\" rel=\"noopener\">관리 그룹</a>",
+		"backLabel": "AZ-305 허브",
+		"short1": "엉망진창",
+		"short2": "계층 구조",
+		"short3": "구독",
+		"short4": "리소스 그룹",
+		"short5": "태그",
+		"short6": "정책",
+		"short7": "준수",
+		"short8": "모두 하나로",
+		"languageLabel": "언어"
+	},
+	"pt": {
+		"skipToMain": "Ir para o diagrama",
+		"pageTitle": "Projetar a governança: estrutura, políticas e conformidade",
+		"stageHeading": "Projetar a governança: estrutura, políticas e conformidade",
+		"stageInstructions": "Explicação animada. Use os botões Próximo/Anterior ou as setas para navegar. Pressione R para reiniciar.",
+		"prev": "◀ Voltar",
+		"next": "Avançar ▶",
+		"replay": "↻ Repetir",
+		"restart": "↻ Reiniciar",
+		"slower": "Mais devagar",
+		"faster": "Mais rápido",
+		"calloutOn": "Balões: ligados",
+		"calloutOff": "Balões: desligados",
+		"outlineOn": "Resumo: ligado",
+		"outlineOff": "Resumo: desligado",
+		"audioTip": "Narração em áudio",
+		"ccTip": "Legendas",
+		"shortcutsTip": "Atalhos",
+		"stepDetails": "Detalhes da etapa",
+		"stepOf": "Etapa",
+		"resetPos": "Restaurar a posição padrão",
+		"scTitle": "Atalhos de teclado",
+		"scNext": "Próxima etapa",
+		"scPrev": "Etapa anterior",
+		"scRestart": "Reiniciar",
+		"scReplay": "Repetir esta etapa",
+		"scHide": "Mostrar / ocultar a barra superior",
+		"scHelp": "Alternar esta ajuda",
+		"nextHybrid": "A seguir: identidade híbrida",
+		"subName": "Contoso assinatura",
+		"mgTenant": "Grupo raiz de inquilino",
+		"mgContoso": "Contoso",
+		"mgPlatform": "Plataforma",
+		"mgLz": "Zonas de pouso",
+		"mgSandbox": "Sandbox",
+		"mgCorp": "Corp",
+		"mgOnline": "Online",
+		"sbPlatform": "Plataforma",
+		"sbOrdersProd": "Ordens de incitação",
+		"sbOrdersDev": "Desenvolvimento de ordens",
+		"sbStoreProd": "Produção de loja",
+		"sbSandbox": "Sandbox",
+		"messTitle": "Uma assinatura, sem estrutura",
+		"messCaption": "Governança · O problema",
+		"messDesc": "Contoso roda tudo em uma única assinatura: sem proprietário claro, sem visão de custo e sem regras compartilhadas.",
+		"messCallout": "Este é o ponto de partida para o objetivo de governança do AZ-305: recomendar uma estrutura para grupos de gestão, assinaturas e grupos de recursos, e uma estratégia para a marcação de recursos. Os próximos passos dão um lar a cada problema.",
+		"messSay": "Onde vão as regras?",
+		"tStore": "Loja",
+		"tOrders": "Ordens DB",
+		"tImages": "Imagens",
+		"tErp": "ERP lote",
+		"tPartner": "API de Parceiros",
+		"tTestVm": "Test VM",
+		"tDevDb": "DB de desenvolvimento",
+		"tOldDemo": "Demo antiga",
+		"prob1": "Mudanças de desenvolvimento alcançam a produção",
+		"prob2": "Proprietário gratuito",
+		"prob3": "Cada equipe define suas próprias regras",
+		"hierarchyTitle": "Grupos de gestão: regras que fluem para baixo",
+		"hierarchyCaption": "Governança · Hierarquia",
+		"hierarchyDesc": "Assinaturas de grupo pela política que compartilham. Política e acesso definidos em um grupo se aplicam a tudo abaixo dele.",
+		"hierarchyCallout": "Uma árvore de grupo de gerenciamento suporta até seis níveis de profundidade, sem contar o nível raiz ou de assinatura, e cada grupo ou assinatura tem um pai. O Cloud Adoption Framework recomenda uma árvore rasa de três a quatro níveis, agrupada por tipo de carga de trabalho (plataforma, zonas de aterrissagem, sandbox), não por ambiente. Dev e produção pertencem a assinaturas separadas sob o mesmo grupo. Grupos de gerenciamento não podem ser marcados.",
+		"hierarchySay": "A política flui para baixo.",
+		"polAllowed": "Locais permitidos",
+		"depthMax": "Até 6 níveis",
+		"depthAim": "Mire para 3–4",
+		"ruleOk1": "Grupo por política compartilhada",
+		"ruleNo1": "Espelhe o organigrama",
+		"ruleNo2": "Um grupo por ambiente",
+		"subsTitle": "Assinaturas: faturamento, limites e isolamento",
+		"subsCaption": "Governança · Assinaturas",
+		"subsDesc": "Uma assinatura é um limite para custo, escala e acesso. Adicione uma quando um limite precisar ser diferente.",
+		"subsCallout": "Assinaturas são limites para escala, cota, custo, governança, segurança e identidade. Elas não estão vinculadas a uma região, então você não precisa de uma por região. As equipes de plataforma geralmente recebem suas próprias assinaturas para conectividade, identidade e gerenciamento.",
+		"bBill": "Faturamento",
+		"bBillD": "O custo é acompanhado por assinatura",
+		"bLimit": "Limites e cotas",
+		"bLimitD": "Cada um tem seus próprios limites de escala",
+		"bIso": "Isolamento",
+		"bIsoD": "Seu próprio acesso e vantagem política",
+		"noRegion": "Um por região",
+		"rsOrders": "Orçamento próprio, acesso apertado",
+		"rsDev": "Seguro para quebrar, custo limitado",
+		"rsSandbox": "Experimentos ficam separados",
+		"groupsTitle": "Grupos de recursos: um ciclo de vida compartilhado",
+		"groupsCaption": "Governança · Grupos de recursos",
+		"groupsDesc": "Junte os recursos que são implantados, atualizados e excluídos em um único grupo de recursos.",
+		"groupsCallout": "Todo recurso vive em exatamente um grupo de recursos, e excluir o grupo elimina tudo que está nele. Um recurso ainda pode se conectar a recursos de outros grupos, como uma rede compartilhada com seu próprio ciclo de vida. Um grupo de recursos também é um escopo para Azure RBAC, Azure Policy e locks.",
+		"groupsSay": "Mesmo ciclo de vida, mesmo grupo.",
+		"rgDev": "rg-orders-dev",
+		"rgNet": "rg-network-shared",
+		"lcDeploy": "Implantar",
+		"lcUpdate": "Atualização",
+		"lcDelete": "Excluir",
+		"delGroup": "Excluir grupo",
+		"gone": "Excluídos juntos",
+		"ownLife": "Ciclo de vida próprio",
+		"tVnet": "Rede virtual",
+		"tApp": "Aplicativo web",
+		"tDb": "Banco de dados",
+		"tStor": "Armazenamento",
+		"gChip1": "Um grupo por recurso",
+		"gChip2": "Escopo de acesso e políticas",
+		"tagsTitle": "Tags: decidir o quê, depois deixar a política aplicá-los",
+		"tagsCaption": "Governança · Tags",
+		"tagsDesc": "As tags não são herdadas do grupo de recursos. Escolha as tags que importam e depois as faça cumprir com o Azure Policy.",
+		"tagsCallout": "Recursos não herdam tags de um grupo de recursos ou assinatura. Definições de políticas embutidas como \"Herdar uma tag do grupo de recursos\" as copiam para baixo. Tags vão para recursos, grupos de recursos e assinaturas, não para grupos de gerenciamento. Tags são texto simples, então nunca coloque segredos nelas.",
+		"tagsSay": "Não herdado, a menos que a apólice os copie.",
+		"hCats": "O que marcar",
+		"catFn": "Funcional",
+		"catFnD": "app · tier · env",
+		"catCl": "Classificação",
+		"catClD": "confidencialidade · SLA",
+		"catAc": "Contabilidade",
+		"catAcD": "departamento · centro de custos",
+		"catPu": "Propósito",
+		"catPuD": "Função empresarial",
+		"rgStore": "rg-storefront",
+		"tagEnv": "env: prod",
+		"tagCost": "cost-center: 1042",
+		"notInh": "Não herdado",
+		"polInherit": "Herdar uma etiqueta",
+		"policyTitle": "Azure Policy: escolha o efeito para cada regra",
+		"policyCaption": "Governança · Política",
+		"policyDesc": "Agrupe regras em uma iniciativa, apresente uma vez em um grupo de gestão e depois escolha o que acontece em caso de violação.",
+		"policyCallout": "A auditoria sinaliza um recurso não compatível, mas não para a solicitação. A negação bloqueia. Modifique propriedades alteradas, como tags, ao entrar. DeployIfNotExists implanta um recurso relacionado ausente, como configurações de diagnóstico, e usa uma identidade gerenciada para fazer isso. Uma iniciativa agrupa definições de políticas para gerenciar uma única atribuição.",
+		"policySay": "Escolha o que acontece.",
+		"initName": "Contoso iniciativa de linha de base",
+		"assignAt": "Designado uma vez",
+		"rq1": "Reporte acesso ao armazenamento público",
+		"rq2": "Apenas regiões aprovadas",
+		"rq3": "Etiqueta de centro de custos em tudo",
+		"rq4": "Logs enviados para o espaço de trabalho",
+		"ef1": "audit",
+		"ef1d": "Sinaliza, permite",
+		"ef2": "deny",
+		"ef2d": "Bloqueia o pedido",
+		"ef3": "modify",
+		"ef3d": "Corrige tags no caminho",
+		"ef4": "deployIfNotExists",
+		"ef4d": "Implanta a peça que faltava",
+		"complyTitle": "Conformidade: quem responde a qual pergunta",
+		"complyCaption": "Governança · Conformidade",
+		"complyDesc": "O Defender for Cloud verifica os recursos do Azure em relação a um padrão. O Compliance Manager acompanha a organização.",
+		"complyCallout": "O painel de conformidade regulatória no Microsoft Defender for Cloud mostra os padrões atribuídos às suas assinaturas, seus controles e as avaliações por trás delas. O Microsoft Purview Compliance Manager agrupa os controles nas avaliações, atribui ações de melhoria às pessoas e fornece uma pontuação de conformidade. Os dados de conformidade do Defender for Cloud são apresentados no Compliance Manager.",
+		"complySay": "Pergunta diferente, ferramenta diferente.",
+		"dfc": "Defensor para a Nuvem",
+		"dfcQ": "Meus recursos do Azure estão em padrão?",
+		"cm": "Gerente de Conformidade",
+		"cmQ": "O que podemos provar para um auditor?",
+		"stdMcsb": "Benchmark de segurança em nuvem da Microsoft",
+		"ctl1": "Gerenciamento de identidade",
+		"ctl2": "Proteção de dados",
+		"ctl3": "Segurança de rede",
+		"asmIso": "Avaliação ISO 27001",
+		"score": "Pontuação de conformidade",
+		"act1": "Ação de melhoria",
+		"act2": "Atribuído a um proprietário",
+		"act3": "Evidências anexadas",
+		"feeds": "Feeds",
+		"wholeTitle": "Tudo em um: a zona de pouso de Contoso",
+		"wholeCaption": "Resumo",
+		"wholeDesc": "Cada escopo responde a uma questão de design. Juntos, eles fornecem regras de Contoso, clareza de custos e prova.",
+		"wholeCallout": "Em seguida: conecte as pessoas. A equipe da Contoso mora no Active Directory local, e a nuvem precisa das mesmas identidades.",
+		"lzTitle": "Azure landing zone",
+		"wMg": "Grupo de gestão",
+		"wMgD": "Fluxo de políticas e acesso para baixo",
+		"wSub": "Assinatura",
+		"wSubD": "Faturamento, limites, isolamento",
+		"wRg": "Grupo de recursos",
+		"wRgD": "Um ciclo de vida compartilhado",
+		"wTag": "Tags",
+		"wTagD": "Aplicado pela política, não pela mão",
+		"wPol": "Azure Policy",
+		"wPolD": "Auditar, negar, modificar, implantar",
+		"wCmp": "Conformidade",
+		"wCmpD": "Defender para Nuvem · Gerente de Conformidade",
+		"wholeFoot": "Oficial Learn: <a href=\"https://learn.microsoft.com/azure/cloud-adoption-framework/ready/landing-zone/\" target=\"_blank\" rel=\"noopener\">Zonas de aterrissagem Azure</a> · <a href=\"https://learn.microsoft.com/azure/governance/management-groups/overview\" target=\"_blank\" rel=\"noopener\">Grupos de gestão</a>",
+		"backLabel": "Hub AZ-305",
+		"short1": "A bagunça",
+		"short2": "Hierarquia",
+		"short3": "Assinaturas",
+		"short4": "Grupos de recursos",
+		"short5": "Tags",
+		"short6": "Política",
+		"short7": "Conformidade",
+		"short8": "Tudo em um só",
+		"languageLabel": "Idioma"
+	}
+};
+function t(key) { return (I18N[currentLang] && I18N[currentLang][key]) || I18N.en[key] || key; }
+
+function setLanguage(lang) {
+	currentLang = lang;
+	document.documentElement.lang = lang;
+	try { const u=new URL(location.href); u.searchParams.set('lang', lang); history.replaceState(null,'',u); } catch(_){}
+	document.getElementById('page-title').textContent = '\u2728 ' + t('pageTitle');
+	// icon-only nav buttons: the localized label lives in the tooltip (title)
+	document.getElementById('prev-btn').title = t('prev');
+	document.getElementById('next-btn').title = t('next');
+	document.getElementById('replay-btn').title = t('replay');
+	document.getElementById('reset-btn').title = t('restart');
+	document.getElementById('speed-down').title = t('slower');
+	document.getElementById('speed-up').title = t('faster');
+	document.getElementById('outline-title').textContent = t('stepDetails');
+	document.querySelector('.skip-link').textContent = t('skipToMain');
+	document.getElementById('stage-heading').textContent = t('stageHeading');
+	document.getElementById('stage-instructions').textContent = t('stageInstructions');
+	// localize overlay tooltips (icon buttons show their label on hover / as native title)
+	const _hlp=document.getElementById('help-toggle'); if(_hlp) _hlp.setAttribute('data-tip', t('shortcutsTip'));
+	const _aud=document.getElementById('audio-toggle'); if(_aud) _aud.title=t('audioTip');
+	const _ccb=document.getElementById('cc-toggle'); if(_ccb) _ccb.title=t('ccTip');
+	syncCalloutBtn(); syncOutlineBtn();
+	if (typeof syncAudioBtn === 'function') syncAudioBtn();
+	if (typeof buildShortcuts === 'function') buildShortcuts();
+	document.querySelectorAll('.aw-drag-reset').forEach(b=>{ b.title=t('resetPos'); b.setAttribute('aria-label', t('resetPos')); });
+	try { localStorage.setItem('aw-tmpl-lang', lang); } catch(_){}
+	document.title = t('pageTitle') + ' \u2014 Azure Animations';
+	const back = document.querySelector('.header-back-link');
+	back.textContent = '\u2190 ' + t('backLabel');
+	back.title = t('backLabel'); back.setAttribute('aria-label', t('backLabel'));
+	const url = new URL(back.href); url.searchParams.set('lang', lang); back.href = url;
+	const picker = document.getElementById('lang-select');
+	picker.title = t('languageLabel'); picker.setAttribute('aria-label', t('languageLabel'));
+	for (const [id, key] of [['prev-btn','scPrev'], ['next-btn','scNext'], ['replay-btn','scReplay'], ['reset-btn','scRestart'],
+		['speed-down','slower'], ['speed-up','faster'], ['audio-toggle','audioTip'], ['cc-toggle','ccTip'], ['help-toggle','shortcutsTip']]) {
+		const control = document.getElementById(id); if(control) control.setAttribute('aria-label', t(key));
+	}
+	if (current >= 0) renderStep(current);
+}
+
+// ── STEPS (journey order) ─────────────────
+const S = (id, short) => ({ id, short, titleKey:id+'Title', captionKey:id+'Caption', descKey:id+'Desc', calloutKey:id+'Callout' });
+const STEPS = [
+	S('mess','The mess'), S('hierarchy','Hierarchy'), S('subs','Subscriptions'), S('groups','Resource groups'),
+	S('tags','Tags'), S('policy','Policy'), S('comply','Compliance'), S('whole','All in one')
+];
+
+STEPS.forEach((s, i) => { s.shortKey = 'short' + (i + 1); });
+
+// ── DOM REFS ──────────────────────────────
+const stage=document.getElementById('stage-frame'), svg=document.getElementById('fx-svg'),
+	counter=document.getElementById('step-counter'), breadcrumb=document.getElementById('breadcrumb'),
+	progress=document.getElementById('progress-fill'), announcer=document.getElementById('step-announcer'),
+	outlineBody=document.getElementById('outline-body'), outlinePanel=document.getElementById('step-outline'),
+	outlineBtn=document.getElementById('outline-toggle'), calloutBtn=document.getElementById('callout-toggle'),
+	langSelect=document.getElementById('lang-select');
+
+langSelect.addEventListener('change', e => setLanguage(e.target.value));
+const urlLang = new URLSearchParams(location.search).get('lang');
+let savedLang=null; try{ savedLang=localStorage.getItem('aw-tmpl-lang'); }catch(_){}
+if (urlLang && I18N[urlLang]) { currentLang = urlLang; langSelect.value = urlLang; }
+else if (savedLang && I18N[savedLang]) { currentLang = savedLang; langSelect.value = savedLang; }
+
+// ── Font size ─────────────────────────────
+const fontScales=[0.8,0.9,1,1.1,1.2,1.35]; let fontScaleIdx=2;
+const baseFontSize=parseFloat(getComputedStyle(document.documentElement).fontSize);
+function applyFontScale(){ document.documentElement.style.fontSize=(baseFontSize*fontScales[fontScaleIdx])+'px'; const c=document.getElementById('controls'); if(c) c.style.fontSize=baseFontSize+'px'; if(typeof current!=='undefined'&&current>=0){ const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s); } }
+function saveFont(){ try{ localStorage.setItem('aw-tmpl-font', String(fontScaleIdx)); }catch(_){} }
+try{ const f=parseInt(localStorage.getItem('aw-tmpl-font'),10); if(!isNaN(f)&&f>=0&&f<fontScales.length){ fontScaleIdx=f; applyFontScale(); } }catch(_){}
+document.getElementById('font-decrease').addEventListener('click',()=>{ if(fontScaleIdx>0){fontScaleIdx--;applyFontScale();saveFont();} });
+document.getElementById('font-increase').addEventListener('click',()=>{ if(fontScaleIdx<fontScales.length-1){fontScaleIdx++;applyFontScale();saveFont();} });
+
+let current=-1, animating=false, liveEls=[], liveTimelines=[], calloutEnabled=false;
+
+function syncCalloutBtn(){ calloutBtn.classList.toggle('toggle-active',calloutEnabled); calloutBtn.setAttribute('aria-pressed',calloutEnabled?'true':'false'); calloutBtn.setAttribute('data-tip',calloutEnabled?t('calloutOn'):t('calloutOff')); }
+calloutBtn.addEventListener('click',()=>{
+	calloutEnabled=!calloutEnabled; syncCalloutBtn();
+	if(current<0) return;
+	// Toggle just the callout box in place — don't re-render (no animation replay).
+	const existing=stage.querySelectorAll('.callout');
+	if(calloutEnabled){ if(!existing.length){ const c=maybeCallout(STEPS[current]); if(c) gsap.fromTo(c,{opacity:0,y:10},{opacity:1,y:0,duration:0.4,overwrite:true}); } }
+	else { existing.forEach(c=>{ const idx=liveEls.indexOf(c); if(idx>-1) liveEls.splice(idx,1); gsap.killTweensOf(c); c.remove(); }); }
+}); syncCalloutBtn();
+function syncOutlineBtn(){ const on=!outlinePanel.hasAttribute('hidden'); outlineBtn.classList.toggle('toggle-active',on); outlineBtn.setAttribute('aria-expanded',on?'true':'false'); outlineBtn.setAttribute('data-tip',on?t('outlineOn'):t('outlineOff')); }
+outlineBtn.addEventListener('click',()=>{ const showing=!outlinePanel.hasAttribute('hidden'); if(showing){outlinePanel.setAttribute('hidden','');} else {outlinePanel.removeAttribute('hidden');} syncOutlineBtn(); }); syncOutlineBtn();
+
+// ── Audio narration (overlay button · speaker + remaining-time countdown) ──
+// Drop one recorded clip per step (in STEPS order) into AUDIO_FILES for real narration;
+// localized clips live under AUDIO_BASE/<lang>/. With no files, the browser reads each
+// step's title + description aloud (speech synthesis), so the button works with zero assets.
+const AUDIO_BASE = 'audio/DesignGovernance/';
+const AUDIO_FILES = [
+	'step-01.mp3', 'step-02.mp3', 'step-03.mp3', 'step-04.mp3', 'step-05.mp3', 'step-06.mp3', 'step-07.mp3', 'step-08.mp3'
+];
+let audioEnabled=false, currentAudio=null, audioTimeout=null, ccPref=false;
+const audioBtn=document.getElementById('audio-toggle');
+if(audioBtn){ audioBtn.innerHTML='<span class="aw-audio-ico" aria-hidden="true">\uD83D\uDD07</span><span class="aw-audio-time" aria-hidden="true">--:--</span>'; }
+const audioIco=audioBtn&&audioBtn.querySelector('.aw-audio-ico'), audioTimeEl=audioBtn&&audioBtn.querySelector('.aw-audio-time');
+// Captions can play WITHOUT sound: when CC is on but audio is off we still play the clip MUTED, so the
+// caption reveals at the same pace — speaker shows 🔇 and the remaining-time countdown keeps running.
+function playbackOn(){ return audioEnabled || ccPref; }
+function audioDir(){ return (currentLang && currentLang!=='en') ? currentLang+'/' : ''; }
+function fmtDur(s){ s=Math.max(0,Math.ceil(s)); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
+function updateAudioTime(){ if(audioTimeEl && currentAudio && isFinite(currentAudio.duration) && currentAudio.duration>0) audioTimeEl.textContent=fmtDur(currentAudio.duration-currentAudio.currentTime); }
+function syncAudioBtn(){ if(!audioBtn) return; if(audioIco) audioIco.textContent=audioEnabled?'\uD83D\uDD0A':'\uD83D\uDD07'; if(audioTimeEl && !playbackOn()) audioTimeEl.textContent='--:--'; audioBtn.classList.toggle('toggle-active',audioEnabled); audioBtn.setAttribute('aria-pressed',audioEnabled?'true':'false'); }
+function speakFallback(i){ if(!window.speechSynthesis) return; const step=STEPS[i]; const u=new SpeechSynthesisUtterance(`${t(step.titleKey)}. ${t(step.descKey)}`); u.lang=currentLang||'en'; try{ speechSynthesis.cancel(); speechSynthesis.speak(u); }catch(_){} }
+function stopAudio(){
+	if(currentAudio){ currentAudio.pause(); currentAudio.currentTime=0; currentAudio=null; }
+	if(audioTimeout){ clearTimeout(audioTimeout); audioTimeout=null; }
+	if(audioTimeEl) audioTimeEl.textContent='--:--';
+	try{ if(window.speechSynthesis) speechSynthesis.cancel(); }catch(_){}
+	if(window.AWCaptions) AWCaptions.clear();
+}
+function playStepAudio(i){
+	stopAudio();
+	if(document.body.classList.contains('aw-prestart')) return;   // start gate holds audio too
+	if(!playbackOn() || i<0 || i>=STEPS.length) return;
+	audioTimeout=setTimeout(()=>{
+		audioTimeout=null;
+		const file=AUDIO_FILES[i];
+		if(!file){ if(audioEnabled) speakFallback(i); return; }   // no clip = no timing source for caption-only
+		currentAudio=new Audio(AUDIO_BASE+audioDir()+file);
+		currentAudio.volume = audioEnabled ? 1 : 0;              // caption-only = silent (volume 0) timing source
+		if(window.AWCaptions) AWCaptions.bind(currentAudio,i);
+		currentAudio.addEventListener('loadedmetadata',updateAudioTime);
+		currentAudio.addEventListener('timeupdate',updateAudioTime);
+		currentAudio.addEventListener('ended',()=>{ if(audioTimeEl) audioTimeEl.textContent='0:00'; });
+		currentAudio.addEventListener('error',()=>{ if(audioEnabled) speakFallback(i); });
+		currentAudio.play().catch(()=>{});
+	}, 400);
+}
+if(audioBtn){ audioBtn.addEventListener('click',()=>{
+	audioEnabled=!audioEnabled; try{localStorage.setItem('aw-tmpl-audio',audioEnabled?'1':'0');}catch(_){} syncAudioBtn();
+	if(current>=0){
+		if(!playbackOn()) stopAudio();
+		else if(currentAudio) currentAudio.volume = audioEnabled ? 1 : 0;   // flip sound without restarting the clip
+		else playStepAudio(current);
+	}
+	if(typeof applyCc==='function') applyCc();
+}); }
+// Initial audio + CC from the ?audio parameter:
+//   on -> audio ON + captions ON  ·  off -> both OFF  ·  (absent) -> audio ON, captions OFF (a prior stored choice still wins).
+(function(){
+	var p=null; try{ p=new URLSearchParams(location.search).get('audio'); }catch(_){}
+	if(p==='on'){ audioEnabled=true; ccPref=true; }
+	else if(p==='off'){ audioEnabled=false; ccPref=false; }
+	else {
+		audioEnabled=true; ccPref=false;
+		try{ var a=localStorage.getItem('aw-tmpl-audio'); if(a==='1') audioEnabled=true; else if(a==='0') audioEnabled=false; }catch(_){}
+		try{ var c=localStorage.getItem('aw-tmpl-cc'); if(c==='1') ccPref=true; else if(c==='0') ccPref=false; }catch(_){}
+	}
+	try{ localStorage.setItem('aw-tmpl-audio',audioEnabled?'1':'0'); localStorage.setItem('aw-tmpl-cc',ccPref?'1':'0'); }catch(_){}
+})();
+syncAudioBtn();
+
+// ── Captions (CC) — overlaid in the frame; play WITH or WITHOUT audio ──
+// Reads the SAME narration Markdown used to synthesize the audio. Set page to THIS file's
+// stem and base to its narration folder (see the path note near the top of the file).
+const ccBtn=document.getElementById('cc-toggle');
+function ccEffective(){ return ccPref; }                          // captions show whenever CC is on (audio not required)
+function syncCcBtn(){ if(!ccBtn) return; ccBtn.classList.toggle('on',ccPref); ccBtn.setAttribute('aria-pressed',ccPref?'true':'false'); }
+function applyCc(){ if(window.AWCaptions) AWCaptions.setEnabled(ccEffective()); if(ccEffective()&&currentAudio&&window.AWCaptions) AWCaptions.bind(currentAudio,current); syncCcBtn(); }
+if(window.AWCaptions){ AWCaptions.configure({ page:'DesignGovernance', base:'../../narration/Architect/', lang:()=>currentLang, fallback:(i)=>(STEPS[i]?t(STEPS[i].descKey):''), reserve:false }); }
+if(ccBtn){ ccBtn.addEventListener('click',()=>{
+	ccPref=!ccPref; try{localStorage.setItem('aw-tmpl-cc',ccPref?'1':'0');}catch(_){} applyCc();
+	if(current>=0){
+		if(playbackOn() && !currentAudio) playStepAudio(current);   // caption-only: start the muted timing clip
+		else if(!playbackOn() && currentAudio) stopAudio();          // CC off + audio off: nothing left to play
+	}
+}); }
+applyCc();
+
+// ── Full screen ──
+(function(){
+	const fsBtn=document.getElementById('fs-toggle'); if(!fsBtn) return;
+	function inFs(){ return !!(document.fullscreenElement||document.webkitFullscreenElement); }
+	function syncFs(){ document.body.classList.toggle('is-fs',inFs()); fsBtn.setAttribute('aria-pressed',inFs()?'true':'false'); fsBtn.title=inFs()?'Exit full screen (F)':'Full screen (F)'; }
+	function toggle(){ try{ if(inFs()){ (document.exitFullscreen||document.webkitExitFullscreen).call(document); } else { const el=document.documentElement; (el.requestFullscreen||el.webkitRequestFullscreen).call(el); } }catch(_){} }
+	fsBtn.addEventListener('click',e=>{ e.stopPropagation(); toggle(); });
+	document.addEventListener('fullscreenchange',syncFs); document.addEventListener('webkitfullscreenchange',syncFs);
+	document.addEventListener('keydown',e=>{ if(e.code==='KeyF'&&!e.metaKey&&!e.ctrlKey&&!e.altKey){ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return; e.preventDefault(); toggle(); } });
+	syncFs();
+})();
+
+// ── Reduced motion ────────────────────────
+const motionMQ=window.matchMedia('(prefers-reduced-motion: reduce)'); let motionPaused=motionMQ.matches;
+motionMQ.addEventListener('change',e=>{ motionPaused=e.matches; renderStep(current); });
+
+// ── Helpers ───────────────────────────────
+function clearStage(){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; liveEls.forEach(el=>el.remove()); liveEls=[]; Array.from(svg.children).forEach(c=>{ if(c.tagName.toLowerCase()!=='defs') c.remove(); }); }
+function el(cls,html){ const d=document.createElement('div'); if(cls) d.className=cls; if(html!=null) d.innerHTML=html; return d; }
+// Inline SVG icons (monochrome, currentColor) — crisp on any OS/projector. Add your own here.
+const ICONS = {
+	puzzle:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h8v8H3zm10 0h8v8h-8zM3 13h8v8H3zm10 0h8v8h-8z"/></svg>',
+	inbox:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 3h2v5h3l-4 4-4-4h3zM5 14h14v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1z"/></svg>',
+	gear:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M19.14 12.94a7.9 7.9 0 0 0 0-1.88l2-1.56-2-3.46-2.36.96a7.7 7.7 0 0 0-1.62-.94L14.8 2.5h-4l-.36 2.56c-.58.24-1.12.56-1.62.94L6.46 6.04l-2 3.46 2 1.56a7.9 7.9 0 0 0 0 1.88l-2 1.56 2 3.46 2.36-.96c.5.38 1.04.7 1.62.94l.36 2.56h4l.36-2.56c.58-.24 1.12-.56 1.62-.94l2.36.96 2-3.46-2-1.56zM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg>',
+	sparkle:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg>',
+	bulb:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-4 12.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26A7 7 0 0 0 12 2zM9 20h6v1a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1z"/></svg>',
+	check:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.55 17.6 4.4 12.45l1.86-1.86 3.29 3.29 8.19-8.19 1.86 1.86z"/></svg>',
+	bolt:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>',
+	lock:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 10a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1zm3-1V7a4 4 0 1 1 8 0v2h-2V7a2 2 0 1 0-4 0v2z"/></svg>',
+	box:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 3 7v10l9 5 9-5V7zm0 2.3L17.7 7 12 10.2 6.3 7zM5 9.1l6 3.4v6.8l-6-3.3zm14 0v6.9l-6 3.3v-6.8z"/></svg>',
+	key:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M14 2a6 6 0 0 0-5.66 8L2 16.34V22h5.66l.34-.34V20h2v-2h2l.34-.34A6 6 0 1 0 14 2zm2 3a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z"/></svg>',
+	rocket:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2c3 3 4 6 4 9l3 3-4 1-1 4-2-3-2 3-1-4-4-1 3-3c0-3 1-6 4-9zm0 5a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>',
+	health:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 2h6v5h5v6h-5v5H9v-5H4V7h5z"/></svg>',
+	headset:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a8 8 0 0 0-8 8v5a3 3 0 0 0 3 3h1v-7H6v-1a6 6 0 1 1 12 0v1h-2v7h1a3 3 0 0 0 3-3v-5a8 8 0 0 0-8-8z"/></svg>',
+	media:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M4 4h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zm5 4v8l7-4z"/></svg>',
+	book:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v16H6a2 2 0 0 1-2-2zm9 0h7v14a2 2 0 0 1-2 2h-5z"/></svg>',
+	party:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5zm6 11l.9 2.6L21.5 16.5l-2.6.9L18 20l-.9-2.6L14.5 16.5l2.6-.9zM6 14l.7 2 2 .7-2 .7L6 19.4l-.7-2-2-.7 2-.7z"/></svg>',
+	chat:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-4 4v-4H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/></svg>',
+	access:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a2.2 2.2 0 1 1 0 4.4A2.2 2.2 0 0 1 12 2zM4 8h16v2h-5.4l1 12h-2.3l-.7-6h-1.2l-.7 6H8.4l1-12H4z"/></svg>',
+	globe:'<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></g></svg>'
+};
+function icon(name){ return `<span class="ic">${ICONS[name]||''}</span>`; }
+function stepById(id){ return STEPS.find(s=>s.id===id); }
+// Scale the current scene down (never up) so it always fits inside the 16:9 frame — no clipping, no scroll.
+function fitScene(scene){
+	if(!scene) return;
+	scene.style.transform='translate(-50%,-50%) scale(1)';
+	const box=stage.getBoundingClientRect();
+	const availW=box.width-32, availH=box.height-28;
+	const sw=scene.offsetWidth, sh=scene.offsetHeight;
+	if(!sw||!sh) return;
+	const k=Math.min(1, availW/sw, availH/sh);
+	scene.style.transform='translate(-50%,-50%) scale('+k+')';
+}
+function headerEls(scene){ return [scene.querySelector('.scene-title'), scene.querySelector('.scene-lead')]; }
+function buildScene(step){ const s=el('scene'); s.appendChild(el('scene-title', t(step.titleKey))); s.appendChild(el('scene-lead', t(step.descKey))); return s; }
+function maybeCallout(step){ if(!calloutEnabled) return null; const c=el('callout', t(step.calloutKey)); c.style.left='1.5rem'; c.style.top='1.5rem'; stage.appendChild(c); liveEls.push(c); dragify(c, 'aw-tmpl-callout-pos'); return c; }
+function renderOutline(step,idx){
+	const rows=(step.stats||[]).map(([k,v])=>`<div class="stat-row"><span>${t(k)}</span><span>${t(v)}</span></div>`).join('');
+	outlineBody.innerHTML=`<div class="outline-section"><strong>${t('stepOf')} ${idx+1} / ${STEPS.length}: ${t(step.titleKey)}</strong><p style="margin-top:0.4rem;">${t(step.descKey)}</p></div>${rows?`<div class="outline-section">${rows}</div>`:''}`;
+}
+function announceStep(step,idx){ announcer.textContent=`${t('stepOf')} ${idx+1} / ${STEPS.length}: ${t(step.titleKey)}. ${t(step.descKey)}`; }
+
+// ── RENDER DISPATCH ───────────────────────
+function renderStep(i){
+	if(i<0||i>=STEPS.length) return;
+	if(animating){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; animating=false; }
+	animating=true;
+	const step=STEPS[i];
+	// cross-fade (200ms, CSS keyframes so it's independent of the speed control) — outgoing fades out, incoming fades in, on every step
+	const outgoing=stage.querySelector('.scene:not(.scene-out)');
+	if(outgoing) liveEls=liveEls.filter(x=>x!==outgoing);
+	clearStage();
+	if(outgoing){ outgoing.style.zIndex='5';
+		if(motionPaused){ outgoing.remove(); }
+		else { outgoing.classList.remove('scene-in'); outgoing.classList.add('scene-out'); setTimeout(()=>outgoing.remove(), 240); } }
+	(BUILDERS[step.id]||function(){})();
+	const incoming=stage.querySelector('.scene:not(.scene-out)');
+	if(incoming && !motionPaused) incoming.classList.add('scene-in');
+	fitScene(incoming);
+	current=i;
+	try{ const u=new URL(location.href); u.searchParams.set('step', String(i+1)); history.replaceState(null,'',u); }catch(_){}
+	counter.textContent=`${t('stepOf')} ${current+1} / ${STEPS.length}`;
+	breadcrumb.textContent=t(step.captionKey);
+	progress.style.width=((current+1)/STEPS.length*100)+'%';
+	renderOutline(step,i); announceStep(step,i);
+	if(typeof playStepAudio==='function') playStepAudio(i);
+}
+
+// ══════════════ AI-500 KIT · shared helpers (cast, board, connectors, timelines) ══════════════
+Object.assign(ICONS, {
+	robot:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2a1.6 1.6 0 0 1 .8 3V7h4.2a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3v-7a3 3 0 0 1 3-3h4.2V5A1.6 1.6 0 0 1 12 2zM9 11.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 0 0 0-3.2zm6 0a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 0 0 0-3.2z"/></svg>',
+	compass:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16zm3.9 4.1-2.1 5.7-5.7 2.1 2.1-5.7z"/></svg>',
+	doc:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M6 2h8l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm2 6.5v1.6h4V8.5zM8 12v1.6h8V12zm0 3.4V17h8v-1.6z"/></svg>',
+	search:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M10.5 3a7.5 7.5 0 0 1 5.9 12.1l4.3 4.3-1.4 1.4-4.3-4.3A7.5 7.5 0 1 1 10.5 3zm0 2a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11z"/></svg>',
+	coin:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="2"/><text x="12" y="16.8" text-anchor="middle" font-size="12.5" font-weight="700" font-family="Segoe UI,Arial,sans-serif" fill="currentColor">$</text></svg>',
+	person:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9zm0 2c-4.4 0-8 2.2-8 5v2h16v-2c0-2.8-3.6-5-8-5z"/></svg>',
+	clock:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16zm-1 3h2v5.2l3.3 2-1 1.7-4.3-2.6z"/></svg>',
+	chip:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M8 2h2v3h4V2h2v3h1a2 2 0 0 1 2 2v1h3v2h-3v4h3v2h-3v1a2 2 0 0 1-2 2h-1v3h-2v-3h-4v3H8v-3H7a2 2 0 0 1-2-2v-1H2v-2h3v-4H2V8h3V7a2 2 0 0 1 2-2h1zm0 5v10h8V7z"/></svg>',
+	warn:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2 1.5 21h21zM11 9h2v6h-2zm0 8h2v2h-2z"/></svg>',
+	scale:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 3h2v15h-2zM5 20h14v2H5zM3 6h18v2H3zM5 8l3 6a3 3 0 0 1-6 0zm14 0 3 6a3 3 0 0 1-6 0z"/></svg>',
+	code:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.7 6.3 3 12l5.7 5.7 1.4-1.4L5.8 12l4.3-4.3zm6.6 0-1.4 1.4 4.3 4.3-4.3 4.3 1.4 1.4L21 12z"/></svg>',
+	board:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M3 4h18a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1h-7v2h3v2H7v-2h3v-2H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zm1 2v9h16V6z"/></svg>',
+	shield:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2 4 5v6c0 5 3.4 9.3 8 11 4.6-1.7 8-6 8-11V5zm-1.2 13.5L7.5 12.2l1.4-1.4 1.9 1.9 4.3-4.3 1.4 1.4z"/></svg>',
+	star:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l3 6.3 6.9.9-5 4.8 1.2 6.9L12 17.6 5.9 20.9 7.1 14 2.1 9.2 9 8.3z"/></svg>',
+	ruler:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M3 17 17 3l4 4L7 21zm3.2 0 1.3 1.3 1.4-1.4-1.3-1.3zm3.7-3.7 1.3 1.3 1.4-1.4-1.3-1.3zm3.7-3.7 1.3 1.3 1.4-1.4-1.3-1.3z"/></svg>',
+	flask:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 2h6v2h-1v5.2l5.2 8.7A2 2 0 0 1 17.5 21h-11a2 2 0 0 1-1.7-3.1L10 9.2V4H9z"/></svg>',
+	arrowR:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 5l7 7-7 7-1.4-1.4 4.6-4.6H4v-2h12.2l-4.6-4.6z"/></svg>'
+});
+
+const AG = { solo:['robot','agSolo'], orch:['compass','agOrch'], intake:['doc','agIntake'], policy:['book','agPolicy'],
+	fraud:['search','agFraud'], payout:['coin','agPayout'], human:['person','agHuman'] };
+function agent(k, o){ o=o||{}; const a=AG[k];
+	return `<div class="ai5-ag ag-${k}${o.top?' is-top':''}"${o.size?` style="--ag:${o.size}px"`:''}><span class="ai5-ag-ic">${icon(a[0])}</span>${o.nolabel?'':`<span class="ai5-ag-l">${o.label||t(a[1])}</span>`}</div>`; }
+
+// A 0×0 wrapper at the node's CENTRE (animate the wrapper with GSAP; the inner node stays centred on it)
+function pos(cx, cy, html, cls){ const w=el('ai5-pos'+(cls?' '+cls:''), '<div class="ai5-in">'+html+'</div>'); w.style.left=cx+'px'; w.style.top=cy+'px'; return w; }
+
+const SVGNS='http://www.w3.org/2000/svg'; let _ai5id=0;
+// A fixed-size board with an SVG layer behind the nodes (same coordinates) for drawn connectors.
+function board(w, h){
+	const root=el('ai5-board'); root.style.width=w+'px'; root.style.height=h+'px';
+	const svg=document.createElementNS(SVGNS,'svg'); svg.setAttribute('viewBox',`0 0 ${w} ${h}`);
+	const mid='ai5ar'+(++_ai5id);
+	svg.innerHTML=`<defs><marker id="${mid}" viewBox="0 0 12 12" markerWidth="24" markerHeight="24" markerUnits="userSpaceOnUse" refX="11" refY="6" orient="auto"><path d="M1,1 L11,6 L1,11 Z" fill="context-stroke"/></marker></defs>`;
+	root.appendChild(svg);
+	return { root, svg, mid };
+}
+// Draw a connector path. Solid + arrow → draw-in via dash (the global guard hides the arrowhead until it lands). dash:'6 6' → static dashed, fade in.
+// An arrowed line is stopped a little INSIDE its head (flat cap, trimmed end): the head's tip is narrower than the stroke, so a line that
+// runs all the way to the tip (or has a round cap) pokes out in front of it. The marker is untouched, so the tip still lands on the path end.
+function arrowTrim(p, L){ return p.getAttribute('marker-end') ? Math.min((+p.getAttribute('stroke-width')||3)*2, L*0.09) : 0; }
+function line(B, d, color, o){ o=o||{};
+	const p=document.createElementNS(SVGNS,'path'); p.setAttribute('d',d); p.setAttribute('fill','none');
+	const arrowed=!o.dash && o.arrow!==false;
+	p.style.stroke=color||'var(--ai5-line)'; p.setAttribute('stroke-width',o.w||3); p.setAttribute('stroke-linecap',arrowed?'butt':'round'); p.setAttribute('stroke-linejoin','round');
+	if(o.dash) p.setAttribute('stroke-dasharray',o.dash);
+	else if(o.arrow!==false) p.setAttribute('marker-end','url(#'+B.mid+')');
+	B.svg.appendChild(p);
+	if(arrowed){ try{ const L=p.getTotalLength(), t=arrowTrim(p,L); if(L>0&&t>0) p.style.strokeDasharray=(L-t)+' '+(L+t); }catch(e){} }
+	return p; }
+function drawPrep(p){ const L=p.getTotalLength(), t=arrowTrim(p,L); p.style.strokeDasharray=t?(L-t)+' '+(L+t):L; p.style.strokeDashoffset=L; return L; }
+// Tween a solid connector in (call drawPrep first). Dashed connectors just fade.
+function drawIn(tl, p, at, dur){ if(p.getAttribute('stroke-dasharray')){ tl.fromTo(p,{opacity:0},{opacity:1,duration:dur||0.4},at); return; }
+	drawPrep(p); tl.to(p,{strokeDashoffset:0,duration:dur||0.6,ease:'power1.inOut'},at); }
+
+// Timeline helpers — every builder builds its tweens once; reduced motion just jumps to the end frame.
+function mount(scene){ stage.appendChild(scene); liveEls.push(scene); }
+function mkTL(){ return gsap.timeline({ onComplete:()=>{ animating=false; } }); }
+function head(tl, scene){ tl.fromTo(headerEls(scene),{opacity:0,y:-14},{opacity:1,y:0,duration:0.5,stagger:0.1,ease:'power2.out'}); }
+function finish(tl, step){
+	const c=maybeCallout(step); if(c) tl.fromTo(c,{opacity:0,y:10},{opacity:1,y:0,duration:0.5},'>-0.2');
+	if(motionPaused){ tl.progress(1); animating=false; return tl; }
+	liveTimelines.push(tl); return tl; }
+function idle(tw){ if(!motionPaused && tw) liveTimelines.push(tw); return tw; }
+function aiScene(step){ const s=buildScene(step); s.classList.add('ai5'); return s; }
+function say(txt, ic){ return el('ai5-say', (ic?icon(ic):'')+'<span>'+txt+'</span>'); }
+function nextLink(file, labelKey){ const a=document.createElement('a'); a.className='ai5-next'; a.href=file+'?lang='+currentLang; a.innerHTML='<span>'+t(labelKey)+'</span>'+icon('arrowR'); return a; }
+
+
+Object.assign(ICONS, {
+	cross:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.7 4.3 12 10.6l6.3-6.3 1.4 1.4-6.3 6.3 6.3 6.3-1.4 1.4-6.3-6.3-6.3 6.3-1.4-1.4 6.3-6.3-6.3-6.3z"/></svg>',
+	trash:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l1 2h4v2H4V5h4zM6 9h12l-1 12H7z"/></svg>'
+});
+
+// ══════════════ DesignGovernance · shared helpers ══════════════
+const AZ = '../../lib/icons/Azure_Public_Service_Icons/';
+const GI = {
+	mg:'general/10011-icon-service-Management-Groups.svg', sub:'general/10002-icon-service-Subscriptions.svg', rg:'general/10007-icon-service-Resource-Groups.svg',
+	tag:'general/10014-icon-service-Tag.svg', policy:'management%20%2B%20governance/10316-icon-service-Policy.svg',
+	defender:'security/10241-icon-service-Microsoft-Defender-for-Cloud.svg', compl:'management%20%2B%20governance/00011-icon-service-Compliance.svg',
+	lz:'new%20icons/029636048-icon-service-Landing-Zone.svg', sql:'databases/10130-icon-service-SQL-Database.svg', stor:'storage/10086-icon-service-Storage-Accounts.svg',
+	app:'app%20services/10035-icon-service-App-Services.svg', vm:'compute/10021-icon-service-Virtual-Machine.svg', vnet:'networking/10061-icon-service-Virtual-Networks.svg'
+};
+const az = (k, s) => `<img class="gv-az" src="${AZ}${GI[k]}" width="${s || 32}" height="${s || 32}" alt="">`;
+const azt = (k, s) => `<span class="gv-itile">${az(k, s || 22)}</span>`;
+function abox(cls, html, x, y, w, h){ const e = el('gv-a ' + cls, html); e.style.cssText = `left:${x}px;top:${y}px;` + (w ? `width:${w}px;` : '') + (h ? `height:${h}px;` : ''); return e; }
+function gScene(step){ const s = aiScene(step); s.classList.add('fl1'); return s; }
+function gSay(scene, B, key, ic){ const s = say(t(key), ic); scene.appendChild(B.root); scene.appendChild(s); return s; }
+const elbow = (x1, y1, x2, y2, dx) => y1 === y2 ? `M${x1} ${y1} H${x2}` : `M${x1} ${y1} H${x1 + dx} V${y2} H${x2}`;
+
+// ── 1 · THE MESS ──────────────────────────
+function renderMess(){
+	const step = stepById('mess'), scene = gScene(step);
+	const B = board(1100, 350);
+	const wrap = abox('gv-wrap is-bad', `<div class="gv-wrap-h">${az('sub', 30)}<span>${t('subName')}</span></div>`, 0, 0, 690, 350);
+	const defs = [['app', 'tStore', 0], ['sql', 'tOrders', 0], ['stor', 'tImages', 0], ['vm', 'tErp', 0], ['app', 'tPartner', 0], ['vm', 'tTestVm', 1], ['sql', 'tDevDb', 1], ['stor', 'tOldDemo', 1]];
+	const rots = [-3, 2.5, -2, 3, 2, -3.5, 3, -2];
+	const tiles = defs.map((d, i) => abox('gv-tile' + (d[2] ? ' is-dev' : ''), az(d[0], 44) + `<span>${t(d[1])}</span>`, 33 + (i % 4) * 163, 88 + Math.floor(i / 4) * 124, 135, 104));
+	const probs = [['warn', 'prob1'], ['coin', 'prob2'], ['scale', 'prob3']].map((p, i) => abox('gv-prob', icon(p[0]) + `<span>${t(p[1])}</span>`, 750, i * 127, 350, 96));
+	[wrap, ...tiles, ...probs].forEach(n => B.root.appendChild(n));
+	const sayEl = gSay(scene, B, 'messSay', 'search'); mount(scene);
+
+	const tl = mkTL(); head(tl, scene);
+	tl.fromTo(wrap, { opacity:0, scale:0.96 }, { opacity:1, scale:1, duration:0.5, ease:'power2.out' });
+	tiles.forEach((c, i) => tl.fromTo(c, { opacity:0, y:-150, rotation:i % 2 ? -35 : 35 }, { opacity:1, y:0, rotation:rots[i], duration:0.5, ease:'bounce.out' }, i ? '>-0.38' : '>0'));
+	tl.fromTo(probs, { opacity:0, x:70, scale:0.9 }, { opacity:1, x:0, scale:1, duration:0.45, stagger:0.18, ease:'back.out(1.6)' }, '>0.05');
+	tl.fromTo(sayEl, { opacity:0, y:12 }, { opacity:1, y:0, duration:0.5 }, '>0.1');
+	finish(tl, step);
+}
+
+// ── 2 · MANAGEMENT-GROUP HIERARCHY ────────
+function renderHierarchy(){
+	const step = stepById('hierarchy'), scene = gScene(step);
+	const B = board(1100, 390);
+	const C = { c0:[0, 180], c1:[255, 125], c2:[455, 170], c3:[705, 125], c4:[905, 195] };
+	const N = [
+		['root', 'c0', 200, 'mgTenant', 'mg', 'is-root'], ['ct', 'c1', 200, 'mgContoso', 'mg', ''],
+		['pl', 'c2', 45, 'mgPlatform', 'mg', ''], ['lz', 'c2', 215, 'mgLz', 'mg', ''], ['sb', 'c2', 345, 'mgSandbox', 'mg', ''],
+		['corp', 'c3', 165, 'mgCorp', 'mg', ''], ['onl', 'c3', 265, 'mgOnline', 'mg', ''],
+		['s1', 'c4', 45, 'sbPlatform', 'sub', 'is-sub'], ['s2', 'c4', 135, 'sbOrdersProd', 'sub', 'is-sub'], ['s3', 'c4', 195, 'sbOrdersDev', 'sub', 'is-sub'],
+		['s4', 'c4', 265, 'sbStoreProd', 'sub', 'is-sub'], ['s5', 'c4', 345, 'sbSandbox', 'sub', 'is-sub']];
+	const nd = {}, geo = {};
+	N.forEach(n => { const c = C[n[1]]; geo[n[0]] = { x:c[0], y:n[2], w:c[1] };
+		nd[n[0]] = abox('gv-node ' + n[5], (n[4] === 'mg' ? azt('mg', 20) : az('sub', 24)) + `<span>${t(n[3])}</span>`, c[0], n[2] - 23, c[1], 46); });
+	const E = [['root', 'ct'], ['ct', 'pl'], ['ct', 'lz'], ['ct', 'sb'], ['lz', 'corp'], ['lz', 'onl'], ['pl', 's1'], ['corp', 's2'], ['corp', 's3'], ['onl', 's4'], ['sb', 's5']];
+	const lines = E.map(e => { const a = geo[e[0]], b = geo[e[1]]; return line(B, elbow(a.x + a.w, a.y, b.x, b.y, 34), 'var(--f1t)', { w:3 }); });
+	const nodeLv = [['root', 'ct'], ['pl', 'lz', 'sb'], ['corp', 'onl'], ['s1', 's2', 's3', 's4', 's5']];
+	const pol = abox('gv-pol', az('policy', 24) + `<span>${t('polAllowed')}</span>`, 445, 253, 190, 40);
+	const inhIds = ['corp', 'onl', 's2', 's3', 's4'];
+	inhIds.forEach(id => { nd[id].insertAdjacentHTML('beforeend', `<span class="gv-inh">${icon('check')}</span>`); });
+	const depth = abox('gv-note gv-depth', `<span class="ai5-tag fl1">${icon('ruler')}<span>${t('depthMax')}</span></span><span class="ai5-tag fl1 gv-good">${icon('check')}<span>${t('depthAim')}</span></span>`, 0, 0, 370, 84);
+	const rules = abox('gv-note gv-rules', `<div class="gv-rule is-ok"><i>${icon('check')}</i><span>${t('ruleOk1')}</span></div><div class="gv-rule is-no"><i>${icon('cross')}</i><span>${t('ruleNo1')}</span></div><div class="gv-rule is-no"><i>${icon('cross')}</i><span>${t('ruleNo2')}</span></div>`, 0, 262, 370, 128);
+	Object.values(nd).forEach(n => B.root.appendChild(n));
+	[pol, depth, rules].forEach(n => B.root.appendChild(n));
+	const sayEl = gSay(scene, B, 'hierarchySay', 'shield'); mount(scene);
+
+	const tl = mkTL(); head(tl, scene);
+	const lvOf = {}; nodeLv.forEach((ids, k) => ids.forEach(id => { lvOf[id] = k; }));
+	const appear = (k, at) => tl.fromTo(nodeLv[k].map(i => nd[i]), { opacity:0, x:-30, scale:0.9 }, { opacity:1, x:0, scale:1, duration:0.4, stagger:0.07, ease:'power3.out' }, at);
+	appear(0, '>0');
+	for(let k = 1; k < nodeLv.length; k++){
+		lines.filter((p, i) => lvOf[E[i][1]] === k).forEach((p, i) => drawIn(tl, p, i ? '>-0.32' : '>0', 0.4));
+		appear(k, '>-0.25');
+	}
+	tl.fromTo([depth, rules], { opacity:0, x:-40 }, { opacity:1, x:0, duration:0.5, stagger:0.15, ease:'power3.out' }, '>0');
+	tl.fromTo(pol, { opacity:0, y:14, scale:0.8 }, { opacity:1, y:0, scale:1, duration:0.5, ease:'back.out(1.8)' }, '>0.1');
+	tl.fromTo(inhIds.map(id => nd[id].querySelector('.gv-inh')), { opacity:0, scale:0 }, { opacity:1, scale:1, duration:0.35, stagger:0.15, ease:'back.out(3)' }, '>0.1');
+	tl.to(['pl', 's1', 'sb', 's5'].map(id => nd[id]), { opacity:0.45, duration:0.5 }, '<0.3');
+	tl.fromTo(sayEl, { opacity:0, y:12 }, { opacity:1, y:0, duration:0.5 }, '>0.1');
+	finish(tl, step);
+}
+
+// ── 3 · SUBSCRIPTIONS ─────────────────────
+function renderSubs(){
+	const step = stepById('subs'), scene = gScene(step);
+	const B = board(1100, 390);
+	const bs = [['coin', 'bBill', 'bBillD'], ['ruler', 'bLimit', 'bLimitD'], ['lock', 'bIso', 'bIsoD']].map((b, i) =>
+		abox('gv-bound', `<span class="gv-bic">${icon(b[0])}</span><span class="gv-bt"><b>${t(b[1])}</b><span>${t(b[2])}</span></span>`, i * 380, 0, 340, 112));
+	const src = abox('gv-sbn is-src', az('sub', 34) + `<span>${t('mgContoso')}</span>`, 115, 250, 230, 60);
+	const kids = [['sbOrdersProd', 'rsOrders', 200], ['sbOrdersDev', 'rsDev', 280], ['sbSandbox', 'rsSandbox', 360]];
+	const cards = kids.map(k => abox('gv-sbn', az('sub', 30) + `<span>${t(k[0])}</span>`, 445, k[2] - 28, 230, 56));
+	const rs = kids.map(k => abox('ai5-tag fl1', `<span>${t(k[1])}</span>`, 715, k[2] - 17));
+	const lines = kids.map(k => line(B, elbow(345, 280, 445, k[2], 40), 'var(--f1t)', { w:3 }));
+	const no = abox('ai5-tag gv-badtag', icon('cross') + `<span>${t('noRegion')}</span>`, 115, 346);
+	[...bs, src, ...cards, ...rs, no].forEach(n => B.root.appendChild(n));
+	scene.appendChild(B.root); mount(scene);
+
+	const tl = mkTL(); head(tl, scene);
+	tl.fromTo(bs, { opacity:0, y:-40, rotationX:-70 }, { opacity:1, y:0, rotationX:0, duration:0.55, stagger:0.18, ease:'back.out(1.5)' });
+	tl.fromTo(src, { opacity:0, scale:0.8 }, { opacity:1, scale:1, duration:0.45, ease:'back.out(1.7)' }, '>0.1');
+	lines.forEach((p, i) => drawIn(tl, p, i ? '>-0.3' : '>0.05', 0.45));
+	tl.fromTo(cards, { opacity:0, x:-40 }, { opacity:1, x:0, duration:0.45, stagger:0.14, ease:'power3.out' }, '>-0.2');
+	tl.fromTo(rs, { opacity:0, x:-16 }, { opacity:1, x:0, duration:0.4, stagger:0.14 }, '>-0.3');
+	tl.fromTo(no, { opacity:0, scale:0.7 }, { opacity:1, scale:1, duration:0.4, ease:'back.out(2)' }, '>0.1');
+	finish(tl, step);
+}
+
+// ── 4 · RESOURCE GROUPS ───────────────────
+function renderGroups(){
+	const step = stepById('groups'), scene = gScene(step);
+	const B = board(1100, 340);
+	const pL = abox('gv-rgp', `<div class="gv-rgp-h">${az('rg', 30)}<span>${t('rgDev')}</span></div>`, 0, 0, 560, 250);
+	const pR = abox('gv-rgp', `<div class="gv-rgp-h">${az('rg', 30)}<span>${t('rgNet')}</span></div>`, 640, 0, 460, 250);
+	const mk = (k, key, x, y) => abox('gv-tile gv-tile-s', az(k, 40) + `<span>${t(key)}</span>`, x, y, 150, 100);
+	const tiles = [mk('app', 'tApp', 30, 80), mk('sql', 'tDb', 205, 80), mk('stor', 'tStor', 380, 80)];
+	const vnet = mk('vnet', 'tVnet', 795, 80);
+	const lcs = ['lcDeploy', 'lcUpdate', 'lcDelete'].map((k, i) => abox('ai5-tag fl1', `<span>${t(k)}</span>`, 30 + i * 100, 197));
+	const btn = abox('gv-btn', icon('trash') + `<span>${t('delGroup')}</span>`, 380, 194, 150, 40);
+	const gone = abox('ai5-tag gv-badtag gv-gone', icon('cross') + `<span>${t('gone')}</span>`, 325, 14);
+	const own = abox('ai5-tag fl1', icon('lock') + `<span>${t('ownLife')}</span>`, 795, 197);
+	const link = line(B, 'M560 130 H640', 'var(--f1t)', { dash:'6 6', w:3 });
+	const chips = abox('ai5-row gv-chiprow', `<span class="ai5-tag fl1">${icon('box')}<span>${t('gChip1')}</span></span><span class="ai5-tag fl1">${icon('shield')}<span>${t('gChip2')}</span></span>`, 0, 286, 1100);
+	[pL, pR, link, ...tiles, vnet, ...lcs, btn, own, gone, chips].forEach(n => B.root.appendChild(n));
+	const sayEl = gSay(scene, B, 'groupsSay', 'box'); mount(scene);
+
+	const tl = mkTL(); head(tl, scene);
+	tl.fromTo([pL, pR], { opacity:0, scale:0.94 }, { opacity:1, scale:1, duration:0.5, stagger:0.15, ease:'power2.out' });
+	tl.fromTo([...tiles, vnet], { opacity:0, y:30, scale:0.8 }, { opacity:1, y:0, scale:1, duration:0.4, stagger:0.1, ease:'back.out(1.7)' }, '>-0.1');
+	drawIn(tl, link, '>0', 0.4);
+	tl.fromTo([...lcs, own, btn], { opacity:0, y:10 }, { opacity:1, y:0, duration:0.35, stagger:0.1 }, '>-0.1');
+	tl.fromTo(chips.children, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.35, stagger:0.12 }, '>0.05');
+	tl.to(btn, { scale:0.92, duration:0.12, yoyo:true, repeat:1 }, '>0.5');
+	tl.to(tiles, { opacity:0.3, filter:'grayscale(1)', scale:0.9, duration:0.5, stagger:0.12, ease:'power2.in' }, '>0');
+	tl.to(link, { opacity:0.25, duration:0.3 }, '<');
+	tl.to(pL, { borderColor:getComputedStyle(document.body).getPropertyValue('--ai5-bad').trim() || '#c4314b', duration:0.4 }, '>-0.2');
+	tl.set(pL, { borderStyle:'dashed' }, '<');
+	tl.fromTo(gone, { opacity:0, scale:0.6 }, { opacity:1, scale:1, duration:0.4, ease:'back.out(2.4)' }, '<0.1');
+	tl.fromTo(sayEl, { opacity:0, y:12 }, { opacity:1, y:0, duration:0.5 }, '>0.1');
+	finish(tl, step);
+}
+
+// ── 5 · TAGS ──────────────────────────────
+function renderTags(){
+	const step = stepById('tags'), scene = gScene(step);
+	const B = board(1100, 390);
+	const lbl = abox('gv-lbl', t('hCats'), 720, 0);
+	const cats = [['catFn', 'catFnD'], ['catCl', 'catClD'], ['catAc', 'catAcD'], ['catPu', 'catPuD']].map((c, i) =>
+		abox('gv-cat', `<b>${t(c[0])}</b><span>${t(c[1])}</span>`, 720, 34 + i * 92, 380, 78));
+	const rg = abox('gv-rgc', `<div class="gv-rgc-r">${az('rg', 32)}<span>${t('rgStore')}</span></div><div class="gv-rgc-t"><span class="ai5-tag fl1">${az('tag', 18)}<span>${t('tagEnv')}</span></span><span class="ai5-tag fl1">${az('tag', 18)}<span>${t('tagCost')}</span></span></div>`, 170, 0, 320, 104);
+	const R = [['app', 'tApp', 0], ['sql', 'tDb', 230], ['stor', 'tStor', 460]];
+	const res = R.map(r => abox('gv-rc', `<div class="gv-rcr">${az(r[0], 34)}<span>${t(r[1])}</span></div><div class="gv-rct"><span class="ai5-tag fl1">${az('tag', 18)}<span>${t('tagEnv')}</span></span><span class="ai5-tag fl1">${az('tag', 18)}<span>${t('tagCost')}</span></span></div>`, r[2], 240, 200, 150));
+	const cx = [100, 330, 560];
+	const path = x => x === 330 ? 'M330 104 V240' : `M330 104 V166 H${x} V240`;
+	const gray = cx.map(x => line(B, path(x), 'var(--ai5-line)', { w:3 }));
+	const green = cx.map(x => line(B, path(x), 'var(--ai5-ok)', { w:3 }));
+	const bad = cx.map(x => abox('gv-bdg is-bad', icon('cross'), x - 15, 178, 30, 30));
+	const good = cx.map(x => abox('gv-bdg is-ok', icon('check'), x - 15, 178, 30, 30));
+	const slotNo = abox('ai5-tag gv-badtag gv-slot', icon('cross') + `<span>${t('notInh')}</span>`, 330 - 80, 114, 160, 32);
+	const slotPol = abox('ai5-tag fl1 gv-slot gv-polslot', az('policy', 20) + `<span>${t('polInherit')}</span>`, 330 - 80, 114, 160, 32);
+	[lbl, ...cats, rg, ...res, ...bad, ...good, slotNo, slotPol].forEach(n => B.root.appendChild(n));
+	const sayEl = gSay(scene, B, 'tagsSay', 'bulb'); mount(scene);
+
+	const tl = mkTL(); head(tl, scene);
+	tl.fromTo(lbl, { opacity:0 }, { opacity:1, duration:0.3 });
+	tl.fromTo(cats, { opacity:0, x:60 }, { opacity:1, x:0, duration:0.45, stagger:0.14, ease:'power3.out' }, '>0');
+	tl.fromTo(rg, { opacity:0, y:-30, scale:0.92 }, { opacity:1, y:0, scale:1, duration:0.5, ease:'back.out(1.5)' }, '>0.05');
+	gray.forEach((p, i) => drawIn(tl, p, i ? '>-0.35' : '>0.1', 0.5));
+	tl.fromTo(res, { opacity:0, y:24 }, { opacity:1, y:0, duration:0.4, stagger:0.1, ease:'power2.out' }, '>-0.3');
+	tl.fromTo(bad, { opacity:0, scale:0 }, { opacity:1, scale:1, duration:0.35, stagger:0.1, ease:'back.out(3)' }, '>0');
+	tl.fromTo(slotNo, { opacity:0, scale:0.8 }, { opacity:1, scale:1, duration:0.4, ease:'back.out(2)' }, '<0.1');
+	tl.addLabel('fix', '>+0.6');
+	tl.to(slotNo, { opacity:0, scale:0.8, duration:0.25 }, 'fix');
+	tl.fromTo(slotPol, { opacity:0, scale:0.8 }, { opacity:1, scale:1, duration:0.4, ease:'back.out(2)' }, 'fix+=0.2');
+	tl.to(gray, { opacity:0.25, duration:0.3 }, 'fix+=0.3');
+	tl.to(bad, { opacity:0, scale:0, duration:0.25 }, 'fix+=0.3');
+	green.forEach((p, i) => drawIn(tl, p, i ? '>-0.35' : 'fix+=0.4', 0.5));
+	tl.fromTo(good, { opacity:0, scale:0 }, { opacity:1, scale:1, duration:0.35, stagger:0.1, ease:'back.out(3)' }, '>-0.1');
+	res.forEach((r, i) => tl.fromTo(r.querySelectorAll('.gv-rct .ai5-tag'), { opacity:0, y:8, scale:0.85 }, { opacity:1, y:0, scale:1, duration:0.35, stagger:0.08, ease:'back.out(1.8)' }, i ? '<0.1' : '>-0.1'));
+	tl.fromTo(sayEl, { opacity:0, y:12 }, { opacity:1, y:0, duration:0.5 }, '>0.1');
+	finish(tl, step);
+}
+
+// ── 6 · AZURE POLICY ──────────────────────
+function renderPolicy(){
+	const step = stepById('policy'), scene = gScene(step);
+	const B = board(1100, 380);
+	const init = abox('gv-sbn gv-init', az('policy', 32) + `<span>${t('initName')}</span>`, 225, 0, 330, 58);
+	const mg = abox('gv-sbn gv-mgc', azt('mg', 22) + `<span class="gv-two"><b>${t('mgLz')}</b><i>${t('assignAt')}</i></span>`, 645, 0, 230, 58);
+	const assign = line(B, 'M555 29 H645', 'var(--f1t)', { w:3 });
+	const RQ = [['rq1', 'ef1', 'ef1d', 'search'], ['rq2', 'ef2', 'ef2d', 'lock'], ['rq3', 'ef3', 'ef3d', 'gear'], ['rq4', 'ef4', 'ef4d', 'rocket']];
+	const rows = RQ.map((r, i) => {
+		const y = 100 + i * 70;
+		return { req:abox('gv-req', `<span>${t(r[0])}</span>`, 40, y, 400, 56),
+			eff:abox('gv-eff', `<span class="gv-en">${icon(r[3])}<b>${t(r[1])}</b></span><span class="gv-ed">${t(r[2])}</span><span class="gv-etk">${icon('check')}</span>`, 530, y, 530, 56),
+			ln:line(B, `M440 ${y + 28} H530`, 'var(--f1t)', { w:3 }) };
+	});
+	[init, mg, ...rows.flatMap(r => [r.req, r.eff])].forEach(n => B.root.appendChild(n));
+	const sayEl = gSay(scene, B, 'policySay', 'scale'); mount(scene);
+
+	const tl = mkTL(); head(tl, scene);
+	tl.fromTo(init, { opacity:0, x:-40 }, { opacity:1, x:0, duration:0.5, ease:'power3.out' });
+	drawIn(tl, assign, '>0', 0.4);
+	tl.fromTo(mg, { opacity:0, scale:0.85 }, { opacity:1, scale:1, duration:0.45, ease:'back.out(1.7)' }, '>-0.05');
+	tl.fromTo(rows.map(r => r.eff), { opacity:0, x:40 }, { opacity:0.38, x:0, duration:0.45, stagger:0.1, ease:'power3.out' }, '>0.1');
+	rows.forEach((r, i) => {
+		tl.fromTo(r.req, { opacity:0, x:-40 }, { opacity:1, x:0, duration:0.4, ease:'power3.out' }, '>0.15');
+		drawIn(tl, r.ln, '>-0.05', 0.35);
+		tl.to(r.eff, { opacity:1, duration:0.3 }, '>-0.05');
+		tl.fromTo(r.eff.querySelector('.gv-etk'), { opacity:0, scale:0 }, { opacity:1, scale:1, duration:0.3, ease:'back.out(3)' }, '<0.05');
+	});
+	tl.fromTo(sayEl, { opacity:0, y:12 }, { opacity:1, y:0, duration:0.5 }, '>0.1');
+	finish(tl, step);
+}
+
+// ── 7 · COMPLIANCE ────────────────────────
+function gRing(){
+	return `<svg viewBox="0 0 44 44" width="38" height="38" aria-hidden="true"><circle cx="22" cy="22" r="17" fill="none" stroke="var(--ai5-line)" stroke-width="6"/><circle class="gv-arc" cx="22" cy="22" r="17" fill="none" stroke="var(--f1t)" stroke-width="6" stroke-linecap="round" stroke-dasharray="75 107" transform="rotate(-90 22 22)"/></svg>`;
+}
+function renderComply(){
+	const step = stepById('comply'), scene = gScene(step);
+	const B = board(1100, 370);
+	const ctl = (k, st) => `<div class="gv-ctl is-${st}"><span>${t(k)}</span><i>${icon(st === 'ok' ? 'check' : 'cross')}</i></div>`;
+	const pL = abox('gv-cp', `<div class="gv-cp-h">${az('defender', 34)}<b>${t('dfc')}</b></div><div class="gv-cp-q">${t('dfcQ')}</div><div class="gv-std">${icon('shield')}<span>${t('stdMcsb')}</span></div>` +
+		ctl('ctl1', 'ok') + ctl('ctl2', 'ok') + ctl('ctl3', 'bad'), 0, 0, 470, 370);
+	const pR = abox('gv-cp', `<div class="gv-cp-h">${az('compl', 34)}<b>${t('cm')}</b></div><div class="gv-cp-q">${t('cmQ')}</div><div class="gv-std">${icon('doc')}<span>${t('asmIso')}</span></div>` +
+		`<div class="gv-ctl is-ok"><span>${t('act1')}</span><i>${icon('check')}</i></div><div class="gv-ctl is-ok"><span>${t('act2')}</span><i>${icon('check')}</i></div><div class="gv-ctl is-ring"><span>${t('score')}</span>${gRing()}</div>`, 630, 0, 470, 370);
+	const feed = line(B, 'M470 185 H630', 'var(--f1t)', { w:3 });
+	const fl = abox('ai5-tag fl1', icon('arrowR') + `<span>${t('feeds')}</span>`, 513, 140);
+	[pL, pR, fl].forEach(n => B.root.appendChild(n));
+	const sayEl = gSay(scene, B, 'complySay', 'scale'); mount(scene);
+
+	const tl = mkTL(); head(tl, scene);
+	[pL, pR].forEach((p, i) => {
+		tl.fromTo(p, { opacity:0, y:24, scale:0.96 }, { opacity:1, y:0, scale:1, duration:0.5, ease:'power2.out' }, i ? '>0.15' : '>0');
+		tl.fromTo(p.querySelectorAll('.gv-ctl'), { opacity:0, x:-24 }, { opacity:1, x:0, duration:0.35, stagger:0.15, ease:'power3.out' }, '>-0.05');
+	});
+	tl.fromTo(pR.querySelector('.gv-arc'), { strokeDashoffset:75 }, { strokeDashoffset:0, duration:0.8, ease:'power2.out' }, '<0.2');
+	drawIn(tl, feed, '>0.1', 0.5);
+	tl.fromTo(fl, { opacity:0, scale:0.7 }, { opacity:1, scale:1, duration:0.4, ease:'back.out(2)' }, '>-0.1');
+	tl.fromTo(sayEl, { opacity:0, y:12 }, { opacity:1, y:0, duration:0.5 }, '>0.1');
+	finish(tl, step);
+}
+
+// ── 8 · ALL IN ONE ────────────────────────
+function renderWhole(){
+	const step = stepById('whole'), scene = gScene(step);
+	const B = board(1100, 400);
+	const frame = abox('gv-lz', '', 0, 0, 1100, 400);
+	const lzt = abox('gv-lzt', az('lz', 30) + `<span>${t('lzTitle')}</span>`, 24, 14);
+	const RW = [['mg', 'wMg', 'wMgD', 'mg'], ['sub', 'wSub', 'wSubD', 'sub'], ['rg', 'wRg', 'wRgD', 'rg'], ['tag', 'wTag', 'wTagD', 'tag'], ['policy', 'wPol', 'wPolD', 'policy'], ['compl', 'wCmp', 'wCmpD', 'defender']];
+	const rows = RW.map((r, i) => {
+		const y = 64 + i * 54;
+		return { bar:abox('gv-bar', azt(r[3], 24) + `<span>${t(r[1])}</span>`, 90, y, 360, 46),
+			chip:abox('gv-bchip', `<span>${t(r[2])}</span>`, 540, y, 470, 46),
+			ln:line(B, `M450 ${y + 23} H540`, 'var(--f1t)', { w:3 }) };
+	});
+	const foot = el('ai5-foot', t('wholeFoot')), nxt = nextLink('HybridIdentity.html', 'nextHybrid');
+	const end = el('gv-end'); end.appendChild(foot); end.appendChild(nxt);
+	[frame, lzt, ...rows.flatMap(r => [r.bar, r.chip])].forEach(n => B.root.appendChild(n));
+	scene.appendChild(B.root); scene.appendChild(end); mount(scene);
+
+	const tl = mkTL(); head(tl, scene);
+	tl.fromTo(frame, { opacity:0, scale:0.97 }, { opacity:1, scale:1, duration:0.5, ease:'power2.out' });
+	tl.fromTo(lzt, { opacity:0, y:-10 }, { opacity:1, y:0, duration:0.4 }, '>-0.1');
+	rows.forEach((r, i) => {
+		tl.fromTo(r.bar, { opacity:0, x:-50 }, { opacity:1, x:0, duration:0.4, ease:'power3.out' }, i ? '>-0.18' : '>0');
+		drawIn(tl, r.ln, '>-0.15', 0.3);
+		tl.fromTo(r.chip, { opacity:0, x:30 }, { opacity:1, x:0, duration:0.35, ease:'power3.out' }, '>-0.1');
+	});
+	tl.fromTo(foot, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.5 }, '>0.1');
+	tl.fromTo(nxt, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.5 }, '>-0.2');
+	finish(tl, step);
+}
+
+const BUILDERS = { mess:renderMess, hierarchy:renderHierarchy, subs:renderSubs, groups:renderGroups, tags:renderTags, policy:renderPolicy, comply:renderComply, whole:renderWhole };
+
+
+// ── CONTROLS ──────────────────────────────
+function focusHeading(){ const h=document.getElementById('stage-heading'); if(h){ try{ h.focus({preventScroll:true}); }catch(_){ h.focus(); } } }
+function interruptAnimation(){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; animating=false; }
+function next(){ interruptAnimation(); if(current<STEPS.length-1){ renderStep(current+1); focusHeading(); } }
+function prev(){ interruptAnimation(); if(current>0){ renderStep(current-1); focusHeading(); } }
+function reset(){ interruptAnimation(); renderStep(0); focusHeading(); }
+function replay(){ if(current<0) return; interruptAnimation(); renderStep(current); focusHeading(); }
+
+// ── Hide / show top bar (toggle; the ^ chevron flips to v when hidden) ──
+(function(){
+	const hideBtn=document.getElementById('header-hide'), revealBtn=document.getElementById('header-reveal');
+	if(!hideBtn||!revealBtn) return;
+	var hideBtnTop=document.getElementById('header-hide-top'); if(hideBtnTop) hideBtnTop.addEventListener('click',function(e){ e.stopPropagation(); hideBtn.click(); });
+	const hidePath=hideBtn.querySelector('svg path');
+	const UP='M6 15l6-6 6 6', DOWN='M6 9l6 6 6-6';   // ^ points up to hide the bar; flips to v to show it again
+	function setHidden(h){
+		document.body.classList.toggle('chrome-hidden',h);
+		hideBtn.setAttribute('aria-expanded',String(!h));
+		hideBtn.setAttribute('aria-label',h?'Show top bar':'Hide top bar');
+		hideBtn.title=(h?'Show top bar':'Hide top bar')+' (H)';
+		if(hidePath) hidePath.setAttribute('d',h?DOWN:UP);
+		try{localStorage.setItem('aw-tmpl-chrome-hidden',h?'1':'0');}catch(_){}
+		if(current>=0) requestAnimationFrame(()=>{ const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s); });
+	}
+	hideBtn.addEventListener('click',e=>{e.stopPropagation();setHidden(!document.body.classList.contains('chrome-hidden'));});
+	revealBtn.addEventListener('click',e=>{e.stopPropagation();setHidden(false);});
+	try{ if(localStorage.getItem('aw-tmpl-chrome-hidden')==='1') setHidden(true); }catch(_){}
+	document.addEventListener('keydown',e=>{ if(e.code==='KeyH'&&!e.metaKey&&!e.ctrlKey&&!e.altKey){ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return; e.preventDefault(); setHidden(!document.body.classList.contains('chrome-hidden')); } });
+})();
+
+document.getElementById('next-btn').addEventListener('click',e=>{e.stopPropagation();next();});
+document.getElementById('prev-btn').addEventListener('click',e=>{e.stopPropagation();prev();});
+document.getElementById('reset-btn').addEventListener('click',e=>{e.stopPropagation();reset();});
+document.getElementById('replay-btn').addEventListener('click',e=>{e.stopPropagation();replay();});
+
+// ── Clickable progress bar + step ticks ──
+(function(){
+	const track=document.querySelector('.progress-track'); if(!track) return;
+	for(let s=1; s<STEPS.length; s++){ const tk=document.createElement('div'); tk.className='progress-tick'; tk.style.left=(s/STEPS.length*100)+'%'; track.appendChild(tk); }
+	track.setAttribute('title','Jump to a step');
+	track.addEventListener('click', e=>{
+		const r=track.getBoundingClientRect(); const frac=(e.clientX-r.left)/r.width;
+		const target=Math.max(0, Math.min(STEPS.length-1, Math.floor(frac*STEPS.length)));
+		if(target!==current){ interruptAnimation(); renderStep(target); focusHeading(); }
+	});
+})();
+
+// ── Movable / pinnable control dock ───────
+(function(){
+	const dock=document.getElementById('controls'), grip=document.getElementById('ctrl-grip'), pin=document.getElementById('ctrl-pin');
+	if(!dock||!grip) return;
+	const KEY='aw-tmpl-controls-pos';
+	let dragging=false, sx=0, sy=0, bl=0, bt=0, moved=false;
+	function place(left,top){
+		const w=dock.offsetWidth, h=dock.offsetHeight;
+		left=Math.max(6, Math.min(left, window.innerWidth - w - 6));
+		top =Math.max(6, Math.min(top,  window.innerHeight - h - 6));
+		dock.style.left=left+'px'; dock.style.top=top+'px'; dock.style.right='auto'; dock.style.bottom='auto'; dock.style.transform='none';
+		document.body.classList.add('controls-floating');
+	}
+	function recenter(){
+		dock.style.left=dock.style.top=dock.style.right=dock.style.bottom=dock.style.transform='';
+		document.body.classList.remove('controls-floating');
+		try{ localStorage.removeItem(KEY); }catch(_){}
+	}
+	grip.addEventListener('pointerdown', e=>{
+		e.preventDefault(); dragging=true; moved=false;
+		const r=dock.getBoundingClientRect(); bl=r.left; bt=r.top; sx=e.clientX; sy=e.clientY;
+		try{ grip.setPointerCapture(e.pointerId); }catch(_){}
+	});
+	grip.addEventListener('pointermove', e=>{
+		if(!dragging) return;
+		const dx=e.clientX-sx, dy=e.clientY-sy;
+		if(Math.abs(dx)>2||Math.abs(dy)>2) moved=true;
+		place(bl+dx, bt+dy);
+	});
+	function end(e){ if(!dragging) return; dragging=false; try{ grip.releasePointerCapture(e.pointerId); }catch(_){}
+		if(moved){ try{ const r=dock.getBoundingClientRect(); localStorage.setItem(KEY, JSON.stringify({left:r.left, top:r.top})); }catch(_){} } }
+	grip.addEventListener('pointerup', end); grip.addEventListener('pointercancel', end);
+	// keyboard-nudge the dock when the grip is focused (arrow keys; Shift = larger step)
+	grip.addEventListener('keydown', e=>{
+		const d=e.shiftKey?40:12; const r=dock.getBoundingClientRect(); let ok=true;
+		if(e.key==='ArrowLeft') place(r.left-d, r.top);
+		else if(e.key==='ArrowRight') place(r.left+d, r.top);
+		else if(e.key==='ArrowUp') place(r.left, r.top-d);
+		else if(e.key==='ArrowDown') place(r.left, r.top+d);
+		else ok=false;
+		if(ok){ e.preventDefault(); e.stopPropagation(); }
+	});
+	if(pin) pin.addEventListener('click', e=>{ e.stopPropagation(); recenter(); });
+	window.addEventListener('resize', ()=>{ if(document.body.classList.contains('controls-floating')){ const r=dock.getBoundingClientRect(); place(r.left, r.top); } });
+	try{ const s=JSON.parse(localStorage.getItem(KEY)||'null'); if(s && typeof s.left==='number') place(s.left, s.top); }catch(_){}
+})();
+
+// ── Make callout / outline / caption draggable (same pointer-drag as the control dock) ──
+function dragify(el, key){
+	if(!el || el.__awDrag) return; el.__awDrag=true;
+	let dragging=false, sx=0, sy=0, bl=0, bt=0, moved=false;
+	const resizable = getComputedStyle(el).resize !== 'none';
+	const sizeKey = key ? key + '-size' : null;
+	// snapshot the home position + size so the reset pin can restore it exactly
+	const home={ position:el.style.position, left:el.style.left, top:el.style.top,
+		right:el.style.right, bottom:el.style.bottom, margin:el.style.margin, transform:el.style.transform,
+		width:el.style.width, height:el.style.height };
+	// reset "pin" — hidden until the panel is dragged or resized off its home spot
+	const pin=document.createElement('button');
+	pin.type='button'; pin.className='aw-drag-reset';
+	pin.title=t('resetPos'); pin.setAttribute('aria-label', t('resetPos'));
+	pin.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>';
+	// keep the pin inside scrollable / resizable panels so it isn't clipped
+	const oy=getComputedStyle(el).overflowY; const clips=(oy==='auto'||oy==='scroll'||oy==='hidden');
+	pin.style.top=clips?'8px':'-10px'; pin.style.right=clips?'8px':'-10px';
+	el.appendChild(pin);
+	function showPin(on){ pin.style.display=on?'flex':'none'; }
+	pin.addEventListener('pointerdown', e=>{ e.stopPropagation(); });
+	pin.addEventListener('click', e=>{
+		e.preventDefault(); e.stopPropagation();
+		el.style.position=home.position; el.style.left=home.left; el.style.top=home.top;
+		el.style.right=home.right; el.style.bottom=home.bottom; el.style.margin=home.margin; el.style.transform=home.transform;
+		el.style.width=home.width; el.style.height=home.height;
+		if(key){ try{ localStorage.removeItem(key); }catch(_){} }
+		if(sizeKey){ try{ localStorage.removeItem(sizeKey); }catch(_){} }
+		showPin(false);
+	});
+	function fix(left,top){
+		const w=el.offsetWidth, h=el.offsetHeight;
+		left=Math.max(6, Math.min(left, window.innerWidth  - w - 6));
+		top =Math.max(6, Math.min(top,  window.innerHeight - h - 6));
+		el.style.position='fixed'; el.style.left=left+'px'; el.style.top=top+'px';
+		el.style.right='auto'; el.style.bottom='auto'; el.style.margin='0'; el.style.transform='none';
+	}
+	// persist user resizes (the CSS resize grip writes inline width/height; content changes don't)
+	if(resizable && typeof ResizeObserver!=='undefined'){
+		let rt;
+		new ResizeObserver(()=>{
+			if(el.style.width || el.style.height){
+				showPin(true);
+				if(sizeKey){ clearTimeout(rt); rt=setTimeout(()=>{ try{ localStorage.setItem(sizeKey, JSON.stringify({w:el.style.width, h:el.style.height})); }catch(_){} }, 150); }
+			}
+		}).observe(el);
+	}
+	el.addEventListener('pointerdown', e=>{
+		if(e.button!==0 || (e.target.closest && e.target.closest('a,button,select,input,textarea'))) return;
+		if(resizable){ const r=el.getBoundingClientRect(); if(e.clientX>r.right-18 && e.clientY>r.bottom-18) return; } // let the resize grip win
+		dragging=true; moved=false;
+		const r=el.getBoundingClientRect(); bl=r.left; bt=r.top; sx=e.clientX; sy=e.clientY;
+		fix(bl, bt);   // pin at the current spot first, so there's no jump
+		try{ el.setPointerCapture(e.pointerId); }catch(_){}
+		e.preventDefault();
+	});
+	el.addEventListener('pointermove', e=>{
+		if(!dragging) return;
+		const dx=e.clientX-sx, dy=e.clientY-sy;
+		if(Math.abs(dx)>2||Math.abs(dy)>2) moved=true;
+		fix(bl+dx, bt+dy);
+	});
+	function end(e){
+		if(!dragging) return; dragging=false;
+		try{ el.releasePointerCapture(e.pointerId); }catch(_){}
+		if(moved){ showPin(true); if(key){ try{ const r=el.getBoundingClientRect(); localStorage.setItem(key, JSON.stringify({left:r.left, top:r.top})); }catch(_){} } }
+	}
+	el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+	if(sizeKey){ try{ const z=JSON.parse(localStorage.getItem(sizeKey)||'null'); if(z && (z.w||z.h)){ if(z.w) el.style.width=z.w; if(z.h) el.style.height=z.h; showPin(true); } }catch(_){} }
+	if(key){ try{ const s=JSON.parse(localStorage.getItem(key)||'null'); if(s && isFinite(s.left) && isFinite(s.top)){ fix(s.left, s.top); showPin(true); } }catch(_){} }
+}
+dragify(document.getElementById('step-outline'), 'aw-tmpl-outline-pos');
+dragify(document.getElementById('aw-caption'), 'aw-tmpl-caption-pos');
+
+// ── Speed ─────────────────────────────────
+const SPEED_STEPS=[0.5,0.75,1,1.25,1.5,2]; const BASE_TIMESCALE=0.25;
+let speedIndex=SPEED_STEPS.indexOf(1);
+try{ const sp=parseInt(localStorage.getItem('aw-tmpl-speed'),10); if(!isNaN(sp)&&sp>=0&&sp<SPEED_STEPS.length) speedIndex=sp; }catch(_){}
+const speedLabel=document.getElementById('speed-label'), speedDownBtn=document.getElementById('speed-down'), speedUpBtn=document.getElementById('speed-up');
+function saveSpeed(){ try{ localStorage.setItem('aw-tmpl-speed', String(speedIndex)); }catch(_){} }
+function syncSpeedUI(){ const spd=SPEED_STEPS[speedIndex]; speedLabel.textContent=spd+'\u00d7'; speedDownBtn.disabled=speedIndex===0; speedUpBtn.disabled=speedIndex===SPEED_STEPS.length-1; gsap.globalTimeline.timeScale(spd*BASE_TIMESCALE); }
+syncSpeedUI();
+speedDownBtn.addEventListener('click',e=>{e.stopPropagation(); if(speedIndex>0){speedIndex--;syncSpeedUI();saveSpeed();}});
+speedUpBtn.addEventListener('click',e=>{e.stopPropagation(); if(speedIndex<SPEED_STEPS.length-1){speedIndex++;syncSpeedUI();saveSpeed();}});
+
+// ── Keyboard ──────────────────────────────
+if (window.AW && AW.keyboard) { AW.keyboard.bind({ next, prev, reset, replay }); }
+else { document.addEventListener('keydown', e => {
+	const tag=(e.target&&e.target.tagName||'').toLowerCase();
+	if(tag==='input'||tag==='textarea'||tag==='select') return;
+	// Space/Enter must reach a focused control, otherwise the focused button can never be pressed by keyboard
+	const onControl=!!(e.target&&e.target.closest&&e.target.closest('button,a[href],summary,[role="button"],[role="switch"]'));
+	if (['Space','Enter'].includes(e.code) && onControl) return;
+	if (['Space','ArrowRight','Enter'].includes(e.code)) { e.preventDefault(); next(); }
+	else if (e.code==='ArrowLeft') { e.preventDefault(); prev(); }
+	else if (e.code==='KeyR') { e.preventDefault(); reset(); }
+	else if (e.code==='KeyP') { e.preventDefault(); replay(); }
+}); }
+
+// ── Touch swipe (tablets) ─────────────────
+(function(){
+	const surf=document.getElementById('stage'); if(!surf) return;
+	let x0=null,y0=null,t0=0;
+	surf.addEventListener('touchstart',e=>{ if(e.touches.length!==1){x0=null;return;} x0=e.touches[0].clientX; y0=e.touches[0].clientY; t0=Date.now(); },{passive:true});
+	surf.addEventListener('touchend',e=>{
+		if(x0===null) return; const tch=e.changedTouches[0]; const dx=tch.clientX-x0, dy=tch.clientY-y0; x0=null;
+		if(Date.now()-t0>800) return;
+		if(Math.abs(dx)>50 && Math.abs(dx)>Math.abs(dy)*1.6){ if(dx<0) next(); else prev(); }
+	},{passive:true});
+})();
+
+// ── Keyboard shortcut help overlay ────────
+(function(){
+	const overlay=document.getElementById('shortcut-overlay'), btn=document.getElementById('help-toggle'), closeBtn=document.getElementById('sc-close'), list=document.getElementById('sc-list');
+	if(!overlay||!list) return;
+	const ROWS=[[['\u2192','Space'],'scNext'],[['\u2190'],'scPrev'],[['R'],'scRestart'],[['P'],'scReplay'],[['H'],'scHide'],[['?'],'scHelp']];
+	window.buildShortcuts=function(){ const title=document.getElementById('sc-title'); if(title) title.textContent=t('scTitle');
+		list.innerHTML=ROWS.map(([keys,k])=>`<li><span>${t(k)}</span><span class="sc-keys">${keys.map(x=>`<kbd>${x}</kbd>`).join('')}</span></li>`).join(''); };
+	buildShortcuts();
+	function open(){ overlay.removeAttribute('hidden'); if(closeBtn) closeBtn.focus(); }
+	function close(){ overlay.setAttribute('hidden',''); if(btn) btn.focus(); }
+	function toggle(){ overlay.hasAttribute('hidden')?open():close(); }
+	if(btn) btn.addEventListener('click',e=>{e.stopPropagation();toggle();});
+	if(closeBtn) closeBtn.addEventListener('click',e=>{e.stopPropagation();close();});
+	const bd=overlay.querySelector('.sc-backdrop'); if(bd) bd.addEventListener('click',close);
+	document.addEventListener('keydown',e=>{ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return;
+		if(e.key==='?'){ e.preventDefault(); toggle(); }
+		else if(e.key==='Escape' && !overlay.hasAttribute('hidden')){ e.preventDefault(); close(); } });
+})();
+
+// ── Resize (re-fit only — never rebuild or replay the animation) ──
+let resizeTimer, lastStageW=0, lastStageH=0;
+window.addEventListener('resize',()=>{ clearTimeout(resizeTimer); resizeTimer=setTimeout(()=>{
+	if(current<0) return;
+	const box=stage.getBoundingClientRect();
+	if(Math.abs(box.width-lastStageW)<1 && Math.abs(box.height-lastStageH)<1) return;   // ignore no-op reflows (focus/URL-bar) so the animation never restarts
+	lastStageW=box.width; lastStageH=box.height;
+	const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s);
+},200); });
+
+// ── Init ──────────────────────────────────
+setLanguage(currentLang);
+counter.textContent = `1 / ${STEPS.length}`;
+const urlStep = parseInt(new URLSearchParams(location.search).get('step'), 10);   // ?step=N opens on step N
+renderStep((!isNaN(urlStep) && urlStep>=1 && urlStep<=STEPS.length) ? urlStep-1 : 0);
+</script>
+<script>
+// ── Start gate · hold autoplay until the viewer clicks Play (empty stage + centered Play) ──
+(function () {
+	if (new URLSearchParams(location.search).has('present')) return;
+	var stage = document.getElementById('stage');
+	if (!stage) return;
+	function freeze() { try { if (window.gsap && gsap.globalTimeline) gsap.globalTimeline.pause(); } catch (_) {} }
+	freeze(); requestAnimationFrame(freeze);
+	document.body.classList.add('aw-prestart');
+	try { if (typeof stopAudio === 'function') stopAudio(); } catch (_) {}
+	stage.style.transition = 'opacity .55s ease';
+	stage.style.opacity = '0';
+
+	var T = {
+		title: { en:'Ready to begin?', es:'\u00BFTodo listo?', ja:'\u6E96\u5099\u306F\u3044\u3044\u3067\u3059\u304B\uFF1F', ko:'\uC2DC\uC791\uD560 \uC900\uBE44\uAC00 \uB418\uC168\uB098\uC694?', pt:'Tudo pronto?' },
+		sound: { en:'Sound', es:'Sonido', ja:'\u97F3\u58F0', ko:'\uC18C\uB9AC', pt:'Som' },
+		cc:    { en:'Subtitles (CC)', es:'Subt\u00EDtulos (CC)', ja:'\u5B57\u5E55\uFF08CC\uFF09', ko:'\uC790\uB9C9 (CC)', pt:'Legendas (CC)' },
+		start: { en:'Start presentation', es:'Iniciar presentaci\u00F3n', ja:'\u30D7\u30EC\u30BC\u30F3\u3092\u958B\u59CB', ko:'\uD504\uB808\uC820\uD14C\uC774\uC158 \uC2DC\uC791', pt:'Iniciar apresenta\u00E7\u00E3o' }
+	};
+	function L(){ return (typeof currentLang === 'string' && currentLang) || (typeof CURRENT_LANG === 'string' && CURRENT_LANG) || 'en'; }
+	function t(k){ var m = T[k], l = L(); return m[m[l] ? l : 'en']; }
+	function awAudioState(){ try{ if(typeof window.__awAudioOn==='function') return !!window.__awAudioOn(); }catch(_){} return (typeof audioEnabled!=='undefined') && !!audioEnabled; }
+	function awCcState(){ try{ if(typeof window.__awCcOn!=='undefined' && window.__awCcOn!==null) return !!window.__awCcOn; }catch(_){} return (typeof ccPref!=='undefined') && !!ccPref; }
+
+	var style = document.createElement('style');
+	style.textContent =
+		'body.aw-prestart #controls{opacity:.4;pointer-events:none;transition:opacity .4s ease}' +
+		'#aw-play-card{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:50;box-sizing:border-box;width:min(90vw,22rem);padding:1.35rem 1.5rem 1.5rem;border-radius:16px;background:var(--theme-card-background,#fff);color:var(--theme-text,#222);border:1px solid var(--theme-border,rgba(0,0,0,.1));box-shadow:0 24px 60px rgba(0,0,0,.28);transition:opacity .3s ease,transform .3s ease}' +
+		'#aw-play-card.aw-hide{opacity:0;transform:translate(-50%,-50%) scale(.96);pointer-events:none}' +
+		'body.theme-dark #aw-play-card{border-color:rgba(255,255,255,.12);box-shadow:0 24px 60px rgba(0,0,0,.55)}' +
+		'body.present-mode #aw-play-card{display:none!important}' +
+		'.aw-card-title{margin:0 0 1rem;text-align:center;font-size:1.02rem;font-weight:800;letter-spacing:.03em;text-transform:uppercase;opacity:.85}' +
+		'.aw-row{display:flex;align-items:center;gap:.65rem;padding:.6rem 0}' +
+		'.aw-row + .aw-row{border-top:1px solid var(--theme-border,rgba(0,0,0,.08))}' +
+		'.aw-row-ico{flex:none;width:1.5rem;text-align:center;font-size:1.15rem;line-height:1}' +
+		'.aw-row-lbl{flex:1 1 auto;font-size:.9rem;font-weight:600}' +
+		'.aw-row-state{flex:none;min-width:2.5rem;text-align:right;font-size:.68rem;font-weight:800;letter-spacing:.05em;opacity:.5}' +
+		'.aw-row-state.on{color:var(--theme-primary,#0078d4);opacity:1}' +
+		'.aw-switch{position:relative;flex:none;width:44px;height:24px;padding:0;border:none;border-radius:999px;cursor:pointer;background:var(--theme-border,#c7c7d1);transition:background .18s ease}' +
+		'.aw-switch.on{background:var(--theme-primary,#0078d4)}' +
+		'.aw-switch::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.4);transition:transform .18s ease}' +
+		'.aw-switch.on::after{transform:translateX(20px)}' +
+		'#aw-start{margin-top:1.2rem;width:100%;display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:.8rem 1rem;border:none;border-radius:11px;cursor:pointer;background:var(--theme-primary,#0078d4);color:#fff;font-size:.96rem;font-weight:700;letter-spacing:.01em;box-shadow:0 8px 22px var(--theme-primary-translucent,rgba(0,120,212,.45));transition:transform .15s ease}' +
+		'#aw-start:hover{transform:translateY(-2px)}#aw-start:active{transform:scale(.98)}' +
+		'#aw-start svg{width:18px;height:18px;flex:none}';
+	document.head.appendChild(style);
+
+	var card = document.createElement('div');
+	card.id = 'aw-play-card'; card.setAttribute('role', 'dialog'); card.setAttribute('aria-modal', 'true');
+	card.innerHTML =
+		'<div class="aw-card-title"></div>' +
+		'<div class="aw-row" data-k="audio"><span class="aw-row-ico" aria-hidden="true">\uD83D\uDD0A</span><span class="aw-row-lbl"></span><span class="aw-row-state"></span><button type="button" class="aw-switch" role="switch"></button></div>' +
+		'<div class="aw-row" data-k="cc"><span class="aw-row-ico" aria-hidden="true">\uD83D\uDCAC</span><span class="aw-row-lbl"></span><span class="aw-row-state"></span><button type="button" class="aw-switch" role="switch"></button></div>' +
+		'<button type="button" id="aw-start"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 5v14l11-7z"/></svg><span class="aw-start-lbl"></span></button>';
+	document.body.appendChild(card);
+
+	var titleEl = card.querySelector('.aw-card-title');
+	var startBtn = card.querySelector('#aw-start');
+	var ROWS = [ { k:'audio', lbl:'sound', el:card.querySelector('.aw-row[data-k="audio"]'), read:awAudioState, toggle:'audio-toggle' },
+	             { k:'cc',    lbl:'cc',    el:card.querySelector('.aw-row[data-k="cc"]'),    read:awCcState,    toggle:'cc-toggle' } ];
+
+	function render(){
+		titleEl.textContent = t('title'); card.setAttribute('aria-label', t('title'));
+		startBtn.querySelector('.aw-start-lbl').textContent = t('start');
+		ROWS.forEach(function(r){
+			var on = r.read();
+			r.el.querySelector('.aw-row-lbl').textContent = t(r.lbl);
+			var st = r.el.querySelector('.aw-row-state'); st.textContent = on ? 'ON' : 'OFF'; st.classList.toggle('on', on);
+			var sw = r.el.querySelector('.aw-switch'); sw.classList.toggle('on', on); sw.setAttribute('aria-checked', on ? 'true' : 'false');
+			sw.setAttribute('aria-label', t(r.lbl) + ' \u2014 ' + (on ? 'on' : 'off'));
+		});
+	}
+	ROWS.forEach(function(r){
+		r.el.querySelector('.aw-switch').addEventListener('click', function(e){ e.stopPropagation(); var b = document.getElementById(r.toggle); if(b) b.click(); render(); });
+	});
+	render();
+
+	var sel = document.getElementById('lang-select');
+	// Only re-freeze while the gate is still up — after Play, freezing would pause the
+	// global timeline for good and every later scene would stay at opacity 0 (blank stage).
+	if (sel) sel.addEventListener('change', function () { if (done) return; render(); freeze(); });
+
+	function gateKeys(e) {
+		if (done) return;
+		var tag = (e.target && e.target.tagName || '').toLowerCase();
+		if (tag === 'select' || tag === 'input' || tag === 'textarea') return;
+		if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'].indexOf(e.key) >= 0) { e.preventDefault(); e.stopPropagation(); }
+	}
+	document.addEventListener('keydown', gateKeys, true);
+
+	var done = false;
+	function start() {
+		if (done) return; done = true;
+		document.removeEventListener('keydown', gateKeys, true);
+		document.body.classList.remove('aw-prestart');
+		card.classList.add('aw-hide');
+		setTimeout(function () { if (card.parentNode) card.parentNode.removeChild(card); if (style.parentNode) style.parentNode.removeChild(style); }, 420);
+		setTimeout(function () {
+			try { if (window.gsap && gsap.globalTimeline) gsap.globalTimeline.play(); } catch (_) {}
+			stage.style.opacity = '1';
+			try { if (typeof interruptAnimation === 'function') interruptAnimation(); } catch (_) {}
+			try { if (typeof renderStep === 'function') renderStep(typeof current === 'number' && current >= 0 ? current : 0); } catch (_) {}
+		}, 380);
+	}
+	startBtn.addEventListener('click', start);
+	// the gate is aria-modal, so keyboard and screen-reader users must land on it rather than tab the header behind it
+	startBtn.focus({ preventScroll: true });
+}());
+</script>
+<script>
+/* ── Audio-synced animation speed ──────────────────────────────────────────────────────────
+   ANIM[i]       = real seconds step i takes at the 1x speed (measured with BASE_TIMESCALE applied)
+   AUDIO_SECS[l] = length of each recorded clip per language (from the generated MP3s)
+   With narration ON the animation runs at clamp(ANIM/clip, 0.6, 2.2) x BASE_TIMESCALE x the chosen speed, so a step's build
+   finishes about when its voice does. Narration OFF restores the chosen speed. */
+(function () {
+	const ANIM = [15.5,26.1,17.2,21.6,29.7,31.8,19.3,24.9];
+	const AUDIO_SECS = {"en":[24,21.36,24.55,22.06,24.26,27.22,26.95,29.76],"es":[22.37,22.06,23.4,20.26,24.96,26.4,23.62,29.21],"ja":[28.51,26.66,28.7,25.42,25.1,30.86,30.6,33.1],"ko":[25.1,20.9,22.9,23.02,22.85,25.9,23.71,29.11],"pt":[21.6,21.91,23.3,22.61,24.31,26.26,27.91,28.37]};
+	const MIN = 0.6, MAX = 2.2;
+	function clipSecs(i) { const a = AUDIO_SECS[currentLang] || AUDIO_SECS.en; return a && a[i]; }
+	function userSpeed() { try { return SPEED_STEPS[speedIndex]; } catch (_) { return 1; } }
+	function apply(i) {
+		try {
+			if (!window.gsap) return;
+			const D = ANIM[i], A = clipSecs(i);
+			if (audioEnabled && D && A) gsap.globalTimeline.timeScale(Math.max(MIN, Math.min(MAX, D / A)) * BASE_TIMESCALE * userSpeed());
+			else gsap.globalTimeline.timeScale(BASE_TIMESCALE * userSpeed());
+		} catch (_) {}
+	}
+	const render = renderStep;
+	renderStep = function (i) { if (typeof i === 'number' && i >= 0) apply(i); return render.apply(this, arguments); };
+	const speedUI = syncSpeedUI;
+	syncSpeedUI = function () { speedUI.apply(this, arguments); if (current >= 0) apply(current); };
+	const audioBtnEl = document.getElementById('audio-toggle');
+	if (audioBtnEl) audioBtnEl.addEventListener('click', function () { if (current >= 0) apply(current); });
+})();
+</script>
+<script src="../../lib/js/aw-present.js"></script>
+<script src="../../lib/js/aw-declutter.js"></script>
+<script src="../../lib/js/aw-url-state.js"></script>
+<script src="../../lib/js/aw-like-dock.js"></script>
+
+</body>
+</html>

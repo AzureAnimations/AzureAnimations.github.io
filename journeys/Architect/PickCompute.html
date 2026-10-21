@@ -1,0 +1,2851 @@
+<!DOCTYPE html>
+<!-- Narration script: /narration/Architect/PickCompute.md -->
+<!--
+	Azure Animations — STARTER TEMPLATE
+	====================================
+	Copy this file to <Area>/<Sub>/YourTopic.html (e.g. AI/Foundry/MyTopic.html) and:
+	  1. Set <title>, #page-title, and the back-link href.
+	  2. Rename/expand the sample steps. Each STEPS[] entry pairs with one
+	     render<Xxx>Step(). The samples demonstrate the reusable building blocks —
+	     delete the ones you don't need, they are all optional:
+	       • PROBLEM   — a centered hero .card
+	       • FLOW      — a .ta-flow of .agent-node boxes joined by .ta-arrow (input → process → output)
+	       • CODE      — a VS Code-style .code-card (use .code-duo for a request/response pair)
+	       • USE CASES — a .uc-grid of .uc-card tiles
+	       • RECAP     — a .card + .value-chip row + closing line
+	  3. Fill the English I18N block, then add es/ja/ko/pt (full objects OR the
+	     { ...I18N.en, overrides } spread) and matching <option>s in #lang-select.
+	  4. Prefer Microsoft Fluent icons/emoji over raw OS emoji for anything shown
+	     on a projector. Source priority: Azure service icons (local lib
+	     ../../lib/icons/…) → Fluent System Icons → Fluent UI Emoji → Fluent Emoji
+	     Animated → Twemoji (last resort, CC-BY).
+	  5. Run the Definition-of-Done checklist before publishing.
+
+	DESIGN NOTES
+	  • Accent colour is --theme-tertiary (Microsoft purple #5c2d91); primary blue
+	    and green (#10a37f) act as secondary / positive accents.
+	  • The bottom #controls is a compact translucent "icon dock" of glyph-only
+	    buttons; their localized labels live in the tooltip (title), set in setLanguage().
+	  • Audio narration is optional: list one clip per step (in order) in AUDIO_FILES[]
+	    and an Audio toggle appears automatically. Present mode (dual-window) ships via
+	    aw-present.js at the bottom — it self-installs a "Present" button in the header.
+
+	NOTE: the ../../lib/ and ../../../img/ paths assume this file lives two levels
+	under static/v2/ (e.g. static/v2/AI/Foundry/). Adjust depth if you move it.
+-->
+<html lang="en">
+<head>
+	<script src="/js/tracking.js"></script>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+	<title>Pick the right compute — Azure Animations</title>
+	<link rel="icon" type="image/png" href="../../img/favicon.png" />
+
+	<link rel="stylesheet" href="https://unpkg.com/@microsoft/atlas-css/dist/index.css" />
+	<script src="../../lib/vendor/gsap-3.15.0.min.js"></script>
+
+	<!-- AnimationWorks shared lib -->
+	<script src="../../lib/js/aw-easings.js"></script>
+	<script src="../../lib/js/aw-motion.js"></script>
+	<script src="../../lib/js/aw-theme.js"></script>
+	<script src="../../lib/js/aw-keyboard.js"></script>
+	<script src="../../lib/js/aw-captions.js"></script>
+
+<style>
+	/* ── SHELL ─────────────────────────────── */
+	/* Brand palette — reference these tokens; don't hardcode hex */
+	:root {
+		--aw-purple:#5c2d91;   /* primary accent — titles, callouts, arrows, progress, agents */
+		--aw-blue:#0078d4;     /* secondary — inputs, links, "the model", primary button */
+		--aw-green:#10a37f;    /* positive — success, grounded/correct results, value chips */
+		--aw-orange:#e97526;   /* tools / actions — tool calls, function calling, side-effects */
+		--aw-pink:#d24aa8;     /* highlight — a fourth category / emphasis */
+	}
+	html, body { height:100%; margin:0; }
+	html { font-size:100%; }
+	body {
+		display:flex; flex-direction:column; height:100vh;
+		overflow:hidden;
+		font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif;
+		color: var(--theme-text);
+		background:
+			radial-gradient(circle at 15% 20%, rgba(92,45,145,0.18) 0%, transparent 55%),
+			radial-gradient(circle at 85% 80%, rgba(0,120,212,0.18) 0%, transparent 55%),
+			var(--theme-body-background);
+	}
+	.app-header { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:1rem; flex-shrink:0; font-size:16px; }
+	.app-header > :last-child { justify-self:end; }
+
+	/* #stage fills the space between the top bar and the control dock, and centers the fixed 16:9 frame. */
+	#stage {
+		position:relative; flex:1 1 auto; width:100%; min-height:0;
+		display:flex; align-items:center; justify-content:center;
+		overflow:hidden; container-type:size;
+		padding:1.75rem 2.75rem 5rem;   /* breathing room around the frame; bottom clears the fixed #controls dock */
+	}
+	#stage:focus-visible, button:focus-visible, a:focus-visible, select:focus-visible {
+		outline:2px solid var(--theme-primary, #0078d4); outline-offset:3px; border-radius:4px;
+	}
+	/* The visible rectangle: the largest 16:9 box that fits the stage. All scenes are drawn inside it. */
+	#stage-frame {
+		position:relative; overflow:hidden;
+		width: min(100cqw, calc(100cqh * 16 / 9));
+		aspect-ratio: 16 / 9; max-width:100%; max-height:100%;
+		border-radius:16px;
+		background: rgba(0,0,0,0.015);
+		box-shadow: 0 12px 44px rgba(0,0,0,0.22);
+	}
+	body.theme-dark #stage-frame { background: rgba(255,255,255,0.025); }
+	/* Coloured gradient border (brand purple → blue → pink) drawn as a masked ring — no interior tint. */
+	#stage-frame::before {
+		content:""; position:absolute; inset:0; border-radius:inherit; padding:2.5px;
+		background: linear-gradient(135deg, var(--aw-purple) 0%, var(--aw-blue) 55%, var(--aw-pink) 100%);
+		-webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+		mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+		-webkit-mask-composite: xor; mask-composite: exclude;
+		pointer-events:none; z-index:20;
+	}
+	#fx-svg { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:6; overflow:visible; }
+
+	/* ── SCENE ─────────────────────────────── */
+	.scene {
+		position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+		transform-origin:center center;
+		width:min(1150px, 96%); z-index:10;
+		display:flex; flex-direction:column; align-items:center; gap:1.4rem;
+	}
+	/* 200ms fade in / out between every step */
+	@keyframes awSceneIn { from { opacity:0; } to { opacity:1; } }
+	@keyframes awSceneOut { from { opacity:1; } to { opacity:0; } }
+	.scene.scene-in { animation: awSceneIn 0.2s ease both; }
+	.scene.scene-out { animation: awSceneOut 0.2s ease both; }
+	.scene-title { font-size:2.5rem; font-weight:700; color:var(--theme-tertiary, #5c2d91); margin:0; text-align:center; opacity:0; }
+	body.theme-dark .scene-title { color:#c9a5e8; }
+	/* lead spans wide (near the scene width) to use the side gutters and stay within 2 lines — trim copy if it wraps to 3 */
+	.scene-lead { margin:0; text-align:center; font-size:1.35rem; color:var(--theme-text); max-width:min(1180px,96%); line-height:1.5; opacity:0; }
+
+	/* ── CALLOUT · draggable, slightly see-through so it never fully blocks the diagram ── */
+	.callout {
+		position:absolute; max-width:340px; padding:1rem 1.2rem;
+		background:var(--theme-body-background);
+		background:color-mix(in srgb, var(--theme-body-background) 84%, transparent);
+		-webkit-backdrop-filter:blur(5px); backdrop-filter:blur(5px);
+		border:1px solid var(--theme-border);
+		border-left:4px solid var(--theme-tertiary, #5c2d91); border-radius:6px;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2));
+		font-size:1.05rem; line-height:1.45; z-index:14; opacity:0;
+		cursor:grab; touch-action:none;
+	}
+	.callout:active { cursor:grabbing; }
+
+	/* ── RESET "PIN" · appears on a draggable panel once it has been moved off its home spot ── */
+	.aw-drag-reset {
+		position:absolute; width:24px; height:24px; padding:0; display:none;
+		align-items:center; justify-content:center; border-radius:50%;
+		background:var(--theme-tertiary,#5c2d91); color:#fff;
+		border:2px solid var(--theme-body-background,#fff);
+		box-shadow:0 2px 7px rgba(0,0,0,0.4); cursor:pointer; z-index:6;
+		opacity:0.92; transition:opacity .14s ease, transform .14s ease;
+	}
+	.aw-drag-reset:hover { opacity:1; transform:scale(1.08); }
+	.aw-drag-reset:focus-visible { outline:2px solid #5cc8ff; outline-offset:2px; }
+	.aw-drag-reset svg { width:13px; height:13px; display:block; }
+
+	/* ══════════════════════════════════════════════════════════ */
+	/* ── REUSABLE BUILDING BLOCKS · keep what you use, drop rest ─ */
+	/* ══════════════════════════════════════════════════════════ */
+
+	/* Centered hero card */
+	.card {
+		width:min(680px, 96%); padding:1.6rem 1.8rem; border-radius:16px;
+		background:var(--theme-card-background, #fff); border:2px solid var(--theme-border);
+		box-shadow:0 8px 28px rgba(0,0,0,0.14); opacity:0;
+		display:flex; flex-direction:column; gap:0.6rem; align-items:center; text-align:center;
+	}
+	body.theme-dark .card { background:rgba(255,255,255,0.05); }
+	.card .card-icon { font-size:3rem; line-height:1; }
+	.card .card-h { font-size:1.4rem; font-weight:700; }
+	.card .card-p { font-size:1.05rem; color:var(--theme-text-subtle); line-height:1.5; }
+
+	/* Wide info panel */
+	.ta-card {
+		width:min(1080px, 98%); border:1.5px solid var(--theme-border); border-radius:14px;
+		background:var(--theme-card-background, #fff); box-shadow:0 8px 30px rgba(0,0,0,0.16);
+		padding:1.1rem 1.3rem; opacity:0;
+	}
+	body.theme-dark .ta-card { background:rgba(255,255,255,0.05); }
+	.ta-card-head {
+		display:flex; align-items:center; gap:0.5rem;
+		font-size:1rem; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;
+		color:var(--theme-text-subtle); margin-bottom:0.6rem;
+	}
+	.ta-card-text { font-size:1.22rem; line-height:1.55; color:var(--theme-text); }
+
+	/* Pills / chips */
+	.chip-row { display:flex; flex-wrap:wrap; gap:0.7rem; justify-content:center; }
+	.pill {
+		display:inline-flex; align-items:center; gap:0.5rem; padding:0.55rem 1.1rem;
+		border-radius:999px; font-size:1.05rem; font-weight:600;
+		border:2px solid var(--theme-tertiary, #5c2d91); background:rgba(92,45,145,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .pill { background:rgba(92,45,145,0.2); }
+	.value-chip {
+		display:inline-flex; align-items:center; gap:0.4rem; padding:0.5rem 1rem;
+		border-radius:999px; font-size:1rem; font-weight:700;
+		border:2px solid #107c10; background:rgba(16,124,16,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .value-chip { background:rgba(16,124,16,0.16); }
+	.recap-foot { font-size:1.05rem; color:var(--theme-text); text-align:center; max-width:760px; opacity:0; }
+
+	/* Flow row: input → process → output */
+	.agent-node {
+		display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.2rem;
+		width:160px; height:160px; border-radius:24px;
+		background: linear-gradient(135deg, rgba(92,45,145,0.12), rgba(0,120,212,0.12));
+		border:2.5px solid var(--theme-tertiary, #5c2d91);
+		box-shadow:0 8px 28px rgba(92,45,145,0.2); flex-shrink:0; text-align:center;
+	}
+	.agent-node .an-icon { font-size:3rem; line-height:1; }
+	.agent-node .an-icon img { width:64px; height:64px; display:block; }
+	.agent-node .an-label { font-size:1.05rem; font-weight:700; color:var(--theme-text); }
+	.agent-node .an-sub { font-size:0.85rem; color:var(--theme-text-subtle); }
+	.ta-flow { display:flex; align-items:center; justify-content:center; gap:1.2rem; flex-wrap:wrap; width:100%; }
+	.ta-flow .agent-node { width:140px; height:140px; }
+	.ta-flow .agent-node .an-icon { font-size:2.6rem; }
+	.ta-flow .agent-node .an-icon img { width:54px; height:54px; }
+	.ta-arrow { font-size:1.9rem; color:var(--theme-tertiary,#5c2d91); opacity:0; }
+	.ta-arrow.is-big { font-size:3.2rem; }
+	.ta-arrow.is-down, .ta-arrow.is-up { font-size:2.9rem; line-height:1; }
+	@media (max-width:760px) { .ta-flow .ta-arrow { transform:rotate(90deg); } }
+
+	/* Code card (VS Code style) */
+	.code-card {
+		width:min(560px,96%); border:1px solid #30363d; border-radius:8px;
+		background:#1e1e1e; overflow:hidden; opacity:0;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.25));
+	}
+	.code-head {
+		display:flex; align-items:center; justify-content:space-between; gap:0.5rem;
+		padding:0 0 0 0.85rem; background:#323233; border-bottom:1px solid #1e1e1e;
+	}
+	.code-file { font-size:0.9rem; color:#cccccc; font-weight:500; padding:0.6rem 0; }
+	.code-winctrls { display:flex; align-items:stretch; height:100%; }
+	.code-wbtn {
+		display:flex; align-items:center; justify-content:center; width:2.6rem; padding:0.55rem 0;
+		color:#cccccc; font-family:'Segoe UI Symbol','Segoe MDL2 Assets',sans-serif; font-size:0.7rem;
+	}
+	.code-wbtn.is-close:hover { background:#e81123; color:#fff; }
+	.code-wbtn:hover { background:rgba(255,255,255,0.1); }
+	.code-body {
+		margin:0; padding:0.8rem 1rem;
+		font-family:'Cascadia Code', 'Consolas', 'SFMono-Regular', monospace;
+		font-size:0.86rem; line-height:1.5; color:#d4d4d4;
+		white-space:pre-wrap; overflow-wrap:break-word; word-break:break-word; tab-size:4;
+	}
+	.code-body .tok-com { color:#6a9955; }
+	.code-body .tok-kw  { color:#569cd6; }
+	.code-body .tok-str { color:#ce9178; }
+	.code-body .tok-fn  { color:#dcdcaa; }
+	.code-body .tok-mod { color:#4ec9b0; }
+	.code-body .tok-prop{ color:#9cdcfe; }
+	.code-body .tok-num { color:#b5cea8; }
+	.code-body .tok-punct { color:#d4d4d4; }
+	.code-body .code-hl { border-radius:4px; padding:0 0.15em; box-shadow:0 0 0 1px rgba(96,165,250,0.55); background:rgba(96,165,250,0.22); }
+	.code-duo { display:flex; gap:1.1rem; flex-wrap:wrap; align-items:flex-start; justify-content:center; width:100%; }
+	.code-duo .code-card { flex:1 1 380px; max-width:480px; }
+	.code-duo .code-body { font-size:0.8rem; line-height:1.45; }
+	.code-arrow { align-self:center; font-size:1.8rem; line-height:1; color:var(--theme-tertiary,#5c2d91); opacity:0; flex:none; }
+	.code-arrow.is-big { font-size:2.9rem; }
+	@media (max-width:760px) { .code-arrow { transform:rotate(90deg); } }
+
+	/* Use-case grid */
+	.uc-grid { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:1.1rem; width:min(980px,96%); }
+	@media (max-width:720px) { .uc-grid { grid-template-columns:1fr; } }
+	.uc-card {
+		display:flex; flex-direction:column; gap:0.5rem; padding:1rem 1.15rem;
+		border:1.5px solid var(--theme-border); border-top:4px solid var(--theme-primary,#0078d4);
+		border-radius:14px; background:var(--theme-card-background, #fff);
+		box-shadow:0 6px 22px rgba(0,0,0,0.12); opacity:0;
+		transition:transform 0.2s ease, box-shadow 0.2s ease;
+	}
+	.uc-card:hover { transform:translateY(-4px); box-shadow:0 12px 30px rgba(0,0,0,0.18); }
+	body.theme-dark .uc-card { background:rgba(255,255,255,0.05); }
+	.uc-card[data-uc="a"] { border-top-color:#0078d4; }
+	.uc-card[data-uc="b"] { border-top-color:#10a37f; }
+	.uc-card[data-uc="c"] { border-top-color:#e97526; }
+	.uc-card[data-uc="d"] { border-top-color:#d24aa8; }
+	.uc-head { display:flex; align-items:center; gap:0.55rem; font-size:1.25rem; font-weight:700; color:var(--theme-text); }
+	.uc-head .uc-icon { font-size:1.7rem; display:inline-block; }
+	.uc-desc { font-size:0.98rem; line-height:1.55; color:var(--theme-text-subtle); }
+	.uc-caps { display:flex; flex-wrap:wrap; gap:0.4rem; margin-top:0.2rem; }
+	.uc-cap {
+		display:inline-flex; align-items:center; gap:0.3rem; padding:0.25rem 0.7rem;
+		border-radius:999px; font-size:0.88rem; font-weight:700;
+		background:rgba(0,120,212,0.1); color:var(--theme-text);
+		border:1.5px solid rgba(0,120,212,0.4); opacity:0;
+	}
+
+	/* ── CONTROLS · icon dock ──────────────── */
+	#controls {
+		position:fixed; bottom:14px; left:50%; transform:translateX(-50%); z-index:40;
+		display:flex; align-items:center; gap:5px; padding:5px 7px;
+		background:var(--theme-body-background-translucent, rgba(255,255,255,0.82));
+		backdrop-filter:blur(12px) saturate(1.4); -webkit-backdrop-filter:blur(12px) saturate(1.4);
+		border:1px solid var(--theme-border); border-radius:999px;
+		box-shadow: 0 8px 26px rgba(0,0,0,0.18); font-size:13px;
+	}
+	body.theme-dark #controls { background:var(--theme-body-background-translucent, rgba(32,32,36,0.82)); }
+	#controls .ctrl-icon {
+		width:2.15rem; height:2.15rem; min-width:0; padding:0;
+		display:inline-flex; align-items:center; justify-content:center;
+		border-radius:50%; font-size:0.95rem; line-height:1; font-weight:600;
+		transition:background 0.18s ease, color 0.18s ease, transform 0.12s ease, box-shadow 0.18s ease;
+	}
+	#controls .ctrl-icon:hover { transform:translateY(-1px); }
+	#controls .ctrl-icon:active { transform:scale(0.92); }
+	#controls .ctrl-icon-next {
+		width:2.55rem; height:2.55rem; font-size:1.1rem;
+		box-shadow:0 2px 8px var(--theme-primary-translucent, rgba(0,120,212,0.45));
+	}
+	.step-counter {
+		min-width:52px; text-align:center; font-variant-numeric:tabular-nums;
+		font-size:14px; font-weight:700; color:var(--theme-text);
+		padding:0 6px; white-space:nowrap; letter-spacing:0.02em;
+	}
+	.ctrl-sep { width:1px; align-self:stretch; margin:4px 2px; background:var(--theme-border); }
+	/* Movable dock: drag handle + pin-to-center button */
+	.ctrl-grip {
+		display:inline-flex; align-items:center; justify-content:center;
+		width:1.5rem; height:2.15rem; padding:0; border:none; background:transparent;
+		color:var(--theme-text-subtle); border-radius:8px; cursor:grab; touch-action:none;
+		transition:background 0.18s ease, color 0.18s ease;
+	}
+	.ctrl-grip:hover { color:var(--theme-text); background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); }
+	.ctrl-grip:active { cursor:grabbing; }
+	.ctrl-grip svg { width:13px; height:16px; pointer-events:none; }
+	body.controls-floating .ctrl-grip { color:var(--theme-primary,#0078d4); }
+	#controls .ctrl-pin { display:none; color:var(--theme-primary,#0078d4); }
+	#controls .ctrl-pin svg { width:15px; height:15px; pointer-events:none; }
+	body.controls-floating #controls .ctrl-pin { display:inline-flex; }
+	body.controls-floating #controls { box-shadow:0 10px 30px rgba(0,0,0,0.30), 0 0 0 1.5px var(--theme-primary,#0078d4); }
+	.speed-control { display:inline-flex; align-items:center; gap:1px; padding:2px 3px; border:1px solid var(--theme-border); border-radius:999px; }
+	.speed-control .speed-btn {
+		width:1.7rem; height:1.7rem; min-width:0; padding:0;
+		display:inline-flex; align-items:center; justify-content:center;
+		font-size:0.95rem; font-weight:700; border-radius:50%;
+	}
+	.speed-control .speed-btn[disabled] { opacity:0.4; cursor:not-allowed; }
+	.speed-label { min-width:2.4rem; text-align:center; font-variant-numeric:tabular-nums; font-size:0.82rem; font-weight:700; color:var(--theme-text); }
+
+	#callout-toggle, #outline-toggle, #audio-toggle { border:1px solid var(--theme-border); border-radius:4px; transition:background .2s,color .2s,border-color .2s,opacity .2s; }
+	#callout-toggle.toggle-active, #outline-toggle.toggle-active, #audio-toggle.toggle-active {
+		background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary,#0078d4); border-color:var(--theme-primary,#0078d4); font-weight:600;
+	}
+	#callout-toggle:not(.toggle-active), #outline-toggle:not(.toggle-active), #audio-toggle:not(.toggle-active) { opacity:0.6; }
+
+	/* ── HIDE/SHOW TOP BAR ─────────────────── */
+	#header-hide { display:inline-flex; align-items:center; justify-content:center; width:2rem; height:2rem; padding:0; border:1px solid var(--theme-border); border-radius:50%; color:var(--theme-text-subtle); transition:background .2s,color .2s,transform .18s; }
+	#header-hide:hover { color:var(--theme-text); transform:translateY(-1px); }
+	#header-hide svg { width:16px; height:16px; }
+	#header-hide-top { display:inline-flex; align-items:center; justify-content:center; width:2rem; height:2rem; padding:0; border:1px solid var(--theme-border); border-radius:50%; color:var(--theme-text-subtle); background:transparent; cursor:pointer; transition:background .2s,color .2s,transform .18s; }
+	#header-hide-top:hover { color:var(--theme-text); transform:translateY(-1px); }
+	#header-hide-top svg { width:16px; height:16px; }
+	body.chrome-hidden .app-header, body.chrome-hidden .progress-track { display:none; }
+	#header-reveal {
+		position:fixed; top:0; left:50%; transform:translateX(-50%) translateY(-100%); z-index:45;
+		display:inline-flex; align-items:center; gap:0.35rem; padding:5px 14px 6px; font-size:12px; font-weight:600; line-height:1;
+		color:var(--theme-text-subtle); background:var(--theme-body-background-translucent, rgba(255,255,255,0.88));
+		backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border:1px solid var(--theme-border); border-top:none; border-radius:0 0 12px 12px;
+		box-shadow:0 4px 14px rgba(0,0,0,0.14); cursor:pointer; transition:transform .28s cubic-bezier(0.2,0.7,0.3,1), color .2s, background .2s;
+	}
+	body.theme-dark #header-reveal { background:var(--theme-body-background-translucent, rgba(32,32,36,0.88)); }
+	#header-reveal:hover { color:var(--theme-text); }
+	body.chrome-hidden #header-reveal { transform:translateX(-50%) translateY(0); }
+	#header-reveal svg { width:14px; height:14px; }
+
+	/* ── PLAYER OVERLAY · pills inside the stage frame (YouTube-style) ──
+	   Two translucent pills float over the 16:9 frame: LEFT = "view options"
+	   (callout / outline / shortcuts), RIGHT = "player" (audio / captions / hide-bar / fullscreen). */
+	.stage-overlay {
+		position:absolute; right:12px; bottom:10px; z-index:25;
+		display:flex; align-items:center; gap:2px;
+		padding:3px 6px; border-radius:999px;
+		background:rgba(16,18,24,0.58);
+		backdrop-filter:blur(9px) saturate(1.3); -webkit-backdrop-filter:blur(9px) saturate(1.3);
+		box-shadow:0 4px 16px rgba(0,0,0,0.32);
+	}
+	.ovl-btn {
+		-webkit-appearance:none; appearance:none; margin:0; font:inherit;
+		display:inline-flex; align-items:center; justify-content:center; gap:4px;
+		min-width:30px; height:30px; padding:0 8px;
+		border:none !important; border-radius:999px !important;
+		background:transparent !important; color:#fff !important;
+		box-shadow:none !important; cursor:pointer; line-height:1;
+		font-size:0.82rem; font-weight:700; opacity:0.92; transition:background .15s ease, opacity .15s ease;
+	}
+	.ovl-btn:hover { background:rgba(255,255,255,0.16) !important; opacity:1; }
+	.ovl-btn:disabled { opacity:0.4; cursor:not-allowed; }
+	.ovl-btn svg { width:18px; height:18px; fill:currentColor; display:block; }
+	.ovl-btn.on { color:#5cc8ff !important; }
+	.stage-overlay #audio-toggle { opacity:1 !important; }
+	.stage-overlay .aw-audio-ico { font-size:1rem; line-height:1; }
+	.stage-overlay .aw-audio-time { font-size:0.78rem; font-variant-numeric:tabular-nums; letter-spacing:0.02em; opacity:0.95; min-width:2.4em; text-align:left; }
+	#cc-toggle svg { width:20px; height:20px; }
+	.ovl-btn .fs-exit { display:none; }
+	body.is-fs .ovl-btn .fs-enter { display:none; }
+	body.is-fs .ovl-btn .fs-exit { display:block; }
+
+	/* ── LEFT VIEW-OPTIONS PILL · Callout / Outline / Shortcuts (icon + hover tip) ── */
+	.stage-overlay-left { right:auto; left:12px; }
+	#stage-overlay-left .ovl-btn:not(.toggle-active) { opacity:0.86; }
+	#stage-overlay-left .ovl-btn.toggle-active { color:#5cc8ff !important; opacity:1; }
+	#stage-overlay-left .ovl-btn:hover { opacity:1; }
+	/* Hover tooltip shown above the icon (left-anchored so it never clips the frame edge) */
+	.ovl-btn[data-tip] { position:relative; }
+	.ovl-btn[data-tip]::after { content:attr(data-tip); position:absolute; left:0; bottom:calc(100% + 9px); transform:translateY(4px); padding:4px 8px; border-radius:6px; background:rgba(16,18,24,0.96); color:#fff; font-size:0.72rem; font-weight:600; white-space:nowrap; letter-spacing:0.01em; opacity:0; pointer-events:none; box-shadow:0 3px 12px rgba(0,0,0,0.45); transition:opacity .14s ease, transform .14s ease; z-index:40; }
+	.ovl-btn[data-tip]::before { content:''; position:absolute; left:13px; bottom:calc(100% + 4px); border:5px solid transparent; border-top-color:rgba(16,18,24,0.96); opacity:0; pointer-events:none; transition:opacity .14s ease; z-index:40; }
+	.ovl-btn[data-tip]:hover::after { opacity:1; transform:translateY(0); }
+	.ovl-btn[data-tip]:hover::before { opacity:1; }
+
+	/* ── CAPTION · overlaid inside the frame, draggable + resizable, stays solid (not see-through) ── */
+	#aw-caption {
+		position:absolute; left:50%; transform:translateX(-50%); bottom:56px; z-index:24;
+		max-width:92%; min-width:140px; min-height:38px; max-height:44%;
+		display:none; align-items:center; justify-content:center; text-align:center;
+		padding:0.42rem 0.95rem; border-radius:9px;
+		background:rgba(8,9,13,0.8); color:#fff;
+		font-size:1.1rem; line-height:1.36; font-weight:600;
+		box-shadow:0 3px 14px rgba(0,0,0,0.42); pointer-events:auto; cursor:grab; touch-action:none;
+		overflow:auto; resize:both;   /* user can reshape the caption; corner grip = resize */
+	}
+	#aw-caption:active { cursor:grabbing; }
+	#aw-caption::-webkit-resizer { background:linear-gradient(135deg, transparent 45%, rgba(255,255,255,0.55) 45%, rgba(255,255,255,0.55) 55%, transparent 55%); }
+	body.cc-on #aw-caption.has-text { display:flex; }
+	@media (max-width:640px){ #aw-caption { font-size:0.94rem; bottom:48px; max-width:90%; } }
+
+	/* ── OUTLINE PANEL · draggable + slightly see-through ── */
+	#step-outline {
+		position:fixed; top:4.5rem; right:1rem; width:320px; max-height:calc(100vh - 8rem); overflow-y:auto;
+		padding:1.1rem; background:var(--theme-body-background);
+		background:color-mix(in srgb, var(--theme-body-background) 85%, transparent);
+		-webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
+		border:1px solid var(--theme-border);
+		border-radius:6px; box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2)); z-index:35; font-size:1rem; line-height:1.55;
+		cursor:grab; touch-action:none;
+	}
+	#step-outline:active { cursor:grabbing; }
+	#step-outline[hidden] { display:none; }
+	#step-outline h2 { font-size:0.85rem; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--theme-tertiary,#5c2d91); margin-bottom:0.5rem; }
+	#step-outline .outline-section { margin-top:0.6rem; padding-top:0.6rem; border-top:1px solid var(--theme-border); }
+	#step-outline .outline-section:first-child { margin-top:0; padding-top:0; border-top:0; }
+	#step-outline .stat-row { display:flex; justify-content:space-between; align-items:baseline; gap:0.75rem; padding:0.2rem 0; }
+	#step-outline .stat-row span:first-child { color:var(--theme-text-subtle); flex:0 0 auto; max-width:45%; }
+	#step-outline .stat-row span:last-child { text-align:right; font-weight:600; color:var(--theme-tertiary,#5c2d91); flex:1 1 auto; }
+
+	.progress-track { position:relative; height:6px; background:var(--theme-border, #e0e0e0); flex-shrink:0; cursor:pointer; }
+	.progress-fill { position:absolute; left:0; top:0; bottom:0; width:0%; background:var(--aw-purple, #5c2d91); transition:width .5s cubic-bezier(0.2,0.8,0.2,1); pointer-events:none; }
+	.progress-tick { position:absolute; top:0; bottom:0; width:2px; margin-left:-1px; background:var(--theme-body-background); opacity:0.6; pointer-events:none; }
+
+	/* ── THEME / LANG / FONT CONTROLS ──────── */
+	.theme-toggle { display:inline-flex; align-items:center; justify-content:center; width:2.25rem; height:2.25rem; padding:0; margin-inline-start:0.25rem; background:transparent; border:1px solid var(--theme-border); border-radius:999px; color:var(--theme-text); cursor:pointer; transition:background .15s,color .15s,border-color .15s; }
+	.theme-toggle:hover { background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary); border-color:var(--theme-primary); }
+	.theme-toggle .theme-icon { display:none; }
+	.theme-toggle[data-theme="dark"] .icon-sun { display:block; }
+	.theme-toggle[data-theme="light"] .icon-moon { display:block; }
+	.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+	.skip-link { position:absolute; top:-100px; left:0.5rem; z-index:100; padding:0.5rem 1rem; background:var(--theme-primary); color:var(--theme-primary-invert,#fff); border-radius:4px; text-decoration:none; font-weight:600; }
+	.skip-link:focus { top:0.5rem; }
+	.header-back-link { display:inline-flex; align-items:center; gap:0.25rem; padding:0.2rem 0.6rem; font-size:0.8rem; font-weight:600; color:var(--theme-text-subtle); border:1px solid var(--theme-border); border-radius:999px; text-decoration:none; white-space:nowrap; transition:background .15s,color .15s,border-color .15s; }
+	.header-back-link:hover { color:var(--theme-primary); border-color:var(--theme-primary); background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); }
+	.lang-select {
+		appearance:none; -webkit-appearance:none; background:var(--theme-card-background,#fff); color:var(--theme-body-text,#333);
+		border:1px solid var(--theme-border, rgba(0,0,0,0.2)); border-radius:4px; padding:4px 24px 4px 8px;
+		font-size:0.8rem; font-family:'Segoe UI', sans-serif; cursor:pointer;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+		background-repeat:no-repeat; background-position:right 6px center; min-width:80px;
+	}
+	.lang-select:hover { border-color:var(--theme-primary, #0078d4); }
+	.lang-select:focus { outline:2px solid var(--theme-primary, #0078d4); outline-offset:1px; }
+	body.theme-dark .lang-select {
+		background-color:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); border-color:rgba(255,255,255,0.15);
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23aaa' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+	}
+	body.theme-dark .lang-select option { background:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); }
+	.font-size-controls { display:flex; align-items:center; gap:2px; }
+	.font-size-btn { background:var(--theme-card-background,#fff); color:var(--theme-body-text,#333); border:1px solid var(--theme-border, rgba(0,0,0,0.2)); border-radius:4px; padding:3px 8px; font-size:0.8rem; font-weight:700; font-family:'Segoe UI', sans-serif; cursor:pointer; line-height:1.2; transition:background .15s,border-color .15s; }
+	.font-size-btn:hover { border-color:var(--theme-primary, #0078d4); }
+	body.theme-dark .font-size-btn { background:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); border-color:rgba(255,255,255,0.15); }
+
+	/* Inline icons (crisp on any OS/projector — replaces raw emoji on stage) */
+	.ic { display:inline-flex; align-items:center; justify-content:center; vertical-align:-0.125em; }
+	.ic svg { width:1em; height:1em; fill:currentColor; display:block; }
+	.help-toggle svg { width:15px; height:15px; vertical-align:-2px; }
+
+	/* Keyboard shortcut overlay */
+	#shortcut-overlay { position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center; }
+	#shortcut-overlay[hidden] { display:none; }
+	.sc-backdrop { position:absolute; inset:0; background:rgba(0,0,0,0.5); -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px); }
+	.sc-panel { position:relative; z-index:1; width:min(430px,92vw); max-height:82vh; overflow:auto; padding:1.5rem 1.6rem; background:var(--theme-body-background); border:1px solid var(--theme-border); border-radius:16px; box-shadow:0 24px 70px rgba(0,0,0,0.4); }
+	.sc-panel h2 { margin:0 0 1rem; font-size:1.25rem; color:var(--theme-tertiary,#5c2d91); }
+	body.theme-dark .sc-panel h2 { color:#c9a5e8; }
+	.sc-close { position:absolute; top:0.7rem; right:0.7rem; width:2rem; height:2rem; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--theme-border); border-radius:50%; background:transparent; color:var(--theme-text-subtle); cursor:pointer; }
+	.sc-close:hover { color:var(--theme-text); border-color:var(--theme-primary,#0078d4); }
+	.sc-close svg { width:15px; height:15px; }
+	.sc-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:0.55rem; }
+	.sc-list li { display:flex; align-items:center; justify-content:space-between; gap:1rem; font-size:1rem; color:var(--theme-text); }
+	.sc-keys { display:inline-flex; gap:0.3rem; flex:none; }
+	.sc-panel kbd, .sc-hint kbd { font-family:'Cascadia Code','Consolas',monospace; font-size:0.82rem; line-height:1; padding:0.28rem 0.5rem; border-radius:6px; border:1px solid var(--theme-border); border-bottom-width:2px; background:var(--theme-card-background,#fff); color:var(--theme-text); }
+	body.theme-dark .sc-panel kbd, body.theme-dark .sc-hint kbd { background:rgba(255,255,255,0.08); }
+	.sc-hint { margin:1.1rem 0 0; font-size:0.85rem; color:var(--theme-text-subtle); text-align:center; }
+
+	@media (max-width:640px) { .app-header { font-size:0.95rem; } .scene-title { font-size:1.9rem; } #stage { padding:0.9rem 1rem 4.5rem; } }
+	@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition:none !important; animation:none !important; } .progress-fill { transition:none !important; } }
+	/* ══════════════ AI-500 KIT · shared by every AI-500 page ══════════════ */
+	:root {
+		/* One accent per floor/domain, reused on every page. --fN fills, --fNt text-safe, --fNb deep fills that carry white text */
+		--f1:#0078d4; --f2:#00b7c3; --f3:#8661c5; --f4:#ff8c00;
+		--f1t:#005a9e; --f2t:#00707a; --f3t:#6b46b0; --f4t:#a24f00;
+		--f1b:#0a5299; --f2b:#0a6c76; --f3b:#6240a8; --f4b:#a24f00;
+		--ai5-surface:#ffffff; --ai5-ok:#107c10; --ai5-bad:#c4314b; --ai5-warn:#a24f00;
+		--ai5-line:rgba(60,60,80,0.38);
+	}
+	body.theme-dark {
+		--f1t:#6cb2f5; --f2t:#4fd6e0; --f3t:#b79ce8; --f4t:#ffb066;
+		--ai5-surface:#2a2b34; --ai5-ok:#57d977; --ai5-bad:#ff7a90; --ai5-warn:#ffb066;
+		--ai5-line:rgba(220,220,240,0.42);
+	}
+	.fl1 { --tone:var(--f1); --toneT:var(--f1t); --toneB:var(--f1b); }
+	.fl2 { --tone:var(--f2); --toneT:var(--f2t); --toneB:var(--f2b); }
+	.fl3 { --tone:var(--f3); --toneT:var(--f3t); --toneB:var(--f3b); }
+	.fl4 { --tone:var(--f4); --toneT:var(--f4t); --toneB:var(--f4b); }
+
+	.scene.ai5 { gap:1.1rem; width:1150px; }
+	.scene.ai5 .scene-lead { max-width:1100px; }
+	.scene.ai5 .scene-title { font-weight:600; }
+	.ai5-board { position:relative; flex:none; }
+	.ai5-board > svg { position:absolute; left:0; top:0; width:100%; height:100%; overflow:visible; pointer-events:none; }
+	.ai5-pos { position:absolute; width:0; height:0; }
+	.ai5-in { position:absolute; left:0; top:0; transform:translate(-50%,-50%); }
+
+	/* Agent cast — the same six characters on every page */
+	.ai5-ag { position:relative; width:var(--ag,76px); height:var(--ag,76px); }
+	.ai5-ag-ic { width:100%; height:100%; border-radius:50%; display:grid; place-items:center;
+		background:var(--ai5-surface); border:3px solid var(--ac); color:var(--ac); box-shadow:0 6px 18px rgba(0,0,0,0.2); }
+	.ai5-ag-ic .ic { font-size:calc(var(--ag,76px) * 0.5); }
+	/* the label hangs OUTSIDE the badge so coordinates always refer to the badge centre */
+	.ai5-ag-l { position:absolute; top:100%; left:50%; transform:translateX(-50%); margin-top:0.4rem; white-space:nowrap;
+		font-size:1rem; font-weight:600; text-align:center; line-height:1.2; color:var(--theme-text); }
+	.ai5-ag.is-top .ai5-ag-l { top:auto; bottom:100%; margin-top:0; margin-bottom:0.4rem; }
+	.ag-solo   { --ac:#0067b8; } .ag-orch  { --ac:#6a3fb5; } .ag-intake { --ac:#0067b8; }
+	.ag-policy { --ac:#0b7a60; } .ag-fraud { --ac:#c4314b; } .ag-payout { --ac:#b4530d; } .ag-human { --ac:#b02c8a; }
+	body.theme-dark .ag-solo { --ac:#6cb2f5; } body.theme-dark .ag-orch { --ac:#b79ce8; } body.theme-dark .ag-intake { --ac:#6cb2f5; }
+	body.theme-dark .ag-policy { --ac:#4fd6a8; } body.theme-dark .ag-fraud { --ac:#ff7a90; } body.theme-dark .ag-payout { --ac:#ffb066; } body.theme-dark .ag-human { --ac:#f08ad0; }
+
+	/* On-screen headline pill — the ONE line of burned-in text per step */
+	.ai5-say { display:inline-flex; align-items:center; gap:0.6rem; padding:0.6rem 1.4rem; border-radius:999px; opacity:0;
+		font-size:1.25rem; font-weight:600; color:var(--theme-text); background:var(--ai5-surface);
+		border:2px solid var(--theme-tertiary,#5c2d91); box-shadow:0 6px 20px rgba(0,0,0,0.16); text-align:center; }
+	.ai5-say .ic { font-size:1.4rem; color:var(--theme-tertiary,#5c2d91); }
+	body.theme-dark .ai5-say .ic { color:#c9a5e8; }
+
+	.ai5-pnl { border:1.5px solid var(--theme-border); border-radius:14px; background:var(--theme-card-background,#fff);
+		box-shadow:0 8px 26px rgba(0,0,0,0.14); padding:1rem 1.2rem; opacity:0; }
+	body.theme-dark .ai5-pnl { background:rgba(255,255,255,0.05); }
+	.ai5-pnl-h { font-size:0.95rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--theme-text-subtle); margin:0 0 0.6rem; }
+	.ai5-tag { display:inline-flex; align-items:center; gap:0.4rem; padding:0.3rem 0.85rem; border-radius:999px; font-size:0.92rem; font-weight:500;
+		border:1.5px solid var(--toneT,var(--theme-border)); color:var(--theme-text); background:color-mix(in srgb, var(--tone,#888) 14%, transparent); opacity:0; }
+	.ai5-tag .ic { color:var(--toneT,currentColor); }
+	.ai5-row { display:flex; flex-wrap:wrap; gap:0.55rem; justify-content:center; }
+
+	/* Floor bar — a deep fill that always carries white text */
+	.ai5-fl { position:absolute; display:flex; align-items:center; justify-content:center; gap:1.1rem; border-radius:12px; color:#fff;
+		background:var(--toneB); box-shadow:0 6px 18px rgba(0,0,0,0.22); overflow:hidden; white-space:nowrap; }
+	.ai5-fl .n { font-size:1rem; font-weight:500; padding:0.15rem 0.6rem; border-radius:8px; background:rgba(0,0,0,0.28); }
+	.ai5-fl .v { font-size:1.5rem; font-weight:600; }
+	.ai5-fl .d { font-size:1.02rem; font-weight:400; opacity:0.92; }
+
+	/* Claim card (Contoso Insurance) */
+	.ai5-claim { width:74px; height:52px; border-radius:7px; background:var(--ai5-surface); border:1.5px solid var(--ai5-line);
+		box-shadow:0 3px 8px rgba(0,0,0,0.2); padding:8px 9px; display:flex; flex-direction:column; gap:5px; }
+	.ai5-claim i { display:block; height:5px; border-radius:3px; background:var(--ai5-line); }
+	.ai5-claim i:first-child { width:55%; background:#0078d4; opacity:0.75; }
+	.ai5-claim.is-ok::after { content:'\2713'; position:absolute; right:-9px; top:-9px; width:22px; height:22px; border-radius:50%;
+		background:var(--ai5-ok); color:#fff; font-size:0.9rem; line-height:22px; text-align:center; font-weight:700; }
+	.ai5-claim { position:relative; }
+
+	/* Question marks on connectors */
+	.ai5-q { width:34px; height:34px; border-radius:50%; display:grid; place-items:center; font-size:1.1rem; font-weight:700;
+		background:var(--ai5-surface); color:var(--ai5-warn); border:2px solid var(--ai5-warn); }
+
+	@keyframes ai5Glow { 0%,100% { box-shadow:0 0 0 0 rgba(138,92,214,0.0), 0 8px 24px rgba(0,0,0,0.25); } 50% { box-shadow:0 0 0 10px rgba(138,92,214,0.25), 0 8px 24px rgba(0,0,0,0.25); } }
+	.ai5-glow { animation:ai5Glow 2.2s ease-in-out infinite; }
+	.ai5-next { display:inline-flex; align-items:center; gap:0.6rem; padding:0.55rem 1.3rem; border-radius:999px; text-decoration:none; opacity:0;
+		font-size:1.05rem; font-weight:600; color:#fff; background:var(--aw-purple,#5c2d91); border:2px solid transparent; }
+	.ai5-next:hover { filter:brightness(1.12); }
+	.ai5-foot a { color:var(--f1t); font-weight:600; }
+
+	/* ══════════════ PickCompute (p7) ══════════════ */
+	.c7-b { position:absolute; box-sizing:border-box; }
+	.c7-az { display:block; flex:none; object-fit:contain; }
+	.c7-sub { font-size:0.9rem; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--theme-text-subtle); white-space:nowrap; }
+	.c7-card { box-sizing:border-box; border-radius:14px; background:var(--ai5-surface); border:2px solid var(--toneT); box-shadow:0 6px 18px rgba(0,0,0,0.16); color:var(--theme-text); }
+	.c7-tag { display:inline-flex; align-items:center; gap:0.45rem; padding:0.32rem 0.9rem; border-radius:999px; font-size:0.95rem; font-weight:500; white-space:nowrap; color:var(--theme-text);
+		border:1.5px solid var(--toneT); background:color-mix(in srgb, var(--tone) 14%, transparent); }
+	.c7-tag .ic { color:var(--toneT); font-size:1.1rem; display:inline-flex; }
+	.c7-tag.is-warn { border-color:var(--ai5-warn); background:color-mix(in srgb, var(--ai5-warn) 14%, transparent); }
+	.c7-tag.is-warn .ic { color:var(--ai5-warn); }
+
+	/* 1 · spectrum */
+	.c7-head { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.25rem; border-radius:14px; background:var(--ai5-surface); border:2px solid var(--ai5-line); box-shadow:0 6px 18px rgba(0,0,0,0.14); }
+	.c7-hn { font-size:1.12rem; font-weight:600; color:var(--theme-text); white-space:nowrap; }
+	.c7-hs { font-size:0.88rem; font-weight:500; color:var(--f4t); text-transform:uppercase; letter-spacing:0.06em; }
+	.c7-rl { display:flex; align-items:center; font-size:1.02rem; font-weight:500; color:var(--theme-text); white-space:nowrap; }
+	.c7-cell { display:grid; place-items:center; border-radius:10px; font-size:1.02rem; font-weight:600; box-shadow:0 3px 10px rgba(0,0,0,0.12); }
+	.c7-cell.is-y { background:var(--f4b); color:#fff; border:2px solid transparent; }
+	.c7-cell.is-s { background:color-mix(in srgb, var(--tone) 18%, var(--ai5-surface)); color:var(--theme-text); border:2px dashed var(--toneT); }
+	.c7-cell.is-a { background:var(--ai5-surface); color:var(--theme-text-subtle); border:2px solid var(--ai5-line); font-weight:500; }
+	.c7-axis { border-radius:5px; background:linear-gradient(90deg, var(--f4b), color-mix(in srgb, var(--f4) 20%, var(--ai5-line))); }
+	.c7-al { font-size:1rem; font-weight:600; color:var(--theme-text); white-space:nowrap; }
+
+	/* 2 · questions */
+	.c7-q { display:flex; flex-direction:column; gap:0.55rem; padding:16px 18px; justify-content:center; }
+	.c7-qh { display:flex; align-items:center; gap:0.7rem; }
+	.c7-qi { width:40px; height:40px; border-radius:50%; display:grid; place-items:center; font-size:1.3rem; color:#fff; background:var(--f4b); flex:none; }
+	.c7-qt { font-size:1.2rem; font-weight:600; }
+	.c7-qq { font-size:1.05rem; font-weight:500; }
+	.c7-qc { display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.2rem; }
+	.c7-pole { padding:0.25rem 0.75rem; border-radius:999px; font-size:0.9rem; font-weight:500; white-space:nowrap; border:1.5px solid var(--ai5-line); background:color-mix(in srgb, var(--ai5-line) 18%, transparent); }
+	.c7-pole.is-b { border-color:var(--toneT); background:color-mix(in srgb, var(--tone) 14%, transparent); }
+
+	/* 3 · vm */
+	.c7-panel { padding:18px 20px; display:flex; flex-direction:column; gap:0.8rem; }
+	.c7-wrow { display:flex; align-items:center; gap:0.8rem; padding:0 14px; flex:1 1 0; border-radius:12px; font-size:1.1rem; font-weight:500; border:1.5px solid var(--ai5-line); background:color-mix(in srgb, var(--tone) 8%, transparent); }
+	.c7-wrow .ic { font-size:1.5rem; color:var(--toneT); display:inline-flex; }
+	.c7-fam { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.7rem; }
+	.c7-famr { display:flex; flex-wrap:wrap; justify-content:center; gap:0.6rem; }
+	.c7-set { border-radius:16px; border:2.5px dashed var(--toneT); background:color-mix(in srgb, var(--tone) 6%, transparent); }
+	.c7-sethd { position:absolute; left:22px; top:16px; display:flex; align-items:center; gap:0.6rem; font-size:1.05rem; font-weight:600; }
+	.c7-setau { position:absolute; right:22px; top:12px; }
+	.c7-zone { position:absolute; top:62px; width:210px; height:122px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.35rem; }
+	.c7-zone .c7-zl { font-size:0.9rem; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--theme-text-subtle); }
+	.c7-zone .c7-zv { font-size:1rem; font-weight:500; }
+
+	/* 4 · containers */
+	.c7-req { display:flex; align-items:center; justify-content:center; gap:0.8rem; padding:0 20px; }
+	.c7-req b { font-size:1.08rem; font-weight:600; white-space:nowrap; }
+	.c7-ct { position:absolute; box-sizing:border-box; width:250px; height:236px; }
+	.c7-ct .c7-cin { height:100%; box-sizing:border-box; padding:18px 18px 62px; display:flex; flex-direction:column; align-items:center; text-align:center; gap:0.45rem; }
+	.c7-ct .c7-cn { font-size:1.2rem; font-weight:600; }
+	.c7-ct .c7-cd { font-size:1rem; font-weight:400; line-height:1.35; }
+	.c7-why { position:absolute; left:50%; bottom:16px; transform:translateX(-50%); padding:0.28rem 0.8rem; border-radius:999px; font-size:0.9rem; font-weight:500; white-space:nowrap;
+		color:var(--theme-text); background:var(--ai5-surface); border:1.5px solid var(--ai5-line); }
+	.c7-ct.is-win .c7-card { border-color:var(--ai5-ok); }
+	.c7-ct.is-win .c7-why { border-color:var(--ai5-ok); color:var(--theme-text); }
+	.c7-tick { position:absolute; right:-10px; top:-10px; width:32px; height:32px; border-radius:50%; background:var(--ai5-ok); color:#fff; display:grid; place-items:center; font-size:1.1rem; box-shadow:0 3px 8px rgba(0,0,0,0.25); }
+	body.theme-dark .c7-tick { color:#10240f; }
+
+	/* 5 · serverless */
+	.c7-trg { display:flex; align-items:center; gap:0.7rem; padding:0 18px; font-size:1.05rem; font-weight:500; }
+	.c7-trg .ic { font-size:1.4rem; color:var(--toneT); display:inline-flex; }
+	.c7-fn { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.5rem; text-align:center; }
+	.c7-fn b { font-size:1.2rem; font-weight:600; }
+	.c7-fn span { font-size:1rem; color:var(--theme-text-subtle); }
+	.c7-chart { padding:16px 20px; }
+	.c7-bars { position:absolute; left:27px; right:27px; bottom:56px; height:116px; display:flex; align-items:flex-end; gap:14px; }
+	.c7-bars i { flex:1 1 0; display:block; border-radius:5px 5px 0 0; background:var(--f4b); }
+	.c7-bars i.z { background:var(--ai5-line); border-radius:3px; }
+	.c7-chartl { position:absolute; left:0; right:0; bottom:16px; text-align:center; font-size:1rem; font-weight:600; }
+	.c7-logic { display:flex; align-items:center; gap:1rem; padding:0 24px; }
+	.c7-logic b { display:block; font-size:1.15rem; font-weight:600; }
+	.c7-logic span.d { display:block; font-size:1rem; color:var(--theme-text-subtle); margin-top:0.15rem; }
+	.c7-lim { display:flex; flex-direction:column; justify-content:center; gap:0.6rem; padding:0 24px; align-items:flex-start; }
+	.c7-limr { display:flex; gap:0.6rem; flex-wrap:wrap; }
+
+	/* 6 · batch */
+	.c7-job { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.5rem; text-align:center; padding:0 14px; }
+	.c7-job b { font-size:1.15rem; font-weight:600; }
+	.c7-job .d { font-size:1rem; color:var(--theme-text-subtle); }
+	.c7-tasks { display:grid; grid-template-columns:repeat(4, 20px); gap:6px; margin-top:0.2rem; }
+	.c7-tasks i { display:block; width:20px; height:20px; border-radius:5px; background:var(--f4b); }
+	.c7-pool { border-radius:16px; border:2.5px solid var(--toneT); background:color-mix(in srgb, var(--tone) 6%, var(--ai5-surface)); box-shadow:0 6px 18px rgba(0,0,0,0.14); }
+	.c7-poolh { position:absolute; left:22px; top:14px; display:flex; align-items:center; gap:0.6rem; font-size:1.1rem; font-weight:600; }
+	.c7-node { position:absolute; width:84px; height:84px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.2rem; border-radius:12px;
+		background:var(--ai5-surface); border:2px solid var(--toneT); font-size:0.88rem; font-weight:500; }
+	.c7-node.is-spot { border-style:dashed; border-color:var(--ai5-warn); }
+	.c7-done { position:absolute; right:-8px; top:-8px; width:24px; height:24px; border-radius:50%; background:var(--ai5-ok); color:#fff; display:grid; place-items:center; font-size:0.85rem; font-weight:600; }
+	body.theme-dark .c7-done { color:#10240f; }
+	.c7-chips { display:flex; justify-content:center; gap:18px; }
+	.c7-out { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.5rem; text-align:center; padding:0 14px; }
+	.c7-out b { font-size:1.15rem; font-weight:600; }
+	.c7-out .d { font-size:1rem; color:var(--theme-text-subtle); }
+
+	/* 7 · apply */
+	.c7-ah { position:absolute; font-size:0.9rem; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--theme-text-subtle); }
+	.c7-aw { display:flex; align-items:center; padding:0 20px; font-size:1.08rem; font-weight:500; }
+	.c7-as { display:flex; align-items:center; gap:0.9rem; padding:0 20px; font-size:1.12rem; font-weight:600; }
+	.c7-ab { display:flex; align-items:center; padding:0 6px; font-size:1.02rem; font-weight:500; }
+	.c7-ab::before { content:'\2192'; margin-right:0.6rem; color:var(--toneT); font-weight:600; }
+
+	/* 8 · whole */
+	.c7-wc { display:flex; flex-direction:column; gap:0.45rem; padding:16px 18px; justify-content:center; }
+	.c7-wch { display:flex; align-items:center; gap:0.8rem; }
+	.c7-wcn { font-size:1.18rem; font-weight:600; white-space:nowrap; }
+	.c7-wcd { font-size:1.02rem; font-weight:400; }
+	.c7-wcc { align-self:flex-start; padding:0.22rem 0.75rem; border-radius:999px; font-size:0.9rem; font-weight:500; border:1.5px solid var(--toneT); background:color-mix(in srgb, var(--tone) 14%, transparent); }
+	.c7-wc.is-skip { border-color:var(--ai5-line); }
+	.c7-wc.is-skip .c7-wcc { border-style:dashed; border-color:var(--ai5-line); background:transparent; color:var(--theme-text-subtle); }
+	.c7-end { display:flex; align-items:center; justify-content:center; gap:1.1rem; flex-wrap:wrap; max-width:1100px; }
+	.ai5-foot { font-size:1.05rem; text-align:center; max-width:980px; line-height:1.5; opacity:0; }
+
+</style>
+	<!-- SEO:START -->
+	<meta name="description" content="Pick the right compute. Explore AZ-305 · Design Azure infrastructure solutions with a step-by-step visual guide." />
+	<link rel="canonical" href="https://azureanimations.github.io/journeys/Architect/PickCompute.html" />
+	<meta name="robots" content="index, follow, max-image-preview:large" />
+	<meta property="og:type" content="website" />
+	<meta property="og:site_name" content="Azure Animations" />
+	<meta property="og:title" content="Pick the right compute — Azure Animations" />
+	<meta property="og:description" content="Pick the right compute. Explore AZ-305 · Design Azure infrastructure solutions with a step-by-step visual guide." />
+	<meta property="og:url" content="https://azureanimations.github.io/journeys/Architect/PickCompute.html" />
+	<meta property="og:image" content="https://azureanimations.github.io/img/favicon.png" />
+	<meta property="og:image:alt" content="Azure Animations" />
+	<meta name="twitter:card" content="summary" />
+	<meta name="twitter:title" content="Pick the right compute — Azure Animations" />
+	<meta name="twitter:description" content="Pick the right compute. Explore AZ-305 · Design Azure infrastructure solutions with a step-by-step visual guide." />
+	<meta name="twitter:image" content="https://azureanimations.github.io/img/favicon.png" />
+	<meta name="twitter:image:alt" content="Azure Animations" />
+	<script type="application/ld+json">
+	{"@context":"https://schema.org","@type":"WebPage","name":"Pick the right compute — Azure Animations","description":"Pick the right compute. Explore AZ-305 · Design Azure infrastructure solutions with a step-by-step visual guide.","url":"https://azureanimations.github.io/journeys/Architect/PickCompute.html","isPartOf":{"@type":"WebSite","name":"Azure Animations","url":"https://azureanimations.github.io/"},"breadcrumb":{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Azure Animations","item":"https://azureanimations.github.io/"},{"@type":"ListItem","position":2,"name":"AZ-305 · Design Azure infrastructure solutions","item":"https://azureanimations.github.io/journeys/Architect/"},{"@type":"ListItem","position":3,"name":"Pick the right compute","item":"https://azureanimations.github.io/journeys/Architect/PickCompute.html"}]}}
+	</script>
+	<!-- SEO:END -->
+</head>
+
+<body class="theme-dark" data-theme-preset="atlas">
+
+	<a href="#stage" class="skip-link">Skip to diagram</a>
+
+	<header class="app-header padding-block-xs padding-inline-md border-bottom" role="banner" style="justify-content:space-between;">
+		<div class="display-flex align-items-center gap-xs">
+			<!-- Set href to the previous animation in the journey, or the hub index.html -->
+			<a href="DataAvailability.html" class="header-back-link" aria-label="Data availability" title="Data availability">&larr; Data availability</a>
+			<span id="page-title" class="font-size-h6 font-weight-semibold">&#9881; Pick the right compute</span>
+		</div>
+		<nav class="display-flex gap-xs align-items-center" aria-label="Primary">
+			<span id="breadcrumb" class="font-size-sm color-text-subtle">Step 1</span>
+		</nav>
+		<div class="display-flex gap-xs align-items-center">
+			<!-- AW:lang --><select id="lang-select" class="lang-select" aria-label="Language" title="Language"><option value="en">English</option><option value="es">Español</option><option value="ja">日本語</option><option value="ko">한국어</option><option value="pt">Português</option></select><!-- /AW:lang -->
+			<div class="font-size-controls">
+				<button id="font-decrease" type="button" class="font-size-btn" aria-label="Decrease font size" title="Smaller text">A&minus;</button>
+				<button id="font-increase" type="button" class="font-size-btn" aria-label="Increase font size" title="Larger text">A+</button>
+			</div>
+			<!-- AW:theme --><button id="theme-toggle" type="button" class="theme-toggle" aria-label="Switch theme" title="Switch theme"><svg class="theme-icon icon-moon ico ico-moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path fill="currentColor" d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg><svg class="theme-icon icon-sun ico ico-sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.5" y1="4.5" x2="6.5" y2="6.5"/><line x1="17.5" y1="17.5" x2="19.5" y2="19.5"/><line x1="4.5" y1="19.5" x2="6.5" y2="17.5"/><line x1="17.5" y1="6.5" x2="19.5" y2="4.5"/></g></svg></button><!-- /AW:theme -->
+			<button id="header-hide-top" type="button" aria-label="Hide top bar" title="Hide top bar (H)">
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/></svg>
+			</button>
+		</div>
+	</header>
+
+	<button id="header-reveal" type="button" aria-label="Show top bar" title="Show top bar">
+		<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/></svg>
+		<span>Toolbar</span>
+	</button>
+
+	<div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
+
+	<main id="stage" tabindex="0" role="region" aria-labelledby="stage-heading" aria-describedby="stage-instructions">
+		<h1 id="stage-heading" class="sr-only" tabindex="-1">Pick the right compute</h1>
+		<p id="stage-instructions" class="sr-only">Animated explainer. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.</p>
+		<div id="step-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+		<!-- Fixed 16:9 stage. Every scene is drawn INSIDE this box; it always fits the viewport (no scrollbars). -->
+		<div id="stage-frame">
+			<svg id="fx-svg" aria-hidden="true" focusable="false">
+				<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L0,10 L10,5 Z" fill="currentColor"/></marker></defs>
+			</svg>
+			<!-- Caption bar (synced to the step's audio clip by aw-captions.js) -->
+			<div id="aw-caption" class="aw-caption" aria-hidden="true"></div>
+			<!-- LEFT pill · view options: callout / outline / shortcuts (icons; label shows as a hover tooltip) -->
+			<div id="stage-overlay-left" class="stage-overlay stage-overlay-left" role="group" aria-label="View options">
+				<button id="callout-toggle" type="button" class="ovl-btn" aria-label="Toggle callouts" aria-pressed="false" data-tip="Callouts: Off"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M4 5h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H10l-4 3v-3H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></svg></button>
+				<button id="outline-toggle" type="button" class="ovl-btn" aria-controls="step-outline" aria-expanded="false" aria-label="Toggle text outline" data-tip="Outline: Off"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" d="M4 6h16M4 12h16M4 18h10"/></svg></button>
+				<button id="help-toggle" class="ovl-btn help-toggle" type="button" aria-haspopup="dialog" aria-controls="shortcut-overlay" aria-label="Keyboard shortcuts (press ?)" data-tip="Shortcuts"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M11 18h2v-2h-2v2zm1.1-14C9.8 4 8 5.8 8 8h2a2 2 0 1 1 3.2 1.6c-.9.7-2.2 1.5-2.2 3.4h2c0-1 .8-1.5 1.7-2.2A4 4 0 0 0 12.1 4z"/></svg></button>
+			</div>
+			<!-- RIGHT pill · player: audio / captions / hide-top-bar / fullscreen -->
+			<div id="stage-overlay" class="stage-overlay" role="group" aria-label="Player controls">
+				<button id="audio-toggle" class="ovl-btn ovl-audio" type="button" aria-label="Toggle audio narration" aria-pressed="false" title="Narration audio"></button>
+				<button id="cc-toggle" class="ovl-btn" type="button" aria-label="Toggle captions" aria-pressed="false" title="Captions"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9.7 10.2a2.1 2.1 0 1 0 0 3.6M17 10.2a2.1 2.1 0 1 0 0 3.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+				<button id="header-hide" class="ovl-btn" type="button" aria-label="Hide top bar" title="Hide top bar (H)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/></svg></button>
+				<button id="fs-toggle" class="ovl-btn" type="button" aria-label="Toggle full screen" aria-pressed="false" title="Full screen (F)"><svg class="fs-enter" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg><svg class="fs-exit" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg></button>
+			</div>
+		</div>
+	</main>
+
+	<aside id="step-outline" hidden aria-label="Text outline of the current step">
+		<h2 id="outline-title">Step Details</h2>
+		<div id="outline-body"></div>
+	</aside>
+
+	<div id="controls" role="group" aria-label="Diagram navigation">
+		<button id="ctrl-grip" type="button" class="ctrl-grip" aria-label="Drag to move the controls" title="Drag to move">
+			<svg viewBox="0 0 16 16" aria-hidden="true"><g fill="currentColor"><circle cx="5" cy="3" r="1.4"/><circle cx="11" cy="3" r="1.4"/><circle cx="5" cy="8" r="1.4"/><circle cx="11" cy="8" r="1.4"/><circle cx="5" cy="13" r="1.4"/><circle cx="11" cy="13" r="1.4"/></g></svg>
+		</button>
+		<button id="ctrl-pin" type="button" class="button button-clear ctrl-icon ctrl-pin" aria-label="Pin the controls back to the center" title="Pin to center">
+			<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9 2h6a1 1 0 0 1 .8 1.6L14 6v4l3 3v2h-4v5l-1 2-1-2v-5H7v-2l3-3V6L8.2 3.6A1 1 0 0 1 9 2z"/></svg>
+		</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="prev-btn" type="button" class="button ctrl-icon" aria-label="Previous step (left arrow)">&#9664;</button>
+		<div class="step-counter" id="step-counter">0 / 0</div>
+		<button id="next-btn" type="button" class="button button-primary button-filled ctrl-icon ctrl-icon-next" aria-label="Next step (right arrow or space)">&#9654;</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="replay-btn" type="button" class="button ctrl-icon" aria-label="Replay this step's animation (P)">&#8635;</button>
+		<div class="speed-control" role="group" aria-label="Animation speed">
+			<button id="speed-down" type="button" class="button button-clear speed-btn" aria-label="Slower (-)" title="Slower">&minus;</button>
+			<span id="speed-label" class="speed-label" aria-live="polite" aria-label="Current speed">1&times;</span>
+			<button id="speed-up" type="button" class="button button-clear speed-btn" aria-label="Faster (+)" title="Faster">+</button>
+		</div>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="reset-btn" type="button" class="button button-clear ctrl-icon" aria-label="Restart from step 1 (R)">&#9198;</button>
+	</div>
+
+	<div id="shortcut-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="sc-title">
+		<div class="sc-backdrop"></div>
+		<div class="sc-panel">
+			<button id="sc-close" class="sc-close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
+			<h2 id="sc-title">Keyboard shortcuts</h2>
+			<ul id="sc-list" class="sc-list"></ul>
+			<p class="sc-hint">Press <kbd>?</kbd> anytime to toggle this panel.</p>
+		</div>
+	</div>
+
+<script>
+// ── THEME ─────────────────────────────────
+const themeToggleBtn = document.getElementById('theme-toggle');
+function syncThemeBtn(){
+	if (!themeToggleBtn) return;
+	const isDark = document.body.classList.contains('theme-dark');
+	themeToggleBtn.dataset.theme = isDark ? 'dark' : 'light';   // drives which glyph (sun/moon) shows
+	const label = isDark ? 'Switch to light theme' : 'Switch to dark theme';
+	themeToggleBtn.setAttribute('aria-label', label);
+	themeToggleBtn.setAttribute('title', label);
+}
+if (window.AW && AW.theme) {
+	// aw-theme.js owns click handling + persistence; theme recolors via CSS variables, so no re-render/replay.
+	AW.theme.onChange(() => { syncThemeBtn(); });
+	syncThemeBtn();
+} else {
+	// Standalone fallback: toggle .theme-dark / .theme-light on <body> ourselves.
+	syncThemeBtn();
+	if (themeToggleBtn) themeToggleBtn.addEventListener('click', () => {
+		const goingDark = !document.body.classList.contains('theme-dark');
+		document.body.classList.remove('theme-dark', 'theme-light');
+		document.body.classList.add(goingDark ? 'theme-dark' : 'theme-light');
+		try { localStorage.setItem('aw-theme', goingDark ? 'theme-dark' : 'theme-light'); } catch(_){}
+		syncThemeBtn();
+	});
+	// restore a previously chosen theme (standalone only)
+	try { const saved = localStorage.getItem('aw-theme'); if (saved === 'theme-light' || saved === 'theme-dark') { document.body.classList.remove('theme-dark','theme-light'); document.body.classList.add(saved); syncThemeBtn(); } } catch(_){}
+}
+
+// ── i18n ──────────────────────────────────
+// English is the source language. Add sibling objects (es/ja/ko/pt) with the
+// SAME keys + matching <option>s in #lang-select. Keep brand/code/proper-noun
+// sample data untranslated.
+let currentLang = 'en';
+
+const I18N = {
+	"en": {
+		"skipToMain": "Skip to diagram",
+		"pageTitle": "Pick the right compute",
+		"stageHeading": "Pick the right compute",
+		"stageInstructions": "Animated explainer. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.",
+		"prev": "◀ Prev",
+		"next": "Next ▶",
+		"replay": "↻ Replay",
+		"restart": "↻ Restart",
+		"slower": "Slower",
+		"faster": "Faster",
+		"calloutOn": "Callouts: On",
+		"calloutOff": "Callouts: Off",
+		"outlineOn": "Outline: On",
+		"outlineOff": "Outline: Off",
+		"audioTip": "Narration audio",
+		"ccTip": "Captions",
+		"shortcutsTip": "Shortcuts",
+		"stepDetails": "Step Details",
+		"stepOf": "Step",
+		"resetPos": "Reset to default position",
+		"scTitle": "Keyboard shortcuts",
+		"scNext": "Next step",
+		"scPrev": "Previous step",
+		"scRestart": "Restart",
+		"scReplay": "Replay this step",
+		"scHide": "Hide / show top bar",
+		"scHelp": "Toggle this help",
+		"nextApis": "Up next: APIs, caching and deployment",
+		"spectrumTitle": "Control or effort: choose your spot",
+		"spectrumCaption": "Compute · spectrum",
+		"spectrumDesc": "Contoso has five workloads that all ask for “a server”. The first choice is how much of the stack Contoso wants to run itself.",
+		"spectrumCallout": "AZ-305 · Specify components of a compute solution based on workload requirements. IaaS gives the most control and the most to manage. PaaS manages part of the stack. Functions as a service (FaaS) manages nearly all of it. The columns are a simplified view, and capacity varies by service.",
+		"spectrumSay": "More control costs more effort.",
+		"spCol1": "Virtual Machines",
+		"spCol1s": "IaaS",
+		"spCol2": "Container Apps",
+		"spCol2s": "Containers",
+		"spCol3": "App Service",
+		"spCol3s": "PaaS",
+		"spCol4": "Functions",
+		"spCol4s": "Serverless",
+		"spRow1": "Your code",
+		"spRow2": "Runtime",
+		"spRow3": "OS and patching",
+		"spRow4": "Capacity",
+		"spYou": "You",
+		"spShared": "Shared",
+		"spAzure": "Azure",
+		"spMore": "More control",
+		"spLess": "Less to operate",
+		"questionsTitle": "Six questions that decide",
+		"questionsCaption": "Compute · questions",
+		"questionsDesc": "Ask these about every workload before naming a service. The answers point to the right end of the spectrum.",
+		"questionsCallout": "AZ-305 · Specify components of a compute solution based on workload requirements. Evaluate each workload on its own: a complete solution can use two or more compute services.",
+		"questionsSay": "Ask before you pick.",
+		"q1t": "Control",
+		"q1q": "Need OS-level access?",
+		"q1a": "Yes: VM",
+		"q1b": "No: managed",
+		"q2t": "Startup",
+		"q2q": "Can it wait for a cold start?",
+		"q2a": "No: always on",
+		"q2b": "Yes: scale to zero",
+		"q3t": "Scale",
+		"q3q": "Steady or spiky load?",
+		"q3a": "Steady: fixed",
+		"q3b": "Spiky: autoscale",
+		"q4t": "State",
+		"q4q": "Does it keep local state?",
+		"q4a": "Yes: plan for it",
+		"q4b": "No: scale freely",
+		"q5t": "Pricing",
+		"q5q": "Always on or per run?",
+		"q5a": "Reserved capacity",
+		"q5b": "Per execution",
+		"q6t": "Skills",
+		"q6q": "Who will operate it?",
+		"q6a": "Platform team",
+		"q6b": "App team",
+		"vmTitle": "Virtual machines: when, which size, how many",
+		"vmCaption": "Compute · virtual machines",
+		"vmDesc": "Pick a VM when Contoso needs the operating system. Then choose a size family and spread the instances for availability.",
+		"vmCallout": "AZ-305 · Recommend a virtual machine-based solution. Lift and shift (rehost) moves a workload without code changes. A scale set keeps identical VMs running, can autoscale, and can spread instances across availability zones.",
+		"vmSay": "Choose the VM when the OS matters.",
+		"vmWhen": "Pick a VM when",
+		"vmW1": "Lift and shift",
+		"vmW2": "Need OS access",
+		"vmW3": "Custom software",
+		"vmFam": "VM size families",
+		"vmF1": "General purpose",
+		"vmF2": "Compute",
+		"vmF3": "Memory",
+		"vmF4": "Storage",
+		"vmF5": "GPU",
+		"vmSet": "Virtual machine scale set",
+		"vmAuto": "Autoscale",
+		"vmZ1": "Zone 1",
+		"vmZ2": "Zone 2",
+		"vmZ3": "Zone 3",
+		"vmVm": "VM",
+		"containersTitle": "Containers: four services, one choice",
+		"containersCaption": "Compute · containers",
+		"containersDesc": "All four run containers. They differ in how much of the cluster you operate. Match the service to the team and the workload.",
+		"containersCallout": "AZ-305 · Recommend a container-based solution. AKS gives the most configurability and a Kubernetes learning curve. Container Apps is built on Kubernetes without exposing its API. Web App for Containers is an App Service feature. Container Instances runs a container or group without orchestration.",
+		"containersSay": "Contoso picks Container Apps.",
+		"ctReq": "Contoso catalogue API",
+		"ctR1": "Microservices",
+		"ctR2": "New to Kubernetes",
+		"ctR3": "No cluster API needed",
+		"ctAks": "AKS",
+		"ctAksD": "Need the Kubernetes API and full control",
+		"ctCa": "Container Apps",
+		"ctCaD": "Containers without running a cluster",
+		"ctApp": "App Service",
+		"ctAppD": "One web app or API in a container",
+		"ctAci": "Container Instances",
+		"ctAciD": "A single container, no orchestration",
+		"ctAksX": "Kubernetes learning curve",
+		"ctCaX": "Serverless, no cluster to run",
+		"ctAppX": "Simplicity over control",
+		"ctAciX": "No full orchestration",
+		"serverlessTitle": "Serverless: code that runs when something happens",
+		"serverlessCaption": "Compute · serverless",
+		"serverlessDesc": "Azure Functions runs code per event and scales with the load. Know the limits before you promise it for every workload.",
+		"serverlessCallout": "AZ-305 · Recommend a serverless-based solution. The Consumption and Flex Consumption plans scale to zero when idle, so some requests can see added startup latency. Functions are stateless unless you use Durable Functions. Logic Apps is the low-code option for workflows.",
+		"serverlessSay": "Pay for work, not idle time.",
+		"svT1": "HTTP request",
+		"svT2": "Queue message",
+		"svT3": "Timer",
+		"svFn": "Azure Functions",
+		"svFnD": "Code on demand",
+		"svInst": "Instances",
+		"svZero": "Scale to zero when idle",
+		"svLogic": "Logic Apps",
+		"svLogicD": "Low-code workflows and connectors",
+		"svLim": "Mind the limits",
+		"svL1": "Cold starts",
+		"svL2": "Time limits",
+		"svL3": "Stateless by default",
+		"batchTitle": "Batch: a pool of VMs for the nightly job",
+		"batchCaption": "Compute · batch",
+		"batchDesc": "Contoso’s ERP export is many independent tasks. Azure Batch creates the pool, schedules the tasks and scales it down afterwards.",
+		"batchCallout": "AZ-305 · Recommend a compute solution for batch processing. You create a pool, a job and tasks. Spot VMs cut the cost but can be evicted when Azure needs the capacity back, so use them for work that can be retried.",
+		"batchSay": "Cheap nodes for retryable work.",
+		"btJob": "Nightly ERP job",
+		"btJobD": "Many independent tasks",
+		"btPool": "Batch pool",
+		"btStd": "Standard VMs",
+		"btSpot": "Spot VMs",
+		"btOut": "Results in Storage",
+		"btOutD": "Task output uploaded",
+		"btZero": "Scales to zero when idle",
+		"btEvict": "Spot: cheaper, can be evicted",
+		"applyTitle": "Five workloads, five services",
+		"applyCaption": "Compute · apply",
+		"applyDesc": "Apply the questions to Contoso. Each workload lands on a different service, and each has a reason.",
+		"applyCallout": "AZ-305 · Specify components of a compute solution based on workload requirements. The exam rewards the simplest service that meets the requirement, not the most powerful one.",
+		"applySay": "Five workloads, five services.",
+		"apH1": "Workload",
+		"apH2": "Service",
+		"apH3": "Because",
+		"apW1": "Warehouse legacy app",
+		"apS1": "Virtual Machines",
+		"apB1": "Needs OS-level access",
+		"apW2": "ASP.NET storefront",
+		"apS2": "App Service",
+		"apB2": "Web app, nothing to patch",
+		"apW3": "Catalogue microservices",
+		"apS3": "Container Apps",
+		"apB3": "Containers, no cluster to run",
+		"apW4": "Image resize on upload",
+		"apS4": "Azure Functions",
+		"apB4": "Runs per upload, scales to zero",
+		"apW5": "Nightly ERP job",
+		"apS5": "Azure Batch",
+		"apB5": "Parallel tasks, Spot VMs for cost",
+		"wholeTitle": "All in one: pick the simplest service that fits",
+		"wholeCaption": "Recap",
+		"wholeDesc": "Start from the requirement, not the service. Each card shows when to pick it and which Contoso workload landed there.",
+		"wholeCallout": "Next: put a front door, a cache and a deployment pipeline around the app.",
+		"wcVm": "Virtual Machines",
+		"wcVmD": "OS access, lift and shift",
+		"wcVmC": "Warehouse legacy app",
+		"wcAks": "AKS",
+		"wcAksD": "Kubernetes API, full control",
+		"wcAksC": "Not needed here",
+		"wcCa": "Container Apps",
+		"wcCaD": "Containers, no cluster",
+		"wcCaC": "Catalogue microservices",
+		"wcApp": "App Service",
+		"wcAppD": "Web apps and APIs",
+		"wcAppC": "ASP.NET storefront",
+		"wcFn": "Functions",
+		"wcFnD": "Events, scale to zero",
+		"wcFnC": "Image resize",
+		"wcBt": "Batch",
+		"wcBtD": "Parallel jobs on a pool",
+		"wcBtC": "Nightly ERP job",
+		"wholeFoot": "Official guide: <a href=\"https://learn.microsoft.com/azure/architecture/guide/technology-choices/compute-decision-tree\" target=\"_blank\" rel=\"noopener\">Choose an Azure compute service</a>.",
+		"backLabel": "Data availability",
+		"short1": "Spectrum",
+		"short2": "Questions",
+		"short3": "Virtual machines",
+		"short4": "Containers",
+		"short5": "Serverless",
+		"short6": "Batch",
+		"short7": "Apply",
+		"short8": "All in one",
+		"languageLabel": "Language"
+	},
+	"es": {
+		"skipToMain": "Ir al diagrama",
+		"pageTitle": "Elegir el servicio de proceso adecuado",
+		"stageHeading": "Elegir el servicio de proceso adecuado",
+		"stageInstructions": "Explicación animada. Usa los botones de Siguiente/Anterior o las flechas para navegar. Pulsa R para reiniciar.",
+		"prev": "◀ Anterior",
+		"next": "Siguiente ▶",
+		"replay": "↻ Repetir",
+		"restart": "↻ Reiniciar",
+		"slower": "Más lento",
+		"faster": "Más rápido",
+		"calloutOn": "Notas: activadas",
+		"calloutOff": "Notas: desactivadas",
+		"outlineOn": "Esquema: activado",
+		"outlineOff": "Esquema: desactivado",
+		"audioTip": "Narración de audio",
+		"ccTip": "Subtítulos",
+		"shortcutsTip": "Atajos",
+		"stepDetails": "Detalles del paso",
+		"stepOf": "Paso",
+		"resetPos": "Restablecer la posición",
+		"scTitle": "Atajos de teclado",
+		"scNext": "Paso siguiente",
+		"scPrev": "Paso anterior",
+		"scRestart": "Reiniciar",
+		"scReplay": "Repetir este paso",
+		"scHide": "Mostrar u ocultar la barra superior",
+		"scHelp": "Mostrar u ocultar esta ayuda",
+		"nextApis": "A continuación: APIs, caché y despliegue",
+		"spectrumTitle": "Control o esfuerzo: elige tu sitio",
+		"spectrumCaption": "Computar · espectro",
+		"spectrumDesc": "Contoso tiene cinco cargas de trabajo que todas piden \"un servidor\". La primera opción es cuánto de la pila quiere que Contoso se ejecute solo.",
+		"spectrumCallout": "AZ-305 · Especifica componentes de una solución de cómputo en función de los requisitos de carga de trabajo. IaaS ofrece el mayor control y más para gestionar. PaaS gestiona parte de la pila. Funciones como servicio (FaaS) gestiona casi todo. Las columnas son una vista simplificada y la capacidad varía según el servicio.",
+		"spectrumSay": "Más control cuesta más esfuerzo.",
+		"spCol1": "Máquinas virtuales",
+		"spCol1s": "IaaS",
+		"spCol2": "Container Apps",
+		"spCol2s": "Contenedores",
+		"spCol3": "App Service",
+		"spCol3s": "PaaS",
+		"spCol4": "Funciones",
+		"spCol4s": "Sin servidor",
+		"spRow1": "Tu código",
+		"spRow2": "Duración",
+		"spRow3": "Sistema operativo y parches",
+		"spRow4": "Capacidad",
+		"spYou": "Tú",
+		"spShared": "Compartido",
+		"spAzure": "Azure",
+		"spMore": "Más control",
+		"spLess": "Menos para operar",
+		"questionsTitle": "Seis preguntas que deciden",
+		"questionsCaption": "Computar · preguntas",
+		"questionsDesc": "Pregunta estas cosas sobre cada carga de trabajo antes de nombrar un servicio. Las respuestas apuntan al extremo correcto del espectro.",
+		"questionsCallout": "AZ-305 · Especificar componentes de una solución de cómputo en función de los requisitos de carga de trabajo. Evaluar cada carga de trabajo por sí sola: una solución completa puede usar dos o más servicios de cómputo.",
+		"questionsSay": "Pregunta antes de elegir.",
+		"q1t": "Control",
+		"q1q": "¿Necesitas acceso a nivel de sistema operativo?",
+		"q1a": "Sí: VM",
+		"q1b": "No: lo conseguí",
+		"q2t": "Inicio",
+		"q2q": "¿Puede esperar a un arranque en frío?",
+		"q2a": "No: siempre encendido",
+		"q2b": "Sí: escala a cero",
+		"q3t": "Escala",
+		"q3q": "¿Carga constante o con picos?",
+		"q3a": "Estable: fijo",
+		"q3b": "Spiky: autoescalado",
+		"q4t": "Estado",
+		"q4q": "¿Mantiene el estado local?",
+		"q4a": "Sí: prepásalo",
+		"q4b": "No: escala libremente",
+		"q5t": "Precios",
+		"q5q": "¿Siempre activado o por partida?",
+		"q5a": "Capacidad reservada",
+		"q5b": "Por ejecución",
+		"q6t": "Habilidades",
+		"q6q": "¿Quién lo manejará?",
+		"q6a": "Equipo de plataforma",
+		"q6b": "Equipo de App",
+		"vmTitle": "Máquinas virtuales: cuándo, qué tamaño, cuántas",
+		"vmCaption": "Compute · máquinas virtuales",
+		"vmDesc": "Elige una VM cuando Contoso necesite el sistema operativo. Luego elige una familia de tamaños y reparte las instancias según la disponibilidad.",
+		"vmCallout": "AZ-305 · Recomiendo una solución basada en máquina virtual. Lift and shift (rehost) mueve una carga de trabajo sin cambios de código. Un conjunto de escalado mantiene VMs idénticas en funcionamiento, puede escalar automáticamente y puede repartir instancias entre zonas de disponibilidad.",
+		"vmSay": "Elige la VM cuando el sistema operativo importe.",
+		"vmWhen": "Elige una VM cuando",
+		"vmW1": "Levantamiento y cambio",
+		"vmW2": "Necesito acceso al sistema operativo",
+		"vmW3": "Software personalizado",
+		"vmFam": "Familias de tamaño VM",
+		"vmF1": "Propósito general",
+		"vmF2": "Calcular",
+		"vmF3": "Memoria",
+		"vmF4": "Almacenamiento",
+		"vmF5": "GPU",
+		"vmSet": "Conjunto de escalas de máquinas virtuales",
+		"vmAuto": "Autoscale",
+		"vmZ1": "Zona 1",
+		"vmZ2": "Zona 2",
+		"vmZ3": "Zona 3",
+		"vmVm": "VM",
+		"containersTitle": "Contenedores: cuatro servicios, una opción",
+		"containersCaption": "Computar · contenedores",
+		"containersDesc": "Los cuatro ejecutan contenedores. Difieren en la cantidad de parte del clúster que operas. Ajusta el servicio al equipo y a la carga de trabajo.",
+		"containersCallout": "AZ-305 · Recomiendo una solución basada en contenedores. AKS ofrece la mayor configurabilidad y una curva de aprendizaje Kubernetes. Container Apps está construido sobre Kubernetes sin exponer su API. Web App for Containers es una función de App Service. Container Instances ejecuta un contenedor o grupo sin orquestación.",
+		"containersSay": "Contoso elige Container Apps.",
+		"ctReq": "API de catálogo Contoso",
+		"ctR1": "Microservicios",
+		"ctR2": "Nuevo en Kubernetes",
+		"ctR3": "No se necesita API de clúster",
+		"ctAks": "AKS",
+		"ctAksD": "Necesito la Kubernetes API y el control total",
+		"ctCa": "Container Apps",
+		"ctCaD": "Contenedores sin ejecutar un clúster",
+		"ctApp": "App Service",
+		"ctAppD": "Una sola aplicación web o API en un contenedor",
+		"ctAci": "Instancias de contenedores",
+		"ctAciD": "Un solo contenedor, sin orquestación",
+		"ctAksX": "Curva de aprendizaje Kubernetes",
+		"ctCaX": "Sin servidor, sin clúster que ejecutar",
+		"ctAppX": "Simplicidad sobre control",
+		"ctAciX": "Sin orquestación completa",
+		"serverlessTitle": "Sin servidor: código que se ejecuta cuando ocurre algo",
+		"serverlessCaption": "Compute · sin servidor",
+		"serverlessDesc": "Azure Functions ejecuta código por evento y escala con la carga. Conoce los límites antes de prometerlo para cada carga de trabajo.",
+		"serverlessCallout": "AZ-305 · Recomiendo una solución basada en serverless. Los planes de Consumo y Consumo Flexible escalan a cero cuando están inactivos, por lo que algunas solicitudes pueden experimentar latencia de arranque añadida. Las funciones son sin estado a menos que uses Funciones Duraderas. Logic Apps es la opción low-code para flujos de trabajo.",
+		"serverlessSay": "Paga por el trabajo, no por tiempo libre.",
+		"svT1": "Solicitud HTTP",
+		"svT2": "Mensaje de cola",
+		"svT3": "Temporizador",
+		"svFn": "Azure Functions",
+		"svFnD": "Código bajo demanda",
+		"svInst": "Instancias",
+		"svZero": "Escala a cero cuando está inactivo",
+		"svLogic": "Aplicaciones de lógica",
+		"svLogicD": "Flujos de trabajo y conectores low-code",
+		"svLim": "Cuidado con los límites",
+		"svL1": "Arranques en frío",
+		"svL2": "Límites de tiempo",
+		"svL3": "Sin Estado por defecto",
+		"batchTitle": "Batch: un grupo de VMs para el trabajo nocturno",
+		"batchCaption": "Compute · lote",
+		"batchDesc": "La exportación ERP de Contoso implica muchas tareas independientes. Azure Batch crea el pool, programa las tareas y las reduce después.",
+		"batchCallout": "AZ-305 · Recomiendo una solución de cómputo para procesamiento por lotes. Creas un pool, un trabajo y tareas. Las VMs spot reducen costes pero pueden ser desalojadas cuando Azure necesite recuperar la capacidad, así que úsalas para trabajos que se puedan volver a intentar.",
+		"batchSay": "Nodos baratos para trabajos reprobables.",
+		"btJob": "Trabajo nocturno de ERP",
+		"btJobD": "Muchas tareas independientes",
+		"btPool": "Pool de lotes",
+		"btStd": "VMs estándar",
+		"btSpot": "Spot VMs",
+		"btOut": "Resultados en almacenamiento",
+		"btOutD": "Salida de la tarea subida",
+		"btZero": "Escala a cero cuando está en reposo",
+		"btEvict": "Sitio: más barato, se puede desalojar",
+		"applyTitle": "Cinco cargas de trabajo, cinco servicios",
+		"applyCaption": "Calcular · aplicar",
+		"applyDesc": "Aplica las preguntas a Contoso. Cada carga de trabajo recae en un servicio diferente, y cada uno tiene una razón.",
+		"applyCallout": "AZ-305 · Especifica los componentes de una solución de cálculo en función de los requisitos de carga de trabajo. El examen recompensa el servicio más sencillo que cumpla con el requisito, no el más potente.",
+		"applySay": "Cinco cargas de trabajo, cinco servicios.",
+		"apH1": "Carga de trabajo",
+		"apH2": "Servicio",
+		"apH3": "Porque",
+		"apW1": "Aplicación legado de almacén",
+		"apS1": "Máquinas virtuales",
+		"apB1": "Necesita acceso a nivel de sistema operativo",
+		"apW2": "ASP.NET local",
+		"apS2": "App Service",
+		"apB2": "Aplicación web, nada que parchear",
+		"apW3": "Microservicios de catálogo",
+		"apS3": "Container Apps",
+		"apB3": "Contenedores, sin clúster que ejecutar",
+		"apW4": "Redimensionar la imagen al subirla",
+		"apS4": "Azure Functions",
+		"apB4": "Corridas por subida, escala a cero",
+		"apW5": "Trabajo nocturno de ERP",
+		"apS5": "Azure Batch",
+		"apB5": "Tareas paralelas, Spot VMs por coste",
+		"wholeTitle": "Todo en uno: elige el servicio más sencillo que se adapte",
+		"wholeCaption": "Resumen",
+		"wholeDesc": "Empieza por el requisito, no por el servicio. Cada tarjeta muestra cuándo elegirla y qué carga de trabajo de Contoso ha caído ahí.",
+		"wholeCallout": "A continuación: pon una puerta principal, una caché y una tubería de despliegue alrededor de la app.",
+		"wcVm": "Máquinas virtuales",
+		"wcVmD": "Acceso al sistema operativo, elevación y cambio",
+		"wcVmC": "Aplicación legado de almacén",
+		"wcAks": "AKS",
+		"wcAksD": "Kubernetes API, control total",
+		"wcAksC": "No hace falta aquí",
+		"wcCa": "Container Apps",
+		"wcCaD": "Contenedores, sin clúster",
+		"wcCaC": "Microservicios de catálogo",
+		"wcApp": "App Service",
+		"wcAppD": "Aplicaciones web y APIs",
+		"wcAppC": "ASP.NET local",
+		"wcFn": "Funciones",
+		"wcFnD": "Eventos, escala a cero",
+		"wcFnC": "Redimensionamiento de imagen",
+		"wcBt": "Batch",
+		"wcBtD": "Trabajos paralelos en una piscina",
+		"wcBtC": "Trabajo nocturno de ERP",
+		"wholeFoot": "Guía oficial: <a href=\"https://learn.microsoft.com/azure/architecture/guide/technology-choices/compute-decision-tree\" target=\"_blank\" rel=\"noopener\">Elige un servicio de cómputo de Azure</a>.",
+		"backLabel": "Disponibilidad de datos",
+		"short1": "Espectro",
+		"short2": "Preguntas",
+		"short3": "Máquinas virtuales",
+		"short4": "Contenedores",
+		"short5": "Sin servidor",
+		"short6": "Batch",
+		"short7": "Solicita",
+		"short8": "Todo en uno",
+		"languageLabel": "Idioma"
+	},
+	"ja": {
+		"skipToMain": "図へスキップ",
+		"pageTitle": "適切なコンピューティングサービスを選ぶ",
+		"stageHeading": "適切なコンピューティングサービスを選ぶ",
+		"stageInstructions": "アニメーション解説。次回/前回ボタンや矢印キーを使ってナビゲート。Rボタンを押して再起動します。",
+		"prev": "◀ 前へ",
+		"next": "次へ ▶",
+		"replay": "↻ 再生",
+		"restart": "↻ 最初から",
+		"slower": "ゆっくり",
+		"faster": "速く",
+		"calloutOn": "吹き出し：オン",
+		"calloutOff": "吹き出し：オフ",
+		"outlineOn": "アウトライン：オン",
+		"outlineOff": "アウトライン：オフ",
+		"audioTip": "音声ナレーション",
+		"ccTip": "字幕",
+		"shortcutsTip": "ショートカット",
+		"stepDetails": "ステップの詳細",
+		"stepOf": "ステップ",
+		"resetPos": "位置を既定に戻す",
+		"scTitle": "キーボード ショートカット",
+		"scNext": "次のステップ",
+		"scPrev": "前のステップ",
+		"scRestart": "最初から",
+		"scReplay": "このステップを再生",
+		"scHide": "上部バーの表示 / 非表示",
+		"scHelp": "このヘルプの表示切り替え",
+		"nextApis": "次は:APIs、キャッシュ、デプロイメント",
+		"spectrumTitle": "コントロールか努力か:自分の場所を選べ",
+		"spectrumCaption": "計算 ·スペクトル",
+		"spectrumDesc": "Contosoには5つのワークロードがあり、すべて「サーバー」を求めます。最初の選択肢は、Contosoが自ら動かしたいスタックのどれだけの量かです。",
+		"spectrumCallout": "AZ-305 ·ワークロード要件に基づいて計算ソリューションのコンポーネントを指定します。IaaSは最も多くのコントロールと管理を提供します。PaaSはスタックの一部を管理します。Functions as a Service(FaaS)はほぼすべてを管理します。列は簡略化されたビューであり、容量はサービスによって異なります。",
+		"spectrumSay": "コントロールが増えると、手間もかかります。",
+		"spCol1": "仮想マシン",
+		"spCol1s": "IaaS",
+		"spCol2": "Container Apps",
+		"spCol2s": "コンテナ",
+		"spCol3": "App Service",
+		"spCol3s": "PaaS",
+		"spCol4": "機能",
+		"spCol4s": "サーバーレス",
+		"spRow1": "あなたのコード",
+		"spRow2": "ランタイム",
+		"spRow3": "OSとパッチ適用",
+		"spRow4": "収容人数",
+		"spYou": "お前だ",
+		"spShared": "共有",
+		"spAzure": "Azure",
+		"spMore": "よりコントロールが強化されました",
+		"spLess": "操作が少なくて済む",
+		"questionsTitle": "6つの質問が決定的だ",
+		"questionsCaption": "計算 ·質問",
+		"questionsDesc": "サービス名を挙げる前に、すべてのワークロードについてこれらを尋ねてください。答えはスペクトラムの右端を示しています。",
+		"questionsCallout": "AZ-305 ·ワークロード要件に基づいて計算ソリューションのコンポーネントを指定します。各ワークロードを個別に評価してください。完全なソリューションは2つ以上の計算サービスを使用することができます。",
+		"questionsSay": "選ぶ前に必ず聞いてください。",
+		"q1t": "制御",
+		"q1q": "OSレベルのアクセスが必要ですか?",
+		"q1a": "はい:VM",
+		"q1b": "いいえ、管理しました",
+		"q2t": "スタートアップ",
+		"q2q": "冷たい始動まで待てますか?",
+		"q2a": "いいえ、常にオンです",
+		"q2b": "はい:ゼロまでスケールします",
+		"q3t": "スケール",
+		"q3q": "負荷は安定していますか、それともスパイク型ですか?",
+		"q3a": "安定:固定",
+		"q3b": "トゲトゲ:自動スケール",
+		"q4t": "州",
+		"q4q": "ローカル・ステートは維持されますか?",
+		"q4a": "はい、計画を立ててください",
+		"q4b": "いいえ:自由にスケールしてください",
+		"q5t": "価格設定",
+		"q5q": "常にオンですか、それともランごとに?",
+		"q5a": "予約容量",
+		"q5b": "実行ごとに",
+		"q6t": "スキル",
+		"q6q": "誰が操作するのか?",
+		"q6a": "プラットフォームチーム",
+		"q6b": "アプリチーム",
+		"vmTitle": "仮想マシン:いつ、どのサイズ、いくつ?",
+		"vmCaption": "計算 ·仮想マシン",
+		"vmDesc": "Contosoがオペレーティングシステムを必要とするときにVMを選びます。次にサイズファミリーを選び、インスタンスを分散させて可用性を確保します。",
+		"vmCallout": "AZ-305 ·仮想マシンベースのソリューションを推奨します。リフト&シフト(リホスト)はコード変更なしでワークロードを移動させます。スケールセットは同一のVMsを稼働させ、自動スケーリングでき、インスタンスを可用性ゾーンに分散させることが可能です。",
+		"vmSay": "OSが重要なときにVMを選びましょう。",
+		"vmWhen": "VMを選んでください",
+		"vmW1": "リフトとシフト",
+		"vmW2": "OSアクセスが必要です",
+		"vmW3": "カスタムソフトウェア",
+		"vmFam": "VMサイズファミリー",
+		"vmF1": "一般目的",
+		"vmF2": "計算",
+		"vmF3": "記憶",
+		"vmF4": "保管",
+		"vmF5": "GPU",
+		"vmSet": "仮想マシンのスケールセット",
+		"vmAuto": "自動スケール",
+		"vmZ1": "ゾーン1",
+		"vmZ2": "ゾーン2",
+		"vmZ3": "ゾーン3",
+		"vmVm": "VM",
+		"containersTitle": "コンテナ:4つのサービス、1つの選択肢",
+		"containersCaption": "Compute ·コンテナ",
+		"containersDesc": "4つともコンテナを稼働させています。クラスタの運用量が異なります。サービスはチームやワークロードに合わせて調整してください。",
+		"containersCallout": "AZ-305 ·コンテナベースのソリューションを推奨します。AKS最も設定しやすく、学習曲線もKubernetesです。Container AppsはKubernetesを基盤に構築され、APIを公開しません。コンテナ用のウェブアプリはApp Service機能です。コンテナインスタンスはオーケストレーションなしでコンテナやグループを実行します。",
+		"containersSay": "ContosoはContainer Appsを選びます。",
+		"ctReq": "Contoso catalogue API",
+		"ctR1": "マイクロサービス",
+		"ctR2": "Kubernetes初心者",
+		"ctR3": "クラスターAPIは不要です",
+		"ctAks": "AKS",
+		"ctAksD": "Kubernetes APIと完全なコントロールが必要です",
+		"ctCa": "Container Apps",
+		"ctCaD": "クラスターを使わないコンテナ",
+		"ctApp": "App Service",
+		"ctAppD": "コンテナ内の1つのウェブアプリまたはAPI",
+		"ctAci": "コンテナインスタンス",
+		"ctAciD": "単一のコンテナ、オーケストレーションなし",
+		"ctAksX": "Kubernetesの学習曲線",
+		"ctCaX": "サーバーレスで、実行するクラスタもありません",
+		"ctAppX": "単純化が制御より優先される",
+		"ctAciX": "完全なオーケストレーションはありません",
+		"serverlessTitle": "サーバーレス:何かが起きたときに実行されるコード",
+		"serverlessCaption": "コンピュート・サーバーレス",
+		"serverlessDesc": "Azure Functionsはイベントごとにコードを実行し、負荷に応じてスケールします。すべてのワークロードに対して約束する前に、その限界を知っておくことが重要です。",
+		"serverlessCallout": "AZ-305 ·サーバーレスベースのソリューションを推奨します。Consumption PlanとFlex Consumptionプランはアイドル時にゼロにスケールするため、一部のリクエストは起動遅延が増加することもあります。Durable Functionsを使わない限り、関数はステートレスです。Logic Appsはワークフローのローコードオプションです。",
+		"serverlessSay": "仕事のために支払うのであって、無駄な時間ではありません。",
+		"svT1": "HTTPリクエスト",
+		"svT2": "キューメッセージ",
+		"svT3": "タイマー",
+		"svFn": "Azure Functions",
+		"svFnD": "コード・オン・デマンド",
+		"svInst": "事例",
+		"svZero": "アイドル時にゼロにスケールする",
+		"svLogic": "ロジックアプリ",
+		"svLogicD": "ローコードワークフローとコネクター",
+		"svLim": "限界に気をつけろ",
+		"svL1": "コールドスタート",
+		"svL2": "時間制限",
+		"svL3": "デフォルトでステートレス",
+		"batchTitle": "バッチ:夜のジョブ用のVMsプール",
+		"batchCaption": "計算 ·バッチ",
+		"batchDesc": "ContosoのERPエクスポートは、多くの独立したタスクで構成されています。Azure Batchはプールを作成し、タスクをスケジュールし、その後スケールダウンします。",
+		"batchCallout": "AZ-305 ·バッチ処理用の計算ソリューションを推奨します。プール、ジョブ、タスクを作成します。スポットVMsはコストを抑えますが、Azureが容量を戻す必要がある場合は追い出せるので、再挑戦可能な作業に使うべきです。",
+		"batchSay": "再試し可能な作業のための安価なノード。",
+		"btJob": "毎晩のERPの仕事",
+		"btJobD": "多くの独立したタスク",
+		"btPool": "バッチプール",
+		"btStd": "Standard VMs",
+		"btSpot": "Spot VMs",
+		"btOut": "記憶における結果",
+		"btOutD": "タスク出力がアップロードされました",
+		"btZero": "アイドル時にゼロにスケールします",
+		"btEvict": "スポット:安く、立ち退きの可能性がある",
+		"applyTitle": "5つのワークロード、5つのサービス",
+		"applyCaption": "計算 ·適用",
+		"applyDesc": "その質問をContosoに適用してください。各業務は異なるサービスに割り当てられ、それぞれに理由があります。",
+		"applyCallout": "AZ-305 ·ワークロード要件に基づいて計算ソリューションの構成要素を指定します。試験は要件を満たす最も単純なサービスに報酬を与え、最も強力なサービスではありません。",
+		"applySay": "5つの業務負荷、5つのサービス。",
+		"apH1": "ワークロード",
+		"apH2": "運用",
+		"apH3": "なぜなら",
+		"apW1": "ウェアハウス・レガシーアプリ",
+		"apS1": "仮想マシン",
+		"apB1": "OSレベルのアクセスが必要です",
+		"apW2": "ASP.NET 店舗",
+		"apS2": "App Service",
+		"apB2": "ウェブアプリ、パッチ適用なし",
+		"apW3": "カタログマイクロサービス",
+		"apS3": "Container Apps",
+		"apB3": "コンテナで、クラスターを動かす必要はありません",
+		"apW4": "アップロード時の画像リサイズ",
+		"apS4": "Azure Functions",
+		"apB4": "アップロードごとに実行数がゼロにスケールします",
+		"apW5": "毎晩のERPの仕事",
+		"apS5": "Azure Batch",
+		"apB5": "並列タスク、コストを優先するSpot VMs",
+		"wholeTitle": "すべてをまとめて:最もシンプルなサービスを選ぶことです",
+		"wholeCaption": "まとめ",
+		"wholeDesc": "サービスではなく要件から始めましょう。各カードはいつ選ぶべきか、どのContosoの作業がそこに届いたかを示しています。",
+		"wholeCallout": "次に、アプリの周りにフロントドア、キャッシュ、デプロイメントパイプラインを設置します。",
+		"wcVm": "仮想マシン",
+		"wcVmD": "OSアクセス、リフト&シフト",
+		"wcVmC": "ウェアハウス・レガシーアプリ",
+		"wcAks": "AKS",
+		"wcAksD": "Kubernetes API、完全にコントロール",
+		"wcAksC": "ここでは必要ありません",
+		"wcCa": "Container Apps",
+		"wcCaD": "コンテナ、クラスターなし",
+		"wcCaC": "カタログマイクロサービス",
+		"wcApp": "App Service",
+		"wcAppD": "ウェブアプリとAPIs",
+		"wcAppC": "ASP.NET 店舗",
+		"wcFn": "機能",
+		"wcFnD": "イベントはゼロにスケールします",
+		"wcFnC": "画像のリサイズ",
+		"wcBt": "バッチ",
+		"wcBtD": "プール上の並行ジョブ",
+		"wcBtC": "毎晩のERPの仕事",
+		"wholeFoot": "公式ガイド: <a href=\"https://learn.microsoft.com/azure/architecture/guide/technology-choices/compute-decision-tree\" target=\"_blank\" rel=\"noopener\">Azureのコンピュートサービスを選択し</a>てください。",
+		"backLabel": "データの利用可能性",
+		"short1": "スペクトラム",
+		"short2": "質問",
+		"short3": "仮想マシン",
+		"short4": "コンテナ",
+		"short5": "サーバーレス",
+		"short6": "バッチ",
+		"short7": "応募してください",
+		"short8": "すべてが一つに",
+		"languageLabel": "言語"
+	},
+	"ko": {
+		"skipToMain": "다이어그램으로 건너뛰기",
+		"pageTitle": "적합한 컴퓨팅 서비스 선택",
+		"stageHeading": "적합한 컴퓨팅 서비스 선택",
+		"stageInstructions": "애니메이션 설명. 다음/이전 버튼이나 방향키를 사용해 탐색하세요. R을 눌러 재시작하세요.",
+		"prev": "◀ 이전",
+		"next": "다음 ▶",
+		"replay": "↻ 다시 재생",
+		"restart": "↻ 처음부터",
+		"slower": "느리게",
+		"faster": "빠르게",
+		"calloutOn": "설명선: 켜짐",
+		"calloutOff": "설명선: 꺼짐",
+		"outlineOn": "개요: 켜짐",
+		"outlineOff": "개요: 꺼짐",
+		"audioTip": "오디오 내레이션",
+		"ccTip": "자막",
+		"shortcutsTip": "단축키",
+		"stepDetails": "단계 상세",
+		"stepOf": "단계",
+		"resetPos": "기본 위치로 되돌리기",
+		"scTitle": "키보드 단축키",
+		"scNext": "다음 단계",
+		"scPrev": "이전 단계",
+		"scRestart": "처음부터",
+		"scReplay": "이 단계 다시 재생",
+		"scHide": "상단 바 표시 / 숨기기",
+		"scHelp": "이 도움말 전환",
+		"nextApis": "다음 주제: APIs, 캐싱 및 배포",
+		"spectrumTitle": "통제 아니면 노력: 자리를 선택하세요",
+		"spectrumCaption": "계산 · 스펙트럼",
+		"spectrumDesc": "Contoso는 다섯 개의 워크로드가 있는데, 모두 \"서버\"를 요구합니다. 첫 번째 선택은 Contoso가 스스로 실행하려는 스택의 얼마나 많은 부분을 운영하는가입니다.",
+		"spectrumCallout": "AZ-305 · 워크로드 요구사항에 따라 컴퓨트 솔루션의 구성 요소를 명시하세요. IaaS는 가장 많은 제어권과 관리 능력을 제공합니다. PaaS는 스택의 일부를 관리합니다. Functions as a Service(FaaS)는 거의 모든 것을 관리합니다. 열은 단순화된 뷰이며, 용량은 서비스마다 다릅니다.",
+		"spectrumSay": "더 많은 통제가 더 많은 노력을 요구합니다.",
+		"spCol1": "가상 머신",
+		"spCol1s": "IaaS",
+		"spCol2": "Container Apps",
+		"spCol2s": "컨테이너",
+		"spCol3": "App Service",
+		"spCol3s": "PaaS",
+		"spCol4": "기능",
+		"spCol4s": "서버리스",
+		"spRow1": "당신의 코드",
+		"spRow2": "런타임",
+		"spRow3": "운영체제 및 패치",
+		"spRow4": "수용 인원",
+		"spYou": "너",
+		"spShared": "공유",
+		"spAzure": "Azure",
+		"spMore": "더 많은 제어권을 행사합니다",
+		"spLess": "운영할 것이 적습니다",
+		"questionsTitle": "결정하는 여섯 가지 질문",
+		"questionsCaption": "계산 · 질문",
+		"questionsDesc": "서비스 이름을 정하기 전에 모든 업무량에 대해 이런 질문을 하세요. 답변은 스펙트럼의 올바른 쪽을 가리킵니다.",
+		"questionsCallout": "AZ-305 · 워크로드 요구사항에 따라 컴퓨트 솔루션의 구성 요소를 명시하세요. 각 워크로드를 독립적으로 평가하세요: 완전한 솔루션은 두 개 이상의 컴퓨트 서비스를 사용할 수 있습니다.",
+		"questionsSay": "고르기 전에 꼭 물어보세요.",
+		"q1t": "방제",
+		"q1q": "운영체제 수준의 접근이 필요하신가요?",
+		"q1a": "네: VM",
+		"q1b": "아니요: 잘 관리했습니다",
+		"q2t": "창업",
+		"q2q": "콜드 스타트를 기다릴 수 있나요?",
+		"q2a": "아니요: 항상 켜져 있습니다",
+		"q2b": "네: 0으로 스케일링",
+		"q3t": "규모",
+		"q3q": "일정한 부하인가요, 아니면 스파이키 부하인가요?",
+		"q3a": "안정적: 고정",
+		"q3b": "스파이키: 자동 스케일",
+		"q4t": "국가",
+		"q4q": "지역 주(state)를 유지하는 건가요?",
+		"q4a": "네: 미리 계획하세요",
+		"q4b": "아니요: 자유롭게 스케일링하세요",
+		"q5t": "가격",
+		"q5q": "항상 켜져 있나요, 아니면 매 런마다 하나요?",
+		"q5a": "예약 수용 인원",
+		"q5b": "집행 단위",
+		"q6t": "기술",
+		"q6q": "누가 운영할까요?",
+		"q6a": "플랫폼 팀",
+		"q6b": "앱 팀",
+		"vmTitle": "가상 머신: 언제, 어떤 크기, 몇 개",
+		"vmCaption": "컴퓨트 · 가상 머신",
+		"vmDesc": "Contoso가 운영체제를 필요로 할 때 VM을 선택하세요. 그 다음 크기 계열을 선택하고 인스턴스를 분산시켜 가용성을 확보하세요.",
+		"vmCallout": "AZ-305 · 가상 머신 기반 솔루션을 추천합니다. 리프트 앤 시프트(재호스팅)는 코드 변경 없이 워크로드를 이동시킵니다. 스케일 세트는 동일한 VMs를 계속 실행하고, 자동 확장이 가능하며, 인스턴스를 가용성 존에 분산시킬 수 있습니다.",
+		"vmSay": "운영체제가 중요할 때 선택VM 하세요.",
+		"vmWhen": "VM을 선택할 때",
+		"vmW1": "리프트 앤 시프트",
+		"vmW2": "OS 접근 권한이 필요합니다",
+		"vmW3": "맞춤형 소프트웨어",
+		"vmFam": "VM 크기 계열",
+		"vmF1": "범용",
+		"vmF2": "컴퓨트",
+		"vmF3": "기억",
+		"vmF4": "저장",
+		"vmF5": "GPU",
+		"vmSet": "가상 머신 스케일 세트",
+		"vmAuto": "자동 스케일",
+		"vmZ1": "존 1",
+		"vmZ2": "존 2",
+		"vmZ3": "3구역",
+		"vmVm": "VM",
+		"containersTitle": "컨테이너: 네 가지 서비스, 한 가지 선택",
+		"containersCaption": "컴퓨트 · 컨테이너",
+		"containersDesc": "네 가지 모두 컨테이너를 운영합니다. 클러스터의 운영 양이 다릅니다. 서비스와 팀, 업무량에 맞춰 조정하세요.",
+		"containersCallout": "AZ-305 · 컨테이너 기반 솔루션을 추천합니다. AKS는 가장 많은 구성 가능성과 Kubernetes의 학습 곡선을 제공합니다. Container Apps는 Kubernetes 위에 API를 노출하지 않고 구축되었습니다. Web App for Containers는 App Service 기능입니다. Container Instances는 오케스트레이션 없이 컨테이너나 그룹을 실행합니다.",
+		"containersSay": "Contoso는 Container Apps를 선택한다.",
+		"ctReq": "Contoso catalogue API",
+		"ctR1": "마이크로서비스",
+		"ctR2": "Kubernetes 초보자",
+		"ctR3": "클러스터 API는 필요 없습니다",
+		"ctAks": "AKS",
+		"ctAksD": "Kubernetes API과 완전한 통제가 필요합니다",
+		"ctCa": "Container Apps",
+		"ctCaD": "클러스터를 실행하지 않는 컨테이너",
+		"ctApp": "App Service",
+		"ctAppD": "컨테이너 안에 하나의 웹 앱 또는 API",
+		"ctAci": "컨테이너 인스턴스",
+		"ctAciD": "단일 컨테이너, 오케스트레이션 없음",
+		"ctAksX": "Kubernetes 학습 곡선",
+		"ctCaX": "서버리스, 클러스터 실행 필요 없어",
+		"ctAppX": "단순함을 통제보다 우선시하다",
+		"ctAciX": "완전한 오케스트레이션은 없습니다",
+		"serverlessTitle": "서버리스: 무언가 발생할 때 실행되는 코드입니다",
+		"serverlessCaption": "컴퓨트 · 서버리스",
+		"serverlessDesc": "Azure Functions는 이벤트마다 코드를 실행하고 부하에 따라 확장됩니다. 모든 워크로드에 대해 약속하기 전에 한계를 미리 알아두세요.",
+		"serverlessCallout": "AZ-305 · 서버 기반 솔루션을 추천합니다. Consumption 및 Flex Consumption 플랜은 유휴 시 0으로 확장되므로 일부 요청은 추가 시작 지연이 발생할 수 있습니다. 함수는 Durable Functions를 사용하지 않는 한 상태 무상태입니다. Logic Apps는 워크플로우를 위한 로우코드 옵션입니다.",
+		"serverlessSay": "일에 대해 돈을 내세요, 한가한 시간에 대해 지불하지 마세요.",
+		"svT1": "HTTP 요청",
+		"svT2": "큐 메시지",
+		"svT3": "타이머",
+		"svFn": "Azure Functions",
+		"svFnD": "주문형 코드",
+		"svInst": "사례",
+		"svZero": "유휴 시 0으로 스케일링",
+		"svLogic": "로직 앱",
+		"svLogicD": "로우코드 워크플로우와 커넥터",
+		"svLim": "한계를 조심하세요",
+		"svL1": "콜드 스타트",
+		"svL2": "시간 제한",
+		"svL3": "기본적으로 무국적(stateless)",
+		"batchTitle": "배치: 야간 작업을 위한 VMs 풀",
+		"batchCaption": "계산 · 배치",
+		"batchDesc": "Contoso의 ERP 내보내기는 여러 독립적인 작업들로 이루어져 있습니다. Azure Batch는 풀을 생성하고 작업을 예약한 후 축소합니다.",
+		"batchCallout": "AZ-305 · 배치 처리를 위한 컴퓨트 솔루션을 추천하세요. 풀, 작업, 작업을 생성하면 됩니다. 스팟 VMs는 비용을 절감하지만, Azure가 용량을 복구해야 할 때 퇴거할 수 있으니, 재시도할 수 있는 작업에 활용하세요.",
+		"batchSay": "재시도 가능한 작업을 위한 저렴한 노드들.",
+		"btJob": "야간 ERP 업무",
+		"btJobD": "많은 독립적인 업무",
+		"btPool": "배치 풀",
+		"btStd": "표준 VMs",
+		"btSpot": "Spot VMs",
+		"btOut": "저장 결과",
+		"btOutD": "작업 출력 업로드 완료",
+		"btZero": "대기 시 0으로 스케일링됩니다",
+		"btEvict": "스팟: 더 저렴하고, 퇴거 가능성도 있습니다",
+		"applyTitle": "업무량 다섯 개, 서비스 다섯 개",
+		"applyCaption": "계산 · 적용",
+		"applyDesc": "질문들을 Contoso에 적용하세요. 각 업무 부하는 서로 다른 서비스에 해당하며, 각각의 이유가 있습니다.",
+		"applyCallout": "AZ-305 · 워크로드 요구사항에 따라 컴퓨팅 솔루션의 구성 요소를 명시하세요. 시험은 요구사항을 충족하는 가장 단순한 서비스를 보상하며, 가장 강력한 서비스를 평가하는 것은 아닙니다.",
+		"applySay": "업무량이 다섯 개, 서비스가 다섯 개.",
+		"apH1": "워크로드",
+		"apH2": "운용",
+		"apH3": "왜냐하면",
+		"apW1": "Warehouse legacy app",
+		"apS1": "가상 머신",
+		"apB1": "운영체제 수준의 접근 필요",
+		"apW2": "ASP.NET 상점",
+		"apS2": "App Service",
+		"apB2": "웹 앱, 패치할 게 없어요",
+		"apW3": "카탈로그 마이크로서비스",
+		"apS3": "Container Apps",
+		"apB3": "컨테이너, 실행할 클러스터가 없어요",
+		"apW4": "업로드 시 이미지 크기 조정",
+		"apS4": "Azure Functions",
+		"apB4": "업로드당 실행 속도, 0까지 확장됩니다",
+		"apW5": "야간 ERP 업무",
+		"apS5": "Azure Batch",
+		"apB5": "병렬 작업, 비용 대비 VMs 배치",
+		"wholeTitle": "모두 합쳐: 가장 간단한 서비스를 선택하세요",
+		"wholeCaption": "요약",
+		"wholeDesc": "서비스 기준이 아니라 요구사항부터 시작하세요. 각 카드는 언제 선택해야 하는지, 그리고 어떤 Contoso 업무가 그곳에 도착했는지 보여줍니다.",
+		"wholeCallout": "다음으로: 앱 주변에 프론트 도어, 캐시, 배포 파이프라인을 배치하세요.",
+		"wcVm": "가상 머신",
+		"wcVmD": "OS 접근, 리프트 및 변속",
+		"wcVmC": "Warehouse legacy app",
+		"wcAks": "AKS",
+		"wcAksD": "Kubernetes API, 완전 통제",
+		"wcAksC": "여기서는 필요 없어",
+		"wcCa": "Container Apps",
+		"wcCaD": "컨테이너, 클러스터 없음",
+		"wcCaC": "카탈로그 마이크로서비스",
+		"wcApp": "App Service",
+		"wcAppD": "웹 앱 및 APIs",
+		"wcAppC": "ASP.NET 상점",
+		"wcFn": "기능",
+		"wcFnD": "이벤트, 0까지 스케일",
+		"wcFnC": "이미지 크기 변경",
+		"wcBt": "배치",
+		"wcBtD": "풀에서의 병렬 작업",
+		"wcBtC": "야간 ERP 업무",
+		"wholeFoot": "공식 가이드: <a href=\"https://learn.microsoft.com/azure/architecture/guide/technology-choices/compute-decision-tree\" target=\"_blank\" rel=\"noopener\">Azure 컴퓨트 서비스를 선택</a>하세요.",
+		"backLabel": "데이터 이용 가능성",
+		"short1": "스펙트럼",
+		"short2": "질문",
+		"short3": "가상 머신",
+		"short4": "컨테이너",
+		"short5": "서버리스",
+		"short6": "배치",
+		"short7": "지원",
+		"short8": "모두 하나로",
+		"languageLabel": "언어"
+	},
+	"pt": {
+		"skipToMain": "Ir para o diagrama",
+		"pageTitle": "Escolher o serviço de computação adequado",
+		"stageHeading": "Escolher o serviço de computação adequado",
+		"stageInstructions": "Explicação animada. Use os botões Próximo/Anterior ou as setas para navegar. Pressione R para reiniciar.",
+		"prev": "◀ Voltar",
+		"next": "Avançar ▶",
+		"replay": "↻ Repetir",
+		"restart": "↻ Reiniciar",
+		"slower": "Mais devagar",
+		"faster": "Mais rápido",
+		"calloutOn": "Balões: ligados",
+		"calloutOff": "Balões: desligados",
+		"outlineOn": "Resumo: ligado",
+		"outlineOff": "Resumo: desligado",
+		"audioTip": "Narração em áudio",
+		"ccTip": "Legendas",
+		"shortcutsTip": "Atalhos",
+		"stepDetails": "Detalhes da etapa",
+		"stepOf": "Etapa",
+		"resetPos": "Restaurar a posição padrão",
+		"scTitle": "Atalhos de teclado",
+		"scNext": "Próxima etapa",
+		"scPrev": "Etapa anterior",
+		"scRestart": "Reiniciar",
+		"scReplay": "Repetir esta etapa",
+		"scHide": "Mostrar / ocultar a barra superior",
+		"scHelp": "Alternar esta ajuda",
+		"nextApis": "A seguir: APIs, cache e implantação",
+		"spectrumTitle": "Controle ou esforço: escolha seu lugar",
+		"spectrumCaption": "Computar · espectro",
+		"spectrumDesc": "Contoso tem cinco cargas de trabalho que todas pedem \"um servidor\". A primeira escolha é quanto da pilha Contoso quer rodar sozinha.",
+		"spectrumCallout": "AZ-305 · Especifique componentes de uma solução de computação com base nos requisitos de carga de trabalho. IaaS oferece o maior controle e o maior para gerenciar. PaaS gerencia parte da pilha. Funções como serviço (FaaS) gerencia quase tudo. As colunas são uma visão simplificada, e a capacidade varia conforme o serviço.",
+		"spectrumSay": "Mais controle custa mais esforço.",
+		"spCol1": "Máquinas Virtuais",
+		"spCol1s": "IaaS",
+		"spCol2": "Container Apps",
+		"spCol2s": "Contêineres",
+		"spCol3": "App Service",
+		"spCol3s": "PaaS",
+		"spCol4": "Funções",
+		"spCol4s": "Serverless",
+		"spRow1": "Seu código",
+		"spRow2": "Duração",
+		"spRow3": "Sistema operacional e correções",
+		"spRow4": "Capacidade",
+		"spYou": "Você",
+		"spShared": "Compartilhado",
+		"spAzure": "Azure",
+		"spMore": "Mais controle",
+		"spLess": "Menos para operar",
+		"questionsTitle": "Seis perguntas que decidem",
+		"questionsCaption": "Compute · perguntas",
+		"questionsDesc": "Pergunte sobre cada carga de trabalho antes de nomear um serviço. As respostas apontam para o lado certo do espectro.",
+		"questionsCallout": "AZ-305 · Especifique componentes de uma solução de computação com base nos requisitos da carga de trabalho. Avalie cada carga de trabalho isoladamente: uma solução completa pode usar dois ou mais serviços de computação.",
+		"questionsSay": "Pergunte antes de escolher.",
+		"q1t": "Controle",
+		"q1q": "Precisa de acesso no nível do sistema operacional?",
+		"q1a": "Sim: VM",
+		"q1b": "Não: conseguiu",
+		"q2t": "Início",
+		"q2q": "Pode esperar para uma partida a frio?",
+		"q2a": "Não: sempre ligado",
+		"q2b": "Sim: escala até zero",
+		"q3t": "Escala",
+		"q3q": "Carga constante ou com picos?",
+		"q3a": "Fixo: fixo",
+		"q3b": "Espinhos: autoescalonamento",
+		"q4t": "Estado",
+		"q4q": "Ele mantém o estado local?",
+		"q4a": "Sim: planeje para isso",
+		"q4b": "Não: escala livremente",
+		"q5t": "Precificação",
+		"q5q": "Sempre ligado ou por corrida?",
+		"q5a": "Capacidade reservada",
+		"q5b": "Por execução",
+		"q6t": "Habilidades",
+		"q6q": "Quem vai operá-lo?",
+		"q6a": "Equipe de plataforma",
+		"q6b": "Equipe do aplicativo",
+		"vmTitle": "Máquinas virtuais: quando, qual tamanho, quantas",
+		"vmCaption": "Compute · máquinas virtuais",
+		"vmDesc": "Escolha uma VM quando a Contoso precisar do sistema operacional. Depois escolha uma família de tamanhos e espalhe as instâncias para disponibilidade.",
+		"vmCallout": "AZ-305 · Recomende uma solução baseada em máquina virtual. Lift and shift (rehost) move uma carga de trabalho sem alterações de código. Um conjunto de escalas mantém VMs idênticas rodando, pode escalar automaticamente e pode espalhar instâncias entre zonas de disponibilidade.",
+		"vmSay": "Escolha a VM quando o sistema operacional for importante.",
+		"vmWhen": "Escolha uma VM quando",
+		"vmW1": "Levantar e deslocar",
+		"vmW2": "Preciso de acesso ao sistema operacional",
+		"vmW3": "Software personalizado",
+		"vmFam": "Famílias de tamanho de VM",
+		"vmF1": "Uso geral",
+		"vmF2": "Compute",
+		"vmF3": "Memória",
+		"vmF4": "Armazenamento",
+		"vmF5": "GPU",
+		"vmSet": "Conjunto de escalas de máquinas virtuais",
+		"vmAuto": "Autoscale",
+		"vmZ1": "Zona 1",
+		"vmZ2": "Zona 2",
+		"vmZ3": "Zona 3",
+		"vmVm": "VM",
+		"containersTitle": "Contêineres: quatro serviços, uma escolha",
+		"containersCaption": "Computar · contêineres",
+		"containersDesc": "Os quatro rodam containers. Eles diferem na quantidade do cluster que você opera. Ajuste o serviço com a equipe e a carga de trabalho.",
+		"containersCallout": "AZ-305 · Recomendo uma solução baseada em container. AKS oferece a maior configurabilidade e uma curva de aprendizado Kubernetes. Container Apps é construído sobre Kubernetes sem expor sua API. Web App for Containers é um recurso do App Service. Container Instances roda um container ou grupo sem orquestração.",
+		"containersSay": "Contoso escolhe Container Apps.",
+		"ctReq": "API do catálogo Contoso",
+		"ctR1": "Microserviços",
+		"ctR2": "Novo em Kubernetes",
+		"ctR3": "Não é necessária API de cluster",
+		"ctAks": "AKS",
+		"ctAksD": "Preciso do Kubernetes API e controle total",
+		"ctCa": "Container Apps",
+		"ctCaD": "Contêineres sem rodar um cluster",
+		"ctApp": "App Service",
+		"ctAppD": "Um aplicativo web ou API em um contêiner",
+		"ctAci": "Instâncias de Contêiner",
+		"ctAciD": "Um único contêiner, sem orquestração",
+		"ctAksX": "Curva de aprendizado do Kubernetes",
+		"ctCaX": "Serverless, sem cluster para rodar",
+		"ctAppX": "Simplicidade em vez de controle",
+		"ctAciX": "Sem orquestração completa",
+		"serverlessTitle": "Serverless: código que roda quando algo acontece",
+		"serverlessCaption": "Compute · serverless",
+		"serverlessDesc": "Azure Functions roda código por evento e escala com a carga. Conheça os limites antes de prometer para cada carga de trabalho.",
+		"serverlessCallout": "AZ-305 · Recomendo uma solução baseada em serverless. Os planos de Consumo e Consumo Flexível escalam para zero quando ociosos, então algumas requisições podem apresentar latência adicional de inicialização. Funções são sem estado, a menos que você use Funções Duráveis. Logic Apps é a opção low-code para fluxos de trabalho.",
+		"serverlessSay": "Pague pelo trabalho, não pelo tempo ocioso.",
+		"svT1": "Solicitação HTTP",
+		"svT2": "Mensagem de fila",
+		"svT3": "Temporizador",
+		"svFn": "Azure Functions",
+		"svFnD": "Código sob demanda",
+		"svInst": "Instâncias",
+		"svZero": "Escala até zero quando ocioso",
+		"svLogic": "Aplicativos de Lógica",
+		"svLogicD": "Fluxos de trabalho e conectores low-code",
+		"svLim": "Cuidado com os limites",
+		"svL1": "Partidas frias",
+		"svL2": "Limites de tempo",
+		"svL3": "Apátrida por padrão",
+		"batchTitle": "Batch: um pool de VMs para o trabalho noturno",
+		"batchCaption": "Computar · lote",
+		"batchDesc": "A exportação ERP da Contoso é de muitas tarefas independentes. O Azure Batch cria o pool, agenda as tarefas e depois reduz a escala.",
+		"batchCallout": "AZ-305 · Recomende uma solução de computação para processamento em lote. Você cria um pool, um trabalho e tarefas. VMs spot reduzem custos, mas podem ser despejadas quando o Azure precisar da capacidade de volta, então use-as para trabalhos que podem ser tentados novamente.",
+		"batchSay": "Nós baratos para trabalhos retentáveis.",
+		"btJob": "Trabalho noturno de ERP",
+		"btJobD": "Muitas tarefas independentes",
+		"btPool": "Pool de lotes",
+		"btStd": "VMs padrão",
+		"btSpot": "Spot VMs",
+		"btOut": "Resultados no Armazenamento",
+		"btOutD": "Saída da tarefa enviada",
+		"btZero": "Escala para zero quando está ocioso",
+		"btEvict": "Vaga: mais barata, pode ser despejada",
+		"applyTitle": "Cinco cargas de trabalho, cinco serviços",
+		"applyCaption": "Compute · Apply",
+		"applyDesc": "Aplique as perguntas à Contoso. Cada carga de trabalho cai em um serviço diferente, e cada um tem um motivo.",
+		"applyCallout": "AZ-305 · Especifique componentes de uma solução computacional com base nos requisitos de carga de trabalho. O exame recompensa o serviço mais simples que atenda ao requisito, não o mais poderoso.",
+		"applySay": "Cinco cargas de trabalho, cinco serviços.",
+		"apH1": "Carga de trabalho",
+		"apH2": "Serviço",
+		"apH3": "Porque",
+		"apW1": "Aplicativo legado do armazém",
+		"apS1": "Máquinas Virtuais",
+		"apB1": "Precisa de acesso em nível de sistema operacional",
+		"apW2": "ASP.NET loja",
+		"apS2": "App Service",
+		"apB2": "Aplicativo web, nada para corrigir",
+		"apW3": "Microserviços de catálogo",
+		"apS3": "Container Apps",
+		"apB3": "Containers, sem cluster para rodar",
+		"apW4": "Redimensionar a imagem no upload",
+		"apS4": "Azure Functions",
+		"apB4": "Execuções por upload, escala até zero",
+		"apW5": "Trabalho noturno de ERP",
+		"apS5": "Azure Batch",
+		"apB5": "Tarefas paralelas, Spot VMs por custo",
+		"wholeTitle": "Tudo em um: escolha o serviço mais simples que se encaixe",
+		"wholeCaption": "Resumo",
+		"wholeDesc": "Comece pelo requisito, não pelo serviço. Cada cartão mostra quando escolher e qual carga de trabalho da Contoso caiu ali.",
+		"wholeCallout": "Em seguida: coloque uma porta de entrada, um cache e um pipeline de implantação ao redor do app.",
+		"wcVm": "Máquinas Virtuais",
+		"wcVmD": "Acesso ao sistema operacional, elevação e troca de marcha",
+		"wcVmC": "Aplicativo legado do armazém",
+		"wcAks": "AKS",
+		"wcAksD": "Kubernetes API, controle total",
+		"wcAksC": "Não é necessário aqui",
+		"wcCa": "Container Apps",
+		"wcCaD": "Contêineres, sem cluster",
+		"wcCaC": "Microserviços de catálogo",
+		"wcApp": "App Service",
+		"wcAppD": "Aplicativos web e APIs",
+		"wcAppC": "ASP.NET loja",
+		"wcFn": "Funções",
+		"wcFnD": "Eventos, escala até zero",
+		"wcFnC": "Redimensionamento da imagem",
+		"wcBt": "Lote",
+		"wcBtD": "Trabalhos paralelos em uma piscina",
+		"wcBtC": "Trabalho noturno de ERP",
+		"wholeFoot": "Guia oficial: <a href=\"https://learn.microsoft.com/azure/architecture/guide/technology-choices/compute-decision-tree\" target=\"_blank\" rel=\"noopener\">Escolha um serviço de computação Azure</a>.",
+		"backLabel": "Disponibilidade de dados",
+		"short1": "Espectro",
+		"short2": "Perguntas",
+		"short3": "Máquinas virtuais",
+		"short4": "Contêineres",
+		"short5": "Serverless",
+		"short6": "Lote",
+		"short7": "Candidate-se",
+		"short8": "Tudo em um só",
+		"languageLabel": "Idioma"
+	}
+};
+function t(key) { return (I18N[currentLang] && I18N[currentLang][key]) || I18N.en[key] || key; }
+
+function setLanguage(lang) {
+	currentLang = lang;
+	document.documentElement.lang = lang;
+	try { const u=new URL(location.href); u.searchParams.set('lang', lang); history.replaceState(null,'',u); } catch(_){}
+	document.getElementById('page-title').textContent = '\u2728 ' + t('pageTitle');
+	// icon-only nav buttons: the localized label lives in the tooltip (title)
+	document.getElementById('prev-btn').title = t('prev');
+	document.getElementById('next-btn').title = t('next');
+	document.getElementById('replay-btn').title = t('replay');
+	document.getElementById('reset-btn').title = t('restart');
+	document.getElementById('speed-down').title = t('slower');
+	document.getElementById('speed-up').title = t('faster');
+	document.getElementById('outline-title').textContent = t('stepDetails');
+	document.querySelector('.skip-link').textContent = t('skipToMain');
+	document.getElementById('stage-heading').textContent = t('stageHeading');
+	document.getElementById('stage-instructions').textContent = t('stageInstructions');
+	// localize overlay tooltips (icon buttons show their label on hover / as native title)
+	const _hlp=document.getElementById('help-toggle'); if(_hlp) _hlp.setAttribute('data-tip', t('shortcutsTip'));
+	const _aud=document.getElementById('audio-toggle'); if(_aud) _aud.title=t('audioTip');
+	const _ccb=document.getElementById('cc-toggle'); if(_ccb) _ccb.title=t('ccTip');
+	syncCalloutBtn(); syncOutlineBtn();
+	if (typeof syncAudioBtn === 'function') syncAudioBtn();
+	if (typeof buildShortcuts === 'function') buildShortcuts();
+	document.querySelectorAll('.aw-drag-reset').forEach(b=>{ b.title=t('resetPos'); b.setAttribute('aria-label', t('resetPos')); });
+	try { localStorage.setItem('aw-tmpl-lang', lang); } catch(_){}
+	document.title = t('pageTitle') + ' \u2014 Azure Animations';
+	const back = document.querySelector('.header-back-link');
+	back.textContent = '\u2190 ' + t('backLabel');
+	back.title = t('backLabel'); back.setAttribute('aria-label', t('backLabel'));
+	const url = new URL(back.href); url.searchParams.set('lang', lang); back.href = url;
+	const picker = document.getElementById('lang-select');
+	picker.title = t('languageLabel'); picker.setAttribute('aria-label', t('languageLabel'));
+	for (const [id, key] of [['prev-btn','scPrev'], ['next-btn','scNext'], ['replay-btn','scReplay'], ['reset-btn','scRestart'],
+		['speed-down','slower'], ['speed-up','faster'], ['audio-toggle','audioTip'], ['cc-toggle','ccTip'], ['help-toggle','shortcutsTip']]) {
+		const control = document.getElementById(id); if(control) control.setAttribute('aria-label', t(key));
+	}
+	if (current >= 0) renderStep(current);
+}
+
+// ── STEPS (journey order) ─────────────────
+const S = (id, short) => ({ id, short, titleKey:id+'Title', captionKey:id+'Caption', descKey:id+'Desc', calloutKey:id+'Callout' });
+const STEPS = [
+	S('spectrum','Spectrum'), S('questions','Questions'), S('vm','Virtual machines'), S('containers','Containers'),
+	S('serverless','Serverless'), S('batch','Batch'), S('apply','Apply'), S('whole','All in one')
+];
+
+STEPS.forEach((s, i) => { s.shortKey = 'short' + (i + 1); });
+
+// ── DOM REFS ──────────────────────────────
+const stage=document.getElementById('stage-frame'), svg=document.getElementById('fx-svg'),
+	counter=document.getElementById('step-counter'), breadcrumb=document.getElementById('breadcrumb'),
+	progress=document.getElementById('progress-fill'), announcer=document.getElementById('step-announcer'),
+	outlineBody=document.getElementById('outline-body'), outlinePanel=document.getElementById('step-outline'),
+	outlineBtn=document.getElementById('outline-toggle'), calloutBtn=document.getElementById('callout-toggle'),
+	langSelect=document.getElementById('lang-select');
+
+langSelect.addEventListener('change', e => setLanguage(e.target.value));
+const urlLang = new URLSearchParams(location.search).get('lang');
+let savedLang=null; try{ savedLang=localStorage.getItem('aw-tmpl-lang'); }catch(_){}
+if (urlLang && I18N[urlLang]) { currentLang = urlLang; langSelect.value = urlLang; }
+else if (savedLang && I18N[savedLang]) { currentLang = savedLang; langSelect.value = savedLang; }
+
+// ── Font size ─────────────────────────────
+const fontScales=[0.8,0.9,1,1.1,1.2,1.35]; let fontScaleIdx=2;
+const baseFontSize=parseFloat(getComputedStyle(document.documentElement).fontSize);
+function applyFontScale(){ document.documentElement.style.fontSize=(baseFontSize*fontScales[fontScaleIdx])+'px'; const c=document.getElementById('controls'); if(c) c.style.fontSize=baseFontSize+'px'; if(typeof current!=='undefined'&&current>=0){ const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s); } }
+function saveFont(){ try{ localStorage.setItem('aw-tmpl-font', String(fontScaleIdx)); }catch(_){} }
+try{ const f=parseInt(localStorage.getItem('aw-tmpl-font'),10); if(!isNaN(f)&&f>=0&&f<fontScales.length){ fontScaleIdx=f; applyFontScale(); } }catch(_){}
+document.getElementById('font-decrease').addEventListener('click',()=>{ if(fontScaleIdx>0){fontScaleIdx--;applyFontScale();saveFont();} });
+document.getElementById('font-increase').addEventListener('click',()=>{ if(fontScaleIdx<fontScales.length-1){fontScaleIdx++;applyFontScale();saveFont();} });
+
+let current=-1, animating=false, liveEls=[], liveTimelines=[], calloutEnabled=false;
+
+function syncCalloutBtn(){ calloutBtn.classList.toggle('toggle-active',calloutEnabled); calloutBtn.setAttribute('aria-pressed',calloutEnabled?'true':'false'); calloutBtn.setAttribute('data-tip',calloutEnabled?t('calloutOn'):t('calloutOff')); }
+calloutBtn.addEventListener('click',()=>{
+	calloutEnabled=!calloutEnabled; syncCalloutBtn();
+	if(current<0) return;
+	// Toggle just the callout box in place — don't re-render (no animation replay).
+	const existing=stage.querySelectorAll('.callout');
+	if(calloutEnabled){ if(!existing.length){ const c=maybeCallout(STEPS[current]); if(c) gsap.fromTo(c,{opacity:0,y:10},{opacity:1,y:0,duration:0.4,overwrite:true}); } }
+	else { existing.forEach(c=>{ const idx=liveEls.indexOf(c); if(idx>-1) liveEls.splice(idx,1); gsap.killTweensOf(c); c.remove(); }); }
+}); syncCalloutBtn();
+function syncOutlineBtn(){ const on=!outlinePanel.hasAttribute('hidden'); outlineBtn.classList.toggle('toggle-active',on); outlineBtn.setAttribute('aria-expanded',on?'true':'false'); outlineBtn.setAttribute('data-tip',on?t('outlineOn'):t('outlineOff')); }
+outlineBtn.addEventListener('click',()=>{ const showing=!outlinePanel.hasAttribute('hidden'); if(showing){outlinePanel.setAttribute('hidden','');} else {outlinePanel.removeAttribute('hidden');} syncOutlineBtn(); }); syncOutlineBtn();
+
+// ── Audio narration (overlay button · speaker + remaining-time countdown) ──
+// Drop one recorded clip per step (in STEPS order) into AUDIO_FILES for real narration;
+// localized clips live under AUDIO_BASE/<lang>/. With no files, the browser reads each
+// step's title + description aloud (speech synthesis), so the button works with zero assets.
+const AUDIO_BASE = 'audio/PickCompute/';
+const AUDIO_FILES = [
+	'step-01.mp3', 'step-02.mp3', 'step-03.mp3', 'step-04.mp3', 'step-05.mp3', 'step-06.mp3', 'step-07.mp3', 'step-08.mp3'
+];
+let audioEnabled=false, currentAudio=null, audioTimeout=null, ccPref=false;
+const audioBtn=document.getElementById('audio-toggle');
+if(audioBtn){ audioBtn.innerHTML='<span class="aw-audio-ico" aria-hidden="true">\uD83D\uDD07</span><span class="aw-audio-time" aria-hidden="true">--:--</span>'; }
+const audioIco=audioBtn&&audioBtn.querySelector('.aw-audio-ico'), audioTimeEl=audioBtn&&audioBtn.querySelector('.aw-audio-time');
+// Captions can play WITHOUT sound: when CC is on but audio is off we still play the clip MUTED, so the
+// caption reveals at the same pace — speaker shows 🔇 and the remaining-time countdown keeps running.
+function playbackOn(){ return audioEnabled || ccPref; }
+function audioDir(){ return (currentLang && currentLang!=='en') ? currentLang+'/' : ''; }
+function fmtDur(s){ s=Math.max(0,Math.ceil(s)); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
+function updateAudioTime(){ if(audioTimeEl && currentAudio && isFinite(currentAudio.duration) && currentAudio.duration>0) audioTimeEl.textContent=fmtDur(currentAudio.duration-currentAudio.currentTime); }
+function syncAudioBtn(){ if(!audioBtn) return; if(audioIco) audioIco.textContent=audioEnabled?'\uD83D\uDD0A':'\uD83D\uDD07'; if(audioTimeEl && !playbackOn()) audioTimeEl.textContent='--:--'; audioBtn.classList.toggle('toggle-active',audioEnabled); audioBtn.setAttribute('aria-pressed',audioEnabled?'true':'false'); }
+function speakFallback(i){ if(!window.speechSynthesis) return; const step=STEPS[i]; const u=new SpeechSynthesisUtterance(`${t(step.titleKey)}. ${t(step.descKey)}`); u.lang=currentLang||'en'; try{ speechSynthesis.cancel(); speechSynthesis.speak(u); }catch(_){} }
+function stopAudio(){
+	if(currentAudio){ currentAudio.pause(); currentAudio.currentTime=0; currentAudio=null; }
+	if(audioTimeout){ clearTimeout(audioTimeout); audioTimeout=null; }
+	if(audioTimeEl) audioTimeEl.textContent='--:--';
+	try{ if(window.speechSynthesis) speechSynthesis.cancel(); }catch(_){}
+	if(window.AWCaptions) AWCaptions.clear();
+}
+function playStepAudio(i){
+	stopAudio();
+	if(document.body.classList.contains('aw-prestart')) return;   // start gate holds audio too
+	if(!playbackOn() || i<0 || i>=STEPS.length) return;
+	audioTimeout=setTimeout(()=>{
+		audioTimeout=null;
+		const file=AUDIO_FILES[i];
+		if(!file){ if(audioEnabled) speakFallback(i); return; }   // no clip = no timing source for caption-only
+		currentAudio=new Audio(AUDIO_BASE+audioDir()+file);
+		currentAudio.volume = audioEnabled ? 1 : 0;              // caption-only = silent (volume 0) timing source
+		if(window.AWCaptions) AWCaptions.bind(currentAudio,i);
+		currentAudio.addEventListener('loadedmetadata',updateAudioTime);
+		currentAudio.addEventListener('timeupdate',updateAudioTime);
+		currentAudio.addEventListener('ended',()=>{ if(audioTimeEl) audioTimeEl.textContent='0:00'; });
+		currentAudio.addEventListener('error',()=>{ if(audioEnabled) speakFallback(i); });
+		currentAudio.play().catch(()=>{});
+	}, 400);
+}
+if(audioBtn){ audioBtn.addEventListener('click',()=>{
+	audioEnabled=!audioEnabled; try{localStorage.setItem('aw-tmpl-audio',audioEnabled?'1':'0');}catch(_){} syncAudioBtn();
+	if(current>=0){
+		if(!playbackOn()) stopAudio();
+		else if(currentAudio) currentAudio.volume = audioEnabled ? 1 : 0;   // flip sound without restarting the clip
+		else playStepAudio(current);
+	}
+	if(typeof applyCc==='function') applyCc();
+}); }
+// Initial audio + CC from the ?audio parameter:
+//   on -> audio ON + captions ON  ·  off -> both OFF  ·  (absent) -> audio ON, captions OFF (a prior stored choice still wins).
+(function(){
+	var p=null; try{ p=new URLSearchParams(location.search).get('audio'); }catch(_){}
+	if(p==='on'){ audioEnabled=true; ccPref=true; }
+	else if(p==='off'){ audioEnabled=false; ccPref=false; }
+	else {
+		audioEnabled=true; ccPref=false;
+		try{ var a=localStorage.getItem('aw-tmpl-audio'); if(a==='1') audioEnabled=true; else if(a==='0') audioEnabled=false; }catch(_){}
+		try{ var c=localStorage.getItem('aw-tmpl-cc'); if(c==='1') ccPref=true; else if(c==='0') ccPref=false; }catch(_){}
+	}
+	try{ localStorage.setItem('aw-tmpl-audio',audioEnabled?'1':'0'); localStorage.setItem('aw-tmpl-cc',ccPref?'1':'0'); }catch(_){}
+})();
+syncAudioBtn();
+
+// ── Captions (CC) — overlaid in the frame; play WITH or WITHOUT audio ──
+// Reads the SAME narration Markdown used to synthesize the audio. Set page to THIS file's
+// stem and base to its narration folder (see the path note near the top of the file).
+const ccBtn=document.getElementById('cc-toggle');
+function ccEffective(){ return ccPref; }                          // captions show whenever CC is on (audio not required)
+function syncCcBtn(){ if(!ccBtn) return; ccBtn.classList.toggle('on',ccPref); ccBtn.setAttribute('aria-pressed',ccPref?'true':'false'); }
+function applyCc(){ if(window.AWCaptions) AWCaptions.setEnabled(ccEffective()); if(ccEffective()&&currentAudio&&window.AWCaptions) AWCaptions.bind(currentAudio,current); syncCcBtn(); }
+if(window.AWCaptions){ AWCaptions.configure({ page:'PickCompute', base:'../../narration/Architect/', lang:()=>currentLang, fallback:(i)=>(STEPS[i]?t(STEPS[i].descKey):''), reserve:false }); }
+if(ccBtn){ ccBtn.addEventListener('click',()=>{
+	ccPref=!ccPref; try{localStorage.setItem('aw-tmpl-cc',ccPref?'1':'0');}catch(_){} applyCc();
+	if(current>=0){
+		if(playbackOn() && !currentAudio) playStepAudio(current);   // caption-only: start the muted timing clip
+		else if(!playbackOn() && currentAudio) stopAudio();          // CC off + audio off: nothing left to play
+	}
+}); }
+applyCc();
+
+// ── Full screen ──
+(function(){
+	const fsBtn=document.getElementById('fs-toggle'); if(!fsBtn) return;
+	function inFs(){ return !!(document.fullscreenElement||document.webkitFullscreenElement); }
+	function syncFs(){ document.body.classList.toggle('is-fs',inFs()); fsBtn.setAttribute('aria-pressed',inFs()?'true':'false'); fsBtn.title=inFs()?'Exit full screen (F)':'Full screen (F)'; }
+	function toggle(){ try{ if(inFs()){ (document.exitFullscreen||document.webkitExitFullscreen).call(document); } else { const el=document.documentElement; (el.requestFullscreen||el.webkitRequestFullscreen).call(el); } }catch(_){} }
+	fsBtn.addEventListener('click',e=>{ e.stopPropagation(); toggle(); });
+	document.addEventListener('fullscreenchange',syncFs); document.addEventListener('webkitfullscreenchange',syncFs);
+	document.addEventListener('keydown',e=>{ if(e.code==='KeyF'&&!e.metaKey&&!e.ctrlKey&&!e.altKey){ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return; e.preventDefault(); toggle(); } });
+	syncFs();
+})();
+
+// ── Reduced motion ────────────────────────
+const motionMQ=window.matchMedia('(prefers-reduced-motion: reduce)'); let motionPaused=motionMQ.matches;
+motionMQ.addEventListener('change',e=>{ motionPaused=e.matches; renderStep(current); });
+
+// ── Helpers ───────────────────────────────
+function clearStage(){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; liveEls.forEach(el=>el.remove()); liveEls=[]; Array.from(svg.children).forEach(c=>{ if(c.tagName.toLowerCase()!=='defs') c.remove(); }); }
+function el(cls,html){ const d=document.createElement('div'); if(cls) d.className=cls; if(html!=null) d.innerHTML=html; return d; }
+// Inline SVG icons (monochrome, currentColor) — crisp on any OS/projector. Add your own here.
+const ICONS = {
+	puzzle:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h8v8H3zm10 0h8v8h-8zM3 13h8v8H3zm10 0h8v8h-8z"/></svg>',
+	inbox:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 3h2v5h3l-4 4-4-4h3zM5 14h14v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1z"/></svg>',
+	gear:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M19.14 12.94a7.9 7.9 0 0 0 0-1.88l2-1.56-2-3.46-2.36.96a7.7 7.7 0 0 0-1.62-.94L14.8 2.5h-4l-.36 2.56c-.58.24-1.12.56-1.62.94L6.46 6.04l-2 3.46 2 1.56a7.9 7.9 0 0 0 0 1.88l-2 1.56 2 3.46 2.36-.96c.5.38 1.04.7 1.62.94l.36 2.56h4l.36-2.56c.58-.24 1.12-.56 1.62-.94l2.36.96 2-3.46-2-1.56zM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg>',
+	sparkle:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg>',
+	bulb:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-4 12.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26A7 7 0 0 0 12 2zM9 20h6v1a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1z"/></svg>',
+	check:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.55 17.6 4.4 12.45l1.86-1.86 3.29 3.29 8.19-8.19 1.86 1.86z"/></svg>',
+	bolt:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>',
+	lock:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 10a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1zm3-1V7a4 4 0 1 1 8 0v2h-2V7a2 2 0 1 0-4 0v2z"/></svg>',
+	box:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 3 7v10l9 5 9-5V7zm0 2.3L17.7 7 12 10.2 6.3 7zM5 9.1l6 3.4v6.8l-6-3.3zm14 0v6.9l-6 3.3v-6.8z"/></svg>',
+	key:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M14 2a6 6 0 0 0-5.66 8L2 16.34V22h5.66l.34-.34V20h2v-2h2l.34-.34A6 6 0 1 0 14 2zm2 3a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z"/></svg>',
+	rocket:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2c3 3 4 6 4 9l3 3-4 1-1 4-2-3-2 3-1-4-4-1 3-3c0-3 1-6 4-9zm0 5a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>',
+	health:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 2h6v5h5v6h-5v5H9v-5H4V7h5z"/></svg>',
+	headset:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a8 8 0 0 0-8 8v5a3 3 0 0 0 3 3h1v-7H6v-1a6 6 0 1 1 12 0v1h-2v7h1a3 3 0 0 0 3-3v-5a8 8 0 0 0-8-8z"/></svg>',
+	media:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M4 4h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zm5 4v8l7-4z"/></svg>',
+	book:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v16H6a2 2 0 0 1-2-2zm9 0h7v14a2 2 0 0 1-2 2h-5z"/></svg>',
+	party:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5zm6 11l.9 2.6L21.5 16.5l-2.6.9L18 20l-.9-2.6L14.5 16.5l2.6-.9zM6 14l.7 2 2 .7-2 .7L6 19.4l-.7-2-2-.7 2-.7z"/></svg>',
+	chat:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-4 4v-4H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/></svg>',
+	access:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a2.2 2.2 0 1 1 0 4.4A2.2 2.2 0 0 1 12 2zM4 8h16v2h-5.4l1 12h-2.3l-.7-6h-1.2l-.7 6H8.4l1-12H4z"/></svg>',
+	globe:'<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></g></svg>'
+};
+function icon(name){ return `<span class="ic">${ICONS[name]||''}</span>`; }
+function stepById(id){ return STEPS.find(s=>s.id===id); }
+// Scale the current scene down (never up) so it always fits inside the 16:9 frame — no clipping, no scroll.
+function fitScene(scene){
+	if(!scene) return;
+	scene.style.transform='translate(-50%,-50%) scale(1)';
+	const box=stage.getBoundingClientRect();
+	const availW=box.width-32, availH=box.height-28;
+	const sw=scene.offsetWidth, sh=scene.offsetHeight;
+	if(!sw||!sh) return;
+	const k=Math.min(1, availW/sw, availH/sh);
+	scene.style.transform='translate(-50%,-50%) scale('+k+')';
+}
+function headerEls(scene){ return [scene.querySelector('.scene-title'), scene.querySelector('.scene-lead')]; }
+function buildScene(step){ const s=el('scene'); s.appendChild(el('scene-title', t(step.titleKey))); s.appendChild(el('scene-lead', t(step.descKey))); return s; }
+function maybeCallout(step){ if(!calloutEnabled) return null; const c=el('callout', t(step.calloutKey)); c.style.left='1.5rem'; c.style.top='1.5rem'; stage.appendChild(c); liveEls.push(c); dragify(c, 'aw-tmpl-callout-pos'); return c; }
+function renderOutline(step,idx){
+	const rows=(step.stats||[]).map(([k,v])=>`<div class="stat-row"><span>${t(k)}</span><span>${t(v)}</span></div>`).join('');
+	outlineBody.innerHTML=`<div class="outline-section"><strong>${t('stepOf')} ${idx+1} / ${STEPS.length}: ${t(step.titleKey)}</strong><p style="margin-top:0.4rem;">${t(step.descKey)}</p></div>${rows?`<div class="outline-section">${rows}</div>`:''}`;
+}
+function announceStep(step,idx){ announcer.textContent=`${t('stepOf')} ${idx+1} / ${STEPS.length}: ${t(step.titleKey)}. ${t(step.descKey)}`; }
+
+// ── RENDER DISPATCH ───────────────────────
+function renderStep(i){
+	if(i<0||i>=STEPS.length) return;
+	if(animating){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; animating=false; }
+	animating=true;
+	const step=STEPS[i];
+	// cross-fade (200ms, CSS keyframes so it's independent of the speed control) — outgoing fades out, incoming fades in, on every step
+	const outgoing=stage.querySelector('.scene:not(.scene-out)');
+	if(outgoing) liveEls=liveEls.filter(x=>x!==outgoing);
+	clearStage();
+	if(outgoing){ outgoing.style.zIndex='5';
+		if(motionPaused){ outgoing.remove(); }
+		else { outgoing.classList.remove('scene-in'); outgoing.classList.add('scene-out'); setTimeout(()=>outgoing.remove(), 240); } }
+	(BUILDERS[step.id]||function(){})();
+	const incoming=stage.querySelector('.scene:not(.scene-out)');
+	if(incoming && !motionPaused) incoming.classList.add('scene-in');
+	fitScene(incoming);
+	current=i;
+	try{ const u=new URL(location.href); u.searchParams.set('step', String(i+1)); history.replaceState(null,'',u); }catch(_){}
+	counter.textContent=`${t('stepOf')} ${current+1} / ${STEPS.length}`;
+	breadcrumb.textContent=t(step.captionKey);
+	progress.style.width=((current+1)/STEPS.length*100)+'%';
+	renderOutline(step,i); announceStep(step,i);
+	if(typeof playStepAudio==='function') playStepAudio(i);
+}
+
+// ══════════════ AI-500 KIT · shared helpers (cast, board, connectors, timelines) ══════════════
+Object.assign(ICONS, {
+	robot:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2a1.6 1.6 0 0 1 .8 3V7h4.2a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3v-7a3 3 0 0 1 3-3h4.2V5A1.6 1.6 0 0 1 12 2zM9 11.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 0 0 0-3.2zm6 0a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 0 0 0-3.2z"/></svg>',
+	compass:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16zm3.9 4.1-2.1 5.7-5.7 2.1 2.1-5.7z"/></svg>',
+	doc:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M6 2h8l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm2 6.5v1.6h4V8.5zM8 12v1.6h8V12zm0 3.4V17h8v-1.6z"/></svg>',
+	search:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M10.5 3a7.5 7.5 0 0 1 5.9 12.1l4.3 4.3-1.4 1.4-4.3-4.3A7.5 7.5 0 1 1 10.5 3zm0 2a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11z"/></svg>',
+	coin:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="2"/><text x="12" y="16.8" text-anchor="middle" font-size="12.5" font-weight="700" font-family="Segoe UI,Arial,sans-serif" fill="currentColor">$</text></svg>',
+	person:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9zm0 2c-4.4 0-8 2.2-8 5v2h16v-2c0-2.8-3.6-5-8-5z"/></svg>',
+	clock:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16zm-1 3h2v5.2l3.3 2-1 1.7-4.3-2.6z"/></svg>',
+	chip:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M8 2h2v3h4V2h2v3h1a2 2 0 0 1 2 2v1h3v2h-3v4h3v2h-3v1a2 2 0 0 1-2 2h-1v3h-2v-3h-4v3H8v-3H7a2 2 0 0 1-2-2v-1H2v-2h3v-4H2V8h3V7a2 2 0 0 1 2-2h1zm0 5v10h8V7z"/></svg>',
+	warn:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2 1.5 21h21zM11 9h2v6h-2zm0 8h2v2h-2z"/></svg>',
+	scale:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 3h2v15h-2zM5 20h14v2H5zM3 6h18v2H3zM5 8l3 6a3 3 0 0 1-6 0zm14 0 3 6a3 3 0 0 1-6 0z"/></svg>',
+	code:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.7 6.3 3 12l5.7 5.7 1.4-1.4L5.8 12l4.3-4.3zm6.6 0-1.4 1.4 4.3 4.3-4.3 4.3 1.4 1.4L21 12z"/></svg>',
+	board:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M3 4h18a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1h-7v2h3v2H7v-2h3v-2H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zm1 2v9h16V6z"/></svg>',
+	shield:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2 4 5v6c0 5 3.4 9.3 8 11 4.6-1.7 8-6 8-11V5zm-1.2 13.5L7.5 12.2l1.4-1.4 1.9 1.9 4.3-4.3 1.4 1.4z"/></svg>',
+	star:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l3 6.3 6.9.9-5 4.8 1.2 6.9L12 17.6 5.9 20.9 7.1 14 2.1 9.2 9 8.3z"/></svg>',
+	ruler:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M3 17 17 3l4 4L7 21zm3.2 0 1.3 1.3 1.4-1.4-1.3-1.3zm3.7-3.7 1.3 1.3 1.4-1.4-1.3-1.3zm3.7-3.7 1.3 1.3 1.4-1.4-1.3-1.3z"/></svg>',
+	flask:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 2h6v2h-1v5.2l5.2 8.7A2 2 0 0 1 17.5 21h-11a2 2 0 0 1-1.7-3.1L10 9.2V4H9z"/></svg>',
+	arrowR:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 5l7 7-7 7-1.4-1.4 4.6-4.6H4v-2h12.2l-4.6-4.6z"/></svg>'
+});
+
+const AG = { solo:['robot','agSolo'], orch:['compass','agOrch'], intake:['doc','agIntake'], policy:['book','agPolicy'],
+	fraud:['search','agFraud'], payout:['coin','agPayout'], human:['person','agHuman'] };
+function agent(k, o){ o=o||{}; const a=AG[k];
+	return `<div class="ai5-ag ag-${k}${o.top?' is-top':''}"${o.size?` style="--ag:${o.size}px"`:''}><span class="ai5-ag-ic">${icon(a[0])}</span>${o.nolabel?'':`<span class="ai5-ag-l">${o.label||t(a[1])}</span>`}</div>`; }
+
+// A 0×0 wrapper at the node's CENTRE (animate the wrapper with GSAP; the inner node stays centred on it)
+function pos(cx, cy, html, cls){ const w=el('ai5-pos'+(cls?' '+cls:''), '<div class="ai5-in">'+html+'</div>'); w.style.left=cx+'px'; w.style.top=cy+'px'; return w; }
+
+const SVGNS='http://www.w3.org/2000/svg'; let _ai5id=0;
+// A fixed-size board with an SVG layer behind the nodes (same coordinates) for drawn connectors.
+function board(w, h){
+	const root=el('ai5-board'); root.style.width=w+'px'; root.style.height=h+'px';
+	const svg=document.createElementNS(SVGNS,'svg'); svg.setAttribute('viewBox',`0 0 ${w} ${h}`);
+	const mid='ai5ar'+(++_ai5id);
+	svg.innerHTML=`<defs><marker id="${mid}" viewBox="0 0 12 12" markerWidth="24" markerHeight="24" markerUnits="userSpaceOnUse" refX="11" refY="6" orient="auto"><path d="M1,1 L11,6 L1,11 Z" fill="context-stroke"/></marker></defs>`;
+	root.appendChild(svg);
+	return { root, svg, mid };
+}
+// Draw a connector path. Solid + arrow → draw-in via dash (the global guard hides the arrowhead until it lands). dash:'6 6' → static dashed, fade in.
+// An arrowed line is stopped a little INSIDE its head (flat cap, trimmed end): the head's tip is narrower than the stroke, so a line that
+// runs all the way to the tip (or has a round cap) pokes out in front of it. The marker is untouched, so the tip still lands on the path end.
+function arrowTrim(p, L){ return p.getAttribute('marker-end') ? Math.min((+p.getAttribute('stroke-width')||3)*2, L*0.09) : 0; }
+function line(B, d, color, o){ o=o||{};
+	const p=document.createElementNS(SVGNS,'path'); p.setAttribute('d',d); p.setAttribute('fill','none');
+	const arrowed=!o.dash && o.arrow!==false;
+	p.style.stroke=color||'var(--ai5-line)'; p.setAttribute('stroke-width',o.w||3); p.setAttribute('stroke-linecap',arrowed?'butt':'round'); p.setAttribute('stroke-linejoin','round');
+	if(o.dash) p.setAttribute('stroke-dasharray',o.dash);
+	else if(o.arrow!==false) p.setAttribute('marker-end','url(#'+B.mid+')');
+	B.svg.appendChild(p);
+	if(arrowed){ try{ const L=p.getTotalLength(), t=arrowTrim(p,L); if(L>0&&t>0) p.style.strokeDasharray=(L-t)+' '+(L+t); }catch(e){} }
+	return p; }
+function drawPrep(p){ const L=p.getTotalLength(), t=arrowTrim(p,L); p.style.strokeDasharray=t?(L-t)+' '+(L+t):L; p.style.strokeDashoffset=L; return L; }
+// Tween a solid connector in (call drawPrep first). Dashed connectors just fade.
+function drawIn(tl, p, at, dur){ if(p.getAttribute('stroke-dasharray')){ tl.fromTo(p,{opacity:0},{opacity:1,duration:dur||0.4},at); return; }
+	drawPrep(p); tl.to(p,{strokeDashoffset:0,duration:dur||0.6,ease:'power1.inOut'},at); }
+
+// Timeline helpers — every builder builds its tweens once; reduced motion just jumps to the end frame.
+function mount(scene){ stage.appendChild(scene); liveEls.push(scene); }
+function mkTL(){ return gsap.timeline({ onComplete:()=>{ animating=false; } }); }
+function head(tl, scene){ tl.fromTo(headerEls(scene),{opacity:0,y:-14},{opacity:1,y:0,duration:0.5,stagger:0.1,ease:'power2.out'}); }
+function finish(tl, step){
+	const c=maybeCallout(step); if(c) tl.fromTo(c,{opacity:0,y:10},{opacity:1,y:0,duration:0.5},'>-0.2');
+	if(motionPaused){ tl.progress(1); animating=false; return tl; }
+	liveTimelines.push(tl); return tl; }
+function idle(tw){ if(!motionPaused && tw) liveTimelines.push(tw); return tw; }
+function aiScene(step){ const s=buildScene(step); s.classList.add('ai5'); return s; }
+function say(txt, ic){ return el('ai5-say', (ic?icon(ic):'')+'<span>'+txt+'</span>'); }
+function nextLink(file, labelKey){ const a=document.createElement('a'); a.className='ai5-next'; a.href=file+'?lang='+currentLang; a.innerHTML='<span>'+t(labelKey)+'</span>'+icon('arrowR'); return a; }
+
+
+Object.assign(ICONS, {
+	tick:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.2 16.6 4.9 12.3l-1.4 1.4 5.7 5.7L20.5 8.1l-1.4-1.4z"/></svg>'
+});
+
+// ══════════════ PickCompute · helpers ══════════════
+const AZI7 = '../../lib/icons/Azure_Public_Service_Icons/';
+const IC7 = {
+	vm:['compute','10021-icon-service-Virtual-Machine.svg'], vmss:['compute','10034-icon-service-VM-Scale-Sets.svg'],
+	ca:['other','02989-icon-service-Container-Apps-Environments.svg'], aks:['compute','10023-icon-service-Kubernetes-Services.svg'],
+	aci:['compute','10104-icon-service-Container-Instances.svg'], app:['app services','10035-icon-service-App-Services.svg'],
+	fn:['compute','10029-icon-service-Function-Apps.svg'], logic:['integration','02631-icon-service-Logic-Apps.svg'],
+	batch:['compute','10031-icon-service-Batch-Accounts.svg'], stor:['storage','10086-icon-service-Storage-Accounts.svg']
+};
+function ic7(k, s){ const d = IC7[k]; return `<img class="c7-az" src="${encodeURI(AZI7 + d[0] + '/' + d[1])}" width="${s}" height="${s}" alt="">`; }
+function p7Scene(step){ const s = aiScene(step); s.classList.add('fl4'); return s; }
+function b7(cls, html, x, y, w, h){ const e = el('c7-b ' + cls, html); e.style.left = x + 'px'; e.style.top = y + 'px'; if(w) e.style.width = w + 'px'; if(h) e.style.height = h + 'px'; return e; }
+function p7Done(scene, B, sayEl){ scene.appendChild(B.root); if(sayEl) scene.appendChild(sayEl); mount(scene); }
+
+// ── 1 · SPECTRUM ──────────────────────────
+function renderSpectrum(){
+	const step = stepById('spectrum'), scene = p7Scene(step), B = board(1100, 412);
+	const X0 = 196, CW = 204, GX = 22;
+	const cols = [['vm', 'spCol1', 'spCol1s'], ['ca', 'spCol2', 'spCol2s'], ['app', 'spCol3', 'spCol3s'], ['fn', 'spCol4', 'spCol4s']];
+	const MAT = [['y', 'y', 'y', 'y'], ['y', 'y', 'a', 'a'], ['y', 'a', 'a', 'a'], ['y', 's', 's', 'a']];
+	const LBL = { y:'spYou', s:'spShared', a:'spAzure' };
+	const heads = cols.map((c, i) => b7('c7-head', ic7(c[0], 42) + `<span class="c7-hn">${t(c[1])}</span><span class="c7-hs">${t(c[2])}</span>`, X0 + i * (CW + GX), 0, CW, 92));
+	const rows = [1, 2, 3, 4].map(r => b7('c7-rl', `<span>${t('spRow' + r)}</span>`, 0, 104 + (r - 1) * 58, 180, 50));
+	const cells = cols.map((c, i) => [0, 1, 2, 3].map(r => b7('c7-cell is-' + MAT[r][i], t(LBL[MAT[r][i]]), X0 + i * (CW + GX), 104 + r * 58, CW, 50)));
+	const axis = b7('c7-axis', '', X0, 350, 886, 10);
+	const aL = b7('c7-al', t('spMore'), X0, 372), aR = b7('c7-al', t('spLess'), X0 + 886 - 150, 372, 150); aR.style.textAlign = 'right';
+	[...heads, ...rows, ...cells.flat(), axis, aL, aR].forEach(n => B.root.appendChild(n));
+	const sayEl = say(t('spectrumSay'), 'scale'); p7Done(scene, B, sayEl);
+
+	const tl = mkTL(); head(tl, scene);
+	tl.fromTo(rows, { opacity:0, x:-24 }, { opacity:1, x:0, duration:0.4, stagger:0.07 }, '>-0.1');
+	heads.forEach((h, i) => {
+		tl.fromTo(h, { opacity:0, y:-22 }, { opacity:1, y:0, duration:0.4, ease:'power2.out' }, i ? '>-0.15' : '>0');
+		tl.fromTo(cells[i], { opacity:0, scaleY:0, transformOrigin:'50% 0%' }, { opacity:1, scaleY:1, duration:0.4, stagger:0.07, ease:'power2.out' }, '<0.2');
+	});
+	tl.fromTo(axis, { scaleX:0, transformOrigin:'0 50%' }, { scaleX:1, duration:0.7, ease:'power2.inOut' }, '>0.1');
+	tl.fromTo([aL, aR], { opacity:0 }, { opacity:1, duration:0.4, stagger:0.15 }, '>-0.2');
+	tl.fromTo(sayEl, { opacity:0, y:12 }, { opacity:1, y:0, duration:0.5 }, '>0.05');
+	finish(tl, step);
+}
+
+// ── 2 · QUESTIONS ─────────────────────────
+function renderQuestions(){
+	const step = stepById('questions'), scene = p7Scene(step), B = board(1100, 334);
+	const defs = [['gear', 1], ['bolt', 2], ['rocket', 3], ['box', 4], ['coin', 5], ['person', 6]];
+	const cards = defs.map((d, i) => b7('c7-card c7-q',
+		`<div class="c7-qh"><span class="c7-qi">${icon(d[0])}</span><span class="c7-qt">${t('q' + d[1] + 't')}</span></div><div class="c7-qq">${t('q' + d[1] + 'q')}</div>` +
+		`<div class="c7-qc"><span class="c7-pole">${t('q' + d[1] + 'a')}</span><span class="c7-pole is-b">${t('q' + d[1] + 'b')}</span></div>`,
+		10 + (i % 3) * 370, (i / 3 | 0) * 176, 340, 158));
+	cards.forEach(c => B.root.appendChild(c));
+	const sayEl = say(t('questionsSay'), 'search'); p7Done(scene, B, sayEl);
+
+	const tl = mkTL(); head(tl, scene);
+	tl.fromTo(cards, { opacity:0, y:-46, rotation:i => (i % 2 ? 5 : -5) }, { opacity:1, y:0, rotation:0, duration:0.55, stagger:0.13, ease:'back.out(1.5)' }, '>-0.1');
+	cards.forEach((c, i) => tl.fromTo(c.querySelectorAll('.c7-pole'), { opacity:0, scale:0.6 }, { opacity:1, scale:1, duration:0.3, stagger:0.1, ease:'back.out(2)' }, i ? '>-0.12' : '>0.05'));
+	tl.fromTo(sayEl, { opacity:0, y:12 }, { opacity:1, y:0, duration:0.5 }, '>0.05');
+	finish(tl, step);
+}
+
+// ── 3 · VIRTUAL MACHINES ──────────────────
+function renderVm(){
+	const step = stepById('vm'), scene = p7Scene(step), B = board(1100, 340);
+	const when = b7('c7-card c7-panel', `<div class="c7-sub">${t('vmWhen')}</div>` +
+		[['arrowR', 'vmW1'], ['key', 'vmW2'], ['puzzle', 'vmW3']].map(w => `<div class="c7-wrow">${icon(w[0])}<span>${t(w[1])}</span></div>`).join(''), 0, 0, 320, 340);
+	const fam = b7('c7-fam', `<div class="c7-sub">${t('vmFam')}</div><div class="c7-famr">${[1, 2, 3, 4, 5].map(i => `<span class="c7-tag">${t('vmF' + i)}</span>`).join('')}</div>`, 370, 0, 730, 112);
+	const set = b7('c7-set', `<div class="c7-sethd">${ic7('vmss', 28)}<span>${t('vmSet')}</span></div><span class="c7-setau c7-tag">${icon('rocket')}<span>${t('vmAuto')}</span></span>` +
+		[1, 2, 3].map(z => `<div class="c7-card c7-zone" style="left:${25 + (z - 1) * 235}px"><span class="c7-zl">${t('vmZ' + z)}</span>${ic7('vm', 44)}<span class="c7-zv">${t('vmVm')}</span></div>`).join(''), 370, 132, 730, 208);
+	[when, fam, set].forEach(n => B.root.appendChild(n));
+	const sayEl = say(t('vmSay'), 'chip'); p7Done(scene, B, sayEl);
+	const rows = [...when.querySelectorAll('.c7-wrow')], tags = [...fam.querySelectorAll('.c7-tag')], zones = [...set.querySelectorAll('.c7-zone')];
+
+	const tl = mkTL(); head(tl, scene);
+	tl.fromTo(when, { opacity:0, x:-50 }, { opacity:1, x:0, duration:0.55, ease:'power3.out' }, '>-0.1');
+	tl.fromTo(rows, { opacity:0, x:-24 }, { opacity:1, x:0, duration:0.4, stagger:0.14 }, '>-0.2');
+	tl.fromTo(fam.firstChild, { opacity:0 }, { opacity:1, duration:0.3 }, '>0');
+	tl.fromTo(tags, { opacity:0, y:-24, scale:0.8 }, { opacity:1, y:0, scale:1, duration:0.4, stagger:0.1, ease:'back.out(1.8)' }, '>-0.05');
+	tl.fromTo(set, { opacity:0, scale:0.94 }, { opacity:1, scale:1, duration:0.5, ease:'power2.out' }, '>0.05');
+	tl.fromTo(zones, { opacity:0, y:34 }, { opacity:1, y:0, duration:0.45, stagger:0.18, ease:'back.out(1.5)' }, '>-0.05');
+	tl.fromTo(set.querySelector('.c7-setau'), { opacity:0, scale:0.6 }, { opacity:1, scale:1, duration:0.35, ease:'back.out(2)' }, '>-0.1');
+	tl.fromTo(sayEl, { opacity:0, y:12 }, { opacity:1, y:0, duration:0.5 }, '>0.05');
+	finish(tl, step);
+}
+
+// ── 4 · CONTAINERS ────────────────────────
+function renderContainers(){
+	const step = stepById('containers'), scene = p7Scene(step), B = board(1100, 358);
+	const defs = [['aks', 'ctAks', 'ctAksD', 'ctAksX'], ['ca', 'ctCa', 'ctCaD', 'ctCaX'], ['app', 'ctApp', 'ctAppD', 'ctAppX'], ['aci', 'ctAci', 'ctAciD', 'ctAciX']];
+	const W = 250, G = (1100 - 4 * W) / 3;
+	const cards = defs.map((d, i) => { const c = b7('c7-ct' + (i === 1 ? ' is-win' : ''),
+		`<div class="c7-card c7-cin">${ic7(d[0], 56)}<span class="c7-cn">${t(d[1])}</span><span class="c7-cd">${t(d[2])}</span></div><span class="c7-why">${t(d[3])}</span>` + (i === 1 ? `<span class="c7-tick">${icon('tick')}</span>` : ''),
+		i * (W + G), 122); return c; });
+	const req = b7('c7-card c7-req', `<b>${t('ctReq')}</b><span class="c7-tag">${t('ctR1')}</span><span class="c7-tag">${t('ctR2')}</span><span class="c7-tag">${t('ctR3')}</span>`, 150, 0, 800, 62);
+	const winX = cards[1] && (1 * (W + G) + W / 2);
+	const ln = line(B, `M${winX.toFixed(1)} 64 V120`, 'var(--ai5-ok)', { w:3.5 });
+	[...cards, req].forEach(n => B.root.appendChild(n));
+	const sayEl = say(t('containersSay'), 'box'); p7Done(scene, B, sayEl);
+	const ins = cards.map(c => c.querySelector('.c7-cin')), whys = cards.map(c => c.querySelector('.c7-why')), tick = cards[1].querySelector('.c7-tick');
+
+	const tl = mkTL(); head(tl, scene);
+	tl.fromTo(cards, { opacity:0, y:40, rotationX:-50, transformPerspective:700 }, { opacity:1, y:0, rotationX:0, duration:0.55, stagger:0.14, ease:'power3.out' }, '>-0.1');
+	tl.fromTo(req, { opacity:0, y:-30 }, { opacity:1, y:0, duration:0.5, ease:'bounce.out' }, '>0.2');
+	drawIn(tl, ln, '>0.1', 0.45);
+	tl.to([ins[0], ins[2], ins[3]], { opacity:0.55, duration:0.5 }, '>0.1');
+	tl.fromTo(whys, { opacity:0, y:8 }, { opacity:1, y:0, duration:0.35, stagger:0.1 }, '<0.1');
+	tl.fromTo(tick, { opacity:0, scale:0 }, { opacity:1, scale:1, duration:0.45, ease:'back.out(2.6)' }, '>-0.1');
+	tl.fromTo(sayEl, { opacity:0, y:12 }, { opacity:1, y:0, duration:0.5 }, '>0.05');
+	finish(tl, step);
+}
+
+// ── 5 · SERVERLESS ────────────────────────
+function renderServerless(){
+	const step = stepById('serverless'), scene = p7Scene(step), B = board(1100, 362);
+	const tr = [['globe', 'svT1'], ['inbox', 'svT2'], ['clock', 'svT3']];
+	const cy = [38, 115, 192];
+	const trg = tr.map((d, i) => b7('c7-card c7-trg', icon(d[0]) + `<span>${t(d[1])}</span>`, 0, cy[i] - 24, 240, 48));
+	const lns = cy.map(y => line(B, `M242 ${y} H376`, 'var(--f4t)', { w:3 }));
+	const fn = b7('c7-card c7-fn', ic7('fn', 64) + `<b>${t('svFn')}</b><span>${t('svFnD')}</span>`, 380, 0, 230, 230);
+	const H = [0, 0, 2, 4, 6, 5, 3, 1, 0];
+	const chart = b7('c7-card c7-chart', `<div class="c7-sub">${t('svInst')}</div><div class="c7-bars">${H.map(h => h ? `<i style="height:${h * 18}px"></i>` : '<i class="z" style="height:4px"></i>').join('')}</div><div class="c7-chartl">${t('svZero')}</div>`, 700, 0, 400, 230);
+	const logic = b7('c7-card c7-logic', ic7('logic', 44) + `<div><b>${t('svLogic')}</b><span class="d">${t('svLogicD')}</span></div>`, 0, 262, 440, 100);
+	const lim = b7('c7-card c7-lim', `<div class="c7-sub">${t('svLim')}</div><div class="c7-limr">${[1, 2, 3].map(i => `<span class="c7-tag is-warn">${icon('warn')}<span>${t('svL' + i)}</span></span>`).join('')}</div>`, 480, 262, 620, 100);
+	[...trg, fn, chart, logic, lim, ...[]].forEach(n => B.root.appendChild(n));
+	const sayEl = say(t('serverlessSay'), 'bolt'); p7Done(scene, B, sayEl);
+	const bars = [...chart.querySelectorAll('.c7-bars i')], tags = [...lim.querySelectorAll('.c7-tag')];
+
+	const tl = mkTL(); head(tl, scene);
+	tl.fromTo(trg, { opacity:0, x:-60 }, { opacity:1, x:0, duration:0.5, stagger:0.12, ease:'power3.out' }, '>-0.1');
+	lns.forEach((p, i) => drawIn(tl, p, i ? '<0.1' : '>0', 0.45));
+	tl.fromTo(fn, { opacity:0, scale:0.7 }, { opacity:1, scale:1, duration:0.5, ease:'back.out(1.7)' }, '>-0.1');
+	tl.fromTo(chart, { opacity:0, x:40 }, { opacity:1, x:0, duration:0.5, ease:'power2.out' }, '>0.05');
+	tl.fromTo(bars, { scaleY:0, transformOrigin:'50% 100%' }, { scaleY:1, duration:0.45, stagger:0.1, ease:'power2.out' }, '>-0.1');
+	tl.fromTo([logic, lim], { opacity:0, y:34 }, { opacity:1, y:0, duration:0.5, stagger:0.15, ease:'power3.out' }, '>0.05');
+	tl.fromTo(tags, { opacity:0, y:-18 }, { opacity:1, y:0, duration:0.35, stagger:0.12, ease:'bounce.out' }, '>-0.1');
+	tl.fromTo(sayEl, { opacity:0, y:12 }, { opacity:1, y:0, duration:0.5 }, '>0.05');
+	finish(tl, step);
+}
+
+// ── 6 · BATCH ─────────────────────────────
+function renderBatch(){
+	const step = stepById('batch'), scene = p7Scene(step), B = board(1100, 344);
+	const job = b7('c7-card c7-job', icon('doc').replace('class="ic"', 'class="ic" style="font-size:2.2rem;color:var(--f4t)"') + `<b>${t('btJob')}</b><span class="d">${t('btJobD')}</span><div class="c7-tasks">${'<i></i>'.repeat(8)}</div>`, 0, 45, 240, 180);
+	const pool = b7('c7-pool', `<div class="c7-poolh">${ic7('batch', 30)}<span>${t('btPool')}</span></div>`, 330, 0, 440, 270);
+	const nodes = [];
+	for(let r = 0; r < 2; r++) for(let c = 0; c < 4; c++){
+		const n = el('c7-node' + (r ? ' is-spot' : ''), `${ic7('vm', 34)}<span>${t(r ? 'btSpot' : 'btStd').replace(' VMs', '')}</span><span class="c7-done">\u2713</span>`);
+		n.style.left = (20.8 + c * 104.8) + 'px'; n.style.top = (58 + r * 98) + 'px'; pool.appendChild(n); nodes.push(n);
+	}
+	const out = b7('c7-card c7-out', ic7('stor', 56) + `<b>${t('btOut')}</b><span class="d">${t('btOutD')}</span>`, 860, 45, 240, 180);
+	const l1 = line(B, 'M242 135 H326', 'var(--f4t)', { w:3 }), l2 = line(B, 'M772 135 H856', 'var(--f4t)', { w:3 });
+	const chips = b7('c7-chips', `<span class="c7-tag">${icon('clock')}<span>${t('btZero')}</span></span><span class="c7-tag is-warn">${icon('warn')}<span>${t('btEvict')}</span></span>`, 0, 300, 1100);
+	[job, pool, out, chips].forEach(n => B.root.appendChild(n));
+	const sayEl = say(t('batchSay'), 'gear'); p7Done(scene, B, sayEl);
+	const dones = nodes.map(n => n.querySelector('.c7-done')), tasks = [...job.querySelectorAll('.c7-tasks i')];
+
+	const tl = mkTL(); head(tl, scene);
+	tl.fromTo(job, { opacity:0, x:-50 }, { opacity:1, x:0, duration:0.5, ease:'power3.out' }, '>-0.1');
+	tl.fromTo(tasks, { opacity:0, scale:0 }, { opacity:1, scale:1, duration:0.25, stagger:0.05, ease:'back.out(2)' }, '>-0.1');
+	drawIn(tl, l1, '>0.05', 0.4);
+	tl.fromTo(pool, { opacity:0, scale:0.92 }, { opacity:1, scale:1, duration:0.5, ease:'power2.out' }, '>-0.05');
+	tl.fromTo(nodes, { opacity:0, scale:0.2 }, { opacity:1, scale:1, duration:0.35, stagger:0.07, ease:'back.out(1.8)' }, '>-0.05');
+	tl.fromTo(dones, { scale:0 }, { scale:1, duration:0.3, stagger:0.08, ease:'back.out(2.4)' }, '>0.1');
+	drawIn(tl, l2, '>0.0', 0.4);
+	tl.fromTo(out, { opacity:0, x:50 }, { opacity:1, x:0, duration:0.5, ease:'power3.out' }, '>-0.05');
+	tl.fromTo([...chips.children], { opacity:0, y:16 }, { opacity:1, y:0, duration:0.4, stagger:0.15 }, '>0.0');
+	tl.fromTo(sayEl, { opacity:0, y:12 }, { opacity:1, y:0, duration:0.5 }, '>0.05');
+	finish(tl, step);
+}
+
+// ── 7 · APPLY ─────────────────────────────
+function renderApply(){
+	const step = stepById('apply'), scene = p7Scene(step), B = board(1100, 376);
+	const RO = [['apW1', 'vm', 'apS1', 'apB1'], ['apW2', 'app', 'apS2', 'apB2'], ['apW3', 'ca', 'apS3', 'apB3'], ['apW4', 'fn', 'apS4', 'apB4'], ['apW5', 'batch', 'apS5', 'apB5']];
+	const hs = [['apH1', 0], ['apH2', 372], ['apH3', 730]].map(h => b7('c7-ah', t(h[0]), h[1] + 4, 0));
+	const rows = RO.map((r, i) => {
+		const y = 34 + i * 68;
+		return { w:b7('c7-card c7-aw', t(r[0]), 0, y, 300, 58), ln:line(B, `M302 ${y + 29} H368`, 'var(--f4t)', { w:3 }),
+			s:b7('c7-card c7-as', ic7(r[1], 34) + `<span>${t(r[2])}</span>`, 372, y, 330, 58), b:b7('c7-ab', t(r[3]), 730, y, 370, 58) };
+	});
+	[...hs, ...rows.flatMap(r => [r.w, r.s, r.b])].forEach(n => B.root.appendChild(n));
+	const sayEl = say(t('applySay'), 'check'); p7Done(scene, B, sayEl);
+
+	const tl = mkTL(); head(tl, scene);
+	tl.fromTo(hs, { opacity:0 }, { opacity:1, duration:0.4, stagger:0.1 }, '>-0.1');
+	rows.forEach((r, i) => {
+		tl.fromTo(r.w, { opacity:0, x:-50 }, { opacity:1, x:0, duration:0.4, ease:'power3.out' }, i ? '>-0.18' : '>0');
+		drawIn(tl, r.ln, '>-0.05', 0.3);
+		tl.fromTo(r.s, { opacity:0, scale:0.8 }, { opacity:1, scale:1, duration:0.35, ease:'back.out(1.8)' }, '>-0.05');
+		tl.fromTo(r.b, { opacity:0, x:-18 }, { opacity:1, x:0, duration:0.35 }, '>-0.15');
+	});
+	tl.fromTo(sayEl, { opacity:0, y:12 }, { opacity:1, y:0, duration:0.5 }, '>0.05');
+	finish(tl, step);
+}
+
+// ── 8 · WHOLE · ALL IN ONE ────────────────
+function renderWhole(){
+	const step = stepById('whole'), scene = p7Scene(step), B = board(1100, 290);
+	const defs = [['vm', 'wcVm', 'wcVmD', 'wcVmC'], ['aks', 'wcAks', 'wcAksD', 'wcAksC'], ['ca', 'wcCa', 'wcCaD', 'wcCaC'],
+		['app', 'wcApp', 'wcAppD', 'wcAppC'], ['fn', 'wcFn', 'wcFnD', 'wcFnC'], ['batch', 'wcBt', 'wcBtD', 'wcBtC']];
+	const cards = defs.map((d, i) => b7('c7-card c7-wc' + (i === 1 ? ' is-skip' : ''),
+		`<div class="c7-wch">${ic7(d[0], 44)}<span class="c7-wcn">${t(d[1])}</span></div><span class="c7-wcd">${t(d[2])}</span><span class="c7-wcc">${t(d[3])}</span>`,
+		(i % 3) * 380, (i / 3 | 0) * 156, 340, 134));
+	cards.forEach(c => B.root.appendChild(c));
+	const foot = el('ai5-foot', t('wholeFoot')), nxt = nextLink('ApisAndCaching.html', 'nextApis');
+	const end = el('c7-end'); end.appendChild(foot); end.appendChild(nxt);
+	scene.appendChild(B.root); scene.appendChild(end); mount(scene);
+
+	const tl = mkTL(); head(tl, scene);
+	const from = [{ x:-60 }, { y:-50 }, { x:60 }, { x:-60 }, { y:50 }, { x:60 }];
+	cards.forEach((c, i) => tl.fromTo(c, { opacity:0, ...from[i] }, { opacity:1, x:0, y:0, duration:0.5, ease:'power3.out' }, i ? '>-0.32' : '>-0.1'));
+	tl.fromTo(foot, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.5 }, '>0.1');
+	tl.fromTo(nxt, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.5 }, '>-0.2');
+	finish(tl, step);
+}
+
+const BUILDERS = { spectrum:renderSpectrum, questions:renderQuestions, vm:renderVm, containers:renderContainers, serverless:renderServerless, batch:renderBatch, apply:renderApply, whole:renderWhole };
+
+
+// ── CONTROLS ──────────────────────────────
+function focusHeading(){ const h=document.getElementById('stage-heading'); if(h){ try{ h.focus({preventScroll:true}); }catch(_){ h.focus(); } } }
+function interruptAnimation(){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; animating=false; }
+function next(){ interruptAnimation(); if(current<STEPS.length-1){ renderStep(current+1); focusHeading(); } }
+function prev(){ interruptAnimation(); if(current>0){ renderStep(current-1); focusHeading(); } }
+function reset(){ interruptAnimation(); renderStep(0); focusHeading(); }
+function replay(){ if(current<0) return; interruptAnimation(); renderStep(current); focusHeading(); }
+
+// ── Hide / show top bar (toggle; the ^ chevron flips to v when hidden) ──
+(function(){
+	const hideBtn=document.getElementById('header-hide'), revealBtn=document.getElementById('header-reveal');
+	if(!hideBtn||!revealBtn) return;
+	var hideBtnTop=document.getElementById('header-hide-top'); if(hideBtnTop) hideBtnTop.addEventListener('click',function(e){ e.stopPropagation(); hideBtn.click(); });
+	const hidePath=hideBtn.querySelector('svg path');
+	const UP='M6 15l6-6 6 6', DOWN='M6 9l6 6 6-6';   // ^ points up to hide the bar; flips to v to show it again
+	function setHidden(h){
+		document.body.classList.toggle('chrome-hidden',h);
+		hideBtn.setAttribute('aria-expanded',String(!h));
+		hideBtn.setAttribute('aria-label',h?'Show top bar':'Hide top bar');
+		hideBtn.title=(h?'Show top bar':'Hide top bar')+' (H)';
+		if(hidePath) hidePath.setAttribute('d',h?DOWN:UP);
+		try{localStorage.setItem('aw-tmpl-chrome-hidden',h?'1':'0');}catch(_){}
+		if(current>=0) requestAnimationFrame(()=>{ const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s); });
+	}
+	hideBtn.addEventListener('click',e=>{e.stopPropagation();setHidden(!document.body.classList.contains('chrome-hidden'));});
+	revealBtn.addEventListener('click',e=>{e.stopPropagation();setHidden(false);});
+	try{ if(localStorage.getItem('aw-tmpl-chrome-hidden')==='1') setHidden(true); }catch(_){}
+	document.addEventListener('keydown',e=>{ if(e.code==='KeyH'&&!e.metaKey&&!e.ctrlKey&&!e.altKey){ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return; e.preventDefault(); setHidden(!document.body.classList.contains('chrome-hidden')); } });
+})();
+
+document.getElementById('next-btn').addEventListener('click',e=>{e.stopPropagation();next();});
+document.getElementById('prev-btn').addEventListener('click',e=>{e.stopPropagation();prev();});
+document.getElementById('reset-btn').addEventListener('click',e=>{e.stopPropagation();reset();});
+document.getElementById('replay-btn').addEventListener('click',e=>{e.stopPropagation();replay();});
+
+// ── Clickable progress bar + step ticks ──
+(function(){
+	const track=document.querySelector('.progress-track'); if(!track) return;
+	for(let s=1; s<STEPS.length; s++){ const tk=document.createElement('div'); tk.className='progress-tick'; tk.style.left=(s/STEPS.length*100)+'%'; track.appendChild(tk); }
+	track.setAttribute('title','Jump to a step');
+	track.addEventListener('click', e=>{
+		const r=track.getBoundingClientRect(); const frac=(e.clientX-r.left)/r.width;
+		const target=Math.max(0, Math.min(STEPS.length-1, Math.floor(frac*STEPS.length)));
+		if(target!==current){ interruptAnimation(); renderStep(target); focusHeading(); }
+	});
+})();
+
+// ── Movable / pinnable control dock ───────
+(function(){
+	const dock=document.getElementById('controls'), grip=document.getElementById('ctrl-grip'), pin=document.getElementById('ctrl-pin');
+	if(!dock||!grip) return;
+	const KEY='aw-tmpl-controls-pos';
+	let dragging=false, sx=0, sy=0, bl=0, bt=0, moved=false;
+	function place(left,top){
+		const w=dock.offsetWidth, h=dock.offsetHeight;
+		left=Math.max(6, Math.min(left, window.innerWidth - w - 6));
+		top =Math.max(6, Math.min(top,  window.innerHeight - h - 6));
+		dock.style.left=left+'px'; dock.style.top=top+'px'; dock.style.right='auto'; dock.style.bottom='auto'; dock.style.transform='none';
+		document.body.classList.add('controls-floating');
+	}
+	function recenter(){
+		dock.style.left=dock.style.top=dock.style.right=dock.style.bottom=dock.style.transform='';
+		document.body.classList.remove('controls-floating');
+		try{ localStorage.removeItem(KEY); }catch(_){}
+	}
+	grip.addEventListener('pointerdown', e=>{
+		e.preventDefault(); dragging=true; moved=false;
+		const r=dock.getBoundingClientRect(); bl=r.left; bt=r.top; sx=e.clientX; sy=e.clientY;
+		try{ grip.setPointerCapture(e.pointerId); }catch(_){}
+	});
+	grip.addEventListener('pointermove', e=>{
+		if(!dragging) return;
+		const dx=e.clientX-sx, dy=e.clientY-sy;
+		if(Math.abs(dx)>2||Math.abs(dy)>2) moved=true;
+		place(bl+dx, bt+dy);
+	});
+	function end(e){ if(!dragging) return; dragging=false; try{ grip.releasePointerCapture(e.pointerId); }catch(_){}
+		if(moved){ try{ const r=dock.getBoundingClientRect(); localStorage.setItem(KEY, JSON.stringify({left:r.left, top:r.top})); }catch(_){} } }
+	grip.addEventListener('pointerup', end); grip.addEventListener('pointercancel', end);
+	// keyboard-nudge the dock when the grip is focused (arrow keys; Shift = larger step)
+	grip.addEventListener('keydown', e=>{
+		const d=e.shiftKey?40:12; const r=dock.getBoundingClientRect(); let ok=true;
+		if(e.key==='ArrowLeft') place(r.left-d, r.top);
+		else if(e.key==='ArrowRight') place(r.left+d, r.top);
+		else if(e.key==='ArrowUp') place(r.left, r.top-d);
+		else if(e.key==='ArrowDown') place(r.left, r.top+d);
+		else ok=false;
+		if(ok){ e.preventDefault(); e.stopPropagation(); }
+	});
+	if(pin) pin.addEventListener('click', e=>{ e.stopPropagation(); recenter(); });
+	window.addEventListener('resize', ()=>{ if(document.body.classList.contains('controls-floating')){ const r=dock.getBoundingClientRect(); place(r.left, r.top); } });
+	try{ const s=JSON.parse(localStorage.getItem(KEY)||'null'); if(s && typeof s.left==='number') place(s.left, s.top); }catch(_){}
+})();
+
+// ── Make callout / outline / caption draggable (same pointer-drag as the control dock) ──
+function dragify(el, key){
+	if(!el || el.__awDrag) return; el.__awDrag=true;
+	let dragging=false, sx=0, sy=0, bl=0, bt=0, moved=false;
+	const resizable = getComputedStyle(el).resize !== 'none';
+	const sizeKey = key ? key + '-size' : null;
+	// snapshot the home position + size so the reset pin can restore it exactly
+	const home={ position:el.style.position, left:el.style.left, top:el.style.top,
+		right:el.style.right, bottom:el.style.bottom, margin:el.style.margin, transform:el.style.transform,
+		width:el.style.width, height:el.style.height };
+	// reset "pin" — hidden until the panel is dragged or resized off its home spot
+	const pin=document.createElement('button');
+	pin.type='button'; pin.className='aw-drag-reset';
+	pin.title=t('resetPos'); pin.setAttribute('aria-label', t('resetPos'));
+	pin.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>';
+	// keep the pin inside scrollable / resizable panels so it isn't clipped
+	const oy=getComputedStyle(el).overflowY; const clips=(oy==='auto'||oy==='scroll'||oy==='hidden');
+	pin.style.top=clips?'8px':'-10px'; pin.style.right=clips?'8px':'-10px';
+	el.appendChild(pin);
+	function showPin(on){ pin.style.display=on?'flex':'none'; }
+	pin.addEventListener('pointerdown', e=>{ e.stopPropagation(); });
+	pin.addEventListener('click', e=>{
+		e.preventDefault(); e.stopPropagation();
+		el.style.position=home.position; el.style.left=home.left; el.style.top=home.top;
+		el.style.right=home.right; el.style.bottom=home.bottom; el.style.margin=home.margin; el.style.transform=home.transform;
+		el.style.width=home.width; el.style.height=home.height;
+		if(key){ try{ localStorage.removeItem(key); }catch(_){} }
+		if(sizeKey){ try{ localStorage.removeItem(sizeKey); }catch(_){} }
+		showPin(false);
+	});
+	function fix(left,top){
+		const w=el.offsetWidth, h=el.offsetHeight;
+		left=Math.max(6, Math.min(left, window.innerWidth  - w - 6));
+		top =Math.max(6, Math.min(top,  window.innerHeight - h - 6));
+		el.style.position='fixed'; el.style.left=left+'px'; el.style.top=top+'px';
+		el.style.right='auto'; el.style.bottom='auto'; el.style.margin='0'; el.style.transform='none';
+	}
+	// persist user resizes (the CSS resize grip writes inline width/height; content changes don't)
+	if(resizable && typeof ResizeObserver!=='undefined'){
+		let rt;
+		new ResizeObserver(()=>{
+			if(el.style.width || el.style.height){
+				showPin(true);
+				if(sizeKey){ clearTimeout(rt); rt=setTimeout(()=>{ try{ localStorage.setItem(sizeKey, JSON.stringify({w:el.style.width, h:el.style.height})); }catch(_){} }, 150); }
+			}
+		}).observe(el);
+	}
+	el.addEventListener('pointerdown', e=>{
+		if(e.button!==0 || (e.target.closest && e.target.closest('a,button,select,input,textarea'))) return;
+		if(resizable){ const r=el.getBoundingClientRect(); if(e.clientX>r.right-18 && e.clientY>r.bottom-18) return; } // let the resize grip win
+		dragging=true; moved=false;
+		const r=el.getBoundingClientRect(); bl=r.left; bt=r.top; sx=e.clientX; sy=e.clientY;
+		fix(bl, bt);   // pin at the current spot first, so there's no jump
+		try{ el.setPointerCapture(e.pointerId); }catch(_){}
+		e.preventDefault();
+	});
+	el.addEventListener('pointermove', e=>{
+		if(!dragging) return;
+		const dx=e.clientX-sx, dy=e.clientY-sy;
+		if(Math.abs(dx)>2||Math.abs(dy)>2) moved=true;
+		fix(bl+dx, bt+dy);
+	});
+	function end(e){
+		if(!dragging) return; dragging=false;
+		try{ el.releasePointerCapture(e.pointerId); }catch(_){}
+		if(moved){ showPin(true); if(key){ try{ const r=el.getBoundingClientRect(); localStorage.setItem(key, JSON.stringify({left:r.left, top:r.top})); }catch(_){} } }
+	}
+	el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+	if(sizeKey){ try{ const z=JSON.parse(localStorage.getItem(sizeKey)||'null'); if(z && (z.w||z.h)){ if(z.w) el.style.width=z.w; if(z.h) el.style.height=z.h; showPin(true); } }catch(_){} }
+	if(key){ try{ const s=JSON.parse(localStorage.getItem(key)||'null'); if(s && isFinite(s.left) && isFinite(s.top)){ fix(s.left, s.top); showPin(true); } }catch(_){} }
+}
+dragify(document.getElementById('step-outline'), 'aw-tmpl-outline-pos');
+dragify(document.getElementById('aw-caption'), 'aw-tmpl-caption-pos');
+
+// ── Speed ─────────────────────────────────
+const SPEED_STEPS=[0.5,0.75,1,1.25,1.5,2]; const BASE_TIMESCALE=0.25;
+let speedIndex=SPEED_STEPS.indexOf(1);
+try{ const sp=parseInt(localStorage.getItem('aw-tmpl-speed'),10); if(!isNaN(sp)&&sp>=0&&sp<SPEED_STEPS.length) speedIndex=sp; }catch(_){}
+const speedLabel=document.getElementById('speed-label'), speedDownBtn=document.getElementById('speed-down'), speedUpBtn=document.getElementById('speed-up');
+function saveSpeed(){ try{ localStorage.setItem('aw-tmpl-speed', String(speedIndex)); }catch(_){} }
+function syncSpeedUI(){ const spd=SPEED_STEPS[speedIndex]; speedLabel.textContent=spd+'\u00d7'; speedDownBtn.disabled=speedIndex===0; speedUpBtn.disabled=speedIndex===SPEED_STEPS.length-1; gsap.globalTimeline.timeScale(spd*BASE_TIMESCALE); }
+syncSpeedUI();
+speedDownBtn.addEventListener('click',e=>{e.stopPropagation(); if(speedIndex>0){speedIndex--;syncSpeedUI();saveSpeed();}});
+speedUpBtn.addEventListener('click',e=>{e.stopPropagation(); if(speedIndex<SPEED_STEPS.length-1){speedIndex++;syncSpeedUI();saveSpeed();}});
+
+// ── Keyboard ──────────────────────────────
+if (window.AW && AW.keyboard) { AW.keyboard.bind({ next, prev, reset, replay }); }
+else { document.addEventListener('keydown', e => {
+	const tag=(e.target&&e.target.tagName||'').toLowerCase();
+	if(tag==='input'||tag==='textarea'||tag==='select') return;
+	// Space/Enter must reach a focused control, otherwise the focused button can never be pressed by keyboard
+	const onControl=!!(e.target&&e.target.closest&&e.target.closest('button,a[href],summary,[role="button"],[role="switch"]'));
+	if (['Space','Enter'].includes(e.code) && onControl) return;
+	if (['Space','ArrowRight','Enter'].includes(e.code)) { e.preventDefault(); next(); }
+	else if (e.code==='ArrowLeft') { e.preventDefault(); prev(); }
+	else if (e.code==='KeyR') { e.preventDefault(); reset(); }
+	else if (e.code==='KeyP') { e.preventDefault(); replay(); }
+}); }
+
+// ── Touch swipe (tablets) ─────────────────
+(function(){
+	const surf=document.getElementById('stage'); if(!surf) return;
+	let x0=null,y0=null,t0=0;
+	surf.addEventListener('touchstart',e=>{ if(e.touches.length!==1){x0=null;return;} x0=e.touches[0].clientX; y0=e.touches[0].clientY; t0=Date.now(); },{passive:true});
+	surf.addEventListener('touchend',e=>{
+		if(x0===null) return; const tch=e.changedTouches[0]; const dx=tch.clientX-x0, dy=tch.clientY-y0; x0=null;
+		if(Date.now()-t0>800) return;
+		if(Math.abs(dx)>50 && Math.abs(dx)>Math.abs(dy)*1.6){ if(dx<0) next(); else prev(); }
+	},{passive:true});
+})();
+
+// ── Keyboard shortcut help overlay ────────
+(function(){
+	const overlay=document.getElementById('shortcut-overlay'), btn=document.getElementById('help-toggle'), closeBtn=document.getElementById('sc-close'), list=document.getElementById('sc-list');
+	if(!overlay||!list) return;
+	const ROWS=[[['\u2192','Space'],'scNext'],[['\u2190'],'scPrev'],[['R'],'scRestart'],[['P'],'scReplay'],[['H'],'scHide'],[['?'],'scHelp']];
+	window.buildShortcuts=function(){ const title=document.getElementById('sc-title'); if(title) title.textContent=t('scTitle');
+		list.innerHTML=ROWS.map(([keys,k])=>`<li><span>${t(k)}</span><span class="sc-keys">${keys.map(x=>`<kbd>${x}</kbd>`).join('')}</span></li>`).join(''); };
+	buildShortcuts();
+	function open(){ overlay.removeAttribute('hidden'); if(closeBtn) closeBtn.focus(); }
+	function close(){ overlay.setAttribute('hidden',''); if(btn) btn.focus(); }
+	function toggle(){ overlay.hasAttribute('hidden')?open():close(); }
+	if(btn) btn.addEventListener('click',e=>{e.stopPropagation();toggle();});
+	if(closeBtn) closeBtn.addEventListener('click',e=>{e.stopPropagation();close();});
+	const bd=overlay.querySelector('.sc-backdrop'); if(bd) bd.addEventListener('click',close);
+	document.addEventListener('keydown',e=>{ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return;
+		if(e.key==='?'){ e.preventDefault(); toggle(); }
+		else if(e.key==='Escape' && !overlay.hasAttribute('hidden')){ e.preventDefault(); close(); } });
+})();
+
+// ── Resize (re-fit only — never rebuild or replay the animation) ──
+let resizeTimer, lastStageW=0, lastStageH=0;
+window.addEventListener('resize',()=>{ clearTimeout(resizeTimer); resizeTimer=setTimeout(()=>{
+	if(current<0) return;
+	const box=stage.getBoundingClientRect();
+	if(Math.abs(box.width-lastStageW)<1 && Math.abs(box.height-lastStageH)<1) return;   // ignore no-op reflows (focus/URL-bar) so the animation never restarts
+	lastStageW=box.width; lastStageH=box.height;
+	const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s);
+},200); });
+
+// ── Init ──────────────────────────────────
+setLanguage(currentLang);
+counter.textContent = `1 / ${STEPS.length}`;
+const urlStep = parseInt(new URLSearchParams(location.search).get('step'), 10);   // ?step=N opens on step N
+renderStep((!isNaN(urlStep) && urlStep>=1 && urlStep<=STEPS.length) ? urlStep-1 : 0);
+</script>
+<script>
+// ── Start gate · hold autoplay until the viewer clicks Play (empty stage + centered Play) ──
+(function () {
+	if (new URLSearchParams(location.search).has('present')) return;
+	var stage = document.getElementById('stage');
+	if (!stage) return;
+	function freeze() { try { if (window.gsap && gsap.globalTimeline) gsap.globalTimeline.pause(); } catch (_) {} }
+	freeze(); requestAnimationFrame(freeze);
+	document.body.classList.add('aw-prestart');
+	try { if (typeof stopAudio === 'function') stopAudio(); } catch (_) {}
+	stage.style.transition = 'opacity .55s ease';
+	stage.style.opacity = '0';
+
+	var T = {
+		title: { en:'Ready to begin?', es:'\u00BFTodo listo?', ja:'\u6E96\u5099\u306F\u3044\u3044\u3067\u3059\u304B\uFF1F', ko:'\uC2DC\uC791\uD560 \uC900\uBE44\uAC00 \uB418\uC168\uB098\uC694?', pt:'Tudo pronto?' },
+		sound: { en:'Sound', es:'Sonido', ja:'\u97F3\u58F0', ko:'\uC18C\uB9AC', pt:'Som' },
+		cc:    { en:'Subtitles (CC)', es:'Subt\u00EDtulos (CC)', ja:'\u5B57\u5E55\uFF08CC\uFF09', ko:'\uC790\uB9C9 (CC)', pt:'Legendas (CC)' },
+		start: { en:'Start presentation', es:'Iniciar presentaci\u00F3n', ja:'\u30D7\u30EC\u30BC\u30F3\u3092\u958B\u59CB', ko:'\uD504\uB808\uC820\uD14C\uC774\uC158 \uC2DC\uC791', pt:'Iniciar apresenta\u00E7\u00E3o' }
+	};
+	function L(){ return (typeof currentLang === 'string' && currentLang) || (typeof CURRENT_LANG === 'string' && CURRENT_LANG) || 'en'; }
+	function t(k){ var m = T[k], l = L(); return m[m[l] ? l : 'en']; }
+	function awAudioState(){ try{ if(typeof window.__awAudioOn==='function') return !!window.__awAudioOn(); }catch(_){} return (typeof audioEnabled!=='undefined') && !!audioEnabled; }
+	function awCcState(){ try{ if(typeof window.__awCcOn!=='undefined' && window.__awCcOn!==null) return !!window.__awCcOn; }catch(_){} return (typeof ccPref!=='undefined') && !!ccPref; }
+
+	var style = document.createElement('style');
+	style.textContent =
+		'body.aw-prestart #controls{opacity:.4;pointer-events:none;transition:opacity .4s ease}' +
+		'#aw-play-card{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:50;box-sizing:border-box;width:min(90vw,22rem);padding:1.35rem 1.5rem 1.5rem;border-radius:16px;background:var(--theme-card-background,#fff);color:var(--theme-text,#222);border:1px solid var(--theme-border,rgba(0,0,0,.1));box-shadow:0 24px 60px rgba(0,0,0,.28);transition:opacity .3s ease,transform .3s ease}' +
+		'#aw-play-card.aw-hide{opacity:0;transform:translate(-50%,-50%) scale(.96);pointer-events:none}' +
+		'body.theme-dark #aw-play-card{border-color:rgba(255,255,255,.12);box-shadow:0 24px 60px rgba(0,0,0,.55)}' +
+		'body.present-mode #aw-play-card{display:none!important}' +
+		'.aw-card-title{margin:0 0 1rem;text-align:center;font-size:1.02rem;font-weight:800;letter-spacing:.03em;text-transform:uppercase;opacity:.85}' +
+		'.aw-row{display:flex;align-items:center;gap:.65rem;padding:.6rem 0}' +
+		'.aw-row + .aw-row{border-top:1px solid var(--theme-border,rgba(0,0,0,.08))}' +
+		'.aw-row-ico{flex:none;width:1.5rem;text-align:center;font-size:1.15rem;line-height:1}' +
+		'.aw-row-lbl{flex:1 1 auto;font-size:.9rem;font-weight:600}' +
+		'.aw-row-state{flex:none;min-width:2.5rem;text-align:right;font-size:.68rem;font-weight:800;letter-spacing:.05em;opacity:.5}' +
+		'.aw-row-state.on{color:var(--theme-primary,#0078d4);opacity:1}' +
+		'.aw-switch{position:relative;flex:none;width:44px;height:24px;padding:0;border:none;border-radius:999px;cursor:pointer;background:var(--theme-border,#c7c7d1);transition:background .18s ease}' +
+		'.aw-switch.on{background:var(--theme-primary,#0078d4)}' +
+		'.aw-switch::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.4);transition:transform .18s ease}' +
+		'.aw-switch.on::after{transform:translateX(20px)}' +
+		'#aw-start{margin-top:1.2rem;width:100%;display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:.8rem 1rem;border:none;border-radius:11px;cursor:pointer;background:var(--theme-primary,#0078d4);color:#fff;font-size:.96rem;font-weight:700;letter-spacing:.01em;box-shadow:0 8px 22px var(--theme-primary-translucent,rgba(0,120,212,.45));transition:transform .15s ease}' +
+		'#aw-start:hover{transform:translateY(-2px)}#aw-start:active{transform:scale(.98)}' +
+		'#aw-start svg{width:18px;height:18px;flex:none}';
+	document.head.appendChild(style);
+
+	var card = document.createElement('div');
+	card.id = 'aw-play-card'; card.setAttribute('role', 'dialog'); card.setAttribute('aria-modal', 'true');
+	card.innerHTML =
+		'<div class="aw-card-title"></div>' +
+		'<div class="aw-row" data-k="audio"><span class="aw-row-ico" aria-hidden="true">\uD83D\uDD0A</span><span class="aw-row-lbl"></span><span class="aw-row-state"></span><button type="button" class="aw-switch" role="switch"></button></div>' +
+		'<div class="aw-row" data-k="cc"><span class="aw-row-ico" aria-hidden="true">\uD83D\uDCAC</span><span class="aw-row-lbl"></span><span class="aw-row-state"></span><button type="button" class="aw-switch" role="switch"></button></div>' +
+		'<button type="button" id="aw-start"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 5v14l11-7z"/></svg><span class="aw-start-lbl"></span></button>';
+	document.body.appendChild(card);
+
+	var titleEl = card.querySelector('.aw-card-title');
+	var startBtn = card.querySelector('#aw-start');
+	var ROWS = [ { k:'audio', lbl:'sound', el:card.querySelector('.aw-row[data-k="audio"]'), read:awAudioState, toggle:'audio-toggle' },
+	             { k:'cc',    lbl:'cc',    el:card.querySelector('.aw-row[data-k="cc"]'),    read:awCcState,    toggle:'cc-toggle' } ];
+
+	function render(){
+		titleEl.textContent = t('title'); card.setAttribute('aria-label', t('title'));
+		startBtn.querySelector('.aw-start-lbl').textContent = t('start');
+		ROWS.forEach(function(r){
+			var on = r.read();
+			r.el.querySelector('.aw-row-lbl').textContent = t(r.lbl);
+			var st = r.el.querySelector('.aw-row-state'); st.textContent = on ? 'ON' : 'OFF'; st.classList.toggle('on', on);
+			var sw = r.el.querySelector('.aw-switch'); sw.classList.toggle('on', on); sw.setAttribute('aria-checked', on ? 'true' : 'false');
+			sw.setAttribute('aria-label', t(r.lbl) + ' \u2014 ' + (on ? 'on' : 'off'));
+		});
+	}
+	ROWS.forEach(function(r){
+		r.el.querySelector('.aw-switch').addEventListener('click', function(e){ e.stopPropagation(); var b = document.getElementById(r.toggle); if(b) b.click(); render(); });
+	});
+	render();
+
+	var sel = document.getElementById('lang-select');
+	// Only re-freeze while the gate is still up — after Play, freezing would pause the
+	// global timeline for good and every later scene would stay at opacity 0 (blank stage).
+	if (sel) sel.addEventListener('change', function () { if (done) return; render(); freeze(); });
+
+	function gateKeys(e) {
+		if (done) return;
+		var tag = (e.target && e.target.tagName || '').toLowerCase();
+		if (tag === 'select' || tag === 'input' || tag === 'textarea') return;
+		if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'].indexOf(e.key) >= 0) { e.preventDefault(); e.stopPropagation(); }
+	}
+	document.addEventListener('keydown', gateKeys, true);
+
+	var done = false;
+	function start() {
+		if (done) return; done = true;
+		document.removeEventListener('keydown', gateKeys, true);
+		document.body.classList.remove('aw-prestart');
+		card.classList.add('aw-hide');
+		setTimeout(function () { if (card.parentNode) card.parentNode.removeChild(card); if (style.parentNode) style.parentNode.removeChild(style); }, 420);
+		setTimeout(function () {
+			try { if (window.gsap && gsap.globalTimeline) gsap.globalTimeline.play(); } catch (_) {}
+			stage.style.opacity = '1';
+			try { if (typeof interruptAnimation === 'function') interruptAnimation(); } catch (_) {}
+			try { if (typeof renderStep === 'function') renderStep(typeof current === 'number' && current >= 0 ? current : 0); } catch (_) {}
+		}, 380);
+	}
+	startBtn.addEventListener('click', start);
+	// the gate is aria-modal, so keyboard and screen-reader users must land on it rather than tab the header behind it
+	startBtn.focus({ preventScroll: true });
+}());
+</script>
+<script>
+/* ── Audio-synced animation speed ──────────────────────────────────────────────────────────
+   ANIM[i]       = real seconds step i takes at the 1x speed (measured with BASE_TIMESCALE applied)
+   AUDIO_SECS[l] = length of each recorded clip per language (from the generated MP3s)
+   With narration ON the animation runs at clamp(ANIM/clip, 0.6, 2.2) x BASE_TIMESCALE x the chosen speed, so a step's build
+   finishes about when its voice does. Narration OFF restores the chosen speed. */
+(function () {
+	const ANIM = [22.4,16.4,18.8,18,22.9,24.4,26.8,11.3];
+	const AUDIO_SECS = {"en":[26.06,26.21,25.15,25.9,25.51,25.85,23.9,23.16],"es":[26.66,25.75,24.17,24.91,25.66,25.1,21.77,22.7],"ja":[31.85,30.77,29.5,29.26,30.22,29.62,26.5,28.3],"ko":[25.97,26.76,24.5,25.3,23.86,24.05,25.42,25.06],"pt":[27.05,24.82,25.85,27.36,27.6,24.91,22.75,22.97]};
+	const MIN = 0.6, MAX = 2.2;
+	function clipSecs(i) { const a = AUDIO_SECS[currentLang] || AUDIO_SECS.en; return a && a[i]; }
+	function userSpeed() { try { return SPEED_STEPS[speedIndex]; } catch (_) { return 1; } }
+	function apply(i) {
+		try {
+			if (!window.gsap) return;
+			const D = ANIM[i], A = clipSecs(i);
+			if (audioEnabled && D && A) gsap.globalTimeline.timeScale(Math.max(MIN, Math.min(MAX, D / A)) * BASE_TIMESCALE * userSpeed());
+			else gsap.globalTimeline.timeScale(BASE_TIMESCALE * userSpeed());
+		} catch (_) {}
+	}
+	const render = renderStep;
+	renderStep = function (i) { if (typeof i === 'number' && i >= 0) apply(i); return render.apply(this, arguments); };
+	const speedUI = syncSpeedUI;
+	syncSpeedUI = function () { speedUI.apply(this, arguments); if (current >= 0) apply(current); };
+	const audioBtnEl = document.getElementById('audio-toggle');
+	if (audioBtnEl) audioBtnEl.addEventListener('click', function () { if (current >= 0) apply(current); });
+})();
+</script>
+<script src="../../lib/js/aw-present.js"></script>
+<script src="../../lib/js/aw-declutter.js"></script>
+<script src="../../lib/js/aw-url-state.js"></script>
+<script src="../../lib/js/aw-like-dock.js"></script>
+
+</body>
+</html>

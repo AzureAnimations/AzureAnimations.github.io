@@ -1,0 +1,2746 @@
+<!DOCTYPE html>
+<!-- Narration script: /narration/Architect/RecoveryObjectives.md -->
+<!--
+	Azure Animations — STARTER TEMPLATE
+	====================================
+	Copy this file to <Area>/<Sub>/YourTopic.html (e.g. AI/Foundry/MyTopic.html) and:
+	  1. Set <title>, #page-title, and the back-link href.
+	  2. Rename/expand the sample steps. Each STEPS[] entry pairs with one
+	     render<Xxx>Step(). The samples demonstrate the reusable building blocks —
+	     delete the ones you don't need, they are all optional:
+	       • PROBLEM   — a centered hero .card
+	       • FLOW      — a .ta-flow of .agent-node boxes joined by .ta-arrow (input → process → output)
+	       • CODE      — a VS Code-style .code-card (use .code-duo for a request/response pair)
+	       • USE CASES — a .uc-grid of .uc-card tiles
+	       • RECAP     — a .card + .value-chip row + closing line
+	  3. Fill the English I18N block, then add es/ja/ko/pt (full objects OR the
+	     { ...I18N.en, overrides } spread) and matching <option>s in #lang-select.
+	  4. Prefer Microsoft Fluent icons/emoji over raw OS emoji for anything shown
+	     on a projector. Source priority: Azure service icons (local lib
+	     ../../lib/icons/…) → Fluent System Icons → Fluent UI Emoji → Fluent Emoji
+	     Animated → Twemoji (last resort, CC-BY).
+	  5. Run the Definition-of-Done checklist before publishing.
+
+	DESIGN NOTES
+	  • Accent colour is --theme-tertiary (Microsoft purple #5c2d91); primary blue
+	    and green (#10a37f) act as secondary / positive accents.
+	  • The bottom #controls is a compact translucent "icon dock" of glyph-only
+	    buttons; their localized labels live in the tooltip (title), set in setLanguage().
+	  • Audio narration is optional: list one clip per step (in order) in AUDIO_FILES[]
+	    and an Audio toggle appears automatically. Present mode (dual-window) ships via
+	    aw-present.js at the bottom — it self-installs a "Present" button in the header.
+
+	NOTE: the ../../lib/ and ../../../img/ paths assume this file lives two levels
+	under static/v2/ (e.g. static/v2/AI/Foundry/). Adjust depth if you move it.
+-->
+<html lang="en">
+<head>
+	<script src="/js/tracking.js"></script>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+	<title>Design for recovery: RTO, RPO and the right tool — Azure Animations</title>
+	<link rel="icon" type="image/png" href="../../img/favicon.png" />
+
+	<link rel="stylesheet" href="https://unpkg.com/@microsoft/atlas-css/dist/index.css" />
+	<script src="../../lib/vendor/gsap-3.15.0.min.js"></script>
+
+	<!-- AnimationWorks shared lib -->
+	<script src="../../lib/js/aw-easings.js"></script>
+	<script src="../../lib/js/aw-motion.js"></script>
+	<script src="../../lib/js/aw-theme.js"></script>
+	<script src="../../lib/js/aw-keyboard.js"></script>
+	<script src="../../lib/js/aw-captions.js"></script>
+
+<style>
+	/* ── SHELL ─────────────────────────────── */
+	/* Brand palette — reference these tokens; don't hardcode hex */
+	:root {
+		--aw-purple:#5c2d91;   /* primary accent — titles, callouts, arrows, progress, agents */
+		--aw-blue:#0078d4;     /* secondary — inputs, links, "the model", primary button */
+		--aw-green:#10a37f;    /* positive — success, grounded/correct results, value chips */
+		--aw-orange:#e97526;   /* tools / actions — tool calls, function calling, side-effects */
+		--aw-pink:#d24aa8;     /* highlight — a fourth category / emphasis */
+	}
+	html, body { height:100%; margin:0; }
+	html { font-size:100%; }
+	body {
+		display:flex; flex-direction:column; height:100vh;
+		overflow:hidden;
+		font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif;
+		color: var(--theme-text);
+		background:
+			radial-gradient(circle at 15% 20%, rgba(92,45,145,0.18) 0%, transparent 55%),
+			radial-gradient(circle at 85% 80%, rgba(0,120,212,0.18) 0%, transparent 55%),
+			var(--theme-body-background);
+	}
+	.app-header { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:1rem; flex-shrink:0; font-size:16px; }
+	.app-header > :last-child { justify-self:end; }
+
+	/* #stage fills the space between the top bar and the control dock, and centers the fixed 16:9 frame. */
+	#stage {
+		position:relative; flex:1 1 auto; width:100%; min-height:0;
+		display:flex; align-items:center; justify-content:center;
+		overflow:hidden; container-type:size;
+		padding:1.75rem 2.75rem 5rem;   /* breathing room around the frame; bottom clears the fixed #controls dock */
+	}
+	#stage:focus-visible, button:focus-visible, a:focus-visible, select:focus-visible {
+		outline:2px solid var(--theme-primary, #0078d4); outline-offset:3px; border-radius:4px;
+	}
+	/* The visible rectangle: the largest 16:9 box that fits the stage. All scenes are drawn inside it. */
+	#stage-frame {
+		position:relative; overflow:hidden;
+		width: min(100cqw, calc(100cqh * 16 / 9));
+		aspect-ratio: 16 / 9; max-width:100%; max-height:100%;
+		border-radius:16px;
+		background: rgba(0,0,0,0.015);
+		box-shadow: 0 12px 44px rgba(0,0,0,0.22);
+	}
+	body.theme-dark #stage-frame { background: rgba(255,255,255,0.025); }
+	/* Coloured gradient border (brand purple → blue → pink) drawn as a masked ring — no interior tint. */
+	#stage-frame::before {
+		content:""; position:absolute; inset:0; border-radius:inherit; padding:2.5px;
+		background: linear-gradient(135deg, var(--aw-purple) 0%, var(--aw-blue) 55%, var(--aw-pink) 100%);
+		-webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+		mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+		-webkit-mask-composite: xor; mask-composite: exclude;
+		pointer-events:none; z-index:20;
+	}
+	#fx-svg { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:6; overflow:visible; }
+
+	/* ── SCENE ─────────────────────────────── */
+	.scene {
+		position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+		transform-origin:center center;
+		width:min(1150px, 96%); z-index:10;
+		display:flex; flex-direction:column; align-items:center; gap:1.4rem;
+	}
+	/* 200ms fade in / out between every step */
+	@keyframes awSceneIn { from { opacity:0; } to { opacity:1; } }
+	@keyframes awSceneOut { from { opacity:1; } to { opacity:0; } }
+	.scene.scene-in { animation: awSceneIn 0.2s ease both; }
+	.scene.scene-out { animation: awSceneOut 0.2s ease both; }
+	.scene-title { font-size:2.5rem; font-weight:700; color:var(--theme-tertiary, #5c2d91); margin:0; text-align:center; opacity:0; }
+	body.theme-dark .scene-title { color:#c9a5e8; }
+	/* lead spans wide (near the scene width) to use the side gutters and stay within 2 lines — trim copy if it wraps to 3 */
+	.scene-lead { margin:0; text-align:center; font-size:1.35rem; color:var(--theme-text); max-width:min(1180px,96%); line-height:1.5; opacity:0; }
+
+	/* ── CALLOUT · draggable, slightly see-through so it never fully blocks the diagram ── */
+	.callout {
+		position:absolute; max-width:340px; padding:1rem 1.2rem;
+		background:var(--theme-body-background);
+		background:color-mix(in srgb, var(--theme-body-background) 84%, transparent);
+		-webkit-backdrop-filter:blur(5px); backdrop-filter:blur(5px);
+		border:1px solid var(--theme-border);
+		border-left:4px solid var(--theme-tertiary, #5c2d91); border-radius:6px;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2));
+		font-size:1.05rem; line-height:1.45; z-index:14; opacity:0;
+		cursor:grab; touch-action:none;
+	}
+	.callout:active { cursor:grabbing; }
+
+	/* ── RESET "PIN" · appears on a draggable panel once it has been moved off its home spot ── */
+	.aw-drag-reset {
+		position:absolute; width:24px; height:24px; padding:0; display:none;
+		align-items:center; justify-content:center; border-radius:50%;
+		background:var(--theme-tertiary,#5c2d91); color:#fff;
+		border:2px solid var(--theme-body-background,#fff);
+		box-shadow:0 2px 7px rgba(0,0,0,0.4); cursor:pointer; z-index:6;
+		opacity:0.92; transition:opacity .14s ease, transform .14s ease;
+	}
+	.aw-drag-reset:hover { opacity:1; transform:scale(1.08); }
+	.aw-drag-reset:focus-visible { outline:2px solid #5cc8ff; outline-offset:2px; }
+	.aw-drag-reset svg { width:13px; height:13px; display:block; }
+
+	/* ══════════════════════════════════════════════════════════ */
+	/* ── REUSABLE BUILDING BLOCKS · keep what you use, drop rest ─ */
+	/* ══════════════════════════════════════════════════════════ */
+
+	/* Centered hero card */
+	.card {
+		width:min(680px, 96%); padding:1.6rem 1.8rem; border-radius:16px;
+		background:var(--theme-card-background, #fff); border:2px solid var(--theme-border);
+		box-shadow:0 8px 28px rgba(0,0,0,0.14); opacity:0;
+		display:flex; flex-direction:column; gap:0.6rem; align-items:center; text-align:center;
+	}
+	body.theme-dark .card { background:rgba(255,255,255,0.05); }
+	.card .card-icon { font-size:3rem; line-height:1; }
+	.card .card-h { font-size:1.4rem; font-weight:700; }
+	.card .card-p { font-size:1.05rem; color:var(--theme-text-subtle); line-height:1.5; }
+
+	/* Wide info panel */
+	.ta-card {
+		width:min(1080px, 98%); border:1.5px solid var(--theme-border); border-radius:14px;
+		background:var(--theme-card-background, #fff); box-shadow:0 8px 30px rgba(0,0,0,0.16);
+		padding:1.1rem 1.3rem; opacity:0;
+	}
+	body.theme-dark .ta-card { background:rgba(255,255,255,0.05); }
+	.ta-card-head {
+		display:flex; align-items:center; gap:0.5rem;
+		font-size:1rem; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;
+		color:var(--theme-text-subtle); margin-bottom:0.6rem;
+	}
+	.ta-card-text { font-size:1.22rem; line-height:1.55; color:var(--theme-text); }
+
+	/* Pills / chips */
+	.chip-row { display:flex; flex-wrap:wrap; gap:0.7rem; justify-content:center; }
+	.pill {
+		display:inline-flex; align-items:center; gap:0.5rem; padding:0.55rem 1.1rem;
+		border-radius:999px; font-size:1.05rem; font-weight:600;
+		border:2px solid var(--theme-tertiary, #5c2d91); background:rgba(92,45,145,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .pill { background:rgba(92,45,145,0.2); }
+	.value-chip {
+		display:inline-flex; align-items:center; gap:0.4rem; padding:0.5rem 1rem;
+		border-radius:999px; font-size:1rem; font-weight:700;
+		border:2px solid #107c10; background:rgba(16,124,16,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .value-chip { background:rgba(16,124,16,0.16); }
+	.recap-foot { font-size:1.05rem; color:var(--theme-text); text-align:center; max-width:760px; opacity:0; }
+
+	/* Flow row: input → process → output */
+	.agent-node {
+		display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.2rem;
+		width:160px; height:160px; border-radius:24px;
+		background: linear-gradient(135deg, rgba(92,45,145,0.12), rgba(0,120,212,0.12));
+		border:2.5px solid var(--theme-tertiary, #5c2d91);
+		box-shadow:0 8px 28px rgba(92,45,145,0.2); flex-shrink:0; text-align:center;
+	}
+	.agent-node .an-icon { font-size:3rem; line-height:1; }
+	.agent-node .an-icon img { width:64px; height:64px; display:block; }
+	.agent-node .an-label { font-size:1.05rem; font-weight:700; color:var(--theme-text); }
+	.agent-node .an-sub { font-size:0.85rem; color:var(--theme-text-subtle); }
+	.ta-flow { display:flex; align-items:center; justify-content:center; gap:1.2rem; flex-wrap:wrap; width:100%; }
+	.ta-flow .agent-node { width:140px; height:140px; }
+	.ta-flow .agent-node .an-icon { font-size:2.6rem; }
+	.ta-flow .agent-node .an-icon img { width:54px; height:54px; }
+	.ta-arrow { font-size:1.9rem; color:var(--theme-tertiary,#5c2d91); opacity:0; }
+	.ta-arrow.is-big { font-size:3.2rem; }
+	.ta-arrow.is-down, .ta-arrow.is-up { font-size:2.9rem; line-height:1; }
+	@media (max-width:760px) { .ta-flow .ta-arrow { transform:rotate(90deg); } }
+
+	/* Code card (VS Code style) */
+	.code-card {
+		width:min(560px,96%); border:1px solid #30363d; border-radius:8px;
+		background:#1e1e1e; overflow:hidden; opacity:0;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.25));
+	}
+	.code-head {
+		display:flex; align-items:center; justify-content:space-between; gap:0.5rem;
+		padding:0 0 0 0.85rem; background:#323233; border-bottom:1px solid #1e1e1e;
+	}
+	.code-file { font-size:0.9rem; color:#cccccc; font-weight:500; padding:0.6rem 0; }
+	.code-winctrls { display:flex; align-items:stretch; height:100%; }
+	.code-wbtn {
+		display:flex; align-items:center; justify-content:center; width:2.6rem; padding:0.55rem 0;
+		color:#cccccc; font-family:'Segoe UI Symbol','Segoe MDL2 Assets',sans-serif; font-size:0.7rem;
+	}
+	.code-wbtn.is-close:hover { background:#e81123; color:#fff; }
+	.code-wbtn:hover { background:rgba(255,255,255,0.1); }
+	.code-body {
+		margin:0; padding:0.8rem 1rem;
+		font-family:'Cascadia Code', 'Consolas', 'SFMono-Regular', monospace;
+		font-size:0.86rem; line-height:1.5; color:#d4d4d4;
+		white-space:pre-wrap; overflow-wrap:break-word; word-break:break-word; tab-size:4;
+	}
+	.code-body .tok-com { color:#6a9955; }
+	.code-body .tok-kw  { color:#569cd6; }
+	.code-body .tok-str { color:#ce9178; }
+	.code-body .tok-fn  { color:#dcdcaa; }
+	.code-body .tok-mod { color:#4ec9b0; }
+	.code-body .tok-prop{ color:#9cdcfe; }
+	.code-body .tok-num { color:#b5cea8; }
+	.code-body .tok-punct { color:#d4d4d4; }
+	.code-body .code-hl { border-radius:4px; padding:0 0.15em; box-shadow:0 0 0 1px rgba(96,165,250,0.55); background:rgba(96,165,250,0.22); }
+	.code-duo { display:flex; gap:1.1rem; flex-wrap:wrap; align-items:flex-start; justify-content:center; width:100%; }
+	.code-duo .code-card { flex:1 1 380px; max-width:480px; }
+	.code-duo .code-body { font-size:0.8rem; line-height:1.45; }
+	.code-arrow { align-self:center; font-size:1.8rem; line-height:1; color:var(--theme-tertiary,#5c2d91); opacity:0; flex:none; }
+	.code-arrow.is-big { font-size:2.9rem; }
+	@media (max-width:760px) { .code-arrow { transform:rotate(90deg); } }
+
+	/* Use-case grid */
+	.uc-grid { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:1.1rem; width:min(980px,96%); }
+	@media (max-width:720px) { .uc-grid { grid-template-columns:1fr; } }
+	.uc-card {
+		display:flex; flex-direction:column; gap:0.5rem; padding:1rem 1.15rem;
+		border:1.5px solid var(--theme-border); border-top:4px solid var(--theme-primary,#0078d4);
+		border-radius:14px; background:var(--theme-card-background, #fff);
+		box-shadow:0 6px 22px rgba(0,0,0,0.12); opacity:0;
+		transition:transform 0.2s ease, box-shadow 0.2s ease;
+	}
+	.uc-card:hover { transform:translateY(-4px); box-shadow:0 12px 30px rgba(0,0,0,0.18); }
+	body.theme-dark .uc-card { background:rgba(255,255,255,0.05); }
+	.uc-card[data-uc="a"] { border-top-color:#0078d4; }
+	.uc-card[data-uc="b"] { border-top-color:#10a37f; }
+	.uc-card[data-uc="c"] { border-top-color:#e97526; }
+	.uc-card[data-uc="d"] { border-top-color:#d24aa8; }
+	.uc-head { display:flex; align-items:center; gap:0.55rem; font-size:1.25rem; font-weight:700; color:var(--theme-text); }
+	.uc-head .uc-icon { font-size:1.7rem; display:inline-block; }
+	.uc-desc { font-size:0.98rem; line-height:1.55; color:var(--theme-text-subtle); }
+	.uc-caps { display:flex; flex-wrap:wrap; gap:0.4rem; margin-top:0.2rem; }
+	.uc-cap {
+		display:inline-flex; align-items:center; gap:0.3rem; padding:0.25rem 0.7rem;
+		border-radius:999px; font-size:0.88rem; font-weight:700;
+		background:rgba(0,120,212,0.1); color:var(--theme-text);
+		border:1.5px solid rgba(0,120,212,0.4); opacity:0;
+	}
+
+	/* ── CONTROLS · icon dock ──────────────── */
+	#controls {
+		position:fixed; bottom:14px; left:50%; transform:translateX(-50%); z-index:40;
+		display:flex; align-items:center; gap:5px; padding:5px 7px;
+		background:var(--theme-body-background-translucent, rgba(255,255,255,0.82));
+		backdrop-filter:blur(12px) saturate(1.4); -webkit-backdrop-filter:blur(12px) saturate(1.4);
+		border:1px solid var(--theme-border); border-radius:999px;
+		box-shadow: 0 8px 26px rgba(0,0,0,0.18); font-size:13px;
+	}
+	body.theme-dark #controls { background:var(--theme-body-background-translucent, rgba(32,32,36,0.82)); }
+	#controls .ctrl-icon {
+		width:2.15rem; height:2.15rem; min-width:0; padding:0;
+		display:inline-flex; align-items:center; justify-content:center;
+		border-radius:50%; font-size:0.95rem; line-height:1; font-weight:600;
+		transition:background 0.18s ease, color 0.18s ease, transform 0.12s ease, box-shadow 0.18s ease;
+	}
+	#controls .ctrl-icon:hover { transform:translateY(-1px); }
+	#controls .ctrl-icon:active { transform:scale(0.92); }
+	#controls .ctrl-icon-next {
+		width:2.55rem; height:2.55rem; font-size:1.1rem;
+		box-shadow:0 2px 8px var(--theme-primary-translucent, rgba(0,120,212,0.45));
+	}
+	.step-counter {
+		min-width:52px; text-align:center; font-variant-numeric:tabular-nums;
+		font-size:14px; font-weight:700; color:var(--theme-text);
+		padding:0 6px; white-space:nowrap; letter-spacing:0.02em;
+	}
+	.ctrl-sep { width:1px; align-self:stretch; margin:4px 2px; background:var(--theme-border); }
+	/* Movable dock: drag handle + pin-to-center button */
+	.ctrl-grip {
+		display:inline-flex; align-items:center; justify-content:center;
+		width:1.5rem; height:2.15rem; padding:0; border:none; background:transparent;
+		color:var(--theme-text-subtle); border-radius:8px; cursor:grab; touch-action:none;
+		transition:background 0.18s ease, color 0.18s ease;
+	}
+	.ctrl-grip:hover { color:var(--theme-text); background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); }
+	.ctrl-grip:active { cursor:grabbing; }
+	.ctrl-grip svg { width:13px; height:16px; pointer-events:none; }
+	body.controls-floating .ctrl-grip { color:var(--theme-primary,#0078d4); }
+	#controls .ctrl-pin { display:none; color:var(--theme-primary,#0078d4); }
+	#controls .ctrl-pin svg { width:15px; height:15px; pointer-events:none; }
+	body.controls-floating #controls .ctrl-pin { display:inline-flex; }
+	body.controls-floating #controls { box-shadow:0 10px 30px rgba(0,0,0,0.30), 0 0 0 1.5px var(--theme-primary,#0078d4); }
+	.speed-control { display:inline-flex; align-items:center; gap:1px; padding:2px 3px; border:1px solid var(--theme-border); border-radius:999px; }
+	.speed-control .speed-btn {
+		width:1.7rem; height:1.7rem; min-width:0; padding:0;
+		display:inline-flex; align-items:center; justify-content:center;
+		font-size:0.95rem; font-weight:700; border-radius:50%;
+	}
+	.speed-control .speed-btn[disabled] { opacity:0.4; cursor:not-allowed; }
+	.speed-label { min-width:2.4rem; text-align:center; font-variant-numeric:tabular-nums; font-size:0.82rem; font-weight:700; color:var(--theme-text); }
+
+	#callout-toggle, #outline-toggle, #audio-toggle { border:1px solid var(--theme-border); border-radius:4px; transition:background .2s,color .2s,border-color .2s,opacity .2s; }
+	#callout-toggle.toggle-active, #outline-toggle.toggle-active, #audio-toggle.toggle-active {
+		background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary,#0078d4); border-color:var(--theme-primary,#0078d4); font-weight:600;
+	}
+	#callout-toggle:not(.toggle-active), #outline-toggle:not(.toggle-active), #audio-toggle:not(.toggle-active) { opacity:0.6; }
+
+	/* ── HIDE/SHOW TOP BAR ─────────────────── */
+	#header-hide { display:inline-flex; align-items:center; justify-content:center; width:2rem; height:2rem; padding:0; border:1px solid var(--theme-border); border-radius:50%; color:var(--theme-text-subtle); transition:background .2s,color .2s,transform .18s; }
+	#header-hide:hover { color:var(--theme-text); transform:translateY(-1px); }
+	#header-hide svg { width:16px; height:16px; }
+	#header-hide-top { display:inline-flex; align-items:center; justify-content:center; width:2rem; height:2rem; padding:0; border:1px solid var(--theme-border); border-radius:50%; color:var(--theme-text-subtle); background:transparent; cursor:pointer; transition:background .2s,color .2s,transform .18s; }
+	#header-hide-top:hover { color:var(--theme-text); transform:translateY(-1px); }
+	#header-hide-top svg { width:16px; height:16px; }
+	body.chrome-hidden .app-header, body.chrome-hidden .progress-track { display:none; }
+	#header-reveal {
+		position:fixed; top:0; left:50%; transform:translateX(-50%) translateY(-100%); z-index:45;
+		display:inline-flex; align-items:center; gap:0.35rem; padding:5px 14px 6px; font-size:12px; font-weight:600; line-height:1;
+		color:var(--theme-text-subtle); background:var(--theme-body-background-translucent, rgba(255,255,255,0.88));
+		backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border:1px solid var(--theme-border); border-top:none; border-radius:0 0 12px 12px;
+		box-shadow:0 4px 14px rgba(0,0,0,0.14); cursor:pointer; transition:transform .28s cubic-bezier(0.2,0.7,0.3,1), color .2s, background .2s;
+	}
+	body.theme-dark #header-reveal { background:var(--theme-body-background-translucent, rgba(32,32,36,0.88)); }
+	#header-reveal:hover { color:var(--theme-text); }
+	body.chrome-hidden #header-reveal { transform:translateX(-50%) translateY(0); }
+	#header-reveal svg { width:14px; height:14px; }
+
+	/* ── PLAYER OVERLAY · pills inside the stage frame (YouTube-style) ──
+	   Two translucent pills float over the 16:9 frame: LEFT = "view options"
+	   (callout / outline / shortcuts), RIGHT = "player" (audio / captions / hide-bar / fullscreen). */
+	.stage-overlay {
+		position:absolute; right:12px; bottom:10px; z-index:25;
+		display:flex; align-items:center; gap:2px;
+		padding:3px 6px; border-radius:999px;
+		background:rgba(16,18,24,0.58);
+		backdrop-filter:blur(9px) saturate(1.3); -webkit-backdrop-filter:blur(9px) saturate(1.3);
+		box-shadow:0 4px 16px rgba(0,0,0,0.32);
+	}
+	.ovl-btn {
+		-webkit-appearance:none; appearance:none; margin:0; font:inherit;
+		display:inline-flex; align-items:center; justify-content:center; gap:4px;
+		min-width:30px; height:30px; padding:0 8px;
+		border:none !important; border-radius:999px !important;
+		background:transparent !important; color:#fff !important;
+		box-shadow:none !important; cursor:pointer; line-height:1;
+		font-size:0.82rem; font-weight:700; opacity:0.92; transition:background .15s ease, opacity .15s ease;
+	}
+	.ovl-btn:hover { background:rgba(255,255,255,0.16) !important; opacity:1; }
+	.ovl-btn:disabled { opacity:0.4; cursor:not-allowed; }
+	.ovl-btn svg { width:18px; height:18px; fill:currentColor; display:block; }
+	.ovl-btn.on { color:#5cc8ff !important; }
+	.stage-overlay #audio-toggle { opacity:1 !important; }
+	.stage-overlay .aw-audio-ico { font-size:1rem; line-height:1; }
+	.stage-overlay .aw-audio-time { font-size:0.78rem; font-variant-numeric:tabular-nums; letter-spacing:0.02em; opacity:0.95; min-width:2.4em; text-align:left; }
+	#cc-toggle svg { width:20px; height:20px; }
+	.ovl-btn .fs-exit { display:none; }
+	body.is-fs .ovl-btn .fs-enter { display:none; }
+	body.is-fs .ovl-btn .fs-exit { display:block; }
+
+	/* ── LEFT VIEW-OPTIONS PILL · Callout / Outline / Shortcuts (icon + hover tip) ── */
+	.stage-overlay-left { right:auto; left:12px; }
+	#stage-overlay-left .ovl-btn:not(.toggle-active) { opacity:0.86; }
+	#stage-overlay-left .ovl-btn.toggle-active { color:#5cc8ff !important; opacity:1; }
+	#stage-overlay-left .ovl-btn:hover { opacity:1; }
+	/* Hover tooltip shown above the icon (left-anchored so it never clips the frame edge) */
+	.ovl-btn[data-tip] { position:relative; }
+	.ovl-btn[data-tip]::after { content:attr(data-tip); position:absolute; left:0; bottom:calc(100% + 9px); transform:translateY(4px); padding:4px 8px; border-radius:6px; background:rgba(16,18,24,0.96); color:#fff; font-size:0.72rem; font-weight:600; white-space:nowrap; letter-spacing:0.01em; opacity:0; pointer-events:none; box-shadow:0 3px 12px rgba(0,0,0,0.45); transition:opacity .14s ease, transform .14s ease; z-index:40; }
+	.ovl-btn[data-tip]::before { content:''; position:absolute; left:13px; bottom:calc(100% + 4px); border:5px solid transparent; border-top-color:rgba(16,18,24,0.96); opacity:0; pointer-events:none; transition:opacity .14s ease; z-index:40; }
+	.ovl-btn[data-tip]:hover::after { opacity:1; transform:translateY(0); }
+	.ovl-btn[data-tip]:hover::before { opacity:1; }
+
+	/* ── CAPTION · overlaid inside the frame, draggable + resizable, stays solid (not see-through) ── */
+	#aw-caption {
+		position:absolute; left:50%; transform:translateX(-50%); bottom:56px; z-index:24;
+		max-width:92%; min-width:140px; min-height:38px; max-height:44%;
+		display:none; align-items:center; justify-content:center; text-align:center;
+		padding:0.42rem 0.95rem; border-radius:9px;
+		background:rgba(8,9,13,0.8); color:#fff;
+		font-size:1.1rem; line-height:1.36; font-weight:600;
+		box-shadow:0 3px 14px rgba(0,0,0,0.42); pointer-events:auto; cursor:grab; touch-action:none;
+		overflow:auto; resize:both;   /* user can reshape the caption; corner grip = resize */
+	}
+	#aw-caption:active { cursor:grabbing; }
+	#aw-caption::-webkit-resizer { background:linear-gradient(135deg, transparent 45%, rgba(255,255,255,0.55) 45%, rgba(255,255,255,0.55) 55%, transparent 55%); }
+	body.cc-on #aw-caption.has-text { display:flex; }
+	@media (max-width:640px){ #aw-caption { font-size:0.94rem; bottom:48px; max-width:90%; } }
+
+	/* ── OUTLINE PANEL · draggable + slightly see-through ── */
+	#step-outline {
+		position:fixed; top:4.5rem; right:1rem; width:320px; max-height:calc(100vh - 8rem); overflow-y:auto;
+		padding:1.1rem; background:var(--theme-body-background);
+		background:color-mix(in srgb, var(--theme-body-background) 85%, transparent);
+		-webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
+		border:1px solid var(--theme-border);
+		border-radius:6px; box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2)); z-index:35; font-size:1rem; line-height:1.55;
+		cursor:grab; touch-action:none;
+	}
+	#step-outline:active { cursor:grabbing; }
+	#step-outline[hidden] { display:none; }
+	#step-outline h2 { font-size:0.85rem; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--theme-tertiary,#5c2d91); margin-bottom:0.5rem; }
+	#step-outline .outline-section { margin-top:0.6rem; padding-top:0.6rem; border-top:1px solid var(--theme-border); }
+	#step-outline .outline-section:first-child { margin-top:0; padding-top:0; border-top:0; }
+	#step-outline .stat-row { display:flex; justify-content:space-between; align-items:baseline; gap:0.75rem; padding:0.2rem 0; }
+	#step-outline .stat-row span:first-child { color:var(--theme-text-subtle); flex:0 0 auto; max-width:45%; }
+	#step-outline .stat-row span:last-child { text-align:right; font-weight:600; color:var(--theme-tertiary,#5c2d91); flex:1 1 auto; }
+
+	.progress-track { position:relative; height:6px; background:var(--theme-border, #e0e0e0); flex-shrink:0; cursor:pointer; }
+	.progress-fill { position:absolute; left:0; top:0; bottom:0; width:0%; background:var(--aw-purple, #5c2d91); transition:width .5s cubic-bezier(0.2,0.8,0.2,1); pointer-events:none; }
+	.progress-tick { position:absolute; top:0; bottom:0; width:2px; margin-left:-1px; background:var(--theme-body-background); opacity:0.6; pointer-events:none; }
+
+	/* ── THEME / LANG / FONT CONTROLS ──────── */
+	.theme-toggle { display:inline-flex; align-items:center; justify-content:center; width:2.25rem; height:2.25rem; padding:0; margin-inline-start:0.25rem; background:transparent; border:1px solid var(--theme-border); border-radius:999px; color:var(--theme-text); cursor:pointer; transition:background .15s,color .15s,border-color .15s; }
+	.theme-toggle:hover { background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary); border-color:var(--theme-primary); }
+	.theme-toggle .theme-icon { display:none; }
+	.theme-toggle[data-theme="dark"] .icon-sun { display:block; }
+	.theme-toggle[data-theme="light"] .icon-moon { display:block; }
+	.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+	.skip-link { position:absolute; top:-100px; left:0.5rem; z-index:100; padding:0.5rem 1rem; background:var(--theme-primary); color:var(--theme-primary-invert,#fff); border-radius:4px; text-decoration:none; font-weight:600; }
+	.skip-link:focus { top:0.5rem; }
+	.header-back-link { display:inline-flex; align-items:center; gap:0.25rem; padding:0.2rem 0.6rem; font-size:0.8rem; font-weight:600; color:var(--theme-text-subtle); border:1px solid var(--theme-border); border-radius:999px; text-decoration:none; white-space:nowrap; transition:background .15s,color .15s,border-color .15s; }
+	.header-back-link:hover { color:var(--theme-primary); border-color:var(--theme-primary); background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); }
+	.lang-select {
+		appearance:none; -webkit-appearance:none; background:var(--theme-card-background,#fff); color:var(--theme-body-text,#333);
+		border:1px solid var(--theme-border, rgba(0,0,0,0.2)); border-radius:4px; padding:4px 24px 4px 8px;
+		font-size:0.8rem; font-family:'Segoe UI', sans-serif; cursor:pointer;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+		background-repeat:no-repeat; background-position:right 6px center; min-width:80px;
+	}
+	.lang-select:hover { border-color:var(--theme-primary, #0078d4); }
+	.lang-select:focus { outline:2px solid var(--theme-primary, #0078d4); outline-offset:1px; }
+	body.theme-dark .lang-select {
+		background-color:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); border-color:rgba(255,255,255,0.15);
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23aaa' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+	}
+	body.theme-dark .lang-select option { background:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); }
+	.font-size-controls { display:flex; align-items:center; gap:2px; }
+	.font-size-btn { background:var(--theme-card-background,#fff); color:var(--theme-body-text,#333); border:1px solid var(--theme-border, rgba(0,0,0,0.2)); border-radius:4px; padding:3px 8px; font-size:0.8rem; font-weight:700; font-family:'Segoe UI', sans-serif; cursor:pointer; line-height:1.2; transition:background .15s,border-color .15s; }
+	.font-size-btn:hover { border-color:var(--theme-primary, #0078d4); }
+	body.theme-dark .font-size-btn { background:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); border-color:rgba(255,255,255,0.15); }
+
+	/* Inline icons (crisp on any OS/projector — replaces raw emoji on stage) */
+	.ic { display:inline-flex; align-items:center; justify-content:center; vertical-align:-0.125em; }
+	.ic svg { width:1em; height:1em; fill:currentColor; display:block; }
+	.help-toggle svg { width:15px; height:15px; vertical-align:-2px; }
+
+	/* Keyboard shortcut overlay */
+	#shortcut-overlay { position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center; }
+	#shortcut-overlay[hidden] { display:none; }
+	.sc-backdrop { position:absolute; inset:0; background:rgba(0,0,0,0.5); -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px); }
+	.sc-panel { position:relative; z-index:1; width:min(430px,92vw); max-height:82vh; overflow:auto; padding:1.5rem 1.6rem; background:var(--theme-body-background); border:1px solid var(--theme-border); border-radius:16px; box-shadow:0 24px 70px rgba(0,0,0,0.4); }
+	.sc-panel h2 { margin:0 0 1rem; font-size:1.25rem; color:var(--theme-tertiary,#5c2d91); }
+	body.theme-dark .sc-panel h2 { color:#c9a5e8; }
+	.sc-close { position:absolute; top:0.7rem; right:0.7rem; width:2rem; height:2rem; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--theme-border); border-radius:50%; background:transparent; color:var(--theme-text-subtle); cursor:pointer; }
+	.sc-close:hover { color:var(--theme-text); border-color:var(--theme-primary,#0078d4); }
+	.sc-close svg { width:15px; height:15px; }
+	.sc-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:0.55rem; }
+	.sc-list li { display:flex; align-items:center; justify-content:space-between; gap:1rem; font-size:1rem; color:var(--theme-text); }
+	.sc-keys { display:inline-flex; gap:0.3rem; flex:none; }
+	.sc-panel kbd, .sc-hint kbd { font-family:'Cascadia Code','Consolas',monospace; font-size:0.82rem; line-height:1; padding:0.28rem 0.5rem; border-radius:6px; border:1px solid var(--theme-border); border-bottom-width:2px; background:var(--theme-card-background,#fff); color:var(--theme-text); }
+	body.theme-dark .sc-panel kbd, body.theme-dark .sc-hint kbd { background:rgba(255,255,255,0.08); }
+	.sc-hint { margin:1.1rem 0 0; font-size:0.85rem; color:var(--theme-text-subtle); text-align:center; }
+
+	@media (max-width:640px) { .app-header { font-size:0.95rem; } .scene-title { font-size:1.9rem; } #stage { padding:0.9rem 1rem 4.5rem; } }
+	@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition:none !important; animation:none !important; } .progress-fill { transition:none !important; } }
+	/* ══════════════ AI-500 KIT · shared by every AI-500 page ══════════════ */
+	:root {
+		/* One accent per floor/domain, reused on every page. --fN fills, --fNt text-safe, --fNb deep fills that carry white text */
+		--f1:#0078d4; --f2:#00b7c3; --f3:#8661c5; --f4:#ff8c00;
+		--f1t:#005a9e; --f2t:#00707a; --f3t:#6b46b0; --f4t:#a24f00;
+		--f1b:#0a5299; --f2b:#0a6c76; --f3b:#6240a8; --f4b:#a24f00;
+		--ai5-surface:#ffffff; --ai5-ok:#107c10; --ai5-bad:#c4314b; --ai5-warn:#a24f00;
+		--ai5-line:rgba(60,60,80,0.38);
+	}
+	body.theme-dark {
+		--f1t:#6cb2f5; --f2t:#4fd6e0; --f3t:#b79ce8; --f4t:#ffb066;
+		--ai5-surface:#2a2b34; --ai5-ok:#57d977; --ai5-bad:#ff7a90; --ai5-warn:#ffb066;
+		--ai5-line:rgba(220,220,240,0.42);
+	}
+	.fl1 { --tone:var(--f1); --toneT:var(--f1t); --toneB:var(--f1b); }
+	.fl2 { --tone:var(--f2); --toneT:var(--f2t); --toneB:var(--f2b); }
+	.fl3 { --tone:var(--f3); --toneT:var(--f3t); --toneB:var(--f3b); }
+	.fl4 { --tone:var(--f4); --toneT:var(--f4t); --toneB:var(--f4b); }
+
+	.scene.ai5 { gap:1.1rem; width:1150px; }
+	.scene.ai5 .scene-lead { max-width:1100px; }
+	.scene.ai5 .scene-title { font-weight:600; }
+	.ai5-board { position:relative; flex:none; }
+	.ai5-board > svg { position:absolute; left:0; top:0; width:100%; height:100%; overflow:visible; pointer-events:none; }
+	.ai5-pos { position:absolute; width:0; height:0; }
+	.ai5-in { position:absolute; left:0; top:0; transform:translate(-50%,-50%); }
+
+	/* Agent cast — the same six characters on every page */
+	.ai5-ag { position:relative; width:var(--ag,76px); height:var(--ag,76px); }
+	.ai5-ag-ic { width:100%; height:100%; border-radius:50%; display:grid; place-items:center;
+		background:var(--ai5-surface); border:3px solid var(--ac); color:var(--ac); box-shadow:0 6px 18px rgba(0,0,0,0.2); }
+	.ai5-ag-ic .ic { font-size:calc(var(--ag,76px) * 0.5); }
+	/* the label hangs OUTSIDE the badge so coordinates always refer to the badge centre */
+	.ai5-ag-l { position:absolute; top:100%; left:50%; transform:translateX(-50%); margin-top:0.4rem; white-space:nowrap;
+		font-size:1rem; font-weight:600; text-align:center; line-height:1.2; color:var(--theme-text); }
+	.ai5-ag.is-top .ai5-ag-l { top:auto; bottom:100%; margin-top:0; margin-bottom:0.4rem; }
+	.ag-solo   { --ac:#0067b8; } .ag-orch  { --ac:#6a3fb5; } .ag-intake { --ac:#0067b8; }
+	.ag-policy { --ac:#0b7a60; } .ag-fraud { --ac:#c4314b; } .ag-payout { --ac:#b4530d; } .ag-human { --ac:#b02c8a; }
+	body.theme-dark .ag-solo { --ac:#6cb2f5; } body.theme-dark .ag-orch { --ac:#b79ce8; } body.theme-dark .ag-intake { --ac:#6cb2f5; }
+	body.theme-dark .ag-policy { --ac:#4fd6a8; } body.theme-dark .ag-fraud { --ac:#ff7a90; } body.theme-dark .ag-payout { --ac:#ffb066; } body.theme-dark .ag-human { --ac:#f08ad0; }
+
+	/* On-screen headline pill — the ONE line of burned-in text per step */
+	.ai5-say { display:inline-flex; align-items:center; gap:0.6rem; padding:0.6rem 1.4rem; border-radius:999px; opacity:0;
+		font-size:1.25rem; font-weight:600; color:var(--theme-text); background:var(--ai5-surface);
+		border:2px solid var(--theme-tertiary,#5c2d91); box-shadow:0 6px 20px rgba(0,0,0,0.16); text-align:center; }
+	.ai5-say .ic { font-size:1.4rem; color:var(--theme-tertiary,#5c2d91); }
+	body.theme-dark .ai5-say .ic { color:#c9a5e8; }
+
+	.ai5-pnl { border:1.5px solid var(--theme-border); border-radius:14px; background:var(--theme-card-background,#fff);
+		box-shadow:0 8px 26px rgba(0,0,0,0.14); padding:1rem 1.2rem; opacity:0; }
+	body.theme-dark .ai5-pnl { background:rgba(255,255,255,0.05); }
+	.ai5-pnl-h { font-size:0.95rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--theme-text-subtle); margin:0 0 0.6rem; }
+	.ai5-tag { display:inline-flex; align-items:center; gap:0.4rem; padding:0.3rem 0.85rem; border-radius:999px; font-size:0.92rem; font-weight:500;
+		border:1.5px solid var(--toneT,var(--theme-border)); color:var(--theme-text); background:color-mix(in srgb, var(--tone,#888) 14%, transparent); opacity:0; }
+	.ai5-tag .ic { color:var(--toneT,currentColor); }
+	.ai5-row { display:flex; flex-wrap:wrap; gap:0.55rem; justify-content:center; }
+
+	/* Floor bar — a deep fill that always carries white text */
+	.ai5-fl { position:absolute; display:flex; align-items:center; justify-content:center; gap:1.1rem; border-radius:12px; color:#fff;
+		background:var(--toneB); box-shadow:0 6px 18px rgba(0,0,0,0.22); overflow:hidden; white-space:nowrap; }
+	.ai5-fl .n { font-size:1rem; font-weight:500; padding:0.15rem 0.6rem; border-radius:8px; background:rgba(0,0,0,0.28); }
+	.ai5-fl .v { font-size:1.5rem; font-weight:600; }
+	.ai5-fl .d { font-size:1.02rem; font-weight:400; opacity:0.92; }
+
+	/* Claim card (Contoso Insurance) */
+	.ai5-claim { width:74px; height:52px; border-radius:7px; background:var(--ai5-surface); border:1.5px solid var(--ai5-line);
+		box-shadow:0 3px 8px rgba(0,0,0,0.2); padding:8px 9px; display:flex; flex-direction:column; gap:5px; }
+	.ai5-claim i { display:block; height:5px; border-radius:3px; background:var(--ai5-line); }
+	.ai5-claim i:first-child { width:55%; background:#0078d4; opacity:0.75; }
+	.ai5-claim.is-ok::after { content:'\2713'; position:absolute; right:-9px; top:-9px; width:22px; height:22px; border-radius:50%;
+		background:var(--ai5-ok); color:#fff; font-size:0.9rem; line-height:22px; text-align:center; font-weight:700; }
+	.ai5-claim { position:relative; }
+
+	/* Question marks on connectors */
+	.ai5-q { width:34px; height:34px; border-radius:50%; display:grid; place-items:center; font-size:1.1rem; font-weight:700;
+		background:var(--ai5-surface); color:var(--ai5-warn); border:2px solid var(--ai5-warn); }
+
+	@keyframes ai5Glow { 0%,100% { box-shadow:0 0 0 0 rgba(138,92,214,0.0), 0 8px 24px rgba(0,0,0,0.25); } 50% { box-shadow:0 0 0 10px rgba(138,92,214,0.25), 0 8px 24px rgba(0,0,0,0.25); } }
+	.ai5-glow { animation:ai5Glow 2.2s ease-in-out infinite; }
+	.ai5-next { display:inline-flex; align-items:center; gap:0.6rem; padding:0.55rem 1.3rem; border-radius:999px; text-decoration:none; opacity:0;
+		font-size:1.05rem; font-weight:600; color:#fff; background:var(--aw-purple,#5c2d91); border:2px solid transparent; }
+	.ai5-next:hover { filter:brightness(1.12); }
+	.ai5-foot a { color:var(--f1t); font-weight:600; }
+
+	/* ══════════════ RecoveryObjectives ══════════════ */
+	.ai5-tag { opacity:1; font-size:0.95rem; white-space:nowrap; }
+	.ai5-tag img { max-width:none; flex:none; }
+	.ai5-foot { font-size:1.05rem; }
+	.p5-end { display:flex; align-items:center; justify-content:center; gap:1.1rem; flex-wrap:wrap; max-width:1100px; }
+
+	/* shared card + chips */
+	.p5-c2 { position:absolute; box-sizing:border-box; padding:16px 20px; border-radius:14px; border:2px solid var(--toneT); background:var(--ai5-surface);
+		box-shadow:0 6px 18px rgba(0,0,0,0.16); display:flex; flex-direction:column; justify-content:center; gap:0.5rem; }
+	.p5-c2.is-dash { border-style:dashed; }
+	.p5-c2 .t { display:flex; align-items:center; gap:0.6rem; font-size:1.35rem; font-weight:600; color:var(--theme-text); }
+	.p5-c2 .t .ic { font-size:1.6rem; color:var(--toneT); }
+	.p5-c2 p { margin:0; font-size:1.05rem; line-height:1.4; color:var(--theme-text); }
+	.p5-coins { display:inline-flex; gap:0.2rem; }
+	.p5-coins .ic { font-size:1.45rem; color:var(--toneT); }
+	.p5-coins .ic.off { opacity:0.25; }
+	.p5-chip { font-size:1rem; padding:0.4rem 1rem; }
+
+	/* 1 · objectives */
+	.p5-ep { display:flex; flex-direction:column; align-items:center; }
+	.p5-eptag { display:inline-flex; align-items:center; gap:0.4rem; padding:0.3rem 0.85rem; border-radius:999px; white-space:nowrap; font-size:0.95rem; font-weight:500;
+		background:var(--ai5-surface); border:2px solid var(--toneT); color:var(--theme-text); }
+	.p5-eptag .ic { color:var(--toneT); }
+	.p5-ep i { display:block; width:3px; height:36px; margin-top:2px; border-radius:2px; background:var(--toneT); }
+	.p5-ep.is-bad .p5-eptag { border-color:var(--ai5-bad); }
+	.p5-ep.is-bad .p5-eptag .ic { color:var(--ai5-bad); }
+	.p5-ep.is-bad i { background:var(--ai5-bad); }
+	.p5-bar { position:absolute; box-sizing:border-box; display:flex; align-items:center; justify-content:center; border-radius:10px; font-size:1.3rem; font-weight:600; }
+	.p5-bar.rpo { background:var(--toneB); color:#fff; }
+	.p5-bar.rto { background:var(--ai5-surface); color:var(--theme-text); border:3px solid var(--toneT); }
+	.p5-costl { position:absolute; display:flex; align-items:center; justify-content:flex-end; gap:0.45rem; font-size:1.05rem; font-weight:600; color:var(--theme-text); }
+	.p5-costl .ic { font-size:1.4rem; color:var(--toneT); }
+	.p5-track { position:absolute; box-sizing:border-box; border-radius:13px; border:2px solid var(--ai5-line); overflow:hidden; background:var(--ai5-surface); }
+	.p5-fill { position:absolute; left:0; top:0; bottom:0; width:28%; background:var(--toneB); }
+
+	/* 2 · tiers */
+	.p5-band { position:absolute; box-sizing:border-box; display:flex; align-items:center; justify-content:center; border-radius:12px; background:var(--toneB); color:#fff; font-size:1.15rem; font-weight:600; }
+	.p5-wk { position:absolute; box-sizing:border-box; padding:18px 18px 16px; display:flex; flex-direction:column; align-items:center; gap:0.3rem; text-align:center;
+		border-radius:16px; border:2px solid var(--toneT); background:var(--ai5-surface); box-shadow:0 6px 18px rgba(0,0,0,0.16); }
+	.p5-wk .top { height:56px; display:grid; place-items:center; }
+	.p5-bigic .ic { font-size:3rem; color:var(--toneT); }
+	.p5-wk .nm { font-size:1.2rem; font-weight:600; margin:0.35rem 0 0.4rem; color:var(--theme-text); }
+	.p5-kv { width:100%; display:flex; flex-direction:column; align-items:center; gap:0.1rem; padding:0.55rem 0 0.2rem; border-top:1.5px solid var(--theme-border); }
+	.p5-kv .k { font-size:0.9rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--theme-text-subtle); }
+	.p5-kv .v { font-size:1.35rem; font-weight:600; color:var(--toneT); }
+
+	/* 3 · backup */
+	.p5-vp { position:absolute; box-sizing:border-box; padding:18px 22px; border-radius:16px; border:2px solid var(--toneT); background:var(--ai5-surface);
+		box-shadow:0 6px 18px rgba(0,0,0,0.16); display:flex; flex-direction:column; gap:1rem; }
+	.p5-vp .h { display:flex; align-items:center; gap:0.8rem; font-size:1.25rem; font-weight:600; color:var(--theme-text); }
+	.p5-vp .cs { flex:1; display:flex; flex-wrap:wrap; gap:0.8rem; justify-content:center; align-content:center; }
+	.p5-vp .p5-chip { font-size:1.1rem; padding:0.5rem 1.15rem; }
+	.p5-strip { position:absolute; box-sizing:border-box; padding:12px 22px 14px; border-radius:14px; border:2px solid var(--toneT); background:var(--ai5-surface);
+		box-shadow:0 6px 18px rgba(0,0,0,0.16); display:flex; flex-direction:column; gap:0.5rem; }
+	.p5-strip .ai5-pnl-h { color:var(--toneT); margin:0; }
+	.p5-strip .cs { display:flex; gap:0.8rem; justify-content:center; }
+
+	/* 4 · site recovery + 7 · hybrid frames */
+	.p5-reg { position:absolute; box-sizing:border-box; border-radius:16px; border:2px dashed var(--toneT); background:color-mix(in srgb, var(--tone) 7%, transparent); }
+	.p5-reg .h { position:absolute; left:20px; top:14px; font-size:0.95rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--toneT); }
+	.p5-vm { display:flex; flex-direction:column; align-items:center; gap:0.5rem; width:170px; text-align:center; font-size:1rem; font-weight:600; color:var(--theme-text); }
+	.p5-vm .bx { width:76px; height:76px; border-radius:16px; display:grid; place-items:center; background:var(--ai5-surface); border:2px solid var(--toneT); box-shadow:0 5px 14px rgba(0,0,0,0.16); }
+	.p5-badge { display:flex; flex-direction:column; align-items:center; gap:0.4rem; font-size:1rem; font-weight:600; color:var(--theme-text); white-space:nowrap; }
+	.p5-badge .bd { width:66px; height:66px; border-radius:50%; display:grid; place-items:center; background:var(--ai5-surface); border:3px solid var(--toneT); box-shadow:0 5px 14px rgba(0,0,0,0.2); }
+	.p5-badge .bd .ic { font-size:2rem; color:var(--toneT); }
+	.p5-plan { position:absolute; box-sizing:border-box; padding:12px 20px; border-radius:14px; border:2px solid var(--f3t); background:color-mix(in srgb, var(--f3) 7%, transparent); }
+	.p5-plan .ai5-pnl-h { margin:0; color:var(--f3t); }
+	.p5-step { display:inline-flex; align-items:center; gap:0.6rem; width:190px; box-sizing:border-box; padding:0.4rem 0.9rem 0.4rem 0.45rem; border-radius:999px; white-space:nowrap;
+		font-size:1rem; font-weight:500; color:var(--theme-text); background:var(--ai5-surface); border:2px solid var(--f3t); }
+	.p5-step b { flex:none; width:28px; height:28px; border-radius:50%; display:grid; place-items:center; font-size:0.95rem; font-weight:600; color:#fff; background:var(--f3b); }
+	.p5-x { width:44px; height:44px; border-radius:50%; display:grid; place-items:center; font-size:1.3rem; background:var(--ai5-surface); border:3px solid var(--ai5-bad); color:var(--ai5-bad); }
+
+	/* 5 · decision */
+	.p5-q { position:absolute; box-sizing:border-box; padding:18px 20px; border-radius:16px; border:2px solid var(--toneT); background:var(--ai5-surface); box-shadow:0 6px 18px rgba(0,0,0,0.16);
+		display:flex; flex-direction:column; justify-content:center; gap:0.5rem; }
+	.p5-q .ai5-pnl-h { color:var(--toneT); margin:0; }
+	.p5-q b { font-size:1.45rem; font-weight:600; line-height:1.25; color:var(--theme-text); }
+	.p5-opt { position:absolute; box-sizing:border-box; padding:16px 22px; border-radius:16px; border:2.5px solid var(--toneT); background:var(--ai5-surface); box-shadow:0 6px 18px rgba(0,0,0,0.16);
+		display:flex; flex-direction:column; justify-content:center; gap:0.35rem; }
+	.p5-opt .h { display:flex; align-items:center; gap:0.8rem; font-size:1.3rem; font-weight:600; color:var(--theme-text); margin-bottom:0.2rem; }
+	.p5-opt p { margin:0; font-size:1.02rem; color:var(--theme-text); }
+	.p5-oic .ic { font-size:2.4rem; color:var(--toneT); }
+	.p5-lab { position:absolute; box-sizing:border-box; display:flex; align-items:center; gap:0.7rem; padding:0 16px; border-radius:12px; background:var(--ai5-surface); border:2px solid var(--f3t);
+		font-size:1.05rem; font-weight:600; color:var(--theme-text); }
+	.p5-sic .ic { font-size:1.6rem; color:var(--f3t); }
+	.p5-pick { display:inline-flex; align-items:center; gap:0.5rem; padding:0.45rem 1.2rem; border-radius:999px; white-space:nowrap; font-size:1rem; font-weight:500; }
+	.p5-pick.is-on { background:var(--toneB); color:#fff; border:2px solid var(--toneB); }
+	.p5-pick.is-off { border:2px dashed var(--ai5-line); color:var(--theme-text); background:var(--ai5-surface); }
+
+	/* 6 · second copy */
+	.p5-rc { position:absolute; box-sizing:border-box; padding:18px 18px 16px; border-radius:16px; border:2px solid var(--toneT); background:var(--ai5-surface); box-shadow:0 6px 18px rgba(0,0,0,0.16);
+		display:flex; flex-direction:column; gap:0.7rem; }
+	.p5-rc .t { display:flex; align-items:center; justify-content:space-between; font-size:1.25rem; color:var(--theme-text); }
+	.p5-rc .t b { font-weight:600; }
+	.p5-rc .sv { display:flex; flex-direction:column; gap:0.15rem; }
+	.p5-rc .sv .k { font-size:0.9rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--theme-text-subtle); }
+	.p5-rc .sv b { font-size:1.12rem; font-weight:600; color:var(--theme-text); line-height:1.3; }
+	.p5-rc .bt { display:flex; align-items:center; justify-content:space-between; margin-top:auto; }
+	.p5-rc .ring { position:absolute; inset:-7px; border-radius:22px; border:4px solid var(--toneT); pointer-events:none; }
+	.p5-dg { position:relative; width:300px; height:140px; align-self:center; }
+	.p5-dg .rl { position:absolute; top:0; font-size:0.9rem; font-weight:600; color:var(--theme-text-subtle); }
+	.p5-dg .rf { position:absolute; top:22px; height:116px; box-sizing:border-box; border-radius:12px; border:2px solid var(--ai5-line); }
+	.p5-dg .rf.is-empty { border-style:dashed; }
+	.p5-dg .zn { position:absolute; top:16px; width:54px; height:84px; box-sizing:border-box; border-radius:8px; border:2px solid var(--toneT); background:color-mix(in srgb, var(--tone) 10%, transparent);
+		display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px; }
+	.p5-dg .sq { display:block; width:22px; height:14px; border-radius:3px; background:var(--toneB); }
+	.p5-pickbadge { display:inline-flex; align-items:center; gap:0.4rem; padding:0.3rem 0.95rem; border-radius:999px; white-space:nowrap; font-size:0.95rem; font-weight:600; color:#fff; background:var(--toneB); box-shadow:0 4px 12px rgba(0,0,0,0.25); }
+
+	/* 7 · hybrid */
+	.p5-nd { box-sizing:border-box; display:flex; align-items:center; justify-content:center; gap:0.7rem; padding:0.85rem 1rem; min-height:72px; border-radius:14px; text-align:center;
+		font-size:1.05rem; font-weight:600; color:var(--theme-text); background:var(--ai5-surface); border:2px solid var(--f3t); box-shadow:0 5px 14px rgba(0,0,0,0.16); }
+	.p5-nd .ic { font-size:1.7rem; color:var(--f3t); }
+	.p5-nd.is-hop { border-color:var(--f1t); }
+	.p5-nd.is-hop .ic { color:var(--f1t); }
+	.p5-nd.is-big { flex-direction:column; gap:0.35rem; border-color:var(--f1t); }
+	.p5-nd.is-big b { font-size:1.2rem; font-weight:600; }
+	.p5-nd .sub { font-size:1rem; font-weight:400; color:var(--theme-text-subtle); }
+	.p5-nd.fl4 { border-color:var(--f4t); }
+	.p5-lchip { display:inline-flex; align-items:center; gap:0.45rem; padding:0.35rem 0.95rem; border-radius:999px; white-space:nowrap; font-size:0.95rem; font-weight:600; color:var(--theme-text);
+		background:var(--ai5-surface); border:2px solid var(--toneT); }
+	.p5-lchip .ic { color:var(--toneT); }
+
+	/* 8 · whole */
+	.p5-row { position:absolute; box-sizing:border-box; display:grid; grid-template-columns:230px 1fr 34px 1fr; align-items:center; column-gap:14px; padding:0 22px 0 0; overflow:hidden;
+		border-radius:14px; border:2px solid var(--f3t); background:var(--ai5-surface); box-shadow:0 5px 14px rgba(0,0,0,0.14); }
+	.p5-row .tb { align-self:stretch; display:flex; flex-direction:column; justify-content:center; gap:0.2rem; padding:0 16px; background:var(--f3b); color:#fff; }
+	.p5-row .tb b { font-size:1.2rem; font-weight:600; }
+	.p5-row .tb span { font-size:0.95rem; }
+	.p5-row .ai5-tag { font-size:1rem; padding:0.4rem 1rem; }
+	.p5-row .wk, .p5-row .tl { display:flex; flex-wrap:wrap; gap:0.55rem; align-items:center; }
+	.p5-row .ar .ic { font-size:1.6rem; color:var(--f3t); }
+	.p5-oi { display:inline-flex; }
+	.p5-oi .ic { color:var(--f4t); }
+	.p5-sb { position:absolute; box-sizing:border-box; display:flex; align-items:center; justify-content:center; gap:0.7rem; padding:0 16px; border-radius:14px; border:2px dashed var(--f3t);
+		font-size:1.02rem; font-weight:500; color:var(--theme-text); background:color-mix(in srgb, var(--f3) 8%, transparent); }
+	.p5-sb .ic { font-size:1.5rem; color:var(--f3t); }
+
+</style>
+	<!-- SEO:START -->
+	<meta name="description" content="Design for recovery: RTO, RPO and the right tool. Explore AZ-305 · Design Azure infrastructure solutions with a step-by-step visual guide." />
+	<link rel="canonical" href="https://azureanimations.github.io/journeys/Architect/RecoveryObjectives.html" />
+	<meta name="robots" content="index, follow, max-image-preview:large" />
+	<meta property="og:type" content="website" />
+	<meta property="og:site_name" content="Azure Animations" />
+	<meta property="og:title" content="Design for recovery: RTO, RPO and the right tool — Azure Animations" />
+	<meta property="og:description" content="Design for recovery: RTO, RPO and the right tool. Explore AZ-305 · Design Azure infrastructure solutions with a step-by-step visual guide." />
+	<meta property="og:url" content="https://azureanimations.github.io/journeys/Architect/RecoveryObjectives.html" />
+	<meta property="og:image" content="https://azureanimations.github.io/img/favicon.png" />
+	<meta property="og:image:alt" content="Azure Animations" />
+	<meta name="twitter:card" content="summary" />
+	<meta name="twitter:title" content="Design for recovery: RTO, RPO and the right tool — Azure Animations" />
+	<meta name="twitter:description" content="Design for recovery: RTO, RPO and the right tool. Explore AZ-305 · Design Azure infrastructure solutions with a step-by-step visual guide." />
+	<meta name="twitter:image" content="https://azureanimations.github.io/img/favicon.png" />
+	<meta name="twitter:image:alt" content="Azure Animations" />
+	<script type="application/ld+json">
+	{"@context":"https://schema.org","@type":"WebPage","name":"Design for recovery: RTO, RPO and the right tool — Azure Animations","description":"Design for recovery: RTO, RPO and the right tool. Explore AZ-305 · Design Azure infrastructure solutions with a step-by-step visual guide.","url":"https://azureanimations.github.io/journeys/Architect/RecoveryObjectives.html","isPartOf":{"@type":"WebSite","name":"Azure Animations","url":"https://azureanimations.github.io/"},"breadcrumb":{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Azure Animations","item":"https://azureanimations.github.io/"},{"@type":"ListItem","position":2,"name":"AZ-305 · Design Azure infrastructure solutions","item":"https://azureanimations.github.io/journeys/Architect/"},{"@type":"ListItem","position":3,"name":"Design for recovery: RTO, RPO and the right tool","item":"https://azureanimations.github.io/journeys/Architect/RecoveryObjectives.html"}]}}
+	</script>
+	<!-- SEO:END -->
+</head>
+
+<body class="theme-dark" data-theme-preset="atlas">
+
+	<a href="#stage" class="skip-link">Skip to diagram</a>
+
+	<header class="app-header padding-block-xs padding-inline-md border-bottom" role="banner" style="justify-content:space-between;">
+		<div class="display-flex align-items-center gap-xs">
+			<!-- Set href to the previous animation in the journey, or the hub index.html -->
+			<a href="DesignMonitoring.html" class="header-back-link" aria-label="Logging and monitoring" title="Logging and monitoring">&larr; Logging and monitoring</a>
+			<span id="page-title" class="font-size-h6 font-weight-semibold">&#128260; Design for recovery: RTO, RPO and the right tool</span>
+		</div>
+		<nav class="display-flex gap-xs align-items-center" aria-label="Primary">
+			<span id="breadcrumb" class="font-size-sm color-text-subtle">Step 1</span>
+		</nav>
+		<div class="display-flex gap-xs align-items-center">
+			<!-- AW:lang --><select id="lang-select" class="lang-select" aria-label="Language" title="Language"><option value="en">English</option><option value="es">Español</option><option value="ja">日本語</option><option value="ko">한국어</option><option value="pt">Português</option></select><!-- /AW:lang -->
+			<div class="font-size-controls">
+				<button id="font-decrease" type="button" class="font-size-btn" aria-label="Decrease font size" title="Smaller text">A&minus;</button>
+				<button id="font-increase" type="button" class="font-size-btn" aria-label="Increase font size" title="Larger text">A+</button>
+			</div>
+			<!-- AW:theme --><button id="theme-toggle" type="button" class="theme-toggle" aria-label="Switch theme" title="Switch theme"><svg class="theme-icon icon-moon ico ico-moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path fill="currentColor" d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg><svg class="theme-icon icon-sun ico ico-sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.5" y1="4.5" x2="6.5" y2="6.5"/><line x1="17.5" y1="17.5" x2="19.5" y2="19.5"/><line x1="4.5" y1="19.5" x2="6.5" y2="17.5"/><line x1="17.5" y1="6.5" x2="19.5" y2="4.5"/></g></svg></button><!-- /AW:theme -->
+			<button id="header-hide-top" type="button" aria-label="Hide top bar" title="Hide top bar (H)">
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/></svg>
+			</button>
+		</div>
+	</header>
+
+	<button id="header-reveal" type="button" aria-label="Show top bar" title="Show top bar">
+		<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/></svg>
+		<span>Toolbar</span>
+	</button>
+
+	<div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
+
+	<main id="stage" tabindex="0" role="region" aria-labelledby="stage-heading" aria-describedby="stage-instructions">
+		<h1 id="stage-heading" class="sr-only" tabindex="-1">Design for recovery: RTO, RPO and the right tool</h1>
+		<p id="stage-instructions" class="sr-only">Animated explainer. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.</p>
+		<div id="step-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+		<!-- Fixed 16:9 stage. Every scene is drawn INSIDE this box; it always fits the viewport (no scrollbars). -->
+		<div id="stage-frame">
+			<svg id="fx-svg" aria-hidden="true" focusable="false">
+				<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L0,10 L10,5 Z" fill="currentColor"/></marker></defs>
+			</svg>
+			<!-- Caption bar (synced to the step's audio clip by aw-captions.js) -->
+			<div id="aw-caption" class="aw-caption" aria-hidden="true"></div>
+			<!-- LEFT pill · view options: callout / outline / shortcuts (icons; label shows as a hover tooltip) -->
+			<div id="stage-overlay-left" class="stage-overlay stage-overlay-left" role="group" aria-label="View options">
+				<button id="callout-toggle" type="button" class="ovl-btn" aria-label="Toggle callouts" aria-pressed="false" data-tip="Callouts: Off"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M4 5h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H10l-4 3v-3H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></svg></button>
+				<button id="outline-toggle" type="button" class="ovl-btn" aria-controls="step-outline" aria-expanded="false" aria-label="Toggle text outline" data-tip="Outline: Off"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" d="M4 6h16M4 12h16M4 18h10"/></svg></button>
+				<button id="help-toggle" class="ovl-btn help-toggle" type="button" aria-haspopup="dialog" aria-controls="shortcut-overlay" aria-label="Keyboard shortcuts (press ?)" data-tip="Shortcuts"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M11 18h2v-2h-2v2zm1.1-14C9.8 4 8 5.8 8 8h2a2 2 0 1 1 3.2 1.6c-.9.7-2.2 1.5-2.2 3.4h2c0-1 .8-1.5 1.7-2.2A4 4 0 0 0 12.1 4z"/></svg></button>
+			</div>
+			<!-- RIGHT pill · player: audio / captions / hide-top-bar / fullscreen -->
+			<div id="stage-overlay" class="stage-overlay" role="group" aria-label="Player controls">
+				<button id="audio-toggle" class="ovl-btn ovl-audio" type="button" aria-label="Toggle audio narration" aria-pressed="false" title="Narration audio"></button>
+				<button id="cc-toggle" class="ovl-btn" type="button" aria-label="Toggle captions" aria-pressed="false" title="Captions"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9.7 10.2a2.1 2.1 0 1 0 0 3.6M17 10.2a2.1 2.1 0 1 0 0 3.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+				<button id="header-hide" class="ovl-btn" type="button" aria-label="Hide top bar" title="Hide top bar (H)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/></svg></button>
+				<button id="fs-toggle" class="ovl-btn" type="button" aria-label="Toggle full screen" aria-pressed="false" title="Full screen (F)"><svg class="fs-enter" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg><svg class="fs-exit" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg></button>
+			</div>
+		</div>
+	</main>
+
+	<aside id="step-outline" hidden aria-label="Text outline of the current step">
+		<h2 id="outline-title">Step Details</h2>
+		<div id="outline-body"></div>
+	</aside>
+
+	<div id="controls" role="group" aria-label="Diagram navigation">
+		<button id="ctrl-grip" type="button" class="ctrl-grip" aria-label="Drag to move the controls" title="Drag to move">
+			<svg viewBox="0 0 16 16" aria-hidden="true"><g fill="currentColor"><circle cx="5" cy="3" r="1.4"/><circle cx="11" cy="3" r="1.4"/><circle cx="5" cy="8" r="1.4"/><circle cx="11" cy="8" r="1.4"/><circle cx="5" cy="13" r="1.4"/><circle cx="11" cy="13" r="1.4"/></g></svg>
+		</button>
+		<button id="ctrl-pin" type="button" class="button button-clear ctrl-icon ctrl-pin" aria-label="Pin the controls back to the center" title="Pin to center">
+			<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9 2h6a1 1 0 0 1 .8 1.6L14 6v4l3 3v2h-4v5l-1 2-1-2v-5H7v-2l3-3V6L8.2 3.6A1 1 0 0 1 9 2z"/></svg>
+		</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="prev-btn" type="button" class="button ctrl-icon" aria-label="Previous step (left arrow)">&#9664;</button>
+		<div class="step-counter" id="step-counter">0 / 0</div>
+		<button id="next-btn" type="button" class="button button-primary button-filled ctrl-icon ctrl-icon-next" aria-label="Next step (right arrow or space)">&#9654;</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="replay-btn" type="button" class="button ctrl-icon" aria-label="Replay this step's animation (P)">&#8635;</button>
+		<div class="speed-control" role="group" aria-label="Animation speed">
+			<button id="speed-down" type="button" class="button button-clear speed-btn" aria-label="Slower (-)" title="Slower">&minus;</button>
+			<span id="speed-label" class="speed-label" aria-live="polite" aria-label="Current speed">1&times;</span>
+			<button id="speed-up" type="button" class="button button-clear speed-btn" aria-label="Faster (+)" title="Faster">+</button>
+		</div>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="reset-btn" type="button" class="button button-clear ctrl-icon" aria-label="Restart from step 1 (R)">&#9198;</button>
+	</div>
+
+	<div id="shortcut-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="sc-title">
+		<div class="sc-backdrop"></div>
+		<div class="sc-panel">
+			<button id="sc-close" class="sc-close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
+			<h2 id="sc-title">Keyboard shortcuts</h2>
+			<ul id="sc-list" class="sc-list"></ul>
+			<p class="sc-hint">Press <kbd>?</kbd> anytime to toggle this panel.</p>
+		</div>
+	</div>
+
+<script>
+// ── THEME ─────────────────────────────────
+const themeToggleBtn = document.getElementById('theme-toggle');
+function syncThemeBtn(){
+	if (!themeToggleBtn) return;
+	const isDark = document.body.classList.contains('theme-dark');
+	themeToggleBtn.dataset.theme = isDark ? 'dark' : 'light';   // drives which glyph (sun/moon) shows
+	const label = isDark ? 'Switch to light theme' : 'Switch to dark theme';
+	themeToggleBtn.setAttribute('aria-label', label);
+	themeToggleBtn.setAttribute('title', label);
+}
+if (window.AW && AW.theme) {
+	// aw-theme.js owns click handling + persistence; theme recolors via CSS variables, so no re-render/replay.
+	AW.theme.onChange(() => { syncThemeBtn(); });
+	syncThemeBtn();
+} else {
+	// Standalone fallback: toggle .theme-dark / .theme-light on <body> ourselves.
+	syncThemeBtn();
+	if (themeToggleBtn) themeToggleBtn.addEventListener('click', () => {
+		const goingDark = !document.body.classList.contains('theme-dark');
+		document.body.classList.remove('theme-dark', 'theme-light');
+		document.body.classList.add(goingDark ? 'theme-dark' : 'theme-light');
+		try { localStorage.setItem('aw-theme', goingDark ? 'theme-dark' : 'theme-light'); } catch(_){}
+		syncThemeBtn();
+	});
+	// restore a previously chosen theme (standalone only)
+	try { const saved = localStorage.getItem('aw-theme'); if (saved === 'theme-light' || saved === 'theme-dark') { document.body.classList.remove('theme-dark','theme-light'); document.body.classList.add(saved); syncThemeBtn(); } } catch(_){}
+}
+
+// ── i18n ──────────────────────────────────
+// English is the source language. Add sibling objects (es/ja/ko/pt) with the
+// SAME keys + matching <option>s in #lang-select. Keep brand/code/proper-noun
+// sample data untranslated.
+let currentLang = 'en';
+		//  RTO / RPO definitions     https://learn.microsoft.com/azure/well-architected/reliability/metrics  (RE:04 reliability targets)
+		//  SLA is a commitment, not a guarantee   https://learn.microsoft.com/azure/reliability/concept-service-level-agreements  ("How to read a service-level agreement")
+		//  Azure Backup overview / workloads      https://learn.microsoft.com/azure/backup/backup-overview
+		//  Vault -> datasource matrix             https://learn.microsoft.com/azure/backup/backup-azure-backup-faq  (Recovery Services vault vs Backup vault)
+		//  Recovery Services vault (soft delete 14 days, Cross Region Restore)  https://learn.microsoft.com/azure/backup/backup-azure-recovery-services-vault-overview
+		//  Backup vault                           https://learn.microsoft.com/azure/backup/backup-vault-overview
+		//  Immutable vault (both vault types)     https://learn.microsoft.com/azure/backup/backup-azure-immutable-vault-concept
+		//  Site Recovery                          https://learn.microsoft.com/azure/site-recovery/site-recovery-overview
+		//  MARS agent / MABS                      https://learn.microsoft.com/azure/backup/backup-architecture
+const I18N = {
+	"en": {
+		"skipToMain": "Skip to diagram",
+		"pageTitle": "Design for recovery: RTO, RPO and the right tool",
+		"stageHeading": "Design for recovery: RTO, RPO and the right tool",
+		"stageInstructions": "Animated explainer. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.",
+		"prev": "◀ Prev",
+		"next": "Next ▶",
+		"replay": "↻ Replay",
+		"restart": "↻ Restart",
+		"slower": "Slower",
+		"faster": "Faster",
+		"calloutOn": "Callouts: On",
+		"calloutOff": "Callouts: Off",
+		"outlineOn": "Outline: On",
+		"outlineOff": "Outline: Off",
+		"audioTip": "Narration audio",
+		"ccTip": "Captions",
+		"shortcutsTip": "Shortcuts",
+		"stepDetails": "Step Details",
+		"stepOf": "Step",
+		"resetPos": "Reset to default position",
+		"scTitle": "Keyboard shortcuts",
+		"scNext": "Next step",
+		"scPrev": "Previous step",
+		"scRestart": "Restart",
+		"scReplay": "Replay this step",
+		"scHide": "Hide / show top bar",
+		"scHelp": "Toggle this help",
+		"nextData": "Up next: keep the data available",
+		"objectivesTitle": "Recovery objectives: RTO, RPO and SLA",
+		"objectivesCaption": "Objectives",
+		"objectivesDesc": "Contoso is asked how long the shop can be down. Two numbers answer that, and tighter numbers cost more.",
+		"objectivesCallout": "AZ-305 · Recommend a recovery solution that meets recovery objectives. RPO is the maximum data loss you accept, measured in time. RTO is the maximum downtime you accept. An SLA is a commitment about a service, not your own recovery target, so it never replaces RTO and RPO.",
+		"objectivesSay": "Tighter targets cost more.",
+		"epLast": "Last recovery point",
+		"epDisaster": "Disaster",
+		"epBack": "Back online",
+		"barRpo": "RPO",
+		"barRto": "RTO",
+		"costL": "Cost",
+		"cRpoT": "RPO",
+		"cRpoD": "How much data you can lose, measured in time.",
+		"cRtoT": "RTO",
+		"cRtoD": "How long you can be down, measured in time.",
+		"cSlaT": "SLA",
+		"cSlaD": "A Microsoft commitment for a service. Not your target.",
+		"tiersTitle": "Tier the workloads by what they cost to lose",
+		"tiersCaption": "Tiers",
+		"tiersDesc": "Not every workload needs minutes. Contoso sorts four workloads into tiers, and each tier gets its own targets.",
+		"tiersCallout": "AZ-305 · Recommend a recovery solution that meets recovery objectives. Each workload or flow can have its own RTO and RPO, so tiering avoids paying for minutes where hours will do. The targets shown are example Contoso business requirements, not Azure limits.",
+		"tiersSay": "Match the target to the tier.",
+		"tier1": "Tier 1 · Revenue",
+		"tier2": "Tier 2 · Important",
+		"tier3": "Tier 3 · Can wait",
+		"wkStore": "Storefront",
+		"wkOrders": "Order database",
+		"wkImages": "Product images",
+		"wkErp": "ERP batch job",
+		"lblRto": "RTO",
+		"lblRpo": "RPO",
+		"vMinutes": "Minutes",
+		"vNearZero": "Near zero",
+		"vHours": "Hours",
+		"vOneHour": "About 1 hour",
+		"vNextDay": "Next day",
+		"vOneNight": "One night",
+		"backupTitle": "Azure Backup: restore data from a point in time",
+		"backupCaption": "Azure Backup",
+		"backupDesc": "Backup keeps recovery points in a vault. Pick the vault type by what you protect, then add policy and protection.",
+		"backupCallout": "AZ-305 · Recommend a backup and recovery solution for compute, databases and unstructured data. A Recovery Services vault holds Azure VMs, SQL Server in Azure VMs, Azure Files and SAP HANA in Azure VMs. A Backup vault holds Azure Disks, Azure Blobs and Azure Database for PostgreSQL servers. Soft delete keeps a deleted backup for 14 more days in a Recovery Services vault, and an immutable vault blocks changes that would lose recovery points.",
+		"backupSay": "Pick the vault by workload.",
+		"vaultRs": "Recovery Services vault",
+		"vaultB": "Backup vault",
+		"srcVm": "Azure VMs",
+		"srcSqlVm": "SQL Server in a VM",
+		"srcFiles": "Azure Files",
+		"srcHana": "SAP HANA in a VM",
+		"srcDisks": "Azure Disks",
+		"srcBlobs": "Azure Blobs",
+		"srcPg": "PostgreSQL servers",
+		"protH": "Built-in protection",
+		"prPolicy": "Backup policy",
+		"prImmutable": "Immutable vault",
+		"prRbac": "Azure RBAC",
+		"prEnc": "Encrypted at rest",
+		"replicateTitle": "Azure Site Recovery: fail over the workload",
+		"replicateCaption": "Site Recovery",
+		"replicateDesc": "Site Recovery keeps a replica of running VMs in another region, so a disaster means failover, not rebuild.",
+		"replicateCallout": "AZ-305 · Recommend a recovery solution for Azure and hybrid workloads. Site Recovery replicates Azure VMs between regions, and on-premises VMware VMs, Hyper-V VMs and physical servers to Azure. Recovery plans sequence a multi-tier failover with optional scripts and manual actions. A test failover is a drill that does not disrupt ongoing replication.",
+		"replicateSay": "Replicate now, fail over later.",
+		"regPrimary": "Primary region",
+		"regSecondary": "Secondary region",
+		"vmStore": "Storefront VM",
+		"vmSql": "Order database VM",
+		"replLbl": "Site Recovery",
+		"planH": "Recovery plan",
+		"plan1": "Order database",
+		"plan2": "Storefront",
+		"plan3": "Manual check",
+		"testT": "Test failover",
+		"testD": "A drill that leaves replication alone.",
+		"decideTitle": "Backup or replication?",
+		"decideCaption": "The decision",
+		"decideDesc": "Backup restores data. Replication fails over a workload. The deciding question is whether you lost data or lost a site.",
+		"decideCallout": "Azure Backup focuses on data protection: backup and restore. Site Recovery adds failover for disaster recovery. Backup guards against accidental deletion, corruption and ransomware. Replication gets a workload running again quickly. Platform databases such as Azure SQL Database bring their own replication, which the next lesson covers.",
+		"decideSay": "Tier 1 needs both.",
+		"qH": "Deciding question",
+		"qT": "Lost data, or a lost site?",
+		"optBackup": "Azure Backup",
+		"optAsr": "Site Recovery",
+		"bkL1": "Restores data from a point in time",
+		"bkL2": "Slower to recover · lower cost",
+		"asL1": "Fails over a running workload",
+		"asL2": "Faster to recover · higher cost",
+		"chipBackup": "Backup",
+		"chipAsr": "Site Recovery",
+		"notNeeded": "Not needed",
+		"regionTitle": "Choose where the second copy lives",
+		"regionCaption": "Second copy",
+		"regionDesc": "The further the copy lives, the bigger the failure it survives, and the more it costs.",
+		"regionCallout": "A vault stores backups with LRS, ZRS or GRS. With GRS, the copy in the paired region normally opens only when Microsoft declares an outage in the primary region. Cross Region Restore lets you restore from that copy whenever you choose, which also supports drills.",
+		"regionSay": "Match the copy to the failure.",
+		"rgLrs": "Locally redundant",
+		"rgZrs": "Zone-redundant",
+		"rgGrs": "Geo-redundant",
+		"rgLrsS": "Hardware failure in one datacenter",
+		"rgZrsS": "Loss of one availability zone",
+		"rgGrsS": "Loss of a whole region",
+		"rgSurv": "Survives",
+		"rgA": "Region A",
+		"rgB": "Region B",
+		"z1": "Zone 1",
+		"z2": "Zone 2",
+		"z3": "Zone 3",
+		"rgCrr": "Cross Region Restore",
+		"rgPick": "Contoso Tier 1",
+		"hybridTitle": "Protect on-premises servers too",
+		"hybridCaption": "Hybrid",
+		"hybridDesc": "Some Contoso servers stay on-premises. Azure Backup reaches them with an agent or a backup server.",
+		"hybridCallout": "AZ-305 · Recommend a recovery solution for Azure and hybrid workloads. The MARS agent backs up files, folders and system state from an on-premises Windows machine straight to a Recovery Services vault. Microsoft Azure Backup Server (MABS) protects Hyper-V and VMware workloads locally, then backs up to the vault. Site Recovery covers disaster recovery for on-premises VMware VMs, Hyper-V VMs and physical servers.",
+		"hybridSay": "Few files: agent. Many workloads: server.",
+		"hOnPrem": "On-premises datacenter",
+		"hAzure": "Azure",
+		"hFile": "File server",
+		"hVms": "Hyper-V and VMware VMs",
+		"hPhys": "VMware and physical servers",
+		"hMabs": "Azure Backup Server",
+		"hMars": "MARS agent",
+		"hAsr": "Site Recovery",
+		"hVaultSub": "Backup data",
+		"hReplica": "Replica VMs in Azure",
+		"wholeTitle": "All in one: recover to the objective",
+		"wholeCaption": "Recap",
+		"wholeDesc": "Targets set the tier, the tier picks the tool, and the copy goes as far as the failure you must survive.",
+		"wholeCallout": "Next: keep the data itself available, with high availability and disaster recovery for databases and storage.",
+		"toolAsr": "Site Recovery",
+		"toolBackup": "Azure Backup",
+		"wSecond": "Second copy: GRS + Cross Region Restore",
+		"wHybrid": "On-premises: MARS agent or Azure Backup Server",
+		"wholeFoot": "Official Learn: <a href=\"https://learn.microsoft.com/azure/backup/backup-overview\" target=\"_blank\" rel=\"noopener\">Azure Backup overview</a> and <a href=\"https://learn.microsoft.com/azure/site-recovery/site-recovery-overview\" target=\"_blank\" rel=\"noopener\">Site Recovery overview</a>.",
+		"backLabel": "Logging and monitoring",
+		"short1": "Objectives",
+		"short2": "Tiers",
+		"short3": "Azure Backup",
+		"short4": "Site Recovery",
+		"short5": "The decision",
+		"short6": "Second copy",
+		"short7": "Hybrid",
+		"short8": "All in one",
+		"languageLabel": "Language"
+	},
+	"es": {
+		"skipToMain": "Ir al diagrama",
+		"pageTitle": "Diseñar la recuperación: RTO, RPO y la herramienta adecuada",
+		"stageHeading": "Diseñar la recuperación: RTO, RPO y la herramienta adecuada",
+		"stageInstructions": "Explicación animada. Usa los botones de Siguiente/Anterior o las flechas para navegar. Pulsa R para reiniciar.",
+		"prev": "◀ Anterior",
+		"next": "Siguiente ▶",
+		"replay": "↻ Repetir",
+		"restart": "↻ Reiniciar",
+		"slower": "Más lento",
+		"faster": "Más rápido",
+		"calloutOn": "Notas: activadas",
+		"calloutOff": "Notas: desactivadas",
+		"outlineOn": "Esquema: activado",
+		"outlineOff": "Esquema: desactivado",
+		"audioTip": "Narración de audio",
+		"ccTip": "Subtítulos",
+		"shortcutsTip": "Atajos",
+		"stepDetails": "Detalles del paso",
+		"stepOf": "Paso",
+		"resetPos": "Restablecer la posición",
+		"scTitle": "Atajos de teclado",
+		"scNext": "Paso siguiente",
+		"scPrev": "Paso anterior",
+		"scRestart": "Reiniciar",
+		"scReplay": "Repetir este paso",
+		"scHide": "Mostrar u ocultar la barra superior",
+		"scHelp": "Mostrar u ocultar esta ayuda",
+		"nextData": "A continuación: mantener los datos disponibles",
+		"objectivesTitle": "Objetivos de recuperación: RTO, RPO y SLA",
+		"objectivesCaption": "Objetivos",
+		"objectivesDesc": "A Contoso le preguntan cuánto tiempo puede estar la tienda caída. Dos números responden a eso, y los números más ajustados cuestan más.",
+		"objectivesCallout": "AZ-305 · Recomienda una solución de recuperación que cumpla con los objetivos de recuperación. El RPO es la pérdida máxima de datos que aceptas, medida en tiempo. El RTO es el tiempo máximo de inactividad que aceptas. Un SLA es un compromiso sobre un servicio, no tu propio objetivo de recuperación, por lo que nunca reemplaza al RTO y al RPO.",
+		"objectivesSay": "Los objetivos más ajustados cuestan más.",
+		"epLast": "Último punto de recuperación",
+		"epDisaster": "Desastre",
+		"epBack": "De vuelta a la línea",
+		"barRpo": "RPO",
+		"barRto": "RTO",
+		"costL": "Coste",
+		"cRpoT": "RPO",
+		"cRpoD": "Cuántos datos puedes perder, medidos en tiempo.",
+		"cRtoT": "RTO",
+		"cRtoD": "Cuánto tiempo puedes estar abajo, medido en tiempo.",
+		"cSlaT": "SLA",
+		"cSlaD": "Un compromiso de Microsoft para un servicio. No es tu objetivo.",
+		"tiersTitle": "Clasifica las cargas de trabajo según lo que cuestan perder",
+		"tiersCaption": "Niveles",
+		"tiersDesc": "No todas las cargas de trabajo necesitan minutos. Contoso ordena cuatro cargas de trabajo en niveles, y cada nivel tiene sus propios objetivos.",
+		"tiersCallout": "AZ-305 · Recomienda una solución de recuperación que cumpla con los objetivos de recuperación. Cada carga de trabajo o flujo puede tener su propio RTO y RPO, por lo que el tiering evita pagar por minutos donde las horas serían suficientes. Los objetivos mostrados son requisitos empresariales de ejemplo de Contoso, no límites de Azure.",
+		"tiersSay": "Empareja el objetivo con el nivel.",
+		"tier1": "Nivel 1 · Ingresos",
+		"tier2": "Nivel 2 · Importante",
+		"tier3": "Nivel 3 · Puedo esperar",
+		"wkStore": "Escaparate",
+		"wkOrders": "BD de pedidos",
+		"wkImages": "Imágenes del producto",
+		"wkErp": "Lote ERP",
+		"lblRto": "RTO",
+		"lblRpo": "RPO",
+		"vMinutes": "Actas",
+		"vNearZero": "Casi cero",
+		"vHours": "Horarios",
+		"vOneHour": "Aproximadamente 1 hora",
+		"vNextDay": "Al día siguiente",
+		"vOneNight": "Una noche",
+		"backupTitle": "Azure Backup: restaurar datos desde un momento dado",
+		"backupCaption": "Azure Backup",
+		"backupDesc": "La copia de seguridad mantiene los puntos de recuperación en una bóveda. Elige el tipo de bóveda según lo que protejas, luego añade política y protección.",
+		"backupCallout": "AZ-305 · Recomiendo una solución de copia de seguridad y recuperación para cómputo, bases de datos y datos no estructurados. Una bóveda de Servicios de Recuperación contiene Azure VMs, SQL Server en Azure VMs, Azure Files y SAP HANA en Azure VMs. Una bóveda de respaldo contiene discos de Azure, Azure Blobs y Azure Database para servidores PostgreSQL. La eliminación suave mantiene una copia de seguridad eliminada durante 14 días más en una bóveda de Servicios de Recuperación, y una bóveda inmutable bloquea los cambios que harían perder puntos de recuperación.",
+		"backupSay": "Elige la caja fuerte por carga de trabajo.",
+		"vaultRs": "Bóveda de Servicios de Recuperación",
+		"vaultB": "Bóveda de respaldo",
+		"srcVm": "Azure VMs",
+		"srcSqlVm": "SQL Server en una VM",
+		"srcFiles": "Azure Files",
+		"srcHana": "SAP HANA en una VM",
+		"srcDisks": "Azure Disks",
+		"srcBlobs": "Azure Blobs",
+		"srcPg": "Servidores PostgreSQL",
+		"protH": "Protección incorporada",
+		"prPolicy": "Política de respaldo",
+		"prImmutable": "Bóveda inmutable",
+		"prRbac": "Azure RBAC",
+		"prEnc": "Cifrado en reposo",
+		"replicateTitle": "Azure Site Recovery: fail over the workload",
+		"replicateCaption": "Recuperación del sitio",
+		"replicateDesc": "La recuperación del sitio mantiene una réplica de VMs en ejecución en otra región, así que un desastre significa conmutación por error, no reconstrucción.",
+		"replicateCallout": "AZ-305 · Recomiende una solución de recuperación para Azure y cargas de trabajo híbridas. Site Recovery replica las VMs de Azure entre regiones, y las VMware VMs, VMs Hyper-V y servidores físicos locales a Azure. Los planes de recuperación secuencian un conmutamiento por error multinivel con scripts opcionales y acciones manuales. Un conmutamiento por error de prueba es un ejercicio que no interrumpe la replicación en curso.",
+		"replicateSay": "Replicar ahora, luego hacer failover.",
+		"regPrimary": "Región primaria",
+		"regSecondary": "Región secundaria",
+		"vmStore": "Tienda virtual VM",
+		"vmSql": "VM de la base de datos de órdenes",
+		"replLbl": "Recuperación del sitio",
+		"planH": "Plan de recuperación",
+		"plan1": "BD de pedidos",
+		"plan2": "Escaparate",
+		"plan3": "Comprobación manual",
+		"testT": "Fallo de prueba",
+		"testD": "Un simulacro que deja la replicación intacta.",
+		"decideTitle": "¿Copia de seguridad o replicación?",
+		"decideCaption": "La decisión",
+		"decideDesc": "La copia de seguridad restaura datos. La replicación falla sobre una carga de trabajo. La pregunta decisiva es si perdiste datos o un sitio.",
+		"decideCallout": "Azure Backup se centra en la protección de datos: copia de seguridad y restauración. La recuperación del sitio añade conmutación por error para recuperación ante desastres. La copia de seguridad protege contra borrado accidental, corrupción y ransomware. La replicación hace que una carga de trabajo vuelva a funcionar rápidamente. Bases de datos de plataforma como Azure SQL Database incorporan su propia replicación, que cubrirá la siguiente lección.",
+		"decideSay": "El nivel 1 necesita ambos.",
+		"qH": "Pregunta decisiva",
+		"qT": "¿Datos perdidos o un sitio perdido?",
+		"optBackup": "Azure Backup",
+		"optAsr": "Recuperación del sitio",
+		"bkL1": "Restaura datos de un momento en el tiempo",
+		"bkL2": "Más lento en recuperarse · Menor coste",
+		"asL1": "Fallas sobre una carga de trabajo en ejecución",
+		"asL2": "Más rápido de recuperar · Mayor coste",
+		"chipBackup": "Suplentes",
+		"chipAsr": "Recuperación del sitio",
+		"notNeeded": "No hace falta",
+		"regionTitle": "Elige dónde reside la segunda copia",
+		"regionCaption": "Segunda copia",
+		"regionDesc": "Cuanto más lejos sobrevive la copia, mayor es el fracaso que sobrevive y más cuesta.",
+		"regionCallout": "Un vault almacena copias de seguridad con LRS, ZRS o GRS. Con GRS, la copia en la región emparejada normalmente solo se abre cuando Microsoft declara una caída en la región principal. Cross Region Restore te permite restaurar desde esa copia cuando quieras, lo que también soporta simulacros.",
+		"regionSay": "Compara la copia con el fallo.",
+		"rgLrs": "Redundante localmente",
+		"rgZrs": "Redundante por zonas",
+		"rgGrs": "Geo-redundante",
+		"rgLrsS": "Fallo de hardware en un centro de datos",
+		"rgZrsS": "Pérdida de una zona de disponibilidad",
+		"rgGrsS": "Pérdida de toda una región",
+		"rgSurv": "Sobrevive",
+		"rgA": "Región A",
+		"rgB": "Región B",
+		"z1": "Zona 1",
+		"z2": "Zona 2",
+		"z3": "Zona 3",
+		"rgCrr": "Restauración Cross Region",
+		"rgPick": "Contoso Nivel 1",
+		"hybridTitle": "Proteger también los servidores locales",
+		"hybridCaption": "Híbrido",
+		"hybridDesc": "Algunos servidores de Contoso permanecen en las instalaciones. Azure Backup les llega con un agente o un servidor de respaldo.",
+		"hybridCallout": "AZ-305 · Recomienda una solución de recuperación para Azure y cargas de trabajo híbridas. El agente MARS hace copias de seguridad de archivos, carpetas y estado del sistema desde una máquina Windows local directamente a una bóveda de Servicios de Recuperación. Microsoft Azure Backup Server (MABS) protege las cargas de trabajo Hyper-V y VMware localmente, y luego hace copias de seguridad en la bóveda. La recuperación de sitio cubre la recuperación ante desastres para VMware VMs locales, VMs Hyper-V y servidores físicos.",
+		"hybridSay": "Pocos archivos: agente. Muchas cargas de trabajo: servidor.",
+		"hOnPrem": "Centro de datos local",
+		"hAzure": "Azure",
+		"hFile": "Servidor de archivos",
+		"hVms": "Hyper-V y VMware VMs",
+		"hPhys": "VMware y servidores físicos",
+		"hMabs": "Azure Backup Server",
+		"hMars": "Agente MARS",
+		"hAsr": "Recuperación del sitio",
+		"hVaultSub": "Datos de copia de seguridad",
+		"hReplica": "Réplica de VMs en Azure",
+		"wholeTitle": "Todo en uno: recuperar el objetivo",
+		"wholeCaption": "Resumen",
+		"wholeDesc": "Los objetivos fijan el nivel, el tier elige la herramienta y la copia llega hasta el fracaso que debes sobrevivir.",
+		"wholeCallout": "A continuación: mantener los datos disponibles con alta disponibilidad y recuperación ante desastres para bases de datos y almacenamiento.",
+		"toolAsr": "Recuperación del sitio",
+		"toolBackup": "Azure Backup",
+		"wSecond": "Segunda copia: GRS + Restauración entre regiones",
+		"wHybrid": "On-premises: agente MARS o Azure Backup Server",
+		"wholeFoot": "Resumen oficial de Learn: <a href=\"https://learn.microsoft.com/azure/backup/backup-overview\" target=\"_blank\" rel=\"noopener\">Azure Backup</a> y <a href=\"https://learn.microsoft.com/azure/site-recovery/site-recovery-overview\" target=\"_blank\" rel=\"noopener\">recuperación del sitio</a>.",
+		"backLabel": "Registro y seguimiento",
+		"short1": "Objetivos",
+		"short2": "Niveles",
+		"short3": "Azure Backup",
+		"short4": "Recuperación del sitio",
+		"short5": "La decisión",
+		"short6": "Segunda copia",
+		"short7": "Híbrido",
+		"short8": "Todo en uno",
+		"languageLabel": "Idioma"
+	},
+	"ja": {
+		"skipToMain": "図へスキップ",
+		"pageTitle": "復旧の設計：RTO、RPO、適切なツール",
+		"stageHeading": "復旧の設計：RTO、RPO、適切なツール",
+		"stageInstructions": "アニメーション解説。次回/前回ボタンや矢印キーを使ってナビゲート。Rボタンを押して再起動します。",
+		"prev": "◀ 前へ",
+		"next": "次へ ▶",
+		"replay": "↻ 再生",
+		"restart": "↻ 最初から",
+		"slower": "ゆっくり",
+		"faster": "速く",
+		"calloutOn": "吹き出し：オン",
+		"calloutOff": "吹き出し：オフ",
+		"outlineOn": "アウトライン：オン",
+		"outlineOff": "アウトライン：オフ",
+		"audioTip": "音声ナレーション",
+		"ccTip": "字幕",
+		"shortcutsTip": "ショートカット",
+		"stepDetails": "ステップの詳細",
+		"stepOf": "ステップ",
+		"resetPos": "位置を既定に戻す",
+		"scTitle": "キーボード ショートカット",
+		"scNext": "次のステップ",
+		"scPrev": "前のステップ",
+		"scRestart": "最初から",
+		"scReplay": "このステップを再生",
+		"scHide": "上部バーの表示 / 非表示",
+		"scHelp": "このヘルプの表示切り替え",
+		"nextData": "次は、データを利用可能にしておくことです",
+		"objectivesTitle": "復旧目標:RTO、RPO、SLA",
+		"objectivesCaption": "目的",
+		"objectivesDesc": "Contosoは、店がどれくらいの期間停止できるか尋ねられます。2つの数字で答え、厳しい数字はコストがかかります。",
+		"objectivesCallout": "AZ-305 ·復旧目標を満たす復旧ソリューションを推奨してください。RPOは、許容する最大データ損失の時間を示します。RTOは許容する最大ダウンタイムのことです。SLAはサービスに関するコミットメントであり、自分の復旧目標にはないため、RTOやRPOを置き換えることはありません。",
+		"objectivesSay": "目標が狭ければ高いコストがかかります。",
+		"epLast": "最後の回収地点",
+		"epDisaster": "災害",
+		"epBack": "オンライン復帰",
+		"barRpo": "RPO",
+		"barRto": "RTO",
+		"costL": "費用",
+		"cRpoT": "RPO",
+		"cRpoD": "どれだけのデータを失うことができるか、それを時間で測ること。",
+		"cRtoT": "RTO",
+		"cRtoD": "どれくらいの時間ダウンできるか、時間で測る。",
+		"cSlaT": "SLA",
+		"cSlaD": "Microsoftのサービスへのコミットメント。あなたのターゲットではありません。",
+		"tiersTitle": "失うコストでワークロードを階層化します",
+		"tiersCaption": "階層",
+		"tiersDesc": "すべてのワークロードが数分必要なわけではありません。Contosoは4つのワークロードを階層に分類し、それぞれの階層に独自のターゲットを割り当てます。",
+		"tiersCallout": "AZ-305 ·復旧目標を満たすリカバリーソリューションを推奨してください。各ワークロードやフローは独自のRTOとRPOを持つことができ、ティアリングは時間単位で十分な分単位の支払いを避けられます。示されている目標はContosoのビジネス要件の例であり、Azureの制限ではありません。",
+		"tiersSay": "ターゲットをティアに合わせましょう。",
+		"tier1": "ティア1 ·収益",
+		"tier2": "ティア2 ·重要",
+		"tier3": "ティア3 ·待てるよ",
+		"wkStore": "店舗フロント",
+		"wkOrders": "注文DB",
+		"wkImages": "製品画像",
+		"wkErp": "ERPバッチジョブ",
+		"lblRto": "RTO",
+		"lblRpo": "RPO",
+		"vMinutes": "分",
+		"vNearZero": "ほぼゼロ",
+		"vHours": "営業時間",
+		"vOneHour": "約1時間",
+		"vNextDay": "翌日",
+		"vOneNight": "一晩",
+		"backupTitle": "Azure Backup:ある時点からデータを復元",
+		"backupCaption": "Azure Backup",
+		"backupDesc": "バックアップは復旧ポイントをヴォールト内に保持します。保護するものでヴォールトタイプを選び、その後ポリシーと保護を追加してください。",
+		"backupCallout": "AZ-305 ·計算、データベース、非構造化データに対するバックアップおよびリカバリーソリューションを推奨します。リカバリーサービスのボールトはAzure VMs、Azure VMs内のSQL Server、Azure VMs内のAzure FilesとSAP HANAを保持します。バックアップ・ヴォールトはPostgreSQLサーバー用のAzureディスク、Azure Blobs、Azure Databaseを保持します。ソフトデリットは削除されたバックアップをRecovery Servicesのヴォールトにさらに14日間保持し、不変のヴォールトは復旧ポイントを失う変更をブロックします。",
+		"backupSay": "ワークロードでコンテナーを選びましょう。",
+		"vaultRs": "リカバリーサービス・ヴォールト",
+		"vaultB": "バックアップ・ヴォールト",
+		"srcVm": "Azure VMs",
+		"srcSqlVm": "VM内のSQL Server",
+		"srcFiles": "Azure Files",
+		"srcHana": "SAP HANA in a VM",
+		"srcDisks": "Azure Disks",
+		"srcBlobs": "Azure Blobs",
+		"srcPg": "PostgreSQLサーバー",
+		"protH": "内蔵保護",
+		"prPolicy": "バックアップポリシー",
+		"prImmutable": "不変のヴォールト",
+		"prRbac": "Azure RBAC",
+		"prEnc": "暗号化は休止状態",
+		"replicateTitle": "Azure Site Recovery: fail over the workload",
+		"replicateCaption": "サイト復旧",
+		"replicateDesc": "Site Recoveryは別のリージョンで実行中のVMsのレプリカを保持するため、災害はフェイルオーバーであり、再構築ではありません。",
+		"replicateCallout": "AZ-305 ·Azureおよびハイブリッドワークロード向けのリカバリーソリューションを推奨します。Site Recoveryは、Azure VMsをリージョン間およびオンプレミスのVMware VMs、Hyper-V VMs、物理サーバー間でAzureにレプリケートします。リカバリープランは、オプションスクリプトや手動操作を用いて多層フェイルオーバーをシーケンスします。テストフェイルオーバーは、進行中のレプリケーションを妨げないドリルです。",
+		"replicateSay": "今は複製し、後でフェイルオーバーします。",
+		"regPrimary": "一次リージョン",
+		"regSecondary": "二次リージョン",
+		"vmStore": "Storefront VM",
+		"vmSql": "データベースVMを注文してください",
+		"replLbl": "サイト復旧",
+		"planH": "復旧計画",
+		"plan1": "注文DB",
+		"plan2": "店舗フロント",
+		"plan3": "手動チェック",
+		"testT": "テストフェイルオーバー",
+		"testD": "複製には手を出さない訓練です。",
+		"decideTitle": "バックアップかレプリケーションか?",
+		"decideCaption": "判決",
+		"decideDesc": "バックアップはデータを復元します。レプリケーションはワークロード上で失敗します。決定的な問題は、データを失ったのか、サイトを失ったのかです。",
+		"decideCallout": "Azure Backupはデータ保護、すなわちバックアップと復元に重点を置いています。Site Recoveryは災害復旧のためのフェイルオーバーを追加します。バックアップは誤って削除、破損、ランサムウェアを防ぐ役割を果たします。レプリケーションはワークロードを迅速に再稼働させます。Azure SQL Databaseのようなプラットフォームデータベースは独自のレプリケーションを持ち、次のレッスンでその内容を取り上げます。",
+		"decideSay": "Tier 1は両方が必要です。",
+		"qH": "決定的な質問",
+		"qT": "データの喪失、それともサイトの喪失?",
+		"optBackup": "Azure Backup",
+		"optAsr": "サイト復旧",
+		"bkL1": "ある時点からデータを復元します",
+		"bkL2": "回収に時間がかかる ·コストが低い",
+		"asL1": "実行中のワークロードで失敗します",
+		"asL2": "復旧が速い・コストが高い",
+		"chipBackup": "バックアップ",
+		"chipAsr": "サイト復旧",
+		"notNeeded": "必要ありません",
+		"regionTitle": "2つ目のコピーがどこに置かれるか選べます",
+		"regionCaption": "二部目のコピー",
+		"regionDesc": "コピーが長く生きれば残るほど、失敗は大きくなり、コストも高くなります。",
+		"regionCallout": "VaultはLRS、ZRS、またはGRSでバックアップを保存します。GRSでは、ペアリングされたリージョン内のコピーは通常、Microsoftがプライマリリージョンで障害を宣言した場合にのみ開きます。Cross Region Restoreは、そのコピーからいつでも好きなときに復元でき、ドリルもサポートしています。",
+		"regionSay": "コピーと失敗したものを照合してください。",
+		"rgLrs": "局所的冗長",
+		"rgZrs": "ゾーン冗長",
+		"rgGrs": "ジオ冗長性",
+		"rgLrsS": "あるデータセンターでのハードウェア故障",
+		"rgZrsS": "1つの可動可能ゾーンの喪失",
+		"rgGrsS": "一つのリージョン全体の喪失",
+		"rgSurv": "現存",
+		"rgA": "リージョンA",
+		"rgB": "リージョンB",
+		"z1": "ゾーン1",
+		"z2": "ゾーン2",
+		"z3": "ゾーン3",
+		"rgCrr": "クロスリージョン・リストア",
+		"rgPick": "Contoso Tier 1",
+		"hybridTitle": "オンプレミスのサーバーも保護してください",
+		"hybridCaption": "ハイブリッド",
+		"hybridDesc": "一部のContosoサーバーはオンプレミスに残っています。Azure Backupはエージェントやバックアップサーバーでそれらに到達します。",
+		"hybridCallout": "AZ-305 ·Azureおよびハイブリッドワークロード向けのリカバリーソリューションを推奨します。MARSエージェントは、オンプレミスのWindowsマシンからRecovery Servicesのヴォルトに直接ファイル、フォルダ、システム状態をバックアップします。Microsoft Azure Backup Server(MABS)はHyper-VおよびVMwareワークロードをローカルで保護し、その後Vaultにバックアップします。Site Recoveryは、オンプレミスのVMware VMs、Hyper-V VMs、物理サーバーの災害復旧をカバーします。",
+		"hybridSay": "ファイルは少数:エージェント。多くのワークロード:サーバー。",
+		"hOnPrem": "オンプレミスデータセンター",
+		"hAzure": "Azure",
+		"hFile": "ファイルサーバー",
+		"hVms": "Hyper-VおよびVMware VMs",
+		"hPhys": "VMwareおよび物理サーバー",
+		"hMabs": "Azure Backup Server",
+		"hMars": "MARSエージェント",
+		"hAsr": "サイト復旧",
+		"hVaultSub": "バックアップデータ",
+		"hReplica": "Replica VMs in Azure",
+		"wholeTitle": "すべてをまとめて:目標まで復旧する",
+		"wholeCaption": "まとめ",
+		"wholeDesc": "ターゲットがティアを決め、ティアが道具を選び、コピーは失敗まで生き残る。",
+		"wholeCallout": "次に、データ自体を利用可能にし、データベースやストレージに対して高可用性と災害復旧を行うこと。",
+		"toolAsr": "サイト復旧",
+		"toolBackup": "Azure Backup",
+		"wSecond": "2本目:GRS + クロスリージョンリストア",
+		"wHybrid": "オンプレミス:MARS agent または Azure Backup Server",
+		"wholeFoot": "公式Learn:<a href=\"https://learn.microsoft.com/azure/backup/backup-overview\" target=\"_blank\" rel=\"noopener\">Azure Backupの概要</a>と<a href=\"https://learn.microsoft.com/azure/site-recovery/site-recovery-overview\" target=\"_blank\" rel=\"noopener\">Site Recoveryの概要</a>。",
+		"backLabel": "記録と監視",
+		"short1": "目的",
+		"short2": "階層",
+		"short3": "Azure Backup",
+		"short4": "サイト復旧",
+		"short5": "判決",
+		"short6": "二部目のコピー",
+		"short7": "ハイブリッド",
+		"short8": "すべてが一つに",
+		"languageLabel": "言語"
+	},
+	"ko": {
+		"skipToMain": "다이어그램으로 건너뛰기",
+		"pageTitle": "복구 설계: RTO, RPO 및 적합한 도구",
+		"stageHeading": "복구 설계: RTO, RPO 및 적합한 도구",
+		"stageInstructions": "애니메이션 설명. 다음/이전 버튼이나 방향키를 사용해 탐색하세요. R을 눌러 재시작하세요.",
+		"prev": "◀ 이전",
+		"next": "다음 ▶",
+		"replay": "↻ 다시 재생",
+		"restart": "↻ 처음부터",
+		"slower": "느리게",
+		"faster": "빠르게",
+		"calloutOn": "설명선: 켜짐",
+		"calloutOff": "설명선: 꺼짐",
+		"outlineOn": "개요: 켜짐",
+		"outlineOff": "개요: 꺼짐",
+		"audioTip": "오디오 내레이션",
+		"ccTip": "자막",
+		"shortcutsTip": "단축키",
+		"stepDetails": "단계 상세",
+		"stepOf": "단계",
+		"resetPos": "기본 위치로 되돌리기",
+		"scTitle": "키보드 단축키",
+		"scNext": "다음 단계",
+		"scPrev": "이전 단계",
+		"scRestart": "처음부터",
+		"scReplay": "이 단계 다시 재생",
+		"scHide": "상단 바 표시 / 숨기기",
+		"scHelp": "이 도움말 전환",
+		"nextData": "다음 단계: 데이터를 계속 이용 가능하게 유지하세요",
+		"objectivesTitle": "복구 목표: RTO, RPO 및 SLA",
+		"objectivesCaption": "목표",
+		"objectivesDesc": "Contoso는 가게가 얼마나 오래 다운될 수 있냐는 질문을 받습니다. 두 개의 숫자가 답을 내고, 숫자가 좁으면 비용이 더 듭니다.",
+		"objectivesCallout": "AZ-305 · 복구 목표를 충족하는 복구 솔루션을 추천하세요. RPO는 허용하는 최대 데이터 손실을 시간으로 측정한 값입니다. RTO는 허용하는 최대 다운타임입니다. SLA는 서비스 자체에 대한 약속이지 자신의 복구 목표가 아니므로 RTO와 RPO를 대체하지 않습니다.",
+		"objectivesSay": "더 좁은 목표는 비용이 더 많이 듭니다.",
+		"epLast": "마지막 복구 지점",
+		"epDisaster": "재난",
+		"epBack": "다시 온라인",
+		"barRpo": "RPO",
+		"barRto": "RTO",
+		"costL": "비용",
+		"cRpoT": "RPO",
+		"cRpoD": "얼마나 많은 데이터를 잃을 수 있는지, 시간 단위로 측정됩니다.",
+		"cRtoT": "RTO",
+		"cRtoD": "얼마나 오래 쓰러질 수 있는지, 시간으로 측정해 보세요.",
+		"cSlaT": "SLA",
+		"cSlaD": "마이크로소프트가 서비스에 대한 약속을 하는 것. 당신의 목표는 아닙니다.",
+		"tiersTitle": "작업 부담을 잃는 비용에 따라 계층화하세요",
+		"tiersCaption": "티어",
+		"tiersDesc": "모든 워크로드는 분이 필요한 것은 아닙니다. Contoso는 네 개의 워크로드를 단계별로 분류하고, 각 단계마다 고유한 목표를 부여합니다.",
+		"tiersCallout": "AZ-305 · 복구 목표를 충족하는 복구 솔루션을 추천하세요. 각 워크로드나 플로우는 자체 RTO와 RPO를 가질 수 있어, 티어링은 몇 시간이면 충분한 시간 단위 비용을 지불하지 않아도 됩니다. 표시된 목표는 Azure 제한이 아니라 예시 Contoso 비즈니스 요구사항입니다.",
+		"tiersSay": "목표물을 티어에 맞추세요.",
+		"tier1": "1단계 · 수익",
+		"tier2": "2단계 · 중요",
+		"tier3": "3단계 · 기다릴 수 있어요",
+		"wkStore": "스토어프런트",
+		"wkOrders": "주문 DB",
+		"wkImages": "제품 이미지",
+		"wkErp": "ERP 배치 작업",
+		"lblRto": "RTO",
+		"lblRpo": "RPO",
+		"vMinutes": "회의 시간",
+		"vNearZero": "거의 제로에 가깝습니다",
+		"vHours": "운영 시간",
+		"vOneHour": "약 1시간 정도",
+		"vNextDay": "다음 날",
+		"vOneNight": "어느 날 밤",
+		"backupTitle": "Azure Backup: 특정 시점에서 데이터를 복원하세요",
+		"backupCaption": "Azure Backup",
+		"backupDesc": "백업은 복구 지점을 볼트 안에 보관합니다. 보호하는 항목에 따라 볼트 유형을 선택한 후 정책과 보호를 추가하세요.",
+		"backupCallout": "AZ-305 · 컴퓨트, 데이터베이스, 비정형 데이터에 대한 백업 및 복구 솔루션을 추천합니다. 복구 서비스 볼트는 Azure VMs, SQL Server in Azure VMs, Azure Files 및 SAP HANA를 VMs에서 보관합니다. 백업 볼트는 Azure 디스크, Azure Blobs, Azure 데이터베이스를 PostgreSQL 서버용으로 보관합니다. 소프트 삭제는 삭제된 백업을 Recovery Services 볼트에 14일 더 보관하며, 변경 불가능한 볼트는 복구 지점을 잃는 변경 사항을 차단합니다.",
+		"backupSay": "업무량에 따라 볼트를 선택하세요.",
+		"vaultRs": "회수 서비스 볼트",
+		"vaultB": "백업 볼트",
+		"srcVm": "Azure VMs",
+		"srcSqlVm": "VM 내 SQL Server",
+		"srcFiles": "Azure Files",
+		"srcHana": "SAP HANA in a VM",
+		"srcDisks": "Azure Disks",
+		"srcBlobs": "Azure Blobs",
+		"srcPg": "PostgreSQL 서버",
+		"protH": "내장 보호",
+		"prPolicy": "백업 정책",
+		"prImmutable": "불변의 볼트",
+		"prRbac": "Azure RBAC",
+		"prEnc": "암호화된 상태에서",
+		"replicateTitle": "Azure Site Recovery: fail over the workload",
+		"replicateCaption": "사이트 복구",
+		"replicateDesc": "Site Recovery는 다른 지역에 실행 중인 VMs의 복제본을 유지하기 때문에, 재해는 재구성이 아니라 장애 조치를 의미합니다.",
+		"replicateCallout": "AZ-305 · Azure 및 하이브리드 워크로드용 복구 솔루션을 추천합니다. Site Recovery는 지역 간 Azure VMs와 온프레미스 VMware VMs, Hyper-V VMs, 물리적 서버를 Azure로 복제합니다. 복구 계획은 선택적 스크립트와 수동 작업을 통해 다중 계층 장애 조치(failover)를 순서화합니다. 테스트 장애 조치는 진행 중인 복제를 방해하지 않는 훈련입니다.",
+		"replicateSay": "지금 복제하고, 나중에 실패 처리하세요.",
+		"regPrimary": "주요 지역",
+		"regSecondary": "2차 지역",
+		"vmStore": "스토어프론트 VM",
+		"vmSql": "Order database VM",
+		"replLbl": "사이트 복구",
+		"planH": "복구 계획",
+		"plan1": "주문 DB",
+		"plan2": "스토어프런트",
+		"plan3": "수동 점검",
+		"testT": "테스트 페이일오버",
+		"testD": "복제는 건드리지 않는 훈련입니다.",
+		"decideTitle": "백업인가요, 복제인가요?",
+		"decideCaption": "판결",
+		"decideDesc": "백업은 데이터를 복원합니다. 복제는 워크로드 위에서 실패합니다. 결정적인 질문은 데이터를 잃었는지 아니면 사이트를 잃었는지입니다.",
+		"decideCallout": "Azure Backup은 데이터 보호, 즉 백업과 복원에 중점을 둡니다. Site Recovery는 재해 복구를 위한 장애 조치를 추가합니다. 백업은 실수로 삭제, 손상, 랜섬웨어를 방지합니다. 복제는 빠르게 워크로드를 다시 작동시킵니다. Azure SQL Database와 같은 플랫폼 데이터베이스는 자체 복제를 제공하며, 다음 강의에서 다룹니다.",
+		"decideSay": "1단계에서는 두 가지 모두 필요합니다.",
+		"qH": "결정 질문",
+		"qT": "데이터 손실, 아니면 사이트 손실?",
+		"optBackup": "Azure Backup",
+		"optAsr": "사이트 복구",
+		"bkL1": "특정 시점에서 데이터를 복원합니다",
+		"bkL2": "복구 속도 느림 · 비용 절감",
+		"asL1": "실행 중인 워크로드 때문에 실패",
+		"asL2": "복구 속도가 더 빨라짐 · 더 높은 비용",
+		"chipBackup": "백업",
+		"chipAsr": "사이트 복구",
+		"notNeeded": "필요 없어",
+		"regionTitle": "두 번째 복사본이 어디에 있는지 선택하세요",
+		"regionCaption": "두 번째 사본",
+		"regionDesc": "복사본이 오래 살아남을수록 실패 가능성이 커지고 비용이 더 많이 듭니다.",
+		"regionCallout": "볼트는 LRS, ZRS 또는 GRS로 백업을 저장합니다. GRS에서는 쌍이 연결된 지역의 복사본이 보통 Microsoft가 주 영역에서 장애를 선언할 때만 열립니다. Cross Region Restore는 원할 때마다 해당 복사본에서 복원할 수 있게 해주며, 드릴도 지원합니다.",
+		"regionSay": "복제품과 실패한 부분을 맞추세요.",
+		"rgLrs": "지역적으로 중복됨",
+		"rgZrs": "존 중복",
+		"rgGrs": "지리적 중복",
+		"rgLrsS": "한 데이터센터에서의 하드웨어 고장",
+		"rgZrsS": "한 개의 가용성 구역 상실",
+		"rgGrsS": "한 지역 전체의 상실",
+		"rgSurv": "현재",
+		"rgA": "A 지역",
+		"rgB": "지역 B",
+		"z1": "존 1",
+		"z2": "존 2",
+		"z3": "3구역",
+		"rgCrr": "크로스 리전 리스토어",
+		"rgPick": "Contoso 티어 1",
+		"hybridTitle": "온프레미스 서버도 보호하세요",
+		"hybridCaption": "하이브리드",
+		"hybridDesc": "일부 Contoso 서버는 온프레미스에 머무릅니다. Azure Backup이 에이전트나 백업 서버를 통해 이들에게 도달합니다.",
+		"hybridCallout": "AZ-305 · Azure 및 하이브리드 워크로드용 복구 솔루션을 추천합니다. MARS 에이전트는 온프레미스 Windows 머신에서 파일, 폴더, 시스템 상태를 복구 서비스 볼트로 직접 백업합니다. Microsoft Azure Backup Server(MABS)는 Hyper-V 및 VMware 워크로드를 로컬에서 보호한 후 볼트로 백업합니다. Site Recovery는 온프레미스 VMware VMs, Hyper-V VMs 및 물리적 서버의 재해 복구를 담당합니다.",
+		"hybridSay": "몇 개의 파일: 에이전트. 많은 작업량: 서버.",
+		"hOnPrem": "온프레미스 데이터센터",
+		"hAzure": "Azure",
+		"hFile": "파일 서버",
+		"hVms": "Hyper-V 및 VMware VMs",
+		"hPhys": "VMware 및 물리적 서버",
+		"hMabs": "Azure Backup Server",
+		"hMars": "MARS 에이전트",
+		"hAsr": "사이트 복구",
+		"hVaultSub": "백업 데이터",
+		"hReplica": "Replica VMs in Azure",
+		"wholeTitle": "모두 원한으로: 목표 지점까지 복구",
+		"wholeCaption": "요약",
+		"wholeDesc": "타겟이 티어를 정하고, 티어가 도구를 선택하며, 복제본은 실패할 때까지 살아남아야 합니다.",
+		"wholeCallout": "다음으로: 데이터 자체를 유지하고, 데이터베이스와 저장소에 대한 고가용성과 재해 복구를 제공합니다.",
+		"toolAsr": "사이트 복구",
+		"toolBackup": "Azure Backup",
+		"wSecond": "두 번째 복사본: GRS + 크로스 리전 복원",
+		"wHybrid": "On-premises: MARS agent 또는 Azure Backup Server",
+		"wholeFoot": "공식 Learn: <a href=\"https://learn.microsoft.com/azure/backup/backup-overview\" target=\"_blank\" rel=\"noopener\">Azure Backup 개요</a>와 <a href=\"https://learn.microsoft.com/azure/site-recovery/site-recovery-overview\" target=\"_blank\" rel=\"noopener\">사이트 복구 개요</a>.",
+		"backLabel": "기록 및 모니터링",
+		"short1": "목표",
+		"short2": "티어",
+		"short3": "Azure Backup",
+		"short4": "사이트 복구",
+		"short5": "판결",
+		"short6": "두 번째 사본",
+		"short7": "하이브리드",
+		"short8": "모두 하나로",
+		"languageLabel": "언어"
+	},
+	"pt": {
+		"skipToMain": "Ir para o diagrama",
+		"pageTitle": "Projetar a recuperação: RTO, RPO e a ferramenta certa",
+		"stageHeading": "Projetar a recuperação: RTO, RPO e a ferramenta certa",
+		"stageInstructions": "Explicação animada. Use os botões Próximo/Anterior ou as setas para navegar. Pressione R para reiniciar.",
+		"prev": "◀ Voltar",
+		"next": "Avançar ▶",
+		"replay": "↻ Repetir",
+		"restart": "↻ Reiniciar",
+		"slower": "Mais devagar",
+		"faster": "Mais rápido",
+		"calloutOn": "Balões: ligados",
+		"calloutOff": "Balões: desligados",
+		"outlineOn": "Resumo: ligado",
+		"outlineOff": "Resumo: desligado",
+		"audioTip": "Narração em áudio",
+		"ccTip": "Legendas",
+		"shortcutsTip": "Atalhos",
+		"stepDetails": "Detalhes da etapa",
+		"stepOf": "Etapa",
+		"resetPos": "Restaurar a posição padrão",
+		"scTitle": "Atalhos de teclado",
+		"scNext": "Próxima etapa",
+		"scPrev": "Etapa anterior",
+		"scRestart": "Reiniciar",
+		"scReplay": "Repetir esta etapa",
+		"scHide": "Mostrar / ocultar a barra superior",
+		"scHelp": "Alternar esta ajuda",
+		"nextData": "A seguir: mantenha os dados disponíveis",
+		"objectivesTitle": "Objetivos de recuperação: RTO, RPO e SLA",
+		"objectivesCaption": "Objetivos",
+		"objectivesDesc": "Contoso é questionado sobre quanto tempo a oficina pode ficar fora do ar. Dois números respondem isso, e números mais precisos custam mais.",
+		"objectivesCallout": "AZ-305 · Recomende uma solução de recuperação que atenda aos objetivos de recuperação. RPO é a perda máxima de dados que você aceita, medida em tempo. RTO é o tempo máximo de inatividade que você aceita. Um SLA é um compromisso com um serviço, não seu próprio alvo de recuperação, então ele nunca substitui RTO e RPO.",
+		"objectivesSay": "Alvos mais apertados custam mais.",
+		"epLast": "Último ponto de recuperação",
+		"epDisaster": "Desastre",
+		"epBack": "De volta ao ar",
+		"barRpo": "RPO",
+		"barRto": "RTO",
+		"costL": "Custo",
+		"cRpoT": "RPO",
+		"cRpoD": "Quanto de dados você pode perder, medido em tempo.",
+		"cRtoT": "RTO",
+		"cRtoD": "Quanto tempo você pode ficar no chão, medido em tempo.",
+		"cSlaT": "SLA",
+		"cSlaD": "Um compromisso da Microsoft para um serviço. Não é seu alvo.",
+		"tiersTitle": "Divida as cargas de trabalho pelo custo que elas custam para perder",
+		"tiersCaption": "Níveis",
+		"tiersDesc": "Nem toda carga de trabalho precisa de minutos. Contoso separa quatro cargas de trabalho em níveis, e cada nível tem seus próprios alvos.",
+		"tiersCallout": "AZ-305 · Recomende uma solução de recuperação que atenda aos objetivos de recuperação. Cada carga de trabalho ou fluxo pode ter seu próprio RTO e RPO, então a escalonada evita pagar por minutos onde as horas são suficientes. As metas mostradas são exemplos de requisitos de negócio da Contoso, não limites do Azure.",
+		"tiersSay": "Alinhe o alvo com o nível.",
+		"tier1": "Nível 1 · Receita",
+		"tier2": "Nível 2 · Importante",
+		"tier3": "Nível 3 · Pode esperar",
+		"wkStore": "Loja",
+		"wkOrders": "BD de pedidos",
+		"wkImages": "Imagens do produto",
+		"wkErp": "Lote ERP",
+		"lblRto": "RTO",
+		"lblRpo": "RPO",
+		"vMinutes": "Ata",
+		"vNearZero": "Quase zero",
+		"vHours": "Horário",
+		"vOneHour": "Cerca de 1 hora",
+		"vNextDay": "No dia seguinte",
+		"vOneNight": "Uma noite",
+		"backupTitle": "Azure Backup: restaurar dados a partir de um ponto no tempo",
+		"backupCaption": "Azure Backup",
+		"backupDesc": "Backup mantém pontos de recuperação em um cofre. Escolha o tipo de cofre pelo que você protege, depois adicione política e proteção.",
+		"backupCallout": "AZ-305 · Recomendo uma solução de backup e recuperação para computação, bancos de dados e dados não estruturados. Um cofre de Serviços de Recuperação contém Azure VMs, SQL Server em VMs Azure, Arquivos Azure e SAP HANA em VMs Azure. Um cofre de backup armazena discos Azure, blobs Azure e banco de dados Azure para servidores PostgreSQL. A exclusão suave mantém um backup excluído por mais 14 dias em um cofre de Serviços de Recuperação, e um cofre imutável bloqueia alterações que perderiam pontos de recuperação.",
+		"backupSay": "Escolha o cofre por carga de trabalho.",
+		"vaultRs": "Cofre de Serviços de Recuperação",
+		"vaultB": "Cofre de backup",
+		"srcVm": "Azure VMs",
+		"srcSqlVm": "SQL Server em uma VM",
+		"srcFiles": "Azure Files",
+		"srcHana": "SAP HANA em uma VM",
+		"srcDisks": "Azure Disks",
+		"srcBlobs": "Azure Blobs",
+		"srcPg": "Servidores PostgreSQL",
+		"protH": "Proteção embutida",
+		"prPolicy": "Política de backup",
+		"prImmutable": "Abóbada imutável",
+		"prRbac": "Azure RBAC",
+		"prEnc": "Criptografado em repouso",
+		"replicateTitle": "Azure Site Recovery: fail over the workload",
+		"replicateCaption": "Recuperação do local",
+		"replicateDesc": "A Recuperação de Site mantém uma réplica de VMs rodando em outra região, então um desastre significa failover, não reconstrução.",
+		"replicateCallout": "AZ-305 · Recomende uma solução de recuperação para Azure e cargas de trabalho híbridas. Site Recovery replica VMs Azure entre regiões, e VMware VMs, Hyper-V VMs e servidores físicos on-premises para Azure. Planos de recuperação sequenciam um failover em múltiplos níveis com scripts opcionais e ações manuais. Um failover de teste é um exercício que não interrompe a replicação contínua.",
+		"replicateSay": "Replicar agora, fazer failover depois.",
+		"regPrimary": "Região primária",
+		"regSecondary": "Região secundária",
+		"vmStore": "Storefront VM",
+		"vmSql": "VM de banco de dados de pedidos",
+		"replLbl": "Recuperação do local",
+		"planH": "Plano de recuperação",
+		"plan1": "BD de pedidos",
+		"plan2": "Loja",
+		"plan3": "Verificação manual",
+		"testT": "Failover de teste",
+		"testD": "Um exercício que deixa a replicação intacta.",
+		"decideTitle": "Backup ou replicação?",
+		"decideCaption": "A decisão",
+		"decideDesc": "O backup restaura dados. A replicação falha sobre uma carga de trabalho. A questão decisiva é se você perdeu dados ou perdeu um site.",
+		"decideCallout": "Azure Backup foca em proteção de dados: backup e restauração. Site Recovery adiciona failover para recuperação de desastres. Backup protege contra exclusão acidental, corrupção e ransomware. A replicação faz a carga de trabalho rodar novamente rapidamente. Bancos de dados de plataforma como o Azure SQL Database trazem sua própria replicação, que a próxima lição aborda.",
+		"decideSay": "Tier 1 precisa dos dois.",
+		"qH": "Questão decisiva",
+		"qT": "Dados perdidos ou um local perdido?",
+		"optBackup": "Azure Backup",
+		"optAsr": "Recuperação do local",
+		"bkL1": "Restaura dados de um ponto no tempo",
+		"bkL2": "Mais lento para se recuperar · Menor custo",
+		"asL1": "Falhas sobre uma carga de trabalho em execução",
+		"asL2": "Mais rápido de se recuperar · custo mais alto",
+		"chipBackup": "Reserva",
+		"chipAsr": "Recuperação do local",
+		"notNeeded": "Não é necessário",
+		"regionTitle": "Escolha onde a segunda cópia mora",
+		"regionCaption": "Segunda cópia",
+		"regionDesc": "Quanto mais longe a cópia vive, maior o fracasso que ela sobrevive e mais custo.",
+		"regionCallout": "Um cofre armazena backups com LRS, ZRS ou GRS. Com GRS, a cópia na região pareada normalmente só abre quando a Microsoft declara uma queda na região principal. O Cross Region Restore permite restaurar a partir dessa cópia quando quiser, o que também suporta exercícios.",
+		"regionSay": "Compare a cópia com a falha.",
+		"rgLrs": "Localmente redundante",
+		"rgZrs": "Redundante por zona",
+		"rgGrs": "Geo-redundante",
+		"rgLrsS": "Falha de hardware em um datacenter",
+		"rgZrsS": "Perda de uma zona de disponibilidade",
+		"rgGrsS": "Perda de uma região inteira",
+		"rgSurv": "Sobrevive",
+		"rgA": "Região A",
+		"rgB": "Região B",
+		"z1": "Zona 1",
+		"z2": "Zona 2",
+		"z3": "Zona 3",
+		"rgCrr": "Restauração Transversal",
+		"rgPick": "Contoso Nível 1",
+		"hybridTitle": "Proteja também servidores on-premises",
+		"hybridCaption": "Híbrido",
+		"hybridDesc": "Alguns servidores Contoso permanecem on-premises. O Azure Backup os alcança por meio de um agente ou servidor de backup.",
+		"hybridCallout": "AZ-305 · Recomende uma solução de recuperação para Azure e cargas de trabalho híbridas. O agente MARS faz backup de arquivos, pastas e estado do sistema de uma máquina Windows local diretamente para um cofre de Serviços de Recuperação. O Microsoft Azure Backup Server (MABS) protege as cargas de trabalho Hyper-V e VMware localmente, depois faz backup no cofre. Recuperação de Site cobre recuperação de desastres para VMware VMs locais, VMs Hyper-V e servidores físicos.",
+		"hybridSay": "Alguns arquivos: agente. Muitas cargas de trabalho: servidor.",
+		"hOnPrem": "Data center on-premises",
+		"hAzure": "Azure",
+		"hFile": "Servidor de arquivos",
+		"hVms": "Hyper-V e VMware VMs",
+		"hPhys": "VMware e servidores físicos",
+		"hMabs": "Azure Backup Server",
+		"hMars": "Agente MARS",
+		"hAsr": "Recuperação do local",
+		"hVaultSub": "Dados de backup",
+		"hReplica": "Réplica de VMs no Azure",
+		"wholeTitle": "Tudo em um só: recuperar até o objetivo",
+		"wholeCaption": "Resumo",
+		"wholeDesc": "Os alvos definem o nível, o tier escolhe a ferramenta, e a cópia vai até o ponto de falha que você precisa sobreviver.",
+		"wholeCallout": "Em seguida: manter os dados disponíveis, com alta disponibilidade e recuperação de desastres para bancos de dados e armazenamento.",
+		"toolAsr": "Recuperação do local",
+		"toolBackup": "Azure Backup",
+		"wSecond": "Segunda cópia: GRS + Restauração entre Regiões",
+		"wHybrid": "On-premises: agente MARS ou Azure Backup Server",
+		"wholeFoot": "Visão geral do Official Learn: <a href=\"https://learn.microsoft.com/azure/backup/backup-overview\" target=\"_blank\" rel=\"noopener\">Azure Backup</a> e <a href=\"https://learn.microsoft.com/azure/site-recovery/site-recovery-overview\" target=\"_blank\" rel=\"noopener\">Recuperação do Site</a>.",
+		"backLabel": "Registro e monitoramento",
+		"short1": "Objetivos",
+		"short2": "Níveis",
+		"short3": "Azure Backup",
+		"short4": "Recuperação do local",
+		"short5": "A decisão",
+		"short6": "Segunda cópia",
+		"short7": "Híbrido",
+		"short8": "Tudo em um só",
+		"languageLabel": "Idioma"
+	}
+};
+function t(key) { return (I18N[currentLang] && I18N[currentLang][key]) || I18N.en[key] || key; }
+
+function setLanguage(lang) {
+	currentLang = lang;
+	document.documentElement.lang = lang;
+	try { const u=new URL(location.href); u.searchParams.set('lang', lang); history.replaceState(null,'',u); } catch(_){}
+	document.getElementById('page-title').textContent = '\u2728 ' + t('pageTitle');
+	// icon-only nav buttons: the localized label lives in the tooltip (title)
+	document.getElementById('prev-btn').title = t('prev');
+	document.getElementById('next-btn').title = t('next');
+	document.getElementById('replay-btn').title = t('replay');
+	document.getElementById('reset-btn').title = t('restart');
+	document.getElementById('speed-down').title = t('slower');
+	document.getElementById('speed-up').title = t('faster');
+	document.getElementById('outline-title').textContent = t('stepDetails');
+	document.querySelector('.skip-link').textContent = t('skipToMain');
+	document.getElementById('stage-heading').textContent = t('stageHeading');
+	document.getElementById('stage-instructions').textContent = t('stageInstructions');
+	// localize overlay tooltips (icon buttons show their label on hover / as native title)
+	const _hlp=document.getElementById('help-toggle'); if(_hlp) _hlp.setAttribute('data-tip', t('shortcutsTip'));
+	const _aud=document.getElementById('audio-toggle'); if(_aud) _aud.title=t('audioTip');
+	const _ccb=document.getElementById('cc-toggle'); if(_ccb) _ccb.title=t('ccTip');
+	syncCalloutBtn(); syncOutlineBtn();
+	if (typeof syncAudioBtn === 'function') syncAudioBtn();
+	if (typeof buildShortcuts === 'function') buildShortcuts();
+	document.querySelectorAll('.aw-drag-reset').forEach(b=>{ b.title=t('resetPos'); b.setAttribute('aria-label', t('resetPos')); });
+	try { localStorage.setItem('aw-tmpl-lang', lang); } catch(_){}
+	document.title = t('pageTitle') + ' \u2014 Azure Animations';
+	const back = document.querySelector('.header-back-link');
+	back.textContent = '\u2190 ' + t('backLabel');
+	back.title = t('backLabel'); back.setAttribute('aria-label', t('backLabel'));
+	const url = new URL(back.href); url.searchParams.set('lang', lang); back.href = url;
+	const picker = document.getElementById('lang-select');
+	picker.title = t('languageLabel'); picker.setAttribute('aria-label', t('languageLabel'));
+	for (const [id, key] of [['prev-btn','scPrev'], ['next-btn','scNext'], ['replay-btn','scReplay'], ['reset-btn','scRestart'],
+		['speed-down','slower'], ['speed-up','faster'], ['audio-toggle','audioTip'], ['cc-toggle','ccTip'], ['help-toggle','shortcutsTip']]) {
+		const control = document.getElementById(id); if(control) control.setAttribute('aria-label', t(key));
+	}
+	if (current >= 0) renderStep(current);
+}
+
+// ── STEPS (journey order) ─────────────────
+const S = (id, short) => ({ id, short, titleKey:id+'Title', captionKey:id+'Caption', descKey:id+'Desc', calloutKey:id+'Callout' });
+const STEPS = [
+	S('objectives','Objectives'), S('tiers','Tiers'), S('backup','Azure Backup'), S('replicate','Site Recovery'),
+	S('decide','The decision'), S('region','Second copy'), S('hybrid','Hybrid'), S('whole','All in one')
+];
+
+STEPS.forEach((s, i) => { s.shortKey = 'short' + (i + 1); });
+
+// ── DOM REFS ──────────────────────────────
+const stage=document.getElementById('stage-frame'), svg=document.getElementById('fx-svg'),
+	counter=document.getElementById('step-counter'), breadcrumb=document.getElementById('breadcrumb'),
+	progress=document.getElementById('progress-fill'), announcer=document.getElementById('step-announcer'),
+	outlineBody=document.getElementById('outline-body'), outlinePanel=document.getElementById('step-outline'),
+	outlineBtn=document.getElementById('outline-toggle'), calloutBtn=document.getElementById('callout-toggle'),
+	langSelect=document.getElementById('lang-select');
+
+langSelect.addEventListener('change', e => setLanguage(e.target.value));
+const urlLang = new URLSearchParams(location.search).get('lang');
+let savedLang=null; try{ savedLang=localStorage.getItem('aw-tmpl-lang'); }catch(_){}
+if (urlLang && I18N[urlLang]) { currentLang = urlLang; langSelect.value = urlLang; }
+else if (savedLang && I18N[savedLang]) { currentLang = savedLang; langSelect.value = savedLang; }
+
+// ── Font size ─────────────────────────────
+const fontScales=[0.8,0.9,1,1.1,1.2,1.35]; let fontScaleIdx=2;
+const baseFontSize=parseFloat(getComputedStyle(document.documentElement).fontSize);
+function applyFontScale(){ document.documentElement.style.fontSize=(baseFontSize*fontScales[fontScaleIdx])+'px'; const c=document.getElementById('controls'); if(c) c.style.fontSize=baseFontSize+'px'; if(typeof current!=='undefined'&&current>=0){ const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s); } }
+function saveFont(){ try{ localStorage.setItem('aw-tmpl-font', String(fontScaleIdx)); }catch(_){} }
+try{ const f=parseInt(localStorage.getItem('aw-tmpl-font'),10); if(!isNaN(f)&&f>=0&&f<fontScales.length){ fontScaleIdx=f; applyFontScale(); } }catch(_){}
+document.getElementById('font-decrease').addEventListener('click',()=>{ if(fontScaleIdx>0){fontScaleIdx--;applyFontScale();saveFont();} });
+document.getElementById('font-increase').addEventListener('click',()=>{ if(fontScaleIdx<fontScales.length-1){fontScaleIdx++;applyFontScale();saveFont();} });
+
+let current=-1, animating=false, liveEls=[], liveTimelines=[], calloutEnabled=false;
+
+function syncCalloutBtn(){ calloutBtn.classList.toggle('toggle-active',calloutEnabled); calloutBtn.setAttribute('aria-pressed',calloutEnabled?'true':'false'); calloutBtn.setAttribute('data-tip',calloutEnabled?t('calloutOn'):t('calloutOff')); }
+calloutBtn.addEventListener('click',()=>{
+	calloutEnabled=!calloutEnabled; syncCalloutBtn();
+	if(current<0) return;
+	// Toggle just the callout box in place — don't re-render (no animation replay).
+	const existing=stage.querySelectorAll('.callout');
+	if(calloutEnabled){ if(!existing.length){ const c=maybeCallout(STEPS[current]); if(c) gsap.fromTo(c,{opacity:0,y:10},{opacity:1,y:0,duration:0.4,overwrite:true}); } }
+	else { existing.forEach(c=>{ const idx=liveEls.indexOf(c); if(idx>-1) liveEls.splice(idx,1); gsap.killTweensOf(c); c.remove(); }); }
+}); syncCalloutBtn();
+function syncOutlineBtn(){ const on=!outlinePanel.hasAttribute('hidden'); outlineBtn.classList.toggle('toggle-active',on); outlineBtn.setAttribute('aria-expanded',on?'true':'false'); outlineBtn.setAttribute('data-tip',on?t('outlineOn'):t('outlineOff')); }
+outlineBtn.addEventListener('click',()=>{ const showing=!outlinePanel.hasAttribute('hidden'); if(showing){outlinePanel.setAttribute('hidden','');} else {outlinePanel.removeAttribute('hidden');} syncOutlineBtn(); }); syncOutlineBtn();
+
+// ── Audio narration (overlay button · speaker + remaining-time countdown) ──
+// Drop one recorded clip per step (in STEPS order) into AUDIO_FILES for real narration;
+// localized clips live under AUDIO_BASE/<lang>/. With no files, the browser reads each
+// step's title + description aloud (speech synthesis), so the button works with zero assets.
+const AUDIO_BASE = 'audio/RecoveryObjectives/';
+const AUDIO_FILES = [
+	'step-01.mp3', 'step-02.mp3', 'step-03.mp3', 'step-04.mp3', 'step-05.mp3', 'step-06.mp3', 'step-07.mp3', 'step-08.mp3'
+];
+let audioEnabled=false, currentAudio=null, audioTimeout=null, ccPref=false;
+const audioBtn=document.getElementById('audio-toggle');
+if(audioBtn){ audioBtn.innerHTML='<span class="aw-audio-ico" aria-hidden="true">\uD83D\uDD07</span><span class="aw-audio-time" aria-hidden="true">--:--</span>'; }
+const audioIco=audioBtn&&audioBtn.querySelector('.aw-audio-ico'), audioTimeEl=audioBtn&&audioBtn.querySelector('.aw-audio-time');
+// Captions can play WITHOUT sound: when CC is on but audio is off we still play the clip MUTED, so the
+// caption reveals at the same pace — speaker shows 🔇 and the remaining-time countdown keeps running.
+function playbackOn(){ return audioEnabled || ccPref; }
+function audioDir(){ return (currentLang && currentLang!=='en') ? currentLang+'/' : ''; }
+function fmtDur(s){ s=Math.max(0,Math.ceil(s)); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
+function updateAudioTime(){ if(audioTimeEl && currentAudio && isFinite(currentAudio.duration) && currentAudio.duration>0) audioTimeEl.textContent=fmtDur(currentAudio.duration-currentAudio.currentTime); }
+function syncAudioBtn(){ if(!audioBtn) return; if(audioIco) audioIco.textContent=audioEnabled?'\uD83D\uDD0A':'\uD83D\uDD07'; if(audioTimeEl && !playbackOn()) audioTimeEl.textContent='--:--'; audioBtn.classList.toggle('toggle-active',audioEnabled); audioBtn.setAttribute('aria-pressed',audioEnabled?'true':'false'); }
+function speakFallback(i){ if(!window.speechSynthesis) return; const step=STEPS[i]; const u=new SpeechSynthesisUtterance(`${t(step.titleKey)}. ${t(step.descKey)}`); u.lang=currentLang||'en'; try{ speechSynthesis.cancel(); speechSynthesis.speak(u); }catch(_){} }
+function stopAudio(){
+	if(currentAudio){ currentAudio.pause(); currentAudio.currentTime=0; currentAudio=null; }
+	if(audioTimeout){ clearTimeout(audioTimeout); audioTimeout=null; }
+	if(audioTimeEl) audioTimeEl.textContent='--:--';
+	try{ if(window.speechSynthesis) speechSynthesis.cancel(); }catch(_){}
+	if(window.AWCaptions) AWCaptions.clear();
+}
+function playStepAudio(i){
+	stopAudio();
+	if(document.body.classList.contains('aw-prestart')) return;   // start gate holds audio too
+	if(!playbackOn() || i<0 || i>=STEPS.length) return;
+	audioTimeout=setTimeout(()=>{
+		audioTimeout=null;
+		const file=AUDIO_FILES[i];
+		if(!file){ if(audioEnabled) speakFallback(i); return; }   // no clip = no timing source for caption-only
+		currentAudio=new Audio(AUDIO_BASE+audioDir()+file);
+		currentAudio.volume = audioEnabled ? 1 : 0;              // caption-only = silent (volume 0) timing source
+		if(window.AWCaptions) AWCaptions.bind(currentAudio,i);
+		currentAudio.addEventListener('loadedmetadata',updateAudioTime);
+		currentAudio.addEventListener('timeupdate',updateAudioTime);
+		currentAudio.addEventListener('ended',()=>{ if(audioTimeEl) audioTimeEl.textContent='0:00'; });
+		currentAudio.addEventListener('error',()=>{ if(audioEnabled) speakFallback(i); });
+		currentAudio.play().catch(()=>{});
+	}, 400);
+}
+if(audioBtn){ audioBtn.addEventListener('click',()=>{
+	audioEnabled=!audioEnabled; try{localStorage.setItem('aw-tmpl-audio',audioEnabled?'1':'0');}catch(_){} syncAudioBtn();
+	if(current>=0){
+		if(!playbackOn()) stopAudio();
+		else if(currentAudio) currentAudio.volume = audioEnabled ? 1 : 0;   // flip sound without restarting the clip
+		else playStepAudio(current);
+	}
+	if(typeof applyCc==='function') applyCc();
+}); }
+// Initial audio + CC from the ?audio parameter:
+//   on -> audio ON + captions ON  ·  off -> both OFF  ·  (absent) -> audio ON, captions OFF (a prior stored choice still wins).
+(function(){
+	var p=null; try{ p=new URLSearchParams(location.search).get('audio'); }catch(_){}
+	if(p==='on'){ audioEnabled=true; ccPref=true; }
+	else if(p==='off'){ audioEnabled=false; ccPref=false; }
+	else {
+		audioEnabled=true; ccPref=false;
+		try{ var a=localStorage.getItem('aw-tmpl-audio'); if(a==='1') audioEnabled=true; else if(a==='0') audioEnabled=false; }catch(_){}
+		try{ var c=localStorage.getItem('aw-tmpl-cc'); if(c==='1') ccPref=true; else if(c==='0') ccPref=false; }catch(_){}
+	}
+	try{ localStorage.setItem('aw-tmpl-audio',audioEnabled?'1':'0'); localStorage.setItem('aw-tmpl-cc',ccPref?'1':'0'); }catch(_){}
+})();
+syncAudioBtn();
+
+// ── Captions (CC) — overlaid in the frame; play WITH or WITHOUT audio ──
+// Reads the SAME narration Markdown used to synthesize the audio. Set page to THIS file's
+// stem and base to its narration folder (see the path note near the top of the file).
+const ccBtn=document.getElementById('cc-toggle');
+function ccEffective(){ return ccPref; }                          // captions show whenever CC is on (audio not required)
+function syncCcBtn(){ if(!ccBtn) return; ccBtn.classList.toggle('on',ccPref); ccBtn.setAttribute('aria-pressed',ccPref?'true':'false'); }
+function applyCc(){ if(window.AWCaptions) AWCaptions.setEnabled(ccEffective()); if(ccEffective()&&currentAudio&&window.AWCaptions) AWCaptions.bind(currentAudio,current); syncCcBtn(); }
+if(window.AWCaptions){ AWCaptions.configure({ page:'RecoveryObjectives', base:'../../narration/Architect/', lang:()=>currentLang, fallback:(i)=>(STEPS[i]?t(STEPS[i].descKey):''), reserve:false }); }
+if(ccBtn){ ccBtn.addEventListener('click',()=>{
+	ccPref=!ccPref; try{localStorage.setItem('aw-tmpl-cc',ccPref?'1':'0');}catch(_){} applyCc();
+	if(current>=0){
+		if(playbackOn() && !currentAudio) playStepAudio(current);   // caption-only: start the muted timing clip
+		else if(!playbackOn() && currentAudio) stopAudio();          // CC off + audio off: nothing left to play
+	}
+}); }
+applyCc();
+
+// ── Full screen ──
+(function(){
+	const fsBtn=document.getElementById('fs-toggle'); if(!fsBtn) return;
+	function inFs(){ return !!(document.fullscreenElement||document.webkitFullscreenElement); }
+	function syncFs(){ document.body.classList.toggle('is-fs',inFs()); fsBtn.setAttribute('aria-pressed',inFs()?'true':'false'); fsBtn.title=inFs()?'Exit full screen (F)':'Full screen (F)'; }
+	function toggle(){ try{ if(inFs()){ (document.exitFullscreen||document.webkitExitFullscreen).call(document); } else { const el=document.documentElement; (el.requestFullscreen||el.webkitRequestFullscreen).call(el); } }catch(_){} }
+	fsBtn.addEventListener('click',e=>{ e.stopPropagation(); toggle(); });
+	document.addEventListener('fullscreenchange',syncFs); document.addEventListener('webkitfullscreenchange',syncFs);
+	document.addEventListener('keydown',e=>{ if(e.code==='KeyF'&&!e.metaKey&&!e.ctrlKey&&!e.altKey){ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return; e.preventDefault(); toggle(); } });
+	syncFs();
+})();
+
+// ── Reduced motion ────────────────────────
+const motionMQ=window.matchMedia('(prefers-reduced-motion: reduce)'); let motionPaused=motionMQ.matches;
+motionMQ.addEventListener('change',e=>{ motionPaused=e.matches; renderStep(current); });
+
+// ── Helpers ───────────────────────────────
+function clearStage(){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; liveEls.forEach(el=>el.remove()); liveEls=[]; Array.from(svg.children).forEach(c=>{ if(c.tagName.toLowerCase()!=='defs') c.remove(); }); }
+function el(cls,html){ const d=document.createElement('div'); if(cls) d.className=cls; if(html!=null) d.innerHTML=html; return d; }
+// Inline SVG icons (monochrome, currentColor) — crisp on any OS/projector. Add your own here.
+const ICONS = {
+	puzzle:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h8v8H3zm10 0h8v8h-8zM3 13h8v8H3zm10 0h8v8h-8z"/></svg>',
+	inbox:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 3h2v5h3l-4 4-4-4h3zM5 14h14v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1z"/></svg>',
+	gear:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M19.14 12.94a7.9 7.9 0 0 0 0-1.88l2-1.56-2-3.46-2.36.96a7.7 7.7 0 0 0-1.62-.94L14.8 2.5h-4l-.36 2.56c-.58.24-1.12.56-1.62.94L6.46 6.04l-2 3.46 2 1.56a7.9 7.9 0 0 0 0 1.88l-2 1.56 2 3.46 2.36-.96c.5.38 1.04.7 1.62.94l.36 2.56h4l.36-2.56c.58-.24 1.12-.56 1.62-.94l2.36.96 2-3.46-2-1.56zM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg>',
+	sparkle:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg>',
+	bulb:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-4 12.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26A7 7 0 0 0 12 2zM9 20h6v1a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1z"/></svg>',
+	check:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.55 17.6 4.4 12.45l1.86-1.86 3.29 3.29 8.19-8.19 1.86 1.86z"/></svg>',
+	bolt:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>',
+	lock:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 10a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1zm3-1V7a4 4 0 1 1 8 0v2h-2V7a2 2 0 1 0-4 0v2z"/></svg>',
+	box:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 3 7v10l9 5 9-5V7zm0 2.3L17.7 7 12 10.2 6.3 7zM5 9.1l6 3.4v6.8l-6-3.3zm14 0v6.9l-6 3.3v-6.8z"/></svg>',
+	key:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M14 2a6 6 0 0 0-5.66 8L2 16.34V22h5.66l.34-.34V20h2v-2h2l.34-.34A6 6 0 1 0 14 2zm2 3a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z"/></svg>',
+	rocket:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2c3 3 4 6 4 9l3 3-4 1-1 4-2-3-2 3-1-4-4-1 3-3c0-3 1-6 4-9zm0 5a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>',
+	health:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 2h6v5h5v6h-5v5H9v-5H4V7h5z"/></svg>',
+	headset:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a8 8 0 0 0-8 8v5a3 3 0 0 0 3 3h1v-7H6v-1a6 6 0 1 1 12 0v1h-2v7h1a3 3 0 0 0 3-3v-5a8 8 0 0 0-8-8z"/></svg>',
+	media:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M4 4h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zm5 4v8l7-4z"/></svg>',
+	book:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v16H6a2 2 0 0 1-2-2zm9 0h7v14a2 2 0 0 1-2 2h-5z"/></svg>',
+	party:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5zm6 11l.9 2.6L21.5 16.5l-2.6.9L18 20l-.9-2.6L14.5 16.5l2.6-.9zM6 14l.7 2 2 .7-2 .7L6 19.4l-.7-2-2-.7 2-.7z"/></svg>',
+	chat:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-4 4v-4H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/></svg>',
+	access:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a2.2 2.2 0 1 1 0 4.4A2.2 2.2 0 0 1 12 2zM4 8h16v2h-5.4l1 12h-2.3l-.7-6h-1.2l-.7 6H8.4l1-12H4z"/></svg>',
+	globe:'<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></g></svg>'
+};
+function icon(name){ return `<span class="ic">${ICONS[name]||''}</span>`; }
+function stepById(id){ return STEPS.find(s=>s.id===id); }
+// Scale the current scene down (never up) so it always fits inside the 16:9 frame — no clipping, no scroll.
+function fitScene(scene){
+	if(!scene) return;
+	scene.style.transform='translate(-50%,-50%) scale(1)';
+	const box=stage.getBoundingClientRect();
+	const availW=box.width-32, availH=box.height-28;
+	const sw=scene.offsetWidth, sh=scene.offsetHeight;
+	if(!sw||!sh) return;
+	const k=Math.min(1, availW/sw, availH/sh);
+	scene.style.transform='translate(-50%,-50%) scale('+k+')';
+}
+function headerEls(scene){ return [scene.querySelector('.scene-title'), scene.querySelector('.scene-lead')]; }
+function buildScene(step){ const s=el('scene'); s.appendChild(el('scene-title', t(step.titleKey))); s.appendChild(el('scene-lead', t(step.descKey))); return s; }
+function maybeCallout(step){ if(!calloutEnabled) return null; const c=el('callout', t(step.calloutKey)); c.style.left='1.5rem'; c.style.top='1.5rem'; stage.appendChild(c); liveEls.push(c); dragify(c, 'aw-tmpl-callout-pos'); return c; }
+function renderOutline(step,idx){
+	const rows=(step.stats||[]).map(([k,v])=>`<div class="stat-row"><span>${t(k)}</span><span>${t(v)}</span></div>`).join('');
+	outlineBody.innerHTML=`<div class="outline-section"><strong>${t('stepOf')} ${idx+1} / ${STEPS.length}: ${t(step.titleKey)}</strong><p style="margin-top:0.4rem;">${t(step.descKey)}</p></div>${rows?`<div class="outline-section">${rows}</div>`:''}`;
+}
+function announceStep(step,idx){ announcer.textContent=`${t('stepOf')} ${idx+1} / ${STEPS.length}: ${t(step.titleKey)}. ${t(step.descKey)}`; }
+
+// ── RENDER DISPATCH ───────────────────────
+function renderStep(i){
+	if(i<0||i>=STEPS.length) return;
+	if(animating){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; animating=false; }
+	animating=true;
+	const step=STEPS[i];
+	// cross-fade (200ms, CSS keyframes so it's independent of the speed control) — outgoing fades out, incoming fades in, on every step
+	const outgoing=stage.querySelector('.scene:not(.scene-out)');
+	if(outgoing) liveEls=liveEls.filter(x=>x!==outgoing);
+	clearStage();
+	if(outgoing){ outgoing.style.zIndex='5';
+		if(motionPaused){ outgoing.remove(); }
+		else { outgoing.classList.remove('scene-in'); outgoing.classList.add('scene-out'); setTimeout(()=>outgoing.remove(), 240); } }
+	(BUILDERS[step.id]||function(){})();
+	const incoming=stage.querySelector('.scene:not(.scene-out)');
+	if(incoming && !motionPaused) incoming.classList.add('scene-in');
+	fitScene(incoming);
+	current=i;
+	try{ const u=new URL(location.href); u.searchParams.set('step', String(i+1)); history.replaceState(null,'',u); }catch(_){}
+	counter.textContent=`${t('stepOf')} ${current+1} / ${STEPS.length}`;
+	breadcrumb.textContent=t(step.captionKey);
+	progress.style.width=((current+1)/STEPS.length*100)+'%';
+	renderOutline(step,i); announceStep(step,i);
+	if(typeof playStepAudio==='function') playStepAudio(i);
+}
+
+// ══════════════ AI-500 KIT · shared helpers (cast, board, connectors, timelines) ══════════════
+Object.assign(ICONS, {
+	robot:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2a1.6 1.6 0 0 1 .8 3V7h4.2a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3v-7a3 3 0 0 1 3-3h4.2V5A1.6 1.6 0 0 1 12 2zM9 11.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 0 0 0-3.2zm6 0a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 0 0 0-3.2z"/></svg>',
+	compass:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16zm3.9 4.1-2.1 5.7-5.7 2.1 2.1-5.7z"/></svg>',
+	doc:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M6 2h8l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm2 6.5v1.6h4V8.5zM8 12v1.6h8V12zm0 3.4V17h8v-1.6z"/></svg>',
+	search:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M10.5 3a7.5 7.5 0 0 1 5.9 12.1l4.3 4.3-1.4 1.4-4.3-4.3A7.5 7.5 0 1 1 10.5 3zm0 2a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11z"/></svg>',
+	coin:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="2"/><text x="12" y="16.8" text-anchor="middle" font-size="12.5" font-weight="700" font-family="Segoe UI,Arial,sans-serif" fill="currentColor">$</text></svg>',
+	person:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9zm0 2c-4.4 0-8 2.2-8 5v2h16v-2c0-2.8-3.6-5-8-5z"/></svg>',
+	clock:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16zm-1 3h2v5.2l3.3 2-1 1.7-4.3-2.6z"/></svg>',
+	chip:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M8 2h2v3h4V2h2v3h1a2 2 0 0 1 2 2v1h3v2h-3v4h3v2h-3v1a2 2 0 0 1-2 2h-1v3h-2v-3h-4v3H8v-3H7a2 2 0 0 1-2-2v-1H2v-2h3v-4H2V8h3V7a2 2 0 0 1 2-2h1zm0 5v10h8V7z"/></svg>',
+	warn:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2 1.5 21h21zM11 9h2v6h-2zm0 8h2v2h-2z"/></svg>',
+	scale:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 3h2v15h-2zM5 20h14v2H5zM3 6h18v2H3zM5 8l3 6a3 3 0 0 1-6 0zm14 0 3 6a3 3 0 0 1-6 0z"/></svg>',
+	code:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.7 6.3 3 12l5.7 5.7 1.4-1.4L5.8 12l4.3-4.3zm6.6 0-1.4 1.4 4.3 4.3-4.3 4.3 1.4 1.4L21 12z"/></svg>',
+	board:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M3 4h18a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1h-7v2h3v2H7v-2h3v-2H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zm1 2v9h16V6z"/></svg>',
+	shield:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2 4 5v6c0 5 3.4 9.3 8 11 4.6-1.7 8-6 8-11V5zm-1.2 13.5L7.5 12.2l1.4-1.4 1.9 1.9 4.3-4.3 1.4 1.4z"/></svg>',
+	star:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l3 6.3 6.9.9-5 4.8 1.2 6.9L12 17.6 5.9 20.9 7.1 14 2.1 9.2 9 8.3z"/></svg>',
+	ruler:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M3 17 17 3l4 4L7 21zm3.2 0 1.3 1.3 1.4-1.4-1.3-1.3zm3.7-3.7 1.3 1.3 1.4-1.4-1.3-1.3zm3.7-3.7 1.3 1.3 1.4-1.4-1.3-1.3z"/></svg>',
+	flask:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 2h6v2h-1v5.2l5.2 8.7A2 2 0 0 1 17.5 21h-11a2 2 0 0 1-1.7-3.1L10 9.2V4H9z"/></svg>',
+	arrowR:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 5l7 7-7 7-1.4-1.4 4.6-4.6H4v-2h12.2l-4.6-4.6z"/></svg>'
+});
+
+const AG = { solo:['robot','agSolo'], orch:['compass','agOrch'], intake:['doc','agIntake'], policy:['book','agPolicy'],
+	fraud:['search','agFraud'], payout:['coin','agPayout'], human:['person','agHuman'] };
+function agent(k, o){ o=o||{}; const a=AG[k];
+	return `<div class="ai5-ag ag-${k}${o.top?' is-top':''}"${o.size?` style="--ag:${o.size}px"`:''}><span class="ai5-ag-ic">${icon(a[0])}</span>${o.nolabel?'':`<span class="ai5-ag-l">${o.label||t(a[1])}</span>`}</div>`; }
+
+// A 0×0 wrapper at the node's CENTRE (animate the wrapper with GSAP; the inner node stays centred on it)
+function pos(cx, cy, html, cls){ const w=el('ai5-pos'+(cls?' '+cls:''), '<div class="ai5-in">'+html+'</div>'); w.style.left=cx+'px'; w.style.top=cy+'px'; return w; }
+
+const SVGNS='http://www.w3.org/2000/svg'; let _ai5id=0;
+// A fixed-size board with an SVG layer behind the nodes (same coordinates) for drawn connectors.
+function board(w, h){
+	const root=el('ai5-board'); root.style.width=w+'px'; root.style.height=h+'px';
+	const svg=document.createElementNS(SVGNS,'svg'); svg.setAttribute('viewBox',`0 0 ${w} ${h}`);
+	const mid='ai5ar'+(++_ai5id);
+	svg.innerHTML=`<defs><marker id="${mid}" viewBox="0 0 12 12" markerWidth="24" markerHeight="24" markerUnits="userSpaceOnUse" refX="11" refY="6" orient="auto"><path d="M1,1 L11,6 L1,11 Z" fill="context-stroke"/></marker></defs>`;
+	root.appendChild(svg);
+	return { root, svg, mid };
+}
+// Draw a connector path. Solid + arrow → draw-in via dash (the global guard hides the arrowhead until it lands). dash:'6 6' → static dashed, fade in.
+// An arrowed line is stopped a little INSIDE its head (flat cap, trimmed end): the head's tip is narrower than the stroke, so a line that
+// runs all the way to the tip (or has a round cap) pokes out in front of it. The marker is untouched, so the tip still lands on the path end.
+function arrowTrim(p, L){ return p.getAttribute('marker-end') ? Math.min((+p.getAttribute('stroke-width')||3)*2, L*0.09) : 0; }
+function line(B, d, color, o){ o=o||{};
+	const p=document.createElementNS(SVGNS,'path'); p.setAttribute('d',d); p.setAttribute('fill','none');
+	const arrowed=!o.dash && o.arrow!==false;
+	p.style.stroke=color||'var(--ai5-line)'; p.setAttribute('stroke-width',o.w||3); p.setAttribute('stroke-linecap',arrowed?'butt':'round'); p.setAttribute('stroke-linejoin','round');
+	if(o.dash) p.setAttribute('stroke-dasharray',o.dash);
+	else if(o.arrow!==false) p.setAttribute('marker-end','url(#'+B.mid+')');
+	B.svg.appendChild(p);
+	if(arrowed){ try{ const L=p.getTotalLength(), t=arrowTrim(p,L); if(L>0&&t>0) p.style.strokeDasharray=(L-t)+' '+(L+t); }catch(e){} }
+	return p; }
+function drawPrep(p){ const L=p.getTotalLength(), t=arrowTrim(p,L); p.style.strokeDasharray=t?(L-t)+' '+(L+t):L; p.style.strokeDashoffset=L; return L; }
+// Tween a solid connector in (call drawPrep first). Dashed connectors just fade.
+function drawIn(tl, p, at, dur){ if(p.getAttribute('stroke-dasharray')){ tl.fromTo(p,{opacity:0},{opacity:1,duration:dur||0.4},at); return; }
+	drawPrep(p); tl.to(p,{strokeDashoffset:0,duration:dur||0.6,ease:'power1.inOut'},at); }
+
+// Timeline helpers — every builder builds its tweens once; reduced motion just jumps to the end frame.
+function mount(scene){ stage.appendChild(scene); liveEls.push(scene); }
+function mkTL(){ return gsap.timeline({ onComplete:()=>{ animating=false; } }); }
+function head(tl, scene){ tl.fromTo(headerEls(scene),{opacity:0,y:-14},{opacity:1,y:0,duration:0.5,stagger:0.1,ease:'power2.out'}); }
+function finish(tl, step){
+	const c=maybeCallout(step); if(c) tl.fromTo(c,{opacity:0,y:10},{opacity:1,y:0,duration:0.5},'>-0.2');
+	if(motionPaused){ tl.progress(1); animating=false; return tl; }
+	liveTimelines.push(tl); return tl; }
+function idle(tw){ if(!motionPaused && tw) liveTimelines.push(tw); return tw; }
+function aiScene(step){ const s=buildScene(step); s.classList.add('ai5'); return s; }
+function say(txt, ic){ return el('ai5-say', (ic?icon(ic):'')+'<span>'+txt+'</span>'); }
+function nextLink(file, labelKey){ const a=document.createElement('a'); a.className='ai5-next'; a.href=file+'?lang='+currentLang; a.innerHTML='<span>'+t(labelKey)+'</span>'+icon('arrowR'); return a; }
+
+
+Object.assign(ICONS, {
+	server:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M4 3h16a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm2 2.5a1 1 0 1 0 0 2 1 1 0 0 0 0-2zM4 13h16a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-5a1 1 0 0 1 1-1zm2 2.5a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/></svg>',
+	replicate:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M3 4h10a1 1 0 0 1 1 1v3h-2V6H4v8h2v2H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zm7 6h10a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H10a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1zm1 2v7h8v-7z"/></svg>',
+	cross:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.7 4.3 12 10.6l6.3-6.3 1.4 1.4-6.3 6.3 6.3 6.3-1.4 1.4-6.3-6.3-6.3 6.3-1.4-1.4 6.3-6.3-6.3-6.3z"/></svg>',
+	calendar:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M7 2h2v2h6V2h2v2h2a1 1 0 0 1 1 1v15a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h2zM6 9v10h12V9z"/></svg>'
+});
+
+// ══════════════ RecoveryObjectives · shared scaffold ══════════════
+const AZ5 = '../../lib/icons/Azure_Public_Service_Icons/';
+const IMG5 = {
+	vault:'storage/00017-icon-service-Recovery-Services-Vaults.svg', bvault:'other/02361-icon-service-Backup-Vault.svg',
+	vm:'compute/10021-icon-service-Virtual-Machine.svg', sqlvm:'databases/10124-icon-service-Azure-SQL-VM.svg',
+	blob:'general/10780-icon-service-Blob-Block.svg', files:'general/10801-icon-service-Files.svg',
+	disks:'compute/10032-icon-service-Disks.svg', pg:'databases/10131-icon-service-Azure-Database-PostgreSQL-Server.svg'
+};
+const im5 = (k, s) => `<img src="${AZ5}${IMG5[k]}" width="${s}" height="${s}" alt="">`;
+function p5Scene(step){ const s = aiScene(step); s.classList.add('fl3'); return s; }
+function p5Box(cls, html, x, y, w, h){ const e = el(cls, html); e.style.cssText = `left:${x}px;top:${y}px;` + (w ? `width:${w}px;` : '') + (h ? `height:${h}px;` : ''); return e; }
+function p5Finish(scene, B, sayKey, ic){ scene.appendChild(B.root); const s = say(t(sayKey), ic); scene.appendChild(s); mount(scene); return s; }
+function p5Coins(n){ return [0, 1, 2].map(i => `<span class="ic${i < n ? '' : ' off'}">${ICONS.coin}</span>`).join(''); }
+
+// ── 1 · OBJECTIVES (RTO · RPO · SLA on a timeline) ─────────────
+function renderObjectives(){
+	const step = stepById('objectives'), scene = p5Scene(step);
+	const B = board(1100, 392), DX = 520, WIDE = 380, TIGHT = 170, BY = 84;
+	const ep = (x, k, cls, ic) => pos(x, 48, `<div class="p5-ep ${cls}"><span class="p5-eptag">${ic ? icon(ic) : ''}<span>${t(k)}</span></span><i></i></div>`);
+	const epL = ep(DX - WIDE, 'epLast', '', 'clock'), epD = ep(DX, 'epDisaster', 'is-bad', 'warn'), epB = ep(DX + WIDE, 'epBack', '', 'check');
+	const rpo = p5Box('p5-bar rpo', t('barRpo'), DX - WIDE, BY, WIDE, 50), rto = p5Box('p5-bar rto', t('barRto'), DX, BY, WIDE, 50);
+	const cl = p5Box('p5-costl', `${icon('coin')}<span>${t('costL')}</span>`, 0, 164, 120, 30);
+	const track = p5Box('p5-track', '<i class="p5-fill"></i>', 140, 166, 760, 26), fill = track.firstChild;
+	const cd = [['doc', 'cRpoT', 'cRpoD', ''], ['clock', 'cRtoT', 'cRtoD', ''], ['scale', 'cSlaT', 'cSlaD', ' is-dash']];
+	const cards = cd.map((c, i) => p5Box('p5-c2' + c[3], `<div class="t">${icon(c[0])}<span>${t(c[1])}</span></div><p>${t(c[2])}</p>`, i * 380, 232, 340, 150));
+	[epL, epD, epB, rpo, rto, cl, track, ...cards].forEach(n => B.root.appendChild(n));
+	const sayEl = p5Finish(scene, B, 'objectivesSay', 'coin');
+
+	const tl = mkTL(); head(tl, scene);
+	tl.fromTo(epD, { opacity:0, y:-40 }, { opacity:1, y:0, duration:0.55, ease:'bounce.out' });
+	tl.fromTo(rpo, { opacity:1, clipPath:'inset(0 0 0 100%)' }, { clipPath:'inset(0 0 0 0%)', duration:0.55, ease:'power2.out' }, '>0.1');
+	tl.fromTo(epL, { opacity:0, x:30 }, { opacity:1, x:0, duration:0.4 }, '<0.35');
+	tl.fromTo(rto, { opacity:1, clipPath:'inset(0 100% 0 0)' }, { clipPath:'inset(0 0% 0 0)', duration:0.55, ease:'power2.out' }, '>0.05');
+	tl.fromTo(epB, { opacity:0, x:-30 }, { opacity:1, x:0, duration:0.4 }, '<0.35');
+	tl.fromTo([cl, track], { opacity:0 }, { opacity:1, duration:0.4 }, '>0.1');
+	tl.fromTo(fill, { width:'0%' }, { width:'28%', duration:0.5, ease:'power2.out' }, '>-0.1');
+	tl.fromTo(cards, { opacity:0, y:34 }, { opacity:1, y:0, duration:0.5, stagger:0.14, ease:'power3.out' }, '>0.05');
+	tl.addLabel('tighten', '>0.35');
+	tl.to(rpo, { left:DX - TIGHT, width:TIGHT, duration:1.1, ease:'power2.inOut' }, 'tighten');
+	tl.to(rto, { width:TIGHT, duration:1.1, ease:'power2.inOut' }, 'tighten');
+	tl.to(epL, { x:WIDE - TIGHT, duration:1.1, ease:'power2.inOut' }, 'tighten');
+	tl.to(epB, { x:TIGHT - WIDE, duration:1.1, ease:'power2.inOut' }, 'tighten');
+	tl.to(fill, { width:'92%', duration:1.1, ease:'power2.inOut' }, 'tighten');
+	tl.fromTo(sayEl, { opacity:0, y:12 }, { opacity:1, y:0, duration:0.5 }, '>0.05');
+	finish(tl, step);
+}
+
+// ── 2 · TIERS (four workloads, three tiers) ────────────────────
+function renderTiers(){
+	const step = stepById('tiers'), scene = p5Scene(step);
+	const B = board(1100, 378), CW = 250, GAP = 33, X = i => i * (CW + GAP);
+	const bands = [['tier1', 0, 2], ['tier2', 2, 1], ['tier3', 3, 1]].map(b => p5Box('p5-band', t(b[0]), X(b[1]), 0, b[2] * CW + (b[2] - 1) * GAP, 44));
+	const W = [
+		{ k:'wkStore', ic:im5('vm', 56), rto:'vMinutes', rpo:'vNearZero', c:3 },
+		{ k:'wkOrders', ic:im5('sqlvm', 56), rto:'vMinutes', rpo:'vNearZero', c:3 },
+		{ k:'wkImages', ic:im5('blob', 56), rto:'vHours', rpo:'vOneHour', c:2 },
+		{ k:'wkErp', ic:`<span class="p5-bigic">${icon('gear')}</span>`, rto:'vNextDay', rpo:'vOneNight', c:1 }
+	];
+	const cards = W.map((w, i) => p5Box('p5-wk', `<div class="top">${w.ic}</div><div class="nm">${t(w.k)}</div>` +
+		`<div class="p5-kv"><span class="k">${t('lblRto')}</span><span class="v">${t(w.rto)}</span></div>` +
+		`<div class="p5-kv"><span class="k">${t('lblRpo')}</span><span class="v">${t(w.rpo)}</span></div>` +
+		`<div class="p5-kv"><span class="k">${t('costL')}</span><span class="p5-coins">${p5Coins(w.c)}</span></div>`, X(i), 58, CW, 320));
+	[...bands, ...cards].forEach(n => B.root.appendChild(n));
+	const sayEl = p5Finish(scene, B, 'tiersSay', 'scale');
+
+	const tl = mkTL(); head(tl, scene);
+	tl.fromTo(bands, { opacity:0, y:-34, scaleX:0.6 }, { opacity:1, y:0, scaleX:1, duration:0.5, stagger:0.14, ease:'back.out(1.6)' });
+	cards.forEach((c, i) => {
+		tl.fromTo(c, { opacity:0, y:60 }, { opacity:1, y:0, duration:0.5, ease:'power3.out' }, i ? '>-0.3' : '>0.05');
+		tl.fromTo(c.querySelectorAll('.v'), { opacity:0, scale:0.6 }, { opacity:1, scale:1, duration:0.35, stagger:0.08, ease:'back.out(2)' }, '>-0.15');
+		tl.fromTo(c.querySelectorAll('.p5-coins .ic'), { scale:0 }, { scale:1, duration:0.25, stagger:0.06, ease:'back.out(2.4)' }, '>-0.1');
+	});
+	tl.fromTo(sayEl, { opacity:0, y:12 }, { opacity:1, y:0, duration:0.5 }, '>0.1');
+	finish(tl, step);
+}
+
+// ── 3 · AZURE BACKUP (two vault types + built-in protection) ───
+function renderBackup(){
+	const step = stepById('backup'), scene = p5Scene(step);
+	const B = board(1100, 402);
+	const chip = (ic, k) => `<span class="ai5-tag p5-chip">${ic}<span>${t(k)}</span></span>`;
+	const pl = p5Box('p5-vp fl1', `<div class="h">${im5('vault', 44)}<span>${t('vaultRs')}</span></div><div class="cs">` +
+		chip(im5('vm', 22), 'srcVm') + chip(im5('sqlvm', 22), 'srcSqlVm') + chip(im5('files', 22), 'srcFiles') + chip('', 'srcHana') + '</div>', 0, 0, 530, 228);
+	const pr = p5Box('p5-vp fl2', `<div class="h">${im5('bvault', 44)}<span>${t('vaultB')}</span></div><div class="cs">` +
+		chip(im5('disks', 22), 'srcDisks') + chip(im5('blob', 22), 'srcBlobs') + chip(im5('pg', 22), 'srcPg') + '</div>', 570, 0, 530, 228);
+	const strip = p5Box('p5-strip fl3', `<div class="ai5-pnl-h">${t('protH')}</div><div class="cs">` +
+		[['calendar', 'prPolicy'], ['lock', 'prImmutable'], ['key', 'prRbac'], ['shield', 'prEnc']].map(c => `<span class="ai5-tag p5-chip">${icon(c[0])}<span>${t(c[1])}</span></span>`).join('') + '</div>', 0, 298, 1100, 104);
+	const l1 = line(B, 'M265 232 V292', 'var(--f3t)', { w:3 }), l2 = line(B, 'M835 232 V292', 'var(--f3t)', { w:3 });
+	[pl, pr, strip].forEach(n => B.root.appendChild(n));
+	const sayEl = p5Finish(scene, B, 'backupSay', 'shield');
+
+	const tl = mkTL(); head(tl, scene);
+	tl.fromTo(pl, { opacity:0, x:-70 }, { opacity:1, x:0, duration:0.6, ease:'power3.out' });
+	tl.fromTo(pr, { opacity:0, x:70 }, { opacity:1, x:0, duration:0.6, ease:'power3.out' }, '<0.1');
+	tl.fromTo([...pl.querySelectorAll('.ai5-tag'), ...pr.querySelectorAll('.ai5-tag')], { opacity:0, scale:0.5, y:-14 }, { opacity:1, scale:1, y:0, duration:0.4, stagger:0.08, ease:'back.out(1.8)' }, '>-0.1');
+	drawIn(tl, l1, '>0.1', 0.45); drawIn(tl, l2, '<0.1', 0.45);
+	tl.fromTo(strip, { opacity:0, y:24 }, { opacity:1, y:0, duration:0.5, ease:'power2.out' }, '>-0.1');
+	tl.fromTo(strip.querySelectorAll('.ai5-tag'), { opacity:0, x:-24 }, { opacity:1, x:0, duration:0.35, stagger:0.1 }, '>-0.2');
+	tl.fromTo(sayEl, { opacity:0, y:12 }, { opacity:1, y:0, duration:0.5 }, '>0.1');
+	finish(tl, step);
+}
+
+// ── 4 · SITE RECOVERY (replicate, plan, test, fail over) ───────
+function renderReplicate(){
+	const step = stepById('replicate'), scene = p5Scene(step);
+	const B = board(1100, 410), CY = 160;
+	const reg = (x, k) => p5Box('p5-reg fl3', `<span class="h">${t(k)}</span>`, x, 26, 400, 240);
+	const rp = reg(0, 'regPrimary'), rs = reg(700, 'regSecondary');
+	const vm = (x, k, ic) => pos(x, CY, `<div class="p5-vm"><span class="bx">${ic}</span><span>${t(k)}</span></div>`);
+	const pa = vm(105, 'vmStore', im5('vm', 44)), pb = vm(295, 'vmSql', im5('sqlvm', 44)), sa = vm(805, 'vmStore', im5('vm', 44)), sb = vm(995, 'vmSql', im5('sqlvm', 44));
+	const badge = pos(550, 140, `<div class="p5-badge fl4"><span class="bd">${icon('replicate')}</span><span>${t('replLbl')}</span></div>`);
+	const lA = line(B, 'M410 140 H500', 'var(--f4t)', { w:4, arrow:false }), lB = line(B, 'M600 140 H690', 'var(--f4t)', { w:4 });
+	const plan = p5Box('p5-plan', `<span class="ai5-pnl-h">${t('planH')}</span>`, 0, 296, 760, 114);
+	const st = (x, n, k) => pos(x, 372, `<span class="p5-step"><b>${n}</b><span>${t(k)}</span></span>`);
+	const s1 = st(120, 1, 'plan1'), s2 = st(380, 2, 'plan2'), s3 = st(640, 3, 'plan3');
+	const sl = [line(B, 'M217 372 H283', 'var(--f3t)', { w:3 }), line(B, 'M477 372 H543', 'var(--f3t)', { w:3 })];
+	const test = p5Box('p5-c2 fl3', `<div class="t">${icon('flask')}<span>${t('testT')}</span></div><p>${t('testD')}</p>`, 800, 296, 300, 114);
+	const xb = pos(384, 46, `<div class="p5-x">${icon('cross')}</div>`);
+	[rp, rs, pa, pb, sa, sb, badge, plan, s1, s2, s3, test, xb].forEach(n => B.root.appendChild(n));
+	const sayEl = p5Finish(scene, B, 'replicateSay', 'replicate');
+
+	const tl = mkTL(); head(tl, scene);
+	tl.fromTo([rp, rs], { opacity:0, scale:0.94 }, { opacity:1, scale:1, duration:0.5, stagger:0.1 });
+	tl.fromTo([pa, pb], { opacity:0, y:22 }, { opacity:1, y:0, duration:0.45, stagger:0.1, ease:'back.out(1.6)' }, '>-0.1');
+	tl.fromTo(badge, { opacity:0, scale:0.4 }, { opacity:1, scale:1, duration:0.45, ease:'back.out(2)' }, '>0.05');
+	drawIn(tl, lA, '>-0.05', 0.35); drawIn(tl, lB, '>0', 0.4);
+	tl.fromTo([sa, sb], { opacity:0, x:-30 }, { opacity:0.35, x:0, duration:0.5, stagger:0.1 }, '>-0.1');
+	tl.fromTo(plan, { opacity:0, y:24 }, { opacity:1, y:0, duration:0.45 }, '>0.1');
+	tl.fromTo(s1, { opacity:0, scale:0.6 }, { opacity:1, scale:1, duration:0.35, ease:'back.out(2)' }, '>-0.05');
+	drawIn(tl, sl[0], '>0', 0.3);
+	tl.fromTo(s2, { opacity:0, scale:0.6 }, { opacity:1, scale:1, duration:0.35, ease:'back.out(2)' }, '>-0.05');
+	drawIn(tl, sl[1], '>0', 0.3);
+	tl.fromTo(s3, { opacity:0, scale:0.6 }, { opacity:1, scale:1, duration:0.35, ease:'back.out(2)' }, '>-0.05');
+	tl.fromTo(test, { opacity:0, x:40 }, { opacity:1, x:0, duration:0.45, ease:'power3.out' }, '>0.05');
+	tl.fromTo(xb, { opacity:0, scale:2.2 }, { opacity:1, scale:1, duration:0.4, ease:'back.out(2)' }, '>0.4');
+	tl.to([pa, pb], { opacity:0.3, duration:0.4 }, '<0.1');
+	tl.to([sa, sb], { opacity:1, duration:0.5 }, '>-0.1');
+	tl.fromTo(sayEl, { opacity:0, y:12 }, { opacity:1, y:0, duration:0.5 }, '>0.05');
+	finish(tl, step);
+}
+
+// ── 5 · THE DECISION (backup or replication, per workload) ─────
+function renderDecide(){
+	const step = stepById('decide'), scene = p5Scene(step);
+	const B = board(1100, 418);
+	const q = p5Box('p5-q fl3', `<span class="ai5-pnl-h">${t('qH')}</span><b>${t('qT')}</b>`, 0, 0, 260, 160);
+	const opt = (cls, x, img, k, l1, l2) => p5Box('p5-opt ' + cls, `<div class="h">${img}<span>${t(k)}</span></div><p>${t(l1)}</p><p>${t(l2)}</p>`, x, 0, 400, 160);
+	const oa = opt('fl1', 280, im5('vault', 40), 'optBackup', 'bkL1', 'bkL2');
+	const ob = opt('fl4', 700, `<span class="p5-oic">${icon('replicate')}</span>`, 'optAsr', 'asL1', 'asL2');
+	const rows = [['wkStore', im5('vm', 28), 1, 1], ['wkOrders', im5('sqlvm', 28), 1, 1], ['wkImages', im5('blob', 28), 1, 0], ['wkErp', `<span class="p5-sic">${icon('gear')}</span>`, 1, 0]];
+	const nodes = [], lost = [], won = [], labels = [];
+	rows.forEach((r, i) => {
+		const y = 182 + i * 60;
+		labels.push(p5Box('p5-lab', `${r[1]}<span>${t(r[0])}</span>`, 0, y, 260, 52));
+		const mk = (x, on, cls, k) => pos(x + 200, y + 26, `<span class="p5-pick ${cls}${on ? ' is-on' : ' is-off'}">${icon(on ? 'check' : 'cross')}<span>${t(on ? k : 'notNeeded')}</span></span>`);
+		const a = mk(280, r[2], 'fl1', 'chipBackup'), b = mk(700, r[3], 'fl4', 'chipAsr');
+		nodes.push(a, b); (r[2] ? won : lost).push(a); (r[3] ? won : lost).push(b);
+	});
+	[q, oa, ob, ...labels, ...nodes].forEach(n => B.root.appendChild(n));
+	const sayEl = p5Finish(scene, B, 'decideSay', 'check');
+
+	const tl = mkTL(); head(tl, scene);
+	tl.fromTo(q, { opacity:0, scale:0.8 }, { opacity:1, scale:1, duration:0.5, ease:'back.out(1.6)' });
+	tl.fromTo(oa, { opacity:0, x:-60 }, { opacity:1, x:0, duration:0.5, ease:'power3.out' }, '>-0.05');
+	tl.fromTo(ob, { opacity:0, x:60 }, { opacity:1, x:0, duration:0.5, ease:'power3.out' }, '<');
+	rows.forEach((r, i) => {
+		tl.fromTo(labels[i], { opacity:0, x:-24 }, { opacity:1, x:0, duration:0.35 }, i ? '>0.05' : '>0.1');
+		tl.fromTo([nodes[i * 2], nodes[i * 2 + 1]], { opacity:0, scale:0.7 }, { opacity:1, scale:1, duration:0.35, stagger:0.08, ease:'back.out(1.8)' }, '<0.1');
+		const l = [r[2] ? null : nodes[i * 2], r[3] ? null : nodes[i * 2 + 1]].filter(Boolean);
+		if(l.length) tl.to(l, { opacity:0.55, duration:0.35 }, '>0.05');
+	});
+	tl.fromTo(sayEl, { opacity:0, y:12 }, { opacity:1, y:0, duration:0.5 }, '>0.1');
+	finish(tl, step);
+}
+
+// ── 6 · SECOND COPY (LRS · ZRS · GRS + Cross Region Restore) ───
+function renderRegion(){
+	const step = stepById('region'), scene = p5Scene(step);
+	const B = board(1100, 372), TOP = 20;
+	const sq = n => Array.from({ length:n }, () => '<i class="sq"></i>').join('');
+	const diagram = z => {
+		const zones = z.a.map((n, i) => `<span class="zn" style="left:${10 + i * 62}px">${sq(n)}</span>`).join('');
+		return `<div class="p5-dg"><span class="rl" style="left:0">${t('rgA')}</span><span class="rl" style="left:214px">${t('rgB')}</span>` +
+			`<span class="rf" style="left:0;width:196px">${zones}</span><span class="rf${z.b ? '' : ' is-empty'}" style="left:212px;width:88px"><span class="zn" style="left:12px">${sq(z.b)}</span></span></div>`;
+	};
+	const defs = [
+		{ k:'rgLrs', tag:'LRS', s:'rgLrsS', a:[3, 0, 0], b:0, c:1 }, { k:'rgZrs', tag:'ZRS', s:'rgZrsS', a:[1, 1, 1], b:0, c:2 }, { k:'rgGrs', tag:'GRS', s:'rgGrsS', a:[3, 0, 0], b:3, c:3 }];
+	const cards = defs.map((d, i) => p5Box('p5-rc', `<div class="t"><b>${t(d.k)}</b><span class="ai5-tag">${d.tag}</span></div>${diagram(d)}` +
+		`<div class="sv"><span class="k">${t('rgSurv')}</span><b>${t(d.s)}</b></div>` +
+		`<div class="bt"><span class="p5-coins">${p5Coins(d.c)}</span>${i === 2 ? `<span class="ai5-tag">${icon('replicate')}<span>${t('rgCrr')}</span></span>` : ''}</div>` +
+		(i === 2 ? '<span class="ring"></span>' : ''), i * 380, TOP, 340, 352));
+	const badge = pos(1100 - 170, TOP, `<span class="p5-pickbadge">${icon('star')}<span>${t('rgPick')}</span></span>`);
+	cards.forEach(c => B.root.appendChild(c)); B.root.appendChild(badge);
+	const sayEl = p5Finish(scene, B, 'regionSay', 'shield');
+
+	const tl = mkTL(); head(tl, scene);
+	cards.forEach((c, i) => {
+		tl.fromTo(c, { opacity:0, y:50, rotation:i - 1 }, { opacity:1, y:0, rotation:0, duration:0.55, ease:'power3.out' }, i ? '>-0.35' : '>0');
+		tl.fromTo(c.querySelectorAll('.sq'), { scale:0 }, { scale:1, duration:0.25, stagger:0.06, ease:'back.out(2.4)' }, '>-0.2');
+	});
+	tl.to([cards[0], cards[1]], { opacity:0.6, duration:0.45 }, '>0.35');
+	tl.fromTo(cards[2].querySelector('.ring'), { opacity:0, scale:0.97 }, { opacity:1, scale:1, duration:0.45, ease:'power2.out' }, '<');
+	tl.fromTo(badge, { opacity:0, scale:0.5, y:8 }, { opacity:1, scale:1, y:0, duration:0.4, ease:'back.out(2)' }, '>-0.1');
+	tl.fromTo(sayEl, { opacity:0, y:12 }, { opacity:1, y:0, duration:0.5 }, '>0.05');
+	finish(tl, step);
+}
+
+// ── 7 · HYBRID (MARS agent · Azure Backup Server · Site Recovery) ──
+function renderHybrid(){
+	const step = stepById('hybrid'), scene = p5Scene(step);
+	const B = board(1100, 388), R = [92, 204, 316];
+	const fr = (x, k) => p5Box('p5-reg fl3', `<span class="h">${t(k)}</span>`, x, 0, 380, 388);
+	const fOn = fr(0, 'hOnPrem'), fAz = fr(720, 'hAzure');
+	const src = (y, ic, k) => pos(190, y, `<div class="p5-nd" style="width:316px">${ic}<span>${t(k)}</span></div>`);
+	const s1 = src(R[0], icon('server'), 'hFile'), s2 = src(R[1], icon('server'), 'hVms'), s3 = src(R[2], icon('server'), 'hPhys');
+	const mabs = pos(550, R[1], `<div class="p5-nd is-hop" style="width:196px">${icon('server')}<span>${t('hMabs')}</span></div>`);
+	const vault = pos(910, 148, `<div class="p5-nd is-big fl1" style="width:300px;height:196px">${im5('vault', 72)}<b>${t('vaultRs')}</b><span class="sub">${t('hVaultSub')}</span></div>`);
+	const rep = pos(910, R[2], `<div class="p5-nd fl4" style="width:300px">${im5('vm', 40)}<span>${t('hReplica')}</span></div>`);
+	const chip = (y, k, cls, ic) => pos(550, y, `<span class="p5-lchip ${cls}">${icon(ic)}<span>${t(k)}</span></span>`);
+	const cMars = chip(R[0], 'hMars', 'fl1', 'server'), cAsr = chip(R[2], 'hAsr', 'fl4', 'replicate');
+	const L = [
+		line(B, `M348 ${R[0]} H470`, 'var(--f1t)', { w:3, arrow:false }), line(B, `M630 ${R[0]} H756`, 'var(--f1t)', { w:3 }),
+		line(B, `M348 ${R[1]} H452`, 'var(--f1t)', { w:3 }), line(B, `M648 ${R[1]} H756`, 'var(--f1t)', { w:3 }),
+		line(B, `M348 ${R[2]} H470`, 'var(--f4t)', { w:3, arrow:false }), line(B, `M630 ${R[2]} H756`, 'var(--f4t)', { w:3 })];
+	[fOn, fAz, s1, s2, s3, mabs, vault, rep, cMars, cAsr].forEach(n => B.root.appendChild(n));
+	const sayEl = p5Finish(scene, B, 'hybridSay', 'server');
+
+	const tl = mkTL(); head(tl, scene);
+	tl.fromTo([fOn, fAz], { opacity:0 }, { opacity:1, duration:0.45, stagger:0.1 });
+	tl.fromTo(s1, { opacity:0, x:-40 }, { opacity:1, x:0, duration:0.45, ease:'power3.out' }, '>0');
+	drawIn(tl, L[0], '>-0.05', 0.3);
+	tl.fromTo(cMars, { opacity:0, scale:0.5 }, { opacity:1, scale:1, duration:0.35, ease:'back.out(2)' }, '>-0.05');
+	drawIn(tl, L[1], '>0', 0.35);
+	tl.fromTo(vault, { opacity:0, x:50 }, { opacity:1, x:0, duration:0.5, ease:'power3.out' }, '>-0.1');
+	tl.fromTo(s2, { opacity:0, x:-40 }, { opacity:1, x:0, duration:0.45, ease:'power3.out' }, '>0.1');
+	drawIn(tl, L[2], '>-0.05', 0.3);
+	tl.fromTo(mabs, { opacity:0, scale:0.6 }, { opacity:1, scale:1, duration:0.4, ease:'back.out(1.8)' }, '>-0.05');
+	drawIn(tl, L[3], '>0', 0.3);
+	tl.fromTo(s3, { opacity:0, x:-40 }, { opacity:1, x:0, duration:0.45, ease:'power3.out' }, '>0.1');
+	drawIn(tl, L[4], '>-0.05', 0.3);
+	tl.fromTo(cAsr, { opacity:0, scale:0.5 }, { opacity:1, scale:1, duration:0.35, ease:'back.out(2)' }, '>-0.05');
+	drawIn(tl, L[5], '>0', 0.35);
+	tl.fromTo(rep, { opacity:0, x:50 }, { opacity:1, x:0, duration:0.5, ease:'power3.out' }, '>-0.1');
+	tl.fromTo(sayEl, { opacity:0, y:12 }, { opacity:1, y:0, duration:0.5 }, '>0.1');
+	finish(tl, step);
+}
+
+// ── 8 · WHOLE (All in One) ─────────────────────────────────────
+function renderWhole(){
+	const step = stepById('whole'), scene = p5Scene(step);
+	const B = board(1100, 384);
+	const tag = (ic, txt) => `<span class="ai5-tag">${ic}<span>${txt}</span></span>`;
+	const T = [
+		{ tier:'tier1', rto:'vMinutes', rpo:'vNearZero', w:[tag(im5('vm', 22), t('wkStore')), tag(im5('sqlvm', 22), t('wkOrders'))], u:[tag(`<span class="fl4 p5-oi">${icon('replicate')}</span>`, t('toolAsr')), tag(im5('vault', 22), t('toolBackup'))] },
+		{ tier:'tier2', rto:'vHours', rpo:'vOneHour', w:[tag(im5('blob', 22), t('wkImages'))], u:[tag(im5('bvault', 22), t('toolBackup'))] },
+		{ tier:'tier3', rto:'vNextDay', rpo:'vOneNight', w:[tag(icon('gear'), t('wkErp'))], u:[tag(im5('vault', 22), t('toolBackup'))] }];
+	const rows = T.map((r, i) => p5Box('p5-row', `<div class="tb"><b>${t(r.tier)}</b><span>${t('lblRto')} \u00b7 ${t(r.rto)}</span><span>${t('lblRpo')} \u00b7 ${t(r.rpo)}</span></div><div class="wk">${r.w.join('')}</div><span class="ar">${icon('arrowR')}</span><div class="tl">${r.u.join('')}</div>`, 0, i * 104, 1100, 92));
+	const strip = [[ 'replicate', 'wSecond', 0], ['server', 'wHybrid', 560]].map(s => p5Box('p5-sb', `${icon(s[0])}<span>${t(s[1])}</span>`, s[2], 318, 540, 64));
+	[...rows, ...strip].forEach(n => B.root.appendChild(n));
+	const foot = el('ai5-foot', t('wholeFoot')), nxt = nextLink('DataAvailability.html', 'nextData');
+	const end = el('p5-end'); end.appendChild(foot); end.appendChild(nxt);
+	scene.appendChild(B.root); scene.appendChild(end); mount(scene);
+
+	const tl = mkTL(); head(tl, scene);
+	rows.forEach((r, i) => {
+		tl.fromTo(r, { opacity:0, x:-60 }, { opacity:1, x:0, duration:0.5, ease:'power3.out' }, i ? '>-0.3' : '>0');
+		tl.fromTo(r.querySelectorAll('.ai5-tag'), { opacity:0, scale:0.7 }, { opacity:1, scale:1, duration:0.3, stagger:0.07, ease:'back.out(1.8)' }, '<0.25');
+	});
+	tl.fromTo(strip, { opacity:0, y:20 }, { opacity:1, y:0, duration:0.45, stagger:0.12 }, '>-0.05');
+	tl.fromTo(foot, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.5 }, '>0.1');
+	tl.fromTo(nxt, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.5 }, '>-0.2');
+	finish(tl, step);
+}
+
+const BUILDERS = { objectives:renderObjectives, tiers:renderTiers, backup:renderBackup, replicate:renderReplicate, decide:renderDecide, region:renderRegion, hybrid:renderHybrid, whole:renderWhole };
+
+
+// ── CONTROLS ──────────────────────────────
+function focusHeading(){ const h=document.getElementById('stage-heading'); if(h){ try{ h.focus({preventScroll:true}); }catch(_){ h.focus(); } } }
+function interruptAnimation(){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; animating=false; }
+function next(){ interruptAnimation(); if(current<STEPS.length-1){ renderStep(current+1); focusHeading(); } }
+function prev(){ interruptAnimation(); if(current>0){ renderStep(current-1); focusHeading(); } }
+function reset(){ interruptAnimation(); renderStep(0); focusHeading(); }
+function replay(){ if(current<0) return; interruptAnimation(); renderStep(current); focusHeading(); }
+
+// ── Hide / show top bar (toggle; the ^ chevron flips to v when hidden) ──
+(function(){
+	const hideBtn=document.getElementById('header-hide'), revealBtn=document.getElementById('header-reveal');
+	if(!hideBtn||!revealBtn) return;
+	var hideBtnTop=document.getElementById('header-hide-top'); if(hideBtnTop) hideBtnTop.addEventListener('click',function(e){ e.stopPropagation(); hideBtn.click(); });
+	const hidePath=hideBtn.querySelector('svg path');
+	const UP='M6 15l6-6 6 6', DOWN='M6 9l6 6 6-6';   // ^ points up to hide the bar; flips to v to show it again
+	function setHidden(h){
+		document.body.classList.toggle('chrome-hidden',h);
+		hideBtn.setAttribute('aria-expanded',String(!h));
+		hideBtn.setAttribute('aria-label',h?'Show top bar':'Hide top bar');
+		hideBtn.title=(h?'Show top bar':'Hide top bar')+' (H)';
+		if(hidePath) hidePath.setAttribute('d',h?DOWN:UP);
+		try{localStorage.setItem('aw-tmpl-chrome-hidden',h?'1':'0');}catch(_){}
+		if(current>=0) requestAnimationFrame(()=>{ const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s); });
+	}
+	hideBtn.addEventListener('click',e=>{e.stopPropagation();setHidden(!document.body.classList.contains('chrome-hidden'));});
+	revealBtn.addEventListener('click',e=>{e.stopPropagation();setHidden(false);});
+	try{ if(localStorage.getItem('aw-tmpl-chrome-hidden')==='1') setHidden(true); }catch(_){}
+	document.addEventListener('keydown',e=>{ if(e.code==='KeyH'&&!e.metaKey&&!e.ctrlKey&&!e.altKey){ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return; e.preventDefault(); setHidden(!document.body.classList.contains('chrome-hidden')); } });
+})();
+
+document.getElementById('next-btn').addEventListener('click',e=>{e.stopPropagation();next();});
+document.getElementById('prev-btn').addEventListener('click',e=>{e.stopPropagation();prev();});
+document.getElementById('reset-btn').addEventListener('click',e=>{e.stopPropagation();reset();});
+document.getElementById('replay-btn').addEventListener('click',e=>{e.stopPropagation();replay();});
+
+// ── Clickable progress bar + step ticks ──
+(function(){
+	const track=document.querySelector('.progress-track'); if(!track) return;
+	for(let s=1; s<STEPS.length; s++){ const tk=document.createElement('div'); tk.className='progress-tick'; tk.style.left=(s/STEPS.length*100)+'%'; track.appendChild(tk); }
+	track.setAttribute('title','Jump to a step');
+	track.addEventListener('click', e=>{
+		const r=track.getBoundingClientRect(); const frac=(e.clientX-r.left)/r.width;
+		const target=Math.max(0, Math.min(STEPS.length-1, Math.floor(frac*STEPS.length)));
+		if(target!==current){ interruptAnimation(); renderStep(target); focusHeading(); }
+	});
+})();
+
+// ── Movable / pinnable control dock ───────
+(function(){
+	const dock=document.getElementById('controls'), grip=document.getElementById('ctrl-grip'), pin=document.getElementById('ctrl-pin');
+	if(!dock||!grip) return;
+	const KEY='aw-tmpl-controls-pos';
+	let dragging=false, sx=0, sy=0, bl=0, bt=0, moved=false;
+	function place(left,top){
+		const w=dock.offsetWidth, h=dock.offsetHeight;
+		left=Math.max(6, Math.min(left, window.innerWidth - w - 6));
+		top =Math.max(6, Math.min(top,  window.innerHeight - h - 6));
+		dock.style.left=left+'px'; dock.style.top=top+'px'; dock.style.right='auto'; dock.style.bottom='auto'; dock.style.transform='none';
+		document.body.classList.add('controls-floating');
+	}
+	function recenter(){
+		dock.style.left=dock.style.top=dock.style.right=dock.style.bottom=dock.style.transform='';
+		document.body.classList.remove('controls-floating');
+		try{ localStorage.removeItem(KEY); }catch(_){}
+	}
+	grip.addEventListener('pointerdown', e=>{
+		e.preventDefault(); dragging=true; moved=false;
+		const r=dock.getBoundingClientRect(); bl=r.left; bt=r.top; sx=e.clientX; sy=e.clientY;
+		try{ grip.setPointerCapture(e.pointerId); }catch(_){}
+	});
+	grip.addEventListener('pointermove', e=>{
+		if(!dragging) return;
+		const dx=e.clientX-sx, dy=e.clientY-sy;
+		if(Math.abs(dx)>2||Math.abs(dy)>2) moved=true;
+		place(bl+dx, bt+dy);
+	});
+	function end(e){ if(!dragging) return; dragging=false; try{ grip.releasePointerCapture(e.pointerId); }catch(_){}
+		if(moved){ try{ const r=dock.getBoundingClientRect(); localStorage.setItem(KEY, JSON.stringify({left:r.left, top:r.top})); }catch(_){} } }
+	grip.addEventListener('pointerup', end); grip.addEventListener('pointercancel', end);
+	// keyboard-nudge the dock when the grip is focused (arrow keys; Shift = larger step)
+	grip.addEventListener('keydown', e=>{
+		const d=e.shiftKey?40:12; const r=dock.getBoundingClientRect(); let ok=true;
+		if(e.key==='ArrowLeft') place(r.left-d, r.top);
+		else if(e.key==='ArrowRight') place(r.left+d, r.top);
+		else if(e.key==='ArrowUp') place(r.left, r.top-d);
+		else if(e.key==='ArrowDown') place(r.left, r.top+d);
+		else ok=false;
+		if(ok){ e.preventDefault(); e.stopPropagation(); }
+	});
+	if(pin) pin.addEventListener('click', e=>{ e.stopPropagation(); recenter(); });
+	window.addEventListener('resize', ()=>{ if(document.body.classList.contains('controls-floating')){ const r=dock.getBoundingClientRect(); place(r.left, r.top); } });
+	try{ const s=JSON.parse(localStorage.getItem(KEY)||'null'); if(s && typeof s.left==='number') place(s.left, s.top); }catch(_){}
+})();
+
+// ── Make callout / outline / caption draggable (same pointer-drag as the control dock) ──
+function dragify(el, key){
+	if(!el || el.__awDrag) return; el.__awDrag=true;
+	let dragging=false, sx=0, sy=0, bl=0, bt=0, moved=false;
+	const resizable = getComputedStyle(el).resize !== 'none';
+	const sizeKey = key ? key + '-size' : null;
+	// snapshot the home position + size so the reset pin can restore it exactly
+	const home={ position:el.style.position, left:el.style.left, top:el.style.top,
+		right:el.style.right, bottom:el.style.bottom, margin:el.style.margin, transform:el.style.transform,
+		width:el.style.width, height:el.style.height };
+	// reset "pin" — hidden until the panel is dragged or resized off its home spot
+	const pin=document.createElement('button');
+	pin.type='button'; pin.className='aw-drag-reset';
+	pin.title=t('resetPos'); pin.setAttribute('aria-label', t('resetPos'));
+	pin.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>';
+	// keep the pin inside scrollable / resizable panels so it isn't clipped
+	const oy=getComputedStyle(el).overflowY; const clips=(oy==='auto'||oy==='scroll'||oy==='hidden');
+	pin.style.top=clips?'8px':'-10px'; pin.style.right=clips?'8px':'-10px';
+	el.appendChild(pin);
+	function showPin(on){ pin.style.display=on?'flex':'none'; }
+	pin.addEventListener('pointerdown', e=>{ e.stopPropagation(); });
+	pin.addEventListener('click', e=>{
+		e.preventDefault(); e.stopPropagation();
+		el.style.position=home.position; el.style.left=home.left; el.style.top=home.top;
+		el.style.right=home.right; el.style.bottom=home.bottom; el.style.margin=home.margin; el.style.transform=home.transform;
+		el.style.width=home.width; el.style.height=home.height;
+		if(key){ try{ localStorage.removeItem(key); }catch(_){} }
+		if(sizeKey){ try{ localStorage.removeItem(sizeKey); }catch(_){} }
+		showPin(false);
+	});
+	function fix(left,top){
+		const w=el.offsetWidth, h=el.offsetHeight;
+		left=Math.max(6, Math.min(left, window.innerWidth  - w - 6));
+		top =Math.max(6, Math.min(top,  window.innerHeight - h - 6));
+		el.style.position='fixed'; el.style.left=left+'px'; el.style.top=top+'px';
+		el.style.right='auto'; el.style.bottom='auto'; el.style.margin='0'; el.style.transform='none';
+	}
+	// persist user resizes (the CSS resize grip writes inline width/height; content changes don't)
+	if(resizable && typeof ResizeObserver!=='undefined'){
+		let rt;
+		new ResizeObserver(()=>{
+			if(el.style.width || el.style.height){
+				showPin(true);
+				if(sizeKey){ clearTimeout(rt); rt=setTimeout(()=>{ try{ localStorage.setItem(sizeKey, JSON.stringify({w:el.style.width, h:el.style.height})); }catch(_){} }, 150); }
+			}
+		}).observe(el);
+	}
+	el.addEventListener('pointerdown', e=>{
+		if(e.button!==0 || (e.target.closest && e.target.closest('a,button,select,input,textarea'))) return;
+		if(resizable){ const r=el.getBoundingClientRect(); if(e.clientX>r.right-18 && e.clientY>r.bottom-18) return; } // let the resize grip win
+		dragging=true; moved=false;
+		const r=el.getBoundingClientRect(); bl=r.left; bt=r.top; sx=e.clientX; sy=e.clientY;
+		fix(bl, bt);   // pin at the current spot first, so there's no jump
+		try{ el.setPointerCapture(e.pointerId); }catch(_){}
+		e.preventDefault();
+	});
+	el.addEventListener('pointermove', e=>{
+		if(!dragging) return;
+		const dx=e.clientX-sx, dy=e.clientY-sy;
+		if(Math.abs(dx)>2||Math.abs(dy)>2) moved=true;
+		fix(bl+dx, bt+dy);
+	});
+	function end(e){
+		if(!dragging) return; dragging=false;
+		try{ el.releasePointerCapture(e.pointerId); }catch(_){}
+		if(moved){ showPin(true); if(key){ try{ const r=el.getBoundingClientRect(); localStorage.setItem(key, JSON.stringify({left:r.left, top:r.top})); }catch(_){} } }
+	}
+	el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+	if(sizeKey){ try{ const z=JSON.parse(localStorage.getItem(sizeKey)||'null'); if(z && (z.w||z.h)){ if(z.w) el.style.width=z.w; if(z.h) el.style.height=z.h; showPin(true); } }catch(_){} }
+	if(key){ try{ const s=JSON.parse(localStorage.getItem(key)||'null'); if(s && isFinite(s.left) && isFinite(s.top)){ fix(s.left, s.top); showPin(true); } }catch(_){} }
+}
+dragify(document.getElementById('step-outline'), 'aw-tmpl-outline-pos');
+dragify(document.getElementById('aw-caption'), 'aw-tmpl-caption-pos');
+
+// ── Speed ─────────────────────────────────
+const SPEED_STEPS=[0.5,0.75,1,1.25,1.5,2]; const BASE_TIMESCALE=0.25;
+let speedIndex=SPEED_STEPS.indexOf(1);
+try{ const sp=parseInt(localStorage.getItem('aw-tmpl-speed'),10); if(!isNaN(sp)&&sp>=0&&sp<SPEED_STEPS.length) speedIndex=sp; }catch(_){}
+const speedLabel=document.getElementById('speed-label'), speedDownBtn=document.getElementById('speed-down'), speedUpBtn=document.getElementById('speed-up');
+function saveSpeed(){ try{ localStorage.setItem('aw-tmpl-speed', String(speedIndex)); }catch(_){} }
+function syncSpeedUI(){ const spd=SPEED_STEPS[speedIndex]; speedLabel.textContent=spd+'\u00d7'; speedDownBtn.disabled=speedIndex===0; speedUpBtn.disabled=speedIndex===SPEED_STEPS.length-1; gsap.globalTimeline.timeScale(spd*BASE_TIMESCALE); }
+syncSpeedUI();
+speedDownBtn.addEventListener('click',e=>{e.stopPropagation(); if(speedIndex>0){speedIndex--;syncSpeedUI();saveSpeed();}});
+speedUpBtn.addEventListener('click',e=>{e.stopPropagation(); if(speedIndex<SPEED_STEPS.length-1){speedIndex++;syncSpeedUI();saveSpeed();}});
+
+// ── Keyboard ──────────────────────────────
+if (window.AW && AW.keyboard) { AW.keyboard.bind({ next, prev, reset, replay }); }
+else { document.addEventListener('keydown', e => {
+	const tag=(e.target&&e.target.tagName||'').toLowerCase();
+	if(tag==='input'||tag==='textarea'||tag==='select') return;
+	// Space/Enter must reach a focused control, otherwise the focused button can never be pressed by keyboard
+	const onControl=!!(e.target&&e.target.closest&&e.target.closest('button,a[href],summary,[role="button"],[role="switch"]'));
+	if (['Space','Enter'].includes(e.code) && onControl) return;
+	if (['Space','ArrowRight','Enter'].includes(e.code)) { e.preventDefault(); next(); }
+	else if (e.code==='ArrowLeft') { e.preventDefault(); prev(); }
+	else if (e.code==='KeyR') { e.preventDefault(); reset(); }
+	else if (e.code==='KeyP') { e.preventDefault(); replay(); }
+}); }
+
+// ── Touch swipe (tablets) ─────────────────
+(function(){
+	const surf=document.getElementById('stage'); if(!surf) return;
+	let x0=null,y0=null,t0=0;
+	surf.addEventListener('touchstart',e=>{ if(e.touches.length!==1){x0=null;return;} x0=e.touches[0].clientX; y0=e.touches[0].clientY; t0=Date.now(); },{passive:true});
+	surf.addEventListener('touchend',e=>{
+		if(x0===null) return; const tch=e.changedTouches[0]; const dx=tch.clientX-x0, dy=tch.clientY-y0; x0=null;
+		if(Date.now()-t0>800) return;
+		if(Math.abs(dx)>50 && Math.abs(dx)>Math.abs(dy)*1.6){ if(dx<0) next(); else prev(); }
+	},{passive:true});
+})();
+
+// ── Keyboard shortcut help overlay ────────
+(function(){
+	const overlay=document.getElementById('shortcut-overlay'), btn=document.getElementById('help-toggle'), closeBtn=document.getElementById('sc-close'), list=document.getElementById('sc-list');
+	if(!overlay||!list) return;
+	const ROWS=[[['\u2192','Space'],'scNext'],[['\u2190'],'scPrev'],[['R'],'scRestart'],[['P'],'scReplay'],[['H'],'scHide'],[['?'],'scHelp']];
+	window.buildShortcuts=function(){ const title=document.getElementById('sc-title'); if(title) title.textContent=t('scTitle');
+		list.innerHTML=ROWS.map(([keys,k])=>`<li><span>${t(k)}</span><span class="sc-keys">${keys.map(x=>`<kbd>${x}</kbd>`).join('')}</span></li>`).join(''); };
+	buildShortcuts();
+	function open(){ overlay.removeAttribute('hidden'); if(closeBtn) closeBtn.focus(); }
+	function close(){ overlay.setAttribute('hidden',''); if(btn) btn.focus(); }
+	function toggle(){ overlay.hasAttribute('hidden')?open():close(); }
+	if(btn) btn.addEventListener('click',e=>{e.stopPropagation();toggle();});
+	if(closeBtn) closeBtn.addEventListener('click',e=>{e.stopPropagation();close();});
+	const bd=overlay.querySelector('.sc-backdrop'); if(bd) bd.addEventListener('click',close);
+	document.addEventListener('keydown',e=>{ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return;
+		if(e.key==='?'){ e.preventDefault(); toggle(); }
+		else if(e.key==='Escape' && !overlay.hasAttribute('hidden')){ e.preventDefault(); close(); } });
+})();
+
+// ── Resize (re-fit only — never rebuild or replay the animation) ──
+let resizeTimer, lastStageW=0, lastStageH=0;
+window.addEventListener('resize',()=>{ clearTimeout(resizeTimer); resizeTimer=setTimeout(()=>{
+	if(current<0) return;
+	const box=stage.getBoundingClientRect();
+	if(Math.abs(box.width-lastStageW)<1 && Math.abs(box.height-lastStageH)<1) return;   // ignore no-op reflows (focus/URL-bar) so the animation never restarts
+	lastStageW=box.width; lastStageH=box.height;
+	const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s);
+},200); });
+
+// ── Init ──────────────────────────────────
+setLanguage(currentLang);
+counter.textContent = `1 / ${STEPS.length}`;
+const urlStep = parseInt(new URLSearchParams(location.search).get('step'), 10);   // ?step=N opens on step N
+renderStep((!isNaN(urlStep) && urlStep>=1 && urlStep<=STEPS.length) ? urlStep-1 : 0);
+</script>
+<script>
+// ── Start gate · hold autoplay until the viewer clicks Play (empty stage + centered Play) ──
+(function () {
+	if (new URLSearchParams(location.search).has('present')) return;
+	var stage = document.getElementById('stage');
+	if (!stage) return;
+	function freeze() { try { if (window.gsap && gsap.globalTimeline) gsap.globalTimeline.pause(); } catch (_) {} }
+	freeze(); requestAnimationFrame(freeze);
+	document.body.classList.add('aw-prestart');
+	try { if (typeof stopAudio === 'function') stopAudio(); } catch (_) {}
+	stage.style.transition = 'opacity .55s ease';
+	stage.style.opacity = '0';
+
+	var T = {
+		title: { en:'Ready to begin?', es:'\u00BFTodo listo?', ja:'\u6E96\u5099\u306F\u3044\u3044\u3067\u3059\u304B\uFF1F', ko:'\uC2DC\uC791\uD560 \uC900\uBE44\uAC00 \uB418\uC168\uB098\uC694?', pt:'Tudo pronto?' },
+		sound: { en:'Sound', es:'Sonido', ja:'\u97F3\u58F0', ko:'\uC18C\uB9AC', pt:'Som' },
+		cc:    { en:'Subtitles (CC)', es:'Subt\u00EDtulos (CC)', ja:'\u5B57\u5E55\uFF08CC\uFF09', ko:'\uC790\uB9C9 (CC)', pt:'Legendas (CC)' },
+		start: { en:'Start presentation', es:'Iniciar presentaci\u00F3n', ja:'\u30D7\u30EC\u30BC\u30F3\u3092\u958B\u59CB', ko:'\uD504\uB808\uC820\uD14C\uC774\uC158 \uC2DC\uC791', pt:'Iniciar apresenta\u00E7\u00E3o' }
+	};
+	function L(){ return (typeof currentLang === 'string' && currentLang) || (typeof CURRENT_LANG === 'string' && CURRENT_LANG) || 'en'; }
+	function t(k){ var m = T[k], l = L(); return m[m[l] ? l : 'en']; }
+	function awAudioState(){ try{ if(typeof window.__awAudioOn==='function') return !!window.__awAudioOn(); }catch(_){} return (typeof audioEnabled!=='undefined') && !!audioEnabled; }
+	function awCcState(){ try{ if(typeof window.__awCcOn!=='undefined' && window.__awCcOn!==null) return !!window.__awCcOn; }catch(_){} return (typeof ccPref!=='undefined') && !!ccPref; }
+
+	var style = document.createElement('style');
+	style.textContent =
+		'body.aw-prestart #controls{opacity:.4;pointer-events:none;transition:opacity .4s ease}' +
+		'#aw-play-card{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:50;box-sizing:border-box;width:min(90vw,22rem);padding:1.35rem 1.5rem 1.5rem;border-radius:16px;background:var(--theme-card-background,#fff);color:var(--theme-text,#222);border:1px solid var(--theme-border,rgba(0,0,0,.1));box-shadow:0 24px 60px rgba(0,0,0,.28);transition:opacity .3s ease,transform .3s ease}' +
+		'#aw-play-card.aw-hide{opacity:0;transform:translate(-50%,-50%) scale(.96);pointer-events:none}' +
+		'body.theme-dark #aw-play-card{border-color:rgba(255,255,255,.12);box-shadow:0 24px 60px rgba(0,0,0,.55)}' +
+		'body.present-mode #aw-play-card{display:none!important}' +
+		'.aw-card-title{margin:0 0 1rem;text-align:center;font-size:1.02rem;font-weight:800;letter-spacing:.03em;text-transform:uppercase;opacity:.85}' +
+		'.aw-row{display:flex;align-items:center;gap:.65rem;padding:.6rem 0}' +
+		'.aw-row + .aw-row{border-top:1px solid var(--theme-border,rgba(0,0,0,.08))}' +
+		'.aw-row-ico{flex:none;width:1.5rem;text-align:center;font-size:1.15rem;line-height:1}' +
+		'.aw-row-lbl{flex:1 1 auto;font-size:.9rem;font-weight:600}' +
+		'.aw-row-state{flex:none;min-width:2.5rem;text-align:right;font-size:.68rem;font-weight:800;letter-spacing:.05em;opacity:.5}' +
+		'.aw-row-state.on{color:var(--theme-primary,#0078d4);opacity:1}' +
+		'.aw-switch{position:relative;flex:none;width:44px;height:24px;padding:0;border:none;border-radius:999px;cursor:pointer;background:var(--theme-border,#c7c7d1);transition:background .18s ease}' +
+		'.aw-switch.on{background:var(--theme-primary,#0078d4)}' +
+		'.aw-switch::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.4);transition:transform .18s ease}' +
+		'.aw-switch.on::after{transform:translateX(20px)}' +
+		'#aw-start{margin-top:1.2rem;width:100%;display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:.8rem 1rem;border:none;border-radius:11px;cursor:pointer;background:var(--theme-primary,#0078d4);color:#fff;font-size:.96rem;font-weight:700;letter-spacing:.01em;box-shadow:0 8px 22px var(--theme-primary-translucent,rgba(0,120,212,.45));transition:transform .15s ease}' +
+		'#aw-start:hover{transform:translateY(-2px)}#aw-start:active{transform:scale(.98)}' +
+		'#aw-start svg{width:18px;height:18px;flex:none}';
+	document.head.appendChild(style);
+
+	var card = document.createElement('div');
+	card.id = 'aw-play-card'; card.setAttribute('role', 'dialog'); card.setAttribute('aria-modal', 'true');
+	card.innerHTML =
+		'<div class="aw-card-title"></div>' +
+		'<div class="aw-row" data-k="audio"><span class="aw-row-ico" aria-hidden="true">\uD83D\uDD0A</span><span class="aw-row-lbl"></span><span class="aw-row-state"></span><button type="button" class="aw-switch" role="switch"></button></div>' +
+		'<div class="aw-row" data-k="cc"><span class="aw-row-ico" aria-hidden="true">\uD83D\uDCAC</span><span class="aw-row-lbl"></span><span class="aw-row-state"></span><button type="button" class="aw-switch" role="switch"></button></div>' +
+		'<button type="button" id="aw-start"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 5v14l11-7z"/></svg><span class="aw-start-lbl"></span></button>';
+	document.body.appendChild(card);
+
+	var titleEl = card.querySelector('.aw-card-title');
+	var startBtn = card.querySelector('#aw-start');
+	var ROWS = [ { k:'audio', lbl:'sound', el:card.querySelector('.aw-row[data-k="audio"]'), read:awAudioState, toggle:'audio-toggle' },
+	             { k:'cc',    lbl:'cc',    el:card.querySelector('.aw-row[data-k="cc"]'),    read:awCcState,    toggle:'cc-toggle' } ];
+
+	function render(){
+		titleEl.textContent = t('title'); card.setAttribute('aria-label', t('title'));
+		startBtn.querySelector('.aw-start-lbl').textContent = t('start');
+		ROWS.forEach(function(r){
+			var on = r.read();
+			r.el.querySelector('.aw-row-lbl').textContent = t(r.lbl);
+			var st = r.el.querySelector('.aw-row-state'); st.textContent = on ? 'ON' : 'OFF'; st.classList.toggle('on', on);
+			var sw = r.el.querySelector('.aw-switch'); sw.classList.toggle('on', on); sw.setAttribute('aria-checked', on ? 'true' : 'false');
+			sw.setAttribute('aria-label', t(r.lbl) + ' \u2014 ' + (on ? 'on' : 'off'));
+		});
+	}
+	ROWS.forEach(function(r){
+		r.el.querySelector('.aw-switch').addEventListener('click', function(e){ e.stopPropagation(); var b = document.getElementById(r.toggle); if(b) b.click(); render(); });
+	});
+	render();
+
+	var sel = document.getElementById('lang-select');
+	// Only re-freeze while the gate is still up — after Play, freezing would pause the
+	// global timeline for good and every later scene would stay at opacity 0 (blank stage).
+	if (sel) sel.addEventListener('change', function () { if (done) return; render(); freeze(); });
+
+	function gateKeys(e) {
+		if (done) return;
+		var tag = (e.target && e.target.tagName || '').toLowerCase();
+		if (tag === 'select' || tag === 'input' || tag === 'textarea') return;
+		if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'].indexOf(e.key) >= 0) { e.preventDefault(); e.stopPropagation(); }
+	}
+	document.addEventListener('keydown', gateKeys, true);
+
+	var done = false;
+	function start() {
+		if (done) return; done = true;
+		document.removeEventListener('keydown', gateKeys, true);
+		document.body.classList.remove('aw-prestart');
+		card.classList.add('aw-hide');
+		setTimeout(function () { if (card.parentNode) card.parentNode.removeChild(card); if (style.parentNode) style.parentNode.removeChild(style); }, 420);
+		setTimeout(function () {
+			try { if (window.gsap && gsap.globalTimeline) gsap.globalTimeline.play(); } catch (_) {}
+			stage.style.opacity = '1';
+			try { if (typeof interruptAnimation === 'function') interruptAnimation(); } catch (_) {}
+			try { if (typeof renderStep === 'function') renderStep(typeof current === 'number' && current >= 0 ? current : 0); } catch (_) {}
+		}, 380);
+	}
+	startBtn.addEventListener('click', start);
+	// the gate is aria-modal, so keyboard and screen-reader users must land on it rather than tab the header behind it
+	startBtn.focus({ preventScroll: true });
+}());
+</script>
+<script>
+/* ── Audio-synced animation speed ──────────────────────────────────────────────────────────
+   ANIM[i]       = real seconds step i takes at the 1x speed (measured with BASE_TIMESCALE applied)
+   AUDIO_SECS[l] = length of each recorded clip per language (from the generated MP3s)
+   With narration ON the animation runs at clamp(ANIM/clip, 0.6, 2.2) x BASE_TIMESCALE x the chosen speed, so a step's build
+   finishes about when its voice does. Narration OFF restores the chosen speed. */
+(function () {
+	const ANIM = [26.2,21.3,16.8,31,21.4,15.6,27.3,13.8];
+	const AUDIO_SECS = {"en":[24.82,23.45,23.4,24,25.85,25.15,25.37,25.15],"es":[24.1,23.21,25.8,23.5,26.81,22.56,24.36,26.21],"ja":[27.55,29.86,27.05,27.5,29.66,22.85,26.81,27.55],"ko":[22.66,24.7,24.91,24.26,27,24.36,23.4,23.5],"pt":[26.3,24.46,24.77,25.46,27,23.71,24.41,27.05]};
+	const MIN = 0.6, MAX = 2.2;
+	function clipSecs(i) { const a = AUDIO_SECS[currentLang] || AUDIO_SECS.en; return a && a[i]; }
+	function userSpeed() { try { return SPEED_STEPS[speedIndex]; } catch (_) { return 1; } }
+	function apply(i) {
+		try {
+			if (!window.gsap) return;
+			const D = ANIM[i], A = clipSecs(i);
+			if (audioEnabled && D && A) gsap.globalTimeline.timeScale(Math.max(MIN, Math.min(MAX, D / A)) * BASE_TIMESCALE * userSpeed());
+			else gsap.globalTimeline.timeScale(BASE_TIMESCALE * userSpeed());
+		} catch (_) {}
+	}
+	const render = renderStep;
+	renderStep = function (i) { if (typeof i === 'number' && i >= 0) apply(i); return render.apply(this, arguments); };
+	const speedUI = syncSpeedUI;
+	syncSpeedUI = function () { speedUI.apply(this, arguments); if (current >= 0) apply(current); };
+	const audioBtnEl = document.getElementById('audio-toggle');
+	if (audioBtnEl) audioBtnEl.addEventListener('click', function () { if (current >= 0) apply(current); });
+})();
+</script>
+<script src="../../lib/js/aw-present.js"></script>
+<script src="../../lib/js/aw-declutter.js"></script>
+<script src="../../lib/js/aw-url-state.js"></script>
+<script src="../../lib/js/aw-like-dock.js"></script>
+
+</body>
+</html>

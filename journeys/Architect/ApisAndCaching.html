@@ -1,0 +1,2722 @@
+<!DOCTYPE html>
+<!-- Narration script: /narration/Architect/ApisAndCaching.md -->
+<!--
+	Azure Animations — STARTER TEMPLATE
+	====================================
+	Copy this file to <Area>/<Sub>/YourTopic.html (e.g. AI/Foundry/MyTopic.html) and:
+	  1. Set <title>, #page-title, and the back-link href.
+	  2. Rename/expand the sample steps. Each STEPS[] entry pairs with one
+	     render<Xxx>Step(). The samples demonstrate the reusable building blocks —
+	     delete the ones you don't need, they are all optional:
+	       • PROBLEM   — a centered hero .card
+	       • FLOW      — a .ta-flow of .agent-node boxes joined by .ta-arrow (input → process → output)
+	       • CODE      — a VS Code-style .code-card (use .code-duo for a request/response pair)
+	       • USE CASES — a .uc-grid of .uc-card tiles
+	       • RECAP     — a .card + .value-chip row + closing line
+	  3. Fill the English I18N block, then add es/ja/ko/pt (full objects OR the
+	     { ...I18N.en, overrides } spread) and matching <option>s in #lang-select.
+	  4. Prefer Microsoft Fluent icons/emoji over raw OS emoji for anything shown
+	     on a projector. Source priority: Azure service icons (local lib
+	     ../../lib/icons/…) → Fluent System Icons → Fluent UI Emoji → Fluent Emoji
+	     Animated → Twemoji (last resort, CC-BY).
+	  5. Run the Definition-of-Done checklist before publishing.
+
+	DESIGN NOTES
+	  • Accent colour is --theme-tertiary (Microsoft purple #5c2d91); primary blue
+	    and green (#10a37f) act as secondary / positive accents.
+	  • The bottom #controls is a compact translucent "icon dock" of glyph-only
+	    buttons; their localized labels live in the tooltip (title), set in setLanguage().
+	  • Audio narration is optional: list one clip per step (in order) in AUDIO_FILES[]
+	    and an Audio toggle appears automatically. Present mode (dual-window) ships via
+	    aw-present.js at the bottom — it self-installs a "Present" button in the header.
+
+	NOTE: the ../../lib/ and ../../../img/ paths assume this file lives two levels
+	under static/v2/ (e.g. static/v2/AI/Foundry/). Adjust depth if you move it.
+-->
+<html lang="en">
+<head>
+	<script src="/js/tracking.js"></script>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+	<title>Front the app: APIs, caching and deployment — Azure Animations</title>
+	<link rel="icon" type="image/png" href="../../img/favicon.png" />
+
+	<link rel="stylesheet" href="https://unpkg.com/@microsoft/atlas-css/dist/index.css" />
+	<script src="../../lib/vendor/gsap-3.15.0.min.js"></script>
+
+	<!-- AnimationWorks shared lib -->
+	<script src="../../lib/js/aw-easings.js"></script>
+	<script src="../../lib/js/aw-motion.js"></script>
+	<script src="../../lib/js/aw-theme.js"></script>
+	<script src="../../lib/js/aw-keyboard.js"></script>
+	<script src="../../lib/js/aw-captions.js"></script>
+
+<style>
+	/* ── SHELL ─────────────────────────────── */
+	/* Brand palette — reference these tokens; don't hardcode hex */
+	:root {
+		--aw-purple:#5c2d91;   /* primary accent — titles, callouts, arrows, progress, agents */
+		--aw-blue:#0078d4;     /* secondary — inputs, links, "the model", primary button */
+		--aw-green:#10a37f;    /* positive — success, grounded/correct results, value chips */
+		--aw-orange:#e97526;   /* tools / actions — tool calls, function calling, side-effects */
+		--aw-pink:#d24aa8;     /* highlight — a fourth category / emphasis */
+	}
+	html, body { height:100%; margin:0; }
+	html { font-size:100%; }
+	body {
+		display:flex; flex-direction:column; height:100vh;
+		overflow:hidden;
+		font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif;
+		color: var(--theme-text);
+		background:
+			radial-gradient(circle at 15% 20%, rgba(92,45,145,0.18) 0%, transparent 55%),
+			radial-gradient(circle at 85% 80%, rgba(0,120,212,0.18) 0%, transparent 55%),
+			var(--theme-body-background);
+	}
+	.app-header { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:1rem; flex-shrink:0; font-size:16px; }
+	.app-header > :last-child { justify-self:end; }
+
+	/* #stage fills the space between the top bar and the control dock, and centers the fixed 16:9 frame. */
+	#stage {
+		position:relative; flex:1 1 auto; width:100%; min-height:0;
+		display:flex; align-items:center; justify-content:center;
+		overflow:hidden; container-type:size;
+		padding:1.75rem 2.75rem 5rem;   /* breathing room around the frame; bottom clears the fixed #controls dock */
+	}
+	#stage:focus-visible, button:focus-visible, a:focus-visible, select:focus-visible {
+		outline:2px solid var(--theme-primary, #0078d4); outline-offset:3px; border-radius:4px;
+	}
+	/* The visible rectangle: the largest 16:9 box that fits the stage. All scenes are drawn inside it. */
+	#stage-frame {
+		position:relative; overflow:hidden;
+		width: min(100cqw, calc(100cqh * 16 / 9));
+		aspect-ratio: 16 / 9; max-width:100%; max-height:100%;
+		border-radius:16px;
+		background: rgba(0,0,0,0.015);
+		box-shadow: 0 12px 44px rgba(0,0,0,0.22);
+	}
+	body.theme-dark #stage-frame { background: rgba(255,255,255,0.025); }
+	/* Coloured gradient border (brand purple → blue → pink) drawn as a masked ring — no interior tint. */
+	#stage-frame::before {
+		content:""; position:absolute; inset:0; border-radius:inherit; padding:2.5px;
+		background: linear-gradient(135deg, var(--aw-purple) 0%, var(--aw-blue) 55%, var(--aw-pink) 100%);
+		-webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+		mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+		-webkit-mask-composite: xor; mask-composite: exclude;
+		pointer-events:none; z-index:20;
+	}
+	#fx-svg { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:6; overflow:visible; }
+
+	/* ── SCENE ─────────────────────────────── */
+	.scene {
+		position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+		transform-origin:center center;
+		width:min(1150px, 96%); z-index:10;
+		display:flex; flex-direction:column; align-items:center; gap:1.4rem;
+	}
+	/* 200ms fade in / out between every step */
+	@keyframes awSceneIn { from { opacity:0; } to { opacity:1; } }
+	@keyframes awSceneOut { from { opacity:1; } to { opacity:0; } }
+	.scene.scene-in { animation: awSceneIn 0.2s ease both; }
+	.scene.scene-out { animation: awSceneOut 0.2s ease both; }
+	.scene-title { font-size:2.5rem; font-weight:700; color:var(--theme-tertiary, #5c2d91); margin:0; text-align:center; opacity:0; }
+	body.theme-dark .scene-title { color:#c9a5e8; }
+	/* lead spans wide (near the scene width) to use the side gutters and stay within 2 lines — trim copy if it wraps to 3 */
+	.scene-lead { margin:0; text-align:center; font-size:1.35rem; color:var(--theme-text); max-width:min(1180px,96%); line-height:1.5; opacity:0; }
+
+	/* ── CALLOUT · draggable, slightly see-through so it never fully blocks the diagram ── */
+	.callout {
+		position:absolute; max-width:340px; padding:1rem 1.2rem;
+		background:var(--theme-body-background);
+		background:color-mix(in srgb, var(--theme-body-background) 84%, transparent);
+		-webkit-backdrop-filter:blur(5px); backdrop-filter:blur(5px);
+		border:1px solid var(--theme-border);
+		border-left:4px solid var(--theme-tertiary, #5c2d91); border-radius:6px;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2));
+		font-size:1.05rem; line-height:1.45; z-index:14; opacity:0;
+		cursor:grab; touch-action:none;
+	}
+	.callout:active { cursor:grabbing; }
+
+	/* ── RESET "PIN" · appears on a draggable panel once it has been moved off its home spot ── */
+	.aw-drag-reset {
+		position:absolute; width:24px; height:24px; padding:0; display:none;
+		align-items:center; justify-content:center; border-radius:50%;
+		background:var(--theme-tertiary,#5c2d91); color:#fff;
+		border:2px solid var(--theme-body-background,#fff);
+		box-shadow:0 2px 7px rgba(0,0,0,0.4); cursor:pointer; z-index:6;
+		opacity:0.92; transition:opacity .14s ease, transform .14s ease;
+	}
+	.aw-drag-reset:hover { opacity:1; transform:scale(1.08); }
+	.aw-drag-reset:focus-visible { outline:2px solid #5cc8ff; outline-offset:2px; }
+	.aw-drag-reset svg { width:13px; height:13px; display:block; }
+
+	/* ══════════════════════════════════════════════════════════ */
+	/* ── REUSABLE BUILDING BLOCKS · keep what you use, drop rest ─ */
+	/* ══════════════════════════════════════════════════════════ */
+
+	/* Centered hero card */
+	.card {
+		width:min(680px, 96%); padding:1.6rem 1.8rem; border-radius:16px;
+		background:var(--theme-card-background, #fff); border:2px solid var(--theme-border);
+		box-shadow:0 8px 28px rgba(0,0,0,0.14); opacity:0;
+		display:flex; flex-direction:column; gap:0.6rem; align-items:center; text-align:center;
+	}
+	body.theme-dark .card { background:rgba(255,255,255,0.05); }
+	.card .card-icon { font-size:3rem; line-height:1; }
+	.card .card-h { font-size:1.4rem; font-weight:700; }
+	.card .card-p { font-size:1.05rem; color:var(--theme-text-subtle); line-height:1.5; }
+
+	/* Wide info panel */
+	.ta-card {
+		width:min(1080px, 98%); border:1.5px solid var(--theme-border); border-radius:14px;
+		background:var(--theme-card-background, #fff); box-shadow:0 8px 30px rgba(0,0,0,0.16);
+		padding:1.1rem 1.3rem; opacity:0;
+	}
+	body.theme-dark .ta-card { background:rgba(255,255,255,0.05); }
+	.ta-card-head {
+		display:flex; align-items:center; gap:0.5rem;
+		font-size:1rem; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;
+		color:var(--theme-text-subtle); margin-bottom:0.6rem;
+	}
+	.ta-card-text { font-size:1.22rem; line-height:1.55; color:var(--theme-text); }
+
+	/* Pills / chips */
+	.chip-row { display:flex; flex-wrap:wrap; gap:0.7rem; justify-content:center; }
+	.pill {
+		display:inline-flex; align-items:center; gap:0.5rem; padding:0.55rem 1.1rem;
+		border-radius:999px; font-size:1.05rem; font-weight:600;
+		border:2px solid var(--theme-tertiary, #5c2d91); background:rgba(92,45,145,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .pill { background:rgba(92,45,145,0.2); }
+	.value-chip {
+		display:inline-flex; align-items:center; gap:0.4rem; padding:0.5rem 1rem;
+		border-radius:999px; font-size:1rem; font-weight:700;
+		border:2px solid #107c10; background:rgba(16,124,16,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .value-chip { background:rgba(16,124,16,0.16); }
+	.recap-foot { font-size:1.05rem; color:var(--theme-text); text-align:center; max-width:760px; opacity:0; }
+
+	/* Flow row: input → process → output */
+	.agent-node {
+		display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.2rem;
+		width:160px; height:160px; border-radius:24px;
+		background: linear-gradient(135deg, rgba(92,45,145,0.12), rgba(0,120,212,0.12));
+		border:2.5px solid var(--theme-tertiary, #5c2d91);
+		box-shadow:0 8px 28px rgba(92,45,145,0.2); flex-shrink:0; text-align:center;
+	}
+	.agent-node .an-icon { font-size:3rem; line-height:1; }
+	.agent-node .an-icon img { width:64px; height:64px; display:block; }
+	.agent-node .an-label { font-size:1.05rem; font-weight:700; color:var(--theme-text); }
+	.agent-node .an-sub { font-size:0.85rem; color:var(--theme-text-subtle); }
+	.ta-flow { display:flex; align-items:center; justify-content:center; gap:1.2rem; flex-wrap:wrap; width:100%; }
+	.ta-flow .agent-node { width:140px; height:140px; }
+	.ta-flow .agent-node .an-icon { font-size:2.6rem; }
+	.ta-flow .agent-node .an-icon img { width:54px; height:54px; }
+	.ta-arrow { font-size:1.9rem; color:var(--theme-tertiary,#5c2d91); opacity:0; }
+	.ta-arrow.is-big { font-size:3.2rem; }
+	.ta-arrow.is-down, .ta-arrow.is-up { font-size:2.9rem; line-height:1; }
+	@media (max-width:760px) { .ta-flow .ta-arrow { transform:rotate(90deg); } }
+
+	/* Code card (VS Code style) */
+	.code-card {
+		width:min(560px,96%); border:1px solid #30363d; border-radius:8px;
+		background:#1e1e1e; overflow:hidden; opacity:0;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.25));
+	}
+	.code-head {
+		display:flex; align-items:center; justify-content:space-between; gap:0.5rem;
+		padding:0 0 0 0.85rem; background:#323233; border-bottom:1px solid #1e1e1e;
+	}
+	.code-file { font-size:0.9rem; color:#cccccc; font-weight:500; padding:0.6rem 0; }
+	.code-winctrls { display:flex; align-items:stretch; height:100%; }
+	.code-wbtn {
+		display:flex; align-items:center; justify-content:center; width:2.6rem; padding:0.55rem 0;
+		color:#cccccc; font-family:'Segoe UI Symbol','Segoe MDL2 Assets',sans-serif; font-size:0.7rem;
+	}
+	.code-wbtn.is-close:hover { background:#e81123; color:#fff; }
+	.code-wbtn:hover { background:rgba(255,255,255,0.1); }
+	.code-body {
+		margin:0; padding:0.8rem 1rem;
+		font-family:'Cascadia Code', 'Consolas', 'SFMono-Regular', monospace;
+		font-size:0.86rem; line-height:1.5; color:#d4d4d4;
+		white-space:pre-wrap; overflow-wrap:break-word; word-break:break-word; tab-size:4;
+	}
+	.code-body .tok-com { color:#6a9955; }
+	.code-body .tok-kw  { color:#569cd6; }
+	.code-body .tok-str { color:#ce9178; }
+	.code-body .tok-fn  { color:#dcdcaa; }
+	.code-body .tok-mod { color:#4ec9b0; }
+	.code-body .tok-prop{ color:#9cdcfe; }
+	.code-body .tok-num { color:#b5cea8; }
+	.code-body .tok-punct { color:#d4d4d4; }
+	.code-body .code-hl { border-radius:4px; padding:0 0.15em; box-shadow:0 0 0 1px rgba(96,165,250,0.55); background:rgba(96,165,250,0.22); }
+	.code-duo { display:flex; gap:1.1rem; flex-wrap:wrap; align-items:flex-start; justify-content:center; width:100%; }
+	.code-duo .code-card { flex:1 1 380px; max-width:480px; }
+	.code-duo .code-body { font-size:0.8rem; line-height:1.45; }
+	.code-arrow { align-self:center; font-size:1.8rem; line-height:1; color:var(--theme-tertiary,#5c2d91); opacity:0; flex:none; }
+	.code-arrow.is-big { font-size:2.9rem; }
+	@media (max-width:760px) { .code-arrow { transform:rotate(90deg); } }
+
+	/* Use-case grid */
+	.uc-grid { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:1.1rem; width:min(980px,96%); }
+	@media (max-width:720px) { .uc-grid { grid-template-columns:1fr; } }
+	.uc-card {
+		display:flex; flex-direction:column; gap:0.5rem; padding:1rem 1.15rem;
+		border:1.5px solid var(--theme-border); border-top:4px solid var(--theme-primary,#0078d4);
+		border-radius:14px; background:var(--theme-card-background, #fff);
+		box-shadow:0 6px 22px rgba(0,0,0,0.12); opacity:0;
+		transition:transform 0.2s ease, box-shadow 0.2s ease;
+	}
+	.uc-card:hover { transform:translateY(-4px); box-shadow:0 12px 30px rgba(0,0,0,0.18); }
+	body.theme-dark .uc-card { background:rgba(255,255,255,0.05); }
+	.uc-card[data-uc="a"] { border-top-color:#0078d4; }
+	.uc-card[data-uc="b"] { border-top-color:#10a37f; }
+	.uc-card[data-uc="c"] { border-top-color:#e97526; }
+	.uc-card[data-uc="d"] { border-top-color:#d24aa8; }
+	.uc-head { display:flex; align-items:center; gap:0.55rem; font-size:1.25rem; font-weight:700; color:var(--theme-text); }
+	.uc-head .uc-icon { font-size:1.7rem; display:inline-block; }
+	.uc-desc { font-size:0.98rem; line-height:1.55; color:var(--theme-text-subtle); }
+	.uc-caps { display:flex; flex-wrap:wrap; gap:0.4rem; margin-top:0.2rem; }
+	.uc-cap {
+		display:inline-flex; align-items:center; gap:0.3rem; padding:0.25rem 0.7rem;
+		border-radius:999px; font-size:0.88rem; font-weight:700;
+		background:rgba(0,120,212,0.1); color:var(--theme-text);
+		border:1.5px solid rgba(0,120,212,0.4); opacity:0;
+	}
+
+	/* ── CONTROLS · icon dock ──────────────── */
+	#controls {
+		position:fixed; bottom:14px; left:50%; transform:translateX(-50%); z-index:40;
+		display:flex; align-items:center; gap:5px; padding:5px 7px;
+		background:var(--theme-body-background-translucent, rgba(255,255,255,0.82));
+		backdrop-filter:blur(12px) saturate(1.4); -webkit-backdrop-filter:blur(12px) saturate(1.4);
+		border:1px solid var(--theme-border); border-radius:999px;
+		box-shadow: 0 8px 26px rgba(0,0,0,0.18); font-size:13px;
+	}
+	body.theme-dark #controls { background:var(--theme-body-background-translucent, rgba(32,32,36,0.82)); }
+	#controls .ctrl-icon {
+		width:2.15rem; height:2.15rem; min-width:0; padding:0;
+		display:inline-flex; align-items:center; justify-content:center;
+		border-radius:50%; font-size:0.95rem; line-height:1; font-weight:600;
+		transition:background 0.18s ease, color 0.18s ease, transform 0.12s ease, box-shadow 0.18s ease;
+	}
+	#controls .ctrl-icon:hover { transform:translateY(-1px); }
+	#controls .ctrl-icon:active { transform:scale(0.92); }
+	#controls .ctrl-icon-next {
+		width:2.55rem; height:2.55rem; font-size:1.1rem;
+		box-shadow:0 2px 8px var(--theme-primary-translucent, rgba(0,120,212,0.45));
+	}
+	.step-counter {
+		min-width:52px; text-align:center; font-variant-numeric:tabular-nums;
+		font-size:14px; font-weight:700; color:var(--theme-text);
+		padding:0 6px; white-space:nowrap; letter-spacing:0.02em;
+	}
+	.ctrl-sep { width:1px; align-self:stretch; margin:4px 2px; background:var(--theme-border); }
+	/* Movable dock: drag handle + pin-to-center button */
+	.ctrl-grip {
+		display:inline-flex; align-items:center; justify-content:center;
+		width:1.5rem; height:2.15rem; padding:0; border:none; background:transparent;
+		color:var(--theme-text-subtle); border-radius:8px; cursor:grab; touch-action:none;
+		transition:background 0.18s ease, color 0.18s ease;
+	}
+	.ctrl-grip:hover { color:var(--theme-text); background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); }
+	.ctrl-grip:active { cursor:grabbing; }
+	.ctrl-grip svg { width:13px; height:16px; pointer-events:none; }
+	body.controls-floating .ctrl-grip { color:var(--theme-primary,#0078d4); }
+	#controls .ctrl-pin { display:none; color:var(--theme-primary,#0078d4); }
+	#controls .ctrl-pin svg { width:15px; height:15px; pointer-events:none; }
+	body.controls-floating #controls .ctrl-pin { display:inline-flex; }
+	body.controls-floating #controls { box-shadow:0 10px 30px rgba(0,0,0,0.30), 0 0 0 1.5px var(--theme-primary,#0078d4); }
+	.speed-control { display:inline-flex; align-items:center; gap:1px; padding:2px 3px; border:1px solid var(--theme-border); border-radius:999px; }
+	.speed-control .speed-btn {
+		width:1.7rem; height:1.7rem; min-width:0; padding:0;
+		display:inline-flex; align-items:center; justify-content:center;
+		font-size:0.95rem; font-weight:700; border-radius:50%;
+	}
+	.speed-control .speed-btn[disabled] { opacity:0.4; cursor:not-allowed; }
+	.speed-label { min-width:2.4rem; text-align:center; font-variant-numeric:tabular-nums; font-size:0.82rem; font-weight:700; color:var(--theme-text); }
+
+	#callout-toggle, #outline-toggle, #audio-toggle { border:1px solid var(--theme-border); border-radius:4px; transition:background .2s,color .2s,border-color .2s,opacity .2s; }
+	#callout-toggle.toggle-active, #outline-toggle.toggle-active, #audio-toggle.toggle-active {
+		background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary,#0078d4); border-color:var(--theme-primary,#0078d4); font-weight:600;
+	}
+	#callout-toggle:not(.toggle-active), #outline-toggle:not(.toggle-active), #audio-toggle:not(.toggle-active) { opacity:0.6; }
+
+	/* ── HIDE/SHOW TOP BAR ─────────────────── */
+	#header-hide { display:inline-flex; align-items:center; justify-content:center; width:2rem; height:2rem; padding:0; border:1px solid var(--theme-border); border-radius:50%; color:var(--theme-text-subtle); transition:background .2s,color .2s,transform .18s; }
+	#header-hide:hover { color:var(--theme-text); transform:translateY(-1px); }
+	#header-hide svg { width:16px; height:16px; }
+	#header-hide-top { display:inline-flex; align-items:center; justify-content:center; width:2rem; height:2rem; padding:0; border:1px solid var(--theme-border); border-radius:50%; color:var(--theme-text-subtle); background:transparent; cursor:pointer; transition:background .2s,color .2s,transform .18s; }
+	#header-hide-top:hover { color:var(--theme-text); transform:translateY(-1px); }
+	#header-hide-top svg { width:16px; height:16px; }
+	body.chrome-hidden .app-header, body.chrome-hidden .progress-track { display:none; }
+	#header-reveal {
+		position:fixed; top:0; left:50%; transform:translateX(-50%) translateY(-100%); z-index:45;
+		display:inline-flex; align-items:center; gap:0.35rem; padding:5px 14px 6px; font-size:12px; font-weight:600; line-height:1;
+		color:var(--theme-text-subtle); background:var(--theme-body-background-translucent, rgba(255,255,255,0.88));
+		backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border:1px solid var(--theme-border); border-top:none; border-radius:0 0 12px 12px;
+		box-shadow:0 4px 14px rgba(0,0,0,0.14); cursor:pointer; transition:transform .28s cubic-bezier(0.2,0.7,0.3,1), color .2s, background .2s;
+	}
+	body.theme-dark #header-reveal { background:var(--theme-body-background-translucent, rgba(32,32,36,0.88)); }
+	#header-reveal:hover { color:var(--theme-text); }
+	body.chrome-hidden #header-reveal { transform:translateX(-50%) translateY(0); }
+	#header-reveal svg { width:14px; height:14px; }
+
+	/* ── PLAYER OVERLAY · pills inside the stage frame (YouTube-style) ──
+	   Two translucent pills float over the 16:9 frame: LEFT = "view options"
+	   (callout / outline / shortcuts), RIGHT = "player" (audio / captions / hide-bar / fullscreen). */
+	.stage-overlay {
+		position:absolute; right:12px; bottom:10px; z-index:25;
+		display:flex; align-items:center; gap:2px;
+		padding:3px 6px; border-radius:999px;
+		background:rgba(16,18,24,0.58);
+		backdrop-filter:blur(9px) saturate(1.3); -webkit-backdrop-filter:blur(9px) saturate(1.3);
+		box-shadow:0 4px 16px rgba(0,0,0,0.32);
+	}
+	.ovl-btn {
+		-webkit-appearance:none; appearance:none; margin:0; font:inherit;
+		display:inline-flex; align-items:center; justify-content:center; gap:4px;
+		min-width:30px; height:30px; padding:0 8px;
+		border:none !important; border-radius:999px !important;
+		background:transparent !important; color:#fff !important;
+		box-shadow:none !important; cursor:pointer; line-height:1;
+		font-size:0.82rem; font-weight:700; opacity:0.92; transition:background .15s ease, opacity .15s ease;
+	}
+	.ovl-btn:hover { background:rgba(255,255,255,0.16) !important; opacity:1; }
+	.ovl-btn:disabled { opacity:0.4; cursor:not-allowed; }
+	.ovl-btn svg { width:18px; height:18px; fill:currentColor; display:block; }
+	.ovl-btn.on { color:#5cc8ff !important; }
+	.stage-overlay #audio-toggle { opacity:1 !important; }
+	.stage-overlay .aw-audio-ico { font-size:1rem; line-height:1; }
+	.stage-overlay .aw-audio-time { font-size:0.78rem; font-variant-numeric:tabular-nums; letter-spacing:0.02em; opacity:0.95; min-width:2.4em; text-align:left; }
+	#cc-toggle svg { width:20px; height:20px; }
+	.ovl-btn .fs-exit { display:none; }
+	body.is-fs .ovl-btn .fs-enter { display:none; }
+	body.is-fs .ovl-btn .fs-exit { display:block; }
+
+	/* ── LEFT VIEW-OPTIONS PILL · Callout / Outline / Shortcuts (icon + hover tip) ── */
+	.stage-overlay-left { right:auto; left:12px; }
+	#stage-overlay-left .ovl-btn:not(.toggle-active) { opacity:0.86; }
+	#stage-overlay-left .ovl-btn.toggle-active { color:#5cc8ff !important; opacity:1; }
+	#stage-overlay-left .ovl-btn:hover { opacity:1; }
+	/* Hover tooltip shown above the icon (left-anchored so it never clips the frame edge) */
+	.ovl-btn[data-tip] { position:relative; }
+	.ovl-btn[data-tip]::after { content:attr(data-tip); position:absolute; left:0; bottom:calc(100% + 9px); transform:translateY(4px); padding:4px 8px; border-radius:6px; background:rgba(16,18,24,0.96); color:#fff; font-size:0.72rem; font-weight:600; white-space:nowrap; letter-spacing:0.01em; opacity:0; pointer-events:none; box-shadow:0 3px 12px rgba(0,0,0,0.45); transition:opacity .14s ease, transform .14s ease; z-index:40; }
+	.ovl-btn[data-tip]::before { content:''; position:absolute; left:13px; bottom:calc(100% + 4px); border:5px solid transparent; border-top-color:rgba(16,18,24,0.96); opacity:0; pointer-events:none; transition:opacity .14s ease; z-index:40; }
+	.ovl-btn[data-tip]:hover::after { opacity:1; transform:translateY(0); }
+	.ovl-btn[data-tip]:hover::before { opacity:1; }
+
+	/* ── CAPTION · overlaid inside the frame, draggable + resizable, stays solid (not see-through) ── */
+	#aw-caption {
+		position:absolute; left:50%; transform:translateX(-50%); bottom:56px; z-index:24;
+		max-width:92%; min-width:140px; min-height:38px; max-height:44%;
+		display:none; align-items:center; justify-content:center; text-align:center;
+		padding:0.42rem 0.95rem; border-radius:9px;
+		background:rgba(8,9,13,0.8); color:#fff;
+		font-size:1.1rem; line-height:1.36; font-weight:600;
+		box-shadow:0 3px 14px rgba(0,0,0,0.42); pointer-events:auto; cursor:grab; touch-action:none;
+		overflow:auto; resize:both;   /* user can reshape the caption; corner grip = resize */
+	}
+	#aw-caption:active { cursor:grabbing; }
+	#aw-caption::-webkit-resizer { background:linear-gradient(135deg, transparent 45%, rgba(255,255,255,0.55) 45%, rgba(255,255,255,0.55) 55%, transparent 55%); }
+	body.cc-on #aw-caption.has-text { display:flex; }
+	@media (max-width:640px){ #aw-caption { font-size:0.94rem; bottom:48px; max-width:90%; } }
+
+	/* ── OUTLINE PANEL · draggable + slightly see-through ── */
+	#step-outline {
+		position:fixed; top:4.5rem; right:1rem; width:320px; max-height:calc(100vh - 8rem); overflow-y:auto;
+		padding:1.1rem; background:var(--theme-body-background);
+		background:color-mix(in srgb, var(--theme-body-background) 85%, transparent);
+		-webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
+		border:1px solid var(--theme-border);
+		border-radius:6px; box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2)); z-index:35; font-size:1rem; line-height:1.55;
+		cursor:grab; touch-action:none;
+	}
+	#step-outline:active { cursor:grabbing; }
+	#step-outline[hidden] { display:none; }
+	#step-outline h2 { font-size:0.85rem; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--theme-tertiary,#5c2d91); margin-bottom:0.5rem; }
+	#step-outline .outline-section { margin-top:0.6rem; padding-top:0.6rem; border-top:1px solid var(--theme-border); }
+	#step-outline .outline-section:first-child { margin-top:0; padding-top:0; border-top:0; }
+	#step-outline .stat-row { display:flex; justify-content:space-between; align-items:baseline; gap:0.75rem; padding:0.2rem 0; }
+	#step-outline .stat-row span:first-child { color:var(--theme-text-subtle); flex:0 0 auto; max-width:45%; }
+	#step-outline .stat-row span:last-child { text-align:right; font-weight:600; color:var(--theme-tertiary,#5c2d91); flex:1 1 auto; }
+
+	.progress-track { position:relative; height:6px; background:var(--theme-border, #e0e0e0); flex-shrink:0; cursor:pointer; }
+	.progress-fill { position:absolute; left:0; top:0; bottom:0; width:0%; background:var(--aw-purple, #5c2d91); transition:width .5s cubic-bezier(0.2,0.8,0.2,1); pointer-events:none; }
+	.progress-tick { position:absolute; top:0; bottom:0; width:2px; margin-left:-1px; background:var(--theme-body-background); opacity:0.6; pointer-events:none; }
+
+	/* ── THEME / LANG / FONT CONTROLS ──────── */
+	.theme-toggle { display:inline-flex; align-items:center; justify-content:center; width:2.25rem; height:2.25rem; padding:0; margin-inline-start:0.25rem; background:transparent; border:1px solid var(--theme-border); border-radius:999px; color:var(--theme-text); cursor:pointer; transition:background .15s,color .15s,border-color .15s; }
+	.theme-toggle:hover { background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary); border-color:var(--theme-primary); }
+	.theme-toggle .theme-icon { display:none; }
+	.theme-toggle[data-theme="dark"] .icon-sun { display:block; }
+	.theme-toggle[data-theme="light"] .icon-moon { display:block; }
+	.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+	.skip-link { position:absolute; top:-100px; left:0.5rem; z-index:100; padding:0.5rem 1rem; background:var(--theme-primary); color:var(--theme-primary-invert,#fff); border-radius:4px; text-decoration:none; font-weight:600; }
+	.skip-link:focus { top:0.5rem; }
+	.header-back-link { display:inline-flex; align-items:center; gap:0.25rem; padding:0.2rem 0.6rem; font-size:0.8rem; font-weight:600; color:var(--theme-text-subtle); border:1px solid var(--theme-border); border-radius:999px; text-decoration:none; white-space:nowrap; transition:background .15s,color .15s,border-color .15s; }
+	.header-back-link:hover { color:var(--theme-primary); border-color:var(--theme-primary); background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); }
+	.lang-select {
+		appearance:none; -webkit-appearance:none; background:var(--theme-card-background,#fff); color:var(--theme-body-text,#333);
+		border:1px solid var(--theme-border, rgba(0,0,0,0.2)); border-radius:4px; padding:4px 24px 4px 8px;
+		font-size:0.8rem; font-family:'Segoe UI', sans-serif; cursor:pointer;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+		background-repeat:no-repeat; background-position:right 6px center; min-width:80px;
+	}
+	.lang-select:hover { border-color:var(--theme-primary, #0078d4); }
+	.lang-select:focus { outline:2px solid var(--theme-primary, #0078d4); outline-offset:1px; }
+	body.theme-dark .lang-select {
+		background-color:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); border-color:rgba(255,255,255,0.15);
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23aaa' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+	}
+	body.theme-dark .lang-select option { background:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); }
+	.font-size-controls { display:flex; align-items:center; gap:2px; }
+	.font-size-btn { background:var(--theme-card-background,#fff); color:var(--theme-body-text,#333); border:1px solid var(--theme-border, rgba(0,0,0,0.2)); border-radius:4px; padding:3px 8px; font-size:0.8rem; font-weight:700; font-family:'Segoe UI', sans-serif; cursor:pointer; line-height:1.2; transition:background .15s,border-color .15s; }
+	.font-size-btn:hover { border-color:var(--theme-primary, #0078d4); }
+	body.theme-dark .font-size-btn { background:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); border-color:rgba(255,255,255,0.15); }
+
+	/* Inline icons (crisp on any OS/projector — replaces raw emoji on stage) */
+	.ic { display:inline-flex; align-items:center; justify-content:center; vertical-align:-0.125em; }
+	.ic svg { width:1em; height:1em; fill:currentColor; display:block; }
+	.help-toggle svg { width:15px; height:15px; vertical-align:-2px; }
+
+	/* Keyboard shortcut overlay */
+	#shortcut-overlay { position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center; }
+	#shortcut-overlay[hidden] { display:none; }
+	.sc-backdrop { position:absolute; inset:0; background:rgba(0,0,0,0.5); -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px); }
+	.sc-panel { position:relative; z-index:1; width:min(430px,92vw); max-height:82vh; overflow:auto; padding:1.5rem 1.6rem; background:var(--theme-body-background); border:1px solid var(--theme-border); border-radius:16px; box-shadow:0 24px 70px rgba(0,0,0,0.4); }
+	.sc-panel h2 { margin:0 0 1rem; font-size:1.25rem; color:var(--theme-tertiary,#5c2d91); }
+	body.theme-dark .sc-panel h2 { color:#c9a5e8; }
+	.sc-close { position:absolute; top:0.7rem; right:0.7rem; width:2rem; height:2rem; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--theme-border); border-radius:50%; background:transparent; color:var(--theme-text-subtle); cursor:pointer; }
+	.sc-close:hover { color:var(--theme-text); border-color:var(--theme-primary,#0078d4); }
+	.sc-close svg { width:15px; height:15px; }
+	.sc-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:0.55rem; }
+	.sc-list li { display:flex; align-items:center; justify-content:space-between; gap:1rem; font-size:1rem; color:var(--theme-text); }
+	.sc-keys { display:inline-flex; gap:0.3rem; flex:none; }
+	.sc-panel kbd, .sc-hint kbd { font-family:'Cascadia Code','Consolas',monospace; font-size:0.82rem; line-height:1; padding:0.28rem 0.5rem; border-radius:6px; border:1px solid var(--theme-border); border-bottom-width:2px; background:var(--theme-card-background,#fff); color:var(--theme-text); }
+	body.theme-dark .sc-panel kbd, body.theme-dark .sc-hint kbd { background:rgba(255,255,255,0.08); }
+	.sc-hint { margin:1.1rem 0 0; font-size:0.85rem; color:var(--theme-text-subtle); text-align:center; }
+
+	@media (max-width:640px) { .app-header { font-size:0.95rem; } .scene-title { font-size:1.9rem; } #stage { padding:0.9rem 1rem 4.5rem; } }
+	@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition:none !important; animation:none !important; } .progress-fill { transition:none !important; } }
+	/* ══════════════ AI-500 KIT · shared by every AI-500 page ══════════════ */
+	:root {
+		/* One accent per floor/domain, reused on every page. --fN fills, --fNt text-safe, --fNb deep fills that carry white text */
+		--f1:#0078d4; --f2:#00b7c3; --f3:#8661c5; --f4:#ff8c00;
+		--f1t:#005a9e; --f2t:#00707a; --f3t:#6b46b0; --f4t:#a24f00;
+		--f1b:#0a5299; --f2b:#0a6c76; --f3b:#6240a8; --f4b:#a24f00;
+		--ai5-surface:#ffffff; --ai5-ok:#107c10; --ai5-bad:#c4314b; --ai5-warn:#a24f00;
+		--ai5-line:rgba(60,60,80,0.38);
+	}
+	body.theme-dark {
+		--f1t:#6cb2f5; --f2t:#4fd6e0; --f3t:#b79ce8; --f4t:#ffb066;
+		--ai5-surface:#2a2b34; --ai5-ok:#57d977; --ai5-bad:#ff7a90; --ai5-warn:#ffb066;
+		--ai5-line:rgba(220,220,240,0.42);
+	}
+	.fl1 { --tone:var(--f1); --toneT:var(--f1t); --toneB:var(--f1b); }
+	.fl2 { --tone:var(--f2); --toneT:var(--f2t); --toneB:var(--f2b); }
+	.fl3 { --tone:var(--f3); --toneT:var(--f3t); --toneB:var(--f3b); }
+	.fl4 { --tone:var(--f4); --toneT:var(--f4t); --toneB:var(--f4b); }
+
+	.scene.ai5 { gap:1.1rem; width:1150px; }
+	.scene.ai5 .scene-lead { max-width:1100px; }
+	.scene.ai5 .scene-title { font-weight:600; }
+	.ai5-board { position:relative; flex:none; }
+	.ai5-board > svg { position:absolute; left:0; top:0; width:100%; height:100%; overflow:visible; pointer-events:none; }
+	.ai5-pos { position:absolute; width:0; height:0; }
+	.ai5-in { position:absolute; left:0; top:0; transform:translate(-50%,-50%); }
+
+	/* Agent cast — the same six characters on every page */
+	.ai5-ag { position:relative; width:var(--ag,76px); height:var(--ag,76px); }
+	.ai5-ag-ic { width:100%; height:100%; border-radius:50%; display:grid; place-items:center;
+		background:var(--ai5-surface); border:3px solid var(--ac); color:var(--ac); box-shadow:0 6px 18px rgba(0,0,0,0.2); }
+	.ai5-ag-ic .ic { font-size:calc(var(--ag,76px) * 0.5); }
+	/* the label hangs OUTSIDE the badge so coordinates always refer to the badge centre */
+	.ai5-ag-l { position:absolute; top:100%; left:50%; transform:translateX(-50%); margin-top:0.4rem; white-space:nowrap;
+		font-size:1rem; font-weight:600; text-align:center; line-height:1.2; color:var(--theme-text); }
+	.ai5-ag.is-top .ai5-ag-l { top:auto; bottom:100%; margin-top:0; margin-bottom:0.4rem; }
+	.ag-solo   { --ac:#0067b8; } .ag-orch  { --ac:#6a3fb5; } .ag-intake { --ac:#0067b8; }
+	.ag-policy { --ac:#0b7a60; } .ag-fraud { --ac:#c4314b; } .ag-payout { --ac:#b4530d; } .ag-human { --ac:#b02c8a; }
+	body.theme-dark .ag-solo { --ac:#6cb2f5; } body.theme-dark .ag-orch { --ac:#b79ce8; } body.theme-dark .ag-intake { --ac:#6cb2f5; }
+	body.theme-dark .ag-policy { --ac:#4fd6a8; } body.theme-dark .ag-fraud { --ac:#ff7a90; } body.theme-dark .ag-payout { --ac:#ffb066; } body.theme-dark .ag-human { --ac:#f08ad0; }
+
+	/* On-screen headline pill — the ONE line of burned-in text per step */
+	.ai5-say { display:inline-flex; align-items:center; gap:0.6rem; padding:0.6rem 1.4rem; border-radius:999px; opacity:0;
+		font-size:1.25rem; font-weight:600; color:var(--theme-text); background:var(--ai5-surface);
+		border:2px solid var(--theme-tertiary,#5c2d91); box-shadow:0 6px 20px rgba(0,0,0,0.16); text-align:center; }
+	.ai5-say .ic { font-size:1.4rem; color:var(--theme-tertiary,#5c2d91); }
+	body.theme-dark .ai5-say .ic { color:#c9a5e8; }
+
+	.ai5-pnl { border:1.5px solid var(--theme-border); border-radius:14px; background:var(--theme-card-background,#fff);
+		box-shadow:0 8px 26px rgba(0,0,0,0.14); padding:1rem 1.2rem; opacity:0; }
+	body.theme-dark .ai5-pnl { background:rgba(255,255,255,0.05); }
+	.ai5-pnl-h { font-size:0.95rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--theme-text-subtle); margin:0 0 0.6rem; }
+	.ai5-tag { display:inline-flex; align-items:center; gap:0.4rem; padding:0.3rem 0.85rem; border-radius:999px; font-size:0.92rem; font-weight:500;
+		border:1.5px solid var(--toneT,var(--theme-border)); color:var(--theme-text); background:color-mix(in srgb, var(--tone,#888) 14%, transparent); opacity:0; }
+	.ai5-tag .ic { color:var(--toneT,currentColor); }
+	.ai5-row { display:flex; flex-wrap:wrap; gap:0.55rem; justify-content:center; }
+
+	/* Floor bar — a deep fill that always carries white text */
+	.ai5-fl { position:absolute; display:flex; align-items:center; justify-content:center; gap:1.1rem; border-radius:12px; color:#fff;
+		background:var(--toneB); box-shadow:0 6px 18px rgba(0,0,0,0.22); overflow:hidden; white-space:nowrap; }
+	.ai5-fl .n { font-size:1rem; font-weight:500; padding:0.15rem 0.6rem; border-radius:8px; background:rgba(0,0,0,0.28); }
+	.ai5-fl .v { font-size:1.5rem; font-weight:600; }
+	.ai5-fl .d { font-size:1.02rem; font-weight:400; opacity:0.92; }
+
+	/* Claim card (Contoso Insurance) */
+	.ai5-claim { width:74px; height:52px; border-radius:7px; background:var(--ai5-surface); border:1.5px solid var(--ai5-line);
+		box-shadow:0 3px 8px rgba(0,0,0,0.2); padding:8px 9px; display:flex; flex-direction:column; gap:5px; }
+	.ai5-claim i { display:block; height:5px; border-radius:3px; background:var(--ai5-line); }
+	.ai5-claim i:first-child { width:55%; background:#0078d4; opacity:0.75; }
+	.ai5-claim.is-ok::after { content:'\2713'; position:absolute; right:-9px; top:-9px; width:22px; height:22px; border-radius:50%;
+		background:var(--ai5-ok); color:#fff; font-size:0.9rem; line-height:22px; text-align:center; font-weight:700; }
+	.ai5-claim { position:relative; }
+
+	/* Question marks on connectors */
+	.ai5-q { width:34px; height:34px; border-radius:50%; display:grid; place-items:center; font-size:1.1rem; font-weight:700;
+		background:var(--ai5-surface); color:var(--ai5-warn); border:2px solid var(--ai5-warn); }
+
+	@keyframes ai5Glow { 0%,100% { box-shadow:0 0 0 0 rgba(138,92,214,0.0), 0 8px 24px rgba(0,0,0,0.25); } 50% { box-shadow:0 0 0 10px rgba(138,92,214,0.25), 0 8px 24px rgba(0,0,0,0.25); } }
+	.ai5-glow { animation:ai5Glow 2.2s ease-in-out infinite; }
+	.ai5-next { display:inline-flex; align-items:center; gap:0.6rem; padding:0.55rem 1.3rem; border-radius:999px; text-decoration:none; opacity:0;
+		font-size:1.05rem; font-weight:600; color:#fff; background:var(--aw-purple,#5c2d91); border:2px solid transparent; }
+	.ai5-next:hover { filter:brightness(1.12); }
+	.ai5-foot a { color:var(--f1t); font-weight:600; }
+
+	/* ══════════════ ApisAndCaching (p8) ══════════════ */
+	.a8-b { position:absolute; box-sizing:border-box; }
+	.a8-az { display:block; flex:none; object-fit:contain; }
+	.a8-sub { font-size:0.9rem; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--theme-text-subtle); white-space:nowrap; }
+	.a8-card { box-sizing:border-box; border-radius:14px; background:var(--ai5-surface); border:2px solid var(--toneT); box-shadow:0 6px 18px rgba(0,0,0,0.16); color:var(--theme-text); }
+	.a8-tag { display:inline-flex; align-items:center; gap:0.45rem; padding:0.32rem 0.9rem; border-radius:999px; font-size:0.95rem; font-weight:500; white-space:nowrap; color:var(--theme-text);
+		border:1.5px solid var(--toneT); background:color-mix(in srgb, var(--tone) 14%, transparent); }
+	.a8-tag .ic { color:var(--toneT); font-size:1.1rem; display:inline-flex; }
+	.a8-tag.is-ok { border-color:var(--ai5-ok); background:color-mix(in srgb, var(--ai5-ok) 14%, transparent); }
+	.a8-tag.is-ok .ic { color:var(--ai5-ok); }
+	.a8-tag.is-warn { border-color:var(--ai5-warn); background:color-mix(in srgb, var(--ai5-warn) 14%, transparent); }
+	.a8-tag.is-warn .ic { color:var(--ai5-warn); }
+	.a8-badge { width:52px; height:52px; border-radius:50%; display:grid; place-items:center; font-size:1.6rem; color:#fff; background:var(--f4b); flex:none; }
+	.a8-lbl { display:inline-flex; align-items:center; padding:0.28rem 0.85rem; border-radius:999px; font-size:0.95rem; font-weight:500; white-space:nowrap; color:var(--theme-text);
+		background:var(--ai5-surface); border:1.5px solid var(--toneT); box-shadow:0 3px 8px rgba(0,0,0,0.14); }
+	.a8-lbl.is-ok { border-color:var(--ai5-ok); }
+	.a8-tick { position:absolute; right:-10px; top:-10px; width:32px; height:32px; border-radius:50%; background:var(--ai5-ok); color:#fff; display:grid; place-items:center; font-size:1.1rem; box-shadow:0 3px 8px rgba(0,0,0,0.25); }
+	body.theme-dark .a8-tick { color:#10240f; }
+
+	/* 1 · gateway */
+	.a8-cl { display:flex; align-items:center; gap:0.75rem; padding:0 18px; font-size:1.08rem; font-weight:500; }
+	.a8-cl .ic { font-size:1.5rem; color:var(--toneT); display:inline-flex; }
+	.a8-gw { border-radius:16px; border:2.5px solid var(--toneT); background:color-mix(in srgb, var(--tone) 6%, var(--ai5-surface)); box-shadow:0 6px 18px rgba(0,0,0,0.14); }
+	.a8-gwh { position:absolute; left:22px; top:14px; display:flex; align-items:center; gap:0.6rem; font-size:1.1rem; font-weight:600; }
+	.a8-pol { position:absolute; left:50px; width:340px; height:52px; display:flex; align-items:center; gap:0.7rem; padding:0 16px; border-radius:12px; font-size:1.05rem; font-weight:500;
+		background:var(--ai5-surface); border:1.5px solid var(--ai5-line); }
+	.a8-pol .ic { font-size:1.4rem; color:var(--toneT); display:inline-flex; }
+	.a8-pol i { font-style:normal; margin-left:auto; width:26px; height:26px; border-radius:50%; display:grid; place-items:center; font-size:0.9rem; font-weight:600; color:#fff; background:var(--f4b); }
+	.a8-be { display:flex; align-items:center; gap:0.75rem; padding:0 16px; font-size:1.08rem; font-weight:500; }
+	.a8-chips { display:flex; justify-content:center; gap:14px; }
+
+	/* 2 / 5 · decision cards */
+	.a8-req { display:flex; align-items:center; justify-content:center; gap:0.8rem; padding:0 20px; }
+	.a8-req b { font-size:1.08rem; font-weight:600; white-space:nowrap; }
+	.a8-ct { position:absolute; box-sizing:border-box; width:250px; height:236px; }
+	.a8-ct .a8-cin { height:100%; box-sizing:border-box; padding:18px 18px 62px; display:flex; flex-direction:column; align-items:center; text-align:center; gap:0.45rem; }
+	.a8-ct .a8-cn { font-size:1.2rem; font-weight:600; white-space:nowrap; }
+	.a8-ct .a8-cd { font-size:1rem; font-weight:400; line-height:1.35; }
+	.a8-why { position:absolute; left:50%; bottom:16px; transform:translateX(-50%); padding:0.28rem 0.8rem; border-radius:999px; font-size:0.9rem; font-weight:500; white-space:nowrap;
+		color:var(--theme-text); background:var(--ai5-surface); border:1.5px solid var(--ai5-line); }
+	.a8-ct.is-win .a8-card { border-color:var(--ai5-ok); }
+	.a8-ct.is-win .a8-why { border-color:var(--ai5-ok); }
+
+	/* 3 · cache */
+	.a8-node { display:flex; align-items:center; gap:0.9rem; padding:0 18px; }
+	.a8-node b { display:block; font-size:1.15rem; font-weight:600; white-space:nowrap; }
+	.a8-node span.d { display:block; font-size:0.95rem; color:var(--theme-text-subtle); margin-top:0.1rem; }
+	.a8-redis { border-color:var(--ai5-bad); }
+	.a8-redis.a8-card { border-color:var(--toneT); }
+
+	/* 4 · what to cache */
+	.a8-pn { padding:16px 20px; display:flex; flex-direction:column; gap:0.55rem; }
+	.a8-pnh { display:flex; align-items:center; gap:0.6rem; font-size:1.15rem; font-weight:600; }
+	.a8-pnh .m { width:28px; height:28px; border-radius:50%; display:grid; place-items:center; font-size:1rem; color:#fff; font-weight:600; }
+	.a8-pn.is-yes { border-color:var(--ai5-ok); } .a8-pn.is-yes .m { background:var(--ai5-ok); }
+	.a8-pn.is-no { border-color:var(--ai5-bad); } .a8-pn.is-no .m { background:var(--ai5-bad); }
+	body.theme-dark .a8-pn .m { color:#10240f; }
+	.a8-row { display:flex; align-items:center; gap:0.7rem; flex:1 1 0; padding:0 14px; border-radius:10px; font-size:1.05rem; font-weight:500; border:1.5px solid var(--ai5-line); background:color-mix(in srgb, var(--ai5-line) 14%, transparent); }
+	.a8-band { display:flex; flex-direction:column; justify-content:center; gap:0.75rem; padding:0 24px; }
+	.a8-bandt { display:flex; align-items:center; gap:0.9rem; font-size:1.2rem; font-weight:600; }
+	.a8-bandr { display:flex; gap:0.6rem; flex-wrap:wrap; }
+
+	/* 6 · config */
+	.a8-app { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.5rem; text-align:center; padding:0 12px; }
+	.a8-app b { font-size:1.15rem; font-weight:600; }
+	.a8-app .d { font-size:0.98rem; color:var(--theme-text-subtle); }
+	.a8-kr { position:absolute; left:30px; width:360px; height:52px; display:flex; align-items:center; gap:0.6rem; padding:0 16px; border-radius:12px; font-size:1.02rem; font-weight:500;
+		background:var(--ai5-surface); border:1.5px solid var(--ai5-line); }
+	.a8-kr .v { margin-left:auto; padding:0.18rem 0.7rem; border-radius:999px; font-size:0.9rem; font-weight:500; white-space:nowrap; border:1.5px solid var(--toneT); background:color-mix(in srgb, var(--tone) 14%, transparent); display:inline-flex; align-items:center; gap:0.35rem; }
+	.a8-kr .v .ic { color:var(--toneT); display:inline-flex; }
+	.a8-sw { margin-left:auto; position:relative; width:52px; height:28px; border-radius:14px; background:var(--ai5-line); flex:none; }
+	.a8-sw i { position:absolute; left:3px; top:3px; width:22px; height:22px; border-radius:50%; background:#fff; box-shadow:0 1px 4px rgba(0,0,0,0.35); display:block; }
+	.a8-sw .g { position:absolute; left:0; top:0; right:0; bottom:0; border-radius:14px; background:var(--ai5-ok); opacity:0; display:block; }
+	.a8-sw.is-on { background:var(--ai5-ok); }
+	.a8-kv { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.5rem; text-align:center; padding:0 12px; }
+	.a8-kv b { font-size:1.15rem; font-weight:600; }
+	.a8-kv .d { font-size:0.98rem; color:var(--theme-text-subtle); }
+
+	/* 7 · deploy */
+	.a8-st { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.4rem; text-align:center; padding:0 10px; }
+	.a8-st .ic { font-size:1.6rem; color:var(--toneT); display:inline-flex; }
+	.a8-st span.n { font-size:1.02rem; font-weight:600; }
+	.a8-slot { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.55rem; text-align:center; }
+	.a8-slot b { font-size:1.15rem; font-weight:600; }
+	.a8-ver { position:relative; height:34px; min-width:190px; }
+	.a8-ver .a8-tag { position:absolute; left:50%; top:0; transform:translateX(-50%); }
+
+	/* 8 · whole */
+	.a8-wc { display:flex; flex-direction:column; gap:0.45rem; padding:16px 18px; justify-content:center; }
+	.a8-wch { display:flex; align-items:center; gap:0.8rem; }
+	.a8-wch .a8-badge { width:44px; height:44px; font-size:1.4rem; }
+	.a8-wcn { font-size:1.18rem; font-weight:600; white-space:nowrap; }
+	.a8-wcd { font-size:1.02rem; font-weight:400; }
+	.a8-wcc { align-self:flex-start; padding:0.22rem 0.75rem; border-radius:999px; font-size:0.9rem; font-weight:500; border:1.5px solid var(--toneT); background:color-mix(in srgb, var(--tone) 14%, transparent); }
+	.a8-end { display:flex; align-items:center; justify-content:center; gap:1.1rem; flex-wrap:wrap; max-width:1100px; }
+	.ai5-foot { font-size:1.05rem; text-align:center; max-width:980px; line-height:1.5; opacity:0; }
+
+</style>
+	<!-- SEO:START -->
+	<meta name="description" content="Front the app: APIs, caching and deployment. Explore AZ-305 · Design Azure infrastructure solutions with a step-by-step visual guide." />
+	<link rel="canonical" href="https://azureanimations.github.io/journeys/Architect/ApisAndCaching.html" />
+	<meta name="robots" content="index, follow, max-image-preview:large" />
+	<meta property="og:type" content="website" />
+	<meta property="og:site_name" content="Azure Animations" />
+	<meta property="og:title" content="Front the app: APIs, caching and deployment — Azure Animations" />
+	<meta property="og:description" content="Front the app: APIs, caching and deployment. Explore AZ-305 · Design Azure infrastructure solutions with a step-by-step visual guide." />
+	<meta property="og:url" content="https://azureanimations.github.io/journeys/Architect/ApisAndCaching.html" />
+	<meta property="og:image" content="https://azureanimations.github.io/img/favicon.png" />
+	<meta property="og:image:alt" content="Azure Animations" />
+	<meta name="twitter:card" content="summary" />
+	<meta name="twitter:title" content="Front the app: APIs, caching and deployment — Azure Animations" />
+	<meta name="twitter:description" content="Front the app: APIs, caching and deployment. Explore AZ-305 · Design Azure infrastructure solutions with a step-by-step visual guide." />
+	<meta name="twitter:image" content="https://azureanimations.github.io/img/favicon.png" />
+	<meta name="twitter:image:alt" content="Azure Animations" />
+	<script type="application/ld+json">
+	{"@context":"https://schema.org","@type":"WebPage","name":"Front the app: APIs, caching and deployment — Azure Animations","description":"Front the app: APIs, caching and deployment. Explore AZ-305 · Design Azure infrastructure solutions with a step-by-step visual guide.","url":"https://azureanimations.github.io/journeys/Architect/ApisAndCaching.html","isPartOf":{"@type":"WebSite","name":"Azure Animations","url":"https://azureanimations.github.io/"},"breadcrumb":{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Azure Animations","item":"https://azureanimations.github.io/"},{"@type":"ListItem","position":2,"name":"AZ-305 · Design Azure infrastructure solutions","item":"https://azureanimations.github.io/journeys/Architect/"},{"@type":"ListItem","position":3,"name":"Front the app: APIs, caching and deployment","item":"https://azureanimations.github.io/journeys/Architect/ApisAndCaching.html"}]}}
+	</script>
+	<!-- SEO:END -->
+</head>
+
+<body class="theme-dark" data-theme-preset="atlas">
+
+	<a href="#stage" class="skip-link">Skip to diagram</a>
+
+	<header class="app-header padding-block-xs padding-inline-md border-bottom" role="banner" style="justify-content:space-between;">
+		<div class="display-flex align-items-center gap-xs">
+			<!-- Set href to the previous animation in the journey, or the hub index.html -->
+			<a href="PickCompute.html" class="header-back-link" aria-label="Pick the right compute" title="Pick the right compute">&larr; Pick the right compute</a>
+			<span id="page-title" class="font-size-h6 font-weight-semibold">&#128640; Front the app: APIs, caching and deployment</span>
+		</div>
+		<nav class="display-flex gap-xs align-items-center" aria-label="Primary">
+			<span id="breadcrumb" class="font-size-sm color-text-subtle">Step 1</span>
+		</nav>
+		<div class="display-flex gap-xs align-items-center">
+			<!-- AW:lang --><select id="lang-select" class="lang-select" aria-label="Language" title="Language"><option value="en">English</option><option value="es">Español</option><option value="ja">日本語</option><option value="ko">한국어</option><option value="pt">Português</option></select><!-- /AW:lang -->
+			<div class="font-size-controls">
+				<button id="font-decrease" type="button" class="font-size-btn" aria-label="Decrease font size" title="Smaller text">A&minus;</button>
+				<button id="font-increase" type="button" class="font-size-btn" aria-label="Increase font size" title="Larger text">A+</button>
+			</div>
+			<!-- AW:theme --><button id="theme-toggle" type="button" class="theme-toggle" aria-label="Switch theme" title="Switch theme"><svg class="theme-icon icon-moon ico ico-moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path fill="currentColor" d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg><svg class="theme-icon icon-sun ico ico-sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.5" y1="4.5" x2="6.5" y2="6.5"/><line x1="17.5" y1="17.5" x2="19.5" y2="19.5"/><line x1="4.5" y1="19.5" x2="6.5" y2="17.5"/><line x1="17.5" y1="6.5" x2="19.5" y2="4.5"/></g></svg></button><!-- /AW:theme -->
+			<button id="header-hide-top" type="button" aria-label="Hide top bar" title="Hide top bar (H)">
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/></svg>
+			</button>
+		</div>
+	</header>
+
+	<button id="header-reveal" type="button" aria-label="Show top bar" title="Show top bar">
+		<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/></svg>
+		<span>Toolbar</span>
+	</button>
+
+	<div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
+
+	<main id="stage" tabindex="0" role="region" aria-labelledby="stage-heading" aria-describedby="stage-instructions">
+		<h1 id="stage-heading" class="sr-only" tabindex="-1">Front the app: APIs, caching and deployment</h1>
+		<p id="stage-instructions" class="sr-only">Animated explainer. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.</p>
+		<div id="step-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+		<!-- Fixed 16:9 stage. Every scene is drawn INSIDE this box; it always fits the viewport (no scrollbars). -->
+		<div id="stage-frame">
+			<svg id="fx-svg" aria-hidden="true" focusable="false">
+				<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L0,10 L10,5 Z" fill="currentColor"/></marker></defs>
+			</svg>
+			<!-- Caption bar (synced to the step's audio clip by aw-captions.js) -->
+			<div id="aw-caption" class="aw-caption" aria-hidden="true"></div>
+			<!-- LEFT pill · view options: callout / outline / shortcuts (icons; label shows as a hover tooltip) -->
+			<div id="stage-overlay-left" class="stage-overlay stage-overlay-left" role="group" aria-label="View options">
+				<button id="callout-toggle" type="button" class="ovl-btn" aria-label="Toggle callouts" aria-pressed="false" data-tip="Callouts: Off"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M4 5h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H10l-4 3v-3H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></svg></button>
+				<button id="outline-toggle" type="button" class="ovl-btn" aria-controls="step-outline" aria-expanded="false" aria-label="Toggle text outline" data-tip="Outline: Off"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" d="M4 6h16M4 12h16M4 18h10"/></svg></button>
+				<button id="help-toggle" class="ovl-btn help-toggle" type="button" aria-haspopup="dialog" aria-controls="shortcut-overlay" aria-label="Keyboard shortcuts (press ?)" data-tip="Shortcuts"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M11 18h2v-2h-2v2zm1.1-14C9.8 4 8 5.8 8 8h2a2 2 0 1 1 3.2 1.6c-.9.7-2.2 1.5-2.2 3.4h2c0-1 .8-1.5 1.7-2.2A4 4 0 0 0 12.1 4z"/></svg></button>
+			</div>
+			<!-- RIGHT pill · player: audio / captions / hide-top-bar / fullscreen -->
+			<div id="stage-overlay" class="stage-overlay" role="group" aria-label="Player controls">
+				<button id="audio-toggle" class="ovl-btn ovl-audio" type="button" aria-label="Toggle audio narration" aria-pressed="false" title="Narration audio"></button>
+				<button id="cc-toggle" class="ovl-btn" type="button" aria-label="Toggle captions" aria-pressed="false" title="Captions"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9.7 10.2a2.1 2.1 0 1 0 0 3.6M17 10.2a2.1 2.1 0 1 0 0 3.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+				<button id="header-hide" class="ovl-btn" type="button" aria-label="Hide top bar" title="Hide top bar (H)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/></svg></button>
+				<button id="fs-toggle" class="ovl-btn" type="button" aria-label="Toggle full screen" aria-pressed="false" title="Full screen (F)"><svg class="fs-enter" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg><svg class="fs-exit" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg></button>
+			</div>
+		</div>
+	</main>
+
+	<aside id="step-outline" hidden aria-label="Text outline of the current step">
+		<h2 id="outline-title">Step Details</h2>
+		<div id="outline-body"></div>
+	</aside>
+
+	<div id="controls" role="group" aria-label="Diagram navigation">
+		<button id="ctrl-grip" type="button" class="ctrl-grip" aria-label="Drag to move the controls" title="Drag to move">
+			<svg viewBox="0 0 16 16" aria-hidden="true"><g fill="currentColor"><circle cx="5" cy="3" r="1.4"/><circle cx="11" cy="3" r="1.4"/><circle cx="5" cy="8" r="1.4"/><circle cx="11" cy="8" r="1.4"/><circle cx="5" cy="13" r="1.4"/><circle cx="11" cy="13" r="1.4"/></g></svg>
+		</button>
+		<button id="ctrl-pin" type="button" class="button button-clear ctrl-icon ctrl-pin" aria-label="Pin the controls back to the center" title="Pin to center">
+			<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9 2h6a1 1 0 0 1 .8 1.6L14 6v4l3 3v2h-4v5l-1 2-1-2v-5H7v-2l3-3V6L8.2 3.6A1 1 0 0 1 9 2z"/></svg>
+		</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="prev-btn" type="button" class="button ctrl-icon" aria-label="Previous step (left arrow)">&#9664;</button>
+		<div class="step-counter" id="step-counter">0 / 0</div>
+		<button id="next-btn" type="button" class="button button-primary button-filled ctrl-icon ctrl-icon-next" aria-label="Next step (right arrow or space)">&#9654;</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="replay-btn" type="button" class="button ctrl-icon" aria-label="Replay this step's animation (P)">&#8635;</button>
+		<div class="speed-control" role="group" aria-label="Animation speed">
+			<button id="speed-down" type="button" class="button button-clear speed-btn" aria-label="Slower (-)" title="Slower">&minus;</button>
+			<span id="speed-label" class="speed-label" aria-live="polite" aria-label="Current speed">1&times;</span>
+			<button id="speed-up" type="button" class="button button-clear speed-btn" aria-label="Faster (+)" title="Faster">+</button>
+		</div>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="reset-btn" type="button" class="button button-clear ctrl-icon" aria-label="Restart from step 1 (R)">&#9198;</button>
+	</div>
+
+	<div id="shortcut-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="sc-title">
+		<div class="sc-backdrop"></div>
+		<div class="sc-panel">
+			<button id="sc-close" class="sc-close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
+			<h2 id="sc-title">Keyboard shortcuts</h2>
+			<ul id="sc-list" class="sc-list"></ul>
+			<p class="sc-hint">Press <kbd>?</kbd> anytime to toggle this panel.</p>
+		</div>
+	</div>
+
+<script>
+// ── THEME ─────────────────────────────────
+const themeToggleBtn = document.getElementById('theme-toggle');
+function syncThemeBtn(){
+	if (!themeToggleBtn) return;
+	const isDark = document.body.classList.contains('theme-dark');
+	themeToggleBtn.dataset.theme = isDark ? 'dark' : 'light';   // drives which glyph (sun/moon) shows
+	const label = isDark ? 'Switch to light theme' : 'Switch to dark theme';
+	themeToggleBtn.setAttribute('aria-label', label);
+	themeToggleBtn.setAttribute('title', label);
+}
+if (window.AW && AW.theme) {
+	// aw-theme.js owns click handling + persistence; theme recolors via CSS variables, so no re-render/replay.
+	AW.theme.onChange(() => { syncThemeBtn(); });
+	syncThemeBtn();
+} else {
+	// Standalone fallback: toggle .theme-dark / .theme-light on <body> ourselves.
+	syncThemeBtn();
+	if (themeToggleBtn) themeToggleBtn.addEventListener('click', () => {
+		const goingDark = !document.body.classList.contains('theme-dark');
+		document.body.classList.remove('theme-dark', 'theme-light');
+		document.body.classList.add(goingDark ? 'theme-dark' : 'theme-light');
+		try { localStorage.setItem('aw-theme', goingDark ? 'theme-dark' : 'theme-light'); } catch(_){}
+		syncThemeBtn();
+	});
+	// restore a previously chosen theme (standalone only)
+	try { const saved = localStorage.getItem('aw-theme'); if (saved === 'theme-light' || saved === 'theme-dark') { document.body.classList.remove('theme-dark','theme-light'); document.body.classList.add(saved); syncThemeBtn(); } } catch(_){}
+}
+
+// ── i18n ──────────────────────────────────
+// English is the source language. Add sibling objects (es/ja/ko/pt) with the
+// SAME keys + matching <option>s in #lang-select. Keep brand/code/proper-noun
+// sample data untranslated.
+let currentLang = 'en';
+
+const I18N = {
+	"en": {
+		"skipToMain": "Skip to diagram",
+		"pageTitle": "Front the app: APIs, caching and deployment",
+		"stageHeading": "Front the app: APIs, caching and deployment",
+		"stageInstructions": "Animated explainer. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.",
+		"prev": "◀ Prev",
+		"next": "Next ▶",
+		"replay": "↻ Replay",
+		"restart": "↻ Restart",
+		"slower": "Slower",
+		"faster": "Faster",
+		"calloutOn": "Callouts: On",
+		"calloutOff": "Callouts: Off",
+		"outlineOn": "Outline: On",
+		"outlineOff": "Outline: Off",
+		"audioTip": "Narration audio",
+		"ccTip": "Captions",
+		"shortcutsTip": "Shortcuts",
+		"stepDetails": "Step Details",
+		"stepOf": "Step",
+		"resetPos": "Reset to default position",
+		"scTitle": "Keyboard shortcuts",
+		"scNext": "Next step",
+		"scPrev": "Previous step",
+		"scRestart": "Restart",
+		"scReplay": "Replay this step",
+		"scHide": "Hide / show top bar",
+		"scHelp": "Toggle this help",
+		"nextMigrate": "Up next: migrate to Azure",
+		"gatewayTitle": "API Management: one front door",
+		"gatewayCaption": "APIs · gateway",
+		"gatewayDesc": "Contoso’s partner API is slow and every client calls the backend directly. A gateway in front adds control without changing the backend.",
+		"gatewayCallout": "AZ-305 · Recommend a solution for API integration. The gateway checks keys and tokens, enforces rate limits and quotas, and can transform requests and responses by policy. Products package APIs, subscriptions issue keys, and the developer portal documents the APIs for consumers.",
+		"gatewaySay": "One front door for every API.",
+		"gwPartner": "Partner app",
+		"gwMobile": "Mobile app",
+		"gwHead": "API Management gateway",
+		"gwP1": "Verify key or token",
+		"gwP2": "Rate limit",
+		"gwP3": "Transform",
+		"gwOrders": "Orders API",
+		"gwCatalogue": "Catalogue API",
+		"gwC1": "Products",
+		"gwC2": "Subscriptions",
+		"gwC3": "Developer portal",
+		"tiersTitle": "API Management: choose the tier",
+		"tiersCaption": "APIs · tiers",
+		"tiersDesc": "Tiers trade capacity, network isolation and price. Match the tier to what the partner API needs, and no more.",
+		"tiersCallout": "AZ-305 · Recommend a solution for API integration. Developer has no SLA and is for non-production. Standard v2 can connect to backends isolated in a virtual network. Premium adds availability zones and multi-region deployment, and Premium v2 adds virtual network injection. Consumption is serverless and billed per execution. Check the feature comparison before you commit.",
+		"tiersSay": "Standard v2 fits Contoso.",
+		"tiReq": "Contoso partner API",
+		"tiR1": "Production",
+		"tiR2": "Private backends",
+		"tiR3": "One region",
+		"tiCons": "Consumption",
+		"tiConsD": "Serverless, billed per execution",
+		"tiConsX": "No private backend access",
+		"tiDev": "Developer · Basic v2",
+		"tiDevD": "Development and testing",
+		"tiDevX": "Not for production",
+		"tiStd": "Standard v2",
+		"tiStdD": "Production with VNet integration",
+		"tiStdX": "Fits the requirements",
+		"tiPrem": "Premium · Premium v2",
+		"tiPremD": "Zones and full network isolation",
+		"tiPremX": "More than Contoso needs",
+		"cacheTitle": "Caching: check the cache first",
+		"cacheCaption": "Caching · cache-aside",
+		"cacheDesc": "The storefront reads the same product data again and again. Keep it in memory and go to the database only when the cache has no answer.",
+		"cacheCallout": "AZ-305 · Recommend a caching solution for applications. In the cache-aside pattern the application loads data into the cache on demand. When data changes, update the data store and then invalidate the cached item. An expiry keeps the cache from going stale.",
+		"cacheSay": "Check the cache first.",
+		"caApp": "Storefront",
+		"caAppD": "App Service",
+		"caRedis": "Azure Managed Redis",
+		"caRedisD": "In-memory cache",
+		"caDb": "Product database",
+		"caDbD": "Source of truth",
+		"caS1": "1 · Check the cache",
+		"caS2": "2 · On a miss, read the database",
+		"caS3": "3 · Store it with an expiry",
+		"caHit": "Next read: a hit",
+		"cachewhatTitle": "Caching: what belongs in memory",
+		"cachewhatCaption": "Caching · what to cache",
+		"cachewhatDesc": "A cache helps most with read-heavy data that changes rarely and can be a little stale. It is not the system of record.",
+		"cachewhatCallout": "AZ-305 · Recommend a caching solution for applications. Azure Managed Redis replaces Azure Cache for Redis. The Basic, Standard and Premium tiers retire on September 30, 2028, and the Enterprise tiers on March 31, 2027, so design new solutions on Azure Managed Redis.",
+		"cachewhatSay": "Cache the reads, not the truth.",
+		"cwYes": "Cache it",
+		"cwNo": "Do not cache",
+		"cwY1": "Product catalogue pages",
+		"cwY2": "Shopping cart sessions",
+		"cwY3": "Static page content",
+		"cwN1": "Live stock at checkout",
+		"cwN2": "Data that changes every request",
+		"cwN3": "Data that must never be stale",
+		"cwRedis": "Azure Managed Redis",
+		"cwRepl": "Replaces Azure Cache for Redis",
+		"cwT1": "Memory Optimized",
+		"cwT2": "Balanced",
+		"cwT3": "Compute Optimized",
+		"cwT4": "Flash Optimized",
+		"messagingTitle": "Messaging and events: pick by the message",
+		"messagingCaption": "Integration · messaging",
+		"messagingDesc": "Four services move data between components. A command, a notification and a stream need different guarantees.",
+		"messagingCallout": "AZ-305 · Recommend a messaging architecture and an event-driven architecture. Service Bus is for high-value messages such as order processing. Event Grid reacts to discrete events. Event Hubs ingests telemetry streams. Storage queues are an economical option when a simple feature set is enough.",
+		"messagingSay": "Pick by the kind of message.",
+		"msReq": "Contoso order placed",
+		"msR1": "Must not be lost",
+		"msR2": "Processed in order",
+		"msR3": "Dead-letter failures",
+		"msQs": "Queue Storage",
+		"msQsD": "Simple, economical queue",
+		"msQsX": "Simple feature set",
+		"msSb": "Service Bus",
+		"msSbD": "Ordering, transactions, dead‑letter",
+		"msSbX": "Order processing fits",
+		"msEg": "Event Grid",
+		"msEgD": "Reacts to discrete events",
+		"msEgX": "No ordering guarantee",
+		"msEh": "Event Hubs",
+		"msEhD": "Telemetry and event streams",
+		"msEhX": "Streams, not commands",
+		"configTitle": "Configuration: keep settings out of the code",
+		"configCaption": "Deploy · configuration",
+		"configDesc": "The same build runs in every environment. App Configuration holds the settings and feature flags, and Key Vault holds the secrets.",
+		"configCallout": "AZ-305 · Recommend an application configuration management solution. A Key Vault reference in App Configuration points to a secret, and the client provider reads the secret from Key Vault for the app. The value never lives in the configuration store.",
+		"configSay": "Change behaviour without redeploying.",
+		"cfApp": "Storefront",
+		"cfAppD": "Reads config at runtime",
+		"cfHead": "App Configuration",
+		"cfK1": "Catalogue:PageSize",
+		"cfV1": "24",
+		"cfK2": "NewCheckout",
+		"cfK3": "Payments:ApiKey",
+		"cfV3": "Key Vault reference",
+		"cfKv": "Key Vault",
+		"cfKvD": "Secrets stay here",
+		"deployTitle": "Deployment: ship safely, roll back fast",
+		"deployCaption": "Deploy · pipeline",
+		"deployDesc": "Replace manual deployments with code. Infrastructure comes from Bicep, the app flows through a pipeline, and a slot swap makes the release.",
+		"deployCallout": "AZ-305 · Recommend an automated deployment solution for applications. Bicep is a declarative language for Azure resources. Deployment slots warm up the new version before the swap, so no requests are dropped. Swap again to return to the last known good version.",
+		"deploySay": "Ship safely, roll back instantly.",
+		"dpN1": "Commit",
+		"dpN2": "Build and test",
+		"dpN3": "Infra with Bicep",
+		"dpN4": "Deploy to staging",
+		"dpN5": "Swap to live",
+		"dpTool": "GitHub Actions or Azure Pipelines",
+		"dpSlots": "App Service deployment slots · Standard tier or higher",
+		"dpStg": "Staging slot",
+		"dpProd": "Production slot",
+		"dpStg1": "v2 · warmed up",
+		"dpStg2": "v1 · rollback ready",
+		"dpProd1": "v1 · live",
+		"dpProd2": "v2 · live",
+		"dpNoDrop": "No dropped requests on swap",
+		"wholeTitle": "All in one: a fast, safe partner API",
+		"wholeCaption": "Recap",
+		"wholeDesc": "Each card is one design decision for the Contoso partner API: the service, and the choice Contoso made.",
+		"wholeCallout": "Next: plan the move to Azure for the whole estate.",
+		"wcApim": "API Management",
+		"wcApimD": "One front door with policies",
+		"wcApimC": "Standard v2",
+		"wcRedis": "Azure Managed Redis",
+		"wcRedisD": "Hot reads from memory",
+		"wcRedisC": "Cache-aside with expiry",
+		"wcSb": "Service Bus",
+		"wcSbD": "Ordered, dead-lettered messages",
+		"wcSbC": "Orders as commands",
+		"wcCfg": "App Configuration",
+		"wcCfgD": "Settings, flags, Key Vault refs",
+		"wcCfgC": "Flags, not redeploys",
+		"wcBicep": "Bicep",
+		"wcBicepD": "Infrastructure as code",
+		"wcBicepC": "One template, every environment",
+		"wcSlot": "Deployment slots",
+		"wcSlotD": "Warm up, swap, roll back",
+		"wcSlotC": "Zero dropped requests",
+		"wholeFoot": "Official guide: <a href=\"https://learn.microsoft.com/azure/api-management/api-management-key-concepts\" target=\"_blank\" rel=\"noopener\">What is Azure API Management?</a>",
+		"backLabel": "Pick the right compute",
+		"short1": "Gateway",
+		"short2": "Tiers",
+		"short3": "Cache-aside",
+		"short4": "What to cache",
+		"short5": "Messaging",
+		"short6": "Configuration",
+		"short7": "Deployment",
+		"short8": "All in one",
+		"languageLabel": "Language"
+	},
+	"es": {
+		"skipToMain": "Ir al diagrama",
+		"pageTitle": "Preparar la aplicación: APIs, caché e implementación",
+		"stageHeading": "Preparar la aplicación: APIs, caché e implementación",
+		"stageInstructions": "Explicación animada. Usa los botones de Siguiente/Anterior o las flechas para navegar. Pulsa R para reiniciar.",
+		"prev": "◀ Anterior",
+		"next": "Siguiente ▶",
+		"replay": "↻ Repetir",
+		"restart": "↻ Reiniciar",
+		"slower": "Más lento",
+		"faster": "Más rápido",
+		"calloutOn": "Notas: activadas",
+		"calloutOff": "Notas: desactivadas",
+		"outlineOn": "Esquema: activado",
+		"outlineOff": "Esquema: desactivado",
+		"audioTip": "Narración de audio",
+		"ccTip": "Subtítulos",
+		"shortcutsTip": "Atajos",
+		"stepDetails": "Detalles del paso",
+		"stepOf": "Paso",
+		"resetPos": "Restablecer la posición",
+		"scTitle": "Atajos de teclado",
+		"scNext": "Paso siguiente",
+		"scPrev": "Paso anterior",
+		"scRestart": "Reiniciar",
+		"scReplay": "Repetir este paso",
+		"scHide": "Mostrar u ocultar la barra superior",
+		"scHelp": "Mostrar u ocultar esta ayuda",
+		"nextMigrate": "A continuación: migrar a Azure",
+		"gatewayTitle": "API Management: una puerta principal",
+		"gatewayCaption": "APIs · Gateway",
+		"gatewayDesc": "La API del socio de Contoso es lenta y todos los clientes llaman directamente al backend. Un gateway en el frente añade control sin cambiar el backend.",
+		"gatewayCallout": "AZ-305 · Recomienda una solución para la integración de API. La pasarela comprueba claves y tokens, aplica límites de tasa y cuotas, y puede transformar solicitudes y respuestas según la política. Los productos empaquetan APIs, las suscripciones emiten claves y el portal de desarrolladores documenta las APIs para los consumidores.",
+		"gatewaySay": "Una puerta principal para cada API.",
+		"gwPartner": "Aplicación asociada",
+		"gwMobile": "Aplicación móvil",
+		"gwHead": "Pasarela de API Management",
+		"gwP1": "Verificar clave o token",
+		"gwP2": "Límite de tarifa",
+		"gwP3": "Transformar",
+		"gwOrders": "API de pedidos",
+		"gwCatalogue": "API de catálogo",
+		"gwC1": "Productos",
+		"gwC2": "Suscripciones",
+		"gwC3": "Portal para desarrolladores",
+		"tiersTitle": "API Management: elige el nivel",
+		"tiersCaption": "APIs · tiers",
+		"tiersDesc": "Niveles de capacidad de comercio, aislamiento de red y precio. Ajusta el nivel a lo que necesita la API del socio, y nada más.",
+		"tiersCallout": "AZ-305 · Recomiendo una solución para la integración de API. El desarrollador no tiene SLA y es para no producción. La versión estándar v2 puede conectarse a backends aislados en una red virtual. Premium añade zonas de disponibilidad y despliegue multirregión, y Premium v2 añade inyección de red virtual. El consumo es serverless y se factura por ejecución. Consulta la comparación de características antes de comprometerte.",
+		"tiersSay": "La versión estándar v2 se adapta a Contoso.",
+		"tiReq": "Contoso partner API",
+		"tiR1": "Producción",
+		"tiR2": "Backends privados",
+		"tiR3": "Una región",
+		"tiCons": "Consumo",
+		"tiConsD": "Sin servidor, facturado por ejecución",
+		"tiConsX": "No hay acceso privado al backend",
+		"tiDev": "Desarrollador · Basic v2",
+		"tiDevD": "Desarrollo y pruebas",
+		"tiDevX": "No para producción",
+		"tiStd": "Estándar v2",
+		"tiStdD": "Producción con integración de VNet",
+		"tiStdX": "Cumple con los requisitos",
+		"tiPrem": "Premium · Premium v2",
+		"tiPremD": "Zonas y aislamiento total de la red",
+		"tiPremX": "Más de lo que Contoso necesita",
+		"cacheTitle": "Caché: revisa primero la caché",
+		"cacheCaption": "Caché · caché-aparte",
+		"cacheDesc": "La tienda lee los mismos datos de producto una y otra vez. Guárdalos en memoria y ve a la base de datos solo cuando la caché no tenga respuesta.",
+		"cacheCallout": "AZ-305 · Recomienda una solución de caché para aplicaciones. En el patrón cache-aside, la aplicación carga datos en la caché bajo demanda. Cuando los datos cambian, actualiza el almacenamiento de datos y luego invalida el elemento almacenado en caché. Una expiración evita que la caché se quede obsoleta.",
+		"cacheSay": "Revisa primero la caché.",
+		"caApp": "Escaparate",
+		"caAppD": "App Service",
+		"caRedis": "Azure Managed Redis",
+		"caRedisD": "Caché en memoria",
+		"caDb": "Base de datos de productos",
+		"caDbD": "Fuente de la verdad",
+		"caS1": "1 · Revisa la caché",
+		"caS2": "2 · Si falla, lee la base de datos",
+		"caS3": "3 · Guárdalo con caducidad",
+		"caHit": "Lo siguiente es leer: un éxito",
+		"cachewhatTitle": "Caché: lo que pertenece a la memoria",
+		"cachewhatCaption": "Caché · Qué almacenar en caché",
+		"cachewhatDesc": "Una caché ayuda sobre todo con datos que requieren mucha lectura y que cambian rara vez y pueden ser un poco obsoletos. No es el sistema de registro.",
+		"cachewhatCallout": "AZ-305 · Recomienda una solución de caché para aplicaciones. Azure Managed Redis sustituye a Azure Cache por Redis. Los niveles Basic, Standard y Premium se retiran el 30 de septiembre de 2028, y los niveles Enterprise el 31 de marzo de 2027, así que diseña nuevas soluciones en Azure Managed Redis.",
+		"cachewhatSay": "Guarda las lecturas, no la verdad.",
+		"cwYes": "Guarda en caché",
+		"cwNo": "No almacenar caché",
+		"cwY1": "Páginas del catálogo de productos",
+		"cwY2": "Sesiones de carrito de la compra",
+		"cwY3": "Contenido estático de la página",
+		"cwN1": "Ganado en la compra",
+		"cwN2": "Datos que cambian cada solicitud",
+		"cwN3": "Datos que nunca deben quedar obsoletos",
+		"cwRedis": "Azure Managed Redis",
+		"cwRepl": "Sustituye Azure Cache por Redis",
+		"cwT1": "Optimización de memoria",
+		"cwT2": "Equilibrado",
+		"cwT3": "Optimizado para el cálculo",
+		"cwT4": "Optimizado para Flash",
+		"messagingTitle": "Mensajes y eventos: elige por el mensaje",
+		"messagingCaption": "Integración · mensajería",
+		"messagingDesc": "Cuatro servicios mueven datos entre componentes. Un comando, una notificación y un flujo necesitan garantías diferentes.",
+		"messagingCallout": "AZ-305 · Recomiendo una arquitectura de mensajería y una arquitectura orientada a eventos. Service Bus es para mensajes de alto valor como el procesamiento de pedidos. Event Grid reacciona a eventos discretos. Event Hubs ingiere flujos de telemetría. Las colas de almacenamiento son una opción económica cuando basta con un simple conjunto de características.",
+		"messagingSay": "Elige por el tipo de mensaje.",
+		"msReq": "Contoso pedido realizado",
+		"msR1": "No debe perderse",
+		"msR2": "Procesado en orden",
+		"msR3": "Fallos de letras muertas",
+		"msQs": "Almacenamiento en cola",
+		"msQsD": "Cola simple y económica",
+		"msQsX": "Conjunto de características simple",
+		"msSb": "Service Bus",
+		"msSbD": "Pedidos, transacciones, carta muerta",
+		"msSbX": "Ajuste de procesamiento de pedidos",
+		"msEg": "Event Grid",
+		"msEgD": "Reacciona a eventos discretos",
+		"msEgX": "No hay garantía de pedido",
+		"msEh": "Event Hubs",
+		"msEhD": "Telemetría y transmisiones de eventos",
+		"msEhX": "Flujos, no comandos",
+		"configTitle": "Configuración: mantener los ajustes fuera del código",
+		"configCaption": "Despliegue · Configuración",
+		"configDesc": "La misma versión se ejecuta en todos los entornos. App Configuration guarda los flags de configuración y características, y Key Vault guarda los secretos.",
+		"configCallout": "AZ-305 · Recomiendo una solución de gestión de configuración de aplicaciones. Una referencia a Key Vault en App Configuration apunta a un secreto, y el proveedor cliente lee el secreto de Key Vault para la app. El valor nunca reside en la tienda de configuración.",
+		"configSay": "Cambiar el comportamiento sin volver a desplegar.",
+		"cfApp": "Escaparate",
+		"cfAppD": "Lee la configuración en tiempo de ejecución",
+		"cfHead": "App Configuration",
+		"cfK1": "Catálogo:PáginaTamaño",
+		"cfV1": "24",
+		"cfK2": "NewCheckout",
+		"cfK3": "Pagos: ApiKey",
+		"cfV3": "Referencia a Key Vault",
+		"cfKv": "Key Vault",
+		"cfKvD": "Los secretos se quedan aquí",
+		"deployTitle": "Despliegue: enviar con seguridad, retroceder rápido",
+		"deployCaption": "Despliegue · Pipeline",
+		"deployDesc": "Sustituye los despliegues manuales por código. La infraestructura viene de Bicep, la app fluye a través de una tubería y un intercambio de ranura hace el lanzamiento.",
+		"deployCallout": "AZ-305 · Recomienda una solución de despliegue automatizada para aplicaciones. Bicep es un lenguaje declarativo para recursos de Azure. Los espacios de despliegue calientan la nueva versión antes del intercambio, por lo que no se descartan solicitudes. Cambia de nuevo para volver a la última versión buena conocida.",
+		"deploySay": "Navío con seguridad, retrocede al instante.",
+		"dpN1": "Comprométete",
+		"dpN2": "Construcción y prueba",
+		"dpN3": "Infra con Bicep",
+		"dpN4": "Despliegue a la etapa de despliegue",
+		"dpN5": "Cambiar para vivir",
+		"dpTool": "GitHub Actions o Azure Pipelines",
+		"dpSlots": "Ranuras de despliegue de App Service · Nivel estándar o superior",
+		"dpStg": "Espacio de puesta en escena",
+		"dpProd": "Espacio de producción",
+		"dpStg1": "v2 · calentado",
+		"dpStg2": "v1 · rollback listo",
+		"dpProd1": "v1 · en directo",
+		"dpProd2": "v2 · en directo",
+		"dpNoDrop": "No se han cancelado solicitudes en el swap",
+		"wholeTitle": "Todo en uno: una API de socios rápida y segura",
+		"wholeCaption": "Resumen",
+		"wholeDesc": "Cada tarjeta es una decisión de diseño para la API del socio de Contoso: el servicio y la elección que Contoso ha tomado.",
+		"wholeCallout": "Después: planifica la mudanza a Azure para toda la finca.",
+		"wcApim": "API Management",
+		"wcApimD": "Una sola puerta principal con pólizas",
+		"wcApimC": "Estándar v2",
+		"wcRedis": "Azure Managed Redis",
+		"wcRedisD": "Lecturas en caliente de memoria",
+		"wcRedisC": "Caché-aparte con caducidad",
+		"wcSb": "Service Bus",
+		"wcSbD": "Mensajes ordenados, con letra sin letra",
+		"wcSbC": "Órdenes como mandos",
+		"wcCfg": "App Configuration",
+		"wcCfgD": "Ajustes, banderas, referencias de Key Vault",
+		"wcCfgC": "Banderas, no redespliegues",
+		"wcBicep": "Bicep",
+		"wcBicepD": "Infraestructura como código",
+		"wcBicepC": "Una plantilla, cada entorno",
+		"wcSlot": "Ranuras de despliegue",
+		"wcSlotD": "Calentar, cambiar, retroceder",
+		"wcSlotC": "Cero solicitudes descartadas",
+		"wholeFoot": "Guía oficial: <a href=\"https://learn.microsoft.com/azure/api-management/api-management-key-concepts\" target=\"_blank\" rel=\"noopener\">¿Qué es Azure API Management?</a>",
+		"backLabel": "Elegir el servicio de proceso adecuado",
+		"short1": "Puerta de entrada",
+		"short2": "Niveles",
+		"short3": "Caché apartado",
+		"short4": "Qué almacenar en caché",
+		"short5": "Mensajería",
+		"short6": "Configuración",
+		"short7": "Despliegue",
+		"short8": "Todo en uno",
+		"languageLabel": "Idioma"
+	},
+	"ja": {
+		"skipToMain": "図へスキップ",
+		"pageTitle": "アプリ基盤：API、キャッシュ、デプロイ",
+		"stageHeading": "アプリ基盤：API、キャッシュ、デプロイ",
+		"stageInstructions": "アニメーション解説。次回/前回ボタンや矢印キーを使ってナビゲート。Rボタンを押して再起動します。",
+		"prev": "◀ 前へ",
+		"next": "次へ ▶",
+		"replay": "↻ 再生",
+		"restart": "↻ 最初から",
+		"slower": "ゆっくり",
+		"faster": "速く",
+		"calloutOn": "吹き出し：オン",
+		"calloutOff": "吹き出し：オフ",
+		"outlineOn": "アウトライン：オン",
+		"outlineOff": "アウトライン：オフ",
+		"audioTip": "音声ナレーション",
+		"ccTip": "字幕",
+		"shortcutsTip": "ショートカット",
+		"stepDetails": "ステップの詳細",
+		"stepOf": "ステップ",
+		"resetPos": "位置を既定に戻す",
+		"scTitle": "キーボード ショートカット",
+		"scNext": "次のステップ",
+		"scPrev": "前のステップ",
+		"scRestart": "最初から",
+		"scReplay": "このステップを再生",
+		"scHide": "上部バーの表示 / 非表示",
+		"scHelp": "このヘルプの表示切り替え",
+		"nextMigrate": "次はAzureへの移行です",
+		"gatewayTitle": "API Management:一つのフロントドア",
+		"gatewayCaption": "APIs · gateway",
+		"gatewayDesc": "ContosoのパートナーAPIは遅く、すべてのクライアントがバックエンドを直接呼び出します。フロントにゲートウェイを設ければ、バックエンドを変更せずにコントロールを追加できます。",
+		"gatewayCallout": "AZ-305 ·API統合のためのソリューションを推奨します。ゲートウェイはキーとトークンをチェックし、レート制限やクォータを強制し、ポリシーによってリクエストとレスポンスを変換できます。製品はAPIsをパッケージ化し、サブスクリプションは発行キーを発行し、開発者ポータルは消費者向けにAPIsをドキュメント化します。",
+		"gatewaySay": "すべてのAPIに対して一つの正面玄関口を。",
+		"gwPartner": "パートナーアプリ",
+		"gwMobile": "モバイルアプリ",
+		"gwHead": "API Management ゲートウェイ",
+		"gwP1": "キーまたはトークンの検証",
+		"gwP2": "料金制限",
+		"gwP3": "トランスフォーム",
+		"gwOrders": "注文 API",
+		"gwCatalogue": "Catalogue API",
+		"gwC1": "製品",
+		"gwC2": "購読",
+		"gwC3": "開発者ポータル",
+		"tiersTitle": "API Management:ティアを選択する",
+		"tiersCaption": "APIs · tiers",
+		"tiersDesc": "ティアは取引容量、ネットワークの分離、価格です。ティアはパートナーAPIが必要とするものに合わせて調整し、それ以上は要求しません。",
+		"tiersCallout": "AZ-305 ·API統合のためのソリューションを推奨します。開発者はSLAがなく、非本番環境向けです。標準v2は仮想ネットワークで隔離されたバックエンドに接続可能です。プレミアムは可用性ゾーンとマルチリージョン展開を追加し、プレミアムv2は仮想ネットワーク注入を追加します。利用はサーバーレスで、実行ごとに請求されます。コミットする前に機能比較を確認してください。",
+		"tiersSay": "標準版v2はContosoに合います。",
+		"tiReq": "Contoso partner API",
+		"tiR1": "制作",
+		"tiR2": "プライベートバックエンド",
+		"tiR3": "一つのリージョン",
+		"tiCons": "消費",
+		"tiConsD": "サーバーレス、実行ごとに請求される",
+		"tiConsX": "プライベートバックエンドアクセスはありません",
+		"tiDev": "開発者 ·ベーシック v2",
+		"tiDevD": "開発とテスト",
+		"tiDevX": "生産用ではありません",
+		"tiStd": "標準v2",
+		"tiStdD": "VNet統合による本番",
+		"tiStdX": "要件を満たしています",
+		"tiPrem": "プレミアム ·プレミアム v2",
+		"tiPremD": "ゾーンと完全なネットワーク隔離",
+		"tiPremX": "Contosoが必要とする以上のもの",
+		"cacheTitle": "キャッシュ:まずキャッシュを確認してください",
+		"cacheCaption": "キャッシュ ·キャッシュサイド",
+		"cacheDesc": "ストアフロントは同じ商品データを何度も読み込みます。メモリに保存し、キャッシュに応答がない時だけデータベースにアクセスしましょう。",
+		"cacheCallout": "AZ-305 ·アプリケーション向けのキャッシュソリューションを推奨します。キャッシュアサイドパターンでは、アプリケーションは必要に応じてデータをキャッシュに読み込みます。データが変更されたら、データストアを更新し、キャッシュされたアイテムを無効化します。期限切れを設ければキャッシュが古くなるのを防ぎます。",
+		"cacheSay": "まずはキャッシュを確認してください。",
+		"caApp": "店舗フロント",
+		"caAppD": "App Service",
+		"caRedis": "Azure Managed Redis",
+		"caRedisD": "インメモリキャッシュ",
+		"caDb": "製品データベース",
+		"caDbD": "真実の出典",
+		"caS1": "1 ·キャッシュを確認しろ",
+		"caS2": "2 ·間違っていたら、データベースを読んでください",
+		"caS3": "3 ·有効期限付きで保管してください",
+		"caHit": "次は読む:ヒット作",
+		"cachewhatTitle": "キャッシュ:記憶に残るべきもの",
+		"cachewhatCaption": "キャッシュ ·キャッシュするもの",
+		"cachewhatDesc": "キャッシュは、ほとんど変わらず少し古びてしまう読み取り負荷の高いデータに最も役立ちます。それは記録システムではありません。",
+		"cachewhatCallout": "AZ-305 ·アプリケーション向けのキャッシュソリューションを推奨します。Azure Managed RedisはRedisのAzure Cacheに代わります。Basic、Standard、Premiumの各ティアは2028年9月30日に、Enterpriseティアは2027年3月31日に廃止されるため、Azure Managed Redisで新しいソリューションを設計してください。",
+		"cachewhatSay": "読み取りはキャッシュし、真実はキャッシュしません。",
+		"cwYes": "キャッシュする",
+		"cwNo": "キャッシュしないでください",
+		"cwY1": "製品カタログページ",
+		"cwY2": "ショッピングカートセッション",
+		"cwY3": "静的ページの内容",
+		"cwN1": "家畜はチェックアウト時に",
+		"cwN2": "すべてのリクエストを変えるデータ",
+		"cwN3": "データが決して古くなってはならない",
+		"cwRedis": "Azure Managed Redis",
+		"cwRepl": "Redis のAzure Cacheを置き換える",
+		"cwT1": "メモリ最適化",
+		"cwT2": "バランス",
+		"cwT3": "計算最適化",
+		"cwT4": "フラッシュ最適化",
+		"messagingTitle": "メッセージとイベント:メッセージごとに選びましょう",
+		"messagingCaption": "統合 ·メッセージング",
+		"messagingDesc": "4つのサービスがコンポーネント間でデータを移動します。コマンド、通知、ストリームは異なる保証を必要とします。",
+		"messagingCallout": "AZ-305 ·メッセージングアーキテクチャとイベント駆動型アーキテクチャを推奨します。Service Busは注文処理などの高価値メッセージ用です。Event Gridは離散イベントに反応します。Event Hubsはテレメトリストリームを取り込みます。シンプルな機能セットで十分な場合、ストレージキューは経済的な選択肢です。",
+		"messagingSay": "メッセージの種類で選びましょう。",
+		"msReq": "Contosoの注文が下されました",
+		"msR1": "失われてはいけません",
+		"msR2": "順番に処理",
+		"msR3": "死だけの失敗",
+		"msQs": "キューストレージ",
+		"msQsD": "シンプルで経済的なキュー",
+		"msQsX": "シンプルな特徴セット",
+		"msSb": "Service Bus",
+		"msSbD": "注文、取引、デッドレター",
+		"msSbX": "注文処理の適合",
+		"msEg": "Event Grid",
+		"msEgD": "離散的な出来事への反応",
+		"msEgX": "注文保証はありません",
+		"msEh": "Event Hubs",
+		"msEhD": "テレメトリーおよびイベントストリーム",
+		"msEhX": "ストリームであってコマンドではありません",
+		"configTitle": "設定:設定をコードから除外する",
+		"configCaption": "デプロイ ·構成",
+		"configDesc": "同じビルドがすべての環境で動作します。App Configurationは設定と機能フラグを保持し、Key Vaultは秘密を保持します。",
+		"configCallout": "AZ-305 ·アプリケーション構成管理ソリューションを推奨します。App Configuration内のKey Vault参照はシークレットを指し、クライアントプロバイダーはそのアプリのためにKey Vaultからシークレットを読み取ります。その値は設定ストアに存在しません。",
+		"configSay": "再配置せずに行動を変えましょう。",
+		"cfApp": "店舗フロント",
+		"cfAppD": "実行時に設定を読み込みます",
+		"cfHead": "App Configuration",
+		"cfK1": "カタログ:ページサイズ",
+		"cfV1": "24",
+		"cfK2": "NewCheckout",
+		"cfK3": "決済:ApiKey",
+		"cfV3": "Key Vault 参照",
+		"cfKv": "Key Vault",
+		"cfKvD": "秘密はここに残る",
+		"deployTitle": "展開:船を安全に、素早く巻き戻せ",
+		"deployCaption": "デプロイ ·パイプライン",
+		"deployDesc": "手動デプロイをコードに置き換えましょう。インフラはBicepから提供され、アプリはパイプラインを流れ、スロットスワップでリリースされます。",
+		"deployCallout": "AZ-305 ·アプリケーション向けの自動化デプロイメントソリューションを推奨します。BicepはAzureリソース用の宣言型言語です。デプロイスロットはスワップ前に新しいバージョンをウォームアップするため、リクエストはドロップされません。再度スワップして、最後に確認されている良好なバージョンに戻ります。",
+		"deploySay": "安全に船を運び、即座にロールバック。",
+		"dpN1": "コミット",
+		"dpN2": "ビルドとテスト",
+		"dpN3": "インフラとBicep",
+		"dpN4": "ステージング展開",
+		"dpN5": "生活への切り替え",
+		"dpTool": "GitHub ActionsまたはAzure Pipelines",
+		"dpSlots": "App Service展開スロット ·標準層以上",
+		"dpStg": "ステージングスロット",
+		"dpProd": "制作枠",
+		"dpStg1": "v2 ·ウォームアップ",
+		"dpStg2": "v1 ·ロールバック準備完了",
+		"dpProd1": "v1 ·ライブ",
+		"dpProd2": "v2 ·ライブ",
+		"dpNoDrop": "交換時にリクエストがドロップされませんでした",
+		"wholeTitle": "すべてを一つにまとめて:高速で安全なパートナーAPI",
+		"wholeCaption": "まとめ",
+		"wholeDesc": "各カードは、ContosoパートナーAPIのデザイン決定の一つであり、サービスとContosoが下した選択です。",
+		"wholeCallout": "次に、全てのエステートでAzureへの移転を計画しましょう。",
+		"wcApim": "API Management",
+		"wcApimD": "ポリシー付きの玄関ドアが一つ",
+		"wcApimC": "標準v2",
+		"wcRedis": "Azure Managed Redis",
+		"wcRedisD": "記憶からのホットリード",
+		"wcRedisC": "期限切れのキャッシュサイド",
+		"wcSb": "Service Bus",
+		"wcSbD": "秩序立てた、死んだ文字のメッセージ",
+		"wcSbC": "命令を命令として",
+		"wcCfg": "App Configuration",
+		"wcCfgD": "設定、フラグ、Key Vault参照",
+		"wcCfgC": "フラグであって、再展開ではありません",
+		"wcBicep": "Bicep",
+		"wcBicepD": "コードとしてのインフラストラクチャ",
+		"wcBicepC": "テンプレートは一つ、すべての環境",
+		"wcSlot": "展開枠",
+		"wcSlotD": "ウォームアップして、スワップして、ロールバックします",
+		"wcSlotC": "リクエストのドロップはゼロでした",
+		"wholeFoot": "公式ガイド:<a href=\"https://learn.microsoft.com/azure/api-management/api-management-key-concepts\" target=\"_blank\" rel=\"noopener\">Azure API Managementとは何か?</a>",
+		"backLabel": "適切なコンピューティングサービスを選ぶ",
+		"short1": "ゲートウェイ",
+		"short2": "階層",
+		"short3": "キャッシュサイド",
+		"short4": "キャッシュするもの",
+		"short5": "メッセージング",
+		"short6": "構成",
+		"short7": "展開",
+		"short8": "すべてが一つに",
+		"languageLabel": "言語"
+	},
+	"ko": {
+		"skipToMain": "다이어그램으로 건너뛰기",
+		"pageTitle": "앱 기반 설계: API, 캐싱 및 배포",
+		"stageHeading": "앱 기반 설계: API, 캐싱 및 배포",
+		"stageInstructions": "애니메이션 설명. 다음/이전 버튼이나 방향키를 사용해 탐색하세요. R을 눌러 재시작하세요.",
+		"prev": "◀ 이전",
+		"next": "다음 ▶",
+		"replay": "↻ 다시 재생",
+		"restart": "↻ 처음부터",
+		"slower": "느리게",
+		"faster": "빠르게",
+		"calloutOn": "설명선: 켜짐",
+		"calloutOff": "설명선: 꺼짐",
+		"outlineOn": "개요: 켜짐",
+		"outlineOff": "개요: 꺼짐",
+		"audioTip": "오디오 내레이션",
+		"ccTip": "자막",
+		"shortcutsTip": "단축키",
+		"stepDetails": "단계 상세",
+		"stepOf": "단계",
+		"resetPos": "기본 위치로 되돌리기",
+		"scTitle": "키보드 단축키",
+		"scNext": "다음 단계",
+		"scPrev": "이전 단계",
+		"scRestart": "처음부터",
+		"scReplay": "이 단계 다시 재생",
+		"scHide": "상단 바 표시 / 숨기기",
+		"scHelp": "이 도움말 전환",
+		"nextMigrate": "다음 단계: Azure 마이그레이션",
+		"gatewayTitle": "API Management: 하나의 프론트 도어",
+		"gatewayCaption": "APIs · 게이트웨이",
+		"gatewayDesc": "Contoso의 파트너 API는 느리고 모든 클라이언트가 백엔드를 직접 호출합니다. 앞에 게이트웨이를 두면 백엔드를 변경하지 않고도 제어권을 추가할 수 있습니다.",
+		"gatewayCallout": "AZ-305 · API 통합 솔루션을 추천합니다. 게이트웨이는 키와 토큰을 검사하고, 속도 제한과 할당량을 적용하며, 요청과 응답을 정책에 따라 변환할 수 있습니다. 제품은 APIs를 패키지화하고, 구독은 키를 발행하며, 개발자 포털은 소비자를 위해 APIs를 문서화합니다.",
+		"gatewaySay": "모든 API에 대해 하나의 정문 하나씩.",
+		"gwPartner": "파트너 앱",
+		"gwMobile": "모바일 앱",
+		"gwHead": "API Management 게이트웨이",
+		"gwP1": "키 또는 토큰 검증",
+		"gwP2": "요금 한도",
+		"gwP3": "변환",
+		"gwOrders": "주문 API",
+		"gwCatalogue": "Catalogue API",
+		"gwC1": "제품",
+		"gwC2": "구독",
+		"gwC3": "개발자 포털",
+		"tiersTitle": "API Management: 계층 선택",
+		"tiersCaption": "APIs · 티어",
+		"tiersDesc": "티어: 거래 용량, 네트워크 격리, 가격. 파트너 API가 필요로 하는 티어에 맞춰 맞추고, 그 이상은 하지 마세요.",
+		"tiersCallout": "AZ-305 · API 통합 솔루션을 추천합니다. 개발자는 SLA가 없으며 비생산 환경을 위한 것입니다. 표준 v2는 가상 네트워크에 격리된 백엔드에 연결할 수 있습니다. Premium은 가용성 존과 다중 지역 배포를 추가하고, Premium v2는 가상 네트워크 인젝션을 추가합니다. 사용 속도는 서버리스이며 실행당 청구됩니다. 커밋하기 전에 기능 비교를 확인하세요.",
+		"tiersSay": "표준 v2는 Contoso에 맞습니다.",
+		"tiReq": "Contoso partner API",
+		"tiR1": "제작",
+		"tiR2": "프라이빗 백엔드",
+		"tiR3": "한 지역",
+		"tiCons": "소비",
+		"tiConsD": "서버리스, 실행당 청구",
+		"tiConsX": "프라이빗 백엔드 접근 금지",
+		"tiDev": "개발자 · 기본 v2",
+		"tiDevD": "개발 및 테스트",
+		"tiDevX": "생산용이 아니야",
+		"tiStd": "표준 v2",
+		"tiStdD": "VNet 통합을 통한 생산",
+		"tiStdX": "요구 조건에 부합합니다",
+		"tiPrem": "프리미엄 · 프리미엄 v2",
+		"tiPremD": "존과 완전한 네트워크 격리",
+		"tiPremX": "Contoso가 필요로 하는 것보다 더 많은 것",
+		"cacheTitle": "캐싱: 먼저 캐시를 확인하세요",
+		"cacheCaption": "캐싱 · 캐시 어사이드",
+		"cacheDesc": "스토어프론트는 같은 제품 데이터를 반복해서 읽습니다. 메모리에 보관하고 캐시에 응답이 없을 때만 데이터베이스로 들어가세요.",
+		"cacheCallout": "AZ-305 · 애플리케이션에 대한 캐싱 솔루션을 추천합니다. 캐시 어사이드 패턴에서는 애플리케이션이 필요에 따라 데이터를 캐시에 로드합니다. 데이터가 변경되면 데이터 저장소를 업데이트한 후 캐시된 항목을 무효화합니다. 만료되면 캐시가 오래된 상태가 되지 않도록 합니다.",
+		"cacheSay": "먼저 캐시를 확인하세요.",
+		"caApp": "스토어프런트",
+		"caAppD": "App Service",
+		"caRedis": "Azure Managed Redis",
+		"caRedisD": "인메모리 캐시",
+		"caDb": "제품 데이터베이스",
+		"caDbD": "진실의 근원",
+		"caS1": "1 · 캐시를 확인해",
+		"caS2": "2 · 놓치면 데이터베이스를 읽으세요",
+		"caS3": "3 · 유통기한이 있는 상태로 보관하세요",
+		"caHit": "다음 읽기: 히트작",
+		"cachewhatTitle": "캐싱: 기억에 속해야 할 것들",
+		"cachewhatCaption": "캐싱 · 캐시할 것들",
+		"cachewhatDesc": "캐시는 거의 변하지 않고 약간 오래된 읽기 중심의 데이터에 가장 도움이 됩니다. 캐시는 기록 시스템이 아닙니다.",
+		"cachewhatCallout": "AZ-305 · 애플리케이션용 캐싱 솔루션을 추천합니다. Azure Managed Redis가 Redis용 Azure Cache를 대체합니다. Basic, Standard, Premium 티어는 2028년 9월 30일에, Enterprise 티어는 2027년 3월 31일에 종료되므로, Azure Managed Redis에서 새로운 솔루션을 설계하세요.",
+		"cachewhatSay": "읽은 내용을 캐시하되, 진실은 캐시하지 마세요.",
+		"cwYes": "캐시하세요",
+		"cwNo": "캐시하지 마세요",
+		"cwY1": "제품 카탈로그 페이지",
+		"cwY2": "쇼핑 카트 세션",
+		"cwY3": "정적 페이지 내용",
+		"cwN1": "계산대 시 가축",
+		"cwN2": "모든 요청을 바꾸는 데이터가 있습니다",
+		"cwN3": "절대 낡아서는 안 되는 데이터가",
+		"cwRedis": "Azure Managed Redis",
+		"cwRepl": "Redis 용 Azure Cache 교체",
+		"cwT1": "메모리 최적화",
+		"cwT2": "밸런스드",
+		"cwT3": "컴퓨트 최적화",
+		"cwT4": "플래시 최적화",
+		"messagingTitle": "메시지 및 이벤트: 메시지별로 선택하세요",
+		"messagingCaption": "통합 · 메시징",
+		"messagingDesc": "네 가지 서비스가 구성 요소 간 데이터를 전송합니다. 명령어, 알림, 스트림은 서로 다른 보증이 필요합니다.",
+		"messagingCallout": "AZ-305 · 메시징 아키텍처와 이벤트 기반 아키텍처를 권장합니다. Service Bus는 주문 처리와 같은 고가치 메시지에 적합합니다. Event Grid는 개별 이벤트에 반응합니다. Event Hubs는 텔레메트리 스트림을 인징합니다. 간단한 기능 세트만으로도 충분할 때 스토리지 큐는 경제적인 선택입니다.",
+		"messagingSay": "어떤 종류의 메시지인지 골라보세요.",
+		"msReq": "Contoso 주문 완료",
+		"msR1": "잃어버려서는 안 된다",
+		"msR2": "순서대로 처리됨",
+		"msR3": "데드레터 고장",
+		"msQs": "큐 저장",
+		"msQsD": "간단하고 경제적인 대기열",
+		"msQsX": "간단한 기능 집합",
+		"msSb": "Service Bus",
+		"msSbD": "주문, 거래, 데드레터",
+		"msSbX": "주문 처리 맞춤",
+		"msEg": "Event Grid",
+		"msEgD": "개별 사건에 대한 반응",
+		"msEgX": "주문 보장 없음",
+		"msEh": "Event Hubs",
+		"msEhD": "텔레메트리 및 이벤트 스트림",
+		"msEhX": "명령어가 아니라 스트림",
+		"configTitle": "구성: 설정은 코드에 포함되지 않도록 하세요",
+		"configCaption": "배포 · 구성",
+		"configDesc": "모든 환경에서 동일한 빌드가 실행됩니다. App Configuration은 설정과 기능 플래그를 저장하고, Key Vault는 비밀을 보관합니다.",
+		"configCallout": "AZ-305 · 애플리케이션 구성 관리 솔루션을 추천합니다. App Configuration의 Key Vault 참조는 비밀을 가리키며, 클라이언트 제공자는 Key Vault에서 앱의 비밀을 읽습니다. 이 값은 구성 저장소에 저장되지 않습니다.",
+		"configSay": "재배치하지 않고도 행동을 바꿉니다.",
+		"cfApp": "스토어프런트",
+		"cfAppD": "런타임에 설정을 읽습니다",
+		"cfHead": "App Configuration",
+		"cfK1": "카탈로그: 페이지 크기",
+		"cfV1": "24",
+		"cfK2": "뉴체크아웃",
+		"cfK3": "결제 서비스: ApiKey",
+		"cfV3": "Key Vault 참조",
+		"cfKv": "Key Vault",
+		"cfKvD": "비밀은 여기 남아.",
+		"deployTitle": "배치: 함선 안전, 신속히 후퇴",
+		"deployCaption": "배포 · 파이프라인",
+		"deployDesc": "수동 배포를 코드로 대체하세요. 인프라는 Bicep에서 나오고, 앱은 파이프라인을 통해 흐르며, 슬롯 교체로 출시됩니다.",
+		"deployCallout": "AZ-305 · 애플리케이션에 대한 자동화 배포 솔루션을 추천합니다. Bicep는 Azure 리소스를 위한 선언형 언어입니다. 배포 슬롯은 교체 전에 새 버전을 워밍업하여 요청이 포기되지 않도록 합니다. 마지막으로 알려진 정상 버전으로 돌아가기 위해 다시 교체합니다.",
+		"deploySay": "안전하게 선박을 보내고, 즉시 롤백하세요.",
+		"dpN1": "커밋",
+		"dpN2": "빌드 및 테스트",
+		"dpN3": "Bicep와 함께하는 인프라",
+		"dpN4": "전개 배치",
+		"dpN5": "생애로 전환하기",
+		"dpTool": "GitHub Actions 또는 Azure Pipelines",
+		"dpSlots": "App Service 배포 슬롯 · 표준 계층 이상",
+		"dpStg": "스테이징 슬롯",
+		"dpProd": "제작 슬롯",
+		"dpStg1": "v2 · 워밍업",
+		"dpStg2": "v1 · 롤백 준비 완료",
+		"dpProd1": "v1 · 라이브",
+		"dpProd2": "V2 · 라이브",
+		"dpNoDrop": "스왑 시 요청 취소 없음",
+		"wholeTitle": "올인원: 빠르고 안전한 파트너 API",
+		"wholeCaption": "요약",
+		"wholeDesc": "각 카드는 Contoso 파트너 API의 한 가지 디자인 결정, 즉 서비스와 Contoso가 내린 선택을 의미합니다.",
+		"wholeCallout": "다음으로: 전체 부동산을 Azure로 옮길 계획을 세우세요.",
+		"wcApim": "API Management",
+		"wcApimD": "정책이 있는 현관문 하나",
+		"wcApimC": "표준 v2",
+		"wcRedis": "Azure Managed Redis",
+		"wcRedisD": "기억을 떠올리는 핫 리드",
+		"wcRedisC": "만료 시 캐시 옆",
+		"wcSb": "Service Bus",
+		"wcSbD": "질서 정연하고 죽은 문자로 된 메시지들",
+		"wcSbC": "명령으로의 명령",
+		"wcCfg": "App Configuration",
+		"wcCfgD": "설정, 플래그, Key Vault 참조",
+		"wcCfgC": "플래그이지, 재배치가 아닙니다",
+		"wcBicep": "Bicep",
+		"wcBicepD": "코드로서의 인프라",
+		"wcBicepC": "하나의 템플릿, 모든 환경이 적용된다",
+		"wcSlot": "배치 슬롯",
+		"wcSlotD": "워밍업, 교체, 롤백",
+		"wcSlotC": "요청 삭제 0건",
+		"wholeFoot": "공식 가이드: <a href=\"https://learn.microsoft.com/azure/api-management/api-management-key-concepts\" target=\"_blank\" rel=\"noopener\">Azure API Management란 무엇인가요?</a>",
+		"backLabel": "적합한 컴퓨팅 서비스 선택",
+		"short1": "게이트웨이",
+		"short2": "티어",
+		"short3": "캐시 어사이드",
+		"short4": "캐시할 것들",
+		"short5": "메시지",
+		"short6": "구성",
+		"short7": "배치",
+		"short8": "모두 하나로",
+		"languageLabel": "언어"
+	},
+	"pt": {
+		"skipToMain": "Ir para o diagrama",
+		"pageTitle": "Preparar o aplicativo: APIs, cache e implantação",
+		"stageHeading": "Preparar o aplicativo: APIs, cache e implantação",
+		"stageInstructions": "Explicação animada. Use os botões Próximo/Anterior ou as setas para navegar. Pressione R para reiniciar.",
+		"prev": "◀ Voltar",
+		"next": "Avançar ▶",
+		"replay": "↻ Repetir",
+		"restart": "↻ Reiniciar",
+		"slower": "Mais devagar",
+		"faster": "Mais rápido",
+		"calloutOn": "Balões: ligados",
+		"calloutOff": "Balões: desligados",
+		"outlineOn": "Resumo: ligado",
+		"outlineOff": "Resumo: desligado",
+		"audioTip": "Narração em áudio",
+		"ccTip": "Legendas",
+		"shortcutsTip": "Atalhos",
+		"stepDetails": "Detalhes da etapa",
+		"stepOf": "Etapa",
+		"resetPos": "Restaurar a posição padrão",
+		"scTitle": "Atalhos de teclado",
+		"scNext": "Próxima etapa",
+		"scPrev": "Etapa anterior",
+		"scRestart": "Reiniciar",
+		"scReplay": "Repetir esta etapa",
+		"scHide": "Mostrar / ocultar a barra superior",
+		"scHelp": "Alternar esta ajuda",
+		"nextMigrate": "A seguir: migrar para Azure",
+		"gatewayTitle": "API Management: uma porta de entrada",
+		"gatewayCaption": "APIs · gateway",
+		"gatewayDesc": "A API parceira da Contoso é lenta e todo cliente chama o backend diretamente. Um gateway na frente adiciona controle sem alterar o backend.",
+		"gatewayCallout": "AZ-305 · Recomende uma solução para integração da API. O gateway verifica chaves e tokens, aplica limites de taxa e cotas, e pode transformar solicitações e respostas por política. Produtos agrupam APIs, assinaturas emitem chaves, e o portal de desenvolvedores documenta as APIs para os consumidores.",
+		"gatewaySay": "Uma porta para cada API.",
+		"gwPartner": "Aplicativo parceiro",
+		"gwMobile": "Aplicativo móvel",
+		"gwHead": "Gateway de API Management",
+		"gwP1": "Verificar chave ou token",
+		"gwP2": "Limite de taxa",
+		"gwP3": "Transformar",
+		"gwOrders": "Orders API",
+		"gwCatalogue": "API do catálogo",
+		"gwC1": "Produtos",
+		"gwC2": "Assinaturas",
+		"gwC3": "Portal para desenvolvedores",
+		"tiersTitle": "API Management: escolha o nível",
+		"tiersCaption": "APIs · tiers",
+		"tiersDesc": "Níveis de capacidade de negociação, isolamento da rede e preço. Ajuste o nível ao que a API do parceiro precisa, e nada mais.",
+		"tiersCallout": "AZ-305 · Recomende uma solução para integração de API. O desenvolvedor não tem SLA e é para não produção. O padrão v2 pode se conectar a backends isolados em uma rede virtual. O Premium adiciona zonas de disponibilidade e implantação multi-região, e o Premium v2 adiciona injeção de rede virtual. O consumo é serverless e cobrado por execução. Verifique a comparação de recursos antes de fazer o compromisso.",
+		"tiersSay": "A versão padrão v2 se encaixa na Contoso.",
+		"tiReq": "API de parceiros Contoso",
+		"tiR1": "Produção",
+		"tiR2": "Backends privados",
+		"tiR3": "Uma região",
+		"tiCons": "Consumo",
+		"tiConsD": "Serverless, faturado por execução",
+		"tiConsX": "Sem acesso privado ao backend",
+		"tiDev": "Desenvolvedor · Basic v2",
+		"tiDevD": "Desenvolvimento e testes",
+		"tiDevX": "Não para produção",
+		"tiStd": "Standard v2",
+		"tiStdD": "Produção com integração com VNet",
+		"tiStdX": "Atende aos requisitos",
+		"tiPrem": "Premium · Premium v2",
+		"tiPremD": "Zonas e isolamento total da rede",
+		"tiPremX": "Mais do que a Contoso precisa",
+		"cacheTitle": "Cache: verifique o cache primeiro",
+		"cacheCaption": "Cache · cache-separado",
+		"cacheDesc": "A loja lê os mesmos dados do produto repetidas vezes. Mantenha-os na memória e vá ao banco de dados apenas quando o cache não tiver resposta.",
+		"cacheCallout": "AZ-305 · Recomende uma solução de cache para aplicações. No padrão cache-sideside, a aplicação carrega dados no cache sob demanda. Quando os dados mudam, atualize o armazenamento de dados e então invalide o item em cache. Um vencimento impede que o cache fique obsoleto.",
+		"cacheSay": "Verifique o cache primeiro.",
+		"caApp": "Loja",
+		"caAppD": "App Service",
+		"caRedis": "Azure Managed Redis",
+		"caRedisD": "Cache em memória",
+		"caDb": "Banco de dados de produtos",
+		"caDbD": "Fonte da verdade",
+		"caS1": "1 · Verifique o cache",
+		"caS2": "2 · Se falhar, leia o banco de dados",
+		"caS3": "3 · Armazene com vencimento",
+		"caHit": "Próxima leitura: um sucesso",
+		"cachewhatTitle": "Cache: o que pertence à memória",
+		"cachewhatCaption": "Cache · O que colocar em cache",
+		"cachewhatDesc": "Um cache ajuda mais com dados que carregam muita leitura e que mudam raramente e podem ficar um pouco repetitivos. Não é o sistema de registro.",
+		"cachewhatCallout": "AZ-305 · Recomendo uma solução de cache para aplicações. Azure Managed Redis substitui o Azure Cache pelo Redis. Os níveis Basic, Standard e Premium se aposentam em 30 de setembro de 2028, e os níveis Enterprise em 31 de março de 2027, então projete novas soluções no Azure Managed Redis.",
+		"cachewhatSay": "Armazene as leituras em cache, não a verdade.",
+		"cwYes": "Armazene em cache",
+		"cwNo": "Não armazene em cache",
+		"cwY1": "Páginas do catálogo de produtos",
+		"cwY2": "Sessões de carrinho de compras",
+		"cwY3": "Conteúdo estático da página",
+		"cwN1": "Gado no checkout",
+		"cwN2": "Dados que alteram todas as solicitações",
+		"cwN3": "Dados que nunca devem ficar obsoletos",
+		"cwRedis": "Azure Managed Redis",
+		"cwRepl": "Substitui o Azure Cache por Redis",
+		"cwT1": "Otimização de Memória",
+		"cwT2": "Balanceado",
+		"cwT3": "Otimizado para Computação",
+		"cwT4": "Otimizado para Flash",
+		"messagingTitle": "Mensagens e eventos: escolha pela mensagem",
+		"messagingCaption": "Integração · Mensagens",
+		"messagingDesc": "Quatro serviços movem dados entre componentes. Um comando, uma notificação e um fluxo precisam de garantias diferentes.",
+		"messagingCallout": "AZ-305 · Recomende uma arquitetura de mensagens e uma arquitetura orientada a eventos. Service Bus é para mensagens de alto valor, como processamento de pedidos. Event Grid reage a eventos discretos. Event Hubs ingere fluxos de telemetria. Filas de armazenamento são uma opção econômica quando um conjunto simples de recursos é suficiente.",
+		"messagingSay": "Escolha pelo tipo de mensagem.",
+		"msReq": "Contoso pedido feito",
+		"msR1": "Não deve ser perdido",
+		"msR2": "Processado em ordem",
+		"msR3": "Falhas de letra morta",
+		"msQs": "Armazenamento em Fila",
+		"msQsD": "Fila simples e econômica",
+		"msQsX": "Conjunto simples de recursos",
+		"msSb": "Service Bus",
+		"msSbD": "Pedidos, transações, carta morta",
+		"msSbX": "Ajuste de processamento de pedidos",
+		"msEg": "Event Grid",
+		"msEgD": "Reage a eventos discretos",
+		"msEgX": "Sem garantia de pedido",
+		"msEh": "Event Hubs",
+		"msEhD": "Telemetria e transmissões de eventos",
+		"msEhX": "Fluxos, não comandos",
+		"configTitle": "Configuração: manter as configurações fora do código",
+		"configCaption": "Implantar · configuração",
+		"configDesc": "A mesma build roda em todos os ambientes. App Configuration guarda as configurações e as flags de recursos, e o Key Vault guarda os segredos.",
+		"configCallout": "AZ-305 · Recomende uma solução de gerenciamento de configuração de aplicações. Uma referência ao Key Vault no App Configuration aponta para um segredo, e o provedor cliente lê o segredo do Key Vault para o app. O valor nunca permanece na loja de configuração.",
+		"configSay": "Mude o comportamento sem reimplantar.",
+		"cfApp": "Loja",
+		"cfAppD": "Lê a configuração em tempo de execução",
+		"cfHead": "App Configuration",
+		"cfK1": "Catálogo:PáginaTamanho",
+		"cfV1": "24",
+		"cfK2": "NewCheckout",
+		"cfK3": "Pagamentos: ApiKey",
+		"cfV3": "Referência ao Key Vault",
+		"cfKv": "Key Vault",
+		"cfKvD": "Segredos ficam aqui",
+		"deployTitle": "Deslocamento: navio com segurança, recuo rápido",
+		"deployCaption": "Implantar · pipeline",
+		"deployDesc": "Substitua implantações manuais por código. A infraestrutura vem do Bicep, o app passa por um pipeline, e uma troca de slot faz o lançamento.",
+		"deployCallout": "AZ-305 · Recomendo uma solução automatizada de implantação para aplicações. Bicep é uma linguagem declarativa para recursos do Azure. Os slots de implantação aquecem a nova versão antes da troca, então nenhuma solicitação é descartada. Faça a troca novamente para retornar à última versão boa conhecida.",
+		"deploySay": "Envie com segurança, recue instantaneamente.",
+		"dpN1": "Comprometer-se",
+		"dpN2": "Construir e testar",
+		"dpN3": "Infra com Bicep",
+		"dpN4": "Implantar para o estágio",
+		"dpN5": "Mudar para viver",
+		"dpTool": "GitHub Actions ou Azure Pipelines",
+		"dpSlots": "Espaços de implantação do App Service · Nível padrão ou superior",
+		"dpStg": "Slot de preparação",
+		"dpProd": "Vaga de produção",
+		"dpStg1": "v2 · aquecido",
+		"dpStg2": "v1 · rollback pronto",
+		"dpProd1": "v1 · ao vivo",
+		"dpProd2": "v2 · ao vivo",
+		"dpNoDrop": "Nenhum pedido descartado na troca",
+		"wholeTitle": "Tudo em um: uma API de parceiro rápida e segura",
+		"wholeCaption": "Resumo",
+		"wholeDesc": "Cada placa é uma decisão de design para a API do parceiro Contoso: o serviço e a escolha que a Contoso fez.",
+		"wholeCallout": "Em seguida: planeje a mudança para Azure para toda a propriedade.",
+		"wcApim": "API Management",
+		"wcApimD": "Uma porta de entrada com apólices",
+		"wcApimC": "Standard v2",
+		"wcRedis": "Azure Managed Redis",
+		"wcRedisD": "Leituras a quente de memória",
+		"wcRedisC": "Cache de lado com vencimento",
+		"wcSb": "Service Bus",
+		"wcSbD": "Mensagens ordenadas, com letra morta",
+		"wcSbC": "Ordens como comandos",
+		"wcCfg": "App Configuration",
+		"wcCfgD": "Configurações, bandeiras, referências do Key Vault",
+		"wcCfgC": "Bandeiras, não reposicionamentos",
+		"wcBicep": "Bicep",
+		"wcBicepD": "Infraestrutura como código",
+		"wcBicepC": "Um modelo, todo ambiente",
+		"wcSlot": "Espaços de implantação",
+		"wcSlotD": "Aquecer, trocar, recuar",
+		"wcSlotC": "Zero pedidos descartados",
+		"wholeFoot": "Guia oficial: <a href=\"https://learn.microsoft.com/azure/api-management/api-management-key-concepts\" target=\"_blank\" rel=\"noopener\">O que é Azure API Management?</a>",
+		"backLabel": "Escolher o serviço de computação adequado",
+		"short1": "Gateway",
+		"short2": "Níveis",
+		"short3": "Cache à parte",
+		"short4": "O que colocar em cache",
+		"short5": "Mensagens",
+		"short6": "Configuração",
+		"short7": "Implantação",
+		"short8": "Tudo em um só",
+		"languageLabel": "Idioma"
+	}
+};
+function t(key) { return (I18N[currentLang] && I18N[currentLang][key]) || I18N.en[key] || key; }
+
+function setLanguage(lang) {
+	currentLang = lang;
+	document.documentElement.lang = lang;
+	try { const u=new URL(location.href); u.searchParams.set('lang', lang); history.replaceState(null,'',u); } catch(_){}
+	document.getElementById('page-title').textContent = '\u2728 ' + t('pageTitle');
+	// icon-only nav buttons: the localized label lives in the tooltip (title)
+	document.getElementById('prev-btn').title = t('prev');
+	document.getElementById('next-btn').title = t('next');
+	document.getElementById('replay-btn').title = t('replay');
+	document.getElementById('reset-btn').title = t('restart');
+	document.getElementById('speed-down').title = t('slower');
+	document.getElementById('speed-up').title = t('faster');
+	document.getElementById('outline-title').textContent = t('stepDetails');
+	document.querySelector('.skip-link').textContent = t('skipToMain');
+	document.getElementById('stage-heading').textContent = t('stageHeading');
+	document.getElementById('stage-instructions').textContent = t('stageInstructions');
+	// localize overlay tooltips (icon buttons show their label on hover / as native title)
+	const _hlp=document.getElementById('help-toggle'); if(_hlp) _hlp.setAttribute('data-tip', t('shortcutsTip'));
+	const _aud=document.getElementById('audio-toggle'); if(_aud) _aud.title=t('audioTip');
+	const _ccb=document.getElementById('cc-toggle'); if(_ccb) _ccb.title=t('ccTip');
+	syncCalloutBtn(); syncOutlineBtn();
+	if (typeof syncAudioBtn === 'function') syncAudioBtn();
+	if (typeof buildShortcuts === 'function') buildShortcuts();
+	document.querySelectorAll('.aw-drag-reset').forEach(b=>{ b.title=t('resetPos'); b.setAttribute('aria-label', t('resetPos')); });
+	try { localStorage.setItem('aw-tmpl-lang', lang); } catch(_){}
+	document.title = t('pageTitle') + ' \u2014 Azure Animations';
+	const back = document.querySelector('.header-back-link');
+	back.textContent = '\u2190 ' + t('backLabel');
+	back.title = t('backLabel'); back.setAttribute('aria-label', t('backLabel'));
+	const url = new URL(back.href); url.searchParams.set('lang', lang); back.href = url;
+	const picker = document.getElementById('lang-select');
+	picker.title = t('languageLabel'); picker.setAttribute('aria-label', t('languageLabel'));
+	for (const [id, key] of [['prev-btn','scPrev'], ['next-btn','scNext'], ['replay-btn','scReplay'], ['reset-btn','scRestart'],
+		['speed-down','slower'], ['speed-up','faster'], ['audio-toggle','audioTip'], ['cc-toggle','ccTip'], ['help-toggle','shortcutsTip']]) {
+		const control = document.getElementById(id); if(control) control.setAttribute('aria-label', t(key));
+	}
+	if (current >= 0) renderStep(current);
+}
+
+// ── STEPS (journey order) ─────────────────
+const S = (id, short) => ({ id, short, titleKey:id+'Title', captionKey:id+'Caption', descKey:id+'Desc', calloutKey:id+'Callout' });
+const STEPS = [
+	S('gateway','Gateway'), S('tiers','Tiers'), S('cache','Cache-aside'), S('cachewhat','What to cache'),
+	S('messaging','Messaging'), S('config','Configuration'), S('deploy','Deployment'), S('whole','All in one')
+];
+
+STEPS.forEach((s, i) => { s.shortKey = 'short' + (i + 1); });
+
+// ── DOM REFS ──────────────────────────────
+const stage=document.getElementById('stage-frame'), svg=document.getElementById('fx-svg'),
+	counter=document.getElementById('step-counter'), breadcrumb=document.getElementById('breadcrumb'),
+	progress=document.getElementById('progress-fill'), announcer=document.getElementById('step-announcer'),
+	outlineBody=document.getElementById('outline-body'), outlinePanel=document.getElementById('step-outline'),
+	outlineBtn=document.getElementById('outline-toggle'), calloutBtn=document.getElementById('callout-toggle'),
+	langSelect=document.getElementById('lang-select');
+
+langSelect.addEventListener('change', e => setLanguage(e.target.value));
+const urlLang = new URLSearchParams(location.search).get('lang');
+let savedLang=null; try{ savedLang=localStorage.getItem('aw-tmpl-lang'); }catch(_){}
+if (urlLang && I18N[urlLang]) { currentLang = urlLang; langSelect.value = urlLang; }
+else if (savedLang && I18N[savedLang]) { currentLang = savedLang; langSelect.value = savedLang; }
+
+// ── Font size ─────────────────────────────
+const fontScales=[0.8,0.9,1,1.1,1.2,1.35]; let fontScaleIdx=2;
+const baseFontSize=parseFloat(getComputedStyle(document.documentElement).fontSize);
+function applyFontScale(){ document.documentElement.style.fontSize=(baseFontSize*fontScales[fontScaleIdx])+'px'; const c=document.getElementById('controls'); if(c) c.style.fontSize=baseFontSize+'px'; if(typeof current!=='undefined'&&current>=0){ const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s); } }
+function saveFont(){ try{ localStorage.setItem('aw-tmpl-font', String(fontScaleIdx)); }catch(_){} }
+try{ const f=parseInt(localStorage.getItem('aw-tmpl-font'),10); if(!isNaN(f)&&f>=0&&f<fontScales.length){ fontScaleIdx=f; applyFontScale(); } }catch(_){}
+document.getElementById('font-decrease').addEventListener('click',()=>{ if(fontScaleIdx>0){fontScaleIdx--;applyFontScale();saveFont();} });
+document.getElementById('font-increase').addEventListener('click',()=>{ if(fontScaleIdx<fontScales.length-1){fontScaleIdx++;applyFontScale();saveFont();} });
+
+let current=-1, animating=false, liveEls=[], liveTimelines=[], calloutEnabled=false;
+
+function syncCalloutBtn(){ calloutBtn.classList.toggle('toggle-active',calloutEnabled); calloutBtn.setAttribute('aria-pressed',calloutEnabled?'true':'false'); calloutBtn.setAttribute('data-tip',calloutEnabled?t('calloutOn'):t('calloutOff')); }
+calloutBtn.addEventListener('click',()=>{
+	calloutEnabled=!calloutEnabled; syncCalloutBtn();
+	if(current<0) return;
+	// Toggle just the callout box in place — don't re-render (no animation replay).
+	const existing=stage.querySelectorAll('.callout');
+	if(calloutEnabled){ if(!existing.length){ const c=maybeCallout(STEPS[current]); if(c) gsap.fromTo(c,{opacity:0,y:10},{opacity:1,y:0,duration:0.4,overwrite:true}); } }
+	else { existing.forEach(c=>{ const idx=liveEls.indexOf(c); if(idx>-1) liveEls.splice(idx,1); gsap.killTweensOf(c); c.remove(); }); }
+}); syncCalloutBtn();
+function syncOutlineBtn(){ const on=!outlinePanel.hasAttribute('hidden'); outlineBtn.classList.toggle('toggle-active',on); outlineBtn.setAttribute('aria-expanded',on?'true':'false'); outlineBtn.setAttribute('data-tip',on?t('outlineOn'):t('outlineOff')); }
+outlineBtn.addEventListener('click',()=>{ const showing=!outlinePanel.hasAttribute('hidden'); if(showing){outlinePanel.setAttribute('hidden','');} else {outlinePanel.removeAttribute('hidden');} syncOutlineBtn(); }); syncOutlineBtn();
+
+// ── Audio narration (overlay button · speaker + remaining-time countdown) ──
+// Drop one recorded clip per step (in STEPS order) into AUDIO_FILES for real narration;
+// localized clips live under AUDIO_BASE/<lang>/. With no files, the browser reads each
+// step's title + description aloud (speech synthesis), so the button works with zero assets.
+const AUDIO_BASE = 'audio/ApisAndCaching/';
+const AUDIO_FILES = [
+	'step-01.mp3', 'step-02.mp3', 'step-03.mp3', 'step-04.mp3', 'step-05.mp3', 'step-06.mp3', 'step-07.mp3', 'step-08.mp3'
+];
+let audioEnabled=false, currentAudio=null, audioTimeout=null, ccPref=false;
+const audioBtn=document.getElementById('audio-toggle');
+if(audioBtn){ audioBtn.innerHTML='<span class="aw-audio-ico" aria-hidden="true">\uD83D\uDD07</span><span class="aw-audio-time" aria-hidden="true">--:--</span>'; }
+const audioIco=audioBtn&&audioBtn.querySelector('.aw-audio-ico'), audioTimeEl=audioBtn&&audioBtn.querySelector('.aw-audio-time');
+// Captions can play WITHOUT sound: when CC is on but audio is off we still play the clip MUTED, so the
+// caption reveals at the same pace — speaker shows 🔇 and the remaining-time countdown keeps running.
+function playbackOn(){ return audioEnabled || ccPref; }
+function audioDir(){ return (currentLang && currentLang!=='en') ? currentLang+'/' : ''; }
+function fmtDur(s){ s=Math.max(0,Math.ceil(s)); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
+function updateAudioTime(){ if(audioTimeEl && currentAudio && isFinite(currentAudio.duration) && currentAudio.duration>0) audioTimeEl.textContent=fmtDur(currentAudio.duration-currentAudio.currentTime); }
+function syncAudioBtn(){ if(!audioBtn) return; if(audioIco) audioIco.textContent=audioEnabled?'\uD83D\uDD0A':'\uD83D\uDD07'; if(audioTimeEl && !playbackOn()) audioTimeEl.textContent='--:--'; audioBtn.classList.toggle('toggle-active',audioEnabled); audioBtn.setAttribute('aria-pressed',audioEnabled?'true':'false'); }
+function speakFallback(i){ if(!window.speechSynthesis) return; const step=STEPS[i]; const u=new SpeechSynthesisUtterance(`${t(step.titleKey)}. ${t(step.descKey)}`); u.lang=currentLang||'en'; try{ speechSynthesis.cancel(); speechSynthesis.speak(u); }catch(_){} }
+function stopAudio(){
+	if(currentAudio){ currentAudio.pause(); currentAudio.currentTime=0; currentAudio=null; }
+	if(audioTimeout){ clearTimeout(audioTimeout); audioTimeout=null; }
+	if(audioTimeEl) audioTimeEl.textContent='--:--';
+	try{ if(window.speechSynthesis) speechSynthesis.cancel(); }catch(_){}
+	if(window.AWCaptions) AWCaptions.clear();
+}
+function playStepAudio(i){
+	stopAudio();
+	if(document.body.classList.contains('aw-prestart')) return;   // start gate holds audio too
+	if(!playbackOn() || i<0 || i>=STEPS.length) return;
+	audioTimeout=setTimeout(()=>{
+		audioTimeout=null;
+		const file=AUDIO_FILES[i];
+		if(!file){ if(audioEnabled) speakFallback(i); return; }   // no clip = no timing source for caption-only
+		currentAudio=new Audio(AUDIO_BASE+audioDir()+file);
+		currentAudio.volume = audioEnabled ? 1 : 0;              // caption-only = silent (volume 0) timing source
+		if(window.AWCaptions) AWCaptions.bind(currentAudio,i);
+		currentAudio.addEventListener('loadedmetadata',updateAudioTime);
+		currentAudio.addEventListener('timeupdate',updateAudioTime);
+		currentAudio.addEventListener('ended',()=>{ if(audioTimeEl) audioTimeEl.textContent='0:00'; });
+		currentAudio.addEventListener('error',()=>{ if(audioEnabled) speakFallback(i); });
+		currentAudio.play().catch(()=>{});
+	}, 400);
+}
+if(audioBtn){ audioBtn.addEventListener('click',()=>{
+	audioEnabled=!audioEnabled; try{localStorage.setItem('aw-tmpl-audio',audioEnabled?'1':'0');}catch(_){} syncAudioBtn();
+	if(current>=0){
+		if(!playbackOn()) stopAudio();
+		else if(currentAudio) currentAudio.volume = audioEnabled ? 1 : 0;   // flip sound without restarting the clip
+		else playStepAudio(current);
+	}
+	if(typeof applyCc==='function') applyCc();
+}); }
+// Initial audio + CC from the ?audio parameter:
+//   on -> audio ON + captions ON  ·  off -> both OFF  ·  (absent) -> audio ON, captions OFF (a prior stored choice still wins).
+(function(){
+	var p=null; try{ p=new URLSearchParams(location.search).get('audio'); }catch(_){}
+	if(p==='on'){ audioEnabled=true; ccPref=true; }
+	else if(p==='off'){ audioEnabled=false; ccPref=false; }
+	else {
+		audioEnabled=true; ccPref=false;
+		try{ var a=localStorage.getItem('aw-tmpl-audio'); if(a==='1') audioEnabled=true; else if(a==='0') audioEnabled=false; }catch(_){}
+		try{ var c=localStorage.getItem('aw-tmpl-cc'); if(c==='1') ccPref=true; else if(c==='0') ccPref=false; }catch(_){}
+	}
+	try{ localStorage.setItem('aw-tmpl-audio',audioEnabled?'1':'0'); localStorage.setItem('aw-tmpl-cc',ccPref?'1':'0'); }catch(_){}
+})();
+syncAudioBtn();
+
+// ── Captions (CC) — overlaid in the frame; play WITH or WITHOUT audio ──
+// Reads the SAME narration Markdown used to synthesize the audio. Set page to THIS file's
+// stem and base to its narration folder (see the path note near the top of the file).
+const ccBtn=document.getElementById('cc-toggle');
+function ccEffective(){ return ccPref; }                          // captions show whenever CC is on (audio not required)
+function syncCcBtn(){ if(!ccBtn) return; ccBtn.classList.toggle('on',ccPref); ccBtn.setAttribute('aria-pressed',ccPref?'true':'false'); }
+function applyCc(){ if(window.AWCaptions) AWCaptions.setEnabled(ccEffective()); if(ccEffective()&&currentAudio&&window.AWCaptions) AWCaptions.bind(currentAudio,current); syncCcBtn(); }
+if(window.AWCaptions){ AWCaptions.configure({ page:'ApisAndCaching', base:'../../narration/Architect/', lang:()=>currentLang, fallback:(i)=>(STEPS[i]?t(STEPS[i].descKey):''), reserve:false }); }
+if(ccBtn){ ccBtn.addEventListener('click',()=>{
+	ccPref=!ccPref; try{localStorage.setItem('aw-tmpl-cc',ccPref?'1':'0');}catch(_){} applyCc();
+	if(current>=0){
+		if(playbackOn() && !currentAudio) playStepAudio(current);   // caption-only: start the muted timing clip
+		else if(!playbackOn() && currentAudio) stopAudio();          // CC off + audio off: nothing left to play
+	}
+}); }
+applyCc();
+
+// ── Full screen ──
+(function(){
+	const fsBtn=document.getElementById('fs-toggle'); if(!fsBtn) return;
+	function inFs(){ return !!(document.fullscreenElement||document.webkitFullscreenElement); }
+	function syncFs(){ document.body.classList.toggle('is-fs',inFs()); fsBtn.setAttribute('aria-pressed',inFs()?'true':'false'); fsBtn.title=inFs()?'Exit full screen (F)':'Full screen (F)'; }
+	function toggle(){ try{ if(inFs()){ (document.exitFullscreen||document.webkitExitFullscreen).call(document); } else { const el=document.documentElement; (el.requestFullscreen||el.webkitRequestFullscreen).call(el); } }catch(_){} }
+	fsBtn.addEventListener('click',e=>{ e.stopPropagation(); toggle(); });
+	document.addEventListener('fullscreenchange',syncFs); document.addEventListener('webkitfullscreenchange',syncFs);
+	document.addEventListener('keydown',e=>{ if(e.code==='KeyF'&&!e.metaKey&&!e.ctrlKey&&!e.altKey){ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return; e.preventDefault(); toggle(); } });
+	syncFs();
+})();
+
+// ── Reduced motion ────────────────────────
+const motionMQ=window.matchMedia('(prefers-reduced-motion: reduce)'); let motionPaused=motionMQ.matches;
+motionMQ.addEventListener('change',e=>{ motionPaused=e.matches; renderStep(current); });
+
+// ── Helpers ───────────────────────────────
+function clearStage(){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; liveEls.forEach(el=>el.remove()); liveEls=[]; Array.from(svg.children).forEach(c=>{ if(c.tagName.toLowerCase()!=='defs') c.remove(); }); }
+function el(cls,html){ const d=document.createElement('div'); if(cls) d.className=cls; if(html!=null) d.innerHTML=html; return d; }
+// Inline SVG icons (monochrome, currentColor) — crisp on any OS/projector. Add your own here.
+const ICONS = {
+	puzzle:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h8v8H3zm10 0h8v8h-8zM3 13h8v8H3zm10 0h8v8h-8z"/></svg>',
+	inbox:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 3h2v5h3l-4 4-4-4h3zM5 14h14v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1z"/></svg>',
+	gear:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M19.14 12.94a7.9 7.9 0 0 0 0-1.88l2-1.56-2-3.46-2.36.96a7.7 7.7 0 0 0-1.62-.94L14.8 2.5h-4l-.36 2.56c-.58.24-1.12.56-1.62.94L6.46 6.04l-2 3.46 2 1.56a7.9 7.9 0 0 0 0 1.88l-2 1.56 2 3.46 2.36-.96c.5.38 1.04.7 1.62.94l.36 2.56h4l.36-2.56c.58-.24 1.12-.56 1.62-.94l2.36.96 2-3.46-2-1.56zM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg>',
+	sparkle:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg>',
+	bulb:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-4 12.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26A7 7 0 0 0 12 2zM9 20h6v1a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1z"/></svg>',
+	check:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.55 17.6 4.4 12.45l1.86-1.86 3.29 3.29 8.19-8.19 1.86 1.86z"/></svg>',
+	bolt:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>',
+	lock:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 10a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1zm3-1V7a4 4 0 1 1 8 0v2h-2V7a2 2 0 1 0-4 0v2z"/></svg>',
+	box:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 3 7v10l9 5 9-5V7zm0 2.3L17.7 7 12 10.2 6.3 7zM5 9.1l6 3.4v6.8l-6-3.3zm14 0v6.9l-6 3.3v-6.8z"/></svg>',
+	key:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M14 2a6 6 0 0 0-5.66 8L2 16.34V22h5.66l.34-.34V20h2v-2h2l.34-.34A6 6 0 1 0 14 2zm2 3a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z"/></svg>',
+	rocket:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2c3 3 4 6 4 9l3 3-4 1-1 4-2-3-2 3-1-4-4-1 3-3c0-3 1-6 4-9zm0 5a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>',
+	health:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 2h6v5h5v6h-5v5H9v-5H4V7h5z"/></svg>',
+	headset:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a8 8 0 0 0-8 8v5a3 3 0 0 0 3 3h1v-7H6v-1a6 6 0 1 1 12 0v1h-2v7h1a3 3 0 0 0 3-3v-5a8 8 0 0 0-8-8z"/></svg>',
+	media:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M4 4h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zm5 4v8l7-4z"/></svg>',
+	book:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v16H6a2 2 0 0 1-2-2zm9 0h7v14a2 2 0 0 1-2 2h-5z"/></svg>',
+	party:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5zm6 11l.9 2.6L21.5 16.5l-2.6.9L18 20l-.9-2.6L14.5 16.5l2.6-.9zM6 14l.7 2 2 .7-2 .7L6 19.4l-.7-2-2-.7 2-.7z"/></svg>',
+	chat:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-4 4v-4H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/></svg>',
+	access:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a2.2 2.2 0 1 1 0 4.4A2.2 2.2 0 0 1 12 2zM4 8h16v2h-5.4l1 12h-2.3l-.7-6h-1.2l-.7 6H8.4l1-12H4z"/></svg>',
+	globe:'<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></g></svg>'
+};
+function icon(name){ return `<span class="ic">${ICONS[name]||''}</span>`; }
+function stepById(id){ return STEPS.find(s=>s.id===id); }
+// Scale the current scene down (never up) so it always fits inside the 16:9 frame — no clipping, no scroll.
+function fitScene(scene){
+	if(!scene) return;
+	scene.style.transform='translate(-50%,-50%) scale(1)';
+	const box=stage.getBoundingClientRect();
+	const availW=box.width-32, availH=box.height-28;
+	const sw=scene.offsetWidth, sh=scene.offsetHeight;
+	if(!sw||!sh) return;
+	const k=Math.min(1, availW/sw, availH/sh);
+	scene.style.transform='translate(-50%,-50%) scale('+k+')';
+}
+function headerEls(scene){ return [scene.querySelector('.scene-title'), scene.querySelector('.scene-lead')]; }
+function buildScene(step){ const s=el('scene'); s.appendChild(el('scene-title', t(step.titleKey))); s.appendChild(el('scene-lead', t(step.descKey))); return s; }
+function maybeCallout(step){ if(!calloutEnabled) return null; const c=el('callout', t(step.calloutKey)); c.style.left='1.5rem'; c.style.top='1.5rem'; stage.appendChild(c); liveEls.push(c); dragify(c, 'aw-tmpl-callout-pos'); return c; }
+function renderOutline(step,idx){
+	const rows=(step.stats||[]).map(([k,v])=>`<div class="stat-row"><span>${t(k)}</span><span>${t(v)}</span></div>`).join('');
+	outlineBody.innerHTML=`<div class="outline-section"><strong>${t('stepOf')} ${idx+1} / ${STEPS.length}: ${t(step.titleKey)}</strong><p style="margin-top:0.4rem;">${t(step.descKey)}</p></div>${rows?`<div class="outline-section">${rows}</div>`:''}`;
+}
+function announceStep(step,idx){ announcer.textContent=`${t('stepOf')} ${idx+1} / ${STEPS.length}: ${t(step.titleKey)}. ${t(step.descKey)}`; }
+
+// ── RENDER DISPATCH ───────────────────────
+function renderStep(i){
+	if(i<0||i>=STEPS.length) return;
+	if(animating){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; animating=false; }
+	animating=true;
+	const step=STEPS[i];
+	// cross-fade (200ms, CSS keyframes so it's independent of the speed control) — outgoing fades out, incoming fades in, on every step
+	const outgoing=stage.querySelector('.scene:not(.scene-out)');
+	if(outgoing) liveEls=liveEls.filter(x=>x!==outgoing);
+	clearStage();
+	if(outgoing){ outgoing.style.zIndex='5';
+		if(motionPaused){ outgoing.remove(); }
+		else { outgoing.classList.remove('scene-in'); outgoing.classList.add('scene-out'); setTimeout(()=>outgoing.remove(), 240); } }
+	(BUILDERS[step.id]||function(){})();
+	const incoming=stage.querySelector('.scene:not(.scene-out)');
+	if(incoming && !motionPaused) incoming.classList.add('scene-in');
+	fitScene(incoming);
+	current=i;
+	try{ const u=new URL(location.href); u.searchParams.set('step', String(i+1)); history.replaceState(null,'',u); }catch(_){}
+	counter.textContent=`${t('stepOf')} ${current+1} / ${STEPS.length}`;
+	breadcrumb.textContent=t(step.captionKey);
+	progress.style.width=((current+1)/STEPS.length*100)+'%';
+	renderOutline(step,i); announceStep(step,i);
+	if(typeof playStepAudio==='function') playStepAudio(i);
+}
+
+// ══════════════ AI-500 KIT · shared helpers (cast, board, connectors, timelines) ══════════════
+Object.assign(ICONS, {
+	robot:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2a1.6 1.6 0 0 1 .8 3V7h4.2a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3v-7a3 3 0 0 1 3-3h4.2V5A1.6 1.6 0 0 1 12 2zM9 11.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 0 0 0-3.2zm6 0a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 0 0 0-3.2z"/></svg>',
+	compass:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16zm3.9 4.1-2.1 5.7-5.7 2.1 2.1-5.7z"/></svg>',
+	doc:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M6 2h8l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm2 6.5v1.6h4V8.5zM8 12v1.6h8V12zm0 3.4V17h8v-1.6z"/></svg>',
+	search:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M10.5 3a7.5 7.5 0 0 1 5.9 12.1l4.3 4.3-1.4 1.4-4.3-4.3A7.5 7.5 0 1 1 10.5 3zm0 2a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11z"/></svg>',
+	coin:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="2"/><text x="12" y="16.8" text-anchor="middle" font-size="12.5" font-weight="700" font-family="Segoe UI,Arial,sans-serif" fill="currentColor">$</text></svg>',
+	person:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9zm0 2c-4.4 0-8 2.2-8 5v2h16v-2c0-2.8-3.6-5-8-5z"/></svg>',
+	clock:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16zm-1 3h2v5.2l3.3 2-1 1.7-4.3-2.6z"/></svg>',
+	chip:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M8 2h2v3h4V2h2v3h1a2 2 0 0 1 2 2v1h3v2h-3v4h3v2h-3v1a2 2 0 0 1-2 2h-1v3h-2v-3h-4v3H8v-3H7a2 2 0 0 1-2-2v-1H2v-2h3v-4H2V8h3V7a2 2 0 0 1 2-2h1zm0 5v10h8V7z"/></svg>',
+	warn:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2 1.5 21h21zM11 9h2v6h-2zm0 8h2v2h-2z"/></svg>',
+	scale:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 3h2v15h-2zM5 20h14v2H5zM3 6h18v2H3zM5 8l3 6a3 3 0 0 1-6 0zm14 0 3 6a3 3 0 0 1-6 0z"/></svg>',
+	code:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.7 6.3 3 12l5.7 5.7 1.4-1.4L5.8 12l4.3-4.3zm6.6 0-1.4 1.4 4.3 4.3-4.3 4.3 1.4 1.4L21 12z"/></svg>',
+	board:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M3 4h18a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1h-7v2h3v2H7v-2h3v-2H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zm1 2v9h16V6z"/></svg>',
+	shield:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2 4 5v6c0 5 3.4 9.3 8 11 4.6-1.7 8-6 8-11V5zm-1.2 13.5L7.5 12.2l1.4-1.4 1.9 1.9 4.3-4.3 1.4 1.4z"/></svg>',
+	star:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l3 6.3 6.9.9-5 4.8 1.2 6.9L12 17.6 5.9 20.9 7.1 14 2.1 9.2 9 8.3z"/></svg>',
+	ruler:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M3 17 17 3l4 4L7 21zm3.2 0 1.3 1.3 1.4-1.4-1.3-1.3zm3.7-3.7 1.3 1.3 1.4-1.4-1.3-1.3zm3.7-3.7 1.3 1.3 1.4-1.4-1.3-1.3z"/></svg>',
+	flask:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 2h6v2h-1v5.2l5.2 8.7A2 2 0 0 1 17.5 21h-11a2 2 0 0 1-1.7-3.1L10 9.2V4H9z"/></svg>',
+	arrowR:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 5l7 7-7 7-1.4-1.4 4.6-4.6H4v-2h12.2l-4.6-4.6z"/></svg>'
+});
+
+const AG = { solo:['robot','agSolo'], orch:['compass','agOrch'], intake:['doc','agIntake'], policy:['book','agPolicy'],
+	fraud:['search','agFraud'], payout:['coin','agPayout'], human:['person','agHuman'] };
+function agent(k, o){ o=o||{}; const a=AG[k];
+	return `<div class="ai5-ag ag-${k}${o.top?' is-top':''}"${o.size?` style="--ag:${o.size}px"`:''}><span class="ai5-ag-ic">${icon(a[0])}</span>${o.nolabel?'':`<span class="ai5-ag-l">${o.label||t(a[1])}</span>`}</div>`; }
+
+// A 0×0 wrapper at the node's CENTRE (animate the wrapper with GSAP; the inner node stays centred on it)
+function pos(cx, cy, html, cls){ const w=el('ai5-pos'+(cls?' '+cls:''), '<div class="ai5-in">'+html+'</div>'); w.style.left=cx+'px'; w.style.top=cy+'px'; return w; }
+
+const SVGNS='http://www.w3.org/2000/svg'; let _ai5id=0;
+// A fixed-size board with an SVG layer behind the nodes (same coordinates) for drawn connectors.
+function board(w, h){
+	const root=el('ai5-board'); root.style.width=w+'px'; root.style.height=h+'px';
+	const svg=document.createElementNS(SVGNS,'svg'); svg.setAttribute('viewBox',`0 0 ${w} ${h}`);
+	const mid='ai5ar'+(++_ai5id);
+	svg.innerHTML=`<defs><marker id="${mid}" viewBox="0 0 12 12" markerWidth="24" markerHeight="24" markerUnits="userSpaceOnUse" refX="11" refY="6" orient="auto"><path d="M1,1 L11,6 L1,11 Z" fill="context-stroke"/></marker></defs>`;
+	root.appendChild(svg);
+	return { root, svg, mid };
+}
+// Draw a connector path. Solid + arrow → draw-in via dash (the global guard hides the arrowhead until it lands). dash:'6 6' → static dashed, fade in.
+// An arrowed line is stopped a little INSIDE its head (flat cap, trimmed end): the head's tip is narrower than the stroke, so a line that
+// runs all the way to the tip (or has a round cap) pokes out in front of it. The marker is untouched, so the tip still lands on the path end.
+function arrowTrim(p, L){ return p.getAttribute('marker-end') ? Math.min((+p.getAttribute('stroke-width')||3)*2, L*0.09) : 0; }
+function line(B, d, color, o){ o=o||{};
+	const p=document.createElementNS(SVGNS,'path'); p.setAttribute('d',d); p.setAttribute('fill','none');
+	const arrowed=!o.dash && o.arrow!==false;
+	p.style.stroke=color||'var(--ai5-line)'; p.setAttribute('stroke-width',o.w||3); p.setAttribute('stroke-linecap',arrowed?'butt':'round'); p.setAttribute('stroke-linejoin','round');
+	if(o.dash) p.setAttribute('stroke-dasharray',o.dash);
+	else if(o.arrow!==false) p.setAttribute('marker-end','url(#'+B.mid+')');
+	B.svg.appendChild(p);
+	if(arrowed){ try{ const L=p.getTotalLength(), t=arrowTrim(p,L); if(L>0&&t>0) p.style.strokeDasharray=(L-t)+' '+(L+t); }catch(e){} }
+	return p; }
+function drawPrep(p){ const L=p.getTotalLength(), t=arrowTrim(p,L); p.style.strokeDasharray=t?(L-t)+' '+(L+t):L; p.style.strokeDashoffset=L; return L; }
+// Tween a solid connector in (call drawPrep first). Dashed connectors just fade.
+function drawIn(tl, p, at, dur){ if(p.getAttribute('stroke-dasharray')){ tl.fromTo(p,{opacity:0},{opacity:1,duration:dur||0.4},at); return; }
+	drawPrep(p); tl.to(p,{strokeDashoffset:0,duration:dur||0.6,ease:'power1.inOut'},at); }
+
+// Timeline helpers — every builder builds its tweens once; reduced motion just jumps to the end frame.
+function mount(scene){ stage.appendChild(scene); liveEls.push(scene); }
+function mkTL(){ return gsap.timeline({ onComplete:()=>{ animating=false; } }); }
+function head(tl, scene){ tl.fromTo(headerEls(scene),{opacity:0,y:-14},{opacity:1,y:0,duration:0.5,stagger:0.1,ease:'power2.out'}); }
+function finish(tl, step){
+	const c=maybeCallout(step); if(c) tl.fromTo(c,{opacity:0,y:10},{opacity:1,y:0,duration:0.5},'>-0.2');
+	if(motionPaused){ tl.progress(1); animating=false; return tl; }
+	liveTimelines.push(tl); return tl; }
+function idle(tw){ if(!motionPaused && tw) liveTimelines.push(tw); return tw; }
+function aiScene(step){ const s=buildScene(step); s.classList.add('ai5'); return s; }
+function say(txt, ic){ return el('ai5-say', (ic?icon(ic):'')+'<span>'+txt+'</span>'); }
+function nextLink(file, labelKey){ const a=document.createElement('a'); a.className='ai5-next'; a.href=file+'?lang='+currentLang; a.innerHTML='<span>'+t(labelKey)+'</span>'+icon('arrowR'); return a; }
+
+
+Object.assign(ICONS, {
+	tick:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.2 16.6 4.9 12.3l-1.4 1.4 5.7 5.7L20.5 8.1l-1.4-1.4z"/></svg>',
+	cross:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.7 4.3 12 10.6l6.3-6.3 1.4 1.4-6.3 6.3 6.3 6.3-1.4 1.4-6.3-6.3-6.3 6.3-1.4-1.4 6.3-6.3-6.3-6.3z"/></svg>'
+});
+
+// ══════════════ ApisAndCaching · helpers ══════════════
+const AZI8 = '../../lib/icons/Azure_Public_Service_Icons/';
+const IC8 = {
+	apim:['integration','10042-icon-service-API-Management-Services.svg'], redis:['new icons','03675-icon-service-Azure-Managed-Redis.svg'],
+	sql:['databases','10130-icon-service-SQL-Database.svg'], app:['app services','10035-icon-service-App-Services.svg'],
+	ca:['other','02989-icon-service-Container-Apps-Environments.svg'], sb:['integration','10836-icon-service-Azure-Service-Bus.svg'],
+	eg:['integration','10206-icon-service-Event-Grid-Topics.svg'], eh:['analytics','00039-icon-service-Event-Hubs.svg'],
+	qs:['general','10840-icon-service-Storage-Queue.svg'], cfg:['integration','10219-icon-service-App-Configuration.svg'],
+	kv:['security','10245-icon-service-Key-Vaults.svg']
+};
+function ic8(k, s){ const d = IC8[k]; return `<img class="a8-az" src="${encodeURI(AZI8 + d[0] + '/' + d[1])}" width="${s}" height="${s}" alt="">`; }
+function a8Scene(step){ const s = aiScene(step); s.classList.add('fl4'); return s; }
+function b8(cls, html, x, y, w, h){ const e = el('a8-b ' + cls, html); e.style.left = x + 'px'; e.style.top = y + 'px'; if(w) e.style.width = w + 'px'; if(h) e.style.height = h + 'px'; return e; }
+function a8Done(scene, B, sayEl){ scene.appendChild(B.root); if(sayEl) scene.appendChild(sayEl); mount(scene); }
+
+// Shared "requirement -> four options -> winner" decision step (tiers, messaging)
+function a8Decision(step, o){
+	const scene = a8Scene(step), B = board(1100, 358), W = 250, G = (1100 - 4 * W) / 3;
+	const cards = o.cards.map((c, i) => b8('a8-ct' + (i === o.win ? ' is-win' : ''),
+		`<div class="a8-card a8-cin">${c.ic}<span class="a8-cn">${t(c.n)}</span><span class="a8-cd">${t(c.d)}</span></div><span class="a8-why">${t(c.x)}</span>` + (i === o.win ? `<span class="a8-tick">${icon('tick')}</span>` : ''),
+		i * (W + G), 122));
+	const req = b8('a8-card a8-req', `<b>${t(o.req)}</b>` + o.tags.map(k => `<span class="a8-tag">${t(k)}</span>`).join(''), 150, 0, 800, 62);
+	const winX = o.win * (W + G) + W / 2;
+	const ln = line(B, `M${winX.toFixed(1)} 64 V120`, 'var(--ai5-ok)', { w:3.5 });
+	[...cards, req].forEach(n => B.root.appendChild(n));
+	const sayEl = say(t(o.say), o.sayIc); a8Done(scene, B, sayEl);
+	const ins = cards.map(c => c.querySelector('.a8-cin')), whys = cards.map(c => c.querySelector('.a8-why')), tick = cards[o.win].querySelector('.a8-tick');
+	const losers = ins.filter((_, i) => i !== o.win);
+
+	const tl = mkTL(); head(tl, scene);
+	tl.fromTo(cards, o.from, { opacity:1, x:0, y:0, rotationX:0, scale:1, duration:0.55, stagger:0.14, ease:'power3.out' }, '>-0.1');
+	tl.fromTo(req, { opacity:0, y:-30 }, { opacity:1, y:0, duration:0.5, ease:'bounce.out' }, '>0.2');
+	drawIn(tl, ln, '>0.1', 0.45);
+	tl.to(losers, { opacity:0.55, duration:0.5 }, '>0.1');
+	tl.fromTo(whys, { opacity:0, y:8 }, { opacity:1, y:0, duration:0.35, stagger:0.1 }, '<0.1');
+	tl.fromTo(tick, { opacity:0, scale:0 }, { opacity:1, scale:1, duration:0.45, ease:'back.out(2.6)' }, '>-0.1');
+	tl.fromTo(sayEl, { opacity:0, y:12 }, { opacity:1, y:0, duration:0.5 }, '>0.05');
+	finish(tl, step);
+}
+
+// ── 1 · GATEWAY ───────────────────────────
+function renderGateway(){
+	const step = stepById('gateway'), scene = a8Scene(step), B = board(1100, 360);
+	const cl = [['globe', 'gwPartner', 68], ['person', 'gwMobile', 158]].map(c => b8('a8-card a8-cl', icon(c[0]) + `<span>${t(c[1])}</span>`, 0, c[2], 222, 64));
+	const be = [['app', 'gwOrders', 68], ['ca', 'gwCatalogue', 158]].map(c => b8('a8-card a8-be', ic8(c[0], 34) + `<span>${t(c[1])}</span>`, 866, c[2], 234, 64));
+	const gw = b8('a8-gw', `<div class="a8-gwh">${ic8('apim', 30)}<span>${t('gwHead')}</span></div>` +
+		[['lock', 'gwP1'], ['clock', 'gwP2'], ['gear', 'gwP3']].map((p, i) => `<div class="a8-pol" style="top:${66 + i * 68}px">${icon(p[0])}<span>${t(p[1])}</span><i>${i + 1}</i></div>`).join(''), 340, 0, 420, 290);
+	const inL = [100, 190].map(y => line(B, `M224 ${y} H336`, 'var(--f4t)', { w:3 })), outL = [100, 190].map(y => line(B, `M764 ${y} H862`, 'var(--f4t)', { w:3 }));
+	const chips = b8('a8-chips', [['box', 'gwC1'], ['key', 'gwC2'], ['book', 'gwC3']].map(c => `<span class="a8-tag">${icon(c[0])}<span>${t(c[1])}</span></span>`).join(''), 0, 318, 1100);
+	[...cl, ...be, gw, chips].forEach(n => B.root.appendChild(n));
+	const sayEl = say(t('gatewaySay'), 'lock'); a8Done(scene, B, sayEl);
+	const pols = [...gw.querySelectorAll('.a8-pol')], hd = gw.querySelector('.a8-gwh');
+
+	const tl = mkTL(); head(tl, scene);
+	tl.fromTo(cl, { opacity:0, x:-50 }, { opacity:1, x:0, duration:0.5, stagger:0.12, ease:'power3.out' }, '>-0.1');
+	inL.forEach((p, i) => drawIn(tl, p, i ? '<0.1' : '>0', 0.45));
+	tl.fromTo(gw, { opacity:0, scale:0.92 }, { opacity:1, scale:1, duration:0.5, ease:'power2.out' }, '>-0.1');
+	tl.fromTo(hd, { opacity:0 }, { opacity:1, duration:0.3 }, '>-0.1');
+	tl.fromTo(pols, { opacity:0, y:-34 }, { opacity:1, y:0, duration:0.4, stagger:0.2, ease:'bounce.out' }, '>0');
+	outL.forEach((p, i) => drawIn(tl, p, i ? '<0.1' : '>0.05', 0.45));
+	tl.fromTo(be, { opacity:0, x:50 }, { opacity:1, x:0, duration:0.5, stagger:0.12, ease:'power3.out' }, '>-0.1');
+	tl.fromTo([...chips.children], { opacity:0, scale:0.6 }, { opacity:1, scale:1, duration:0.35, stagger:0.12, ease:'back.out(2)' }, '>0');
+	tl.fromTo(sayEl, { opacity:0, y:12 }, { opacity:1, y:0, duration:0.5 }, '>0.05');
+	finish(tl, step);
+}
+
+// ── 2 · TIERS ─────────────────────────────
+function renderTiers(){
+	const bd = k => `<span class="a8-badge">${icon(k)}</span>`;
+	a8Decision(stepById('tiers'), {
+		req:'tiReq', tags:['tiR1', 'tiR2', 'tiR3'], win:2, say:'tiersSay', sayIc:'rocket', from:{ opacity:0, y:40, rotationX:-50, transformPerspective:700 },
+		cards:[{ ic:bd('bolt'), n:'tiCons', d:'tiConsD', x:'tiConsX' }, { ic:bd('flask'), n:'tiDev', d:'tiDevD', x:'tiDevX' },
+			{ ic:bd('rocket'), n:'tiStd', d:'tiStdD', x:'tiStdX' }, { ic:bd('shield'), n:'tiPrem', d:'tiPremD', x:'tiPremX' }]
+	});
+}
+
+// ── 3 · CACHE-ASIDE ───────────────────────
+function renderCache(){
+	const step = stepById('cache'), scene = a8Scene(step), B = board(1100, 300);
+	const app = b8('a8-card a8-node', ic8('app', 44) + `<div><b>${t('caApp')}</b><span class="d">${t('caAppD')}</span></div>`, 10, 187, 230, 96);
+	const redis = b8('a8-card a8-node a8-redis', ic8('redis', 52) + `<div><b>${t('caRedis')}</b><span class="d">${t('caRedisD')}</span></div>`, 410, 20, 280, 110);
+	const db = b8('a8-card a8-node', ic8('sql', 44) + `<div><b>${t('caDb')}</b><span class="d">${t('caDbD')}</span></div>`, 840, 187, 250, 96);
+	const l1 = line(B, 'M100 187 V70 H406', 'var(--f4t)', { w:3 });
+	const l2 = line(B, 'M242 235 H836', 'var(--f4t)', { w:3 });
+	const l3 = line(B, 'M160 187 V100 H406', 'var(--ai5-ok)', { w:3 });
+	const lab = (cx, cy, k, cls) => { const e = pos(cx, cy, `<span class="a8-lbl ${cls || ''}">${t(k)}</span>`); return e; };
+	const s1 = lab(290, 36, 'caS1'), s2 = lab(550, 268, 'caS2'), s3 = lab(290, 130, 'caS3', 'is-ok');
+	const hit = pos(550, 168, `<span class="a8-tag is-ok">${icon('tick')}<span>${t('caHit')}</span></span>`);
+	[app, redis, db, s1, s2, s3, hit].forEach(n => B.root.appendChild(n));
+	const sayEl = say(t('cacheSay'), 'search'); a8Done(scene, B, sayEl);
+
+	const tl = mkTL(); head(tl, scene);
+	tl.fromTo([app, db], { opacity:0, scale:0.8 }, { opacity:1, scale:1, duration:0.45, stagger:0.12, ease:'back.out(1.6)' }, '>-0.1');
+	tl.fromTo(redis, { opacity:0, y:-60 }, { opacity:1, y:0, duration:0.6, ease:'bounce.out' }, '>0.05');
+	drawIn(tl, l1, '>0.1', 0.55); tl.fromTo(s1, { opacity:0, y:8 }, { opacity:1, y:0, duration:0.35 }, '>-0.15');
+	drawIn(tl, l2, '>0.15', 0.7); tl.fromTo(s2, { opacity:0, y:8 }, { opacity:1, y:0, duration:0.35 }, '>-0.15');
+	drawIn(tl, l3, '>0.15', 0.55); tl.fromTo(s3, { opacity:0, y:8 }, { opacity:1, y:0, duration:0.35 }, '>-0.15');
+	tl.fromTo(hit, { opacity:0, scale:0.5 }, { opacity:1, scale:1, duration:0.45, ease:'back.out(2.4)' }, '>0.1');
+	tl.fromTo(sayEl, { opacity:0, y:12 }, { opacity:1, y:0, duration:0.5 }, '>0.05');
+	finish(tl, step);
+}
+
+// ── 4 · WHAT TO CACHE ─────────────────────
+function renderCacheWhat(){
+	const step = stepById('cachewhat'), scene = a8Scene(step), B = board(1100, 358);
+	const panel = (cls, mk, hk, rows, x) => b8('a8-card a8-pn ' + cls, `<div class="a8-pnh"><span class="m">${mk}</span><span>${t(hk)}</span></div>` + rows.map(r => `<div class="a8-row">${t(r)}</div>`).join(''), x, 0, 530, 214);
+	const yes = panel('is-yes', '\u2713', 'cwYes', ['cwY1', 'cwY2', 'cwY3'], 0), no = panel('is-no', '\u2715', 'cwNo', ['cwN1', 'cwN2', 'cwN3'], 570);
+	const band = b8('a8-card a8-band', `<div class="a8-bandt">${ic8('redis', 44)}<span>${t('cwRedis')}</span><span class="a8-tag is-warn">${icon('warn')}<span>${t('cwRepl')}</span></span></div>` +
+		`<div class="a8-bandr">${[1, 2, 3, 4].map(i => `<span class="a8-tag">${t('cwT' + i)}</span>`).join('')}</div>`, 0, 240, 1100, 118);
+	[yes, no, band].forEach(n => B.root.appendChild(n));
+	const sayEl = say(t('cachewhatSay'), 'check'); a8Done(scene, B, sayEl);
+	const yr = [...yes.querySelectorAll('.a8-row')], nr = [...no.querySelectorAll('.a8-row')], tiers = [...band.querySelectorAll('.a8-bandr .a8-tag')];
+
+	const tl = mkTL(); head(tl, scene);
+	tl.fromTo(yes, { opacity:0, rotationY:-70, transformPerspective:800, transformOrigin:'100% 50%' }, { opacity:1, rotationY:0, duration:0.55, ease:'power3.out' }, '>-0.1');
+	tl.fromTo(no, { opacity:0, rotationY:70, transformPerspective:800, transformOrigin:'0% 50%' }, { opacity:1, rotationY:0, duration:0.55, ease:'power3.out' }, '<0.15');
+	tl.fromTo(yr, { opacity:0, x:-24 }, { opacity:1, x:0, duration:0.35, stagger:0.12 }, '>-0.1');
+	tl.fromTo(nr, { opacity:0, x:24 }, { opacity:1, x:0, duration:0.35, stagger:0.12 }, '<');
+	tl.fromTo(band, { opacity:0, y:40 }, { opacity:1, y:0, duration:0.5, ease:'power3.out' }, '>0.05');
+	tl.fromTo(tiers, { opacity:0, scale:0.7 }, { opacity:1, scale:1, duration:0.3, stagger:0.1, ease:'back.out(2)' }, '>-0.1');
+	tl.fromTo(sayEl, { opacity:0, y:12 }, { opacity:1, y:0, duration:0.5 }, '>0.05');
+	finish(tl, step);
+}
+
+// ── 5 · MESSAGING ─────────────────────────
+function renderMessaging(){
+	a8Decision(stepById('messaging'), {
+		req:'msReq', tags:['msR1', 'msR2', 'msR3'], win:1, say:'messagingSay', sayIc:'inbox', from:{ opacity:0, scale:0.6, y:30 },
+		cards:[{ ic:ic8('qs', 52), n:'msQs', d:'msQsD', x:'msQsX' }, { ic:ic8('sb', 52), n:'msSb', d:'msSbD', x:'msSbX' },
+			{ ic:ic8('eg', 52), n:'msEg', d:'msEgD', x:'msEgX' }, { ic:ic8('eh', 52), n:'msEh', d:'msEhD', x:'msEhX' }]
+	});
+}
+
+// ── 6 · CONFIGURATION ─────────────────────
+function renderConfig(){
+	const step = stepById('config'), scene = a8Scene(step), B = board(1100, 292);
+	const app = b8('a8-card a8-app', ic8('app', 56) + `<b>${t('cfApp')}</b><span class="d">${t('cfAppD')}</span>`, 0, 85, 230, 120);
+	const frame = b8('a8-gw', `<div class="a8-gwh">${ic8('cfg', 30)}<span>${t('cfHead')}</span></div>` +
+		`<div class="a8-kr" style="top:66px"><span>${t('cfK1')}</span><span class="v">${t('cfV1')}</span></div>` +
+		`<div class="a8-kr" style="top:134px"><span>${t('cfK2')}</span><span class="a8-sw"><b class="g"></b><i></i></span></div>` +
+		`<div class="a8-kr" style="top:202px"><span>${t('cfK3')}</span><span class="v">${icon('key')}<span>${t('cfV3')}</span></span></div>`, 340, 0, 420, 290);
+	const kv = b8('a8-card a8-kv', ic8('kv', 56) + `<b>${t('cfKv')}</b><span class="d">${t('cfKvD')}</span>`, 870, 172, 230, 120);
+	const l1 = line(B, 'M232 145 H336', 'var(--f4t)', { w:3 }), l2 = line(B, 'M762 228 H866', 'var(--f4t)', { w:3 });
+	[app, frame, kv].forEach(n => B.root.appendChild(n));
+	const sayEl = say(t('configSay'), 'gear'); a8Done(scene, B, sayEl);
+	const rows = [...frame.querySelectorAll('.a8-kr')], knob = frame.querySelector('.a8-sw i'), glow = frame.querySelector('.a8-sw .g');
+
+	const tl = mkTL(); head(tl, scene);
+	tl.fromTo(app, { opacity:0, x:-50 }, { opacity:1, x:0, duration:0.5, ease:'power3.out' }, '>-0.1');
+	drawIn(tl, l1, '>0', 0.45);
+	tl.fromTo(frame, { opacity:0, scale:0.92 }, { opacity:1, scale:1, duration:0.5, ease:'power2.out' }, '>-0.1');
+	tl.fromTo(rows, { opacity:0, x:-30 }, { opacity:1, x:0, duration:0.4, stagger:0.16 }, '>0');
+	tl.to(knob, { x:24, duration:0.35, ease:'back.out(2)' }, '>0.1');
+	tl.fromTo(glow, { opacity:0 }, { opacity:1, duration:0.3 }, '<');
+	drawIn(tl, l2, '>0.1', 0.45);
+	tl.fromTo(kv, { opacity:0, x:50 }, { opacity:1, x:0, duration:0.5, ease:'power3.out' }, '>-0.1');
+	tl.fromTo(sayEl, { opacity:0, y:12 }, { opacity:1, y:0, duration:0.5 }, '>0.05');
+	finish(tl, step);
+}
+
+// ── 7 · DEPLOYMENT ────────────────────────
+function renderDeploy(){
+	const step = stepById('deploy'), scene = a8Scene(step), B = board(1100, 384);
+	const NW = 170, NG = (1100 - 5 * NW) / 4;
+	const nodes = [['code', 'dpN1'], ['check', 'dpN2'], ['gear', 'dpN3'], ['rocket', 'dpN4'], ['arrowR', 'dpN5']].map((n, i) => b8('a8-card a8-st', icon(n[0]) + `<span class="n">${t(n[1])}</span>`, i * (NW + NG), 0, NW, 78));
+	const lns = [0, 1, 2, 3].map(i => line(B, `M${(i * (NW + NG) + NW + 2).toFixed(1)} 39 H${((i + 1) * (NW + NG) - 4).toFixed(1)}`, 'var(--f4t)', { w:3 }));
+	const tool = b8('a8-chips', `<span class="a8-tag">${icon('code')}<span>${t('dpTool')}</span></span>`, 0, 100, 1100);
+	const sub = b8('a8-chips', `<span class="a8-sub">${t('dpSlots')}</span>`, 0, 168, 1100);
+	const slot = (k, v1, v2, x, tone) => b8('a8-card a8-slot', ic8('app', 40) + `<b>${t(k)}</b><div class="a8-ver"><span class="a8-tag v1">${t(v1)}</span><span class="a8-tag v2 ${tone}">${t(v2)}</span></div>`, x, 196, 300, 130);
+	const stg = slot('dpStg', 'dpStg1', 'dpStg2', 200, 'is-warn'), prod = slot('dpProd', 'dpProd1', 'dpProd2', 600, 'is-ok');
+	const sw1 = line(B, 'M504 245 H596', 'var(--f4t)', { w:3 }), sw2 = line(B, 'M596 295 H504', 'var(--f4t)', { w:3 });
+	const nd = b8('a8-chips', `<span class="a8-tag is-ok">${icon('tick')}<span>${t('dpNoDrop')}</span></span>`, 0, 346, 1100);
+	[...nodes, tool, sub, stg, prod, nd].forEach(n => B.root.appendChild(n));
+	const sayEl = say(t('deploySay'), 'rocket'); a8Done(scene, B, sayEl);
+	const first = [stg, prod].map(s => s.querySelector('.v1')), last = [stg, prod].map(s => s.querySelector('.v2'));
+
+	const tl = mkTL(); head(tl, scene);
+	nodes.forEach((n, i) => { tl.fromTo(n, { opacity:0, y:-30 }, { opacity:1, y:0, duration:0.4, ease:'back.out(1.6)' }, i ? '>-0.12' : '>-0.1'); if(i) drawIn(tl, lns[i - 1], '<-0.05', 0.3); });
+	tl.fromTo(tool, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.4 }, '>0.05');
+	tl.fromTo(sub, { opacity:0 }, { opacity:1, duration:0.4 }, '>0.1');
+	tl.fromTo([stg, prod], { opacity:0, y:34 }, { opacity:1, y:0, duration:0.5, stagger:0.15, ease:'power3.out' }, '>-0.05');
+	drawIn(tl, sw1, '>0.2', 0.45); drawIn(tl, sw2, '<0.1', 0.45);
+	tl.to(first, { opacity:0, duration:0.3 }, '>0.0');
+	tl.fromTo(last, { opacity:0, y:8 }, { opacity:1, y:0, duration:0.4, stagger:0.1 }, '<0.1');
+	tl.fromTo(nd, { opacity:0, scale:0.7 }, { opacity:1, scale:1, duration:0.4, ease:'back.out(2)' }, '>0.0');
+	tl.fromTo(sayEl, { opacity:0, y:12 }, { opacity:1, y:0, duration:0.5 }, '>0.05');
+	finish(tl, step);
+}
+
+// ── 8 · WHOLE · ALL IN ONE ────────────────
+function renderWhole(){
+	const step = stepById('whole'), scene = a8Scene(step), B = board(1100, 290);
+	const bd = k => `<span class="a8-badge">${icon(k)}</span>`;
+	const defs = [[ic8('apim', 44), 'wcApim', 'wcApimD', 'wcApimC'], [ic8('redis', 44), 'wcRedis', 'wcRedisD', 'wcRedisC'], [ic8('sb', 44), 'wcSb', 'wcSbD', 'wcSbC'],
+		[ic8('cfg', 44), 'wcCfg', 'wcCfgD', 'wcCfgC'], [bd('code'), 'wcBicep', 'wcBicepD', 'wcBicepC'], [ic8('app', 44), 'wcSlot', 'wcSlotD', 'wcSlotC']];
+	const cards = defs.map((d, i) => b8('a8-card a8-wc', `<div class="a8-wch">${d[0]}<span class="a8-wcn">${t(d[1])}</span></div><span class="a8-wcd">${t(d[2])}</span><span class="a8-wcc">${t(d[3])}</span>`,
+		(i % 3) * 380, (i / 3 | 0) * 156, 340, 134));
+	cards.forEach(c => B.root.appendChild(c));
+	const foot = el('ai5-foot', t('wholeFoot')), nxt = nextLink('MigrateToAzure.html', 'nextMigrate');
+	const end = el('a8-end'); end.appendChild(foot); end.appendChild(nxt);
+	scene.appendChild(B.root); scene.appendChild(end); mount(scene);
+
+	const tl = mkTL(); head(tl, scene);
+	const from = [{ y:-50 }, { y:-50 }, { y:-50 }, { y:50 }, { y:50 }, { y:50 }];
+	cards.forEach((c, i) => tl.fromTo(c, { opacity:0, scale:0.9, ...from[i] }, { opacity:1, scale:1, y:0, duration:0.5, ease:'back.out(1.4)' }, i ? '>-0.33' : '>-0.1'));
+	tl.fromTo(foot, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.5 }, '>0.1');
+	tl.fromTo(nxt, { opacity:0, y:10 }, { opacity:1, y:0, duration:0.5 }, '>-0.2');
+	finish(tl, step);
+}
+
+const BUILDERS = { gateway:renderGateway, tiers:renderTiers, cache:renderCache, cachewhat:renderCacheWhat, messaging:renderMessaging, config:renderConfig, deploy:renderDeploy, whole:renderWhole };
+
+
+// ── CONTROLS ──────────────────────────────
+function focusHeading(){ const h=document.getElementById('stage-heading'); if(h){ try{ h.focus({preventScroll:true}); }catch(_){ h.focus(); } } }
+function interruptAnimation(){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; animating=false; }
+function next(){ interruptAnimation(); if(current<STEPS.length-1){ renderStep(current+1); focusHeading(); } }
+function prev(){ interruptAnimation(); if(current>0){ renderStep(current-1); focusHeading(); } }
+function reset(){ interruptAnimation(); renderStep(0); focusHeading(); }
+function replay(){ if(current<0) return; interruptAnimation(); renderStep(current); focusHeading(); }
+
+// ── Hide / show top bar (toggle; the ^ chevron flips to v when hidden) ──
+(function(){
+	const hideBtn=document.getElementById('header-hide'), revealBtn=document.getElementById('header-reveal');
+	if(!hideBtn||!revealBtn) return;
+	var hideBtnTop=document.getElementById('header-hide-top'); if(hideBtnTop) hideBtnTop.addEventListener('click',function(e){ e.stopPropagation(); hideBtn.click(); });
+	const hidePath=hideBtn.querySelector('svg path');
+	const UP='M6 15l6-6 6 6', DOWN='M6 9l6 6 6-6';   // ^ points up to hide the bar; flips to v to show it again
+	function setHidden(h){
+		document.body.classList.toggle('chrome-hidden',h);
+		hideBtn.setAttribute('aria-expanded',String(!h));
+		hideBtn.setAttribute('aria-label',h?'Show top bar':'Hide top bar');
+		hideBtn.title=(h?'Show top bar':'Hide top bar')+' (H)';
+		if(hidePath) hidePath.setAttribute('d',h?DOWN:UP);
+		try{localStorage.setItem('aw-tmpl-chrome-hidden',h?'1':'0');}catch(_){}
+		if(current>=0) requestAnimationFrame(()=>{ const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s); });
+	}
+	hideBtn.addEventListener('click',e=>{e.stopPropagation();setHidden(!document.body.classList.contains('chrome-hidden'));});
+	revealBtn.addEventListener('click',e=>{e.stopPropagation();setHidden(false);});
+	try{ if(localStorage.getItem('aw-tmpl-chrome-hidden')==='1') setHidden(true); }catch(_){}
+	document.addEventListener('keydown',e=>{ if(e.code==='KeyH'&&!e.metaKey&&!e.ctrlKey&&!e.altKey){ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return; e.preventDefault(); setHidden(!document.body.classList.contains('chrome-hidden')); } });
+})();
+
+document.getElementById('next-btn').addEventListener('click',e=>{e.stopPropagation();next();});
+document.getElementById('prev-btn').addEventListener('click',e=>{e.stopPropagation();prev();});
+document.getElementById('reset-btn').addEventListener('click',e=>{e.stopPropagation();reset();});
+document.getElementById('replay-btn').addEventListener('click',e=>{e.stopPropagation();replay();});
+
+// ── Clickable progress bar + step ticks ──
+(function(){
+	const track=document.querySelector('.progress-track'); if(!track) return;
+	for(let s=1; s<STEPS.length; s++){ const tk=document.createElement('div'); tk.className='progress-tick'; tk.style.left=(s/STEPS.length*100)+'%'; track.appendChild(tk); }
+	track.setAttribute('title','Jump to a step');
+	track.addEventListener('click', e=>{
+		const r=track.getBoundingClientRect(); const frac=(e.clientX-r.left)/r.width;
+		const target=Math.max(0, Math.min(STEPS.length-1, Math.floor(frac*STEPS.length)));
+		if(target!==current){ interruptAnimation(); renderStep(target); focusHeading(); }
+	});
+})();
+
+// ── Movable / pinnable control dock ───────
+(function(){
+	const dock=document.getElementById('controls'), grip=document.getElementById('ctrl-grip'), pin=document.getElementById('ctrl-pin');
+	if(!dock||!grip) return;
+	const KEY='aw-tmpl-controls-pos';
+	let dragging=false, sx=0, sy=0, bl=0, bt=0, moved=false;
+	function place(left,top){
+		const w=dock.offsetWidth, h=dock.offsetHeight;
+		left=Math.max(6, Math.min(left, window.innerWidth - w - 6));
+		top =Math.max(6, Math.min(top,  window.innerHeight - h - 6));
+		dock.style.left=left+'px'; dock.style.top=top+'px'; dock.style.right='auto'; dock.style.bottom='auto'; dock.style.transform='none';
+		document.body.classList.add('controls-floating');
+	}
+	function recenter(){
+		dock.style.left=dock.style.top=dock.style.right=dock.style.bottom=dock.style.transform='';
+		document.body.classList.remove('controls-floating');
+		try{ localStorage.removeItem(KEY); }catch(_){}
+	}
+	grip.addEventListener('pointerdown', e=>{
+		e.preventDefault(); dragging=true; moved=false;
+		const r=dock.getBoundingClientRect(); bl=r.left; bt=r.top; sx=e.clientX; sy=e.clientY;
+		try{ grip.setPointerCapture(e.pointerId); }catch(_){}
+	});
+	grip.addEventListener('pointermove', e=>{
+		if(!dragging) return;
+		const dx=e.clientX-sx, dy=e.clientY-sy;
+		if(Math.abs(dx)>2||Math.abs(dy)>2) moved=true;
+		place(bl+dx, bt+dy);
+	});
+	function end(e){ if(!dragging) return; dragging=false; try{ grip.releasePointerCapture(e.pointerId); }catch(_){}
+		if(moved){ try{ const r=dock.getBoundingClientRect(); localStorage.setItem(KEY, JSON.stringify({left:r.left, top:r.top})); }catch(_){} } }
+	grip.addEventListener('pointerup', end); grip.addEventListener('pointercancel', end);
+	// keyboard-nudge the dock when the grip is focused (arrow keys; Shift = larger step)
+	grip.addEventListener('keydown', e=>{
+		const d=e.shiftKey?40:12; const r=dock.getBoundingClientRect(); let ok=true;
+		if(e.key==='ArrowLeft') place(r.left-d, r.top);
+		else if(e.key==='ArrowRight') place(r.left+d, r.top);
+		else if(e.key==='ArrowUp') place(r.left, r.top-d);
+		else if(e.key==='ArrowDown') place(r.left, r.top+d);
+		else ok=false;
+		if(ok){ e.preventDefault(); e.stopPropagation(); }
+	});
+	if(pin) pin.addEventListener('click', e=>{ e.stopPropagation(); recenter(); });
+	window.addEventListener('resize', ()=>{ if(document.body.classList.contains('controls-floating')){ const r=dock.getBoundingClientRect(); place(r.left, r.top); } });
+	try{ const s=JSON.parse(localStorage.getItem(KEY)||'null'); if(s && typeof s.left==='number') place(s.left, s.top); }catch(_){}
+})();
+
+// ── Make callout / outline / caption draggable (same pointer-drag as the control dock) ──
+function dragify(el, key){
+	if(!el || el.__awDrag) return; el.__awDrag=true;
+	let dragging=false, sx=0, sy=0, bl=0, bt=0, moved=false;
+	const resizable = getComputedStyle(el).resize !== 'none';
+	const sizeKey = key ? key + '-size' : null;
+	// snapshot the home position + size so the reset pin can restore it exactly
+	const home={ position:el.style.position, left:el.style.left, top:el.style.top,
+		right:el.style.right, bottom:el.style.bottom, margin:el.style.margin, transform:el.style.transform,
+		width:el.style.width, height:el.style.height };
+	// reset "pin" — hidden until the panel is dragged or resized off its home spot
+	const pin=document.createElement('button');
+	pin.type='button'; pin.className='aw-drag-reset';
+	pin.title=t('resetPos'); pin.setAttribute('aria-label', t('resetPos'));
+	pin.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>';
+	// keep the pin inside scrollable / resizable panels so it isn't clipped
+	const oy=getComputedStyle(el).overflowY; const clips=(oy==='auto'||oy==='scroll'||oy==='hidden');
+	pin.style.top=clips?'8px':'-10px'; pin.style.right=clips?'8px':'-10px';
+	el.appendChild(pin);
+	function showPin(on){ pin.style.display=on?'flex':'none'; }
+	pin.addEventListener('pointerdown', e=>{ e.stopPropagation(); });
+	pin.addEventListener('click', e=>{
+		e.preventDefault(); e.stopPropagation();
+		el.style.position=home.position; el.style.left=home.left; el.style.top=home.top;
+		el.style.right=home.right; el.style.bottom=home.bottom; el.style.margin=home.margin; el.style.transform=home.transform;
+		el.style.width=home.width; el.style.height=home.height;
+		if(key){ try{ localStorage.removeItem(key); }catch(_){} }
+		if(sizeKey){ try{ localStorage.removeItem(sizeKey); }catch(_){} }
+		showPin(false);
+	});
+	function fix(left,top){
+		const w=el.offsetWidth, h=el.offsetHeight;
+		left=Math.max(6, Math.min(left, window.innerWidth  - w - 6));
+		top =Math.max(6, Math.min(top,  window.innerHeight - h - 6));
+		el.style.position='fixed'; el.style.left=left+'px'; el.style.top=top+'px';
+		el.style.right='auto'; el.style.bottom='auto'; el.style.margin='0'; el.style.transform='none';
+	}
+	// persist user resizes (the CSS resize grip writes inline width/height; content changes don't)
+	if(resizable && typeof ResizeObserver!=='undefined'){
+		let rt;
+		new ResizeObserver(()=>{
+			if(el.style.width || el.style.height){
+				showPin(true);
+				if(sizeKey){ clearTimeout(rt); rt=setTimeout(()=>{ try{ localStorage.setItem(sizeKey, JSON.stringify({w:el.style.width, h:el.style.height})); }catch(_){} }, 150); }
+			}
+		}).observe(el);
+	}
+	el.addEventListener('pointerdown', e=>{
+		if(e.button!==0 || (e.target.closest && e.target.closest('a,button,select,input,textarea'))) return;
+		if(resizable){ const r=el.getBoundingClientRect(); if(e.clientX>r.right-18 && e.clientY>r.bottom-18) return; } // let the resize grip win
+		dragging=true; moved=false;
+		const r=el.getBoundingClientRect(); bl=r.left; bt=r.top; sx=e.clientX; sy=e.clientY;
+		fix(bl, bt);   // pin at the current spot first, so there's no jump
+		try{ el.setPointerCapture(e.pointerId); }catch(_){}
+		e.preventDefault();
+	});
+	el.addEventListener('pointermove', e=>{
+		if(!dragging) return;
+		const dx=e.clientX-sx, dy=e.clientY-sy;
+		if(Math.abs(dx)>2||Math.abs(dy)>2) moved=true;
+		fix(bl+dx, bt+dy);
+	});
+	function end(e){
+		if(!dragging) return; dragging=false;
+		try{ el.releasePointerCapture(e.pointerId); }catch(_){}
+		if(moved){ showPin(true); if(key){ try{ const r=el.getBoundingClientRect(); localStorage.setItem(key, JSON.stringify({left:r.left, top:r.top})); }catch(_){} } }
+	}
+	el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+	if(sizeKey){ try{ const z=JSON.parse(localStorage.getItem(sizeKey)||'null'); if(z && (z.w||z.h)){ if(z.w) el.style.width=z.w; if(z.h) el.style.height=z.h; showPin(true); } }catch(_){} }
+	if(key){ try{ const s=JSON.parse(localStorage.getItem(key)||'null'); if(s && isFinite(s.left) && isFinite(s.top)){ fix(s.left, s.top); showPin(true); } }catch(_){} }
+}
+dragify(document.getElementById('step-outline'), 'aw-tmpl-outline-pos');
+dragify(document.getElementById('aw-caption'), 'aw-tmpl-caption-pos');
+
+// ── Speed ─────────────────────────────────
+const SPEED_STEPS=[0.5,0.75,1,1.25,1.5,2]; const BASE_TIMESCALE=0.25;
+let speedIndex=SPEED_STEPS.indexOf(1);
+try{ const sp=parseInt(localStorage.getItem('aw-tmpl-speed'),10); if(!isNaN(sp)&&sp>=0&&sp<SPEED_STEPS.length) speedIndex=sp; }catch(_){}
+const speedLabel=document.getElementById('speed-label'), speedDownBtn=document.getElementById('speed-down'), speedUpBtn=document.getElementById('speed-up');
+function saveSpeed(){ try{ localStorage.setItem('aw-tmpl-speed', String(speedIndex)); }catch(_){} }
+function syncSpeedUI(){ const spd=SPEED_STEPS[speedIndex]; speedLabel.textContent=spd+'\u00d7'; speedDownBtn.disabled=speedIndex===0; speedUpBtn.disabled=speedIndex===SPEED_STEPS.length-1; gsap.globalTimeline.timeScale(spd*BASE_TIMESCALE); }
+syncSpeedUI();
+speedDownBtn.addEventListener('click',e=>{e.stopPropagation(); if(speedIndex>0){speedIndex--;syncSpeedUI();saveSpeed();}});
+speedUpBtn.addEventListener('click',e=>{e.stopPropagation(); if(speedIndex<SPEED_STEPS.length-1){speedIndex++;syncSpeedUI();saveSpeed();}});
+
+// ── Keyboard ──────────────────────────────
+if (window.AW && AW.keyboard) { AW.keyboard.bind({ next, prev, reset, replay }); }
+else { document.addEventListener('keydown', e => {
+	const tag=(e.target&&e.target.tagName||'').toLowerCase();
+	if(tag==='input'||tag==='textarea'||tag==='select') return;
+	// Space/Enter must reach a focused control, otherwise the focused button can never be pressed by keyboard
+	const onControl=!!(e.target&&e.target.closest&&e.target.closest('button,a[href],summary,[role="button"],[role="switch"]'));
+	if (['Space','Enter'].includes(e.code) && onControl) return;
+	if (['Space','ArrowRight','Enter'].includes(e.code)) { e.preventDefault(); next(); }
+	else if (e.code==='ArrowLeft') { e.preventDefault(); prev(); }
+	else if (e.code==='KeyR') { e.preventDefault(); reset(); }
+	else if (e.code==='KeyP') { e.preventDefault(); replay(); }
+}); }
+
+// ── Touch swipe (tablets) ─────────────────
+(function(){
+	const surf=document.getElementById('stage'); if(!surf) return;
+	let x0=null,y0=null,t0=0;
+	surf.addEventListener('touchstart',e=>{ if(e.touches.length!==1){x0=null;return;} x0=e.touches[0].clientX; y0=e.touches[0].clientY; t0=Date.now(); },{passive:true});
+	surf.addEventListener('touchend',e=>{
+		if(x0===null) return; const tch=e.changedTouches[0]; const dx=tch.clientX-x0, dy=tch.clientY-y0; x0=null;
+		if(Date.now()-t0>800) return;
+		if(Math.abs(dx)>50 && Math.abs(dx)>Math.abs(dy)*1.6){ if(dx<0) next(); else prev(); }
+	},{passive:true});
+})();
+
+// ── Keyboard shortcut help overlay ────────
+(function(){
+	const overlay=document.getElementById('shortcut-overlay'), btn=document.getElementById('help-toggle'), closeBtn=document.getElementById('sc-close'), list=document.getElementById('sc-list');
+	if(!overlay||!list) return;
+	const ROWS=[[['\u2192','Space'],'scNext'],[['\u2190'],'scPrev'],[['R'],'scRestart'],[['P'],'scReplay'],[['H'],'scHide'],[['?'],'scHelp']];
+	window.buildShortcuts=function(){ const title=document.getElementById('sc-title'); if(title) title.textContent=t('scTitle');
+		list.innerHTML=ROWS.map(([keys,k])=>`<li><span>${t(k)}</span><span class="sc-keys">${keys.map(x=>`<kbd>${x}</kbd>`).join('')}</span></li>`).join(''); };
+	buildShortcuts();
+	function open(){ overlay.removeAttribute('hidden'); if(closeBtn) closeBtn.focus(); }
+	function close(){ overlay.setAttribute('hidden',''); if(btn) btn.focus(); }
+	function toggle(){ overlay.hasAttribute('hidden')?open():close(); }
+	if(btn) btn.addEventListener('click',e=>{e.stopPropagation();toggle();});
+	if(closeBtn) closeBtn.addEventListener('click',e=>{e.stopPropagation();close();});
+	const bd=overlay.querySelector('.sc-backdrop'); if(bd) bd.addEventListener('click',close);
+	document.addEventListener('keydown',e=>{ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return;
+		if(e.key==='?'){ e.preventDefault(); toggle(); }
+		else if(e.key==='Escape' && !overlay.hasAttribute('hidden')){ e.preventDefault(); close(); } });
+})();
+
+// ── Resize (re-fit only — never rebuild or replay the animation) ──
+let resizeTimer, lastStageW=0, lastStageH=0;
+window.addEventListener('resize',()=>{ clearTimeout(resizeTimer); resizeTimer=setTimeout(()=>{
+	if(current<0) return;
+	const box=stage.getBoundingClientRect();
+	if(Math.abs(box.width-lastStageW)<1 && Math.abs(box.height-lastStageH)<1) return;   // ignore no-op reflows (focus/URL-bar) so the animation never restarts
+	lastStageW=box.width; lastStageH=box.height;
+	const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s);
+},200); });
+
+// ── Init ──────────────────────────────────
+setLanguage(currentLang);
+counter.textContent = `1 / ${STEPS.length}`;
+const urlStep = parseInt(new URLSearchParams(location.search).get('step'), 10);   // ?step=N opens on step N
+renderStep((!isNaN(urlStep) && urlStep>=1 && urlStep<=STEPS.length) ? urlStep-1 : 0);
+</script>
+<script>
+// ── Start gate · hold autoplay until the viewer clicks Play (empty stage + centered Play) ──
+(function () {
+	if (new URLSearchParams(location.search).has('present')) return;
+	var stage = document.getElementById('stage');
+	if (!stage) return;
+	function freeze() { try { if (window.gsap && gsap.globalTimeline) gsap.globalTimeline.pause(); } catch (_) {} }
+	freeze(); requestAnimationFrame(freeze);
+	document.body.classList.add('aw-prestart');
+	try { if (typeof stopAudio === 'function') stopAudio(); } catch (_) {}
+	stage.style.transition = 'opacity .55s ease';
+	stage.style.opacity = '0';
+
+	var T = {
+		title: { en:'Ready to begin?', es:'\u00BFTodo listo?', ja:'\u6E96\u5099\u306F\u3044\u3044\u3067\u3059\u304B\uFF1F', ko:'\uC2DC\uC791\uD560 \uC900\uBE44\uAC00 \uB418\uC168\uB098\uC694?', pt:'Tudo pronto?' },
+		sound: { en:'Sound', es:'Sonido', ja:'\u97F3\u58F0', ko:'\uC18C\uB9AC', pt:'Som' },
+		cc:    { en:'Subtitles (CC)', es:'Subt\u00EDtulos (CC)', ja:'\u5B57\u5E55\uFF08CC\uFF09', ko:'\uC790\uB9C9 (CC)', pt:'Legendas (CC)' },
+		start: { en:'Start presentation', es:'Iniciar presentaci\u00F3n', ja:'\u30D7\u30EC\u30BC\u30F3\u3092\u958B\u59CB', ko:'\uD504\uB808\uC820\uD14C\uC774\uC158 \uC2DC\uC791', pt:'Iniciar apresenta\u00E7\u00E3o' }
+	};
+	function L(){ return (typeof currentLang === 'string' && currentLang) || (typeof CURRENT_LANG === 'string' && CURRENT_LANG) || 'en'; }
+	function t(k){ var m = T[k], l = L(); return m[m[l] ? l : 'en']; }
+	function awAudioState(){ try{ if(typeof window.__awAudioOn==='function') return !!window.__awAudioOn(); }catch(_){} return (typeof audioEnabled!=='undefined') && !!audioEnabled; }
+	function awCcState(){ try{ if(typeof window.__awCcOn!=='undefined' && window.__awCcOn!==null) return !!window.__awCcOn; }catch(_){} return (typeof ccPref!=='undefined') && !!ccPref; }
+
+	var style = document.createElement('style');
+	style.textContent =
+		'body.aw-prestart #controls{opacity:.4;pointer-events:none;transition:opacity .4s ease}' +
+		'#aw-play-card{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:50;box-sizing:border-box;width:min(90vw,22rem);padding:1.35rem 1.5rem 1.5rem;border-radius:16px;background:var(--theme-card-background,#fff);color:var(--theme-text,#222);border:1px solid var(--theme-border,rgba(0,0,0,.1));box-shadow:0 24px 60px rgba(0,0,0,.28);transition:opacity .3s ease,transform .3s ease}' +
+		'#aw-play-card.aw-hide{opacity:0;transform:translate(-50%,-50%) scale(.96);pointer-events:none}' +
+		'body.theme-dark #aw-play-card{border-color:rgba(255,255,255,.12);box-shadow:0 24px 60px rgba(0,0,0,.55)}' +
+		'body.present-mode #aw-play-card{display:none!important}' +
+		'.aw-card-title{margin:0 0 1rem;text-align:center;font-size:1.02rem;font-weight:800;letter-spacing:.03em;text-transform:uppercase;opacity:.85}' +
+		'.aw-row{display:flex;align-items:center;gap:.65rem;padding:.6rem 0}' +
+		'.aw-row + .aw-row{border-top:1px solid var(--theme-border,rgba(0,0,0,.08))}' +
+		'.aw-row-ico{flex:none;width:1.5rem;text-align:center;font-size:1.15rem;line-height:1}' +
+		'.aw-row-lbl{flex:1 1 auto;font-size:.9rem;font-weight:600}' +
+		'.aw-row-state{flex:none;min-width:2.5rem;text-align:right;font-size:.68rem;font-weight:800;letter-spacing:.05em;opacity:.5}' +
+		'.aw-row-state.on{color:var(--theme-primary,#0078d4);opacity:1}' +
+		'.aw-switch{position:relative;flex:none;width:44px;height:24px;padding:0;border:none;border-radius:999px;cursor:pointer;background:var(--theme-border,#c7c7d1);transition:background .18s ease}' +
+		'.aw-switch.on{background:var(--theme-primary,#0078d4)}' +
+		'.aw-switch::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.4);transition:transform .18s ease}' +
+		'.aw-switch.on::after{transform:translateX(20px)}' +
+		'#aw-start{margin-top:1.2rem;width:100%;display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:.8rem 1rem;border:none;border-radius:11px;cursor:pointer;background:var(--theme-primary,#0078d4);color:#fff;font-size:.96rem;font-weight:700;letter-spacing:.01em;box-shadow:0 8px 22px var(--theme-primary-translucent,rgba(0,120,212,.45));transition:transform .15s ease}' +
+		'#aw-start:hover{transform:translateY(-2px)}#aw-start:active{transform:scale(.98)}' +
+		'#aw-start svg{width:18px;height:18px;flex:none}';
+	document.head.appendChild(style);
+
+	var card = document.createElement('div');
+	card.id = 'aw-play-card'; card.setAttribute('role', 'dialog'); card.setAttribute('aria-modal', 'true');
+	card.innerHTML =
+		'<div class="aw-card-title"></div>' +
+		'<div class="aw-row" data-k="audio"><span class="aw-row-ico" aria-hidden="true">\uD83D\uDD0A</span><span class="aw-row-lbl"></span><span class="aw-row-state"></span><button type="button" class="aw-switch" role="switch"></button></div>' +
+		'<div class="aw-row" data-k="cc"><span class="aw-row-ico" aria-hidden="true">\uD83D\uDCAC</span><span class="aw-row-lbl"></span><span class="aw-row-state"></span><button type="button" class="aw-switch" role="switch"></button></div>' +
+		'<button type="button" id="aw-start"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 5v14l11-7z"/></svg><span class="aw-start-lbl"></span></button>';
+	document.body.appendChild(card);
+
+	var titleEl = card.querySelector('.aw-card-title');
+	var startBtn = card.querySelector('#aw-start');
+	var ROWS = [ { k:'audio', lbl:'sound', el:card.querySelector('.aw-row[data-k="audio"]'), read:awAudioState, toggle:'audio-toggle' },
+	             { k:'cc',    lbl:'cc',    el:card.querySelector('.aw-row[data-k="cc"]'),    read:awCcState,    toggle:'cc-toggle' } ];
+
+	function render(){
+		titleEl.textContent = t('title'); card.setAttribute('aria-label', t('title'));
+		startBtn.querySelector('.aw-start-lbl').textContent = t('start');
+		ROWS.forEach(function(r){
+			var on = r.read();
+			r.el.querySelector('.aw-row-lbl').textContent = t(r.lbl);
+			var st = r.el.querySelector('.aw-row-state'); st.textContent = on ? 'ON' : 'OFF'; st.classList.toggle('on', on);
+			var sw = r.el.querySelector('.aw-switch'); sw.classList.toggle('on', on); sw.setAttribute('aria-checked', on ? 'true' : 'false');
+			sw.setAttribute('aria-label', t(r.lbl) + ' \u2014 ' + (on ? 'on' : 'off'));
+		});
+	}
+	ROWS.forEach(function(r){
+		r.el.querySelector('.aw-switch').addEventListener('click', function(e){ e.stopPropagation(); var b = document.getElementById(r.toggle); if(b) b.click(); render(); });
+	});
+	render();
+
+	var sel = document.getElementById('lang-select');
+	// Only re-freeze while the gate is still up — after Play, freezing would pause the
+	// global timeline for good and every later scene would stay at opacity 0 (blank stage).
+	if (sel) sel.addEventListener('change', function () { if (done) return; render(); freeze(); });
+
+	function gateKeys(e) {
+		if (done) return;
+		var tag = (e.target && e.target.tagName || '').toLowerCase();
+		if (tag === 'select' || tag === 'input' || tag === 'textarea') return;
+		if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'].indexOf(e.key) >= 0) { e.preventDefault(); e.stopPropagation(); }
+	}
+	document.addEventListener('keydown', gateKeys, true);
+
+	var done = false;
+	function start() {
+		if (done) return; done = true;
+		document.removeEventListener('keydown', gateKeys, true);
+		document.body.classList.remove('aw-prestart');
+		card.classList.add('aw-hide');
+		setTimeout(function () { if (card.parentNode) card.parentNode.removeChild(card); if (style.parentNode) style.parentNode.removeChild(style); }, 420);
+		setTimeout(function () {
+			try { if (window.gsap && gsap.globalTimeline) gsap.globalTimeline.play(); } catch (_) {}
+			stage.style.opacity = '1';
+			try { if (typeof interruptAnimation === 'function') interruptAnimation(); } catch (_) {}
+			try { if (typeof renderStep === 'function') renderStep(typeof current === 'number' && current >= 0 ? current : 0); } catch (_) {}
+		}, 380);
+	}
+	startBtn.addEventListener('click', start);
+	// the gate is aria-modal, so keyboard and screen-reader users must land on it rather than tab the header behind it
+	startBtn.focus({ preventScroll: true });
+}());
+</script>
+<script>
+/* ── Audio-synced animation speed ──────────────────────────────────────────────────────────
+   ANIM[i]       = real seconds step i takes at the 1x speed (measured with BASE_TIMESCALE applied)
+   AUDIO_SECS[l] = length of each recorded clip per language (from the generated MP3s)
+   With narration ON the animation runs at clamp(ANIM/clip, 0.6, 2.2) x BASE_TIMESCALE x the chosen speed, so a step's build
+   finishes about when its voice does. Narration OFF restores the chosen speed. */
+(function () {
+	const ANIM = [21.3,18,22.6,13.2,18,18,21.2,11];
+	const AUDIO_SECS = {"en":[25.66,26.4,22.56,28.1,26.3,24.82,21.17,25.37],"es":[25.42,24.26,22.2,20.95,26.5,22.37,21.96,25.75],"ja":[30.5,29.3,28.15,25.37,28.9,25.46,26.9,29.3],"ko":[25.15,25.61,24.1,22.3,27.1,23.5,23.16,25.85],"pt":[26.66,24.96,23.71,22.85,27.26,23.76,23.11,26.21]};
+	const MIN = 0.6, MAX = 2.2;
+	function clipSecs(i) { const a = AUDIO_SECS[currentLang] || AUDIO_SECS.en; return a && a[i]; }
+	function userSpeed() { try { return SPEED_STEPS[speedIndex]; } catch (_) { return 1; } }
+	function apply(i) {
+		try {
+			if (!window.gsap) return;
+			const D = ANIM[i], A = clipSecs(i);
+			if (audioEnabled && D && A) gsap.globalTimeline.timeScale(Math.max(MIN, Math.min(MAX, D / A)) * BASE_TIMESCALE * userSpeed());
+			else gsap.globalTimeline.timeScale(BASE_TIMESCALE * userSpeed());
+		} catch (_) {}
+	}
+	const render = renderStep;
+	renderStep = function (i) { if (typeof i === 'number' && i >= 0) apply(i); return render.apply(this, arguments); };
+	const speedUI = syncSpeedUI;
+	syncSpeedUI = function () { speedUI.apply(this, arguments); if (current >= 0) apply(current); };
+	const audioBtnEl = document.getElementById('audio-toggle');
+	if (audioBtnEl) audioBtnEl.addEventListener('click', function () { if (current >= 0) apply(current); });
+})();
+</script>
+<script src="../../lib/js/aw-present.js"></script>
+<script src="../../lib/js/aw-declutter.js"></script>
+<script src="../../lib/js/aw-url-state.js"></script>
+<script src="../../lib/js/aw-like-dock.js"></script>
+
+</body>
+</html>
