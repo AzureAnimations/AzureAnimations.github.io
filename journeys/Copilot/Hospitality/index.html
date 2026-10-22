@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<!--
+	Hospitality hub — the home of every Copilot use case for hotel teams.
+	Lives at journeys/Copilot/Hospitality/ and is opened from the "Industry use cases" card on the Copilot index.
+
+	HOW TO ADD A LESSON: copy a <a class="journey-card"> (ready) or <div class="journey-card is-soon"> (coming soon) into the matching grid,
+	then add its strings to I18N below. When a coming-soon app ships, swap its <div> for an <a> and delete the badge.
+	HOW TO ADD ANOTHER INDUSTRY (e.g. Finance): copy this folder's index.html to journeys/Copilot/Finance/index.html,
+	change the copy, and add a second <a class="uc-card"> to the "Industry use cases" section on journeys/Copilot/index.html.
+
+	Three levels under the site root, so shared lib paths are ../../../lib/ . English only for now.
+-->
+<html lang="en">
+<head>
+	<script src="/js/tracking.js"></script>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+	<title>Hospitality · Copilot use cases and practice — Azure Animations</title>
+	<meta name="description" content="Copilot for hotel teams: step-by-step workshops for Outlook, Teams and Word, with PowerPoint and Excel coming next. Built for people who have never used the apps before." />
+	<link rel="icon" href="../../../img/favicon.png" />
+
+	<link rel="stylesheet" href="https://unpkg.com/@microsoft/atlas-css/dist/index.css" />
+	<script src="../../../lib/js/aw-theme.js"></script>
+	<link rel="stylesheet" href="../../../lib/css/aw-likes.css" />
+	<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+	<script src="../../../lib/js/aw-likes.js"></script>
+
+<style>
+	:root {
+		--aw-blue:#0078d4;
+		/* *-t = readable text / button fill (lightened twin in dark theme) */
+		--azure:#0078d4;  --azure-t:#005a9e;
+		--teal:#00b7c3;   --teal-t:#00707a;
+		--orange:#e97526; --orange-t:#b04408;
+		--purple:#8a5cd6; --purple-t:#6a3fc0;
+		--on-acc:#ffffff; --focus:#005a9e;
+	}
+	body.theme-dark {
+		--azure-t:#7dbcff; --teal-t:#4fdbe5; --orange-t:#ffa766; --purple-t:#c3aaf7;
+		--on-acc:#0d0d12; --focus:#8ec5ff;
+	}
+	* { box-sizing:border-box; }
+	html { font-size:100%; scroll-behavior:smooth; }
+	body {
+		margin:0; min-height:100vh;
+		font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif;
+		color:var(--theme-text,#1b1a22);
+		background:
+			radial-gradient(1200px 600px at 12% -8%, rgba(138,92,214,0.16), transparent 60%),
+			radial-gradient(1000px 620px at 100% 0%, rgba(0,120,212,0.14), transparent 55%),
+			radial-gradient(900px 700px at 80% 110%, rgba(0,183,195,0.10), transparent 55%),
+			var(--theme-body-background,#f5f4f8);
+		background-attachment:fixed;
+	}
+	body.theme-dark { color:var(--theme-text,#ececf1); }
+	a { color:inherit; }
+	a:focus-visible, button:focus-visible, select:focus-visible { outline:3px solid var(--focus); outline-offset:3px; border-radius:10px; }
+
+	/* ── HEADER ─────────────────────────────── */
+	.site-head { position:sticky; top:0; z-index:30; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:1rem;
+		padding:0.85rem 1.6rem; backdrop-filter:blur(12px) saturate(1.3); -webkit-backdrop-filter:blur(12px) saturate(1.3);
+		background:var(--theme-body-background-translucent, rgba(255,255,255,0.7)); border-bottom:1px solid var(--theme-border, rgba(128,128,128,0.16)); }
+	body.theme-dark .site-head { background:var(--theme-body-background-translucent, rgba(24,24,30,0.72)); }
+	.topbar-left { display:flex; align-items:center; gap:0.6rem; justify-self:start; min-width:0; }
+	.brand { display:inline-flex; align-items:center; gap:0.55rem; font-weight:700; font-size:1rem; text-decoration:none; white-space:nowrap; }
+	.back-chip { display:inline-flex; align-items:center; gap:0.4rem; font-size:0.86rem; font-weight:600; text-decoration:none; padding:0.35rem 0.85rem; border-radius:999px;
+		border:1px solid var(--theme-border, rgba(128,128,128,0.3)); white-space:nowrap; transition:border-color .15s, color .15s; }
+	.back-chip:hover { border-color:var(--azure); color:var(--azure-t); }
+	.head-title { display:inline-flex; align-items:center; gap:0.5rem; justify-self:center; white-space:nowrap; font-size:1.05rem; font-weight:600; }
+	@media (max-width:1180px) { .brand > span:last-child { display:none; } }
+	.head-actions { display:inline-flex; align-items:center; gap:0.5rem; justify-self:end; }
+	.theme-toggle { display:inline-flex; align-items:center; justify-content:center; width:2.3rem; height:2.3rem; padding:0; background:transparent;
+		border:1px solid var(--theme-border, rgba(128,128,128,0.3)); border-radius:999px; color:var(--theme-text); cursor:pointer; transition:background .15s,color .15s,border-color .15s; }
+	.theme-toggle:hover { background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary,var(--aw-blue)); border-color:var(--theme-primary,var(--aw-blue)); }
+	.theme-toggle .ico { display:none; } .theme-toggle[data-theme="dark"] .ico-sun { display:block; } .theme-toggle[data-theme="light"] .ico-moon { display:block; }
+	.lang-select { appearance:none; -webkit-appearance:none; background:var(--theme-card-background,#fff); color:var(--theme-body-text,#333);
+		border:1px solid var(--theme-border, rgba(128,128,128,0.3)); border-radius:8px; padding:5px 26px 5px 10px; font-size:0.82rem; font-weight:600;
+		font-family:'Segoe UI',sans-serif; cursor:pointer; min-width:104px;
+		background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 8px center; }
+	.lang-select:hover { border-color:var(--theme-primary,var(--aw-blue)); }
+	body.theme-dark .lang-select { background-color:color-mix(in srgb, var(--theme-body-background) 85%, transparent); color:var(--theme-text,#e0e0e0); border-color:rgba(255,255,255,0.18);
+		background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23aaa' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E"); }
+	body.theme-dark .lang-select option { background:var(--theme-body-background,#1a1a2e); color:var(--theme-text,#e0e0e0); }
+
+	/* ── HERO ───────────────────────────────── */
+	.hero { max-width:1200px; margin:0 auto; padding:3.4rem 1.6rem 0.6rem; }
+	.hero-pill { display:inline-flex; align-items:center; gap:0.55rem; font-size:0.82rem; font-weight:500; padding:0.4rem 0.95rem; border-radius:999px; margin-bottom:1.1rem;
+		color:var(--purple-t); background:color-mix(in srgb, var(--purple) 14%, transparent); border:1px solid color-mix(in srgb, var(--purple) 38%, transparent); }
+	.hero-pill .dot { width:8px; height:8px; border-radius:50%; background:var(--purple); box-shadow:0 0 0 4px color-mix(in srgb, var(--purple) 22%, transparent); }
+	.hero h1 { margin:0 0 1rem; font-size:clamp(2.1rem, 4.2vw, 3.3rem); line-height:1.08; font-weight:800; letter-spacing:-0.02em; }
+	.hero h1 .g1 { background:linear-gradient(120deg,#6a3fc0,#0078d4); -webkit-background-clip:text; background-clip:text; color:transparent; }
+	body.theme-dark .hero h1 .g1 { background-image:linear-gradient(120deg,#c3aaf7,#7dbcff); }
+	.hero .lead { margin:0 0 1.3rem; font-size:1.1rem; line-height:1.65; max-width:46rem; color:var(--theme-text-subtle); }
+	.hero-meta { display:flex; flex-wrap:wrap; gap:0.6rem; }
+	.meta-chip { display:inline-flex; align-items:center; gap:0.45rem; font-size:0.86rem; font-weight:500; padding:0.42rem 0.9rem; border-radius:999px;
+		background:var(--theme-card-background,#fff); border:1px solid var(--theme-border, rgba(128,128,128,0.22)); box-shadow:0 3px 10px rgba(0,0,0,0.05); }
+	body.theme-dark .meta-chip { background:rgba(255,255,255,0.05); }
+	.meta-chip b { font-weight:600; }
+
+	/* ── CARDS ──────────────────────────────── */
+	.section-head { max-width:1200px; margin:2.6rem auto 0; padding:0 1.6rem; }
+	.section-head .rail { display:inline-flex; align-items:center; gap:0.6rem; font-size:0.78rem; font-weight:600; letter-spacing:0.14em; text-transform:uppercase; color:var(--theme-text-subtle); }
+	.section-head .rail::before { content:""; width:26px; height:2px; border-radius:2px; background:linear-gradient(90deg,var(--purple),var(--azure)); }
+	.section-head h2 { margin:0.55rem 0 0.35rem; font-size:clamp(1.4rem,2.6vw,1.9rem); font-weight:700; letter-spacing:-0.01em; line-height:1.2; }
+	.section-head p { margin:0; color:var(--theme-text-subtle); font-size:1.02rem; max-width:46rem; line-height:1.6; }
+	.grid-wrap { max-width:1200px; margin:1.4rem auto 0; padding:0 1.6rem; }
+	.journey-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:1.4rem; }
+	.journey-card { --acc:var(--azure); --acc-t:var(--azure-t); position:relative; display:flex; flex-direction:column; border-radius:18px; text-decoration:none; overflow:hidden;
+		background:var(--theme-card-background,#fff); border:1.5px solid color-mix(in srgb, var(--acc) 48%, transparent);
+		box-shadow:0 10px 26px rgba(0,0,0,0.07); transition:transform .22s cubic-bezier(.2,.7,.3,1), box-shadow .22s, border-color .22s; }
+	body.theme-dark .journey-card { background:rgba(255,255,255,0.04); }
+	a.journey-card:hover { transform:translateY(-5px); box-shadow:0 20px 42px rgba(0,0,0,0.14); border-color:var(--acc); }
+	.journey-card[data-acc="teal"] { --acc:var(--teal); --acc-t:var(--teal-t); }
+	.journey-card[data-acc="orange"] { --acc:var(--orange); --acc-t:var(--orange-t); }
+	.journey-card[data-acc="purple"] { --acc:var(--purple); --acc-t:var(--purple-t); }
+	.journey-card.is-soon { border-style:dashed; box-shadow:none; background:color-mix(in srgb, var(--theme-card-background,#fff) 55%, transparent); }
+	body.theme-dark .journey-card.is-soon { background:rgba(255,255,255,0.02); }
+	.card-media { position:relative; height:150px; flex:none; overflow:hidden; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.7rem;
+		background:linear-gradient(135deg, color-mix(in srgb, var(--acc) 20%, transparent), color-mix(in srgb, var(--acc) 7%, transparent));
+		border-bottom:1px solid color-mix(in srgb, var(--acc) 22%, transparent); }
+	.is-soon .card-media { background:linear-gradient(135deg, color-mix(in srgb, var(--acc) 11%, transparent), transparent); }
+	.is-soon .app-logos { opacity:0.8; }
+	.app-logos { display:flex; gap:0.8rem; align-items:center; }
+	.app-logos img { width:54px; height:54px; display:block; filter:drop-shadow(0 4px 8px rgba(0,0,0,0.18)); }
+	.badge { position:absolute; top:0.75rem; right:0.75rem; z-index:5; padding:0.2rem 0.7rem; border-radius:999px; font-size:0.78rem; font-weight:600; letter-spacing:0.04em;
+		color:var(--on-acc); background:var(--acc-t); box-shadow:0 4px 10px rgba(0,0,0,0.2); }
+	.badge.soon { color:var(--theme-text); background:var(--theme-card-background,#fff); border:1.5px dashed var(--acc-t); box-shadow:none; }
+	body.theme-dark .badge.soon { background:#2a2a34; }
+	.mini { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:0.45rem; padding:0 1rem; max-width:20rem; }
+	.mini .pill { font-size:0.8rem; font-weight:600; padding:0.3rem 0.75rem; border-radius:999px; color:var(--theme-text);
+		background:var(--theme-card-background,#fff); border:1.5px solid color-mix(in srgb, var(--c) 60%, transparent); }
+	body.theme-dark .mini .pill { background:#2a2a34; }
+	.card-body { padding:1.1rem 1.3rem 1.3rem; display:flex; flex-direction:column; gap:0.45rem; flex:1; }
+	.card-kicker { display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap; font-size:0.78rem; font-weight:600; letter-spacing:0.12em; text-transform:uppercase; color:var(--acc-t); }
+	.card-body h3 { margin:0; font-size:1.12rem; font-weight:600; line-height:1.28; }
+	.card-body p { margin:0; font-size:0.94rem; line-height:1.55; color:var(--theme-text-subtle); }
+	.card-link { margin-top:auto; padding-top:0.5rem; display:inline-flex; align-items:center; gap:0.4rem; font-size:0.9rem; font-weight:600; color:var(--acc-t); transition:gap .2s; }
+	a.journey-card:hover .card-link { gap:0.7rem; }
+	.card-link.muted { color:var(--theme-text-subtle); font-weight:500; }
+	/* the one live lesson gets a wide card: picture left, words right */
+	.journey-card.is-wide { grid-column:1 / -1; flex-direction:row; }
+	.is-wide .card-media { height:auto; width:36%; min-height:200px; border-bottom:0; border-right:1px solid color-mix(in srgb, var(--acc) 22%, transparent); }
+	.is-wide .card-body { padding:1.5rem 1.8rem; justify-content:center; }
+	.is-wide .card-body h3 { font-size:1.4rem; }
+	.is-wide .card-body p { font-size:1rem; max-width:44rem; }
+
+	/* ── LEARN + FOOTER ─────────────────────── */
+	.learn { max-width:1200px; margin:2.8rem auto 0; padding:0 1.6rem; }
+	.learn-inner { border-radius:20px; padding:1.6rem 1.9rem; display:flex; flex-direction:column; gap:1.1rem;
+		background:linear-gradient(120deg, color-mix(in srgb, var(--purple) 12%, transparent), color-mix(in srgb, var(--azure) 11%, transparent));
+		border:1px solid var(--theme-border, rgba(128,128,128,0.22)); }
+	.learn-inner h3 { margin:0; font-size:1.3rem; font-weight:700; }
+	.learn-inner p { margin:0; color:var(--theme-text-subtle); font-size:0.98rem; line-height:1.6; max-width:46rem; }
+	.learn-cta { display:flex; flex-wrap:wrap; gap:0.7rem; }
+	.btn-cta { display:inline-flex; align-items:center; gap:0.5rem; padding:0.7rem 1.3rem; border-radius:999px; text-decoration:none; font-weight:600; font-size:0.95rem;
+		color:var(--on-acc); background:var(--purple-t); box-shadow:0 10px 24px color-mix(in srgb, var(--purple) 30%, transparent); transition:transform .15s ease; }
+	.btn-cta:hover { transform:translateY(-2px); }
+	footer.site-foot { max-width:1200px; margin:2.6rem auto 0; padding:2.2rem 1.6rem 3.2rem; text-align:center; font-size:0.9rem;
+		border-top:1px solid var(--theme-border, rgba(128,128,128,0.18)); display:flex; flex-direction:column; align-items:center; gap:0.85rem; }
+	footer.site-foot a { color:var(--azure-t); font-weight:600; }
+	.foot-credit { display:inline-flex; align-items:center; gap:0.5rem; flex-wrap:wrap; justify-content:center; }
+	.foot-credit .credit-link { display:inline-flex; align-items:center; gap:0.45rem; font-weight:600; color:var(--theme-text); text-decoration:none; padding:0.3rem 0.8rem; border-radius:999px; border:1px solid var(--theme-border, rgba(128,128,128,0.3)); transition:border-color .15s ease, color .15s ease; }
+	.foot-credit .credit-link .li-icon { color:#0a66c2; flex-shrink:0; }
+	.foot-credit .credit-link:hover { border-color:#0a66c2; color:#0a66c2; }
+
+	@media (max-width:980px) { .journey-grid { grid-template-columns:repeat(2,1fr); } }
+	@media (max-width:760px) {
+		.journey-card.is-wide { flex-direction:column; }
+		.is-wide .card-media { width:100%; min-height:150px; border-right:0; border-bottom:1px solid color-mix(in srgb, var(--acc) 22%, transparent); }
+	}
+	@media (max-width:640px) {
+		.site-head { grid-template-columns:1fr auto; padding:0.7rem 1rem; gap:0.5rem; }
+		.head-title { display:none; }
+		.aw-like-label { display:none; }
+		.lang-select { min-width:0; }
+		.hero, .section-head, .grid-wrap, .learn { padding-left:1.1rem; padding-right:1.1rem; }
+		.journey-grid { grid-template-columns:1fr; }
+		.learn-inner { padding:1.3rem 1.2rem; }
+	}
+	@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation:none !important; transition:none !important; } html { scroll-behavior:auto; } }
+</style>
+	<!-- SEO:START -->
+	<link rel="canonical" href="https://azureanimations.github.io/journeys/Copilot/Hospitality/" />
+	<meta name="robots" content="index, follow, max-image-preview:large" />
+	<meta property="og:type" content="website" />
+	<meta property="og:site_name" content="Azure Animations" />
+	<meta property="og:title" content="Hospitality · Copilot use cases and practice — Azure Animations" />
+	<meta property="og:description" content="Copilot for hotel teams: step-by-step workshops for Outlook, Teams and Word, with PowerPoint and Excel coming next. Built for people who have never used the apps before." />
+	<meta property="og:url" content="https://azureanimations.github.io/journeys/Copilot/Hospitality/" />
+	<meta property="og:image" content="https://azureanimations.github.io/img/favicon.png" />
+	<meta property="og:image:alt" content="Azure Animations" />
+	<meta name="twitter:card" content="summary" />
+	<meta name="twitter:title" content="Hospitality · Copilot use cases and practice — Azure Animations" />
+	<meta name="twitter:description" content="Copilot for hotel teams: step-by-step workshops for Outlook, Teams and Word, with PowerPoint and Excel coming next. Built for people who have never used the apps before." />
+	<meta name="twitter:image" content="https://azureanimations.github.io/img/favicon.png" />
+	<meta name="twitter:image:alt" content="Azure Animations" />
+	<script type="application/ld+json">
+	{"@context":"https://schema.org","@type":"WebPage","name":"Hospitality · Copilot use cases and practice — Azure Animations","description":"Copilot for hotel teams: step-by-step workshops for Outlook, Teams and Word, with PowerPoint and Excel coming next. Built for people who have never used the apps before.","url":"https://azureanimations.github.io/journeys/Copilot/Hospitality/","isPartOf":{"@type":"WebSite","name":"Azure Animations","url":"https://azureanimations.github.io/"},"breadcrumb":{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Azure Animations","item":"https://azureanimations.github.io/"},{"@type":"ListItem","position":2,"name":"Hospitality · Copilot use cases and practice","item":"https://azureanimations.github.io/journeys/Copilot/Hospitality/"}]}}
+	</script>
+	<!-- SEO:END -->
+</head>
+
+<body class="theme-dark" data-theme-preset="atlas">
+
+	<header class="site-head">
+		<div class="topbar-left">
+			<!-- AW:brand {"img":"decoding=\"async\" style=\"width:28px;height:28px;display:block\"","name":"b"} --><a class="brand" href="../../../index.html" aria-label="Azure Animations home"><img data-aw-logo src="../../../img/AzureAnimations-Logo.svg" alt="" decoding="async" style="width:28px;height:28px;display:block" /><span data-aw-name="b"></span></a><!-- /AW:brand -->
+			<a class="back-chip" href="../index.html">&larr; Copilot journey</a>
+		<!-- AW:likes {"slug":"journey-copilot-hospitality"} --><div class="aw-like-top"><button class="aw-like" data-aw-like data-like-total data-page-slug="journey-copilot-hospitality" type="button" aria-pressed="false" aria-label="Support Azure Animations — tap the heart"><span class="aw-like-heart" aria-hidden="true">❤️</span><span class="aw-like-label">Support</span><span class="aw-like-count" data-like-count>0</span></button><div class="aw-like-pop" role="tooltip"><strong>A little tap makes our day 💙</strong><span>These Azure animations are a labour of love. If they helped you, a tap of the heart means the world — thank you for your support! 🙏</span><span class="aw-like-geo" data-like-geo hidden></span></div></div><!-- /AW:likes -->
+		</div>
+		<div class="head-title"><span>Hospitality use cases</span></div>
+		<div class="head-actions">
+			<!-- AW:lang {"langs":["en"]} --><select id="lang-select" class="lang-select" aria-label="Language" title="Language"><option value="en">English</option></select><!-- /AW:lang -->
+			<!-- AW:theme --><button id="theme-toggle" type="button" class="theme-toggle" aria-label="Switch theme" title="Switch theme"><svg class="theme-icon icon-moon ico ico-moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path fill="currentColor" d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg><svg class="theme-icon icon-sun ico ico-sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.5" y1="4.5" x2="6.5" y2="6.5"/><line x1="17.5" y1="17.5" x2="19.5" y2="19.5"/><line x1="4.5" y1="19.5" x2="6.5" y2="17.5"/><line x1="17.5" y1="6.5" x2="19.5" y2="4.5"/></g></svg></button><!-- /AW:theme -->
+		</div>
+	</header>
+
+	<section class="hero">
+		<div class="hero-pill"><span class="dot"></span> Industry use cases &middot; Hospitality</div>
+		<h1><span class="g1">Copilot for hotel teams</span></h1>
+		<p class="lead">Learn Microsoft 365 Copilot with real hotel scenarios. Every workshop is step by step and made for people who have never used the apps before, with practice material you can download.</p>
+		<div class="hero-meta">
+			<span class="meta-chip"><b>2</b>&nbsp;workshops ready</span>
+			<span class="meta-chip"><b>2</b>&nbsp;coming next</span>
+			<span class="meta-chip">Running example: <b>Riverside&nbsp;Grand</b>, a fictional hotel</span>
+		</div>
+	</section>
+
+	<div class="section-head" id="ready">
+		<div class="rail">Ready to learn</div>
+		<h2>Start with Outlook and Teams, then move to Word</h2>
+		<p>Session 1 clears a busy Friday inbox. Session 2 turns that work into a better standard. Same hotel, same role.</p>
+	</div>
+	<div class="grid-wrap">
+		<div class="journey-grid">
+			<a class="journey-card is-wide" data-acc="purple" href="OutlookTeams.html">
+				<div class="card-media">
+					<span class="badge">Ready</span>
+					<div class="app-logos" aria-hidden="true">
+						<img src="../../../lib/icons/brands/m365/Outlook.svg" alt="">
+						<img src="../../../lib/icons/brands/m365/Teams.svg" alt="">
+					</div>
+					<div class="mini" aria-hidden="true">
+						<span class="pill" style="--c:var(--azure)">15 emails</span><span class="pill" style="--c:var(--purple)">6 tries</span><span class="pill" style="--c:var(--teal)">Teams demo</span>
+					</div>
+				</div>
+				<div class="card-body">
+					<span class="card-kicker">Session 1 &middot; Outlook + Teams</span>
+					<h3>Run My Day</h3>
+					<p>Download the practice emails, import them into Outlook, then use Copilot to understand, prioritise, reply and plan. A short Teams demo shows how to catch up on a busy channel. Every click is shown in a mock window.</p>
+					<span class="card-link">Open the workshop &rarr;</span>
+				</div>
+			</a>
+			<a class="journey-card is-wide" data-acc="azure" href="WordCreate.html">
+				<div class="card-media">
+					<span class="badge">Ready</span>
+					<div class="app-logos" aria-hidden="true">
+						<img src="../../../lib/icons/brands/m365/Word.svg" alt="">
+						<img src="../../../lib/icons/brands/Microsoft365Copilot.svg" alt="">
+					</div>
+					<div class="mini" aria-hidden="true">
+						<span class="pill" style="--c:var(--azure)">4 Word files</span><span class="pill" style="--c:var(--purple)">8 prompts</span><span class="pill" style="--c:var(--teal)">Create demo</span>
+					</div>
+				</div>
+				<div class="card-body">
+					<span class="card-kicker">Session 2 &middot; Word + Create + Work IQ</span>
+					<h3>Turn today&rsquo;s work into a better standard</h3>
+					<p>Download four sample Word files, then use Copilot to find the facts, check the evidence, draft a Conference Day Readiness Guide, improve it and review it. A short Create demo turns the guide into a one-page visual. English only.</p>
+					<span class="card-link">Open the workshop &rarr;</span>
+				</div>
+			</a>
+		</div>
+	</div>
+
+	<div class="section-head" id="next">
+		<div class="rail">Coming next</div>
+		<h2>More apps, same hotel</h2>
+		<p>These workshops are being planned. They will follow the same step-by-step style.</p>
+	</div>
+	<div class="grid-wrap">
+		<div class="journey-grid">
+			<div class="journey-card is-soon" data-acc="orange">
+				<div class="card-media">
+					<span class="badge soon">Coming soon</span>
+					<div class="app-logos" aria-hidden="true"><img src="../../../lib/icons/brands/m365/PowerPoint.svg" alt=""></div>
+				</div>
+				<div class="card-body">
+					<span class="card-kicker">PowerPoint</span>
+					<h3>Presentations</h3>
+					<p>Turn notes into a clear presentation for a hotel meeting with Copilot in PowerPoint.</p>
+					<span class="card-link muted">In planning</span>
+				</div>
+			</div>
+			<div class="journey-card is-soon" data-acc="teal">
+				<div class="card-media">
+					<span class="badge soon">Coming soon</span>
+					<div class="app-logos" aria-hidden="true"><img src="../../../lib/icons/brands/m365/Excel.svg" alt=""></div>
+				</div>
+				<div class="card-body">
+					<span class="card-kicker">Excel</span>
+					<h3>Hotel numbers</h3>
+					<p>Explore and explain hotel data with Copilot in Excel.</p>
+					<span class="card-link muted">In planning</span>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<section class="learn">
+		<div class="learn-inner">
+			<div>
+				<h3>Go deeper on Microsoft Learn</h3>
+				<p>The official, always-current Microsoft Learn hub for Microsoft Copilot.</p>
+			</div>
+			<div class="learn-cta">
+				<a class="btn-cta" href="https://learn.microsoft.com/en-us/copilot/" target="_blank" rel="noopener noreferrer">Open Microsoft Learn &#8599;</a>
+			</div>
+		</div>
+	</section>
+
+	<footer class="site-foot">
+		<div class="foot-credit" data-aw-credit="18"></div>
+		<div data-aw-footmeta="https://learn.microsoft.com/en-us/copilot/"></div>
+	</footer>
+
+	<script>
+		// Theme toggle (uses shared AW.theme when present, else local fallback)
+		(function(){
+			const btn=document.getElementById('theme-toggle');
+			function sync(){ const dark=document.body.classList.contains('theme-dark'); btn.dataset.theme=dark?'dark':'light';
+				const l=dark?'Switch to light theme':'Switch to dark theme'; btn.setAttribute('aria-label',l); btn.setAttribute('title',l); }
+			if(window.AW && AW.theme){ AW.theme.onChange(sync); sync(); }
+			else {
+				sync();
+				btn.addEventListener('click',()=>{ const goDark=!document.body.classList.contains('theme-dark');
+					document.body.classList.remove('theme-dark','theme-light'); document.body.classList.add(goDark?'theme-dark':'theme-light');
+					try{ localStorage.setItem('aw-theme', goDark?'theme-dark':'theme-light'); }catch(_){} sync(); });
+				try{ const s=localStorage.getItem('aw-theme'); if(s==='theme-light'||s==='theme-dark'){ document.body.classList.remove('theme-dark','theme-light'); document.body.classList.add(s); sync(); } }catch(_){}
+			}
+		})();
+	</script>
+</body>
+</html>
