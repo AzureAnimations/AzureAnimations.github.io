@@ -965,8 +965,10 @@
 	/* "your task" line on timed steps + prompt-order glow */
 	.scene-lead .tk { display:inline-block; margin-right:0.6rem; padding:0.1rem 0.7rem; border-radius:8px; font-size:0.85em; font-weight:800; letter-spacing:0.07em; color:#fff; background:var(--aw-blue,#0078d4); vertical-align:0.08em; }
 	.scene-lead .tk-TRY { background:#c9560a; } .scene-lead .tk-READ { background:#107c10; } .scene-lead .tk-EXAMINE { background:#6b46b0; }
-	.hx-btn.hx-next { position:relative; border-color:var(--hx-hot) !important; animation:hxGlow 1.3s ease-in-out infinite; }
-	.hx-btn.hx-next::before { content:"\2192"; position:absolute; left:-1.5rem; top:50%; transform:translateY(-50%); font-size:1.4rem; color:var(--hx-hot); animation:hxNudge 1.3s ease-in-out infinite; }
+	/* copy-prompt cue: a gold glow and a pointing finger. It stops for good once the prompt has been copied. */
+	.hx-btn.hx-cue, .hx-btn.hx-next { position:relative; margin-left:2.2rem; }
+	.hx-btn.hx-next, .hx-btn.hx-cue:not(.hx-copied):not(.hx-wait):not(.hx-done) { border-color:var(--hx-hot) !important; animation:hxGlow 1.3s ease-in-out infinite; }
+	.hx-btn.hx-next::before, .hx-btn.hx-cue:not(.hx-copied):not(.hx-wait):not(.hx-done)::before { content:"\1F449"; position:absolute; left:-2.1rem; top:50%; transform:translateY(-50%); font-size:1.5rem; line-height:1; font-family:"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif; animation:hxNudge 1.3s ease-in-out infinite; pointer-events:none; }
 	.hx-btn.hx-wait { opacity:0.7; }
 	.hx-btn.hx-done { border-color:var(--ai5-ok); }
 	.hx-two { display:inline-flex; align-items:center; gap:0.5rem; padding:0.25rem 0.8rem; border-radius:999px; background:rgba(255,185,0,0.2); border:2px solid var(--hx-hot); font-size:1rem; font-weight:700; white-space:nowrap; }
@@ -974,7 +976,7 @@
 	.hx-do1.two .hx-cp { margin-left:auto; display:flex; gap:1.8rem; align-items:center; }
 	@keyframes hxGlow { 0%,100% { box-shadow:0 0 0 0 rgba(255,185,0,0.0), 0 0 8px 1px rgba(255,185,0,0.55); } 50% { box-shadow:0 0 0 7px rgba(255,185,0,0.28), 0 0 22px 6px rgba(255,185,0,0.75); } }
 	@keyframes hxNudge { 0%,100% { transform:translate(0,-50%); } 50% { transform:translate(5px,-50%); } }
-	@media (prefers-reduced-motion: reduce) { .hx-btn.hx-next { animation:none; box-shadow:0 0 0 5px rgba(255,185,0,0.5); } .hx-btn.hx-next::before { animation:none; } }
+	@media (prefers-reduced-motion: reduce) { .hx-btn.hx-next, .hx-btn.hx-cue { animation:none !important; box-shadow:0 0 0 5px rgba(255,185,0,0.5); } .hx-btn.hx-next::before, .hx-btn.hx-cue::before { animation:none !important; } .hx-btn.hx-copied, .hx-btn.hx-wait { box-shadow:none; } }
 	/* final step: what you learned today */
 	.lr-row { display:flex; gap:18px; width:1100px; align-items:stretch; }
 	.lr-skills { flex:1.5; display:flex; flex-direction:column; gap:0.2rem; padding:0.7rem 1.2rem 0.8rem; }
@@ -1600,11 +1602,11 @@ const hxState = { email: '', blob: null, name: '', count: 0 };
 const COPY = {};
 function copyText(text, btn) {
 	const label = btn.dataset.label || btn.textContent; btn.dataset.label = label;
-	const done = () => { btn.textContent = 'Copied \u2713'; btn.classList.add('is-done'); clearTimeout(btn._t); btn._t = setTimeout(() => { btn.textContent = label; btn.classList.remove('is-done'); }, 1800); };
+	const done = () => { btn.textContent = 'Copied \u2713'; btn.classList.add('is-done', 'hx-copied'); clearTimeout(btn._t); btn._t = setTimeout(() => { btn.textContent = label; btn.classList.remove('is-done'); }, 1800); };
 	const fb = () => { const ta = document.createElement('textarea'); ta.value = text; ta.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (_) {} ta.remove(); done(); };
 	if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(done, fb); else fb();
 }
-function copyBtn(key, text, label, cls) { COPY[key] = text; return `<button type="button" class="hx-btn sm ${cls || ''}" data-copy="${key}">${label}</button>`; }
+function copyBtn(key, text, label, cls) { COPY[key] = text; const c = cls || '', cue = /\bnocue\b/.test(c) ? '' : ' hx-cue'; return `<button type="button" class="hx-btn sm ${c}${cue}" data-copy="${key}">${label}</button>`; }
 function wireCopy(root) { root.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', () => copyText(COPY[b.dataset.copy], b))); }
 function guardKeys(root) { root.querySelectorAll('button,a,input,select,textarea').forEach(b => b.addEventListener('keydown', e => { if (e.code === 'Space' || e.code === 'Enter') e.stopPropagation(); })); }
 function download(blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500); }
@@ -1709,8 +1711,8 @@ const CUR_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 2l15 9-
 function mkCursor(B, x, y) { const c = el('mk-cur', CUR_SVG); c.style.left = x + 'px'; c.style.top = y + 'px'; c.style.opacity = 0; B.root.appendChild(c); return c; }
 function go(tl, c, p, at, d, dx, dy) { tl.to(c, { left: p.x + (dx || 0), top: p.y + (dy || 0), duration: d || 0.9, ease: 'power2.inOut' }, at); }
 function tap(tl, B, c, p, at) {
-	const r = el('mk-ring'); r.style.left = p.x + 'px'; r.style.top = p.y + 'px'; B.root.appendChild(r);
-	tl.fromTo(r, { opacity: 0.95, scale: 0.3 }, { opacity: 0, scale: 1.7, duration: 0.55, ease: 'power2.out' }, at);
+	const r = el('mk-ring'); r.style.left = p.x + 'px'; r.style.top = p.y + 'px'; r.style.opacity = 0; B.root.appendChild(r);
+	tl.fromTo(r, { opacity: 0.95, scale: 0.3 }, { opacity: 0, scale: 1.7, duration: 0.55, ease: 'power2.out', immediateRender: false }, at);
 	tl.fromTo(c, { scale: 1 }, { scale: 0.8, duration: 0.1, yoyo: true, repeat: 1 }, at);
 }
 function frame(B, target, pad) {
@@ -2555,8 +2557,8 @@ function bRecap() {
 function bPack() {
 	const { step, scene } = SC('pack');
 	const act = el('hx-btns', '<button type="button" class="hx-btn pri" id="hx-dl-pack">\u2B07 Download the prompt pack (.txt)</button>');
-	const cards = HX.tries.map(p => el('hx-pnl hx-pk', `<b>Try ${p.n} \u00B7 ${esc(p.title)}</b><div>${copyBtn('pk' + p.n, (p.n === 1 || p.n === 5) ? p.prompt + '\n' + TIP : p.prompt, 'Copy prompt')}${p.followup ? copyBtn('pk' + p.n + 'f', p.followup, 'Copy follow-up', 'ghost') : ''}</div>`))
-		.concat(HX.teams.map(d => el('hx-pnl hx-pk tm', `<b>Teams demo ${d.n} \u00B7 ${esc(d.title)}</b><div>${copyBtn('pkd' + d.n, d.prompt, 'Copy prompt', 'tm')}</div>`)));
+	const cards = HX.tries.map(p => el('hx-pnl hx-pk', `<b>Try ${p.n} \u00B7 ${esc(p.title)}</b><div>${copyBtn('pk' + p.n, (p.n === 1 || p.n === 5) ? p.prompt + '\n' + TIP : p.prompt, 'Copy prompt', 'nocue')}${p.followup ? copyBtn('pk' + p.n + 'f', p.followup, 'Copy follow-up', 'ghost nocue') : ''}</div>`))
+		.concat(HX.teams.map(d => el('hx-pnl hx-pk tm', `<b>Teams demo ${d.n} \u00B7 ${esc(d.title)}</b><div>${copyBtn('pkd' + d.n, d.prompt, 'Copy prompt', 'tm nocue')}</div>`)));
 	const grid = el('hx-pack'); cards.forEach(c => grid.appendChild(c)); scene.append(act, grid); mount(scene); wireCopy(scene); guardKeys(scene);
 	act.querySelector('#hx-dl-pack').addEventListener('click', () => download(new Blob([promptPackText()], { type: 'text/plain;charset=utf-8' }), 'hospitality-outlook-teams-prompt-pack.txt'));
 	const tl = mkTL(); head(tl, scene);
