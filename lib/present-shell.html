@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<meta name="robots" content="noindex, nofollow" />
+	<title>Presenter display</title>
+	<!--
+		Audience window host for aw-present.js. This page is the part that goes fullscreen and it NEVER navigates:
+		the journey runs inside the iframe, so moving to the next journey changes only the iframe and the window
+		stays fullscreen. (A normal page navigation always leaves fullscreen, and a browser only allows fullscreen
+		again after a click, which forced the presenter to click the second window for every new journey.)
+		Opened as present-shell.html?u=<same-site page address>. Anything that is not a same-origin address is refused.
+	-->
+	<style>
+		html, body { margin: 0; height: 100%; background: #0b1020; overflow: hidden; }
+		iframe { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; background: #0b1020; }
+		p { margin: 0; padding: 2rem; font: 1rem/1.5 "Segoe UI", system-ui, sans-serif; color: #fff; }
+	</style>
+</head>
+<body>
+	<iframe id="aw-shell-frame" title="Presenter display" allow="autoplay; clipboard-write"></iframe>
+	<script>
+	(function () {
+		'use strict';
+		var frame = document.getElementById('aw-shell-frame');
+		var ALIVE = 'aw-present-audience-alive';   // same heartbeat key aw-present.js uses, so the presenter can find this window
+		var dest = null;
+		try { dest = new URL(new URLSearchParams(location.search).get('u') || '', location.href); } catch (_) {}
+		if (!dest || dest.origin !== location.origin || dest.pathname === location.pathname) {
+			var msg = document.createElement('p'); msg.textContent = 'This presenter display address is not valid.';
+			document.body.replaceChildren(msg);
+			return;
+		}
+		frame.src = dest.pathname + dest.search + dest.hash;
+
+		// The shell owns the heartbeat for the whole life of the window, so it does not blink off between journeys.
+		function beat() { try { localStorage.setItem(ALIVE, String(Date.now())); } catch (_) {} }
+		beat();
+		var timer = setInterval(beat, 2000);
+		document.addEventListener('visibilitychange', beat);
+		window.addEventListener('focus', beat);
+		window.addEventListener('pagehide', function () { clearInterval(timer); try { localStorage.removeItem(ALIVE); } catch (_) {} });
+
+		frame.addEventListener('load', function () {
+			try { frame.contentWindow.focus(); } catch (_) {}
+			try { if (frame.contentDocument && frame.contentDocument.title) document.title = frame.contentDocument.title; } catch (_) {}
+		});
+
+		// F works even when the shell, not the page inside it, has the keyboard focus.
+		document.addEventListener('keydown', function (e) {
+			if (e.code !== 'KeyF' || e.metaKey || e.ctrlKey || e.altKey) return;
+			e.preventDefault();
+			if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(function () {});
+			else document.exitFullscreen().catch(function () {});
+		});
+	})();
+	</script>
+</body>
+</html>
