@@ -1213,6 +1213,15 @@
 	.lr-next { width:1100px; display:flex; flex-direction:column; align-items:center; gap:0.6rem; opacity:0; text-align:center; margin-bottom:2.2rem; }
 	.lr-q { font-size:1.2rem; font-weight:600; line-height:1.3; }
 	.lr-btns { display:flex; gap:0.8rem; justify-content:center; flex-wrap:wrap; }
+	#hx-ptip { position:fixed; z-index:60; display:none; box-sizing:border-box; width:360px; padding:0.85rem 1.1rem 1rem; border-radius:14px; background:rgba(59,65,80,0.98); color:#fff; border:1.5px solid rgba(255,255,255,0.3); box-shadow:0 14px 36px rgba(0,0,0,0.35); font-size:17px; line-height:1.5; pointer-events:none; max-height:calc(100vh - 16px); overflow:hidden; }
+		#hx-ptip.is-on { display:block; }
+		#hx-ptip .pt-k { display:block; margin-bottom:0.5rem; padding-bottom:0.45rem; border-bottom:1px solid rgba(255,255,255,0.2); font-size:14px; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; color:#8fd0ff; }
+		#hx-ptip .pt-b { display:block; white-space:pre-wrap; overflow-wrap:anywhere; font-weight:500; }
+		#hx-ptip::after { content:''; position:absolute; left:var(--ax,50%); margin-left:-9px; border:9px solid transparent; }
+		#hx-ptip.pt-up::after { top:100%; border-top-color:rgba(59,65,80,0.98); }
+		#hx-ptip.pt-down::after { bottom:100%; border-bottom-color:rgba(59,65,80,0.98); }
+		#hx-ptip.pt-side::after { display:none; }
+		#hx-ptip.pt-long { width:640px; font-size:15px; line-height:1.4; } #hx-ptip.pt-long .pt-k { font-size:13px; }
 </style>
 	<!-- SEO:START -->
 	<link rel="canonical" href="https://azureanimations.github.io/journeys/Copilot/Hospitality/WordCreate.html" />
@@ -1743,6 +1752,35 @@ function copyText(text, btn) {
 }
 function copyBtn(key, text, label, cls) { COPY[key] = text; const c = cls || '', cue = /\bnocue\b/.test(c) ? '' : ' hx-cue'; return `<button type="button" class="hx-btn sm ${c}${cue}" data-copy="${key}">${label}</button>`; }
 function wireCopy(root) { root.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', () => copyText(COPY[b.dataset.copy], b))); }
+// ── Copy-button preview bubble: hover or focus a Copy button to read the exact text it copies ──
+(function () {
+	const tip = document.createElement('div'); tip.id = 'hx-ptip'; tip.setAttribute('role', 'tooltip');
+	tip.innerHTML = '<span class="pt-k"></span><span class="pt-b"></span>'; document.body.appendChild(tip);
+	const kEl = tip.querySelector('.pt-k'), bEl = tip.querySelector('.pt-b'); let cur = null, watch = null;
+	const kindOf = key => /^imp/.test(key) ? 'Instruction snippet' : 'Prompt';
+	function place() {
+		if (!cur) return; const r = cur.getBoundingClientRect(), W = tip.offsetWidth, H = tip.offsetHeight, M = 8, gap = 14, vw = window.innerWidth, vh = window.innerHeight;
+		const clamp = (v, a, b) => Math.min(Math.max(a, v), Math.max(a, b));
+		const up = r.top - H - gap >= M, down = r.bottom + H + gap <= vh - M; let left, top, mode;
+		if (up || down) { mode = up ? 'pt-up' : 'pt-down'; left = clamp(r.left + r.width / 2 - W / 2, M, vw - W - M); top = up ? r.top - H - gap : r.bottom + gap; }
+		else { mode = 'pt-side'; left = r.left - W - gap >= M ? r.left - W - gap : Math.min(r.right + gap, vw - W - M); top = clamp(r.top + r.height / 2 - H / 2, M, vh - H - M); }   // a tall prompt goes beside the button, never on top of it
+		tip.style.left = left + 'px'; tip.style.top = top + 'px'; tip.style.setProperty('--ax', clamp(r.left + r.width / 2 - left, 20, W - 20) + 'px');
+		tip.classList.toggle('pt-up', mode === 'pt-up'); tip.classList.toggle('pt-down', mode === 'pt-down'); tip.classList.toggle('pt-side', mode === 'pt-side');
+	}
+	function show(btn) {
+		const key = btn.dataset.copy, text = (typeof COPY !== 'undefined') && COPY[key]; if (!text) return;
+		cur = btn; kEl.textContent = kindOf(key) + ' \u00B7 click to copy'; bEl.textContent = (typeof COPYVIEW !== 'undefined' && COPYVIEW[key]) || text; btn.setAttribute('aria-describedby', 'hx-ptip');
+		tip.classList.toggle('pt-long', text.length > 900); tip.classList.add('is-on'); place(); clearInterval(watch); watch = setInterval(() => { if (!cur || !cur.isConnected) hide(); else place(); }, 250);
+	}
+	function hide() { cur = null; clearInterval(watch); tip.classList.remove('is-on'); }
+	const pick = e => e.target && e.target.closest ? e.target.closest('[data-copy]') : null;
+	document.addEventListener('mouseover', e => { const b = pick(e); if (b) show(b); });
+	document.addEventListener('mouseout', e => { const b = pick(e); if (b && !(e.relatedTarget && b.contains(e.relatedTarget))) hide(); });
+	document.addEventListener('focusin', e => { const b = pick(e); if (b) show(b); });
+	document.addEventListener('focusout', e => { if (pick(e)) hide(); });
+	document.addEventListener('keydown', e => { if (e.key === 'Escape') hide(); });
+	window.addEventListener('resize', hide);
+})();
 function guardKeys(root) { root.querySelectorAll('button,a,input,select,textarea').forEach(b => b.addEventListener('keydown', e => { if (e.code === 'Space' || e.code === 'Enter') e.stopPropagation(); })); }
 function download(blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500); }
 // ── layout + cursor helpers ──
