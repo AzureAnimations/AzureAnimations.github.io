@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<!--
+	Hospitality hub — the home of every Copilot use case for hotel teams.
+	Lives at journeys/Copilot/Hospitality/ and is opened from the "Industry use cases" card on the Copilot index.
+
+	HOW TO ADD A LESSON: copy a <a class="journey-card"> (ready) or <div class="journey-card is-soon"> (coming soon) into the matching grid,
+	then add its strings to I18N below. When a coming-soon app ships, swap its <div> for an <a> and delete the badge.
+	HOW TO ADD ANOTHER INDUSTRY (e.g. Finance): copy this folder's index.html to journeys/Copilot/Finance/index.html,
+	change the copy, and add a second <a class="uc-card"> to the "Industry use cases" section on journeys/Copilot/index.html.
+
+	Three levels under the site root, so shared lib paths are ../../../lib/ . English only for now.
+-->
+<html lang="en">
+<head>
+	<script src="/js/tracking.js"></script>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+	<title>Hospitality · Copilot use cases and practice — Azure Animations</title>
+	<meta name="description" content="Copilot for hotel teams: step-by-step workshops for Outlook, Teams, Word, PowerPoint and Excel. Built for people who have never used the apps before." />
+	<link rel="icon" href="../../../img/favicon.png" />
+
+	<link rel="stylesheet" href="https://unpkg.com/@microsoft/atlas-css/dist/index.css" />
+	<script src="../../../lib/js/aw-hub-design.js"></script><script src="../../../lib/js/aw-theme.js"></script>
+	<link rel="stylesheet" href="../../../lib/css/aw-likes.css" />
+	<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+	<script src="../../../lib/js/aw-likes.js"></script>
+
+<style>
+	:root {
+		--aw-blue:#0078d4;
+		/* *-t = readable text / button fill (lightened twin in dark theme) */
+		--azure:#0078d4;  --azure-t:#005a9e;
+		--teal:#00b7c3;   --teal-t:#00707a;
+		--orange:#e97526; --orange-t:#b04408;
+		--purple:#8a5cd6; --purple-t:#6a3fc0;
+		--on-acc:#ffffff; --focus:#005a9e;
+	}
+	body.theme-dark {
+		--azure-t:#7dbcff; --teal-t:#4fdbe5; --orange-t:#ffa766; --purple-t:#c3aaf7;
+		--on-acc:#0d0d12; --focus:#8ec5ff;
+	}
+	* { box-sizing:border-box; }
+	html { font-size:100%; scroll-behavior:smooth; }
+	body {
+		margin:0; min-height:100vh;
+		font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif;
+		color:var(--theme-text,#1b1a22);
+		background:
+			radial-gradient(1200px 600px at 12% -8%, rgba(138,92,214,0.16), transparent 60%),
+			radial-gradient(1000px 620px at 100% 0%, rgba(0,120,212,0.14), transparent 55%),
+			radial-gradient(900px 700px at 80% 110%, rgba(0,183,195,0.10), transparent 55%),
+			var(--theme-body-background,#f5f4f8);
+		background-attachment:fixed;
+	}
+	body.theme-dark { color:var(--theme-text,#ececf1); }
+	a { color:inherit; }
+	a:focus-visible, button:focus-visible, select:focus-visible { outline:3px solid var(--focus); outline-offset:3px; border-radius:10px; }
+
+	/* ── HEADER ─────────────────────────────── */
+	.site-head { position:sticky; top:0; z-index:30; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:1rem;
+		padding:0.85rem 1.6rem; backdrop-filter:blur(12px) saturate(1.3); -webkit-backdrop-filter:blur(12px) saturate(1.3);
+		background:var(--theme-body-background-translucent, rgba(255,255,255,0.7)); border-bottom:1px solid var(--theme-border, rgba(128,128,128,0.16)); }
+	body.theme-dark .site-head { background:var(--theme-body-background-translucent, rgba(24,24,30,0.72)); }
+	.topbar-left { display:flex; align-items:center; gap:0.6rem; justify-self:start; min-width:0; }
+	.brand { display:inline-flex; align-items:center; gap:0.55rem; font-weight:700; font-size:1rem; text-decoration:none; white-space:nowrap; }
+	.back-chip { display:inline-flex; align-items:center; gap:0.4rem; font-size:0.86rem; font-weight:600; text-decoration:none; padding:0.35rem 0.85rem; border-radius:999px;
+		border:1px solid var(--theme-border, rgba(128,128,128,0.3)); white-space:nowrap; transition:border-color .15s, color .15s; }
+	.back-chip:hover { border-color:var(--azure); color:var(--azure-t); }
+	.head-title { display:inline-flex; align-items:center; gap:0.5rem; justify-self:center; white-space:nowrap; font-size:1.05rem; font-weight:600; }
+	@media (max-width:1180px) { .brand > span:last-child { display:none; } }
+	.head-actions { display:inline-flex; align-items:center; gap:0.5rem; justify-self:end; }
+	.theme-toggle { display:inline-flex; align-items:center; justify-content:center; width:2.3rem; height:2.3rem; padding:0; background:transparent;
+		border:1px solid var(--theme-border, rgba(128,128,128,0.3)); border-radius:999px; color:var(--theme-text); cursor:pointer; transition:background .15s,color .15s,border-color .15s; }
+	.theme-toggle:hover { background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary,var(--aw-blue)); border-color:var(--theme-primary,var(--aw-blue)); }
+	.theme-toggle .ico { display:none; } .theme-toggle[data-theme="dark"] .ico-sun { display:block; } .theme-toggle[data-theme="light"] .ico-moon { display:block; }
+	.lang-select { appearance:none; -webkit-appearance:none; background:var(--theme-card-background,#fff); color:var(--theme-body-text,#333);
+		border:1px solid var(--theme-border, rgba(128,128,128,0.3)); border-radius:8px; padding:5px 26px 5px 10px; font-size:0.82rem; font-weight:600;
+		font-family:'Segoe UI',sans-serif; cursor:pointer; min-width:104px;
+		background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 8px center; }
+	.lang-select:hover { border-color:var(--theme-primary,var(--aw-blue)); }
+	body.theme-dark .lang-select { background-color:color-mix(in srgb, var(--theme-body-background) 85%, transparent); color:var(--theme-text,#e0e0e0); border-color:rgba(255,255,255,0.18);
+		background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23aaa' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E"); }
+	body.theme-dark .lang-select option { background:var(--theme-body-background,#1a1a2e); color:var(--theme-text,#e0e0e0); }
+
+	/* ── HERO ───────────────────────────────── */
+	.hero { max-width:1200px; margin:0 auto; padding:3.4rem 1.6rem 0.6rem; }
+	.hero-pill { display:inline-flex; align-items:center; gap:0.55rem; font-size:0.82rem; font-weight:500; padding:0.4rem 0.95rem; border-radius:999px; margin-bottom:1.1rem;
+		color:var(--purple-t); background:color-mix(in srgb, var(--purple) 14%, transparent); border:1px solid color-mix(in srgb, var(--purple) 38%, transparent); }
+	.hero-pill .dot { width:8px; height:8px; border-radius:50%; background:var(--purple); box-shadow:0 0 0 4px color-mix(in srgb, var(--purple) 22%, transparent); }
+	.hero h1 { margin:0 0 1rem; font-size:clamp(2.1rem, 4.2vw, 3.3rem); line-height:1.08; font-weight:800; letter-spacing:-0.02em; }
+	.hero h1 .g1 { background:linear-gradient(120deg,#6a3fc0,#0078d4); -webkit-background-clip:text; background-clip:text; color:transparent; }
+	body.theme-dark .hero h1 .g1 { background-image:linear-gradient(120deg,#c3aaf7,#7dbcff); }
+	.hero .lead { margin:0 0 1.3rem; font-size:1.1rem; line-height:1.65; max-width:46rem; color:var(--theme-text-subtle); }
+	.hero-meta { display:flex; flex-wrap:wrap; gap:0.6rem; }
+	.meta-chip { display:inline-flex; align-items:center; gap:0.45rem; font-size:0.86rem; font-weight:500; padding:0.42rem 0.9rem; border-radius:999px;
+		background:var(--theme-card-background,#fff); border:1px solid var(--theme-border, rgba(128,128,128,0.22)); box-shadow:0 3px 10px rgba(0,0,0,0.05); }
+	body.theme-dark .meta-chip { background:rgba(255,255,255,0.05); }
+	.meta-chip b { font-weight:600; }
+
+	/* ── CARDS ──────────────────────────────── */
+	.section-head { max-width:1200px; margin:2.6rem auto 0; padding:0 1.6rem; }
+	.section-head .rail { display:inline-flex; align-items:center; gap:0.6rem; font-size:0.78rem; font-weight:600; letter-spacing:0.14em; text-transform:uppercase; color:var(--theme-text-subtle); }
+	.section-head .rail::before { content:""; width:26px; height:2px; border-radius:2px; background:linear-gradient(90deg,var(--purple),var(--azure)); }
+	.section-head h2 { margin:0.55rem 0 0.35rem; font-size:clamp(1.4rem,2.6vw,1.9rem); font-weight:700; letter-spacing:-0.01em; line-height:1.2; }
+	.section-head p { margin:0; color:var(--theme-text-subtle); font-size:1.02rem; max-width:46rem; line-height:1.6; }
+	.grid-wrap { max-width:1200px; margin:1.4rem auto 0; padding:0 1.6rem; }
+	.journey-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:1.4rem; }
+	.journey-card { --acc:var(--azure); --acc-t:var(--azure-t); position:relative; display:flex; flex-direction:column; border-radius:18px; text-decoration:none; overflow:hidden;
+		background:var(--theme-card-background,#fff); border:1.5px solid color-mix(in srgb, var(--acc) 48%, transparent);
+		box-shadow:0 10px 26px rgba(0,0,0,0.07); transition:transform .22s cubic-bezier(.2,.7,.3,1), box-shadow .22s, border-color .22s; }
+	body.theme-dark .journey-card { background:rgba(255,255,255,0.04); }
+	a.journey-card:hover { transform:translateY(-5px); box-shadow:0 20px 42px rgba(0,0,0,0.14); border-color:var(--acc); }
+	.journey-card[data-acc="teal"] { --acc:var(--teal); --acc-t:var(--teal-t); }
+	.journey-card[data-acc="orange"] { --acc:var(--orange); --acc-t:var(--orange-t); }
+	.journey-card[data-acc="purple"] { --acc:var(--purple); --acc-t:var(--purple-t); }
+	.journey-card.is-soon { border-style:dashed; box-shadow:none; background:color-mix(in srgb, var(--theme-card-background,#fff) 55%, transparent); }
+	body.theme-dark .journey-card.is-soon { background:rgba(255,255,255,0.02); }
+	.card-media { position:relative; height:150px; flex:none; overflow:hidden; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.7rem;
+		background:linear-gradient(135deg, color-mix(in srgb, var(--acc) 20%, transparent), color-mix(in srgb, var(--acc) 7%, transparent));
+		border-bottom:1px solid color-mix(in srgb, var(--acc) 22%, transparent); }
+	.is-soon .card-media { background:linear-gradient(135deg, color-mix(in srgb, var(--acc) 11%, transparent), transparent); }
+	.is-soon .app-logos { opacity:0.8; }
+	.app-logos { display:flex; gap:0.8rem; align-items:center; }
+	.app-logos img { width:54px; height:54px; display:block; filter:drop-shadow(0 4px 8px rgba(0,0,0,0.18)); }
+	.badge { position:absolute; top:0.75rem; right:0.75rem; z-index:5; padding:0.2rem 0.7rem; border-radius:999px; font-size:0.78rem; font-weight:600; letter-spacing:0.04em;
+		color:var(--on-acc); background:var(--acc-t); box-shadow:0 4px 10px rgba(0,0,0,0.2); }
+	.badge.soon { color:var(--theme-text); background:var(--theme-card-background,#fff); border:1.5px dashed var(--acc-t); box-shadow:none; }
+	body.theme-dark .badge.soon { background:#2a2a34; }
+	.mini { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:0.45rem; padding:0 1rem; max-width:20rem; }
+	.mini .pill { font-size:0.8rem; font-weight:600; padding:0.3rem 0.75rem; border-radius:999px; color:var(--theme-text);
+		background:var(--theme-card-background,#fff); border:1.5px solid color-mix(in srgb, var(--c) 60%, transparent); }
+	body.theme-dark .mini .pill { background:#2a2a34; }
+	.card-body { padding:1.1rem 1.3rem 1.3rem; display:flex; flex-direction:column; gap:0.45rem; flex:1; }
+	.card-kicker { display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap; font-size:0.78rem; font-weight:600; letter-spacing:0.12em; text-transform:uppercase; color:var(--acc-t); }
+	.card-body h3 { margin:0; font-size:1.12rem; font-weight:600; line-height:1.28; }
+	.card-body p { margin:0; font-size:0.94rem; line-height:1.55; color:var(--theme-text-subtle); }
+	.card-link { margin-top:auto; padding-top:0.5rem; display:inline-flex; align-items:center; gap:0.4rem; font-size:0.9rem; font-weight:600; color:var(--acc-t); transition:gap .2s; }
+	a.journey-card:hover .card-link { gap:0.7rem; }
+	.card-link.muted { color:var(--theme-text-subtle); font-weight:500; }
+	/* the one live lesson gets a wide card: picture left, words right */
+	.journey-card.is-wide { grid-column:1 / -1; flex-direction:row; }
+	.is-wide .card-media { height:auto; width:36%; min-height:200px; border-bottom:0; border-right:1px solid color-mix(in srgb, var(--acc) 22%, transparent); }
+	.is-wide .card-body { padding:1.5rem 1.8rem; justify-content:center; }
+	.is-wide .card-body h3 { font-size:1.4rem; }
+	.is-wide .card-body p { font-size:1rem; max-width:44rem; }
+
+	/* ── LEARN + FOOTER ─────────────────────── */
+	.learn { max-width:1200px; margin:2.8rem auto 0; padding:0 1.6rem; }
+	.learn-inner { border-radius:20px; padding:1.6rem 1.9rem; display:flex; flex-direction:column; gap:1.1rem;
+		background:linear-gradient(120deg, color-mix(in srgb, var(--purple) 12%, transparent), color-mix(in srgb, var(--azure) 11%, transparent));
+		border:1px solid var(--theme-border, rgba(128,128,128,0.22)); }
+	.learn-inner h3 { margin:0; font-size:1.3rem; font-weight:700; }
+	.learn-inner p { margin:0; color:var(--theme-text-subtle); font-size:0.98rem; line-height:1.6; max-width:46rem; }
+	.learn-cta { display:flex; flex-wrap:wrap; gap:0.7rem; }
+	.btn-cta { display:inline-flex; align-items:center; gap:0.5rem; padding:0.7rem 1.3rem; border-radius:999px; text-decoration:none; font-weight:600; font-size:0.95rem;
+		color:var(--on-acc); background:var(--purple-t); box-shadow:0 10px 24px color-mix(in srgb, var(--purple) 30%, transparent); transition:transform .15s ease; }
+	.btn-cta:hover { transform:translateY(-2px); }
+	footer.site-foot { max-width:1200px; margin:2.6rem auto 0; padding:2.2rem 1.6rem 3.2rem; text-align:center; font-size:0.9rem;
+		border-top:1px solid var(--theme-border, rgba(128,128,128,0.18)); display:flex; flex-direction:column; align-items:center; gap:0.85rem; }
+	footer.site-foot a { color:var(--azure-t); font-weight:600; }
+	.foot-credit { display:inline-flex; align-items:center; gap:0.5rem; flex-wrap:wrap; justify-content:center; }
+	.foot-credit .credit-link { display:inline-flex; align-items:center; gap:0.45rem; font-weight:600; color:var(--theme-text); text-decoration:none; padding:0.3rem 0.8rem; border-radius:999px; border:1px solid var(--theme-border, rgba(128,128,128,0.3)); transition:border-color .15s ease, color .15s ease; }
+	.foot-credit .credit-link .li-icon { color:#0a66c2; flex-shrink:0; }
+	.foot-credit .credit-link:hover { border-color:#0a66c2; color:#0a66c2; }
+
+	@media (max-width:980px) { .journey-grid { grid-template-columns:repeat(2,1fr); } }
+	@media (max-width:760px) {
+		.journey-card.is-wide { flex-direction:column; }
+		.is-wide .card-media { width:100%; min-height:150px; border-right:0; border-bottom:1px solid color-mix(in srgb, var(--acc) 22%, transparent); }
+	}
+	@media (max-width:640px) {
+		.site-head { grid-template-columns:1fr auto; padding:0.7rem 1rem; gap:0.5rem; }
+		.head-title { display:none; }
+		.aw-like-label { display:none; }
+		.lang-select { min-width:0; }
+		.hero, .section-head, .grid-wrap, .learn { padding-left:1.1rem; padding-right:1.1rem; }
+		.journey-grid { grid-template-columns:1fr; }
+		.learn-inner { padding:1.3rem 1.2rem; }
+	}
+	@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation:none !important; transition:none !important; } html { scroll-behavior:auto; } }
+/* HOTEL-CSS:START */
+	/* ── ANIMATED HOTEL (hero) ── */
+	.hero { display:grid; grid-template-columns:minmax(0,0.9fr) minmax(0,1.1fr); gap:2.2rem; align-items:center; }
+	.hero-art { margin:0; position:relative; --sky1:#bfe0ff; --sky2:#f1f8ff; --bld:#ecd9c3; --bld2:#d9c1a6; --sign:#2b3a67; --signtxt:#fff; --win:#9cc7ea; --winon:#fff2b8; --door:#6b4a34; --walk:#d8d4cc; --road:#8c92a0; --shrub:#3f9b5c; --cloud:rgba(255,255,255,.9); --sun:#ffd24d; --lamp:#6b7280; --nightop:0; --daytop:1; }
+	body.theme-dark .hero-art { --sky1:#12162c; --sky2:#2d2559; --bld:#2c3150; --bld2:#242844; --sign:#7a52d8; --win:#38406a; --winon:#ffd37a; --door:#1b1d33; --walk:#3a3f5c; --road:#262a3e; --shrub:#2a7a47; --cloud:rgba(255,255,255,.10); --sun:#e8ecff; --lamp:#9aa3c7; --nightop:1; --daytop:0; }
+	.hw-frame { border-radius:20px; overflow:hidden; border:1.5px solid var(--theme-border, rgba(128,128,128,.25)); box-shadow:0 16px 40px rgba(0,0,0,.2); }
+	.hw-svg { display:block; width:100%; height:auto; overflow:hidden; }
+	.hw-svg .s1 { stop-color:var(--sky1); } .hw-svg .s2 { stop-color:var(--sky2); }
+	.hw-bld { fill:var(--bld); } .hw-bld2 { fill:var(--bld2); } .hw-sign { fill:var(--sign); } .hw-signtxt { fill:var(--signtxt); font:800 14px 'Segoe UI',sans-serif; letter-spacing:.1em; }
+	.hw-win { fill:var(--win); } .hw-win.on { fill:var(--winon); opacity:0.92; animation:hwFlick 9s ease-in-out infinite; }
+	body:not(.theme-dark) .hw-win.on { fill:#cfe7fb; }
+	.hw-win.d1 { animation-delay:-2s; } .hw-win.d2 { animation-delay:-4s; } .hw-win.d3 { animation-delay:-6s; } .hw-win.d4 { animation-delay:-8s; }
+	@keyframes hwFlick { 0%,86%,100% { opacity:.95; } 90% { opacity:.35; } 94% { opacity:.95; } }
+	.hw-sil { fill:rgba(40,40,60,.6); animation:hwSil 6s ease-in-out infinite alternate; }
+	@keyframes hwSil { from { transform:translateX(0); } to { transform:translateX(14px); } }
+	.hw-door { fill:var(--door); } .hw-doorlight { fill:#ffe9a8; opacity:.25; animation:hwDoor 3.4s ease-in-out infinite; } body.theme-dark .hw-doorlight { opacity:.55; }
+	@keyframes hwDoor { 0%,100% { opacity:.2; } 50% { opacity:.5; } }
+	.hw-awn { fill:#c4314b; } .hw-stripes path { stroke:#fff; stroke-width:5; opacity:.85; }
+	.hw-small { font:700 9px 'Segoe UI',sans-serif; fill:var(--signtxt); opacity:.9; }
+	body:not(.theme-dark) .hw-small { fill:#4a3a2a; }
+	.hw-shrub ellipse { fill:var(--shrub); }
+	.hw-lamp rect, .hw-lamp circle:not(.halo) { fill:var(--lamp); } .hw-lamp .halo { opacity:var(--nightop); animation:hwHalo 3s ease-in-out infinite; }
+	@keyframes hwHalo { 0%,100% { opacity:.7; } 50% { opacity:1; } }
+	.hw-walk { fill:var(--walk); } .hw-road { fill:var(--road); } .hw-dash { stroke:rgba(255,255,255,.55); stroke-width:3; stroke-dasharray:22 18; fill:none; animation:hwDash 1.2s linear infinite; }
+	@keyframes hwDash { to { stroke-dashoffset:-40; } }
+	.hw-sun { fill:var(--sun); opacity:1; } body.theme-dark .hw-sun { opacity:.95; }
+	.hw-star { fill:#fff; opacity:0; } body.theme-dark .hw-star { animation:hwTwinkle 3.2s ease-in-out infinite; }
+	@keyframes hwTwinkle { 0%,100% { opacity:.25; } 50% { opacity:1; } }
+	.hw-cloud ellipse { fill:var(--cloud); } .hw-cloud.c1 { animation:hwCloud 60s linear infinite; animation-delay:-20s; } .hw-cloud.c2 { animation:hwCloud 80s linear infinite; animation-delay:-30s; }
+	@keyframes hwCloud { from { transform:translateX(-140px); } to { transform:translateX(780px); } }
+	.hw-vantxt { font:800 9px 'Segoe UI',sans-serif; fill:#005a63; letter-spacing:.06em; }
+	.hw-van { animation:hwVan 20s ease-in-out infinite; transform:translateX(260px); }
+	@keyframes hwVan { 0%, 22% { transform:translateX(260px); } 31%, 77% { transform:translateX(0); } 88%, 100% { transform:translateX(260px); } }
+	.walker { opacity:0; }
+	.hw-lab { font:700 11.5px 'Segoe UI',sans-serif; fill:#fff; }
+	.bob { animation:hwBob .55s ease-in-out infinite alternate; }
+	@keyframes hwBob { from { transform:translateY(0); } to { transform:translateY(-1.6px); } }
+	.leg, .arm { transform-box:fill-box; transform-origin:50% 0; animation:hwStep .55s ease-in-out infinite alternate; }
+	.leg.r { animation-direction:alternate-reverse; } .arm { animation-direction:alternate-reverse; }
+	@keyframes hwStep { from { transform:rotate(-24deg); } to { transform:rotate(24deg); } }
+	@keyframes hw0 {
+		0%, 2.5% { opacity:0; transform:translateX(-50px); }
+		4.75% { opacity:1; transform:translateX(-21.5px); }
+		30.25% { opacity:1; transform:translateX(301.5px); }
+		32.5%, 100% { opacity:0; transform:translateX(330px); }
+	}
+	.hw0 { animation:hw0 20s linear infinite;  }
+	@keyframes hw1 {
+		0%, 10% { opacity:0; transform:translateX(720px); }
+		12.25% { opacity:1; transform:translateX(688.6px); }
+		35.25% { opacity:1; transform:translateX(367.4px); }
+		37.5%, 100% { opacity:0; transform:translateX(336px); }
+	}
+	.hw1 { animation:hw1 20s linear infinite;  }
+	@keyframes hw2 {
+		0%, 25% { opacity:0; transform:translateX(324px); }
+		27.25% { opacity:1; transform:translateX(297.4px); }
+		55.25% { opacity:1; transform:translateX(-33.4px); }
+		57.5%, 100% { opacity:0; transform:translateX(-60px); }
+	}
+	.hw2 { animation:hw2 20s linear infinite;  }
+	@keyframes hw3 {
+		0%, 34% { opacity:0; transform:translateX(500px); }
+		36.25% { opacity:1; transform:translateX(491.9px); }
+		46.75% { opacity:1; transform:translateX(454.1px); }
+		49%, 100% { opacity:0; transform:translateX(446px); }
+	}
+	.hw3 { animation:hw3 20s linear infinite;  }
+	@keyframes hw4 {
+		0%, 47.5% { opacity:0; transform:translateX(336px); }
+		49.75% { opacity:1; transform:translateX(363.3px); }
+		77.75% { opacity:1; transform:translateX(702.7px); }
+		80%, 100% { opacity:0; transform:translateX(730px); }
+	}
+	.hw4 { animation:hw4 20s linear infinite; opacity:0; }
+	@keyframes hw5 {
+		0%, 60% { opacity:0; transform:translateX(446px); }
+		62.25% { opacity:1; transform:translateX(454.1px); }
+		72.75% { opacity:1; transform:translateX(491.9px); }
+		75%, 100% { opacity:0; transform:translateX(500px); }
+	}
+	.hw5 { animation:hw5 20s linear infinite; opacity:0; }
+	@keyframes hw6 {
+		0%, 65% { opacity:0; transform:translateX(324px); }
+		67.25% { opacity:1; transform:translateX(297px); }
+		94.75% { opacity:1; transform:translateX(-33px); }
+		97%, 100% { opacity:0; transform:translateX(-60px); }
+	}
+	.hw6 { animation:hw6 20s linear infinite; opacity:0; }
+	@keyframes hw7 {
+		0%, 74% { opacity:0; transform:translateX(-60px); }
+		76.25% { opacity:1; transform:translateX(-24.2px); }
+		95.75% { opacity:1; transform:translateX(286.2px); }
+		98%, 100% { opacity:0; transform:translateX(322px); }
+	}
+	.hw7 { animation:hw7 20s linear infinite; opacity:0; }
+	.hw-legend { display:flex; flex-wrap:wrap; gap:.5rem; margin-top:.8rem; align-items:center; }
+	.hw-chip { display:inline-flex; align-items:center; gap:.45rem; font-size:.9rem; font-weight:600; padding:.3rem .8rem; border-radius:999px; background:var(--theme-card-background,#fff); border:1px solid var(--theme-border, rgba(128,128,128,.25)); }
+	body.theme-dark .hw-chip { background:rgba(255,255,255,.05); }
+	.hw-chip i { width:11px; height:11px; border-radius:50%; background:var(--c); display:inline-block; }
+	.hw-pause { margin-left:auto; font:inherit; font-size:.85rem; font-weight:600; padding:.3rem .85rem; border-radius:999px; cursor:pointer; color:var(--theme-text); background:transparent; border:1px solid var(--theme-border, rgba(128,128,128,.35)); }
+	.hw-pause:hover { border-color:var(--azure); color:var(--azure-t); }
+	.hero-art.is-paused .hw-svg * { animation-play-state:paused !important; }
+	@media (max-width:980px) { .hero { grid-template-columns:minmax(0,1fr); } .hero-art { max-width:680px; width:100%; } .hero-copy { min-width:0; } }
+	@media (max-width:640px) { .hw-pause { margin-left:0; } .hw-chip { font-size:.82rem; } }
+	@media (prefers-reduced-motion: reduce) {
+		.hw-svg * { animation:none !important; }
+		.walker { transform:translateX(var(--rest)); opacity:1; } .walker.hw4, .walker.hw5, .walker.hw6, .walker.hw7 { opacity:0; }
+		.hw-van { transform:translateX(0); } .hw-pause { display:none; }
+	}
+/* HOTEL-CSS:END */
+</style>
+	<!-- SEO:START -->
+	<link rel="canonical" href="https://azureanimations.github.io/journeys/Copilot/Hospitality/" />
+	<meta name="robots" content="index, follow, max-image-preview:large" />
+	<meta property="og:type" content="website" />
+	<meta property="og:site_name" content="Azure Animations" />
+	<meta property="og:title" content="Hospitality · Copilot use cases and practice — Azure Animations" />
+	<meta property="og:description" content="Copilot for hotel teams: step-by-step workshops for Outlook, Teams, Word, PowerPoint and Excel. Built for people who have never used the apps before." />
+	<meta property="og:url" content="https://azureanimations.github.io/journeys/Copilot/Hospitality/" />
+	<meta property="og:image" content="https://azureanimations.github.io/img/favicon.png" />
+	<meta property="og:image:alt" content="Azure Animations" />
+	<meta name="twitter:card" content="summary" />
+	<meta name="twitter:title" content="Hospitality · Copilot use cases and practice — Azure Animations" />
+	<meta name="twitter:description" content="Copilot for hotel teams: step-by-step workshops for Outlook, Teams, Word, PowerPoint and Excel. Built for people who have never used the apps before." />
+	<meta name="twitter:image" content="https://azureanimations.github.io/img/favicon.png" />
+	<meta name="twitter:image:alt" content="Azure Animations" />
+	<script type="application/ld+json">
+	{"@context":"https://schema.org","@type":"WebPage","name":"Hospitality · Copilot use cases and practice — Azure Animations","description":"Copilot for hotel teams: step-by-step workshops for Outlook, Teams, Word, PowerPoint and Excel. Built for people who have never used the apps before.","url":"https://azureanimations.github.io/journeys/Copilot/Hospitality/","isPartOf":{"@type":"WebSite","name":"Azure Animations","url":"https://azureanimations.github.io/"},"breadcrumb":{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Azure Animations","item":"https://azureanimations.github.io/"},{"@type":"ListItem","position":2,"name":"Hospitality · Copilot use cases and practice","item":"https://azureanimations.github.io/journeys/Copilot/Hospitality/"}]}}
+	</script>
+	<!-- SEO:END -->
+</head>
+
+<body class="theme-dark" data-theme-preset="atlas">
+
+	<header class="site-head">
+		<div class="topbar-left">
+			<!-- AW:brand {"img":"decoding=\"async\" style=\"width:28px;height:28px;display:block\"","name":"b"} --><a class="brand" href="../../../index.html" aria-label="Azure Animations home"><img data-aw-logo src="../../../img/brand/logo.svg" alt="" decoding="async" style="width:28px;height:28px;display:block" /><span data-aw-name="b"></span></a><!-- /AW:brand -->
+			<a class="back-chip" href="../index.html">&larr; Copilot journey</a>
+		<!-- AW:likes {"slug":"journey-copilot-hospitality"} --><div class="aw-like-top"><button class="aw-like" data-aw-like data-like-total data-page-slug="journey-copilot-hospitality" type="button" aria-pressed="false" aria-label="Support Azure Animations — tap the heart"><span class="aw-like-heart" aria-hidden="true">❤️</span><span class="aw-like-label">Support</span><span class="aw-like-count" data-like-count>0</span></button><div class="aw-like-pop" role="tooltip"><strong>A little tap makes our day 💙</strong><span>These Azure animations are a labour of love. If they helped you, a tap of the heart means the world — thank you for your support! 🙏</span><span class="aw-like-geo" data-like-geo hidden></span></div></div><!-- /AW:likes -->
+		</div>
+		<div class="head-title"><span>Hospitality use cases</span></div>
+		<div class="head-actions">
+			<!-- AW:lang {"langs":["en"]} --><select id="lang-select" class="lang-select" aria-label="Language" title="Language"><option value="en">English</option></select><!-- /AW:lang -->
+			<!-- AW:theme --><button id="theme-toggle" type="button" class="theme-toggle" aria-label="Switch theme" title="Switch theme"><svg class="theme-icon icon-moon ico ico-moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path fill="currentColor" d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg><svg class="theme-icon icon-sun ico ico-sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.5" y1="4.5" x2="6.5" y2="6.5"/><line x1="17.5" y1="17.5" x2="19.5" y2="19.5"/><line x1="4.5" y1="19.5" x2="6.5" y2="17.5"/><line x1="17.5" y1="6.5" x2="19.5" y2="4.5"/></g></svg></button><!-- /AW:theme -->
+		</div>
+	</header>
+
+	<section class="hero">
+		<div class="hero-copy">
+		<div class="hero-pill"><span class="dot"></span> Industry use cases &middot; Hospitality</div>
+		<h1><span class="g1">Copilot for hotel teams</span></h1>
+		<p class="lead">Learn Microsoft 365 Copilot with real hotel scenarios. Every workshop is step by step and made for people who have never used the apps before, with practice material you can download.</p>
+		<div class="hero-meta">
+			<span class="meta-chip"><b>4</b>&nbsp;workshops ready</span>
+			<span class="meta-chip">Running example: <b>Riverside&nbsp;Grand</b>, a fictional hotel</span>
+		</div>
+		</div>
+		</div>
+		</div>
+		<!-- HOTEL:START -->
+	<figure class="hero-art" id="hero-art" role="group" aria-label="Illustration: guests, management, vendors and facilities staff come and go at the fictional Riverside Grand hotel">
+		<div class="hw-frame"><svg class="hw-svg" viewBox="0 0 680 340" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+	<defs>
+		<linearGradient id="hw-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="s1"/><stop offset="1" class="s2"/></linearGradient>
+		<radialGradient id="hw-glow"><stop offset="0" stop-color="#ffd37a" stop-opacity=".85"/><stop offset="1" stop-color="#ffd37a" stop-opacity="0"/></radialGradient>
+	</defs>
+	<rect width="680" height="340" fill="url(#hw-sky)"/>
+	<g class="hw-stars"><circle class="hw-star" cx="40" cy="30" r="1.6" style="animation-delay:-0.0s"/><circle class="hw-star" cx="110" cy="52" r="1.6" style="animation-delay:-0.7s"/><circle class="hw-star" cx="170" cy="22" r="1.6" style="animation-delay:-1.4s"/><circle class="hw-star" cx="250" cy="40" r="1.6" style="animation-delay:-2.1s"/><circle class="hw-star" cx="330" cy="24" r="1.6" style="animation-delay:-2.8s"/><circle class="hw-star" cx="410" cy="48" r="1.6" style="animation-delay:-3.5s"/><circle class="hw-star" cx="470" cy="20" r="1.6" style="animation-delay:-4.2s"/><circle class="hw-star" cx="520" cy="56" r="1.6" style="animation-delay:-4.9s"/><circle class="hw-star" cx="600" cy="34" r="1.6" style="animation-delay:-5.6s"/><circle class="hw-star" cx="640" cy="70" r="1.6" style="animation-delay:-6.3s"/><circle class="hw-star" cx="70" cy="90" r="1.6" style="animation-delay:-7.0s"/><circle class="hw-star" cx="140" cy="110" r="1.6" style="animation-delay:-7.7s"/></g>
+	<circle class="hw-sun" cx="596" cy="58" r="22"/>
+	<g class="hw-cloud c1"><ellipse cx="90" cy="64" rx="34" ry="10"/><ellipse cx="112" cy="58" rx="22" ry="10"/><ellipse cx="70" cy="60" rx="18" ry="8"/></g>
+	<g class="hw-cloud c2"><ellipse cx="420" cy="40" rx="30" ry="9"/><ellipse cx="440" cy="35" rx="18" ry="8"/></g>
+	<!-- hotel -->
+	<rect class="hw-bld" x="196" y="96" width="268" height="196" rx="4"/>
+	<rect class="hw-bld2" x="184" y="84" width="292" height="16" rx="3"/>
+	<rect class="hw-sign" x="262" y="62" width="156" height="26" rx="5"/>
+	<text x="340" y="80" text-anchor="middle" class="hw-signtxt">RIVERSIDE GRAND</text>
+	<path class="hw-roof" d="M196,96 L340,44 L464,96Z" style="display:none"/>
+	<rect class="hw-win  d0" x="218" y="112" width="30" height="26" rx="3"/><rect class="hw-win on d1" x="266" y="112" width="30" height="26" rx="3"/><rect class="hw-win on d2" x="314" y="112" width="30" height="26" rx="3"/><rect class="hw-win on d3" x="362" y="112" width="30" height="26" rx="3"/><rect class="hw-win  d4" x="410" y="112" width="30" height="26" rx="3"/><rect class="hw-win on d0" x="218" y="152" width="30" height="26" rx="3"/><rect class="hw-win on d1" x="266" y="152" width="30" height="26" rx="3"/><rect class="hw-win on d2" x="314" y="152" width="30" height="26" rx="3"/><rect class="hw-win  d3" x="362" y="152" width="30" height="26" rx="3"/><rect class="hw-win on d4" x="410" y="152" width="30" height="26" rx="3"/><rect class="hw-win on d0" x="218" y="192" width="30" height="26" rx="3"/><rect class="hw-win on d1" x="266" y="192" width="30" height="26" rx="3"/><rect class="hw-win  d2" x="314" y="192" width="30" height="26" rx="3"/><rect class="hw-win on d3" x="362" y="192" width="30" height="26" rx="3"/><rect class="hw-win on d4" x="410" y="192" width="30" height="26" rx="3"/><rect class="hw-win on d0" x="218" y="232" width="30" height="26" rx="3"/><rect class="hw-win  d1" x="266" y="232" width="30" height="26" rx="3"/><rect class="hw-win on d2" x="314" y="232" width="30" height="26" rx="3"/><rect class="hw-win on d3" x="362" y="232" width="30" height="26" rx="3"/><rect class="hw-win on d4" x="410" y="232" width="30" height="26" rx="3"/><g class="hw-sil" style="animation-delay:-0s" transform="translate(266,118)"><circle cx="0" cy="9" r="3.6"/><rect x="-4.2" y="13" width="8.4" height="12" rx="3"/></g><g class="hw-sil" style="animation-delay:-1.7s" transform="translate(362,198)"><circle cx="0" cy="9" r="3.6"/><rect x="-4.2" y="13" width="8.4" height="12" rx="3"/></g>
+	<!-- main entrance + awning -->
+	<rect class="hw-door" x="300" y="232" width="60" height="60" rx="3"/>
+	<rect class="hw-doorlight" x="304" y="236" width="52" height="56"/>
+	<path class="hw-awn" d="M290,226 H370 L376,238 H284Z"/>
+	<g class="hw-stripes"><path d="M296,226 l-4,12 M308,226 l-2,12 M320,226 l-1,12 M332,226 h0 v12 M344,226 l1,12 M356,226 l2,12 M366,226 l4,12"/></g>
+	<!-- service door -->
+	<rect class="hw-door" x="428" y="246" width="28" height="46" rx="2"/>
+	<rect x="418" y="222" width="48" height="14" rx="3" fill="#1f1f28" opacity=".75"/><text x="442" y="232.5" text-anchor="middle" class="hw-small" style="fill:#fff">DELIVERIES</text>
+	<!-- shrubs and lamps -->
+	<g class="hw-shrub"><ellipse cx="270" cy="282" rx="16" ry="12"/><ellipse cx="392" cy="282" rx="16" ry="12"/></g>
+	<g class="hw-lamp"><rect x="118" y="214" width="4" height="78"/><circle cx="120" cy="212" r="7"/><circle class="halo" cx="120" cy="212" r="34" fill="url(#hw-glow)"/></g>
+	<g class="hw-lamp"><rect x="588" y="214" width="4" height="78"/><circle cx="590" cy="212" r="7"/><circle class="halo" cx="590" cy="212" r="34" fill="url(#hw-glow)"/></g>
+	<!-- pavement + road -->
+	<rect class="hw-walk" x="0" y="292" width="680" height="16"/>
+	<rect class="hw-road" x="0" y="308" width="680" height="32"/>
+	<path class="hw-dash" d="M0,326 H680"/>
+	<!-- delivery van -->
+	<g transform="translate(56,310)"><g class="hw-van">
+		<rect x="520" y="-38" width="78" height="30" rx="5" fill="#fff"/>
+		<rect x="520" y="-38" width="78" height="9" rx="4" fill="#007a85"/>
+		<text x="560" y="-16" text-anchor="middle" class="hw-vantxt">SUPPLIER</text>
+		<path d="M520,-30 h-17 q-6,0 -9,6 l-6,10 v7 q0,7 6,7 h26z" fill="#e9eef5"/>
+		<path d="M514,-26 q-5,0 -8,5 l-4,6 h12z" fill="#9ec9ee"/>
+		<circle cx="530" cy="-3" r="7" fill="#1c1c24"/><circle cx="530" cy="-3" r="3" fill="#aab"/>
+		<circle cx="582" cy="-3" r="7" fill="#1c1c24"/><circle cx="582" cy="-3" r="3" fill="#aab"/>
+	</g></g>
+	<g transform="translate(0,292)"><g class="walker hw0" style="--rest:250px">
+	<g class="bob"><g transform="scale(1,1)">
+		<rect class="leg l" x="-6.4" y="-26" width="5.4" height="26" rx="2.7" fill="#2a2d3e"/>
+		<rect class="leg r" x="1" y="-26" width="5.4" height="26" rx="2.7" fill="#2a2d3e"/>
+		<rect x="-9.6" y="-53" width="19.2" height="29" rx="7" fill="#e0607e"/>
+		<circle cy="-60" r="6.8" fill="#f1c9a5"/><circle cy="-62" r="7.6" fill="#3b2a20"/>
+		<rect class="arm" x="-2.4" y="-50" width="5.6" height="21" rx="2.8" fill="#e0607e" stroke="rgba(0,0,0,.18)" stroke-width=".8"/>
+		<rect x="9" y="-18" width="16" height="18" rx="2.6" fill="#6a3fc0"/><rect x="14" y="-23" width="6" height="5" rx="1.6" fill="none" stroke="#3b2a6b" stroke-width="1.6"/><circle cx="12" cy="1" r="1.8" fill="#222"/><circle cx="22" cy="1" r="1.8" fill="#222"/>
+	</g>
+	<g transform="translate(0,-84)"><rect x="-26.5" y="-10" width="53" height="18" rx="9" fill="#b8338d"/><text text-anchor="middle" y="3.2" class="hw-lab">Guest</text></g>
+	</g></g></g>
+	<g transform="translate(0,292)"><g class="walker hw1" style="--rest:392px">
+	<g class="bob"><g transform="scale(-1,1)">
+		<rect class="leg l" x="-6.4" y="-26" width="5.4" height="26" rx="2.7" fill="#2a2d3e"/>
+		<rect class="leg r" x="1" y="-26" width="5.4" height="26" rx="2.7" fill="#2a2d3e"/>
+		<rect x="-9.6" y="-53" width="19.2" height="29" rx="7" fill="#2b3a67"/><path d="M-3.4,-52 L0,-41 L3.4,-52Z" fill="#fff"/><path d="M-1.5,-49 h3 l1.1,11 -2.6,3.4 -2.6,-3.4z" fill="#6a3fc0"/>
+		<circle cy="-60" r="6.8" fill="#d9a47e"/><circle cy="-62" r="7.4" fill="#1c1c24"/>
+		<rect class="arm" x="-2.4" y="-50" width="5.6" height="21" rx="2.8" fill="#2b3a67" stroke="rgba(0,0,0,.18)" stroke-width=".8"/>
+		<rect x="7" y="-45" width="13" height="17" rx="2" fill="#1f1f28"/><rect x="8.6" y="-43.4" width="9.8" height="13.2" rx="1" fill="#6cb2f5"/>
+	</g>
+	<g transform="translate(0,-84)"><rect x="-45" y="-10" width="90" height="18" rx="9" fill="#6a3fc0"/><text text-anchor="middle" y="3.2" class="hw-lab">Management</text></g>
+	</g></g></g>
+	<g transform="translate(0,292)"><g class="walker hw2" style="--rest:96px">
+	<g class="bob"><g transform="scale(-1,1)">
+		<rect class="leg l" x="-6.4" y="-26" width="5.4" height="26" rx="2.7" fill="#2a2d3e"/>
+		<rect class="leg r" x="1" y="-26" width="5.4" height="26" rx="2.7" fill="#2a2d3e"/>
+		<rect x="-9.6" y="-53" width="19.2" height="29" rx="7" fill="#e97526"/><rect x="-9" y="-41" width="18" height="3.4" fill="#ffe066"/><rect x="-9" y="-35" width="18" height="2.4" fill="#ffe066"/>
+		<circle cy="-60" r="6.8" fill="#f1c9a5"/><path d="M-8.4,-61 a8.4,8.4 0 0 1 16.8,0z" fill="#f0a500"/><rect x="-10" y="-62.4" width="20" height="3" rx="1.5" fill="#f0a500"/>
+		<rect class="arm" x="-2.4" y="-50" width="5.6" height="21" rx="2.8" fill="#e97526" stroke="rgba(0,0,0,.18)" stroke-width=".8"/>
+		<rect x="9" y="-17" width="19" height="12" rx="2" fill="#b04408"/><path d="M13,-17 v-3.6 h11 v3.6" fill="none" stroke="#b04408" stroke-width="2.2"/><rect x="9" y="-12" width="19" height="1.8" fill="#7a2f05"/>
+	</g>
+	<g transform="translate(0,-84)"><rect x="-45" y="-10" width="90" height="18" rx="9" fill="#b04408"/><text text-anchor="middle" y="3.2" class="hw-lab">Facilities</text></g>
+	</g></g></g>
+	<g transform="translate(0,292)"><g class="walker hw3" style="--rest:470px">
+	<g class="bob"><g transform="scale(-1,1)">
+		<rect class="leg l" x="-6.4" y="-26" width="5.4" height="26" rx="2.7" fill="#2a2d3e"/>
+		<rect class="leg r" x="1" y="-26" width="5.4" height="26" rx="2.7" fill="#2a2d3e"/>
+		<rect x="-9.6" y="-53" width="19.2" height="29" rx="7" fill="#00a3b0"/>
+		<circle cy="-60" r="6.8" fill="#c78a64"/><path d="M-7.8,-61 a7.8,7.8 0 0 1 15.6,0z" fill="#007a85"/><rect x="1" y="-62.4" width="11" height="3.2" rx="1.6" fill="#007a85"/>
+		<rect class="arm" x="-2.4" y="-50" width="5.6" height="21" rx="2.8" fill="#00a3b0" stroke="rgba(0,0,0,.18)" stroke-width=".8"/>
+		<rect x="6" y="-48" width="22" height="17" rx="2" fill="#c99a5b"/><path d="M6,-42.5 h22 M17,-48 v17" stroke="#a67c3d" stroke-width="1.6"/>
+	</g>
+	<g transform="translate(0,-84)"><rect x="-30" y="-10" width="60" height="18" rx="9" fill="#007a85"/><text text-anchor="middle" y="3.2" class="hw-lab">Vendor</text></g>
+	</g></g></g>
+	<g transform="translate(0,292)"><g class="walker hw4" style="--rest:0px">
+	<g class="bob"><g transform="scale(1,1)">
+		<rect class="leg l" x="-6.4" y="-26" width="5.4" height="26" rx="2.7" fill="#2a2d3e"/>
+		<rect class="leg r" x="1" y="-26" width="5.4" height="26" rx="2.7" fill="#2a2d3e"/>
+		<rect x="-9.6" y="-53" width="19.2" height="29" rx="7" fill="#2aa198"/>
+		<circle cy="-60" r="6.8" fill="#8d5a3c"/><circle cy="-62" r="7.6" fill="#15110e"/>
+		<rect class="arm" x="-2.4" y="-50" width="5.6" height="21" rx="2.8" fill="#2aa198" stroke="rgba(0,0,0,.18)" stroke-width=".8"/>
+		<rect x="9" y="-18" width="16" height="18" rx="2.6" fill="#6a3fc0"/><rect x="14" y="-23" width="6" height="5" rx="1.6" fill="none" stroke="#3b2a6b" stroke-width="1.6"/><circle cx="12" cy="1" r="1.8" fill="#222"/><circle cx="22" cy="1" r="1.8" fill="#222"/>
+	</g>
+	<g transform="translate(0,-84)"><rect x="-26.5" y="-10" width="53" height="18" rx="9" fill="#b8338d"/><text text-anchor="middle" y="3.2" class="hw-lab">Guest</text></g>
+	</g></g></g>
+	<g transform="translate(0,292)"><g class="walker hw5" style="--rest:0px">
+	<g class="bob"><g transform="scale(1,1)">
+		<rect class="leg l" x="-6.4" y="-26" width="5.4" height="26" rx="2.7" fill="#2a2d3e"/>
+		<rect class="leg r" x="1" y="-26" width="5.4" height="26" rx="2.7" fill="#2a2d3e"/>
+		<rect x="-9.6" y="-53" width="19.2" height="29" rx="7" fill="#00a3b0"/>
+		<circle cy="-60" r="6.8" fill="#c78a64"/><path d="M-7.8,-61 a7.8,7.8 0 0 1 15.6,0z" fill="#007a85"/><rect x="1" y="-62.4" width="11" height="3.2" rx="1.6" fill="#007a85"/>
+		<rect class="arm" x="-2.4" y="-50" width="5.6" height="21" rx="2.8" fill="#00a3b0" stroke="rgba(0,0,0,.18)" stroke-width=".8"/>
+		
+	</g>
+	<g transform="translate(0,-84)"><rect x="-30" y="-10" width="60" height="18" rx="9" fill="#007a85"/><text text-anchor="middle" y="3.2" class="hw-lab">Vendor</text></g>
+	</g></g></g>
+	<g transform="translate(0,292)"><g class="walker hw6" style="--rest:0px">
+	<g class="bob"><g transform="scale(-1,1)">
+		<rect class="leg l" x="-6.4" y="-26" width="5.4" height="26" rx="2.7" fill="#2a2d3e"/>
+		<rect class="leg r" x="1" y="-26" width="5.4" height="26" rx="2.7" fill="#2a2d3e"/>
+		<rect x="-9.6" y="-53" width="19.2" height="29" rx="7" fill="#3d2b67"/><path d="M-3.4,-52 L0,-41 L3.4,-52Z" fill="#fff"/><path d="M-1.5,-49 h3 l1.1,11 -2.6,3.4 -2.6,-3.4z" fill="#6a3fc0"/>
+		<circle cy="-60" r="6.8" fill="#f1c9a5"/><circle cy="-62" r="7.4" fill="#5a3b24"/>
+		<rect class="arm" x="-2.4" y="-50" width="5.6" height="21" rx="2.8" fill="#3d2b67" stroke="rgba(0,0,0,.18)" stroke-width=".8"/>
+		
+	</g>
+	<g transform="translate(0,-84)"><rect x="-45" y="-10" width="90" height="18" rx="9" fill="#6a3fc0"/><text text-anchor="middle" y="3.2" class="hw-lab">Management</text></g>
+	</g></g></g>
+	<g transform="translate(0,292)"><g class="walker hw7" style="--rest:0px">
+	<g class="bob"><g transform="scale(1,1)">
+		<rect class="leg l" x="-6.4" y="-26" width="5.4" height="26" rx="2.7" fill="#2a2d3e"/>
+		<rect class="leg r" x="1" y="-26" width="5.4" height="26" rx="2.7" fill="#2a2d3e"/>
+		<rect x="-9.6" y="-53" width="19.2" height="29" rx="7" fill="#e97526"/><rect x="-9" y="-41" width="18" height="3.4" fill="#ffe066"/><rect x="-9" y="-35" width="18" height="2.4" fill="#ffe066"/>
+		<circle cy="-60" r="6.8" fill="#c78a64"/><path d="M-8.4,-61 a8.4,8.4 0 0 1 16.8,0z" fill="#f0a500"/><rect x="-10" y="-62.4" width="20" height="3" rx="1.5" fill="#f0a500"/>
+		<rect class="arm" x="-2.4" y="-50" width="5.6" height="21" rx="2.8" fill="#e97526" stroke="rgba(0,0,0,.18)" stroke-width=".8"/>
+		
+	</g>
+	<g transform="translate(0,-84)"><rect x="-45" y="-10" width="90" height="18" rx="9" fill="#b04408"/><text text-anchor="middle" y="3.2" class="hw-lab">Facilities</text></g>
+	</g></g></g>
+</svg></div>
+		<div class="hw-legend" aria-label="Who is at the hotel">
+			<span class="hw-chip" style="--c:#b8338d"><i></i>Guests</span>
+			<span class="hw-chip" style="--c:#6a3fc0"><i></i>Management</span>
+			<span class="hw-chip" style="--c:#007a85"><i></i>Vendors</span>
+			<span class="hw-chip" style="--c:#b04408"><i></i>Facilities</span>
+			<button type="button" class="hw-pause" id="hw-pause" aria-pressed="false">Pause animation</button>
+		</div>
+	</figure>
+		<!-- HOTEL:END -->
+	</section>
+
+	<div class="section-head" id="ready">
+		<div class="rail">Ready to learn</div>
+		<h2>Start with Outlook and Teams, then Word, PowerPoint, Excel, the agents and your own agent</h2>
+		<p>Session 1 clears a busy Friday inbox. Session 2 turns that work into a better standard. Session 3 tells the story. Session 4 turns the numbers into evidence. Session 5 turns trusted research into a proposal your team can discuss. Session 6 builds your own agent. Same hotel, same role.</p>
+	</div>
+	<div class="grid-wrap">
+		<div class="journey-grid">
+			<a class="journey-card is-wide" data-acc="purple" href="OutlookTeams.html">
+				<div class="card-media">
+					<span class="badge">Ready</span>
+					<div class="app-logos" aria-hidden="true">
+						<img src="../../../lib/icons/brands/m365/Outlook.svg" alt="">
+						<img src="../../../lib/icons/brands/m365/Teams.svg" alt="">
+					</div>
+					<div class="mini" aria-hidden="true">
+						<span class="pill" style="--c:var(--azure)">15 emails</span><span class="pill" style="--c:var(--purple)">6 tries</span><span class="pill" style="--c:var(--teal)">Teams demo</span>
+					</div>
+				</div>
+				<div class="card-body">
+					<span class="card-kicker">Session 1 &middot; Outlook + Teams</span>
+					<h3>Run My Day</h3>
+					<p>Download the practice emails, import them into Outlook, then use Copilot to understand, prioritise, reply and plan. A short Teams demo shows how to catch up on a busy channel. Every click is shown in a mock window.</p>
+					<span class="card-link">Open the workshop &rarr;</span>
+				</div>
+			</a>
+			<a class="journey-card is-wide" data-acc="azure" href="WordCreate.html">
+				<div class="card-media">
+					<span class="badge">Ready</span>
+					<div class="app-logos" aria-hidden="true">
+						<img src="../../../lib/icons/brands/m365/Word.svg" alt="">
+						<img src="../../../lib/icons/brands/Microsoft365Copilot.svg" alt="">
+					</div>
+					<div class="mini" aria-hidden="true">
+						<span class="pill" style="--c:var(--azure)">4 Word files</span><span class="pill" style="--c:var(--purple)">8 prompts</span><span class="pill" style="--c:var(--teal)">Create demo</span>
+					</div>
+				</div>
+				<div class="card-body">
+					<span class="card-kicker">Session 2 &middot; Word + Create + Work IQ</span>
+					<h3>Turn today&rsquo;s work into a better standard</h3>
+					<p>Download four sample Word files, then use Copilot to find the facts, check the evidence, draft a Conference Day Readiness Guide, improve it and review it. A short Create demo turns the guide into a one-page visual. English only.</p>
+					<span class="card-link">Open the workshop &rarr;</span>
+				</div>
+			</a>
+			<a class="journey-card is-wide" data-acc="orange" href="PowerPointStory.html">
+				<div class="card-media">
+					<span class="badge">Ready</span>
+					<div class="app-logos" aria-hidden="true">
+						<img src="../../../lib/icons/brands/m365/PowerPoint.svg" alt="">
+						<img src="../../../lib/icons/brands/Microsoft365Copilot.svg" alt="">
+					</div>
+					<div class="mini" aria-hidden="true">
+						<span class="pill" style="--c:var(--azure)">4 source files</span><span class="pill" style="--c:var(--purple)">8 prompts</span><span class="pill" style="--c:var(--teal)">Verify first</span>
+					</div>
+				</div>
+				<div class="card-body">
+					<span class="card-kicker">Session 3 &middot; PowerPoint: Tell the Story</span>
+					<h3>From scattered sources to a verified story</h3>
+					<p>Use Word, PDF, Excel and PowerPoint files to recover a lost deck, rebuild an outdated one after late changes, and turn hotel data into a board story. Copilot proposes. You verify. English only.</p>
+					<span class="card-link">Open the workshop &rarr;</span>
+				</div>
+			</a>
+			<a class="journey-card is-wide" data-acc="teal" href="ExcelPerformance.html">
+				<div class="card-media">
+					<span class="badge">Ready</span>
+					<div class="app-logos" aria-hidden="true">
+						<img src="../../../lib/icons/brands/m365/Excel.svg" alt="">
+						<img src="../../../lib/icons/brands/Microsoft365Copilot.svg" alt="">
+					</div>
+					<div class="mini" aria-hidden="true">
+						<span class="pill" style="--c:var(--azure)">5 Excel files</span><span class="pill" style="--c:var(--purple)">8 prompts</span><span class="pill" style="--c:var(--teal)">Excel + Chat</span>
+					</div>
+				</div>
+				<div class="card-body">
+					<span class="card-kicker">Session 4 &middot; Excel + Copilot Chat</span>
+					<h3>Hotel Performance: Analyse, Investigate, Improve</h3>
+					<p>Scan five focused hotel workbooks with Copilot in Excel, then compare files in Copilot Chat without opening Excel. Ask better questions, trace every answer to evidence, and challenge bias and causation. 75 minutes. English only.</p>
+					<span class="card-link">Open the workshop &rarr;</span>
+				</div>
+			</a>
+			<a class="journey-card is-wide" data-acc="purple" href="HotelImprovementWorkspaces.html">
+				<div class="card-media">
+					<span class="badge">Ready</span>
+					<div class="app-logos" aria-hidden="true">
+						<img src="../../../lib/icons/brands/ResearcherAgent.png" alt="">
+						<img src="../../../lib/icons/brands/AnalystAgent.png" alt="">
+						<img src="../../../lib/icons/brands/Microsoft365Copilot.svg" alt="">
+					</div>
+					<div class="mini" aria-hidden="true">
+						<span class="pill" style="--c:var(--azure)">1 starter file</span><span class="pill" style="--c:var(--purple)">8 prompts</span><span class="pill" style="--c:var(--teal)">60 min</span>
+					</div>
+				</div>
+				<div class="card-body">
+					<span class="card-kicker">Session 5 &middot; Researcher + Analyst</span>
+					<h3>From Research to Hotel Improvement</h3>
+					<p>One shared challenge, one guided path. Use Researcher to find trusted public ideas and Analyst to test one class approach on a hotel workbook. Then build a Copilot workspace with your files and peers, and reach a proposal, a presentation and a meeting agenda. Nothing to choose or type. 60 minutes. English only.</p>
+					<span class="card-link">Open the workshop &rarr;</span>
+				</div>
+			</a>
+			<a class="journey-card is-wide" data-acc="teal" href="HotelContactFinder.html">
+				<div class="card-media">
+					<span class="badge">Ready</span>
+					<div class="app-logos" aria-hidden="true">
+						<img src="../../../lib/icons/brands/AgentBuilder.png" alt="">
+						<img src="../../../lib/icons/brands/Microsoft365Copilot.svg" alt="">
+						<img src="../../../lib/icons/brands/m365/Excel.svg" alt="">
+					</div>
+					<div class="mini" aria-hidden="true">
+						<span class="pill" style="--c:var(--azure)">6 knowledge files</span><span class="pill" style="--c:var(--purple)">6 tests</span><span class="pill" style="--c:var(--teal)">60 min</span>
+					</div>
+				</div>
+				<div class="card-body">
+					<span class="card-kicker">Session 6 &middot; Agent Builder</span>
+					<h3>Build a Hotel Contact Finder Agent</h3>
+					<p>At 9:00 PM a Bangkok hotel has a technology problem and the IT contact has gone home. Build a no-code agent in Agent Builder, ground it in six approved files, write precise instructions, test it six ways, then solve a critical outage. The sample files are dated for the day you download them. 60 minutes. English only.</p>
+					<span class="card-link">Open the workshop &rarr;</span>
+				</div>
+			</a>		</div>
+	</div>
+
+	<section class="learn">
+		<div class="learn-inner">
+			<div>
+				<h3>Go deeper on Microsoft Learn</h3>
+				<p>The official, always-current Microsoft Learn hub for Microsoft Copilot.</p>
+			</div>
+			<div class="learn-cta">
+				<a class="btn-cta" href="https://learn.microsoft.com/en-us/copilot/" target="_blank" rel="noopener noreferrer">Open Microsoft Learn &#8599;</a>
+			</div>
+		</div>
+	</section>
+
+	<footer class="site-foot">
+		<div class="foot-credit" data-aw-credit="18"></div>
+		<div data-aw-footmeta="https://learn.microsoft.com/en-us/copilot/"></div>
+	</footer>
+
+	<script>
+		// Theme toggle (uses shared AW.theme when present, else local fallback)
+		(function(){
+			const btn=document.getElementById('theme-toggle');
+			function sync(){ const dark=document.body.classList.contains('theme-dark'); btn.dataset.theme=dark?'dark':'light';
+				const l=dark?'Switch to light theme':'Switch to dark theme'; btn.setAttribute('aria-label',l); btn.setAttribute('title',l); }
+			if(window.AW && AW.theme){ AW.theme.onChange(sync); sync(); }
+			else {
+				sync();
+				btn.addEventListener('click',()=>{ const goDark=!document.body.classList.contains('theme-dark');
+					document.body.classList.remove('theme-dark','theme-light'); document.body.classList.add(goDark?'theme-dark':'theme-light');
+					try{ localStorage.setItem('aw-theme', goDark?'theme-dark':'theme-light'); }catch(_){} sync(); });
+				try{ const s=localStorage.getItem('aw-theme'); if(s==='theme-light'||s==='theme-dark'){ document.body.classList.remove('theme-dark','theme-light'); document.body.classList.add(s); sync(); } }catch(_){}
+			}
+		})();
+	</script>
+
+	<script>
+		// Pause / play the hotel animation (the hotel keeps running for anyone who does not pause it)
+		(function(){
+			const fig=document.getElementById('hero-art'), btn=document.getElementById('hw-pause'); if(!fig||!btn) return;
+			btn.addEventListener('click',()=>{ const p=fig.classList.toggle('is-paused'); btn.setAttribute('aria-pressed',p?'true':'false'); btn.textContent=p?'Play animation':'Pause animation'; });
+		})();
+	</script>
+</body>
+</html>

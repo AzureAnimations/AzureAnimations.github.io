@@ -1,0 +1,2432 @@
+<!DOCTYPE html>
+<!-- Narration script: /narration/AI/AI500/TrainerBriefing.md -->
+<!--
+	Azure Animations — STARTER TEMPLATE
+	====================================
+	Copy this file to <Area>/<Sub>/YourTopic.html (e.g. AI/Foundry/MyTopic.html) and:
+	  1. Set <title>, #page-title, and the back-link href.
+	  2. Rename/expand the sample steps. Each STEPS[] entry pairs with one
+	     render<Xxx>Step(). The samples demonstrate the reusable building blocks —
+	     delete the ones you don't need, they are all optional:
+	       • PROBLEM   — a centered hero .card
+	       • FLOW      — a .ta-flow of .agent-node boxes joined by .ta-arrow (input → process → output)
+	       • CODE      — a VS Code-style .code-card (use .code-duo for a request/response pair)
+	       • USE CASES — a .uc-grid of .uc-card tiles
+	       • RECAP     — a .card + .value-chip row + closing line
+	  3. Fill the English I18N block, then add es/ja/ko/pt (full objects OR the
+	     { ...I18N.en, overrides } spread) and matching <option>s in #lang-select.
+	  4. Prefer Microsoft Fluent icons/emoji over raw OS emoji for anything shown
+	     on a projector. Source priority: Azure service icons (local lib
+	     ../../../lib/icons/…) → Fluent System Icons → Fluent UI Emoji → Fluent Emoji
+	     Animated → Twemoji (last resort, CC-BY).
+	  5. Run the Definition-of-Done checklist before publishing.
+
+	DESIGN NOTES
+	  • Accent colour is --theme-tertiary (Microsoft purple #5c2d91); primary blue
+	    and green (#10a37f) act as secondary / positive accents.
+	  • The bottom #controls is a compact translucent "icon dock" of glyph-only
+	    buttons; their localized labels live in the tooltip (title), set in setLanguage().
+	  • Audio narration is optional: list one clip per step (in order) in AUDIO_FILES[]
+	    and an Audio toggle appears automatically. Present mode (dual-window) ships via
+	    aw-present.js at the bottom — it self-installs a "Present" button in the header.
+
+	NOTE: the ../../../lib/ and ../../../img/ paths assume this file lives two levels
+	under static/v2/ (e.g. static/v2/AI/Foundry/). Adjust depth if you move it.
+-->
+<html lang="en">
+<head>
+	<script src="/js/tracking.js"></script>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+	<title>AI-500 Trainer Briefing — Azure Animations</title>
+	<link rel="icon" type="image/png" href="../../../img/favicon.png" />
+
+	<link rel="stylesheet" href="https://unpkg.com/@microsoft/atlas-css/dist/index.css" />
+	<script src="../../../lib/vendor/gsap-3.15.0.min.js"></script>
+
+	<!-- AnimationWorks shared lib -->
+	<script src="../../../lib/js/aw-easings.js"></script>
+	<script src="../../../lib/js/aw-motion.js"></script>
+	<script src="../../../lib/js/aw-theme.js"></script>
+	<script src="../../../lib/js/aw-keyboard.js"></script>
+	<script src="../../../lib/js/aw-captions.js"></script>
+
+<style>
+	/* ── SHELL ─────────────────────────────── */
+	/* Brand palette — reference these tokens; don't hardcode hex */
+	:root {
+		--aw-purple:#5c2d91;   /* primary accent — titles, callouts, arrows, progress, agents */
+		--aw-blue:#0078d4;     /* secondary — inputs, links, "the model", primary button */
+		--aw-green:#10a37f;    /* positive — success, grounded/correct results, value chips */
+		--aw-orange:#e97526;   /* tools / actions — tool calls, function calling, side-effects */
+		--aw-pink:#d24aa8;     /* highlight — a fourth category / emphasis */
+	}
+	html, body { height:100%; margin:0; }
+	html { font-size:100%; }
+	body {
+		display:flex; flex-direction:column; height:100vh;
+		overflow:hidden;
+		font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif;
+		color: var(--theme-text);
+		background:
+			radial-gradient(circle at 15% 20%, rgba(92,45,145,0.18) 0%, transparent 55%),
+			radial-gradient(circle at 85% 80%, rgba(0,120,212,0.18) 0%, transparent 55%),
+			var(--theme-body-background);
+	}
+	.app-header { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:1rem; flex-shrink:0; font-size:16px; }
+	.app-header > :last-child { justify-self:end; }
+
+	/* #stage fills the space between the top bar and the control dock, and centers the fixed 16:9 frame. */
+	#stage {
+		position:relative; flex:1 1 auto; width:100%; min-height:0;
+		display:flex; align-items:center; justify-content:center;
+		overflow:hidden; container-type:size;
+		padding:1.75rem 2.75rem 5rem;   /* breathing room around the frame; bottom clears the fixed #controls dock */
+	}
+	#stage:focus-visible, button:focus-visible, a:focus-visible, select:focus-visible {
+		outline:2px solid var(--theme-primary, #0078d4); outline-offset:3px; border-radius:4px;
+	}
+	/* The visible rectangle: the largest 16:9 box that fits the stage. All scenes are drawn inside it. */
+	#stage-frame {
+		position:relative; overflow:hidden;
+		width: min(100cqw, calc(100cqh * 16 / 9));
+		aspect-ratio: 16 / 9; max-width:100%; max-height:100%;
+		border-radius:16px;
+		background: rgba(0,0,0,0.015);
+		box-shadow: 0 12px 44px rgba(0,0,0,0.22);
+	}
+	body.theme-dark #stage-frame { background: rgba(255,255,255,0.025); }
+	/* Coloured gradient border (brand purple → blue → pink) drawn as a masked ring — no interior tint. */
+	#stage-frame::before {
+		content:""; position:absolute; inset:0; border-radius:inherit; padding:2.5px;
+		background: linear-gradient(135deg, var(--aw-purple) 0%, var(--aw-blue) 55%, var(--aw-pink) 100%);
+		-webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+		mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+		-webkit-mask-composite: xor; mask-composite: exclude;
+		pointer-events:none; z-index:20;
+	}
+	#fx-svg { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:6; overflow:visible; }
+
+	/* ── SCENE ─────────────────────────────── */
+	.scene {
+		position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+		transform-origin:center center;
+		width:min(1150px, 96%); z-index:10;
+		display:flex; flex-direction:column; align-items:center; gap:1.4rem;
+	}
+	/* 200ms fade in / out between every step */
+	@keyframes awSceneIn { from { opacity:0; } to { opacity:1; } }
+	@keyframes awSceneOut { from { opacity:1; } to { opacity:0; } }
+	.scene.scene-in { animation: awSceneIn 0.2s ease both; }
+	.scene.scene-out { animation: awSceneOut 0.2s ease both; }
+	.scene-title { font-size:2.5rem; font-weight:700; color:var(--theme-tertiary, #5c2d91); margin:0; text-align:center; opacity:0; }
+	body.theme-dark .scene-title { color:#c9a5e8; }
+	/* lead spans wide (near the scene width) to use the side gutters and stay within 2 lines — trim copy if it wraps to 3 */
+	.scene-lead { margin:0; text-align:center; font-size:1.35rem; color:var(--theme-text); max-width:min(1180px,96%); line-height:1.5; opacity:0; }
+
+	/* ── CALLOUT · draggable, slightly see-through so it never fully blocks the diagram ── */
+	.callout {
+		position:absolute; max-width:340px; padding:1rem 1.2rem;
+		background:var(--theme-body-background);
+		background:color-mix(in srgb, var(--theme-body-background) 84%, transparent);
+		-webkit-backdrop-filter:blur(5px); backdrop-filter:blur(5px);
+		border:1px solid var(--theme-border);
+		border-left:4px solid var(--theme-tertiary, #5c2d91); border-radius:6px;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2));
+		font-size:1.05rem; line-height:1.45; z-index:14; opacity:0;
+		cursor:grab; touch-action:none;
+	}
+	.callout:active { cursor:grabbing; }
+
+	/* ── RESET "PIN" · appears on a draggable panel once it has been moved off its home spot ── */
+	.aw-drag-reset {
+		position:absolute; width:24px; height:24px; padding:0; display:none;
+		align-items:center; justify-content:center; border-radius:50%;
+		background:var(--theme-tertiary,#5c2d91); color:#fff;
+		border:2px solid var(--theme-body-background,#fff);
+		box-shadow:0 2px 7px rgba(0,0,0,0.4); cursor:pointer; z-index:6;
+		opacity:0.92; transition:opacity .14s ease, transform .14s ease;
+	}
+	.aw-drag-reset:hover { opacity:1; transform:scale(1.08); }
+	.aw-drag-reset:focus-visible { outline:2px solid #5cc8ff; outline-offset:2px; }
+	.aw-drag-reset svg { width:13px; height:13px; display:block; }
+
+	/* ══════════════════════════════════════════════════════════ */
+	/* ── REUSABLE BUILDING BLOCKS · keep what you use, drop rest ─ */
+	/* ══════════════════════════════════════════════════════════ */
+
+	/* Centered hero card */
+	.card {
+		width:min(680px, 96%); padding:1.6rem 1.8rem; border-radius:16px;
+		background:var(--theme-card-background, #fff); border:2px solid var(--theme-border);
+		box-shadow:0 8px 28px rgba(0,0,0,0.14); opacity:0;
+		display:flex; flex-direction:column; gap:0.6rem; align-items:center; text-align:center;
+	}
+	body.theme-dark .card { background:rgba(255,255,255,0.05); }
+	.card .card-icon { font-size:3rem; line-height:1; }
+	.card .card-h { font-size:1.4rem; font-weight:700; }
+	.card .card-p { font-size:1.05rem; color:var(--theme-text-subtle); line-height:1.5; }
+
+	/* Wide info panel */
+	.ta-card {
+		width:min(1080px, 98%); border:1.5px solid var(--theme-border); border-radius:14px;
+		background:var(--theme-card-background, #fff); box-shadow:0 8px 30px rgba(0,0,0,0.16);
+		padding:1.1rem 1.3rem; opacity:0;
+	}
+	body.theme-dark .ta-card { background:rgba(255,255,255,0.05); }
+	.ta-card-head {
+		display:flex; align-items:center; gap:0.5rem;
+		font-size:1rem; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;
+		color:var(--theme-text-subtle); margin-bottom:0.6rem;
+	}
+	.ta-card-text { font-size:1.22rem; line-height:1.55; color:var(--theme-text); }
+
+	/* Pills / chips */
+	.chip-row { display:flex; flex-wrap:wrap; gap:0.7rem; justify-content:center; }
+	.pill {
+		display:inline-flex; align-items:center; gap:0.5rem; padding:0.55rem 1.1rem;
+		border-radius:999px; font-size:1.05rem; font-weight:600;
+		border:2px solid var(--theme-tertiary, #5c2d91); background:rgba(92,45,145,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .pill { background:rgba(92,45,145,0.2); }
+	.value-chip {
+		display:inline-flex; align-items:center; gap:0.4rem; padding:0.5rem 1rem;
+		border-radius:999px; font-size:1rem; font-weight:700;
+		border:2px solid #107c10; background:rgba(16,124,16,0.08);
+		color:var(--theme-text); opacity:0;
+	}
+	body.theme-dark .value-chip { background:rgba(16,124,16,0.16); }
+	.recap-foot { font-size:1.05rem; color:var(--theme-text); text-align:center; max-width:760px; opacity:0; }
+
+	/* Flow row: input → process → output */
+	.agent-node {
+		display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.2rem;
+		width:160px; height:160px; border-radius:24px;
+		background: linear-gradient(135deg, rgba(92,45,145,0.12), rgba(0,120,212,0.12));
+		border:2.5px solid var(--theme-tertiary, #5c2d91);
+		box-shadow:0 8px 28px rgba(92,45,145,0.2); flex-shrink:0; text-align:center;
+	}
+	.agent-node .an-icon { font-size:3rem; line-height:1; }
+	.agent-node .an-icon img { width:64px; height:64px; display:block; }
+	.agent-node .an-label { font-size:1.05rem; font-weight:700; color:var(--theme-text); }
+	.agent-node .an-sub { font-size:0.85rem; color:var(--theme-text-subtle); }
+	.ta-flow { display:flex; align-items:center; justify-content:center; gap:1.2rem; flex-wrap:wrap; width:100%; }
+	.ta-flow .agent-node { width:140px; height:140px; }
+	.ta-flow .agent-node .an-icon { font-size:2.6rem; }
+	.ta-flow .agent-node .an-icon img { width:54px; height:54px; }
+	.ta-arrow { font-size:1.9rem; color:var(--theme-tertiary,#5c2d91); opacity:0; }
+	.ta-arrow.is-big { font-size:3.2rem; }
+	.ta-arrow.is-down, .ta-arrow.is-up { font-size:2.9rem; line-height:1; }
+	@media (max-width:760px) { .ta-flow .ta-arrow { transform:rotate(90deg); } }
+
+	/* Code card (VS Code style) */
+	.code-card {
+		width:min(560px,96%); border:1px solid #30363d; border-radius:8px;
+		background:#1e1e1e; overflow:hidden; opacity:0;
+		box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.25));
+	}
+	.code-head {
+		display:flex; align-items:center; justify-content:space-between; gap:0.5rem;
+		padding:0 0 0 0.85rem; background:#323233; border-bottom:1px solid #1e1e1e;
+	}
+	.code-file { font-size:0.9rem; color:#cccccc; font-weight:500; padding:0.6rem 0; }
+	.code-winctrls { display:flex; align-items:stretch; height:100%; }
+	.code-wbtn {
+		display:flex; align-items:center; justify-content:center; width:2.6rem; padding:0.55rem 0;
+		color:#cccccc; font-family:'Segoe UI Symbol','Segoe MDL2 Assets',sans-serif; font-size:0.7rem;
+	}
+	.code-wbtn.is-close:hover { background:#e81123; color:#fff; }
+	.code-wbtn:hover { background:rgba(255,255,255,0.1); }
+	.code-body {
+		margin:0; padding:0.8rem 1rem;
+		font-family:'Cascadia Code', 'Consolas', 'SFMono-Regular', monospace;
+		font-size:0.86rem; line-height:1.5; color:#d4d4d4;
+		white-space:pre-wrap; overflow-wrap:break-word; word-break:break-word; tab-size:4;
+	}
+	.code-body .tok-com { color:#6a9955; }
+	.code-body .tok-kw  { color:#569cd6; }
+	.code-body .tok-str { color:#ce9178; }
+	.code-body .tok-fn  { color:#dcdcaa; }
+	.code-body .tok-mod { color:#4ec9b0; }
+	.code-body .tok-prop{ color:#9cdcfe; }
+	.code-body .tok-num { color:#b5cea8; }
+	.code-body .tok-punct { color:#d4d4d4; }
+	.code-body .code-hl { border-radius:4px; padding:0 0.15em; box-shadow:0 0 0 1px rgba(96,165,250,0.55); background:rgba(96,165,250,0.22); }
+	.code-duo { display:flex; gap:1.1rem; flex-wrap:wrap; align-items:flex-start; justify-content:center; width:100%; }
+	.code-duo .code-card { flex:1 1 380px; max-width:480px; }
+	.code-duo .code-body { font-size:0.8rem; line-height:1.45; }
+	.code-arrow { align-self:center; font-size:1.8rem; line-height:1; color:var(--theme-tertiary,#5c2d91); opacity:0; flex:none; }
+	.code-arrow.is-big { font-size:2.9rem; }
+	@media (max-width:760px) { .code-arrow { transform:rotate(90deg); } }
+
+	/* Use-case grid */
+	.uc-grid { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:1.1rem; width:min(980px,96%); }
+	@media (max-width:720px) { .uc-grid { grid-template-columns:1fr; } }
+	.uc-card {
+		display:flex; flex-direction:column; gap:0.5rem; padding:1rem 1.15rem;
+		border:1.5px solid var(--theme-border); border-top:4px solid var(--theme-primary,#0078d4);
+		border-radius:14px; background:var(--theme-card-background, #fff);
+		box-shadow:0 6px 22px rgba(0,0,0,0.12); opacity:0;
+		transition:transform 0.2s ease, box-shadow 0.2s ease;
+	}
+	.uc-card:hover { transform:translateY(-4px); box-shadow:0 12px 30px rgba(0,0,0,0.18); }
+	body.theme-dark .uc-card { background:rgba(255,255,255,0.05); }
+	.uc-card[data-uc="a"] { border-top-color:#0078d4; }
+	.uc-card[data-uc="b"] { border-top-color:#10a37f; }
+	.uc-card[data-uc="c"] { border-top-color:#e97526; }
+	.uc-card[data-uc="d"] { border-top-color:#d24aa8; }
+	.uc-head { display:flex; align-items:center; gap:0.55rem; font-size:1.25rem; font-weight:700; color:var(--theme-text); }
+	.uc-head .uc-icon { font-size:1.7rem; display:inline-block; }
+	.uc-desc { font-size:0.98rem; line-height:1.55; color:var(--theme-text-subtle); }
+	.uc-caps { display:flex; flex-wrap:wrap; gap:0.4rem; margin-top:0.2rem; }
+	.uc-cap {
+		display:inline-flex; align-items:center; gap:0.3rem; padding:0.25rem 0.7rem;
+		border-radius:999px; font-size:0.88rem; font-weight:700;
+		background:rgba(0,120,212,0.1); color:var(--theme-text);
+		border:1.5px solid rgba(0,120,212,0.4); opacity:0;
+	}
+
+	/* ── CONTROLS · icon dock ──────────────── */
+	#controls {
+		position:fixed; bottom:14px; left:50%; transform:translateX(-50%); z-index:40;
+		display:flex; align-items:center; gap:5px; padding:5px 7px;
+		background:var(--theme-body-background-translucent, rgba(255,255,255,0.82));
+		backdrop-filter:blur(12px) saturate(1.4); -webkit-backdrop-filter:blur(12px) saturate(1.4);
+		border:1px solid var(--theme-border); border-radius:999px;
+		box-shadow: 0 8px 26px rgba(0,0,0,0.18); font-size:13px;
+	}
+	body.theme-dark #controls { background:var(--theme-body-background-translucent, rgba(32,32,36,0.82)); }
+	#controls .ctrl-icon {
+		width:2.15rem; height:2.15rem; min-width:0; padding:0;
+		display:inline-flex; align-items:center; justify-content:center;
+		border-radius:50%; font-size:0.95rem; line-height:1; font-weight:600;
+		transition:background 0.18s ease, color 0.18s ease, transform 0.12s ease, box-shadow 0.18s ease;
+	}
+	#controls .ctrl-icon:hover { transform:translateY(-1px); }
+	#controls .ctrl-icon:active { transform:scale(0.92); }
+	#controls .ctrl-icon-next {
+		width:2.55rem; height:2.55rem; font-size:1.1rem;
+		box-shadow:0 2px 8px var(--theme-primary-translucent, rgba(0,120,212,0.45));
+	}
+	.step-counter {
+		min-width:52px; text-align:center; font-variant-numeric:tabular-nums;
+		font-size:14px; font-weight:700; color:var(--theme-text);
+		padding:0 6px; white-space:nowrap; letter-spacing:0.02em;
+	}
+	.ctrl-sep { width:1px; align-self:stretch; margin:4px 2px; background:var(--theme-border); }
+	/* Movable dock: drag handle + pin-to-center button */
+	.ctrl-grip {
+		display:inline-flex; align-items:center; justify-content:center;
+		width:1.5rem; height:2.15rem; padding:0; border:none; background:transparent;
+		color:var(--theme-text-subtle); border-radius:8px; cursor:grab; touch-action:none;
+		transition:background 0.18s ease, color 0.18s ease;
+	}
+	.ctrl-grip:hover { color:var(--theme-text); background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); }
+	.ctrl-grip:active { cursor:grabbing; }
+	.ctrl-grip svg { width:13px; height:16px; pointer-events:none; }
+	body.controls-floating .ctrl-grip { color:var(--theme-primary,#0078d4); }
+	#controls .ctrl-pin { display:none; color:var(--theme-primary,#0078d4); }
+	#controls .ctrl-pin svg { width:15px; height:15px; pointer-events:none; }
+	body.controls-floating #controls .ctrl-pin { display:inline-flex; }
+	body.controls-floating #controls { box-shadow:0 10px 30px rgba(0,0,0,0.30), 0 0 0 1.5px var(--theme-primary,#0078d4); }
+	.speed-control { display:inline-flex; align-items:center; gap:1px; padding:2px 3px; border:1px solid var(--theme-border); border-radius:999px; }
+	.speed-control .speed-btn {
+		width:1.7rem; height:1.7rem; min-width:0; padding:0;
+		display:inline-flex; align-items:center; justify-content:center;
+		font-size:0.95rem; font-weight:700; border-radius:50%;
+	}
+	.speed-control .speed-btn[disabled] { opacity:0.4; cursor:not-allowed; }
+	.speed-label { min-width:2.4rem; text-align:center; font-variant-numeric:tabular-nums; font-size:0.82rem; font-weight:700; color:var(--theme-text); }
+
+	#callout-toggle, #outline-toggle, #audio-toggle { border:1px solid var(--theme-border); border-radius:4px; transition:background .2s,color .2s,border-color .2s,opacity .2s; }
+	#callout-toggle.toggle-active, #outline-toggle.toggle-active, #audio-toggle.toggle-active {
+		background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary,#0078d4); border-color:var(--theme-primary,#0078d4); font-weight:600;
+	}
+	#callout-toggle:not(.toggle-active), #outline-toggle:not(.toggle-active), #audio-toggle:not(.toggle-active) { opacity:0.6; }
+
+	/* ── HIDE/SHOW TOP BAR ─────────────────── */
+	#header-hide { display:inline-flex; align-items:center; justify-content:center; width:2rem; height:2rem; padding:0; border:1px solid var(--theme-border); border-radius:50%; color:var(--theme-text-subtle); transition:background .2s,color .2s,transform .18s; }
+	#header-hide:hover { color:var(--theme-text); transform:translateY(-1px); }
+	#header-hide svg { width:16px; height:16px; }
+	#header-hide-top { display:inline-flex; align-items:center; justify-content:center; width:2rem; height:2rem; padding:0; border:1px solid var(--theme-border); border-radius:50%; color:var(--theme-text-subtle); background:transparent; cursor:pointer; transition:background .2s,color .2s,transform .18s; }
+	#header-hide-top:hover { color:var(--theme-text); transform:translateY(-1px); }
+	#header-hide-top svg { width:16px; height:16px; }
+	body.chrome-hidden .app-header, body.chrome-hidden .progress-track { display:none; }
+	#header-reveal {
+		position:fixed; top:0; left:50%; transform:translateX(-50%) translateY(-100%); z-index:45;
+		display:inline-flex; align-items:center; gap:0.35rem; padding:5px 14px 6px; font-size:12px; font-weight:600; line-height:1;
+		color:var(--theme-text-subtle); background:var(--theme-body-background-translucent, rgba(255,255,255,0.88));
+		backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border:1px solid var(--theme-border); border-top:none; border-radius:0 0 12px 12px;
+		box-shadow:0 4px 14px rgba(0,0,0,0.14); cursor:pointer; transition:transform .28s cubic-bezier(0.2,0.7,0.3,1), color .2s, background .2s;
+	}
+	body.theme-dark #header-reveal { background:var(--theme-body-background-translucent, rgba(32,32,36,0.88)); }
+	#header-reveal:hover { color:var(--theme-text); }
+	body.chrome-hidden #header-reveal { transform:translateX(-50%) translateY(0); }
+	#header-reveal svg { width:14px; height:14px; }
+
+	/* ── DOCK BUTTONS · the former left + right stage pills now live INSIDE #controls ──
+	   Left group  = view options (callouts / outline / shortcuts)
+	   Right group = player (audio / captions / hide top bar / full screen)
+	   Same ids as before, so every script (callouts, outline, audio, captions, fullscreen, "?") keeps working. */
+	.ovl-btn {
+		-webkit-appearance:none; appearance:none; margin:0; font:inherit;
+		display:inline-flex; align-items:center; justify-content:center; gap:4px;
+		min-width:2.15rem; height:2.15rem; padding:0 7px;
+		border:none !important; border-radius:999px !important;
+		background:transparent !important; color:var(--theme-text) !important;
+		box-shadow:none !important; cursor:pointer; line-height:1;
+		font-size:0.82rem; font-weight:700; opacity:0.8; transition:background .15s ease, opacity .15s ease, color .15s ease;
+	}
+	.ovl-btn:hover { background:var(--theme-primary-translucent, rgba(127,127,127,0.18)) !important; opacity:1; }
+	.ovl-btn:disabled { opacity:0.4; cursor:not-allowed; }
+	.ovl-btn svg { width:18px; height:18px; fill:currentColor; display:block; }
+	.ovl-btn.on, .ovl-btn.toggle-active, .ovl-btn[aria-pressed="true"] { color:var(--theme-primary,#0078d4) !important; opacity:1; }
+	#controls #callout-toggle, #controls #outline-toggle, #controls #audio-toggle { border:none !important; }
+	#controls #callout-toggle.toggle-active, #controls #outline-toggle.toggle-active, #controls #audio-toggle.toggle-active { background:var(--theme-primary-translucent, rgba(0,120,212,0.12)) !important; }
+	#controls #callout-toggle:not(.toggle-active), #controls #outline-toggle:not(.toggle-active), #controls #audio-toggle:not(.toggle-active) { opacity:0.8; }
+	#controls #audio-toggle { opacity:1 !important; }
+	#controls .aw-audio-ico { font-size:1rem; line-height:1; }
+	#controls .aw-audio-time { font-size:0.78rem; font-variant-numeric:tabular-nums; letter-spacing:0.02em; opacity:0.95; min-width:2.4em; text-align:left; }
+	#cc-toggle svg { width:20px; height:20px; }
+	.ovl-btn .fs-exit { display:none; }
+	body.is-fs .ovl-btn .fs-enter { display:none; }
+	body.is-fs .ovl-btn .fs-exit { display:block; }
+	/* Hover tooltip shown above the icon, centred on it */
+	.ovl-btn[data-tip] { position:relative; }
+	.ovl-btn[data-tip]::after { content:attr(data-tip); position:absolute; left:50%; bottom:calc(100% + 12px); transform:translate(-50%,4px); padding:4px 8px; border-radius:6px; background:rgba(16,18,24,0.96); color:#fff; font-size:0.72rem; font-weight:600; white-space:nowrap; letter-spacing:0.01em; opacity:0; pointer-events:none; box-shadow:0 3px 12px rgba(0,0,0,0.45); transition:opacity .14s ease, transform .14s ease; z-index:40; }
+	.ovl-btn[data-tip]::before { content:''; position:absolute; left:50%; margin-left:-5px; bottom:calc(100% + 2px); border:5px solid transparent; border-top-color:rgba(16,18,24,0.96); opacity:0; pointer-events:none; transition:opacity .14s ease; z-index:40; }
+	.ovl-btn[data-tip]:hover::after { opacity:1; transform:translate(-50%,0); }
+	.ovl-btn[data-tip]:hover::before { opacity:1; }
+
+	/* ── CAPTION · overlaid inside the frame, draggable + resizable, stays solid (not see-through) ── */
+	#aw-caption {
+		position:absolute; left:50%; transform:translateX(-50%); bottom:56px; z-index:24;
+		max-width:92%; min-width:140px; min-height:38px; max-height:44%;
+		display:none; align-items:center; justify-content:center; text-align:center;
+		padding:0.42rem 0.95rem; border-radius:9px;
+		background:rgba(8,9,13,0.8); color:#fff;
+		font-size:1.1rem; line-height:1.36; font-weight:600;
+		box-shadow:0 3px 14px rgba(0,0,0,0.42); pointer-events:auto; cursor:grab; touch-action:none;
+		overflow:auto; resize:both;   /* user can reshape the caption; corner grip = resize */
+	}
+	#aw-caption:active { cursor:grabbing; }
+	#aw-caption::-webkit-resizer { background:linear-gradient(135deg, transparent 45%, rgba(255,255,255,0.55) 45%, rgba(255,255,255,0.55) 55%, transparent 55%); }
+	body.cc-on #aw-caption.has-text { display:flex; }
+	@media (max-width:640px){ #aw-caption { font-size:0.94rem; bottom:48px; max-width:90%; } }
+
+	/* ── OUTLINE PANEL · draggable + slightly see-through ── */
+	#step-outline {
+		position:fixed; top:4.5rem; right:1rem; width:320px; max-height:calc(100vh - 8rem); overflow-y:auto;
+		padding:1.1rem; background:var(--theme-body-background);
+		background:color-mix(in srgb, var(--theme-body-background) 85%, transparent);
+		-webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
+		border:1px solid var(--theme-border);
+		border-radius:6px; box-shadow: var(--theme-box-shadow-medium, 0 4px 16px rgba(0,0,0,0.2)); z-index:35; font-size:1rem; line-height:1.55;
+		cursor:grab; touch-action:none;
+	}
+	#step-outline:active { cursor:grabbing; }
+	#step-outline[hidden] { display:none; }
+	#step-outline h2 { font-size:0.85rem; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--theme-tertiary,#5c2d91); margin-bottom:0.5rem; }
+	#step-outline .outline-section { margin-top:0.6rem; padding-top:0.6rem; border-top:1px solid var(--theme-border); }
+	#step-outline .outline-section:first-child { margin-top:0; padding-top:0; border-top:0; }
+	#step-outline .stat-row { display:flex; justify-content:space-between; align-items:baseline; gap:0.75rem; padding:0.2rem 0; }
+	#step-outline .stat-row span:first-child { color:var(--theme-text-subtle); flex:0 0 auto; max-width:45%; }
+	#step-outline .stat-row span:last-child { text-align:right; font-weight:600; color:var(--theme-tertiary,#5c2d91); flex:1 1 auto; }
+
+	.progress-track { position:relative; height:6px; background:var(--theme-border, #e0e0e0); flex-shrink:0; cursor:pointer; }
+	.progress-fill { position:absolute; left:0; top:0; bottom:0; width:0%; background:var(--aw-purple, #5c2d91); transition:width .5s cubic-bezier(0.2,0.8,0.2,1); pointer-events:none; }
+	.progress-tick { position:absolute; top:0; bottom:0; width:2px; margin-left:-1px; background:var(--theme-body-background); opacity:0.6; pointer-events:none; }
+
+	/* ── THEME / LANG / FONT CONTROLS ──────── */
+	.theme-toggle { display:inline-flex; align-items:center; justify-content:center; width:2.25rem; height:2.25rem; padding:0; margin-inline-start:0.25rem; background:transparent; border:1px solid var(--theme-border); border-radius:999px; color:var(--theme-text); cursor:pointer; transition:background .15s,color .15s,border-color .15s; }
+	.theme-toggle:hover { background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary); border-color:var(--theme-primary); }
+	.theme-toggle .theme-icon { display:none; }
+	.theme-toggle[data-theme="dark"] .icon-sun { display:block; }
+	.theme-toggle[data-theme="light"] .icon-moon { display:block; }
+	.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+	.skip-link { position:absolute; top:-100px; left:0.5rem; z-index:100; padding:0.5rem 1rem; background:var(--theme-primary); color:var(--theme-primary-invert,#fff); border-radius:4px; text-decoration:none; font-weight:600; }
+	.skip-link:focus { top:0.5rem; }
+	.lang-select {
+		appearance:none; -webkit-appearance:none; background:var(--theme-card-background,#fff); color:var(--theme-body-text,#333);
+		border:1px solid var(--theme-border, rgba(0,0,0,0.2)); border-radius:4px; padding:4px 24px 4px 8px;
+		font-size:0.8rem; font-family:'Segoe UI', sans-serif; cursor:pointer;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+		background-repeat:no-repeat; background-position:right 6px center; min-width:80px;
+	}
+	.lang-select:hover { border-color:var(--theme-primary, #0078d4); }
+	.lang-select:focus { outline:2px solid var(--theme-primary, #0078d4); outline-offset:1px; }
+	body.theme-dark .lang-select {
+		background-color:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); border-color:rgba(255,255,255,0.15);
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23aaa' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E");
+	}
+	body.theme-dark .lang-select option { background:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); }
+	.font-size-controls { display:flex; align-items:center; gap:2px; }
+	.font-size-btn { background:var(--theme-card-background,#fff); color:var(--theme-body-text,#333); border:1px solid var(--theme-border, rgba(0,0,0,0.2)); border-radius:4px; padding:3px 8px; font-size:0.8rem; font-weight:700; font-family:'Segoe UI', sans-serif; cursor:pointer; line-height:1.2; transition:background .15s,border-color .15s; }
+	.font-size-btn:hover { border-color:var(--theme-primary, #0078d4); }
+	body.theme-dark .font-size-btn { background:var(--theme-body-background,#1a1a2e); color:var(--theme-body-text,#e0e0e0); border-color:rgba(255,255,255,0.15); }
+
+	/* Inline icons (crisp on any OS/projector — replaces raw emoji on stage) */
+	.ic { display:inline-flex; align-items:center; justify-content:center; vertical-align:-0.125em; }
+	.ic svg { width:1em; height:1em; fill:currentColor; display:block; }
+	.help-toggle svg { width:15px; height:15px; vertical-align:-2px; }
+
+	/* Keyboard shortcut overlay */
+	#shortcut-overlay { position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center; }
+	#shortcut-overlay[hidden] { display:none; }
+	.sc-backdrop { position:absolute; inset:0; background:rgba(0,0,0,0.5); -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px); }
+	.sc-panel { position:relative; z-index:1; width:min(430px,92vw); max-height:82vh; overflow:auto; padding:1.5rem 1.6rem; background:var(--theme-body-background); border:1px solid var(--theme-border); border-radius:16px; box-shadow:0 24px 70px rgba(0,0,0,0.4); }
+	.sc-panel h2 { margin:0 0 1rem; font-size:1.25rem; color:var(--theme-tertiary,#5c2d91); }
+	body.theme-dark .sc-panel h2 { color:#c9a5e8; }
+	.sc-close { position:absolute; top:0.7rem; right:0.7rem; width:2rem; height:2rem; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--theme-border); border-radius:50%; background:transparent; color:var(--theme-text-subtle); cursor:pointer; }
+	.sc-close:hover { color:var(--theme-text); border-color:var(--theme-primary,#0078d4); }
+	.sc-close svg { width:15px; height:15px; }
+	.sc-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:0.55rem; }
+	.sc-list li { display:flex; align-items:center; justify-content:space-between; gap:1rem; font-size:1rem; color:var(--theme-text); }
+	.sc-keys { display:inline-flex; gap:0.3rem; flex:none; }
+	.sc-panel kbd, .sc-hint kbd { font-family:'Cascadia Code','Consolas',monospace; font-size:0.82rem; line-height:1; padding:0.28rem 0.5rem; border-radius:6px; border:1px solid var(--theme-border); border-bottom-width:2px; background:var(--theme-card-background,#fff); color:var(--theme-text); }
+	body.theme-dark .sc-panel kbd, body.theme-dark .sc-hint kbd { background:rgba(255,255,255,0.08); }
+	.sc-hint { margin:1.1rem 0 0; font-size:0.85rem; color:var(--theme-text-subtle); text-align:center; }
+
+	@media (max-width:640px) { .app-header { font-size:0.95rem; } .scene-title { font-size:1.9rem; } #stage { padding:0.9rem 1rem 4.5rem; } }
+	@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition:none !important; animation:none !important; } .progress-fill { transition:none !important; } }
+	/* ══════════════ AI-500 KIT · shared by every AI-500 page ══════════════ */
+	:root {
+		/* One accent per floor/domain, reused on every page. --fN fills, --fNt text-safe, --fNb deep fills that carry white text */
+		--f1:#0078d4; --f2:#00b7c3; --f3:#8661c5; --f4:#ff8c00;
+		--f1t:#005a9e; --f2t:#00707a; --f3t:#6b46b0; --f4t:#a24f00;
+		--f1b:#0a5299; --f2b:#0a6c76; --f3b:#6240a8; --f4b:#a24f00;
+		--ai5-surface:#ffffff; --ai5-ok:#107c10; --ai5-bad:#c4314b; --ai5-warn:#a24f00;
+		--ai5-line:rgba(60,60,80,0.38);
+	}
+	body.theme-dark {
+		--f1t:#6cb2f5; --f2t:#4fd6e0; --f3t:#b79ce8; --f4t:#ffb066;
+		--ai5-surface:#2a2b34; --ai5-ok:#57d977; --ai5-bad:#ff7a90; --ai5-warn:#ffb066;
+		--ai5-line:rgba(220,220,240,0.42);
+	}
+	.fl1 { --tone:var(--f1); --toneT:var(--f1t); --toneB:var(--f1b); }
+	.fl2 { --tone:var(--f2); --toneT:var(--f2t); --toneB:var(--f2b); }
+	.fl3 { --tone:var(--f3); --toneT:var(--f3t); --toneB:var(--f3b); }
+	.fl4 { --tone:var(--f4); --toneT:var(--f4t); --toneB:var(--f4b); }
+
+	.scene.ai5 { gap:1.1rem; width:1150px; }
+	.scene.ai5 .scene-lead { max-width:1100px; }
+	.scene.ai5 .scene-title { font-weight:600; }
+	.ai5-board { position:relative; flex:none; }
+	.ai5-board > svg { position:absolute; left:0; top:0; width:100%; height:100%; overflow:visible; pointer-events:none; }
+	.ai5-pos { position:absolute; width:0; height:0; }
+	.ai5-in { position:absolute; left:0; top:0; transform:translate(-50%,-50%); }
+
+	/* Agent cast — the same six characters on every page */
+	.ai5-ag { position:relative; width:var(--ag,76px); height:var(--ag,76px); }
+	.ai5-ag-ic { width:100%; height:100%; border-radius:50%; display:grid; place-items:center;
+		background:var(--ai5-surface); border:3px solid var(--ac); color:var(--ac); box-shadow:0 6px 18px rgba(0,0,0,0.2); }
+	.ai5-ag-ic .ic { font-size:calc(var(--ag,76px) * 0.5); }
+	/* the label hangs OUTSIDE the badge so coordinates always refer to the badge centre */
+	.ai5-ag-l { position:absolute; top:100%; left:50%; transform:translateX(-50%); margin-top:0.4rem; white-space:nowrap;
+		font-size:1rem; font-weight:600; text-align:center; line-height:1.2; color:var(--theme-text); }
+	.ai5-ag.is-top .ai5-ag-l { top:auto; bottom:100%; margin-top:0; margin-bottom:0.4rem; }
+	.ag-solo   { --ac:#0067b8; } .ag-orch  { --ac:#6a3fb5; } .ag-intake { --ac:#0067b8; }
+	.ag-policy { --ac:#0b7a60; } .ag-fraud { --ac:#c4314b; } .ag-payout { --ac:#b4530d; } .ag-human { --ac:#b02c8a; }
+	body.theme-dark .ag-solo { --ac:#6cb2f5; } body.theme-dark .ag-orch { --ac:#b79ce8; } body.theme-dark .ag-intake { --ac:#6cb2f5; }
+	body.theme-dark .ag-policy { --ac:#4fd6a8; } body.theme-dark .ag-fraud { --ac:#ff7a90; } body.theme-dark .ag-payout { --ac:#ffb066; } body.theme-dark .ag-human { --ac:#f08ad0; }
+
+	/* On-screen headline pill — the ONE line of burned-in text per step */
+	.ai5-say { display:inline-flex; align-items:center; gap:0.6rem; padding:0.6rem 1.4rem; border-radius:999px; opacity:0;
+		font-size:1.25rem; font-weight:600; color:var(--theme-text); background:var(--ai5-surface);
+		border:2px solid var(--theme-tertiary,#5c2d91); box-shadow:0 6px 20px rgba(0,0,0,0.16); text-align:center; }
+	.ai5-say .ic { font-size:1.4rem; color:var(--theme-tertiary,#5c2d91); }
+	body.theme-dark .ai5-say .ic { color:#c9a5e8; }
+
+	.ai5-pnl { border:1.5px solid var(--theme-border); border-radius:14px; background:var(--theme-card-background,#fff);
+		box-shadow:0 8px 26px rgba(0,0,0,0.14); padding:1rem 1.2rem; opacity:0; }
+	body.theme-dark .ai5-pnl { background:rgba(255,255,255,0.05); }
+	.ai5-pnl-h { font-size:0.95rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--theme-text-subtle); margin:0 0 0.6rem; }
+	.ai5-tag { display:inline-flex; align-items:center; gap:0.4rem; padding:0.3rem 0.85rem; border-radius:999px; font-size:0.92rem; font-weight:500;
+		border:1.5px solid var(--toneT,var(--theme-border)); color:var(--theme-text); background:color-mix(in srgb, var(--tone,#888) 14%, transparent); opacity:0; }
+	.ai5-tag .ic { color:var(--toneT,currentColor); }
+	.ai5-row { display:flex; flex-wrap:wrap; gap:0.55rem; justify-content:center; }
+
+	/* Floor bar — a deep fill that always carries white text */
+	.ai5-fl { position:absolute; display:flex; align-items:center; justify-content:center; gap:1.1rem; border-radius:12px; color:#fff;
+		background:var(--toneB); box-shadow:0 6px 18px rgba(0,0,0,0.22); overflow:hidden; white-space:nowrap; }
+	.ai5-fl .n { font-size:1rem; font-weight:500; padding:0.15rem 0.6rem; border-radius:8px; background:rgba(0,0,0,0.28); }
+	.ai5-fl .v { font-size:1.5rem; font-weight:600; }
+	.ai5-fl .d { font-size:1.02rem; font-weight:400; opacity:0.92; }
+
+	/* Claim card (Contoso Insurance) */
+	.ai5-claim { width:74px; height:52px; border-radius:7px; background:var(--ai5-surface); border:1.5px solid var(--ai5-line);
+		box-shadow:0 3px 8px rgba(0,0,0,0.2); padding:8px 9px; display:flex; flex-direction:column; gap:5px; }
+	.ai5-claim i { display:block; height:5px; border-radius:3px; background:var(--ai5-line); }
+	.ai5-claim i:first-child { width:55%; background:#0078d4; opacity:0.75; }
+	.ai5-claim.is-ok::after { content:'\2713'; position:absolute; right:-9px; top:-9px; width:22px; height:22px; border-radius:50%;
+		background:var(--ai5-ok); color:#fff; font-size:0.9rem; line-height:22px; text-align:center; font-weight:700; }
+	.ai5-claim { position:relative; }
+
+	/* Question marks on connectors */
+	.ai5-q { width:34px; height:34px; border-radius:50%; display:grid; place-items:center; font-size:1.1rem; font-weight:700;
+		background:var(--ai5-surface); color:var(--ai5-warn); border:2px solid var(--ai5-warn); }
+
+	@keyframes ai5Glow { 0%,100% { box-shadow:0 0 0 0 rgba(138,92,214,0.0), 0 8px 24px rgba(0,0,0,0.25); } 50% { box-shadow:0 0 0 10px rgba(138,92,214,0.25), 0 8px 24px rgba(0,0,0,0.25); } }
+	.ai5-glow { animation:ai5Glow 2.2s ease-in-out infinite; }
+	.ai5-next { display:inline-flex; align-items:center; gap:0.6rem; padding:0.55rem 1.3rem; border-radius:999px; text-decoration:none; opacity:0;
+		font-size:1.05rem; font-weight:600; color:#fff; background:var(--aw-purple,#5c2d91); border:2px solid transparent; }
+	.ai5-next:hover { filter:brightness(1.12); }
+	.ai5-foot a { color:var(--f1t); font-weight:600; }
+
+	/* ══════════════ TrainerBriefing ══════════════ */
+	.ai5t-note { display:flex; align-items:center; justify-content:center; gap:0.9rem; width:1100px; padding:0.8rem 1.4rem; font-size:1.12rem; font-weight:500; line-height:1.4; color:var(--theme-text); }
+	.ai5t-note .ic { flex:none; font-size:1.7rem; color:var(--f3t); }
+
+	/* 1 · positioning */
+	.ai5t-pos { display:flex; flex-direction:column; gap:14px; width:1100px; }
+	.ai5t-pos-r { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; }
+	.ai5t-col { display:inline-flex; align-items:center; justify-content:center; gap:0.55rem; padding:0.4rem 1.1rem; border-radius:999px; font-size:1.05rem; font-weight:600; letter-spacing:0.03em; text-transform:uppercase;
+		background:var(--ai5-surface); border:2px solid currentColor; opacity:0; justify-self:center; }
+	.ai5t-col .ic { font-size:1.2rem; }
+	.ai5t-col.is-is, .ai5t-pc.is-is .ic { color:var(--ai5-ok); }
+	.ai5t-col.is-not, .ai5t-pc.is-not .ic { color:var(--ai5-bad); }
+	.ai5t-col.is-say, .ai5t-pc.is-say .ic { color:var(--f3t); }
+	.ai5t-pc { display:flex; align-items:center; gap:0.85rem; min-height:90px; padding:0.8rem 1.1rem 0.8rem 1.2rem; border-radius:14px; font-size:1.08rem; line-height:1.35; font-weight:500; color:var(--theme-text);
+		background:var(--ai5-surface); border:2px solid var(--theme-border); border-left-width:6px; box-shadow:0 6px 18px rgba(0,0,0,0.14); opacity:0; }
+	.ai5t-pc .ic { flex:none; font-size:1.6rem; }
+	.ai5t-pc.is-is { border-left-color:var(--ai5-ok); }
+	.ai5t-pc.is-not { border-left-color:var(--ai5-bad); }
+	.ai5t-pc.is-say { border-left-color:var(--f3t); font-style:italic; }
+
+	/* 2 · days ↔ domains */
+	.ai5t-dom, .ai5t-day { position:absolute; display:flex; align-items:center; gap:0.8rem; padding:0 1.1rem; border-radius:14px; opacity:0; }
+	.ai5t-dom { background:var(--toneB); color:#fff; box-shadow:0 6px 18px rgba(0,0,0,0.22); }
+	.ai5t-dom .n, .ai5t-dom .w { background:rgba(0,0,0,0.26); color:#fff; font-weight:500; }
+	.ai5t-dom .n { width:32px; height:32px; border-radius:50%; display:grid; place-items:center; font-size:1.05rem; }
+	.ai5t-dom .v { font-size:1.35rem; font-weight:600; }
+	.ai5t-dom .w { margin-left:auto; padding:0.2rem 0.8rem; border-radius:999px; font-size:1.05rem; }
+	.ai5t-day { background:var(--ai5-surface); border:2px solid var(--theme-border); box-shadow:0 6px 18px rgba(0,0,0,0.14); color:var(--theme-text); }
+	.ai5t-day .v { font-size:1.35rem; font-weight:600; }
+	.ai5t-day .tg { margin-left:auto; display:flex; gap:0.45rem; }
+	.ai5t-day .ai5-tag { opacity:1; }
+	.ai5t-bh { position:absolute; font-size:0.95rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--theme-text-subtle); text-align:center; opacity:0; }
+
+	/* 3 · buckets */
+	.ai5t-bks { display:flex; gap:16px; width:1100px; }
+	.ai5t-bk { flex:1; min-width:0; border-radius:16px; border:2px solid var(--toneT); background:var(--theme-card-background,#fff); box-shadow:0 8px 24px rgba(0,0,0,0.14); opacity:0; }
+	body.theme-dark .ai5t-bk { background:rgba(255,255,255,0.05); }
+	.ai5t-bk.is-only { border-style:dashed; }
+	.ai5t-bk-h { display:flex; align-items:center; gap:0.7rem; padding:0.85rem 1.2rem; font-size:1.25rem; font-weight:600; color:var(--toneT); }
+	.ai5t-bk-h .ic { font-size:1.5rem; }
+	.ai5t-bk-g { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); grid-auto-rows:1fr; gap:10px; height:216px; padding:0 14px 14px; box-sizing:content-box; }
+	.ai5t-tc { display:flex; align-items:center; padding:0.5rem 0.9rem; border-radius:12px; font-size:1.02rem; font-weight:500; line-height:1.3; color:var(--theme-text);
+		background:var(--ai5-surface); border:1.5px solid var(--theme-border); border-left:5px solid var(--toneT); box-shadow:0 3px 10px rgba(0,0,0,0.12); opacity:0; }
+
+	/* 4 · flip cards */
+	.ai5t-flips { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; width:1100px; }
+	.ai5t-flip { appearance:none; padding:0; margin:0; border:0; background:none; font:inherit; color:inherit; height:170px; perspective:1000px; cursor:pointer; opacity:0; text-align:center; border-radius:16px; }
+	.ai5t-fin { display:block; position:relative; width:100%; height:100%; transform-style:preserve-3d; }
+	.ai5t-face { position:absolute; left:0; top:0; right:0; bottom:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.5rem; padding:0.9rem 1.2rem;
+		border-radius:16px; backface-visibility:hidden; -webkit-backface-visibility:hidden; }
+	.ai5t-front { background:var(--ai5-surface); border:2px solid var(--toneT); box-shadow:0 6px 18px rgba(0,0,0,0.16); color:var(--theme-text); }
+	.ai5t-front .q { font-size:1.2rem; font-weight:600; line-height:1.25; }
+	.ai5t-front .h { display:inline-flex; align-items:center; gap:0.4rem; font-size:0.92rem; font-weight:500; color:var(--toneT); }
+	.ai5t-back { transform:rotateY(180deg); background:var(--toneB); color:#fff; box-shadow:0 6px 18px rgba(0,0,0,0.22); }
+	.ai5t-back .bt { font-size:0.92rem; font-weight:500; }
+	.ai5t-back .bx { font-size:1.02rem; line-height:1.35; font-weight:400; }
+	.ai5t-flipbar { display:flex; justify-content:center; align-items:center; gap:1.6rem; opacity:0; }
+	.ai5t-fnote { display:inline-flex; align-items:center; gap:0.6rem; font-size:1.05rem; font-weight:500; color:var(--theme-text); }
+	.ai5t-fnote .ic { font-size:1.5rem; color:var(--f3t); }
+	.ai5t-flipall { appearance:none; display:inline-flex; align-items:center; gap:0.6rem; padding:0.45rem 1.3rem; border-radius:999px; font:inherit; font-size:1.05rem; font-weight:600; cursor:pointer;
+		color:var(--theme-text); background:var(--ai5-surface); border:2px solid var(--theme-tertiary,#5c2d91); }
+	.ai5t-flipall:hover { filter:brightness(1.06); }
+	.ai5t-flipall .ic { color:var(--f3t); font-size:1.2rem; }
+
+	/* 5 · checklist */
+	.ai5t-chk { display:flex; flex-direction:column; gap:12px; width:1000px; }
+	.ai5t-cr { position:relative; display:flex; align-items:center; gap:1.1rem; padding:0.75rem 1.2rem 0.75rem 1.5rem; border-radius:14px; background:var(--ai5-surface);
+		border:1.5px solid var(--theme-border); box-shadow:0 6px 16px rgba(0,0,0,0.14); opacity:0; }
+	.ai5t-cr .bar { position:absolute; left:0; top:10px; bottom:10px; width:5px; border-radius:3px; background:var(--ai5-ok); transform-origin:50% 0; }
+	.ai5t-cr .bd { flex:none; display:grid; place-items:center; width:48px; height:48px; border-radius:12px; background:var(--f3b); color:#fff; font-size:1.6rem; }
+	.ai5t-cr .tx { display:flex; flex-direction:column; gap:0.1rem; min-width:0; }
+	.ai5t-cr .tx b { font-size:1.2rem; font-weight:600; }
+	.ai5t-cr .tx span { font-size:1.02rem; color:var(--theme-text); }
+	.ai5t-cr .tk { margin-left:auto; flex:none; display:grid; place-items:center; width:36px; height:36px; border-radius:50%; background:var(--ai5-ok); color:#fff; font-size:1.2rem; }
+	body.theme-dark .ai5t-cr .tk { color:#0b2a12; }
+
+	/* 6 · check before you teach */
+	.ai5t-st { width:1060px; padding:1rem 1.5rem 0.6rem; }
+	.ai5t-st-h { display:flex; align-items:center; gap:0.7rem; margin-bottom:0.5rem; font-size:1.3rem; font-weight:600; color:var(--ai5-warn); }
+	.ai5t-st-h .ic { font-size:1.6rem; }
+	.ai5t-sr { display:grid; grid-template-columns:36px 265px 28px minmax(0,1fr); align-items:center; padding:0.62rem 0.2rem; border-top:1px solid var(--theme-border); opacity:0; }
+	.ai5t-sr .wi { font-size:1.5rem; color:var(--ai5-warn); display:grid; place-items:center; }
+	.ai5t-sr b { font-size:1.1rem; font-weight:600; }
+	.ai5t-sr .ar { font-size:1.4rem; color:var(--theme-text-subtle); display:grid; place-items:center; }
+	.ai5t-sr .ac { font-size:1.08rem; padding-left:0.5rem; }
+
+	/* 7 · faq */
+	.ai5t-acc { display:flex; flex-direction:column; gap:8px; width:1040px; height:360px; }
+	.ai5t-ai { flex:none; border-radius:14px; background:var(--ai5-surface); border:1.5px solid var(--theme-border); overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.12); opacity:0; }
+	.ai5t-ai.is-open { border-color:var(--f3t); }
+	.ai5t-aq { appearance:none; display:flex; align-items:center; gap:0.9rem; width:100%; height:52px; padding:0 1.1rem; border:0; background:none; font:inherit; font-size:1.15rem; font-weight:600; text-align:left; color:var(--theme-text); cursor:pointer; }
+	.ai5t-aq .num { flex:none; display:grid; place-items:center; width:30px; height:30px; border-radius:50%; background:var(--f3b); color:#fff; font-size:1rem; font-weight:500; }
+	.ai5t-aq .ch { margin-left:auto; font-size:1.5rem; color:var(--f3t); display:grid; place-items:center; }
+	.ai5t-aa { height:0; overflow:hidden; }
+	.ai5t-aa .in { padding:0 1.2rem 0.9rem 4.1rem; font-size:1.08rem; line-height:1.45; color:var(--theme-text); }
+	.ai5t-foot { display:flex; align-items:center; justify-content:center; gap:0.6rem; font-size:1.08rem; opacity:0; }
+	.ai5t-foot .ic { font-size:1.2rem; color:var(--f3t); }
+
+</style>
+	<!-- SEO:START -->
+	<meta name="description" content="AI-500 Trainer Briefing. Explore AI-500 · Multi-agent AI solutions with a step-by-step visual guide." />
+	<link rel="canonical" href="https://azureanimations.github.io/journeys/AI/AI500/TrainerBriefing.html" />
+	<meta name="robots" content="index, follow, max-image-preview:large" />
+	<meta property="og:type" content="website" />
+	<meta property="og:site_name" content="Azure Animations" />
+	<meta property="og:title" content="AI-500 Trainer Briefing — Azure Animations" />
+	<meta property="og:description" content="AI-500 Trainer Briefing. Explore AI-500 · Multi-agent AI solutions with a step-by-step visual guide." />
+	<meta property="og:url" content="https://azureanimations.github.io/journeys/AI/AI500/TrainerBriefing.html" />
+	<meta property="og:image" content="https://azureanimations.github.io/img/favicon.png" />
+	<meta property="og:image:alt" content="Azure Animations" />
+	<meta name="twitter:card" content="summary" />
+	<meta name="twitter:title" content="AI-500 Trainer Briefing — Azure Animations" />
+	<meta name="twitter:description" content="AI-500 Trainer Briefing. Explore AI-500 · Multi-agent AI solutions with a step-by-step visual guide." />
+	<meta name="twitter:image" content="https://azureanimations.github.io/img/favicon.png" />
+	<meta name="twitter:image:alt" content="Azure Animations" />
+	<script type="application/ld+json">
+	{"@context":"https://schema.org","@type":"WebPage","name":"AI-500 Trainer Briefing — Azure Animations","description":"AI-500 Trainer Briefing. Explore AI-500 · Multi-agent AI solutions with a step-by-step visual guide.","url":"https://azureanimations.github.io/journeys/AI/AI500/TrainerBriefing.html","isPartOf":{"@type":"WebSite","name":"Azure Animations","url":"https://azureanimations.github.io/"},"breadcrumb":{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Azure Animations","item":"https://azureanimations.github.io/"},{"@type":"ListItem","position":2,"name":"AI-500 · Multi-agent AI solutions","item":"https://azureanimations.github.io/journeys/AI/AI500/"},{"@type":"ListItem","position":3,"name":"AI-500 Trainer Briefing","item":"https://azureanimations.github.io/journeys/AI/AI500/TrainerBriefing.html"}]}}
+	</script>
+	<!-- SEO:END -->
+</head>
+
+<body class="theme-dark" data-theme-preset="atlas">
+
+	<a href="#stage" class="skip-link">Skip to diagram</a>
+
+	<header class="app-header padding-block-xs padding-inline-md border-bottom" role="banner" style="justify-content:space-between;">
+		<div class="display-flex align-items-center gap-xs">
+			<span id="page-title" class="font-size-h6 font-weight-semibold">&#129489; AI-500 Trainer Briefing</span>
+		</div>
+		<nav class="display-flex gap-xs align-items-center" aria-label="Primary">
+			<span id="breadcrumb" class="font-size-sm color-text-subtle">Step 1</span>
+		</nav>
+		<div class="display-flex gap-xs align-items-center">
+			<!-- AW:lang --><select id="lang-select" class="lang-select" aria-label="Language" title="Language"><option value="en">English</option><option value="es">Español</option><option value="ja">日本語</option><option value="ko">한국어</option><option value="pt">Português</option></select><!-- /AW:lang -->
+			<div class="font-size-controls">
+				<button id="font-decrease" type="button" class="font-size-btn" aria-label="Decrease font size" title="Smaller text">A&minus;</button>
+				<button id="font-increase" type="button" class="font-size-btn" aria-label="Increase font size" title="Larger text">A+</button>
+			</div>
+			<!-- AW:theme --><button id="theme-toggle" type="button" class="theme-toggle" aria-label="Switch theme" title="Switch theme"><svg class="theme-icon icon-moon ico ico-moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path fill="currentColor" d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg><svg class="theme-icon icon-sun ico ico-sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.5" y1="4.5" x2="6.5" y2="6.5"/><line x1="17.5" y1="17.5" x2="19.5" y2="19.5"/><line x1="4.5" y1="19.5" x2="6.5" y2="17.5"/><line x1="17.5" y1="6.5" x2="19.5" y2="4.5"/></g></svg></button><!-- /AW:theme -->
+			<button id="header-hide-top" type="button" aria-label="Hide top bar" title="Hide top bar (H)">
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/></svg>
+			</button>
+		</div>
+	</header>
+
+	<button id="header-reveal" type="button" aria-label="Show top bar" title="Show top bar">
+		<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/></svg>
+		<span>Toolbar</span>
+	</button>
+
+	<div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
+
+	<main id="stage" tabindex="0" role="region" aria-labelledby="stage-heading" aria-describedby="stage-instructions">
+		<h1 id="stage-heading" class="sr-only" tabindex="-1">AI-500 Trainer Briefing</h1>
+		<p id="stage-instructions" class="sr-only">Animated explainer. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.</p>
+		<div id="step-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+		<!-- Fixed 16:9 stage. Every scene is drawn INSIDE this box; it always fits the viewport (no scrollbars). -->
+		<div id="stage-frame">
+			<svg id="fx-svg" aria-hidden="true" focusable="false">
+				<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L0,10 L10,5 Z" fill="currentColor"/></marker></defs>
+			</svg>
+			<!-- Caption bar (synced to the step's audio clip by aw-captions.js) -->
+			<div id="aw-caption" class="aw-caption" aria-hidden="true"></div>
+		</div>
+	</main>
+
+	<aside id="step-outline" hidden aria-label="Text outline of the current step">
+		<h2 id="outline-title">Step Details</h2>
+		<div id="outline-body"></div>
+	</aside>
+
+	<div id="controls" role="group" aria-label="Diagram navigation">
+		<button id="ctrl-grip" type="button" class="ctrl-grip" aria-label="Drag to move the controls" title="Drag to move">
+			<svg viewBox="0 0 16 16" aria-hidden="true"><g fill="currentColor"><circle cx="5" cy="3" r="1.4"/><circle cx="11" cy="3" r="1.4"/><circle cx="5" cy="8" r="1.4"/><circle cx="11" cy="8" r="1.4"/><circle cx="5" cy="13" r="1.4"/><circle cx="11" cy="13" r="1.4"/></g></svg>
+		</button>
+		<button id="ctrl-pin" type="button" class="button button-clear ctrl-icon ctrl-pin" aria-label="Pin the controls back to the center" title="Pin to center">
+			<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9 2h6a1 1 0 0 1 .8 1.6L14 6v4l3 3v2h-4v5l-1 2-1-2v-5H7v-2l3-3V6L8.2 3.6A1 1 0 0 1 9 2z"/></svg>
+		</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<!-- view options (was the bottom-left stage pill): callouts / outline / shortcuts - left of the step buttons -->
+		<!-- DOCK:NAV --><span class="aw-dock-navigation" role="group" aria-label="Page navigation"><a data-aw-nav="home" class="ovl-btn aw-dock-link" href="../../../index.html" aria-label="Home" data-tip="Home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg></a><a data-aw-nav="hub" class="ovl-btn aw-dock-link" href="index.html" aria-label="Current hub" data-tip="Current hub"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="6" rx="1"/><rect x="2" y="15" width="6" height="6" rx="1"/><rect x="16" y="15" width="6" height="6" rx="1"/><path d="M12 9v3M5 15v-3h14v3"/></svg></a></span><span class="ctrl-sep" aria-hidden="true"></span><!-- /DOCK:NAV -->
+		<button id="callout-toggle" type="button" class="ovl-btn" aria-label="Toggle callouts" aria-pressed="false" data-tip="Callouts: Off"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M4 5h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H10l-4 3v-3H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></svg></button>
+		<button id="outline-toggle" type="button" class="ovl-btn" aria-controls="step-outline" aria-expanded="false" aria-label="Toggle text outline" data-tip="Outline: Off"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" d="M4 6h16M4 12h16M4 18h10"/></svg></button>
+		<button id="help-toggle" class="ovl-btn help-toggle" type="button" aria-haspopup="dialog" aria-controls="shortcut-overlay" aria-label="Keyboard shortcuts (press ?)" data-tip="Shortcuts"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M11 18h2v-2h-2v2zm1.1-14C9.8 4 8 5.8 8 8h2a2 2 0 1 1 3.2 1.6c-.9.7-2.2 1.5-2.2 3.4h2c0-1 .8-1.5 1.7-2.2A4 4 0 0 0 12.1 4z"/></svg></button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="prev-btn" type="button" class="button ctrl-icon" aria-label="Previous step (left arrow)">&#9664;</button>
+		<div class="step-counter" id="step-counter">0 / 0</div>
+		<button id="next-btn" type="button" class="button button-primary button-filled ctrl-icon ctrl-icon-next" aria-label="Next step (right arrow or space)">&#9654;</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="replay-btn" type="button" class="button ctrl-icon" aria-label="Replay this step's animation (P)">&#8635;</button>
+		<div class="speed-control" role="group" aria-label="Animation speed">
+			<button id="speed-down" type="button" class="button button-clear speed-btn" aria-label="Slower (-)" title="Slower">&minus;</button>
+			<span id="speed-label" class="speed-label" aria-live="polite" aria-label="Current speed">1&times;</span>
+			<button id="speed-up" type="button" class="button button-clear speed-btn" aria-label="Faster (+)" title="Faster">+</button>
+		</div>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<button id="reset-btn" type="button" class="button button-clear ctrl-icon" aria-label="Restart from step 1 (R)">&#9198;</button>
+		<span class="ctrl-sep" aria-hidden="true"></span>
+		<!-- player (was the bottom-right stage pill): audio / captions / hide top bar / full screen -->
+		<button id="audio-toggle" class="ovl-btn ovl-audio" type="button" aria-label="Toggle audio narration" aria-pressed="false" title="Narration audio"></button>
+		<button id="cc-toggle" class="ovl-btn" type="button" aria-label="Toggle captions" aria-pressed="false" title="Captions"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9.7 10.2a2.1 2.1 0 1 0 0 3.6M17 10.2a2.1 2.1 0 1 0 0 3.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+		<button id="header-hide" class="ovl-btn" type="button" aria-label="Hide top bar" title="Hide top bar (H)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="M6 15l6-6 6 6"/></svg></button>
+		<button id="fs-toggle" class="ovl-btn" type="button" aria-label="Toggle full screen" aria-pressed="false" title="Full screen (F)"><svg class="fs-enter" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg><svg class="fs-exit" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg></button>
+	</div>
+
+	<div id="shortcut-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="sc-title">
+		<div class="sc-backdrop"></div>
+		<div class="sc-panel">
+			<button id="sc-close" class="sc-close" type="button" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>
+			<h2 id="sc-title">Keyboard shortcuts</h2>
+			<ul id="sc-list" class="sc-list"></ul>
+			<p class="sc-hint">Press <kbd>?</kbd> anytime to toggle this panel.</p>
+		</div>
+	</div>
+
+<script>
+// ── THEME ─────────────────────────────────
+const themeToggleBtn = document.getElementById('theme-toggle');
+function syncThemeBtn(){
+	if (!themeToggleBtn) return;
+	const isDark = document.body.classList.contains('theme-dark');
+	themeToggleBtn.dataset.theme = isDark ? 'dark' : 'light';   // drives which glyph (sun/moon) shows
+	const label = isDark ? 'Switch to light theme' : 'Switch to dark theme';
+	themeToggleBtn.setAttribute('aria-label', label);
+	themeToggleBtn.setAttribute('title', label);
+}
+if (window.AW && AW.theme) {
+	// aw-theme.js owns click handling + persistence; theme recolors via CSS variables, so no re-render/replay.
+	AW.theme.onChange(() => { syncThemeBtn(); });
+	syncThemeBtn();
+} else {
+	// Standalone fallback: toggle .theme-dark / .theme-light on <body> ourselves.
+	syncThemeBtn();
+	if (themeToggleBtn) themeToggleBtn.addEventListener('click', () => {
+		const goingDark = !document.body.classList.contains('theme-dark');
+		document.body.classList.remove('theme-dark', 'theme-light');
+		document.body.classList.add(goingDark ? 'theme-dark' : 'theme-light');
+		try { localStorage.setItem('aw-theme', goingDark ? 'theme-dark' : 'theme-light'); } catch(_){}
+		syncThemeBtn();
+	});
+	// restore a previously chosen theme (standalone only)
+	try { const saved = localStorage.getItem('aw-theme'); if (saved === 'theme-light' || saved === 'theme-dark') { document.body.classList.remove('theme-dark','theme-light'); document.body.classList.add(saved); syncThemeBtn(); } } catch(_){}
+}
+
+// ── i18n ──────────────────────────────────
+// English is the source language. Add sibling objects (es/ja/ko/pt) with the
+// SAME keys + matching <option>s in #lang-select. Keep brand/code/proper-noun
+// sample data untranslated.
+let currentLang = 'en';
+const I18N = {
+	en: {
+		skipToMain: 'Skip to diagram',
+		pageTitle: 'AI-500 Trainer Briefing',
+		stageHeading: 'AI-500 Trainer Briefing',
+		stageInstructions: 'Animated explainer. Use Next/Previous buttons or arrow keys to navigate. Press R to restart.',
+		prev: '\u25C0 Prev', next: 'Next \u25B6', replay: '\u21BB Replay', restart: '\u21BB Restart',
+		slower: 'Slower', faster: 'Faster',
+		calloutOn: 'Callouts: On', calloutOff: 'Callouts: Off',
+		outlineOn: 'Outline: On', outlineOff: 'Outline: Off',
+		audioTip: 'Narration audio', ccTip: 'Captions', shortcutsTip: 'Shortcuts',
+		stepDetails: 'Step Details', stepOf: 'Step',
+		resetPos: 'Reset to default position',
+		scTitle: 'Keyboard shortcuts',
+		scNext: 'Next step', scPrev: 'Previous step', scRestart: 'Restart', scReplay: 'Replay this step', scHide: 'Hide / show top bar', scHelp: 'Toggle this help',
+
+		// ── Cast (shared on every AI-500 page) ──
+		agSolo: 'Solo', agOrch: 'Orchestrator', agIntake: 'Intake Agent', agPolicy: 'Policy Agent', agFraud: 'Fraud Agent', agPayout: 'Payout Agent', agHuman: 'Human Reviewer',
+
+		// ── 1 · Positioning ──
+		positioningTitle: 'What AI-500 is, and is not',
+		positioningCaption: 'Positioning',
+		positioningDesc: 'Say it the same way every time: three honest contrasts.',
+		positioningCallout: 'Trainer-only briefing. Keep it local; it is not part of the learner flow.',
+		colIs: 'It is', colIsNot: 'It is not', colSay: 'Say this',
+		posIs1: 'An architecture and design course with real labs',
+		posNot1: 'A beginner agent-building course',
+		posSay1: '\u201cYou\u2019ve built agents. Now we design systems of them.\u201d',
+		posIs2: 'Scenario-based and full of <span style="white-space:nowrap">trade-offs</span>',
+		posNot2: 'A Python syntax or SDK memorisation course',
+		posSay2: '\u201cThe exam rewards why, not just how.\u201d',
+		posIs3: 'Expert level (Bloom\u2019s Evaluate/Create)',
+		posNot3: 'A rehash of AI-103',
+		posSay3: '\u201cIf AI-103 felt new, revisit it first.\u201d',
+
+		// ── 2 · Days and domains ──
+		daysdomainsTitle: 'Four days, four domains',
+		daysdomainsCaption: 'Days and domains',
+		daysdomainsDesc: 'Domains do not map one-to-one onto days. Expect crossovers.',
+		daysdomainsCallout: 'Weights come from the official study guide. Check it for updates.',
+		ddHeadL: 'Exam domains \u00b7 weight', ddHeadR: 'Mainly covered on',
+		ddArchitect: 'Architect', ddDevelop: 'Develop', ddEvaluate: 'Evaluate', ddSecure: 'Secure',
+		ddW1: '15\u201320%', ddW2: '30\u201335%', ddW3: '20\u201325%', ddW4: '20\u201325%',
+		ddDay1: 'Day 1', ddDay2: 'Day 2', ddDay3: 'Day 3', ddDay4: 'Day 4',
+		ddNote: 'Domain 2 spans two days \u2014 point back to the blueprint weights.',
+
+		// ── 3 · Training only ──
+		trainingonlyTitle: 'Training only vs. training and exam',
+		trainingonlyCaption: 'Scope',
+		trainingonlyDesc: 'Some course topics go deeper than the exam. Tell learners which is which.',
+		trainingonlyCallout: 'Sort each topic against the study guide, not against what feels important.',
+		bkExam: 'Training & Exam', bkOnly: 'Training only',
+		ex1: 'Orchestration patterns', ex2: 'MCP and A2A', ex3: 'RAG', ex4: 'Observability', ex5: 'Guardrails', ex6: 'DTAP \u00b7 blue/green \u00b7 canary',
+		to1: 'Multi-agent patterns: brainstorming, planner, debate, maker-checker, critic loop',
+		to2: 'Agentic AI vs multi-agent as an architecture decision (a different abstraction layer)',
+		to3: 'Threat modelling with STRIDE',
+		to4: 'Integrating with existing security tooling for unified threat detection and response',
+		toNote: 'Asked \u201cwill this be on the exam?\u201d Say \u201cthe study guide is the contract\u201d and point to the skills-measured list.',
+
+		// ── 4 · Mix-ups ──
+		mixupsTitle: 'Six mix-ups to untangle',
+		mixupsCaption: 'Common confusions',
+		mixupsDesc: 'Learners blur these pairs. Flip each card for the clarification.',
+		mixupsCallout: 'Click a card, or press Enter or Space while it is focused.',
+		flipHint: 'Click to flip', flipAll: 'Flip all',
+		mxNote: 'These pairs make good \u201cpause and ask the room\u201d moments.',
+		mx1: 'MCP vs A2A',
+		mx1a: 'MCP connects an agent to tools and data. A2A connects an agent to other agents.',
+		mx2: 'Session state vs shared team state vs long-term memory',
+		mx2a: 'One conversation \u00b7 one workflow run across agents \u00b7 persists across runs.',
+		mx3: 'Hub-and-spoke vs orchestrator\u2013subagent',
+		mx3a: 'Both are centralised. Orchestrator\u2013subagent implies hierarchy and delegation depth; subagents can be spawned dynamically.',
+		mx4: 'Summary drift vs sliding-window amnesia',
+		mx4a: 'Drift: meaning degrades through repeated summarisation. Amnesia: early context drops out of the window.',
+		mx5: 'Blue/green vs canary',
+		mx5a: 'A full switch between two environments vs gradually shifting a percentage of traffic.',
+		mx6: 'User impersonation vs On-Behalf-Of',
+		mx6a: 'Both carry the user\u2019s identity downstream. Discuss when each fits and their risk boundaries.',
+
+		// ── 5 · Delivery ──
+		deliveryTitle: 'How to deliver it',
+		deliveryCaption: 'Delivery',
+		deliveryDesc: 'Five habits that keep the room on trade-offs, not trivia.',
+		deliveryCallout: 'Pausing on a gate and asking \u201cwhat happens next?\u201d beats any extra slide.',
+		dl1: 'Anchor every module to Contoso', dl1s: 'Reuse the intro\u2019s claims-processing scenario for a continuous story',
+		dl2: 'End each module with a trade-off question', dl2s: '\u201cWhich pattern, and why not the other two?\u201d',
+		dl3: 'Labs are evidence, not the destination', dl3s: 'After each lab ask: what would you change for 10\u00d7 the load or a regulated tenant?',
+		dl4: 'Day 4: add an exam-tips slot', dl4s: 'Rehearse long-scenario reading and the case-study \u201cno return\u201d rule',
+		dl5: 'Use the player controls', dl5s: 'Pause on the failure gallery and the guardrail gates; let learners predict the next step',
+
+		// ── 6 · Status ──
+		statusTitle: 'Facts that can change',
+		statusCaption: 'Check first',
+		statusDesc: 'Exam details move. Confirm each item on the official pages first.',
+		statusCallout: 'Never quote exam numbers from memory.',
+		stHead: 'Check before you teach',
+		st1: 'Exam status', st1a: 'Confirm current status on Microsoft Learn the day you deliver.',
+		st2: 'Question count, duration, price', st2a: 'Not fixed during beta; quote only the official page.',
+		st3: 'AI-103 requirement wording', st3a: 'Use the official certification page wording.',
+		st4: 'Practice assessment', st4a: 'Check whether it is published yet.',
+		st5: 'Preview features', st5a: 'The exam can include commonly used Preview features; flag Preview status in demos.',
+		st6: 'Product naming', st6a: 'Use \u201cMicrosoft Foundry\u201d, the current name, consistently.',
+
+		// ── 7 · FAQ ──
+		faqTitle: 'Questions learners ask',
+		faqCaption: 'FAQ',
+		faqDesc: 'Short answers you can give on the spot. One opens at a time.',
+		faqCallout: 'Click a question, or press Enter or Space while it is focused.',
+		fq1: 'Do I need to be a Python expert?', fa1: 'You need to be proficient: able to read and reason about production code. The exam is about design decisions, but the scenarios assume you understand the implementation.',
+		fq2: 'Is this only Microsoft tech?', fa2: 'No. LangGraph, LangChain and Hugging Face Transformers are in scope alongside Microsoft Agent Framework, MCP and A2A.',
+		fq3: 'Can I take the exam without the course?', fa3: 'Yes. The course is preparation, not a requirement. The credential still requires a prerequisite certification; use the official certification page wording.',
+		fq4: 'How is this different from AI-103?', fa4: 'AI-103 is about building an agent. AI-500 is about architecting, evaluating, securing and operating a system of agents.',
+		fq5: 'How do I keep current after class?', fa5: 'Re-check the study guide\u2019s change log and rebuild scenarios in the lab environment.',
+		faqFoot: 'Read the official <a href="https://learn.microsoft.com/credentials/certifications/resources/study-guides/ai-500" target="_blank" rel="noopener">AI-500 study guide</a> on Microsoft Learn.'
+
+	},
+	es: {
+		skipToMain: "Ir al diagrama",
+		pageTitle: "AI-500 Informe de Formadores",
+		stageHeading: "AI-500 Informe de Formadores",
+		stageInstructions: "Explicaci\u00f3n animada. Usa los botones de Siguiente/Anterior o las flechas para navegar. Pulsa R para reiniciar.",
+		prev: "\u25c0 Anterior",
+		next: "Siguiente \u25b6",
+		replay: "\u21bb Repetir",
+		restart: "\u21bb Reiniciar",
+		slower: "M\u00e1s lento",
+		faster: "M\u00e1s r\u00e1pido",
+		calloutOn: "Notas: activadas",
+		calloutOff: "Notas: desactivadas",
+		outlineOn: "Esquema: activado",
+		outlineOff: "Esquema: desactivado",
+		audioTip: "Narraci\u00f3n de audio",
+		ccTip: "Subt\u00edtulos",
+		shortcutsTip: "Atajos",
+		stepDetails: "Detalles del paso",
+		stepOf: "Paso",
+		resetPos: "Restablecer la posici\u00f3n",
+		scTitle: "Atajos de teclado",
+		scNext: "Paso siguiente",
+		scPrev: "Paso anterior",
+		scRestart: "Reiniciar",
+		scReplay: "Repetir este paso",
+		scHide: "Mostrar u ocultar la barra superior",
+		scHelp: "Mostrar u ocultar esta ayuda",
+		agSolo: "Solo",
+		agOrch: "Orquestador",
+		agIntake: "Agente de admisi\u00f3n",
+		agPolicy: "Agente de P\u00f3lizas",
+		agFraud: "Agente de fraude",
+		agPayout: "Agente de pago",
+		agHuman: "Revisor humano",
+		positioningTitle: "Lo que AI-500 es y lo que no es",
+		positioningCaption: "Posicionamiento",
+		positioningDesc: "Dilo siempre igual: tres contrastes honestos.",
+		positioningCallout: "Sesi\u00f3n informativa solo para formadores. Mant\u00e9nlo local; no forma parte del flujo del alumno.",
+		colIs: "Lo es",
+		colIsNot: "No lo es",
+		colSay: "Di esto",
+		posIs1: "Un curso de arquitectura y dise\u00f1o con laboratorios reales",
+		posNot1: "Un curso para principiantes de creaci\u00f3n de agentes",
+		posSay1: "\"Hab\u00e9is creado agentes. Ahora dise\u00f1amos sistemas de ellos.\"",
+		posIs2: "Basado en escenarios y lleno de <span style=\"white-space:nowrap\">compensaciones</span>",
+		posNot2: "Un curso de Python sintaxis o SDK de memorizaci\u00f3n",
+		posSay2: "\"El examen recompensa el porqu\u00e9, no solo c\u00f3mo.\"",
+		posIs3: "Nivel experto (Evaluar/Crear de Bloom)",
+		posNot3: "Una repetici\u00f3n de AI-103",
+		posSay3: "\"Si AI-103 parec\u00eda nuevo, rev\u00edsalo primero.\"",
+		daysdomainsTitle: "Cuatro d\u00edas, cuatro dominios",
+		daysdomainsCaption: "D\u00edas y dominios",
+		daysdomainsDesc: "Los dominios no se asignan uno a uno a los d\u00edas. Espera cruces.",
+		daysdomainsCallout: "Los pesos vienen de la gu\u00eda oficial de estudio. Consulta para actualizaciones.",
+		ddHeadL: "Dominios de examen \u00b7 peso",
+		ddHeadR: "Principalmente cubierta en",
+		ddArchitect: "Arquitecto",
+		ddDevelop: "Desarrollo",
+		ddEvaluate: "Eval\u00faa",
+		ddSecure: "Seguro",
+		ddW1: "15\u201320%",
+		ddW2: "30\u201335%",
+		ddW3: "20\u201325%",
+		ddW4: "20\u201325%",
+		ddDay1: "D\u00eda 1",
+		ddDay2: "D\u00eda 2",
+		ddDay3: "D\u00eda 3",
+		ddDay4: "D\u00eda 4",
+		ddNote: "El dominio 2 abarca dos d\u00edas \u2014 apunta de nuevo a los pesos del plano.",
+		trainingonlyTitle: "Solo formaci\u00f3n vs. entrenamiento y examen",
+		trainingonlyCaption: "Alcance",
+		trainingonlyDesc: "Algunos temas de los cursos van m\u00e1s all\u00e1 del examen. Diles a los alumnos cu\u00e1les son cu\u00e1les.",
+		trainingonlyCallout: "Clasifica cada tema seg\u00fan la gu\u00eda de estudio, no con lo que te parezca importante.",
+		bkExam: "Formaci\u00f3n y Examen",
+		bkOnly: "Solo entrenamiento",
+		ex1: "Patrones de orquestaci\u00f3n",
+		ex2: "MCP y A2A",
+		ex3: "RAG",
+		ex4: "Observabilidad",
+		ex5: "Barandillas de protecci\u00f3n",
+		ex6: "DTAP \u00b7 azul/verde \u00b7 canario",
+		to1: "Patrones multiagente: lluvia de ideas, planificaci\u00f3n, debate, creador-verificador, bucle de cr\u00edtico",
+		to2: "IA agente vs multiagente como decisi\u00f3n arquitect\u00f3nica (una capa de abstracci\u00f3n diferente)",
+		to3: "Modelado de amenazas con STRIDE",
+		to4: "Integraci\u00f3n con las herramientas de seguridad existentes para la detecci\u00f3n y respuesta unificada de amenazas",
+		toNote: "Preguntado \"\u00bfesto estar\u00e1 en el examen?\" Di \"la gu\u00eda de estudio es el contrato\" y se\u00f1ala la lista de habilidades medidas.",
+		mixupsTitle: "Seis confusiones por desenredar",
+		mixupsCaption: "Confusi\u00f3n com\u00fan",
+		mixupsDesc: "Los alumnos difuminan estos pares. Gira cada carta para aclarar.",
+		mixupsCallout: "Haz clic en una tarjeta, o pulsa Enter o Espacio mientras est\u00e1 enfocada.",
+		flipHint: "Haz clic para voltear",
+		flipAll: "Voltear todo",
+		mxNote: "Estas parejas son buenos momentos de \"pausa y pregunta a la sala\".",
+		mx1: "MCP vs A2A",
+		mx1a: "MCP conecta a un agente con herramientas y datos. A2A conecta a un agente con otros agentes.",
+		mx2: "Estado de sesi\u00f3n vs estado compartido del equipo vs memoria a largo plazo",
+		mx2a: "Una conversaci\u00f3n \u00b7 un flujo de trabajo entre agentes \u00b7 persiste entre ejecuciones.",
+		mx3: "Hub-and-spoke vs orquestador\u2013subagente",
+		mx3a: "Ambos est\u00e1n centralizados. Orquestador\u2013subagente implica jerarqu\u00eda y profundidad de delegaci\u00f3n; los subagentes pueden generarse din\u00e1micamente.",
+		mx4: "Resumen de la deriva frente a la amnesia de ventana deslizante",
+		mx4a: "Deriva: el significado se degrada a trav\u00e9s de la repetida recapitulaci\u00f3n. Amnesia: el contexto temprano desaparece por la ventana.",
+		mx5: "Azul/verde vs canario",
+		mx5a: "Un cambio total entre dos entornos frente a desplazar gradualmente un porcentaje del tr\u00e1fico.",
+		mx6: "Suplantaci\u00f3n de usuario vs En nombre de",
+		mx6a: "Ambos trasladan la identidad del usuario r\u00edo abajo. Habla sobre cu\u00e1ndo encaja cada uno y sus l\u00edmites de riesgo.",
+		deliveryTitle: "C\u00f3mo entregarlo",
+		deliveryCaption: "Entrega",
+		deliveryDesc: "Cinco h\u00e1bitos que mantienen la sala en compensaciones, no en trivialidades.",
+		deliveryCallout: "Pararse en una puerta y preguntar \"\u00bfqu\u00e9 pasa ahora?\" es mejor que cualquier deslizamiento extra.",
+		dl1: "Ancla cada m\u00f3dulo a Contoso",
+		dl1s: "Reutiliza el escenario de procesamiento de afirmaciones de la introducci\u00f3n para una historia continua",
+		dl2: "Termina cada m\u00f3dulo con una pregunta de compensaci\u00f3n",
+		dl2s: "\"\u00bfQu\u00e9 patr\u00f3n y por qu\u00e9 no los otros dos?\"",
+		dl3: "Los laboratorios son prueba, no el destino",
+		dl3s: "Despu\u00e9s de cada laboratorio, pregunta: \u00bfqu\u00e9 cambiar\u00edas por un 10\u00d7 la carga o un inquilino regulado?",
+		dl4: "D\u00eda 4: a\u00f1adir un espacio para consejos de examen",
+		dl4s: "Ensaya lecturas de escenarios largos y la regla de \"no retorno\" en el caso de estudio",
+		dl5: "Usa los controles del jugador",
+		dl5s: "Pausa en la galer\u00eda de fallos y las compuertas de la barandilla; deja que los alumnos predigan el siguiente paso",
+		statusTitle: "Hechos que pueden cambiar",
+		statusCaption: "Revisa primero",
+		statusDesc: "Los detalles del examen se mueven. Confirma primero cada elemento en las p\u00e1ginas oficiales.",
+		statusCallout: "Nunca cites los n\u00fameros de los ex\u00e1menes de memoria.",
+		stHead: "Revisa antes de dar clase",
+		st1: "Estado del examen",
+		st1a: "Confirma el estado actual en Microsoft Learn el d\u00eda que entregues.",
+		st2: "N\u00famero de preguntas, duraci\u00f3n, precio",
+		st2a: "No se corrigi\u00f3 durante la beta; solo cita la p\u00e1gina oficial.",
+		st3: "Redacci\u00f3n del requisito de AI-103",
+		st3a: "Utiliza la redacci\u00f3n oficial de la p\u00e1gina de certificaci\u00f3n.",
+		st4: "Evaluaci\u00f3n de pr\u00e1ctica",
+		st4a: "Comprueba si ya est\u00e1 publicado.",
+		st5: "Funciones de vista previa",
+		st5a: "El examen puede incluir funciones de Vista previa m\u00e1s usadas; marcar el estado de Vista previa en las demos.",
+		st6: "Denominaci\u00f3n de productos",
+		st6a: "Utiliza \"Microsoft Foundry\", el nombre actual, de forma constante.",
+		faqTitle: "Preguntas que hacen los alumnos",
+		faqCaption: "Preguntas frecuentes",
+		faqDesc: "Respuestas cortas que puedes dar en el momento. Una a la vez.",
+		faqCallout: "Haz clic en una pregunta, o pulsa Enter o Espacio mientras est\u00e1 enfocado.",
+		fq1: "\u00bfNecesito ser un experto en Python?",
+		fa1: "Necesitas ser competente: saber leer y razonar sobre c\u00f3digo de producci\u00f3n. El examen trata sobre decisiones de dise\u00f1o, pero los escenarios asumen que entiendes la implementaci\u00f3n.",
+		fq2: "\u00bfEsto es solo tecnolog\u00eda de Microsoft?",
+		fa2: "No. LangGraph, LangChain y Hugging Face Transformers est\u00e1n en el \u00e1mbito junto con Microsoft Agent Framework, MCP y A2A.",
+		fq3: "\u00bfPuedo hacer el examen sin el curso?",
+		fa3: "S\u00ed. El curso es preparaci\u00f3n, no un requisito. La acreditaci\u00f3n sigue requiriendo una certificaci\u00f3n previa; usa la redacci\u00f3n de la p\u00e1gina oficial de certificaci\u00f3n.",
+		fq4: "\u00bfEn qu\u00e9 se diferencia esto de AI-103?",
+		fa4: "AI-103 trata de construir un agente. AI-500 trata de dise\u00f1ar, evaluar, asegurar y operar un sistema de agentes.",
+		fq5: "\u00bfC\u00f3mo puedo mantenerme al d\u00eda despu\u00e9s de clase?",
+		fa5: "Revisa de nuevo el registro de cambios de la gu\u00eda de estudio y reconstruye los escenarios en el entorno del laboratorio.",
+		faqFoot: "Lee la <a href=\"https://learn.microsoft.com/credentials/certifications/resources/study-guides/ai-500\" target=\"_blank\" rel=\"noopener\"> gu\u00eda oficial de estudio AI-500</a> sobre Microsoft Learn."
+	},
+	ja: {
+		skipToMain: "\u56f3\u3078\u30b9\u30ad\u30c3\u30d7",
+		pageTitle: "AI-500 \u30c8\u30ec\u30fc\u30ca\u30fc\u30d6\u30ea\u30fc\u30d5\u30a3\u30f3\u30b0",
+		stageHeading: "AI-500 \u30c8\u30ec\u30fc\u30ca\u30fc\u30d6\u30ea\u30fc\u30d5\u30a3\u30f3\u30b0",
+		stageInstructions: "\u30a2\u30cb\u30e1\u30fc\u30b7\u30e7\u30f3\u89e3\u8aac\u3002\u6b21\u56de/\u524d\u56de\u30dc\u30bf\u30f3\u3084\u77e2\u5370\u30ad\u30fc\u3092\u4f7f\u3063\u3066\u30ca\u30d3\u30b2\u30fc\u30c8\u3002R\u30dc\u30bf\u30f3\u3092\u62bc\u3057\u3066\u518d\u8d77\u52d5\u3057\u307e\u3059\u3002",
+		prev: "\u25c0 \u524d\u3078",
+		next: "\u6b21\u3078 \u25b6",
+		replay: "\u21bb \u518d\u751f",
+		restart: "\u21bb \u6700\u521d\u304b\u3089",
+		slower: "\u3086\u3063\u304f\u308a",
+		faster: "\u901f\u304f",
+		calloutOn: "\u5439\u304d\u51fa\u3057\uff1a\u30aa\u30f3",
+		calloutOff: "\u5439\u304d\u51fa\u3057\uff1a\u30aa\u30d5",
+		outlineOn: "\u30a2\u30a6\u30c8\u30e9\u30a4\u30f3\uff1a\u30aa\u30f3",
+		outlineOff: "\u30a2\u30a6\u30c8\u30e9\u30a4\u30f3\uff1a\u30aa\u30d5",
+		audioTip: "\u97f3\u58f0\u30ca\u30ec\u30fc\u30b7\u30e7\u30f3",
+		ccTip: "\u5b57\u5e55",
+		shortcutsTip: "\u30b7\u30e7\u30fc\u30c8\u30ab\u30c3\u30c8",
+		stepDetails: "\u30b9\u30c6\u30c3\u30d7\u306e\u8a73\u7d30",
+		stepOf: "\u30b9\u30c6\u30c3\u30d7",
+		resetPos: "\u4f4d\u7f6e\u3092\u65e2\u5b9a\u306b\u623b\u3059",
+		scTitle: "\u30ad\u30fc\u30dc\u30fc\u30c9 \u30b7\u30e7\u30fc\u30c8\u30ab\u30c3\u30c8",
+		scNext: "\u6b21\u306e\u30b9\u30c6\u30c3\u30d7",
+		scPrev: "\u524d\u306e\u30b9\u30c6\u30c3\u30d7",
+		scRestart: "\u6700\u521d\u304b\u3089",
+		scReplay: "\u3053\u306e\u30b9\u30c6\u30c3\u30d7\u3092\u518d\u751f",
+		scHide: "\u4e0a\u90e8\u30d0\u30fc\u306e\u8868\u793a / \u975e\u8868\u793a",
+		scHelp: "\u3053\u306e\u30d8\u30eb\u30d7\u306e\u8868\u793a\u5207\u308a\u66ff\u3048",
+		agSolo: "Solo",
+		agOrch: "\u30aa\u30fc\u30b1\u30b9\u30c8\u30ec\u30fc\u30bf\u30fc",
+		agIntake: "\u30a4\u30f3\u30c6\u30fc\u30af\u30a8\u30fc\u30b8\u30a7\u30f3\u30c8",
+		agPolicy: "\u30dd\u30ea\u30b7\u30fc\u30a8\u30fc\u30b8\u30a7\u30f3\u30c8",
+		agFraud: "\u4e0d\u6b63\u8abf\u67fb\u30a8\u30fc\u30b8\u30a7\u30f3\u30c8",
+		agPayout: "\u30da\u30a4\u30a2\u30a6\u30c8\u30a8\u30fc\u30b8\u30a7\u30f3\u30c8",
+		agHuman: "\u30d2\u30e5\u30fc\u30de\u30f3\u30ec\u30d3\u30e5\u30a2\u30fc",
+		positioningTitle: "AI-500\u306f\u4f55\u3067\u3042\u308a\u3001\u4f55\u3067\u306a\u3044\u304b",
+		positioningCaption: "\u30dd\u30b8\u30b7\u30e7\u30cb\u30f3\u30b0",
+		positioningDesc: "\u6bce\u56de\u540c\u3058\u3088\u3046\u306b\u8a00\u3044\u307e\u3057\u3087\u3046:\u4e09\u3064\u306e\u6b63\u76f4\u306a\u5bfe\u6bd4\u3002",
+		positioningCallout: "\u30c8\u30ec\u30fc\u30ca\u30fc\u9650\u5b9a\u306e\u30d6\u30ea\u30fc\u30d5\u30a3\u30f3\u30b0\u3002\u30ed\u30fc\u30ab\u30eb\u306b\u9650\u5b9a\u3057\u3066\u304f\u3060\u3055\u3044\u3002\u5b66\u7fd2\u8005\u306e\u6d41\u308c\u306e\u4e00\u90e8\u3067\u306f\u3042\u308a\u307e\u305b\u3093\u3002",
+		colIs: "\u305d\u3046\u3067\u3059",
+		colIsNot: "\u305d\u3046\u3067\u306f\u3042\u308a\u307e\u305b\u3093",
+		colSay: "\u3053\u3046\u8a00\u3063\u3066\u307f\u3066",
+		posIs1: "\u5b9f\u969b\u306e\u5b9f\u9a13\u5ba4\u304c\u3042\u308b\u5efa\u7bc9\u3068\u30c7\u30b6\u30a4\u30f3\u306e\u30b3\u30fc\u30b9",
+		posNot1: "\u521d\u5fc3\u8005\u5411\u3051\u30a8\u30fc\u30b8\u30a7\u30f3\u30c8\u69cb\u7bc9\u30b3\u30fc\u30b9",
+		posSay1: "\u300c\u541b\u305f\u3061\u306f\u30a8\u30fc\u30b8\u30a7\u30f3\u30c8\u3092\u4f5c\u308a\u4e0a\u3052\u305f\u3002\u4eca\u5ea6\u306f\u5f7c\u3089\u306e\u30b7\u30b9\u30c6\u30e0\u3092\u8a2d\u8a08\u3057\u3066\u3044\u308b\u3002\u300d",
+		posIs2: "\u30b7\u30ca\u30ea\u30aa\u30d9\u30fc\u30b9\u3067\u30c8\u30ec<span style=\"white-space:nowrap\">\u30fc\u30c9\u30aa\u30d5</span>\u304c\u591a\u3044",
+		posNot2: "Python\u69cb\u6587\u8ad6\u307e\u305f\u306fSDK\u6697\u8a18\u30b3\u30fc\u30b9",
+		posSay2: "\u300c\u8a66\u9a13\u306f\u300c\u306a\u305c\u300d\u3092\u8a55\u4fa1\u3057\u307e\u3059\u3002\u305f\u3060\u306e\u300c\u3069\u3046\u3084\u3063\u3066\u300d\u3067\u306f\u306a\u304f\u3002\u300d",
+		posIs3: "\u30a8\u30ad\u30b9\u30d1\u30fc\u30c8\u30ec\u30d9\u30eb(\u30d6\u30eb\u30fc\u30e0\u306e\u8a55\u4fa1/\u4f5c\u6210)",
+		posNot3: "AI-103\u306e\u713c\u304d\u76f4\u3057",
+		posSay3: "\u300c\u3082\u3057 AI-103 \u65b0\u3057\u304f\u611f\u3058\u305f\u3089\u3001\u307e\u305a\u306f\u3082\u3046\u4e00\u5ea6\u898b\u76f4\u3057\u3066\u307f\u3066\u3002\u300d",
+		daysdomainsTitle: "\u56db\u65e5\u9593\u3001\u56db\u3064\u306e\u9818\u57df",
+		daysdomainsCaption: "\u65e5\u3068\u9818\u5730",
+		daysdomainsDesc: "\u30c9\u30e1\u30a4\u30f3\u306f\u65e5\u3054\u3068\u306b\u4e00\u5bfe\u4e00\u3067\u5bfe\u5fdc\u3059\u308b\u308f\u3051\u3067\u306f\u3042\u308a\u307e\u305b\u3093\u3002\u30af\u30ed\u30b9\u30aa\u30fc\u30d0\u30fc\u306f\u4e88\u60f3\u3057\u3066\u304f\u3060\u3055\u3044\u3002",
+		daysdomainsCallout: "\u30a6\u30a7\u30a4\u30c8\u306f\u516c\u5f0f\u306e\u5b66\u7fd2\u30ac\u30a4\u30c9\u304b\u3089\u6765\u3066\u3044\u307e\u3059\u3002\u66f4\u65b0\u60c5\u5831\u306f\u5fc5\u305a\u78ba\u8a8d\u3057\u3066\u304f\u3060\u3055\u3044\u3002",
+		ddHeadL: "\u8a66\u9a13\u9818\u57df \u00b7\u91cd\u307f",
+		ddHeadR: "\u4e3b\u306b",
+		ddArchitect: "\u5efa\u7bc9\u5bb6",
+		ddDevelop: "\u958b\u767a",
+		ddEvaluate: "\u8a55\u4fa1",
+		ddSecure: "\u5b89\u5168",
+		ddW1: "15\u201320%",
+		ddW2: "30\u201335%",
+		ddW3: "20\u201325%",
+		ddW4: "20\u201325%",
+		ddDay1: "1\u65e5\u76ee",
+		ddDay2: "2\u65e5\u76ee",
+		ddDay3: "3\u65e5\u76ee",
+		ddDay4: "4\u65e5\u76ee",
+		ddNote: "\u30c9\u30e1\u30a4\u30f32\u306f2\u65e5\u9593\u306b\u53ca\u3073\u307e\u3059 \u2014 \u8a2d\u8a08\u56f3\u306e\u91cd\u307f\u306b\u623b\u308a\u307e\u3057\u3087\u3046\u3002",
+		trainingonlyTitle: "\u30c8\u30ec\u30fc\u30cb\u30f3\u30b0\u306e\u307f\u3068\u8a66\u9a13\u306e\u3069\u3061\u3089\u304b",
+		trainingonlyCaption: "\u7bc4\u56f2",
+		trainingonlyDesc: "\u4e00\u90e8\u306e\u30b3\u30fc\u30b9\u30c8\u30d4\u30c3\u30af\u306f\u8a66\u9a13\u3088\u308a\u3082\u6df1\u304f\u6398\u308a\u4e0b\u3052\u3089\u308c\u3066\u3044\u307e\u3059\u3002\u3069\u3061\u3089\u304c\u3069\u308c\u304b\u3092\u5b66\u7fd2\u8005\u306b\u4f1d\u3048\u307e\u3057\u3087\u3046\u3002",
+		trainingonlyCallout: "\u5404\u30c8\u30d4\u30c3\u30af\u306f\u91cd\u8981\u3060\u3068\u611f\u3058\u308b\u3082\u306e\u3067\u306f\u306a\u304f\u3001\u5b66\u7fd2\u30ac\u30a4\u30c9\u306b\u6cbf\u3063\u3066\u6574\u7406\u3057\u3066\u304f\u3060\u3055\u3044\u3002",
+		bkExam: "\u7814\u4fee\u3068\u8a66\u9a13",
+		bkOnly: "\u8a13\u7df4\u306e\u307f",
+		ex1: "\u30aa\u30fc\u30b1\u30b9\u30c8\u30ec\u30fc\u30b7\u30e7\u30f3\u30d1\u30bf\u30fc\u30f3",
+		ex2: "MCP \u3068 A2A",
+		ex3: "RAG",
+		ex4: "\u89b3\u6e2c\u53ef\u80fd\u6027",
+		ex5: "\u30ac\u30fc\u30c9\u30ec\u30fc\u30eb",
+		ex6: "DTAP \u00b7\u9752/\u7dd1 \u00b7\u30ab\u30ca\u30ea\u30a2",
+		to1: "\u30de\u30eb\u30c1\u30a8\u30fc\u30b8\u30a7\u30f3\u30c8\u306e\u30d1\u30bf\u30fc\u30f3:\u30d6\u30ec\u30a4\u30f3\u30b9\u30c8\u30fc\u30df\u30f3\u30b0\u3001\u30d7\u30e9\u30f3\u30ca\u30fc\u3001\u30c7\u30a3\u30d9\u30fc\u30c8\u3001\u30e1\u30a4\u30ab\u30fc\u30c1\u30a7\u30c3\u30ab\u30fc\u3001\u6279\u8a55\u30eb\u30fc\u30d7",
+		to2: "\u30a2\u30fc\u30ad\u30c6\u30af\u30c1\u30e3\u306e\u6c7a\u5b9a\u3068\u3057\u3066\u306e\u30a8\u30fc\u30b8\u30a7\u30f3\u30c8AI\u3068\u30de\u30eb\u30c1\u30a8\u30fc\u30b8\u30a7\u30f3\u30c8(\u7570\u306a\u308b\u62bd\u8c61\u5316\u30ec\u30a4\u30e4\u30fc)\u306e\u6bd4\u8f03",
+		to3: "STRIDE\u306b\u3088\u308b\u8105\u5a01\u30e2\u30c7\u30ea\u30f3\u30b0",
+		to4: "\u65e2\u5b58\u306e\u30bb\u30ad\u30e5\u30ea\u30c6\u30a3\u30c4\u30fc\u30eb\u3068\u306e\u7d71\u5408\u306b\u3088\u308b\u7d71\u4e00\u7684\u306a\u8105\u5a01\u691c\u51fa\u3068\u5bfe\u5fdc",
+		toNote: "\u300c\u3053\u308c\u306f\u8a66\u9a13\u306b\u51fa\u307e\u3059\u304b?\u300d\u3068\u805e\u304b\u308c\u307e\u3057\u305f\u3002\u300c\u30b9\u30bf\u30c7\u30a3\u30ac\u30a4\u30c9\u306f\u5951\u7d04\u66f8\u3067\u3059\u300d\u3068\u8a00\u3044\u3001\u30b9\u30ad\u30eb\u6e2c\u5b9a\u30ea\u30b9\u30c8\u3092\u6307\u3055\u3057\u3066\u304f\u3060\u3055\u3044\u3002",
+		mixupsTitle: "6\u3064\u306e\u6df7\u4e71\u3092\u89e3\u304d\u307b\u3050\u3059",
+		mixupsCaption: "\u3088\u304f\u3042\u308b\u6df7\u4e71",
+		mixupsDesc: "\u5b66\u7fd2\u8005\u306f\u3053\u308c\u3089\u306e\u30da\u30a2\u3092\u307c\u304b\u3057\u307e\u3059\u3002\u660e\u78ba\u5316\u306e\u305f\u3081\u306b\u5404\u30ab\u30fc\u30c9\u3092\u3081\u304f\u3063\u3066\u304f\u3060\u3055\u3044\u3002",
+		mixupsCallout: "\u30ab\u30fc\u30c9\u3092\u30af\u30ea\u30c3\u30af\u3059\u308b\u3068\u3001\u30d5\u30a9\u30fc\u30ab\u30b9\u4e2d\u306fEnter\u307e\u305f\u306fSpace\u30ad\u30fc\u3092\u62bc\u3057\u3066\u304f\u3060\u3055\u3044\u3002",
+		flipHint: "\u30af\u30ea\u30c3\u30af\u3057\u3066\u3081\u304f\u308b",
+		flipAll: "\u3059\u3079\u3066\u3092\u88cf\u8fd4\u3059",
+		mxNote: "\u3053\u308c\u3089\u306e\u30da\u30a2\u306f\u300c\u7acb\u3061\u6b62\u307e\u3063\u3066\u90e8\u5c4b\u306b\u805e\u304f\u300d\u826f\u3044\u77ac\u9593\u306b\u306a\u308a\u307e\u3059\u3002",
+		mx1: "MCP \u3068 A2A",
+		mx1a: "MCP \u30a8\u30fc\u30b8\u30a7\u30f3\u30c8\u3092\u30c4\u30fc\u30eb\u3084\u30c7\u30fc\u30bf\u306b\u63a5\u7d9a\u3057\u307e\u3059\u3002 A2A \u30a8\u30fc\u30b8\u30a7\u30f3\u30c8\u3092\u4ed6\u306e\u30a8\u30fc\u30b8\u30a7\u30f3\u30c8\u306b\u3064\u306a\u3052\u307e\u3059\u3002",
+		mx2: "\u30bb\u30c3\u30b7\u30e7\u30f3\u72b6\u614b vs \u5171\u6709\u30c1\u30fc\u30e0\u72b6\u614b vs \u9577\u671f\u8a18\u61b6",
+		mx2a: "1\u3064\u306e\u4f1a\u8a71\u30fb\u30a8\u30fc\u30b8\u30a7\u30f3\u30c8\u9593\u3067\u5b9f\u884c\u3055\u308c\u308b1\u3064\u306e\u30ef\u30fc\u30af\u30d5\u30ed\u30fc \u00b7\u5b9f\u884c\u3092\u8d85\u3048\u3066\u6301\u7d9a\u3059\u308b\u3002",
+		mx3: "\u30cf\u30d6\u30fb\u30a2\u30f3\u30c9\u30fb\u30b9\u30dd\u30fc\u30af\u3068\u30aa\u30fc\u30b1\u30b9\u30c8\u30ec\u30fc\u30bf\u30fc\u30fb\u30b5\u30d6\u30a8\u30fc\u30b8\u30a7\u30f3\u30c8\u306e\u9055\u3044",
+		mx3a: "\u3069\u3061\u3089\u3082\u4e2d\u592e\u96c6\u6a29\u7684\u3067\u3059\u3002\u30aa\u30fc\u30b1\u30b9\u30c8\u30ec\u30fc\u30bf\u30fc\u2013\u30b5\u30d6\u30a8\u30fc\u30b8\u30a7\u30f3\u30c8\u306f\u968e\u5c64\u69cb\u9020\u3068\u59d4\u8b72\u306e\u6df1\u3055\u3092\u610f\u5473\u3057\u307e\u3059\u3002\u30b5\u30d6\u30a8\u30fc\u30b8\u30a7\u30f3\u30c8\u306f\u52d5\u7684\u306b\u751f\u6210\u53ef\u80fd\u3067\u3059\u3002",
+		mx4: "\u8981\u7d04\u30c9\u30ea\u30d5\u30c8\u3068\u30b9\u30e9\u30a4\u30c9\u30a6\u30a3\u30f3\u30c9\u30a6\u5065\u5fd8\u306e\u9055\u3044",
+		mx4a: "\u6f02\u6d41:\u610f\u5473\u306f\u7e70\u308a\u8fd4\u3057\u306e\u8981\u7d04\u306b\u3088\u3063\u3066\u52a3\u5316\u3059\u308b\u3002\u5065\u5fd8\u75c7:\u521d\u671f\u306e\u6587\u8108\u306f\u6d88\u3048\u53bb\u308b\u3002",
+		mx5: "\u9752/\u7dd1 vs \u30ab\u30ca\u30ea\u30a2",
+		mx5a: "2\u3064\u306e\u74b0\u5883\u9593\u3067\u5b8c\u5168\u306b\u5207\u308a\u66ff\u3048\u308b\u306e\u3068\u3001\u5f90\u3005\u306b\u30c8\u30e9\u30d5\u30a3\u30c3\u30af\u306e\u5272\u5408\u3092\u30b7\u30d5\u30c8\u3059\u308b\u306e\u3068\u306e\u9055\u3044\u3067\u3059\u3002",
+		mx6: "\u30e6\u30fc\u30b6\u30fc\u306a\u308a\u3059\u307e\u3057\u3068\u4ee3\u7406",
+		mx6a: "\u3069\u3061\u3089\u3082\u30e6\u30fc\u30b6\u30fc\u306e\u30a2\u30a4\u30c7\u30f3\u30c6\u30a3\u30c6\u30a3\u3092\u4e0b\u6d41\u306b\u5f15\u304d\u7d99\u304e\u307e\u3059\u3002\u305d\u308c\u305e\u308c\u304c\u5408\u3046\u30bf\u30a4\u30df\u30f3\u30b0\u3084\u30ea\u30b9\u30af\u306e\u5883\u754c\u306b\u3064\u3044\u3066\u8a71\u3057\u5408\u3044\u307e\u3057\u3087\u3046\u3002",
+		deliveryTitle: "\u4f1d\u3048\u65b9",
+		deliveryCaption: "\u914d\u9054",
+		deliveryDesc: "\u30c8\u30ea\u30d3\u30a2\u3067\u306f\u306a\u304f\u3001\u30c8\u30ec\u30fc\u30c9\u30aa\u30d5\u3067\u90e8\u5c4b\u3092\u4fdd\u30645\u3064\u306e\u7fd2\u6163\u3002",
+		deliveryCallout: "\u30b2\u30fc\u30c8\u3067\u7acb\u3061\u6b62\u307e\u3063\u3066\u300c\u6b21\u306f\u3069\u3046\u306a\u308b?\u300d\u3068\u5c0b\u306d\u308b\u65b9\u304c\u3001\u30b9\u30e9\u30a4\u30c9\u3092\u4f59\u5206\u306b\u4f7f\u3046\u3088\u308a\u305a\u3063\u3068\u826f\u3044\u3067\u3059\u3002",
+		dl1: "\u3059\u3079\u3066\u306e\u30e2\u30b8\u30e5\u30fc\u30eb\u3092\u30a2\u30f3\u30ab\u30fc Contoso",
+		dl1s: "\u30a4\u30f3\u30c8\u30ed\u306e\u8acb\u6c42\u51e6\u7406\u30b7\u30ca\u30ea\u30aa\u3092\u9023\u7d9a\u3057\u305f\u30b9\u30c8\u30fc\u30ea\u30fc\u306b\u518d\u5229\u7528\u3059\u308b",
+		dl2: "\u5404\u30e2\u30b8\u30e5\u30fc\u30eb\u306e\u6700\u5f8c\u306b\u30c8\u30ec\u30fc\u30c9\u30aa\u30d5\u306e\u8cea\u554f\u3092\u6295\u3052\u304b\u3051\u307e\u3059",
+		dl2s: "\u300c\u3069\u306e\u30d1\u30bf\u30fc\u30f3\u3067\u3001\u306a\u305c\u4ed6\u306e\u4e8c\u3064\u306f\u30c0\u30e1\u306a\u306e?\u300d",
+		dl3: "\u691c\u67fb\u5ba4\u306f\u8a3c\u62e0\u3067\u3042\u308a\u3001\u76ee\u7684\u5730\u3067\u306f\u3042\u308a\u307e\u305b\u3093",
+		dl3s: "\u5404\u30e9\u30dc\u306e\u5f8c\u306b\u300c10\u00d7\u306e\u8ca0\u8377\u3067\u4f55\u3092\u5909\u3048\u305f\u3044\u3067\u3059\u304b?\u305d\u308c\u3068\u3082\u898f\u5236\u3055\u308c\u305f\u5165\u5c45\u8005\u3067\u3059\u304b?\u300d\u3068\u805e\u304d\u307e\u3059\u3002",
+		dl4: "4\u65e5\u76ee:\u8a66\u9a13\u306e\u30d2\u30f3\u30c8\u67a0\u3092\u8ffd\u52a0",
+		dl4s: "\u9577\u671f\u30b7\u30ca\u30ea\u30aa\u306e\u8aad\u66f8\u3068\u30b1\u30fc\u30b9\u30b9\u30bf\u30c7\u30a3\u306e\u300c\u30ce\u30fc\u30ea\u30bf\u30fc\u30f3\u300d\u30eb\u30fc\u30eb\u3092\u30ea\u30cf\u30fc\u30b5\u30eb\u3057\u307e\u3057\u3087\u3046",
+		dl5: "\u30d7\u30ec\u30a4\u30e4\u30fc\u306e\u64cd\u4f5c\u3092\u4f7f\u3044\u307e\u3057\u3087\u3046",
+		dl5s: "\u5931\u6557\u30ae\u30e3\u30e9\u30ea\u30fc\u3068\u30ac\u30fc\u30c9\u30ec\u30fc\u30eb\u30b2\u30fc\u30c8\u306e\u4e00\u6642\u505c\u6b62;\u5b66\u7fd2\u8005\u306b\u6b21\u306e\u30b9\u30c6\u30c3\u30d7\u3092\u4e88\u6e2c\u3055\u305b\u307e\u3057\u3087\u3046",
+		statusTitle: "\u5909\u308f\u308b\u3053\u3068\u3082\u3042\u308b\u4e8b\u5b9f",
+		statusCaption: "\u307e\u305a\u78ba\u8a8d\u3057\u3066\u304f\u3060\u3055\u3044",
+		statusDesc: "\u8a66\u9a13\u306e\u8a73\u7d30\u306f\u79fb\u52d5\u3057\u307e\u3059\u3002\u307e\u305a\u516c\u5f0f\u30da\u30fc\u30b8\u3067\u5404\u9805\u76ee\u3092\u78ba\u8a8d\u3057\u3066\u304f\u3060\u3055\u3044\u3002",
+		statusCallout: "\u8a66\u9a13\u756a\u53f7\u3092\u8a18\u61b6\u3060\u3051\u3067\u5f15\u7528\u3057\u306a\u3044\u3067\u304f\u3060\u3055\u3044\u3002",
+		stHead: "\u6559\u3048\u308b\u524d\u306b\u5fc5\u305a\u78ba\u8a8d\u3057\u3066\u304f\u3060\u3055\u3044",
+		st1: "\u8a66\u9a13\u72b6\u6cc1",
+		st1a: "\u914d\u9054\u5f53\u65e5\u306b Microsoft Learn \u306e\u72b6\u6cc1\u3092\u78ba\u8a8d\u3057\u3066\u304f\u3060\u3055\u3044\u3002",
+		st2: "\u8cea\u554f\u6570\u3001\u6642\u9593\u3001\u4fa1\u683c",
+		st2a: "\u30d9\u30fc\u30bf\u7248\u4e2d\u306f\u4fee\u6b63\u3055\u308c\u3066\u3044\u307e\u305b\u3093\u3002\u516c\u5f0f\u30da\u30fc\u30b8\u306e\u307f\u3092\u5f15\u7528\u3057\u3066\u304f\u3060\u3055\u3044\u3002",
+		st3: "AI-103 \u8981\u4ef6\u306e\u6587\u8a00",
+		st3a: "\u516c\u5f0f\u306e\u8a8d\u5b9a\u30da\u30fc\u30b8\u306e\u6587\u8a00\u3092\u4f7f\u3044\u307e\u3057\u3087\u3046\u3002",
+		st4: "\u5b9f\u8df5\u8a55\u4fa1",
+		st4a: "\u3059\u3067\u306b\u51fa\u7248\u3055\u308c\u3066\u3044\u308b\u304b\u78ba\u8a8d\u3057\u3066\u304f\u3060\u3055\u3044\u3002",
+		st5: "\u30d7\u30ec\u30d3\u30e5\u30fc\u6a5f\u80fd",
+		st5a: "\u8a66\u9a13\u306b\u306f\u3088\u304f\u4f7f\u308f\u308c\u308b\u30d7\u30ec\u30d3\u30e5\u30fc\u6a5f\u80fd\u304c\u542b\u307e\u308c\u308b\u3053\u3068\u3082\u3042\u308a\u307e\u3059;\u30c7\u30e2\u3067\u306f\u30d7\u30ec\u30d3\u30e5\u30fc\u30b9\u30c6\u30fc\u30bf\u30b9\u3092\u30d5\u30e9\u30b0\u4ed8\u3051\u3057\u307e\u3059\u3002",
+		st6: "\u88fd\u54c1\u540d\u4ed8\u3051",
+		st6a: "\u73fe\u5728\u306e\u540d\u524d\u3067\u3042\u308b\u300cMicrosoft Foundry\u300d\u3092\u4e00\u8cab\u3057\u3066\u4f7f\u3063\u3066\u304f\u3060\u3055\u3044\u3002",
+		faqTitle: "\u5b66\u7fd2\u8005\u304c\u5c0b\u306d\u308b\u8cea\u554f",
+		faqCaption: "FAQ",
+		faqDesc: "\u305d\u306e\u5834\u3067\u7b54\u3048\u3089\u308c\u308b\u77ed\u3044\u7b54\u3048\u3002\u4e00\u3064\u305a\u3064\u958b\u3051\u307e\u3059\u3002",
+		faqCallout: "\u8cea\u554f\u3092\u30af\u30ea\u30c3\u30af\u3059\u308b\u3068\u3001\u30d5\u30a9\u30fc\u30ab\u30b9\u3057\u3066\u3044\u308b\u9593\u306bEnter\u3084\u30b9\u30da\u30fc\u30b9\u3092\u62bc\u3057\u3066\u304f\u3060\u3055\u3044\u3002",
+		fq1: "Python\u306e\u5c02\u9580\u5bb6\u3067\u3042\u308b\u5fc5\u8981\u304c\u3042\u308a\u307e\u3059\u304b?",
+		fa1: "\u30d7\u30ed\u30c0\u30af\u30b7\u30e7\u30f3\u30b3\u30fc\u30c9\u3092\u8aad\u307f\u3001\u63a8\u8ad6\u3067\u304d\u308b\u80fd\u529b\u304c\u5fc5\u8981\u3067\u3059\u3002\u8a66\u9a13\u306f\u8a2d\u8a08\u4e0a\u306e\u5224\u65ad\u306b\u95a2\u3059\u308b\u3082\u306e\u3067\u3059\u304c\u3001\u30b7\u30ca\u30ea\u30aa\u306f\u5b9f\u88c5\u3092\u7406\u89e3\u3057\u3066\u3044\u308b\u3053\u3068\u3092\u524d\u63d0\u3068\u3057\u3066\u3044\u307e\u3059\u3002",
+		fq2: "\u3053\u308c\u306fMicrosoft\u306e\u6280\u8853\u3060\u3051\u306a\u306e\u3067\u3057\u3087\u3046\u304b?",
+		fa2: "\u3044\u3044\u3048\u3002 LangGraph\u3001 LangChain \u3001\u30cf\u30ae\u30f3\u30b0\u30d5\u30a7\u30a4\u30b9\u30c8\u30e9\u30f3\u30b9\u30d5\u30a9\u30fc\u30de\u30fc\u306f\u3001\u30de\u30a4\u30af\u30ed\u30bd\u30d5\u30c8 Agent Framework\u3001 MCP \u3001 A2A\u3068\u4e26\u3093\u3067\u5bfe\u8c61\u3068\u306a\u3063\u3066\u3044\u307e\u3059\u3002",
+		fq3: "\u30b3\u30fc\u30b9\u306a\u3057\u3067\u8a66\u9a13\u3092\u53d7\u3051\u3066\u3082\u3044\u3044\u3067\u3059\u304b?",
+		fa3: "\u306f\u3044\u3002\u3053\u306e\u30b3\u30fc\u30b9\u306f\u6e96\u5099\u3067\u3042\u308a\u3001\u5fc5\u9808\u3067\u306f\u3042\u308a\u307e\u305b\u3093\u3002\u8cc7\u683c\u306f\u4f9d\u7136\u3068\u3057\u3066\u524d\u63d0\u6761\u4ef6\u306e\u8a8d\u5b9a\u304c\u5fc5\u8981\u3067\u3059\u3002\u516c\u5f0f\u306e\u8a8d\u5b9a\u30da\u30fc\u30b8\u306e\u6587\u8a00\u3092\u4f7f\u3044\u307e\u3057\u3087\u3046\u3002",
+		fq4: "\u3053\u308c\u306f AI-103\u3068\u3069\u3046\u9055\u3046\u306e\u3067\u3059\u304b?",
+		fa4: "AI-103 \u306f\u30a8\u30fc\u30b8\u30a7\u30f3\u30c8\u3092\u69cb\u7bc9\u3059\u308b\u3053\u3068\u3067\u3059\u3002 AI-500 \u306f\u30a8\u30fc\u30b8\u30a7\u30f3\u30c8\u306e\u30b7\u30b9\u30c6\u30e0\u3092\u8a2d\u8a08\u3057\u3001\u8a55\u4fa1\u3057\u3001\u78ba\u4fdd\u3057\u3001\u904b\u7528\u3059\u308b\u3053\u3068\u3067\u3059\u3002",
+		fq5: "\u6388\u696d\u5f8c\u306b\u3069\u3046\u3084\u3063\u3066\u6700\u65b0\u306e\u60c5\u5831\u3092\u8ffd\u3048\u3070\u3044\u3044\u3067\u3059\u304b?",
+		fa5: "\u5b66\u7fd2\u30ac\u30a4\u30c9\u306e\u5909\u66f4\u30ed\u30b0\u3092\u518d\u78ba\u8a8d\u3057\u3001\u5b9f\u9a13\u5ba4\u74b0\u5883\u3067\u306e\u30b7\u30ca\u30ea\u30aa\u3092\u518d\u69cb\u7bc9\u3057\u307e\u3057\u3087\u3046\u3002",
+		faqFoot: "\u516c\u5f0f<a href=\"https://learn.microsoft.com/credentials/certifications/resources/study-guides/ai-500\" target=\"_blank\" rel=\"noopener\">\u306eAI-500\u5b66\u7fd2\u30ac\u30a4\u30c9</a>\u3092Microsoft Learn\u3067\u304a\u8aad\u307f\u304f\u3060\u3055\u3044\u3002"
+	},
+	ko: {
+		skipToMain: "\ub2e4\uc774\uc5b4\uadf8\ub7a8\uc73c\ub85c \uac74\ub108\ub6f0\uae30",
+		pageTitle: "AI-500 \ud2b8\ub808\uc774\ub108 \ube0c\ub9ac\ud551",
+		stageHeading: "AI-500 \ud2b8\ub808\uc774\ub108 \ube0c\ub9ac\ud551",
+		stageInstructions: "\uc560\ub2c8\uba54\uc774\uc158 \uc124\uba85. \ub2e4\uc74c/\uc774\uc804 \ubc84\ud2bc\uc774\ub098 \ubc29\ud5a5\ud0a4\ub97c \uc0ac\uc6a9\ud574 \ud0d0\uc0c9\ud558\uc138\uc694. R\uc744 \ub20c\ub7ec \uc7ac\uc2dc\uc791\ud558\uc138\uc694.",
+		prev: "\u25c0 \uc774\uc804",
+		next: "\ub2e4\uc74c \u25b6",
+		replay: "\u21bb \ub2e4\uc2dc \uc7ac\uc0dd",
+		restart: "\u21bb \ucc98\uc74c\ubd80\ud130",
+		slower: "\ub290\ub9ac\uac8c",
+		faster: "\ube60\ub974\uac8c",
+		calloutOn: "\uc124\uba85\uc120: \ucf1c\uc9d0",
+		calloutOff: "\uc124\uba85\uc120: \uaebc\uc9d0",
+		outlineOn: "\uac1c\uc694: \ucf1c\uc9d0",
+		outlineOff: "\uac1c\uc694: \uaebc\uc9d0",
+		audioTip: "\uc624\ub514\uc624 \ub0b4\ub808\uc774\uc158",
+		ccTip: "\uc790\ub9c9",
+		shortcutsTip: "\ub2e8\ucd95\ud0a4",
+		stepDetails: "\ub2e8\uacc4 \uc0c1\uc138",
+		stepOf: "\ub2e8\uacc4",
+		resetPos: "\uae30\ubcf8 \uc704\uce58\ub85c \ub418\ub3cc\ub9ac\uae30",
+		scTitle: "\ud0a4\ubcf4\ub4dc \ub2e8\ucd95\ud0a4",
+		scNext: "\ub2e4\uc74c \ub2e8\uacc4",
+		scPrev: "\uc774\uc804 \ub2e8\uacc4",
+		scRestart: "\ucc98\uc74c\ubd80\ud130",
+		scReplay: "\uc774 \ub2e8\uacc4 \ub2e4\uc2dc \uc7ac\uc0dd",
+		scHide: "\uc0c1\ub2e8 \ubc14 \ud45c\uc2dc / \uc228\uae30\uae30",
+		scHelp: "\uc774 \ub3c4\uc6c0\ub9d0 \uc804\ud658",
+		agSolo: "Solo",
+		agOrch: "\uc624\ucf00\uc2a4\ud2b8\ub808\uc774\ud130",
+		agIntake: "\uc811\uc218 \uc5d0\uc774\uc804\ud2b8",
+		agPolicy: "\uc815\ucc45 \uc5d0\uc774\uc804\ud2b8",
+		agFraud: "\uc0ac\uae30 \uc5d0\uc774\uc804\ud2b8",
+		agPayout: "\uc9c0\uae09 \uc5d0\uc774\uc804\ud2b8",
+		agHuman: "\uc778\uac04 \ub9ac\ubdf0\uc5b4",
+		positioningTitle: "AI-500 \ubb34\uc5c7\uc778\uc9c0, \ubb34\uc5c7\uc774 \uc544\ub2cc\uc9c0",
+		positioningCaption: "\uc704\uce58",
+		positioningDesc: "\ub9e4\ubc88 \ub611\uac19\uc774 \ub9d0\ud558\uc138\uc694: \uc138 \uac00\uc9c0 \uc194\uc9c1\ud55c \ub300\uc870.",
+		positioningCallout: "\uac15\uc0ac \uc804\uc6a9 \ube0c\ub9ac\ud551. \uc9c0\uc5ed\uc801\uc73c\ub85c \uc9c4\ud589\ud558\uc138\uc694; \ud559\uc2b5\uc790 \ud750\ub984\uc758 \uc77c\ubd80\uac00 \uc544\ub2d9\ub2c8\ub2e4.",
+		colIs: "\uadf8\ub807\uc2b5\ub2c8\ub2e4",
+		colIsNot: "\uadf8\ub807\uc9c0 \uc54a\uc2b5\ub2c8\ub2e4",
+		colSay: "\uc774\ub807\uac8c \ub9d0\ud574 \ubcf4\uc138\uc694",
+		posIs1: "\uc2e4\uc81c \uc2e4\ud5d8\uc2e4\uc774 \uc788\ub294 \uac74\ucd95 \ubc0f \ub514\uc790\uc778 \uac15\uc88c",
+		posNot1: "\ucd08\uae09 \uc5d0\uc774\uc804\ud2b8 \ube4c\ub529 \uacfc\uc815",
+		posSay1: "\"\ub2f9\uc2e0\uc740 \uc694\uc6d0\ub4e4\uc744 \ub9cc\ub4e4\uc5c8\uace0, \uc774\uc81c \uc6b0\ub9ac\ub294 \uadf8\ub4e4\ub85c \uc2dc\uc2a4\ud15c\uc744 \uc124\uacc4\ud569\ub2c8\ub2e4.\"",
+		posIs2: "\uc2dc\ub098\ub9ac\uc624 \uae30\ubc18\uc774\uba70 <span style=\"white-space:nowrap\">\uc0c1\ucda9</span>\uad00\uacc4\uac00 \ub9ce\uc2b5\ub2c8\ub2e4",
+		posNot2: "Python \ubb38\ubc95 \ub610\ub294 \uc554\uae30SDK \uac15\uc88c",
+		posSay2: "\"\uc2dc\ud5d8\uc740 \ub2e8\uc21c\ud788 \uc5b4\ub5bb\uac8c \ud574\uc57c \ud558\ub294\uc9c0\uac00 \uc544\ub2c8\ub77c \uc65c \uadf8\ub7f0\uc9c0\ub97c \ubcf4\uc0c1\ud569\ub2c8\ub2e4.\"",
+		posIs3: "\uc804\ubb38\uac00 \ub808\ubca8 (\ube14\ub8f8\uc758 \ud3c9\uac00/\ucc3d\uc870)",
+		posNot3: "AI-103\uc758 \uc7ac\ud0d5",
+		posSay3: "\"\uc0c8\ub86d\uac8c \ub290\uaef4\uc84c\ub2e4\uba74, \uba3c\uc800 \ub2e4\uc2dc \uc0b4\ud3b4\ubcf4 AI-103.\"",
+		daysdomainsTitle: "4\uc77c, 4\uac1c\uc758 \uc601\uc5ed",
+		daysdomainsCaption: "\ub0a0\uc9dc\uc640 \uc601\ud1a0",
+		daysdomainsDesc: "\ub3c4\uba54\uc778\uc740 \uc77c\ucc28\uc640 1:1\ub85c \ub300\uc751\ud558\uc9c0 \uc54a\uc2b5\ub2c8\ub2e4. \uacb9\uce58\ub294 \ubd80\ubd84\uc774 \uc788\uc744 \uc218 \uc788\uc2b5\ub2c8\ub2e4.",
+		daysdomainsCallout: "\ubb34\uac8c\ub294 \uacf5\uc2dd \ud559\uc2b5 \uac00\uc774\ub4dc\uc5d0\uc11c \uac00\uc838\uc654\uc2b5\ub2c8\ub2e4. \uc5c5\ub370\uc774\ud2b8\ub97c \ud655\uc778\ud574 \ubcf4\uc138\uc694.",
+		ddHeadL: "\uc2dc\ud5d8 \uc601\uc5ed \u00b7 \uac00\uc911\uce58",
+		ddHeadR: "\uc8fc\ub85c \ub2e4\ub904\uc9c4",
+		ddArchitect: "\uac74\ucd95\uac00",
+		ddDevelop: "\uac1c\ubc1c",
+		ddEvaluate: "\ud3c9\uac00",
+		ddSecure: "\uc548\uc804\ud574",
+		ddW1: "15\u201320%",
+		ddW2: "30\u201335%",
+		ddW3: "20\u201325%",
+		ddW4: "20\u201325%",
+		ddDay1: "1\uc77c\ucc28",
+		ddDay2: "2\uc77c\ucc28",
+		ddDay3: "3\uc77c\ucc28",
+		ddDay4: "4\uc77c\ucc28",
+		ddNote: "\ub3c4\uba54\uc778 2\ub294 \uc774\ud2c0\uc744 \uac00\ub9ac\ud0a4\uba70 \uc124\uacc4\ub3c4 \uac00\uc911\uce58\ub97c \ub2e4\uc2dc \ud655\uc778\ud558\uc138\uc694.",
+		trainingonlyTitle: "\uad50\uc721\ub9cc \uc801\uc6a9\ud558\ub294 \uac83\uacfc \ud6c8\ub828\uacfc \uc2dc\ud5d8",
+		trainingonlyCaption: "\ubc94\uc704",
+		trainingonlyDesc: "\uc5b4\ub5a4 \uacfc\ubaa9 \uc8fc\uc81c\ub294 \uc2dc\ud5d8\ubcf4\ub2e4 \ub354 \uae4a\uc774 \ub2e4\ub8e8\uae30\ub3c4 \ud569\ub2c8\ub2e4. \ud559\uc2b5\uc790\ub4e4\uc5d0\uac8c \uc5b4\ub5a4 \uc8fc\uc81c\uac00 \ubb34\uc5c7\uc778\uc9c0 \uc54c\ub824\uc8fc\uc138\uc694.",
+		trainingonlyCallout: "\uac01 \uc8fc\uc81c\ub97c \uc911\uc694\ud558\ub2e4\uace0 \ub290\ub07c\ub294 \uac83\uc5d0 \ub9de\ucdb0 \uc815\ub82c\ud558\uc9c0 \ub9d0\uace0, \ud559\uc2b5 \uac00\uc774\ub4dc\uc5d0 \ub9de\ucdb0 \uc815\ub82c\ud558\uc138\uc694.",
+		bkExam: "\uad50\uc721 \ubc0f \uc2dc\ud5d8",
+		bkOnly: "\ud6c8\ub828 \uc804\uc6a9\uc785\ub2c8\ub2e4",
+		ex1: "\uc624\ucf00\uc2a4\ud2b8\ub808\uc774\uc158 \ud328\ud134",
+		ex2: "MCP A2A",
+		ex3: "RAG",
+		ex4: "\uad00\uce21 \uac00\ub2a5\uc131",
+		ex5: "\uac00\ub4dc\ub808\uc77c",
+		ex6: "DTAP \u00b7 \ud30c\ub791/\ucd08\ub85d \u00b7 \uce74\ub098\ub9ac\uc544",
+		to1: "\ub2e4\uc911 \uc5d0\uc774\uc804\ud2b8 \ud328\ud134: \ube0c\ub808\uc778\uc2a4\ud1a0\ubc0d, \uacc4\ud68d\uc790, \ud1a0\ub860, \uba54\uc774\ucee4 \uccb4\ucee4, \ube44\ud310 \ub8e8\ud504",
+		to2: "\uc544\ud0a4\ud14d\ucc98 \uacb0\uc815\uc73c\ub85c\uc11c\uc758 \uc5d0\uc774\uc804\ud2b8 AI vs \uba40\ud2f0 \uc5d0\uc774\uc804\ud2b8 (\ub2e4\ub978 \ucd94\uc0c1\ud654 \uacc4\uce35)",
+		to3: "STRIDE\ub97c \uc774\uc6a9\ud55c \uc704\ud611 \ubaa8\ub378\ub9c1",
+		to4: "\ud1b5\ud569 \uc704\ud611 \ud0d0\uc9c0 \ubc0f \ub300\uc751\uc744 \uc704\ud55c \uae30\uc874 \ubcf4\uc548 \ub3c4\uad6c\uc640\uc758 \ud1b5\ud569",
+		toNote: "\"\uc774\uac8c \uc2dc\ud5d8\uc5d0 \ub098\uc62c\uae4c\uc694?\"\ub77c\uace0 \ubb3c\uc5c8\uc744 \ub54c, \"\uc2a4\ud130\ub514 \uac00\uc774\ub4dc\uac00 \uacc4\uc57d\uc11c\ub2e4\"\ub77c\uace0 \ub9d0\ud558\uace0 \uae30\uc220 \uce21\uc815 \ubaa9\ub85d\uc744 \uac00\ub9ac\ud0a4\uc138\uc694.",
+		mixupsTitle: "\uc5bd\ud788\uc9c0 \uc54a\ub294 \uc5ec\uc12f \uac00\uc9c0 \ud63c\ub780",
+		mixupsCaption: "\ud754\ud55c \ud63c\ub3d9",
+		mixupsDesc: "\ud559\uc2b5\uc790\ub4e4\uc740 \uc774 \uc30d\uc744 \ud750\ub9ac\uac8c \ud569\ub2c8\ub2e4. \uac01 \uce74\ub4dc\ub97c \ub4a4\uc9d1\uc5b4 \uba85\ud655\ud788 \ud558\uc138\uc694.",
+		mixupsCallout: "\uce74\ub4dc\ub97c \ud074\ub9ad\ud558\uac70\ub098, \ucd08\uc810\uc774 \ub9de\ucdb0\uc9c4 \uc0c1\ud0dc\uc5d0\uc11c \uc5d4\ud130\ub098 \uc2a4\ud398\uc774\uc2a4\ub97c \ub204\ub974\uc138\uc694.",
+		flipHint: "\ud074\ub9ad\ud558\uc5ec \ub4a4\uc9d1\uae30",
+		flipAll: "\ubaa8\ub450 \ub4a4\uc9d1\uae30",
+		mxNote: "\uc774 \uc30d\uc740 '\uc7a0\uc2dc \uba48\ucdb0\uc11c \ubc29 \uc548\uc744 \ubb3c\uc5b4\ubcf4\ub294' \uc88b\uc740 \uc21c\uac04\uc774 \ub429\ub2c8\ub2e4.",
+		mx1: "MCP \ub300 A2A",
+		mx1a: "MCP \uc5d0\uc774\uc804\ud2b8\ub97c \ub3c4\uad6c\uc640 \ub370\uc774\ud130\uc640 \uc5f0\uacb0\ud569\ub2c8\ub2e4. A2A \uc5d0\uc774\uc804\ud2b8\ub97c \ub2e4\ub978 \uc5d0\uc774\uc804\ud2b8\uc640 \uc5f0\uacb0\ud569\ub2c8\ub2e4.",
+		mx2: "\uc138\uc158 \uc0c1\ud0dc vs \uacf5\uc720 \ud300 \uc0c1\ud0dc vs \uc7a5\uae30 \uae30\uc5b5",
+		mx2a: "\ud55c \ubc88\uc758 \ub300\ud654 \u00b7 \uc5d0\uc774\uc804\ud2b8 \uac04 \ud558\ub098\uc758 \uc6cc\ud06c\ud50c\ub85c\uc6b0 \uc2e4\ud589 \u00b7 \uc5ec\ub7ec \uc2e4\ud589 \uac04\uc5d0 \uc9c0\uc18d\ub429\ub2c8\ub2e4.",
+		mx3: "\ud5c8\ube0c \uc564 \uc2a4\ud3ec\ud06c \ub300 \uc624\ucf00\uc2a4\ud2b8\ub808\uc774\ud130-\uc11c\ube0c\uc5d0\uc774\uc804\ud2b8",
+		mx3a: "\ub450 \uc2dc\uc2a4\ud15c \ubaa8\ub450 \uc911\uc559\uc9d1\uc911\uc2dd\uc785\ub2c8\ub2e4. \uc624\ucf00\uc2a4\ud2b8\ub808\uc774\ud130-\uc11c\ube0c\uc5d0\uc774\uc804\ud2b8\ub294 \uacc4\uce35 \uad6c\uc870\uc640 \uc704\uc784 \uae4a\uc774\ub97c \uc758\ubbf8\ud569\ub2c8\ub2e4; \uc11c\ube0c\uc5d0\uc774\uc804\ud2b8\ub294 \ub3d9\uc801\uc73c\ub85c \uc0dd\uc131\ub420 \uc218 \uc788\uc2b5\ub2c8\ub2e4.",
+		mx4: "\uc694\uc57d \ub4dc\ub9ac\ud504\ud2b8 vs \uc2ac\ub77c\uc774\ub529 \uc708\ub3c4\uc6b0 \uae30\uc5b5\uc0c1\uc2e4",
+		mx4a: "\ud45c\ub958: \uc758\ubbf8\ub294 \ubc18\ubcf5\uc801\uc778 \uc694\uc57d\uc73c\ub85c \uc778\ud574 \uc57d\ud654\ub41c\ub2e4. \uae30\uc5b5\uc0c1\uc2e4\uc99d: \ucd08\ubc18 \ub9e5\ub77d\uc740 \uc0ac\ub77c\uc9c4\ub2e4.",
+		mx5: "\ud30c\ub780\uc0c9/\ucd08\ub85d\uc0c9 vs \uce74\ub098\ub9ac\uc544",
+		mx5a: "\ub450 \ud658\uacbd \uac04 \uc644\uc804\ud55c \uc804\ud658\uacfc \uc810\uc9c4\uc801\uc73c\ub85c \ud2b8\ub798\ud53d \ube44\uc728\uc744 \uc774\ub3d9\ud558\ub294 \uac83.",
+		mx6: "\uc0ac\uc6a9\uc790 \uac00\uc7a5 vs On-Behalf-Of(OBO)",
+		mx6a: "\ub450 \uac00\uc9c0 \ubaa8\ub450 \uc0ac\uc6a9\uc790\uc758 \uc815\uccb4\uc131\uc744 \ud558\uc218\uc801\uc73c\ub85c \uc774\uc5b4\uac11\ub2c8\ub2e4. \uac01\uac01\uc774 \uc801\ud569\ud560 \ub54c\uc640 \uc704\ud5d8 \uacbd\uacc4\ub97c \ub17c\uc758\ud558\uc138\uc694.",
+		deliveryTitle: "\uc804\ub2ec \ubc29\ubc95",
+		deliveryCaption: "\uc804\ub2ec",
+		deliveryDesc: "\uc7a1\ud559\uc774 \uc544\ub2c8\ub77c \ud2b8\ub808\uc774\ub4dc\uc624\ud504\uc5d0 \uc9d1\uc911\ud558\uac8c \ud558\ub294 \ub2e4\uc12f \uac00\uc9c0 \uc2b5\uad00.",
+		deliveryCallout: "\uac8c\uc774\ud2b8\uc5d0\uc11c \uba48\ucdb0\uc11c \"\ub2e4\uc74c\uc5d0 \ubb34\uc2a8 \uc77c\uc774 \uc77c\uc5b4\ub098\ub098\uc694?\"\ub77c\uace0 \ubb3b\ub294 \uac83\uc774 \ucd94\uac00 \uc2ac\ub77c\uc774\ub4dc\ubcf4\ub2e4 \ub0ab\uc2b5\ub2c8\ub2e4.",
+		dl1: "\ubaa8\ub4e0 \ubaa8\ub4c8\uc744 Contoso \uc2dc\ub098\ub9ac\uc624\uc5d0 \uc5f0\uacb0\ud558\uc138\uc694",
+		dl1s: "\ub3c4\uc785\ubd80\uc758 \uccad\uad6c \ucc98\ub9ac \uc2dc\ub098\ub9ac\uc624\ub97c \uc5f0\uc18d\ub41c \uc774\uc57c\uae30\ub85c \uc7ac\uc0ac\uc6a9\ud558\uc138\uc694",
+		dl2: "\uac01 \ubaa8\ub4c8\uc744 \uc808\ucda9 \uc9c8\ubb38\uc73c\ub85c \ub9c8\ubb34\ub9ac\ud558\uc138\uc694",
+		dl2s: "\"\uc5b4\ub5a4 \ud328\ud134\uc778\ub370, \uc65c \ub098\uba38\uc9c0 \ub450 \uac1c\ub294 \uc548 \ub418\ub294 \uac70\uc9c0?\"",
+		dl3: "\uc2e4\ud5d8\uc2e4\uc740 \uc99d\uac70\uc774\uc9c0 \ubaa9\uc801\uc9c0\uac00 \uc544\ub2d9\ub2c8\ub2e4",
+		dl3s: "\uac01 \uc2e4\ud5d8\uc2e4 \ud6c4\uc5d0 \ubb3c\uc5b4\ubd05\ub2c8\ub2e4: 10\u00d7 \ubd80\ud558\ub97c \ubc14\uafb8\uace0 \uc2f6\ub098\uc694, \uc544\ub2c8\uba74 \uaddc\uc81c \uc138\uc785\uc790\uc778\uac00\uc694?",
+		dl4: "4\uc77c\ucc28: \uc2dc\ud5d8 \ud301 \uc2ac\ub86f \ucd94\uac00\ud558\uae30",
+		dl4s: "\uc7a5\uae30 \uc2dc\ub098\ub9ac\uc624 \uc77d\uae30 \uc5f0\uc2b5\uacfc \uc0ac\ub840 \uc5f0\uad6c '\ub3cc\uc774\ud0ac \uc218 \uc5c6\uc74c' \uaddc\uce59\uc744 \uc5f0\uc2b5\ud558\uc138\uc694",
+		dl5: "\ud50c\ub808\uc774\uc5b4 \uc870\uc791\uc744 \uc0ac\uc6a9\ud558\uc138\uc694",
+		dl5s: "\uc2e4\ud328 \uac24\ub7ec\ub9ac\uc640 \uac00\ub4dc\ub808\uc77c \uac8c\uc774\ud2b8\uc5d0\uc11c \uc7a0\uc2dc \uba48\ucd94\uace0; \ud559\uc2b5\uc790\ub4e4\uc774 \ub2e4\uc74c \ub2e8\uacc4\ub97c \uc608\uce21\ud558\uac8c \ud558\uc138\uc694",
+		statusTitle: "\ubcc0\ud560 \uc218 \uc788\ub294 \uc0ac\uc2e4\ub4e4",
+		statusCaption: "\uba3c\uc800 \ud655\uc778\ud574",
+		statusDesc: "\uc2dc\ud5d8 \uc138\ubd80 \uc0ac\ud56d\uc774 \uc774\ub3d9\ud569\ub2c8\ub2e4. \uac01 \ud56d\ubaa9\uc740 \uba3c\uc800 \uacf5\uc2dd \ud398\uc774\uc9c0\uc5d0\uc11c \ud655\uc778\ud558\uc138\uc694.",
+		statusCallout: "\uc2dc\ud5d8 \uc218\uce58\ub294 \uae30\uc5b5\uc5d0 \uc758\uc874\ud574 \uc778\uc6a9\ud558\uc9c0 \ub9c8\uc138\uc694.",
+		stHead: "\uac00\ub974\uce58\uae30 \uc804\uc5d0 \uaf2d \ud655\uc778\ud558\uc138\uc694",
+		st1: "\uc2dc\ud5d8 \uc9c4\ud589 \uc0c1\ud669",
+		st1a: "\ucd9c\uc0b0 \ub2f9\uc77c Microsoft Learn \ud604\uc7ac \uc0c1\ud0dc\ub97c \ud655\uc778\ud558\uc138\uc694.",
+		st2: "\uc9c8\ubb38 \uc218, \uae30\uac04, \uac00\uaca9",
+		st2a: "\ubca0\ud0c0 \uae30\uac04 \ub3d9\uc548 \uc218\uc815\ub418\uc9c0 \uc54a\uc558\uc73c\uba70; \uacf5\uc2dd \ud398\uc774\uc9c0\ub9cc \uc778\uc6a9\ud558\uc138\uc694.",
+		st3: "AI-103 \uc694\uad6c\uc0ac\ud56d \ubb38\uad6c",
+		st3a: "\uacf5\uc2dd \uc778\uc99d \ud398\uc774\uc9c0\uc758 \ubb38\uad6c\ub97c \uc0ac\uc6a9\ud558\uc138\uc694.",
+		st4: "\uc2e4\ubb34 \ud3c9\uac00",
+		st4a: "\uc774\ubbf8 \ucd9c\ud310\ub418\uc5c8\ub294\uc9c0 \ud655\uc778\ud574 \ubcf4\uc138\uc694.",
+		st5: "\ubbf8\ub9ac\ubcf4\uae30 \uae30\ub2a5",
+		st5a: "\uc2dc\ud5d8\uc5d0\ub294 \uc77c\ubc18\uc801\uc73c\ub85c \uc0ac\uc6a9\ub418\ub294 \ubbf8\ub9ac\ubcf4\uae30 \uae30\ub2a5\uc774 \ud3ec\ud568\ub420 \uc218 \uc788\uc2b5\ub2c8\ub2e4; \ub370\ubaa8\uc5d0\uc11c \ubbf8\ub9ac\ubcf4\uae30 \uc0c1\ud0dc\ub97c \ud45c\uc2dc\ud560 \uc218 \uc788\uc2b5\ub2c8\ub2e4.",
+		st6: "\uc81c\ud488 \uba85\uba85",
+		st6a: "\ud604\uc7ac \uc774\ub984\uc778 \"Microsoft Foundry\"\uc744 \uc77c\uad00\ub418\uac8c \uc0ac\uc6a9\ud558\uc138\uc694.",
+		faqTitle: "\ud559\uc2b5\uc790\ub4e4\uc774 \ubb3b\ub294 \uc9c8\ubb38\ub4e4",
+		faqCaption: "\uc790\uc8fc \ubb3b\ub294 \uc9c8\ubb38",
+		faqDesc: "\uc989\uc11d\uc5d0\uc11c \uc9e7\uac8c \ub2f5\ud560 \uc218 \uc788\uc5b4\uc694. \ud55c \ubc88\uc5d0 \ud558\ub098\uc529 \uc5f4\ub824\uc694.",
+		faqCallout: "\uc9c8\ubb38\uc744 \ud074\ub9ad\ud558\uac70\ub098 \ucd08\uc810\uc774 \ub9de\ucdb0\uc9c4 \uc0c1\ud0dc\uc5d0\uc11c Enter\ub098 Space\ub97c \ub204\ub974\uc138\uc694.",
+		fq1: "Python \uc804\ubb38\uac00\uac00 \ub418\uc5b4\uc57c \ud558\ub098\uc694?",
+		fa1: "\ub2a5\uc219\ud574\uc57c \ud569\ub2c8\ub2e4: \ud504\ub85c\ub355\uc158 \ucf54\ub4dc\ub97c \uc77d\uace0 \ucd94\ub860\ud560 \uc218 \uc788\uc5b4\uc57c \ud569\ub2c8\ub2e4. \uc2dc\ud5d8\uc740 \uc124\uacc4 \uacb0\uc815\uc5d0 \uad00\ud55c \uac83\uc774\uc9c0\ub9cc, \uc2dc\ub098\ub9ac\uc624\ub294 \uad6c\ud604\uc744 \uc774\ud574\ud588\ub2e4\uace0 \uac00\uc815\ud569\ub2c8\ub2e4.",
+		fq2: "\uc774\uac8c \ub9c8\uc774\ud06c\ub85c\uc18c\ud504\ud2b8 \uae30\uc220\ub9cc\uc778\uac00\uc694?",
+		fa2: "\uc544\ub2c8\uc694. LangGraph, LangChain, Hugging Face Transformers\uac00 \ub9c8\uc774\ud06c\ub85c\uc18c\ud504\ud2b8 Agent Framework, MCP, A2A\uc640 \ud568\uaed8 \ubc94\uc704\uc5d0 \ud3ec\ud568\ub418\uc5b4 \uc788\uc2b5\ub2c8\ub2e4.",
+		fq3: "\uc218\uc5c5 \uc5c6\uc774 \uc2dc\ud5d8\uc744 \ubcfc \uc218 \uc788\ub098\uc694?",
+		fa3: "\ub124. \uc774 \uacfc\uc815\uc740 \ud544\uc218 \uc870\uac74\uc774 \uc544\ub2c8\ub77c \uc900\ube44 \uacfc\uc815\uc785\ub2c8\ub2e4. \uc790\uaca9\uc99d\uc740 \uc5ec\uc804\ud788 \ud544\uc218 \uc790\uaca9\uc99d\uc744 \uc694\uad6c\ud569\ub2c8\ub2e4; \uacf5\uc2dd \uc790\uaca9\uc99d \ud398\uc774\uc9c0\uc758 \ubb38\uad6c\ub97c \uc0ac\uc6a9\ud558\uc138\uc694.",
+		fq4: "\uc774\uac8c AI-103\uc640 \uc5b4\ub5bb\uac8c \ub2e4\ub978\uac00\uc694?",
+		fa4: "AI-103 \uc5d0\uc774\uc804\ud2b8\ub97c \uad6c\ucd95\ud558\ub294 \uac83\uc785\ub2c8\ub2e4. AI-500 \uc5d0\uc774\uc804\ud2b8 \uc2dc\uc2a4\ud15c\uc744 \uc124\uacc4, \ud3c9\uac00, \ubcf4\uc548 \ubc0f \uc6b4\uc601\ud558\ub294 \uac83\uc785\ub2c8\ub2e4.",
+		fq5: "\uc218\uc5c5 \ud6c4\uc5d0 \uc5b4\ub5bb\uac8c \ucd5c\uc2e0 \uc815\ubcf4\ub97c \uc720\uc9c0\ud558\ub098\uc694?",
+		fa5: "\ud559\uc2b5 \uac00\uc774\ub4dc\uc758 \ubcc0\uacbd \ub85c\uadf8\ub97c \ub2e4\uc2dc \ud655\uc778\ud558\uace0 \uc2e4\ud5d8\uc2e4 \ud658\uacbd\uc5d0\uc11c \uc2dc\ub098\ub9ac\uc624\ub97c \uc7ac\uad6c\uc131\ud558\uc138\uc694.",
+		faqFoot: "Microsoft Learn\uc5d0\uc11c \uacf5\uc2dd <a href=\"https://learn.microsoft.com/credentials/certifications/resources/study-guides/ai-500\" target=\"_blank\" rel=\"noopener\">AI-500 \ud559\uc2b5 \uac00\uc774\ub4dc</a>\ub97c \uc77d\uc5b4\ubcf4\uc138\uc694."
+	},
+	pt: {
+		skipToMain: "Ir para o diagrama",
+		pageTitle: "AI-500 Briefing de Instrutores",
+		stageHeading: "AI-500 Briefing de Instrutores",
+		stageInstructions: "Explica\u00e7\u00e3o animada. Use os bot\u00f5es Pr\u00f3ximo/Anterior ou as setas para navegar. Pressione R para reiniciar.",
+		prev: "\u25c0 Voltar",
+		next: "Avan\u00e7ar \u25b6",
+		replay: "\u21bb Repetir",
+		restart: "\u21bb Reiniciar",
+		slower: "Mais devagar",
+		faster: "Mais r\u00e1pido",
+		calloutOn: "Bal\u00f5es: ligados",
+		calloutOff: "Bal\u00f5es: desligados",
+		outlineOn: "Resumo: ligado",
+		outlineOff: "Resumo: desligado",
+		audioTip: "Narra\u00e7\u00e3o em \u00e1udio",
+		ccTip: "Legendas",
+		shortcutsTip: "Atalhos",
+		stepDetails: "Detalhes da etapa",
+		stepOf: "Etapa",
+		resetPos: "Restaurar a posi\u00e7\u00e3o padr\u00e3o",
+		scTitle: "Atalhos de teclado",
+		scNext: "Pr\u00f3xima etapa",
+		scPrev: "Etapa anterior",
+		scRestart: "Reiniciar",
+		scReplay: "Repetir esta etapa",
+		scHide: "Mostrar / ocultar a barra superior",
+		scHelp: "Alternar esta ajuda",
+		agSolo: "Solo",
+		agOrch: "Orquestrador",
+		agIntake: "Agente de Recep\u00e7\u00e3o",
+		agPolicy: "Agente de Pol\u00edticas",
+		agFraud: "Agente de Fraude",
+		agPayout: "Agente de Pagamento",
+		agHuman: "Revisor Humano",
+		positioningTitle: "O que AI-500 \u00e9 e o que n\u00e3o \u00e9",
+		positioningCaption: "Posicionamento",
+		positioningDesc: "Diga do mesmo jeito toda vez: tr\u00eas contrastes honestos.",
+		positioningCallout: "Briefing exclusivo para instrutor. Mantenha local; n\u00e3o faz parte do fluxo do aprendiz.",
+		colIs: "\u00c9 sim",
+		colIsNot: "N\u00e3o \u00e9",
+		colSay: "Diga isso",
+		posIs1: "Um curso de arquitetura e design com laborat\u00f3rios reais",
+		posNot1: "Um curso para iniciantes de constru\u00e7\u00e3o de agentes",
+		posSay1: "\"Voc\u00ea criou agentes. Agora projetamos sistemas deles.\"",
+		posIs2: "Baseado em cen\u00e1rios e cheio de <span style=\"white-space:nowrap\">trade-offs</span>",
+		posNot2: "Um curso de Python sintaxe ou SDK de memoriza\u00e7\u00e3o",
+		posSay2: "\"O exame recompensa o porqu\u00ea, n\u00e3o apenas como.\"",
+		posIs3: "N\u00edvel Especialista (Avaliar/Criar da Bloom)",
+		posNot3: "Uma releitura de AI-103",
+		posSay3: "\"Se AI-103 parecia novo, revisite primeiro.\"",
+		daysdomainsTitle: "Quatro dias, quatro dom\u00ednios",
+		daysdomainsCaption: "Dias e dom\u00ednios",
+		daysdomainsDesc: "Dom\u00ednios n\u00e3o mapeiam um a um nos dias. Espere crossovers.",
+		daysdomainsCallout: "Os padronetes v\u00eam do guia oficial de estudos. Confira para atualiza\u00e7\u00f5es.",
+		ddHeadL: "Dom\u00ednios de exame \u00b7 peso",
+		ddHeadR: "Principalmente coberto em",
+		ddArchitect: "Arquiteto",
+		ddDevelop: "Desenvolvimento",
+		ddEvaluate: "Avaliar",
+		ddSecure: "Seguro",
+		ddW1: "15\u201320%",
+		ddW2: "30\u201335%",
+		ddW3: "20\u201325%",
+		ddW4: "20\u201325%",
+		ddDay1: "Dia 1",
+		ddDay2: "Dia 2",
+		ddDay3: "Dia 3",
+		ddDay4: "Dia 4",
+		ddNote: "Dom\u00ednio 2 abrange dois dias \u2014 aponte de volta para os pesos do projeto.",
+		trainingonlyTitle: "Apenas treinamento vs. treinamento e exame",
+		trainingonlyCaption: "Escopo",
+		trainingonlyDesc: "Alguns t\u00f3picos do curso v\u00e3o al\u00e9m do exame. Diga aos alunos quais s\u00e3o quais.",
+		trainingonlyCallout: "Separe cada tema com base no guia de estudos, n\u00e3o com o que parece importante.",
+		bkExam: "Treinamento e Exame",
+		bkOnly: "Apenas treinamento",
+		ex1: "Padr\u00f5es de orquestra\u00e7\u00e3o",
+		ex2: "MCP e A2A",
+		ex3: "RAG",
+		ex4: "Observabilidade",
+		ex5: "Guarda-corpos",
+		ex6: "DTAP \u00b7 azul/verde \u00b7 can\u00e1rio",
+		to1: "Padr\u00f5es multi-agentes: brainstorming, planejador, debate, maker-checker, loop de cr\u00edticos",
+		to2: "IA agente vs multiagente como decis\u00e3o de arquitetura (uma camada de abstra\u00e7\u00e3o diferente)",
+		to3: "Modelagem de amea\u00e7as com STRIDE",
+		to4: "Integra\u00e7\u00e3o com ferramentas de seguran\u00e7a existentes para detec\u00e7\u00e3o e resposta unificadas a amea\u00e7as",
+		toNote: "Perguntou \"isso vai estar no exame?\" Diga \"o guia de estudos \u00e9 o contrato\" e aponte para a lista de habilidades medidas.",
+		mixupsTitle: "Seis confus\u00f5es para desembara\u00e7ar",
+		mixupsCaption: "Confus\u00f5es comuns",
+		mixupsDesc: "Os alunos confundem esses pares. Vire cada carta para esclarecer.",
+		mixupsCallout: "Clique em um cart\u00e3o, ou pressione Enter ou Espa\u00e7o enquanto ele est\u00e1 focado.",
+		flipHint: "Clique para virar",
+		flipAll: "Inverta tudo",
+		mxNote: "Esses pares s\u00e3o bons momentos de \"pausar e perguntar ao ambiente\".",
+		mx1: "MCP vs A2A",
+		mx1a: "MCP conecta um agente a ferramentas e dados. A2A conecta um agente a outros agentes.",
+		mx2: "Estado da sess\u00e3o vs estado compartilhado da equipe vs mem\u00f3ria de longo prazo",
+		mx2a: "Uma conversa \u00b7 uma \u00fanica execu\u00e7\u00e3o de fluxo de trabalho entre agentes \u00b7 persiste entre execu\u00e7\u00f5es.",
+		mx3: "Hub e raio vs orquestrador\u2013subagente",
+		mx3a: "Ambos s\u00e3o centralizados. Orquestrador\u2013subagente implica hierarquia e profundidade de delega\u00e7\u00e3o; subagentes podem ser gerados dinamicamente.",
+		mx4: "Resumo da deriva vs amn\u00e9sia de janela deslizante",
+		mx4a: "Deriva: o significado se degrada com repetidas sumas. Amn\u00e9sia: o contexto inicial some pela janela.",
+		mx5: "Azul/verde vs can\u00e1rio",
+		mx5a: "Uma troca completa entre dois ambientes versus deslocar gradualmente uma porcentagem do tr\u00e1fego.",
+		mx6: "Personifica\u00e7\u00e3o de usu\u00e1rio vs Em nome de",
+		mx6a: "Ambos carregam a identidade do usu\u00e1rio a jusante. Discutam quando cada um se encaixa e seus limites de risco.",
+		deliveryTitle: "Como entregar",
+		deliveryCaption: "Entrega",
+		deliveryDesc: "Cinco h\u00e1bitos que mant\u00eam o espa\u00e7o em trade-offs, n\u00e3o em trivialidades.",
+		deliveryCallout: "Parar em um port\u00e3o e perguntar \"o que acontece depois?\" \u00e9 melhor do que qualquer deslizamento extra.",
+		dl1: "Ancore todos os m\u00f3dulos ao Contoso",
+		dl1s: "Reutilize o cen\u00e1rio de processamento de reivindica\u00e7\u00f5es da introdu\u00e7\u00e3o para uma hist\u00f3ria cont\u00ednua",
+		dl2: "Termine cada m\u00f3dulo com uma pergunta de troca",
+		dl2s: "\"Qual padr\u00e3o, e por que n\u00e3o os outros dois?\"",
+		dl3: "Os laborat\u00f3rios s\u00e3o evid\u00eancia, n\u00e3o o destino",
+		dl3s: "Depois de cada laborat\u00f3rio, pergunte: o que voc\u00ea mudaria para 10\u00d7 a carga ou um inquilino regulado?",
+		dl4: "Dia 4: adicionar um espa\u00e7o para dicas de exame",
+		dl4s: "Ensaie leituras longas de cen\u00e1rios e a regra do estudo de caso \"sem retorno\"",
+		dl5: "Use os controles do jogador",
+		dl5s: "Pause na galeria de falhas e nos port\u00f5es de prote\u00e7\u00e3o; deixe os aprendizes preverem o pr\u00f3ximo passo",
+		statusTitle: "Fatos que podem mudar",
+		statusCaption: "Verifique primeiro",
+		statusDesc: "Os detalhes do exame mudam. Confirme cada item nas p\u00e1ginas oficiais primeiro.",
+		statusCallout: "Nunca cite n\u00fameros de exame de mem\u00f3ria.",
+		stHead: "Verifique antes de ensinar",
+		st1: "Status do exame",
+		st1a: "Confirme o status atual em Microsoft Learn dia da entrega.",
+		st2: "N\u00famero de perguntas, dura\u00e7\u00e3o, pre\u00e7o",
+		st2a: "N\u00e3o corrigido durante a beta; cite apenas a p\u00e1gina oficial.",
+		st3: "AI-103 reda\u00e7\u00e3o dos requisitos",
+		st3a: "Use a reda\u00e7\u00e3o da p\u00e1gina oficial de certifica\u00e7\u00e3o.",
+		st4: "Avalia\u00e7\u00e3o pr\u00e1tica",
+		st4a: "Verifique se j\u00e1 foi publicado.",
+		st5: "Recursos de pr\u00e9via",
+		st5a: "O exame pode incluir recursos de Pr\u00e9via comumente usados; marcar o status de Pr\u00e9via nas demonstra\u00e7\u00f5es.",
+		st6: "Nomea\u00e7\u00e3o dos produtos",
+		st6a: "Use \"Microsoft Foundry\", o nome atual, de forma consistente.",
+		faqTitle: "Perguntas que os aprendizes fazem",
+		faqCaption: "FAQ",
+		faqDesc: "Respostas curtas que voc\u00ea pode dar na hora. Uma abre de cada vez.",
+		faqCallout: "Clique em uma pergunta, ou pressione Enter ou Espa\u00e7o enquanto est\u00e1 focado.",
+		fq1: "Preciso ser um especialista em Python?",
+		fa1: "Voc\u00ea precisa ser proficiente: saber ler e raciocinar sobre c\u00f3digo de produ\u00e7\u00e3o. A prova \u00e9 sobre decis\u00f5es de design, mas os cen\u00e1rios assumem que voc\u00ea entende a implementa\u00e7\u00e3o.",
+		fq2: "Isso \u00e9 s\u00f3 tecnologia da Microsoft?",
+		fa2: "N\u00e3o. LangGraph, LangChain e Hugging Face Transformers est\u00e3o no escopo junto com Microsoft Agent Framework, MCP e A2A.",
+		fq3: "Posso fazer a prova sem o curso?",
+		fa3: "Sim. O curso \u00e9 prepara\u00e7\u00e3o, n\u00e3o um requisito. A credencial ainda exige uma certifica\u00e7\u00e3o pr\u00e9-requisito; use a reda\u00e7\u00e3o da p\u00e1gina oficial de certifica\u00e7\u00e3o.",
+		fq4: "Como isso \u00e9 diferente de AI-103?",
+		fa4: "AI-103 \u00e9 sobre construir um agente. AI-500 \u00e9 sobre arquitetar, avaliar, proteger e operar um sistema de agentes.",
+		fq5: "Como fa\u00e7o para me manter atualizado depois da aula?",
+		fa5: "Revise novamente o registro de mudan\u00e7as e cen\u00e1rios de reconstru\u00e7\u00e3o do guia de estudo no ambiente do laborat\u00f3rio.",
+		faqFoot: "Leia o <a href=\"https://learn.microsoft.com/credentials/certifications/resources/study-guides/ai-500\" target=\"_blank\" rel=\"noopener\"> guia oficial de estudos AI-500</a> sobre Microsoft Learn."
+	}
+};
+function t(key) { return (I18N[currentLang] && I18N[currentLang][key]) || I18N.en[key] || key; }
+
+function setLanguage(lang) {
+	currentLang = lang;
+	document.documentElement.lang = lang;
+	try { const u=new URL(location.href); u.searchParams.set('lang', lang); history.replaceState(null,'',u); } catch(_){}
+	document.getElementById('page-title').textContent = '\u2728 ' + t('pageTitle');
+	// icon-only nav buttons: the localized label lives in the tooltip (title)
+	document.getElementById('prev-btn').title = t('prev');
+	document.getElementById('next-btn').title = t('next');
+	document.getElementById('replay-btn').title = t('replay');
+	document.getElementById('reset-btn').title = t('restart');
+	document.getElementById('speed-down').title = t('slower');
+	document.getElementById('speed-up').title = t('faster');
+	document.getElementById('outline-title').textContent = t('stepDetails');
+	document.querySelector('.skip-link').textContent = t('skipToMain');
+	document.getElementById('stage-heading').textContent = t('stageHeading');
+	document.getElementById('stage-instructions').textContent = t('stageInstructions');
+	// localize overlay tooltips (icon buttons show their label on hover / as native title)
+	const _hlp=document.getElementById('help-toggle'); if(_hlp) _hlp.setAttribute('data-tip', t('shortcutsTip'));
+	const _aud=document.getElementById('audio-toggle'); if(_aud) _aud.title=t('audioTip');
+	const _ccb=document.getElementById('cc-toggle'); if(_ccb) _ccb.title=t('ccTip');
+	syncCalloutBtn(); syncOutlineBtn();
+	if (typeof syncAudioBtn === 'function') syncAudioBtn();
+	if (typeof buildShortcuts === 'function') buildShortcuts();
+	document.querySelectorAll('.aw-drag-reset').forEach(b=>{ b.title=t('resetPos'); b.setAttribute('aria-label', t('resetPos')); });
+	try { localStorage.setItem('aw-tmpl-lang', lang); } catch(_){}
+	if (current >= 0) renderStep(current);
+}
+
+// ── STEPS (journey order) ─────────────────
+const S = (id, short) => ({ id, short, titleKey:id+'Title', captionKey:id+'Caption', descKey:id+'Desc', calloutKey:id+'Callout' });
+const STEPS = [
+	S('positioning','Positioning'), S('daysdomains','Days'), S('trainingonly','Scope'), S('mixups','Mix-ups'),
+	S('delivery','Delivery'), S('status','Check first'), S('faq','FAQ')
+];
+
+
+// ── DOM REFS ──────────────────────────────
+const stage=document.getElementById('stage-frame'), svg=document.getElementById('fx-svg'),
+	counter=document.getElementById('step-counter'), breadcrumb=document.getElementById('breadcrumb'),
+	progress=document.getElementById('progress-fill'), announcer=document.getElementById('step-announcer'),
+	outlineBody=document.getElementById('outline-body'), outlinePanel=document.getElementById('step-outline'),
+	outlineBtn=document.getElementById('outline-toggle'), calloutBtn=document.getElementById('callout-toggle'),
+	langSelect=document.getElementById('lang-select');
+
+langSelect.addEventListener('change', e => setLanguage(e.target.value));
+const urlLang = new URLSearchParams(location.search).get('lang');
+let savedLang=null; try{ savedLang=localStorage.getItem('aw-tmpl-lang'); }catch(_){}
+if (urlLang && I18N[urlLang]) { currentLang = urlLang; langSelect.value = urlLang; }
+else if (savedLang && I18N[savedLang]) { currentLang = savedLang; langSelect.value = savedLang; }
+
+// ── Font size ─────────────────────────────
+const fontScales=[0.8,0.9,1,1.1,1.2,1.35]; let fontScaleIdx=2;
+const baseFontSize=parseFloat(getComputedStyle(document.documentElement).fontSize);
+function applyFontScale(){ document.documentElement.style.fontSize=(baseFontSize*fontScales[fontScaleIdx])+'px'; const c=document.getElementById('controls'); if(c) c.style.fontSize=baseFontSize+'px'; if(typeof current!=='undefined'&&current>=0){ const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s); } }
+function saveFont(){ try{ localStorage.setItem('aw-tmpl-font', String(fontScaleIdx)); }catch(_){} }
+try{ const f=parseInt(localStorage.getItem('aw-tmpl-font'),10); if(!isNaN(f)&&f>=0&&f<fontScales.length){ fontScaleIdx=f; applyFontScale(); } }catch(_){}
+document.getElementById('font-decrease').addEventListener('click',()=>{ if(fontScaleIdx>0){fontScaleIdx--;applyFontScale();saveFont();} });
+document.getElementById('font-increase').addEventListener('click',()=>{ if(fontScaleIdx<fontScales.length-1){fontScaleIdx++;applyFontScale();saveFont();} });
+
+let current=-1, animating=false, liveEls=[], liveTimelines=[], calloutEnabled=false;
+
+function syncCalloutBtn(){ calloutBtn.classList.toggle('toggle-active',calloutEnabled); calloutBtn.setAttribute('aria-pressed',calloutEnabled?'true':'false'); calloutBtn.setAttribute('data-tip',calloutEnabled?t('calloutOn'):t('calloutOff')); }
+calloutBtn.addEventListener('click',()=>{
+	calloutEnabled=!calloutEnabled; syncCalloutBtn();
+	if(current<0) return;
+	// Toggle just the callout box in place — don't re-render (no animation replay).
+	const existing=stage.querySelectorAll('.callout');
+	if(calloutEnabled){ if(!existing.length){ const c=maybeCallout(STEPS[current]); if(c) gsap.fromTo(c,{opacity:0,y:10},{opacity:1,y:0,duration:0.4,overwrite:true}); } }
+	else { existing.forEach(c=>{ const idx=liveEls.indexOf(c); if(idx>-1) liveEls.splice(idx,1); gsap.killTweensOf(c); c.remove(); }); }
+}); syncCalloutBtn();
+function syncOutlineBtn(){ const on=!outlinePanel.hasAttribute('hidden'); outlineBtn.classList.toggle('toggle-active',on); outlineBtn.setAttribute('aria-expanded',on?'true':'false'); outlineBtn.setAttribute('data-tip',on?t('outlineOn'):t('outlineOff')); }
+outlineBtn.addEventListener('click',()=>{ const showing=!outlinePanel.hasAttribute('hidden'); if(showing){outlinePanel.setAttribute('hidden','');} else {outlinePanel.removeAttribute('hidden');} syncOutlineBtn(); }); syncOutlineBtn();
+
+// ── Audio narration (overlay button · speaker + remaining-time countdown) ──
+// Drop one recorded clip per step (in STEPS order) into AUDIO_FILES for real narration;
+// localized clips live under AUDIO_BASE/<lang>/. With no files, the browser reads each
+// step's title + description aloud (speech synthesis), so the button works with zero assets.
+const AUDIO_BASE = 'audio/TrainerBriefing/';
+const AUDIO_FILES = [
+	'step-01.mp3',
+	'step-02.mp3',
+	'step-03.mp3',
+	'step-04.mp3',
+	'step-05.mp3',
+	'step-06.mp3',
+	'step-07.mp3',
+];
+let audioEnabled=false, currentAudio=null, audioTimeout=null, ccPref=false;
+const audioBtn=document.getElementById('audio-toggle');
+if(audioBtn){ audioBtn.innerHTML='<span class="aw-audio-ico" aria-hidden="true">\uD83D\uDD07</span><span class="aw-audio-time" aria-hidden="true">--:--</span>'; }
+const audioIco=audioBtn&&audioBtn.querySelector('.aw-audio-ico'), audioTimeEl=audioBtn&&audioBtn.querySelector('.aw-audio-time');
+// Captions can play WITHOUT sound: when CC is on but audio is off we still play the clip MUTED, so the
+// caption reveals at the same pace — speaker shows 🔇 and the remaining-time countdown keeps running.
+function playbackOn(){ return audioEnabled || ccPref; }
+function audioDir(){ return (currentLang && currentLang!=='en') ? currentLang+'/' : ''; }
+function fmtDur(s){ s=Math.max(0,Math.ceil(s)); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
+function updateAudioTime(){ if(audioTimeEl && currentAudio && isFinite(currentAudio.duration) && currentAudio.duration>0) audioTimeEl.textContent=fmtDur(currentAudio.duration-currentAudio.currentTime); }
+function syncAudioBtn(){ if(!audioBtn) return; if(audioIco) audioIco.textContent=audioEnabled?'\uD83D\uDD0A':'\uD83D\uDD07'; if(audioTimeEl && !playbackOn()) audioTimeEl.textContent='--:--'; audioBtn.classList.toggle('toggle-active',audioEnabled); audioBtn.setAttribute('aria-pressed',audioEnabled?'true':'false'); }
+function speakFallback(i){ if(!window.speechSynthesis) return; const step=STEPS[i]; const u=new SpeechSynthesisUtterance(`${t(step.titleKey)}. ${t(step.descKey)}`); u.lang=currentLang||'en'; try{ speechSynthesis.cancel(); speechSynthesis.speak(u); }catch(_){} }
+function stopAudio(){
+	if(currentAudio){ currentAudio.pause(); currentAudio.currentTime=0; currentAudio=null; }
+	if(audioTimeout){ clearTimeout(audioTimeout); audioTimeout=null; }
+	if(audioTimeEl) audioTimeEl.textContent='--:--';
+	try{ if(window.speechSynthesis) speechSynthesis.cancel(); }catch(_){}
+	if(window.AWCaptions) AWCaptions.clear();
+}
+function playStepAudio(i){
+	stopAudio();
+	if(document.body.classList.contains('aw-prestart')) return;   // start gate holds audio too
+	if(!playbackOn() || i<0 || i>=STEPS.length) return;
+	audioTimeout=setTimeout(()=>{
+		audioTimeout=null;
+		const file=AUDIO_FILES[i];
+		if(!file){ if(audioEnabled) speakFallback(i); return; }   // no clip = no timing source for caption-only
+		currentAudio=new Audio(AUDIO_BASE+audioDir()+file);
+		currentAudio.volume = audioEnabled ? 1 : 0;              // caption-only = silent (volume 0) timing source
+		if(window.AWCaptions) AWCaptions.bind(currentAudio,i);
+		currentAudio.addEventListener('loadedmetadata',updateAudioTime);
+		currentAudio.addEventListener('timeupdate',updateAudioTime);
+		currentAudio.addEventListener('ended',()=>{ if(audioTimeEl) audioTimeEl.textContent='0:00'; });
+		currentAudio.addEventListener('error',()=>{ if(audioEnabled) speakFallback(i); });
+		currentAudio.play().catch(()=>{});
+	}, 400);
+}
+if(audioBtn){ audioBtn.addEventListener('click',()=>{
+	audioEnabled=!audioEnabled; try{localStorage.setItem('aw-tmpl-audio',audioEnabled?'1':'0');}catch(_){} syncAudioBtn();
+	if(current>=0){
+		if(!playbackOn()) stopAudio();
+		else if(currentAudio) currentAudio.volume = audioEnabled ? 1 : 0;   // flip sound without restarting the clip
+		else playStepAudio(current);
+	}
+	if(typeof applyCc==='function') applyCc();
+}); }
+// Initial audio + CC from the ?audio parameter:
+//   on -> audio ON + captions ON  ·  off -> both OFF  ·  (absent) -> audio ON, captions OFF (a prior stored choice still wins).
+(function(){
+	var p=null; try{ p=new URLSearchParams(location.search).get('audio'); }catch(_){}
+	if(p==='on'){ audioEnabled=true; ccPref=true; }
+	else if(p==='off'){ audioEnabled=false; ccPref=false; }
+	else {
+		audioEnabled=true; ccPref=false;
+		try{ var a=localStorage.getItem('aw-tmpl-audio'); if(a==='1') audioEnabled=true; else if(a==='0') audioEnabled=false; }catch(_){}
+		try{ var c=localStorage.getItem('aw-tmpl-cc'); if(c==='1') ccPref=true; else if(c==='0') ccPref=false; }catch(_){}
+	}
+	try{ localStorage.setItem('aw-tmpl-audio',audioEnabled?'1':'0'); localStorage.setItem('aw-tmpl-cc',ccPref?'1':'0'); }catch(_){}
+})();
+syncAudioBtn();
+
+// ── Captions (CC) — overlaid in the frame; play WITH or WITHOUT audio ──
+// Reads the SAME narration Markdown used to synthesize the audio. Set page to THIS file's
+// stem and base to its narration folder (see the path note near the top of the file).
+const ccBtn=document.getElementById('cc-toggle');
+function ccEffective(){ return ccPref; }                          // captions show whenever CC is on (audio not required)
+function syncCcBtn(){ if(!ccBtn) return; ccBtn.classList.toggle('on',ccPref); ccBtn.setAttribute('aria-pressed',ccPref?'true':'false'); }
+function applyCc(){ if(window.AWCaptions) AWCaptions.setEnabled(ccEffective()); if(ccEffective()&&currentAudio&&window.AWCaptions) AWCaptions.bind(currentAudio,current); syncCcBtn(); }
+if(window.AWCaptions){ AWCaptions.configure({ page:'TrainerBriefing', base:'../../../narration/AI/AI500/', lang:()=>currentLang, fallback:(i)=>(STEPS[i]?t(STEPS[i].descKey):''), reserve:false }); }
+if(ccBtn){ ccBtn.addEventListener('click',()=>{
+	ccPref=!ccPref; try{localStorage.setItem('aw-tmpl-cc',ccPref?'1':'0');}catch(_){} applyCc();
+	if(current>=0){
+		if(playbackOn() && !currentAudio) playStepAudio(current);   // caption-only: start the muted timing clip
+		else if(!playbackOn() && currentAudio) stopAudio();          // CC off + audio off: nothing left to play
+	}
+}); }
+applyCc();
+
+// ── Full screen ──
+(function(){
+	const fsBtn=document.getElementById('fs-toggle'); if(!fsBtn) return;
+	function inFs(){ return !!(document.fullscreenElement||document.webkitFullscreenElement); }
+	function syncFs(){ document.body.classList.toggle('is-fs',inFs()); fsBtn.setAttribute('aria-pressed',inFs()?'true':'false'); fsBtn.title=inFs()?'Exit full screen (F)':'Full screen (F)'; }
+	function toggle(){ try{ if(inFs()){ (document.exitFullscreen||document.webkitExitFullscreen).call(document); } else { const el=document.documentElement; (el.requestFullscreen||el.webkitRequestFullscreen).call(el); } }catch(_){} }
+	fsBtn.addEventListener('click',e=>{ e.stopPropagation(); toggle(); });
+	document.addEventListener('fullscreenchange',syncFs); document.addEventListener('webkitfullscreenchange',syncFs);
+	document.addEventListener('keydown',e=>{ if(e.code==='KeyF'&&!e.metaKey&&!e.ctrlKey&&!e.altKey){ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return; e.preventDefault(); toggle(); } });
+	syncFs();
+})();
+
+// ── Reduced motion ────────────────────────
+const motionMQ=window.matchMedia('(prefers-reduced-motion: reduce)'); let motionPaused=motionMQ.matches;
+motionMQ.addEventListener('change',e=>{ motionPaused=e.matches; renderStep(current); });
+
+// ── Helpers ───────────────────────────────
+function clearStage(){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; liveEls.forEach(el=>el.remove()); liveEls=[]; Array.from(svg.children).forEach(c=>{ if(c.tagName.toLowerCase()!=='defs') c.remove(); }); }
+function el(cls,html){ const d=document.createElement('div'); if(cls) d.className=cls; if(html!=null) d.innerHTML=html; return d; }
+// Inline SVG icons (monochrome, currentColor) — crisp on any OS/projector. Add your own here.
+const ICONS = {
+	puzzle:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h8v8H3zm10 0h8v8h-8zM3 13h8v8H3zm10 0h8v8h-8z"/></svg>',
+	inbox:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 3h2v5h3l-4 4-4-4h3zM5 14h14v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1z"/></svg>',
+	gear:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M19.14 12.94a7.9 7.9 0 0 0 0-1.88l2-1.56-2-3.46-2.36.96a7.7 7.7 0 0 0-1.62-.94L14.8 2.5h-4l-.36 2.56c-.58.24-1.12.56-1.62.94L6.46 6.04l-2 3.46 2 1.56a7.9 7.9 0 0 0 0 1.88l-2 1.56 2 3.46 2.36-.96c.5.38 1.04.7 1.62.94l.36 2.56h4l.36-2.56c.58-.24 1.12-.56 1.62-.94l2.36.96 2-3.46-2-1.56zM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg>',
+	sparkle:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9z"/></svg>',
+	bulb:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-4 12.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26A7 7 0 0 0 12 2zM9 20h6v1a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1z"/></svg>',
+	check:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.55 17.6 4.4 12.45l1.86-1.86 3.29 3.29 8.19-8.19 1.86 1.86z"/></svg>',
+	bolt:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>',
+	lock:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 10a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1zm3-1V7a4 4 0 1 1 8 0v2h-2V7a2 2 0 1 0-4 0v2z"/></svg>',
+	box:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 3 7v10l9 5 9-5V7zm0 2.3L17.7 7 12 10.2 6.3 7zM5 9.1l6 3.4v6.8l-6-3.3zm14 0v6.9l-6 3.3v-6.8z"/></svg>',
+	key:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M14 2a6 6 0 0 0-5.66 8L2 16.34V22h5.66l.34-.34V20h2v-2h2l.34-.34A6 6 0 1 0 14 2zm2 3a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z"/></svg>',
+	rocket:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2c3 3 4 6 4 9l3 3-4 1-1 4-2-3-2 3-1-4-4-1 3-3c0-3 1-6 4-9zm0 5a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>',
+	health:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 2h6v5h5v6h-5v5H9v-5H4V7h5z"/></svg>',
+	headset:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a8 8 0 0 0-8 8v5a3 3 0 0 0 3 3h1v-7H6v-1a6 6 0 1 1 12 0v1h-2v7h1a3 3 0 0 0 3-3v-5a8 8 0 0 0-8-8z"/></svg>',
+	media:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M4 4h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zm5 4v8l7-4z"/></svg>',
+	book:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v16H6a2 2 0 0 1-2-2zm9 0h7v14a2 2 0 0 1-2 2h-5z"/></svg>',
+	party:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5zm6 11l.9 2.6L21.5 16.5l-2.6.9L18 20l-.9-2.6L14.5 16.5l2.6-.9zM6 14l.7 2 2 .7-2 .7L6 19.4l-.7-2-2-.7 2-.7z"/></svg>',
+	chat:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-4 4v-4H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/></svg>',
+	access:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a2.2 2.2 0 1 1 0 4.4A2.2 2.2 0 0 1 12 2zM4 8h16v2h-5.4l1 12h-2.3l-.7-6h-1.2l-.7 6H8.4l1-12H4z"/></svg>',
+	globe:'<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></g></svg>'
+};
+function icon(name){ return `<span class="ic">${ICONS[name]||''}</span>`; }
+function stepById(id){ return STEPS.find(s=>s.id===id); }
+// Scale the current scene down (never up) so it always fits inside the 16:9 frame — no clipping, no scroll.
+function fitScene(scene){
+	if(!scene) return;
+	scene.style.transform='translate(-50%,-50%) scale(1)';
+	const box=stage.getBoundingClientRect();
+	const availW=box.width-32, availH=box.height-28;
+	const sw=scene.offsetWidth, sh=scene.offsetHeight;
+	if(!sw||!sh) return;
+	const k=Math.min(1, availW/sw, availH/sh);
+	scene.style.transform='translate(-50%,-50%) scale('+k+')';
+}
+function headerEls(scene){ return [scene.querySelector('.scene-title'), scene.querySelector('.scene-lead')]; }
+function buildScene(step){ const s=el('scene'); s.appendChild(el('scene-title', t(step.titleKey))); s.appendChild(el('scene-lead', t(step.descKey))); return s; }
+function maybeCallout(step){ if(!calloutEnabled) return null; const c=el('callout', t(step.calloutKey)); c.style.left='1.5rem'; c.style.top='1.5rem'; stage.appendChild(c); liveEls.push(c); dragify(c, 'aw-tmpl-callout-pos'); return c; }
+function renderOutline(step,idx){
+	const rows=(step.stats||[]).map(([k,v])=>`<div class="stat-row"><span>${t(k)}</span><span>${t(v)}</span></div>`).join('');
+	outlineBody.innerHTML=`<div class="outline-section"><strong>${t('stepOf')} ${idx+1} / ${STEPS.length}: ${t(step.titleKey)}</strong><p style="margin-top:0.4rem;">${t(step.descKey)}</p></div>${rows?`<div class="outline-section">${rows}</div>`:''}`;
+}
+function announceStep(step,idx){ announcer.textContent=`${t('stepOf')} ${idx+1} / ${STEPS.length}: ${t(step.titleKey)}. ${t(step.descKey)}`; }
+
+// ── RENDER DISPATCH ───────────────────────
+function renderStep(i){
+	if(i<0||i>=STEPS.length) return;
+	if(animating){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; animating=false; }
+	animating=true;
+	const step=STEPS[i];
+	// cross-fade (200ms, CSS keyframes so it's independent of the speed control) — outgoing fades out, incoming fades in, on every step
+	const outgoing=stage.querySelector('.scene:not(.scene-out)');
+	if(outgoing) liveEls=liveEls.filter(x=>x!==outgoing);
+	clearStage();
+	if(outgoing){ outgoing.style.zIndex='5';
+		if(motionPaused){ outgoing.remove(); }
+		else { outgoing.classList.remove('scene-in'); outgoing.classList.add('scene-out'); setTimeout(()=>outgoing.remove(), 240); } }
+	(BUILDERS[step.id]||function(){})();
+	const incoming=stage.querySelector('.scene:not(.scene-out)');
+	if(incoming && !motionPaused) incoming.classList.add('scene-in');
+	fitScene(incoming);
+	current=i;
+	try{ const u=new URL(location.href); u.searchParams.set('step', String(i+1)); history.replaceState(null,'',u); }catch(_){}
+	counter.textContent=`${t('stepOf')} ${current+1} / ${STEPS.length}`;
+	breadcrumb.textContent=t(step.captionKey);
+	progress.style.width=((current+1)/STEPS.length*100)+'%';
+	renderOutline(step,i); announceStep(step,i);
+	if(typeof playStepAudio==='function') playStepAudio(i);
+}
+
+// ══════════════ AI-500 KIT · shared helpers (cast, board, connectors, timelines) ══════════════
+Object.assign(ICONS, {
+	robot:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2a1.6 1.6 0 0 1 .8 3V7h4.2a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3v-7a3 3 0 0 1 3-3h4.2V5A1.6 1.6 0 0 1 12 2zM9 11.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 0 0 0-3.2zm6 0a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 0 0 0-3.2z"/></svg>',
+	compass:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16zm3.9 4.1-2.1 5.7-5.7 2.1 2.1-5.7z"/></svg>',
+	doc:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M6 2h8l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm2 6.5v1.6h4V8.5zM8 12v1.6h8V12zm0 3.4V17h8v-1.6z"/></svg>',
+	search:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M10.5 3a7.5 7.5 0 0 1 5.9 12.1l4.3 4.3-1.4 1.4-4.3-4.3A7.5 7.5 0 1 1 10.5 3zm0 2a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11z"/></svg>',
+	coin:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="2"/><text x="12" y="16.8" text-anchor="middle" font-size="12.5" font-weight="700" font-family="Segoe UI,Arial,sans-serif" fill="currentColor">$</text></svg>',
+	person:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9zm0 2c-4.4 0-8 2.2-8 5v2h16v-2c0-2.8-3.6-5-8-5z"/></svg>',
+	clock:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16zm-1 3h2v5.2l3.3 2-1 1.7-4.3-2.6z"/></svg>',
+	chip:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M8 2h2v3h4V2h2v3h1a2 2 0 0 1 2 2v1h3v2h-3v4h3v2h-3v1a2 2 0 0 1-2 2h-1v3h-2v-3h-4v3H8v-3H7a2 2 0 0 1-2-2v-1H2v-2h3v-4H2V8h3V7a2 2 0 0 1 2-2h1zm0 5v10h8V7z"/></svg>',
+	warn:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2 1.5 21h21zM11 9h2v6h-2zm0 8h2v2h-2z"/></svg>',
+	scale:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 3h2v15h-2zM5 20h14v2H5zM3 6h18v2H3zM5 8l3 6a3 3 0 0 1-6 0zm14 0 3 6a3 3 0 0 1-6 0z"/></svg>',
+	code:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.7 6.3 3 12l5.7 5.7 1.4-1.4L5.8 12l4.3-4.3zm6.6 0-1.4 1.4 4.3 4.3-4.3 4.3 1.4 1.4L21 12z"/></svg>',
+	board:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M3 4h18a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1h-7v2h3v2H7v-2h3v-2H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zm1 2v9h16V6z"/></svg>',
+	shield:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2 4 5v6c0 5 3.4 9.3 8 11 4.6-1.7 8-6 8-11V5zm-1.2 13.5L7.5 12.2l1.4-1.4 1.9 1.9 4.3-4.3 1.4 1.4z"/></svg>',
+	star:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l3 6.3 6.9.9-5 4.8 1.2 6.9L12 17.6 5.9 20.9 7.1 14 2.1 9.2 9 8.3z"/></svg>',
+	ruler:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M3 17 17 3l4 4L7 21zm3.2 0 1.3 1.3 1.4-1.4-1.3-1.3zm3.7-3.7 1.3 1.3 1.4-1.4-1.3-1.3zm3.7-3.7 1.3 1.3 1.4-1.4-1.3-1.3z"/></svg>',
+	flask:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 2h6v2h-1v5.2l5.2 8.7A2 2 0 0 1 17.5 21h-11a2 2 0 0 1-1.7-3.1L10 9.2V4H9z"/></svg>',
+	arrowR:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 5l7 7-7 7-1.4-1.4 4.6-4.6H4v-2h12.2l-4.6-4.6z"/></svg>'
+});
+
+const AG = { solo:['robot','agSolo'], orch:['compass','agOrch'], intake:['doc','agIntake'], policy:['book','agPolicy'],
+	fraud:['search','agFraud'], payout:['coin','agPayout'], human:['person','agHuman'] };
+function agent(k, o){ o=o||{}; const a=AG[k];
+	return `<div class="ai5-ag ag-${k}${o.top?' is-top':''}"${o.size?` style="--ag:${o.size}px"`:''}><span class="ai5-ag-ic">${icon(a[0])}</span>${o.nolabel?'':`<span class="ai5-ag-l">${o.label||t(a[1])}</span>`}</div>`; }
+
+// A 0×0 wrapper at the node's CENTRE (animate the wrapper with GSAP; the inner node stays centred on it)
+function pos(cx, cy, html, cls){ const w=el('ai5-pos'+(cls?' '+cls:''), '<div class="ai5-in">'+html+'</div>'); w.style.left=cx+'px'; w.style.top=cy+'px'; return w; }
+
+const SVGNS='http://www.w3.org/2000/svg'; let _ai5id=0;
+// A fixed-size board with an SVG layer behind the nodes (same coordinates) for drawn connectors.
+function board(w, h){
+	const root=el('ai5-board'); root.style.width=w+'px'; root.style.height=h+'px';
+	const svg=document.createElementNS(SVGNS,'svg'); svg.setAttribute('viewBox',`0 0 ${w} ${h}`);
+	const mid='ai5ar'+(++_ai5id);
+	svg.innerHTML=`<defs><marker id="${mid}" viewBox="0 0 12 12" markerWidth="24" markerHeight="24" markerUnits="userSpaceOnUse" refX="11" refY="6" orient="auto"><path d="M1,1 L11,6 L1,11 Z" fill="context-stroke"/></marker></defs>`;
+	root.appendChild(svg);
+	return { root, svg, mid };
+}
+// Draw a connector path. Solid + arrow → draw-in via dash (the global guard hides the arrowhead until it lands). dash:'6 6' → static dashed, fade in.
+// An arrowed line stops at the BASE of its 20px head (flat cap, trimmed end). The connector colour is translucent (--ai5-line is ~40% alpha), so a line that
+// ran under the head would stack two see-through layers and show up as a darker stem inside the arrowhead. The marker is untouched, so the tip still lands on the path end.
+// 20 = the head length: markerWidth 24 over a 12 viewBox is a 2x scale, and the head path spans x 1..11. Change the marker and this number together.
+function arrowTrim(p, L){ return p.getAttribute('marker-end') ? Math.min(20, L*0.55) : 0; }
+function line(B, d, color, o){ o=o||{};
+	const p=document.createElementNS(SVGNS,'path'); p.setAttribute('d',d); p.setAttribute('fill','none');
+	const arrowed=!o.dash && o.arrow!==false;
+	p.style.stroke=color||'var(--ai5-line)'; p.setAttribute('stroke-width',o.w||3); p.setAttribute('stroke-linecap',arrowed?'butt':'round'); p.setAttribute('stroke-linejoin','round');
+	if(o.dash) p.setAttribute('stroke-dasharray',o.dash);
+	else if(o.arrow!==false) p.setAttribute('marker-end','url(#'+B.mid+')');
+	B.svg.appendChild(p);
+	if(arrowed){ try{ const L=p.getTotalLength(), t=arrowTrim(p,L); if(L>0&&t>0) p.style.strokeDasharray=(L-t)+' '+(L+t); }catch(e){} }
+	return p; }
+function drawPrep(p){ const L=p.getTotalLength(), t=arrowTrim(p,L); p.style.strokeDasharray=t?(L-t)+' '+(L+t):L; p.style.strokeDashoffset=L; return L; }
+// Tween a solid connector in (call drawPrep first). Dashed connectors just fade.
+function drawIn(tl, p, at, dur){ if(p.getAttribute('stroke-dasharray')){ tl.fromTo(p,{opacity:0},{opacity:1,duration:dur||0.4},at); return; }
+	// The trimmed line is shorter than the guard's 0.9*length rule, so hide the head ourselves and put it back once the line has landed.
+	drawPrep(p); const mk=p.getAttribute('marker-end'); if(mk) p.removeAttribute('marker-end');
+	tl.to(p,{strokeDashoffset:0,duration:dur||0.6,ease:'power1.inOut'},at);
+	if(mk) tl.call(()=>p.setAttribute('marker-end',mk),null,'>'); }
+
+// Timeline helpers — every builder builds its tweens once; reduced motion just jumps to the end frame.
+function mount(scene){ stage.appendChild(scene); liveEls.push(scene); }
+function mkTL(){ return gsap.timeline({ onComplete:()=>{ animating=false; } }); }
+function head(tl, scene){ tl.fromTo(headerEls(scene),{opacity:0,y:-14},{opacity:1,y:0,duration:0.5,stagger:0.1,ease:'power2.out'}); }
+function finish(tl, step){
+	const c=maybeCallout(step); if(c) tl.fromTo(c,{opacity:0,y:10},{opacity:1,y:0,duration:0.5},'>-0.2');
+	if(motionPaused){ tl.progress(1); animating=false; return tl; }
+	liveTimelines.push(tl); return tl; }
+function idle(tw){ if(!motionPaused && tw) liveTimelines.push(tw); return tw; }
+function aiScene(step){ const s=buildScene(step); s.classList.add('ai5'); return s; }
+function say(txt, ic){ return el('ai5-say', (ic?icon(ic):'')+'<span>'+txt+'</span>'); }
+function nextLink(file, labelKey){ const a=document.createElement('a'); a.className='ai5-next'; a.href=file+'?lang='+currentLang; a.innerHTML='<span>'+t(labelKey)+'</span>'+icon('arrowR'); return a; }
+
+
+// ══════════ AI-500 Trainer Briefing · page-local icons ══════════
+Object.assign(ICONS,{
+	xmark:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.4 4.9 12 10.5l5.6-5.6 1.5 1.5-5.6 5.6 5.6 5.6-1.5 1.5-5.6-5.6-5.6 5.6-1.5-1.5 5.6-5.6-5.6-5.6z"/></svg>',
+	quote:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11a5 5 0 0 1 5-5v2.5A2.5 2.5 0 0 0 6.5 11H9v7H4zm10 0a5 5 0 0 1 5-5v2.5a2.5 2.5 0 0 0-2.5 2.5H19v7h-5z"/></svg>',
+	flip:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h9.2l-2.6-2.6L15 3l5 5-5 5-1.4-1.4L16.2 9H7a3 3 0 0 0-3 3v1H2v-1a5 5 0 0 1 5-5zm10 10H7.8l2.6 2.6L9 21l-5-5 5-5 1.4 1.4L7.8 15H17a3 3 0 0 0 3-3v-1h2v1a5 5 0 0 1-5 5z"/></svg>',
+	anchor:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2a3 3 0 0 1 1 5.83V10h3v2h-3v7.9a7 7 0 0 0 5.2-5.1l-1.7.4 2.7-3.7 2.8 3.7-1.9-.4A9 9 0 0 1 12 22a9 9 0 0 1-7.1-7.2l-1.9.4 2.8-3.7 2.7 3.7-1.7-.4a7 7 0 0 0 5.2 5.1V12H8v-2h3V7.83A3 3 0 0 1 12 2zm0 2a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/></svg>',
+	chevron:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.4 9 12 13.6 16.6 9 18 10.4l-6 6-6-6z"/></svg>',
+	ext:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7h-2V6.4l-8.3 8.3-1.4-1.4L17.6 5H14zM5 5h6v2H5v12h12v-6h2v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/></svg>',
+	replay:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V2L7 6l5 4V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7z"/></svg>'
+});
+const reduce = () => motionPaused;
+
+// ── 1 · POSITIONING (IS / IS NOT / SAY THIS, row by row) ──
+function renderPositioning(){
+	const step=stepById('positioning'), scene=aiScene(step);
+	const wrap=el('ai5t-pos');
+	const heads=el('ai5t-pos-r ai5t-pos-h',
+		`<span class="ai5t-col is-is">${icon('check')}<span>${t('colIs')}</span></span>`+
+		`<span class="ai5t-col is-not">${icon('xmark')}<span>${t('colIsNot')}</span></span>`+
+		`<span class="ai5t-col is-say">${icon('quote')}<span>${t('colSay')}</span></span>`);
+	wrap.appendChild(heads);
+	const rows=[1,2,3].map(n=>{
+		const r=el('ai5t-pos-r',
+			`<div class="ai5t-pc is-is">${icon('check')}<span>${t('posIs'+n)}</span></div>`+
+			`<div class="ai5t-pc is-not">${icon('xmark')}<span>${t('posNot'+n)}</span></div>`+
+			`<div class="ai5t-pc is-say">${icon('quote')}<span>${t('posSay'+n)}</span></div>`);
+		wrap.appendChild(r); return r; });
+	scene.appendChild(wrap); mount(scene);
+
+	const tl=mkTL(); head(tl,scene);
+	tl.fromTo([...heads.children],{opacity:0,scale:0.85},{opacity:1,scale:1,duration:0.4,stagger:0.1,ease:'back.out(1.8)'});
+	rows.forEach(r=>{
+		const [a,b,c]=r.children;
+		tl.fromTo(a,{opacity:0,x:-40},{opacity:1,x:0,duration:0.45,ease:'power3.out'},'>+0.3');
+		tl.fromTo(b,{opacity:0,y:-22},{opacity:1,y:0,duration:0.45,ease:'power3.out'},'<0.15');
+		tl.fromTo(c,{opacity:0,x:40,scale:0.94},{opacity:1,x:0,scale:1,duration:0.5,ease:'power3.out'},'<0.15');
+	});
+	finish(tl,step);
+}
+
+// ── 2 · DAYS ↔ DOMAINS (crossing connectors) ──
+function renderDaysDomains(){
+	const step=stepById('daysdomains'), scene=aiScene(step);
+	const B=board(1100,352);
+	const LW=360, RX=740, TOP=40, H=64, GAP=18;
+	const y=i=>TOP+i*(H+GAP);
+	const doms=[['fl1','1','ddArchitect','ddW1'],['fl2','2','ddDevelop','ddW2'],['fl3','3','ddEvaluate','ddW3'],['fl4','4','ddSecure','ddW4']];
+	const L=doms.map((d,i)=>{ const c=el('ai5t-dom '+d[0],`<span class="n">${d[1]}</span><span class="v">${t(d[2])}</span><span class="w">${t(d[3])}</span>`); c.style.cssText=`left:0;top:${y(i)}px;width:${LW}px;height:${H}px;`; return c; });
+	const days=[['ddDay1',['fl1','ddArchitect'],['fl2','ddDevelop']],['ddDay2',['fl2','ddDevelop']],['ddDay3',['fl4','ddSecure']],['ddDay4',['fl3','ddEvaluate']]];
+	const R=days.map((d,i)=>{ const c=el('ai5t-day',`<span class="v">${t(d[0])}</span><span class="tg">${d.slice(1).map(x=>`<span class="ai5-tag ${x[0]}">${t(x[1])}</span>`).join('')}</span>`);
+		c.style.cssText=`left:${RX}px;top:${y(i)}px;width:${LW}px;height:${H}px;`; return c; });
+	const hl=el('ai5t-bh',t('ddHeadL')); hl.style.cssText=`left:0;top:0;width:${LW}px;`;
+	const hr=el('ai5t-bh',t('ddHeadR')); hr.style.cssText=`left:${RX}px;top:0;width:${LW}px;`;
+	const C=['var(--f1)','var(--f2)','var(--f3)','var(--f4)'];
+	const cons=[
+		line(B,`M${LW} ${y(0)+22} H${RX}`,C[0],{arrow:false,w:4}),
+		line(B,`M${LW} ${y(1)+30} H500 V${y(0)+44} H${RX}`,C[1],{arrow:false,w:4}),
+		line(B,`M${LW} ${y(1)+42} H${RX}`,C[1],{arrow:false,w:4}),
+		line(B,`M${LW} ${y(2)+22} H550 V${y(3)+22} H${RX}`,C[2],{arrow:false,w:4}),
+		line(B,`M${LW} ${y(3)+42} H640 V${y(2)+44} H${RX}`,C[3],{arrow:false,w:4})
+	];
+	[...cons,hl,hr,...L,...R].forEach(n=>{ if(n.tagName!=='path') B.root.appendChild(n); });
+	const note=el('ai5-pnl ai5t-note',`${icon('bulb')}<span>${t('ddNote')}</span>`);
+	scene.appendChild(B.root); scene.appendChild(note); mount(scene);
+
+	const tl=mkTL(); head(tl,scene);
+	tl.fromTo([hl,hr],{opacity:0},{opacity:1,duration:0.4});
+	tl.fromTo(L,{opacity:0,x:-40},{opacity:1,x:0,duration:0.5,stagger:0.12,ease:'power3.out'},'<0.1');
+	tl.fromTo(R,{opacity:0,x:40},{opacity:1,x:0,duration:0.5,stagger:0.12,ease:'power3.out'},'<0.15');
+	cons.forEach((p,i)=>drawIn(tl,p,i?'>-0.05':'>+0.15',0.55));
+	tl.fromTo(note,{opacity:0,y:14},{opacity:1,y:0,duration:0.5},'>0.1');
+	finish(tl,step);
+}
+
+// ── 3 · TRAINING ONLY vs TRAINING & EXAM (cards slide into buckets) ──
+function renderTrainingOnly(){
+	const step=stepById('trainingonly'), scene=aiScene(step);
+	const mk=(cls,ic,key,list)=>{
+		const b=el('ai5t-bk '+cls,`<div class="ai5t-bk-h">${icon(ic)}<span>${t(key)}</span></div><div class="ai5t-bk-g"></div>`);
+		const g=b.querySelector('.ai5t-bk-g');
+		const cards=list.map(k=>{ const c=el('ai5t-tc',`<span>${t(k)}</span>`); g.appendChild(c); return c; });
+		return { b, cards }; };
+	const ex=mk('fl1 is-exam','check','bkExam',['ex1','ex2','ex3','ex4','ex5','ex6']);
+	const to=mk('fl3 is-only','flask','bkOnly',['to1','to2','to3','to4']);
+	const row=el('ai5t-bks'); row.appendChild(ex.b); row.appendChild(to.b);
+	const note=el('ai5-pnl ai5t-note',`${icon('doc')}<span>${t('toNote')}</span>`);
+	scene.appendChild(row); scene.appendChild(note); mount(scene);
+
+	const tl=mkTL(); head(tl,scene);
+	tl.fromTo([ex.b,to.b],{opacity:0,y:16},{opacity:1,y:0,duration:0.5,stagger:0.15});
+	const order=[]; for(let i=0;i<6;i++){ order.push([ex.cards[i],-1]); if(to.cards[i]) order.push([to.cards[i],1]); }
+	order.forEach(([c,dir],i)=>tl.fromTo(c,{opacity:0,y:-90,x:dir*-70},{opacity:1,y:0,x:0,duration:0.5,ease:'power3.out'},i?'>-0.1':'>+0.2'));
+	tl.fromTo(note,{opacity:0,y:14},{opacity:1,y:0,duration:0.5},'>0.1');
+	finish(tl,step);
+}
+
+// ── 4 · MIX-UPS (flip cards) ──
+function renderMixups(){
+	const step=stepById('mixups'), scene=aiScene(step);
+	const tones=['fl2','fl2','fl1','fl2','fl4','fl4'];
+	const grid=el('ai5t-flips');
+	const btns=[1,2,3,4,5,6].map(n=>{
+		const b=document.createElement('button'); b.type='button'; b.className='ai5t-flip '+tones[n-1]; b.setAttribute('aria-pressed','false');
+		b.setAttribute('aria-label',t('mx'+n)+'. '+t('flipHint'));
+		b.innerHTML=`<span class="ai5t-fin"><span class="ai5t-face ai5t-front"><span class="q">${t('mx'+n)}</span><span class="h">${icon('flip')}<span>${t('flipHint')}</span></span></span>`+
+			`<span class="ai5t-face ai5t-back"><span class="bt">${t('mx'+n)}</span><span class="bx">${t('mx'+n+'a')}</span></span></span>`;
+		grid.appendChild(b); return b; });
+	const ins=btns.map(b=>b.querySelector('.ai5t-fin'));
+	const all=document.createElement('button'); all.type='button'; all.className='ai5t-flipall'; all.innerHTML=icon('flip')+'<span>'+t('flipAll')+'</span>';
+	const bar=el('ai5t-flipbar'); bar.appendChild(all); bar.appendChild(el('ai5t-fnote',`${icon('bulb')}<span>${t('mxNote')}</span>`));
+	scene.appendChild(grid); scene.appendChild(bar); mount(scene);
+
+	const isBack=i=>Number(gsap.getProperty(ins[i],'rotationY'))>90;
+	const sync=()=>btns.forEach((b,i)=>b.setAttribute('aria-pressed',isBack(i)?'true':'false'));
+	const flipTo=(targets,deg,stag)=>{ gsap.to(targets,{rotationY:deg,duration:reduce()?0:0.6,stagger:reduce()?0:stag||0,ease:'power2.inOut',overwrite:true,onUpdate:sync,onComplete:sync}); };
+	btns.forEach((b,i)=>b.addEventListener('click',()=>{ flipTo(ins[i],isBack(i)?0:180); }));
+	all.addEventListener('click',()=>{ const allBack=ins.every((_,i)=>isBack(i)); flipTo(ins,allBack?0:180,0.08); });
+
+	const tl=mkTL(); head(tl,scene);
+	tl.fromTo(btns,{opacity:0,y:22,scale:0.94},{opacity:1,y:0,scale:1,duration:0.5,stagger:0.1,ease:'power2.out'});
+	tl.fromTo(bar,{opacity:0},{opacity:1,duration:0.4},'<0.3');
+	ins.forEach(f=>tl.to(f,{rotationY:180,duration:1.1,ease:'power2.inOut',onUpdate:sync,onComplete:sync},'>+0.5'));
+	finish(tl,step);
+	sync();
+}
+
+// ── 5 · DELIVERY (five-item checklist, ticks in one by one) ──
+function renderDelivery(){
+	const step=stepById('delivery'), scene=aiScene(step);
+	const ics=['compass','scale','flask','clock','replay'];
+	const list=el('ai5t-chk');
+	const rows=ics.map((ic,i)=>{ const n=i+1;
+		const r=el('ai5t-cr',`<i class="bar"></i><span class="bd">${icon(ic)}</span><span class="tx"><b>${t('dl'+n)}</b><span>${t('dl'+n+'s')}</span></span><span class="tk">${icon('check')}</span>`);
+		list.appendChild(r); return r; });
+	scene.appendChild(list); mount(scene);
+
+	const tl=mkTL(); head(tl,scene);
+	rows.forEach((r,i)=>{
+		tl.fromTo(r,{opacity:0,y:18,scale:0.97},{opacity:1,y:0,scale:1,duration:0.4,ease:'power2.out'},i?'>+0.2':'>0');
+		tl.fromTo(r.querySelector('.bd'),{scale:0.4,rotation:-20},{scale:1,rotation:0,duration:0.45,ease:'back.out(2.4)'},'<0.1');
+		tl.fromTo(r.querySelector('.bar'),{scaleY:0},{scaleY:1,duration:0.35,ease:'power2.out'},'>-0.1');
+		tl.fromTo(r.querySelector('.tk'),{scale:0,rotation:-90},{scale:1,rotation:0,duration:0.45,ease:'back.out(3)'},'>0.1');
+	});
+	finish(tl,step);
+}
+
+// ── 6 · STATUS (check before you teach) ──
+function renderStatus(){
+	const step=stepById('status'), scene=aiScene(step);
+	const card=el('ai5-pnl ai5t-st',`<div class="ai5t-st-h">${icon('warn')}<span>${t('stHead')}</span></div>`);
+	const rows=[1,2,3,4,5,6].map(n=>{ const r=el('ai5t-sr',`<span class="wi">${icon('warn')}</span><b>${t('st'+n)}</b><span class="ar">${icon('arrowR')}</span><span class="ac">${t('st'+n+'a')}</span>`); card.appendChild(r); return r; });
+	scene.appendChild(card); mount(scene);
+
+	const tl=mkTL(); head(tl,scene);
+	tl.fromTo(card,{opacity:0,y:20},{opacity:1,y:0,duration:0.5});
+	rows.forEach((r,i)=>{
+		tl.fromTo(r,{opacity:0,x:34},{opacity:1,x:0,duration:0.4,ease:'power3.out'},i?'>+0.2':'>0.1');
+		tl.fromTo(r.querySelector('.wi'),{scale:2.2,rotation:-24},{scale:1,rotation:0,duration:0.45,ease:'back.out(2.2)'},'<0.05');
+	});
+	finish(tl,step);
+}
+
+// ── 7 · FAQ (accordion, one open at a time) ──
+function renderFaq(){
+	const step=stepById('faq'), scene=aiScene(step);
+	const acc=el('ai5t-acc');
+	const items=[1,2,3,4,5].map(n=>{
+		const it=el('ai5t-ai');
+		const q=document.createElement('button'); q.type='button'; q.className='ai5t-aq'; q.id='faq-q'+n; q.setAttribute('aria-controls','faq-a'+n);
+		q.innerHTML=`<span class="num">${n}</span><span class="qt">${t('fq'+n)}</span><span class="ch">${icon('chevron')}</span>`;
+		const a=el('ai5t-aa',`<div class="in">${t('fa'+n)}</div>`); a.id='faq-a'+n; a.setAttribute('role','region'); a.setAttribute('aria-labelledby','faq-q'+n);
+		it.appendChild(q); it.appendChild(a); acc.appendChild(it); return { it, q, a }; });
+	const foot=el('ai5t-foot ai5-foot',icon('ext')+'<span>'+t('faqFoot')+'</span>');
+	scene.appendChild(acc); scene.appendChild(foot); mount(scene);
+
+	const setOpen=(o,open,instant)=>{
+		o.q.setAttribute('aria-expanded',open?'true':'false'); o.it.classList.toggle('is-open',open);
+		gsap.to(o.a,{height:open?'auto':0,duration:instant||reduce()?0:0.3,ease:'power2.out',overwrite:true});
+		gsap.to(o.q.querySelector('.ch'),{rotation:open?180:0,duration:instant||reduce()?0:0.3,overwrite:true}); };
+	items.forEach((o,i)=>{ setOpen(o,i===0,true);
+		o.q.addEventListener('click',()=>{ const wasOpen=o.q.getAttribute('aria-expanded')==='true'; items.forEach(x=>setOpen(x,false)); if(!wasOpen) setOpen(o,true); }); });
+
+	const tl=mkTL(); head(tl,scene);
+	tl.fromTo(items.map(o=>o.it),{opacity:0,y:24,clipPath:'inset(0 100% 0 0)'},{opacity:1,y:0,clipPath:'inset(0 0% 0 0)',duration:0.55,stagger:0.14,ease:'power2.out',clearProps:'clipPath'});
+	tl.fromTo(foot,{opacity:0,y:10},{opacity:1,y:0,duration:0.5},'>0');
+	finish(tl,step);
+}
+
+const BUILDERS = { positioning:renderPositioning, daysdomains:renderDaysDomains, trainingonly:renderTrainingOnly, mixups:renderMixups, delivery:renderDelivery, status:renderStatus, faq:renderFaq };
+
+
+// ── CONTROLS ──────────────────────────────
+function focusHeading(){ const h=document.getElementById('stage-heading'); if(h){ try{ h.focus({preventScroll:true}); }catch(_){ h.focus(); } } }
+function interruptAnimation(){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; animating=false; }
+function next(){ interruptAnimation(); if(current<STEPS.length-1){ renderStep(current+1); focusHeading(); } }
+function prev(){ interruptAnimation(); if(current>0){ renderStep(current-1); focusHeading(); } }
+function reset(){ interruptAnimation(); renderStep(0); focusHeading(); }
+function replay(){ if(current<0) return; interruptAnimation(); renderStep(current); focusHeading(); }
+
+// ── Hide / show top bar (toggle; the ^ chevron flips to v when hidden) ──
+(function(){
+	const hideBtn=document.getElementById('header-hide'), revealBtn=document.getElementById('header-reveal');
+	if(!hideBtn||!revealBtn) return;
+	var hideBtnTop=document.getElementById('header-hide-top'); if(hideBtnTop) hideBtnTop.addEventListener('click',function(e){ e.stopPropagation(); hideBtn.click(); });
+	const hidePath=hideBtn.querySelector('svg path');
+	const UP='M6 15l6-6 6 6', DOWN='M6 9l6 6 6-6';   // ^ points up to hide the bar; flips to v to show it again
+	function setHidden(h){
+		document.body.classList.toggle('chrome-hidden',h);
+		hideBtn.setAttribute('aria-expanded',String(!h));
+		hideBtn.setAttribute('aria-label',h?'Show top bar':'Hide top bar');
+		hideBtn.title=(h?'Show top bar':'Hide top bar')+' (H)';
+		if(hidePath) hidePath.setAttribute('d',h?DOWN:UP);
+		try{localStorage.setItem('aw-tmpl-chrome-hidden',h?'1':'0');}catch(_){}
+		if(current>=0) requestAnimationFrame(()=>{ const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s); });
+	}
+	hideBtn.addEventListener('click',e=>{e.stopPropagation();setHidden(!document.body.classList.contains('chrome-hidden'));});
+	revealBtn.addEventListener('click',e=>{e.stopPropagation();setHidden(false);});
+	try{ if(localStorage.getItem('aw-tmpl-chrome-hidden')==='1') setHidden(true); }catch(_){}
+	document.addEventListener('keydown',e=>{ if(e.code==='KeyH'&&!e.metaKey&&!e.ctrlKey&&!e.altKey){ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return; e.preventDefault(); setHidden(!document.body.classList.contains('chrome-hidden')); } });
+})();
+
+document.getElementById('next-btn').addEventListener('click',e=>{e.stopPropagation();next();});
+document.getElementById('prev-btn').addEventListener('click',e=>{e.stopPropagation();prev();});
+document.getElementById('reset-btn').addEventListener('click',e=>{e.stopPropagation();reset();});
+document.getElementById('replay-btn').addEventListener('click',e=>{e.stopPropagation();replay();});
+
+// ── Clickable progress bar + step ticks ──
+(function(){
+	const track=document.querySelector('.progress-track'); if(!track) return;
+	for(let s=1; s<STEPS.length; s++){ const tk=document.createElement('div'); tk.className='progress-tick'; tk.style.left=(s/STEPS.length*100)+'%'; track.appendChild(tk); }
+	track.setAttribute('title','Jump to a step');
+	track.addEventListener('click', e=>{
+		const r=track.getBoundingClientRect(); const frac=(e.clientX-r.left)/r.width;
+		const target=Math.max(0, Math.min(STEPS.length-1, Math.floor(frac*STEPS.length)));
+		if(target!==current){ interruptAnimation(); renderStep(target); focusHeading(); }
+	});
+})();
+
+// ── Movable / pinnable control dock ───────
+(function(){
+	const dock=document.getElementById('controls'), grip=document.getElementById('ctrl-grip'), pin=document.getElementById('ctrl-pin');
+	if(!dock||!grip) return;
+	const KEY='aw-tmpl-controls-pos';
+	let dragging=false, sx=0, sy=0, bl=0, bt=0, moved=false;
+	function place(left,top){
+		const w=dock.offsetWidth, h=dock.offsetHeight;
+		left=Math.max(6, Math.min(left, window.innerWidth - w - 6));
+		top =Math.max(6, Math.min(top,  window.innerHeight - h - 6));
+		dock.style.left=left+'px'; dock.style.top=top+'px'; dock.style.right='auto'; dock.style.bottom='auto'; dock.style.transform='none';
+		document.body.classList.add('controls-floating');
+	}
+	function recenter(){
+		dock.style.left=dock.style.top=dock.style.right=dock.style.bottom=dock.style.transform='';
+		document.body.classList.remove('controls-floating');
+		try{ localStorage.removeItem(KEY); }catch(_){}
+	}
+	grip.addEventListener('pointerdown', e=>{
+		e.preventDefault(); dragging=true; moved=false;
+		const r=dock.getBoundingClientRect(); bl=r.left; bt=r.top; sx=e.clientX; sy=e.clientY;
+		try{ grip.setPointerCapture(e.pointerId); }catch(_){}
+	});
+	grip.addEventListener('pointermove', e=>{
+		if(!dragging) return;
+		const dx=e.clientX-sx, dy=e.clientY-sy;
+		if(Math.abs(dx)>2||Math.abs(dy)>2) moved=true;
+		place(bl+dx, bt+dy);
+	});
+	function end(e){ if(!dragging) return; dragging=false; try{ grip.releasePointerCapture(e.pointerId); }catch(_){}
+		if(moved){ try{ const r=dock.getBoundingClientRect(); localStorage.setItem(KEY, JSON.stringify({left:r.left, top:r.top})); }catch(_){} } }
+	grip.addEventListener('pointerup', end); grip.addEventListener('pointercancel', end);
+	// keyboard-nudge the dock when the grip is focused (arrow keys; Shift = larger step)
+	grip.addEventListener('keydown', e=>{
+		const d=e.shiftKey?40:12; const r=dock.getBoundingClientRect(); let ok=true;
+		if(e.key==='ArrowLeft') place(r.left-d, r.top);
+		else if(e.key==='ArrowRight') place(r.left+d, r.top);
+		else if(e.key==='ArrowUp') place(r.left, r.top-d);
+		else if(e.key==='ArrowDown') place(r.left, r.top+d);
+		else ok=false;
+		if(ok){ e.preventDefault(); e.stopPropagation(); }
+	});
+	if(pin) pin.addEventListener('click', e=>{ e.stopPropagation(); recenter(); });
+	window.addEventListener('resize', ()=>{ if(document.body.classList.contains('controls-floating')){ const r=dock.getBoundingClientRect(); place(r.left, r.top); } });
+	try{ const s=JSON.parse(localStorage.getItem(KEY)||'null'); if(s && typeof s.left==='number') place(s.left, s.top); }catch(_){}
+})();
+
+// ── Make callout / outline / caption draggable (same pointer-drag as the control dock) ──
+function dragify(el, key){
+	if(!el || el.__awDrag) return; el.__awDrag=true;
+	let dragging=false, sx=0, sy=0, bl=0, bt=0, moved=false;
+	const resizable = getComputedStyle(el).resize !== 'none';
+	const sizeKey = key ? key + '-size' : null;
+	// snapshot the home position + size so the reset pin can restore it exactly
+	const home={ position:el.style.position, left:el.style.left, top:el.style.top,
+		right:el.style.right, bottom:el.style.bottom, margin:el.style.margin, transform:el.style.transform,
+		width:el.style.width, height:el.style.height };
+	// reset "pin" — hidden until the panel is dragged or resized off its home spot
+	const pin=document.createElement('button');
+	pin.type='button'; pin.className='aw-drag-reset';
+	pin.title=t('resetPos'); pin.setAttribute('aria-label', t('resetPos'));
+	pin.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>';
+	// keep the pin inside scrollable / resizable panels so it isn't clipped
+	const oy=getComputedStyle(el).overflowY; const clips=(oy==='auto'||oy==='scroll'||oy==='hidden');
+	pin.style.top=clips?'8px':'-10px'; pin.style.right=clips?'8px':'-10px';
+	el.appendChild(pin);
+	function showPin(on){ pin.style.display=on?'flex':'none'; }
+	pin.addEventListener('pointerdown', e=>{ e.stopPropagation(); });
+	pin.addEventListener('click', e=>{
+		e.preventDefault(); e.stopPropagation();
+		el.style.position=home.position; el.style.left=home.left; el.style.top=home.top;
+		el.style.right=home.right; el.style.bottom=home.bottom; el.style.margin=home.margin; el.style.transform=home.transform;
+		el.style.width=home.width; el.style.height=home.height;
+		if(key){ try{ localStorage.removeItem(key); }catch(_){} }
+		if(sizeKey){ try{ localStorage.removeItem(sizeKey); }catch(_){} }
+		showPin(false);
+	});
+	function fix(left,top){
+		const w=el.offsetWidth, h=el.offsetHeight;
+		left=Math.max(6, Math.min(left, window.innerWidth  - w - 6));
+		top =Math.max(6, Math.min(top,  window.innerHeight - h - 6));
+		el.style.position='fixed'; el.style.left=left+'px'; el.style.top=top+'px';
+		el.style.right='auto'; el.style.bottom='auto'; el.style.margin='0'; el.style.transform='none';
+	}
+	// persist user resizes (the CSS resize grip writes inline width/height; content changes don't)
+	if(resizable && typeof ResizeObserver!=='undefined'){
+		let rt;
+		new ResizeObserver(()=>{
+			if(el.style.width || el.style.height){
+				showPin(true);
+				if(sizeKey){ clearTimeout(rt); rt=setTimeout(()=>{ try{ localStorage.setItem(sizeKey, JSON.stringify({w:el.style.width, h:el.style.height})); }catch(_){} }, 150); }
+			}
+		}).observe(el);
+	}
+	el.addEventListener('pointerdown', e=>{
+		if(e.button!==0 || (e.target.closest && e.target.closest('a,button,select,input,textarea'))) return;
+		if(resizable){ const r=el.getBoundingClientRect(); if(e.clientX>r.right-18 && e.clientY>r.bottom-18) return; } // let the resize grip win
+		dragging=true; moved=false;
+		const r=el.getBoundingClientRect(); bl=r.left; bt=r.top; sx=e.clientX; sy=e.clientY;
+		fix(bl, bt);   // pin at the current spot first, so there's no jump
+		try{ el.setPointerCapture(e.pointerId); }catch(_){}
+		e.preventDefault();
+	});
+	el.addEventListener('pointermove', e=>{
+		if(!dragging) return;
+		const dx=e.clientX-sx, dy=e.clientY-sy;
+		if(Math.abs(dx)>2||Math.abs(dy)>2) moved=true;
+		fix(bl+dx, bt+dy);
+	});
+	function end(e){
+		if(!dragging) return; dragging=false;
+		try{ el.releasePointerCapture(e.pointerId); }catch(_){}
+		if(moved){ showPin(true); if(key){ try{ const r=el.getBoundingClientRect(); localStorage.setItem(key, JSON.stringify({left:r.left, top:r.top})); }catch(_){} } }
+	}
+	el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+	if(sizeKey){ try{ const z=JSON.parse(localStorage.getItem(sizeKey)||'null'); if(z && (z.w||z.h)){ if(z.w) el.style.width=z.w; if(z.h) el.style.height=z.h; showPin(true); } }catch(_){} }
+	if(key){ try{ const s=JSON.parse(localStorage.getItem(key)||'null'); if(s && isFinite(s.left) && isFinite(s.top)){ fix(s.left, s.top); showPin(true); } }catch(_){} }
+}
+dragify(document.getElementById('step-outline'), 'aw-tmpl-outline-pos');
+dragify(document.getElementById('aw-caption'), 'aw-tmpl-caption-pos');
+
+// ── Speed ─────────────────────────────────
+const SPEED_STEPS=[0.5,0.75,1,1.25,1.5,2]; const BASE_TIMESCALE=0.25;
+let speedIndex=SPEED_STEPS.indexOf(1);
+try{ const sp=parseInt(localStorage.getItem('aw-tmpl-speed'),10); if(!isNaN(sp)&&sp>=0&&sp<SPEED_STEPS.length) speedIndex=sp; }catch(_){}
+const speedLabel=document.getElementById('speed-label'), speedDownBtn=document.getElementById('speed-down'), speedUpBtn=document.getElementById('speed-up');
+function saveSpeed(){ try{ localStorage.setItem('aw-tmpl-speed', String(speedIndex)); }catch(_){} }
+function syncSpeedUI(){ const spd=SPEED_STEPS[speedIndex]; speedLabel.textContent=spd+'\u00d7'; speedDownBtn.disabled=speedIndex===0; speedUpBtn.disabled=speedIndex===SPEED_STEPS.length-1; gsap.globalTimeline.timeScale(spd*BASE_TIMESCALE); }
+syncSpeedUI();
+speedDownBtn.addEventListener('click',e=>{e.stopPropagation(); if(speedIndex>0){speedIndex--;syncSpeedUI();saveSpeed();}});
+speedUpBtn.addEventListener('click',e=>{e.stopPropagation(); if(speedIndex<SPEED_STEPS.length-1){speedIndex++;syncSpeedUI();saveSpeed();}});
+
+// ── Keyboard ──────────────────────────────
+if (window.AW && AW.keyboard) { AW.keyboard.bind({ next, prev, reset, replay }); }
+else { document.addEventListener('keydown', e => {
+	const tag=(e.target&&e.target.tagName||'').toLowerCase();
+	if(tag==='input'||tag==='textarea'||tag==='select') return;
+	// Space/Enter must reach a focused control, otherwise the focused button can never be pressed by keyboard
+	const onControl=!!(e.target&&e.target.closest&&e.target.closest('button,a[href],summary,[role="button"],[role="switch"]'));
+	if (['Space','Enter'].includes(e.code) && onControl) return;
+	if (['Space','ArrowRight','Enter'].includes(e.code)) { e.preventDefault(); next(); }
+	else if (e.code==='ArrowLeft') { e.preventDefault(); prev(); }
+	else if (e.code==='KeyR') { e.preventDefault(); reset(); }
+	else if (e.code==='KeyP') { e.preventDefault(); replay(); }
+}); }
+
+// ── Touch swipe (tablets) ─────────────────
+(function(){
+	const surf=document.getElementById('stage'); if(!surf) return;
+	let x0=null,y0=null,t0=0;
+	surf.addEventListener('touchstart',e=>{ if(e.touches.length!==1){x0=null;return;} x0=e.touches[0].clientX; y0=e.touches[0].clientY; t0=Date.now(); },{passive:true});
+	surf.addEventListener('touchend',e=>{
+		if(x0===null) return; const tch=e.changedTouches[0]; const dx=tch.clientX-x0, dy=tch.clientY-y0; x0=null;
+		if(Date.now()-t0>800) return;
+		if(Math.abs(dx)>50 && Math.abs(dx)>Math.abs(dy)*1.6){ if(dx<0) next(); else prev(); }
+	},{passive:true});
+})();
+
+// ── Keyboard shortcut help overlay ────────
+(function(){
+	const overlay=document.getElementById('shortcut-overlay'), btn=document.getElementById('help-toggle'), closeBtn=document.getElementById('sc-close'), list=document.getElementById('sc-list');
+	if(!overlay||!list) return;
+	const ROWS=[[['\u2192','Space'],'scNext'],[['\u2190'],'scPrev'],[['R'],'scRestart'],[['P'],'scReplay'],[['H'],'scHide'],[['?'],'scHelp']];
+	window.buildShortcuts=function(){ const title=document.getElementById('sc-title'); if(title) title.textContent=t('scTitle');
+		list.innerHTML=ROWS.map(([keys,k])=>`<li><span>${t(k)}</span><span class="sc-keys">${keys.map(x=>`<kbd>${x}</kbd>`).join('')}</span></li>`).join(''); };
+	buildShortcuts();
+	function open(){ overlay.removeAttribute('hidden'); if(closeBtn) closeBtn.focus(); }
+	function close(){ overlay.setAttribute('hidden',''); if(btn) btn.focus(); }
+	function toggle(){ overlay.hasAttribute('hidden')?open():close(); }
+	if(btn) btn.addEventListener('click',e=>{e.stopPropagation();toggle();});
+	if(closeBtn) closeBtn.addEventListener('click',e=>{e.stopPropagation();close();});
+	const bd=overlay.querySelector('.sc-backdrop'); if(bd) bd.addEventListener('click',close);
+	document.addEventListener('keydown',e=>{ const tag=(e.target.tagName||'').toLowerCase(); if(tag==='input'||tag==='textarea'||tag==='select') return;
+		if(e.key==='?'){ e.preventDefault(); toggle(); }
+		else if(e.key==='Escape' && !overlay.hasAttribute('hidden')){ e.preventDefault(); close(); } });
+})();
+
+// ── Resize (re-fit only — never rebuild or replay the animation) ──
+let resizeTimer, lastStageW=0, lastStageH=0;
+window.addEventListener('resize',()=>{ clearTimeout(resizeTimer); resizeTimer=setTimeout(()=>{
+	if(current<0) return;
+	const box=stage.getBoundingClientRect();
+	if(Math.abs(box.width-lastStageW)<1 && Math.abs(box.height-lastStageH)<1) return;   // ignore no-op reflows (focus/URL-bar) so the animation never restarts
+	lastStageW=box.width; lastStageH=box.height;
+	const s=stage.querySelector('.scene:not(.scene-out)'); if(s) fitScene(s);
+},200); });
+
+// ── Init ──────────────────────────────────
+setLanguage(currentLang);
+counter.textContent = `1 / ${STEPS.length}`;
+const urlStep = parseInt(new URLSearchParams(location.search).get('step'), 10);   // ?step=N opens on step N
+renderStep((!isNaN(urlStep) && urlStep>=1 && urlStep<=STEPS.length) ? urlStep-1 : 0);
+</script>
+<script>
+// ── Start gate · hold autoplay until the viewer clicks Play (empty stage + centered Play) ──
+(function () {
+	if (new URLSearchParams(location.search).has('present')) return;
+	var stage = document.getElementById('stage');
+	if (!stage) return;
+	function freeze() { try { if (window.gsap && gsap.globalTimeline) gsap.globalTimeline.pause(); } catch (_) {} }
+	freeze(); requestAnimationFrame(freeze);
+	document.body.classList.add('aw-prestart');
+	try { if (typeof stopAudio === 'function') stopAudio(); } catch (_) {}
+	stage.style.transition = 'opacity .55s ease';
+	stage.style.opacity = '0';
+
+	var T = {
+		title: { en:'Ready to begin?', es:'\u00BFTodo listo?', ja:'\u6E96\u5099\u306F\u3044\u3044\u3067\u3059\u304B\uFF1F', ko:'\uC2DC\uC791\uD560 \uC900\uBE44\uAC00 \uB418\uC168\uB098\uC694?', pt:'Tudo pronto?' },
+		sound: { en:'Sound', es:'Sonido', ja:'\u97F3\u58F0', ko:'\uC18C\uB9AC', pt:'Som' },
+		cc:    { en:'Subtitles (CC)', es:'Subt\u00EDtulos (CC)', ja:'\u5B57\u5E55\uFF08CC\uFF09', ko:'\uC790\uB9C9 (CC)', pt:'Legendas (CC)' },
+		start: { en:'Start presentation', es:'Iniciar presentaci\u00F3n', ja:'\u30D7\u30EC\u30BC\u30F3\u3092\u958B\u59CB', ko:'\uD504\uB808\uC820\uD14C\uC774\uC158 \uC2DC\uC791', pt:'Iniciar apresenta\u00E7\u00E3o' }
+	};
+	function L(){ return (typeof currentLang === 'string' && currentLang) || (typeof CURRENT_LANG === 'string' && CURRENT_LANG) || 'en'; }
+	function t(k){ var m = T[k], l = L(); return m[m[l] ? l : 'en']; }
+	function awAudioState(){ try{ if(typeof window.__awAudioOn==='function') return !!window.__awAudioOn(); }catch(_){} return (typeof audioEnabled!=='undefined') && !!audioEnabled; }
+	function awCcState(){ try{ if(typeof window.__awCcOn!=='undefined' && window.__awCcOn!==null) return !!window.__awCcOn; }catch(_){} return (typeof ccPref!=='undefined') && !!ccPref; }
+
+	var style = document.createElement('style');
+	style.textContent =
+		'body.aw-prestart #controls{opacity:.4;pointer-events:none;transition:opacity .4s ease}' +
+		'#aw-play-card{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:50;box-sizing:border-box;width:min(90vw,22rem);padding:1.35rem 1.5rem 1.5rem;border-radius:16px;background:var(--theme-card-background,#fff);color:var(--theme-text,#222);border:1px solid var(--theme-border,rgba(0,0,0,.1));box-shadow:0 24px 60px rgba(0,0,0,.28);transition:opacity .3s ease,transform .3s ease}' +
+		'#aw-play-card.aw-hide{opacity:0;transform:translate(-50%,-50%) scale(.96);pointer-events:none}' +
+		'body.theme-dark #aw-play-card{border-color:rgba(255,255,255,.12);box-shadow:0 24px 60px rgba(0,0,0,.55)}' +
+		'body.present-mode #aw-play-card{display:none!important}' +
+		'.aw-card-title{margin:0 0 1rem;text-align:center;font-size:1.02rem;font-weight:800;letter-spacing:.03em;text-transform:uppercase;opacity:.85}' +
+		'.aw-row{display:flex;align-items:center;gap:.65rem;padding:.6rem 0}' +
+		'.aw-row + .aw-row{border-top:1px solid var(--theme-border,rgba(0,0,0,.08))}' +
+		'.aw-row-ico{flex:none;width:1.5rem;text-align:center;font-size:1.15rem;line-height:1}' +
+		'.aw-row-lbl{flex:1 1 auto;font-size:.9rem;font-weight:600}' +
+		'.aw-row-state{flex:none;min-width:2.5rem;text-align:right;font-size:.68rem;font-weight:800;letter-spacing:.05em;opacity:.5}' +
+		'.aw-row-state.on{color:var(--theme-primary,#0078d4);opacity:1}' +
+		'.aw-switch{position:relative;flex:none;width:44px;height:24px;padding:0;border:none;border-radius:999px;cursor:pointer;background:var(--theme-border,#c7c7d1);transition:background .18s ease}' +
+		'.aw-switch.on{background:var(--theme-primary,#0078d4)}' +
+		'.aw-switch::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.4);transition:transform .18s ease}' +
+		'.aw-switch.on::after{transform:translateX(20px)}' +
+		'#aw-start{margin-top:1.2rem;width:100%;display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:.8rem 1rem;border:none;border-radius:11px;cursor:pointer;background:var(--theme-primary,#0078d4);color:#fff;font-size:.96rem;font-weight:700;letter-spacing:.01em;box-shadow:0 8px 22px var(--theme-primary-translucent,rgba(0,120,212,.45));transition:transform .15s ease}' +
+		'#aw-start:hover{transform:translateY(-2px)}#aw-start:active{transform:scale(.98)}' +
+		'#aw-start svg{width:18px;height:18px;flex:none}';
+	document.head.appendChild(style);
+
+	var card = document.createElement('div');
+	card.id = 'aw-play-card'; card.setAttribute('role', 'dialog'); card.setAttribute('aria-modal', 'true');
+	card.innerHTML =
+		'<div class="aw-card-title"></div>' +
+		'<div class="aw-row" data-k="audio"><span class="aw-row-ico" aria-hidden="true">\uD83D\uDD0A</span><span class="aw-row-lbl"></span><span class="aw-row-state"></span><button type="button" class="aw-switch" role="switch"></button></div>' +
+		'<div class="aw-row" data-k="cc"><span class="aw-row-ico" aria-hidden="true">\uD83D\uDCAC</span><span class="aw-row-lbl"></span><span class="aw-row-state"></span><button type="button" class="aw-switch" role="switch"></button></div>' +
+		'<button type="button" id="aw-start"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 5v14l11-7z"/></svg><span class="aw-start-lbl"></span></button>';
+	document.body.appendChild(card);
+
+	var titleEl = card.querySelector('.aw-card-title');
+	var startBtn = card.querySelector('#aw-start');
+	var ROWS = [ { k:'audio', lbl:'sound', el:card.querySelector('.aw-row[data-k="audio"]'), read:awAudioState, toggle:'audio-toggle' },
+	             { k:'cc',    lbl:'cc',    el:card.querySelector('.aw-row[data-k="cc"]'),    read:awCcState,    toggle:'cc-toggle' } ];
+
+	function render(){
+		titleEl.textContent = t('title'); card.setAttribute('aria-label', t('title'));
+		startBtn.querySelector('.aw-start-lbl').textContent = t('start');
+		ROWS.forEach(function(r){
+			var on = r.read();
+			r.el.querySelector('.aw-row-lbl').textContent = t(r.lbl);
+			var st = r.el.querySelector('.aw-row-state'); st.textContent = on ? 'ON' : 'OFF'; st.classList.toggle('on', on);
+			var sw = r.el.querySelector('.aw-switch'); sw.classList.toggle('on', on); sw.setAttribute('aria-checked', on ? 'true' : 'false');
+			sw.setAttribute('aria-label', t(r.lbl) + ' \u2014 ' + (on ? 'on' : 'off'));
+		});
+	}
+	ROWS.forEach(function(r){
+		r.el.querySelector('.aw-switch').addEventListener('click', function(e){ e.stopPropagation(); var b = document.getElementById(r.toggle); if(b) b.click(); render(); });
+	});
+	render();
+
+	var sel = document.getElementById('lang-select');
+	// Only re-freeze while the gate is still up — after Play, freezing would pause the
+	// global timeline for good and every later scene would stay at opacity 0 (blank stage).
+	if (sel) sel.addEventListener('change', function () { if (done) return; render(); freeze(); });
+
+	function gateKeys(e) {
+		if (done) return;
+		var tag = (e.target && e.target.tagName || '').toLowerCase();
+		if (tag === 'select' || tag === 'input' || tag === 'textarea') return;
+		if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'].indexOf(e.key) >= 0) { e.preventDefault(); e.stopPropagation(); }
+	}
+	document.addEventListener('keydown', gateKeys, true);
+
+	var done = false;
+	function start() {
+		if (done) return; done = true;
+		document.removeEventListener('keydown', gateKeys, true);
+		document.body.classList.remove('aw-prestart');
+		card.classList.add('aw-hide');
+		setTimeout(function () { if (card.parentNode) card.parentNode.removeChild(card); if (style.parentNode) style.parentNode.removeChild(style); }, 420);
+		setTimeout(function () {
+			try { if (window.gsap && gsap.globalTimeline) gsap.globalTimeline.play(); } catch (_) {}
+			stage.style.opacity = '1';
+			try { if (typeof interruptAnimation === 'function') interruptAnimation(); } catch (_) {}
+			try { if (typeof renderStep === 'function') renderStep(typeof current === 'number' && current >= 0 ? current : 0); } catch (_) {}
+		}, 380);
+	}
+	startBtn.addEventListener('click', start);
+	// the gate is aria-modal, so keyboard and screen-reader users must land on it rather than tab the header behind it
+	startBtn.focus({ preventScroll: true });
+}());
+</script>
+<script src="../../../lib/js/aw-dock-nav.js"></script>
+<script src="../../../lib/js/aw-present.js"></script>
+<script src="../../../lib/js/aw-url-state.js"></script>
+<script src="../../../lib/js/aw-like-dock.js"></script>
+
+</body>
+</html>

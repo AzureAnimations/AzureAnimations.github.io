@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<!--
+	Monitor · Azure Monitor and observability — series hub.
+
+	This hub lives at journeys/Monitor/ = TWO levels down, so shared assets are ../../
+	English only, no narration audio (so no audio toggle). Hero graphic: SVG + self-hosted GSAP,
+	static when the learner prefers reduced motion.
+
+	Facts: Azure Monitor overview https://learn.microsoft.com/azure/azure-monitor/fundamentals/overview
+	Exam names come from /exam-prep.html (AZ-104, AZ-305, AI-200, AI-103).
+-->
+<html lang="en">
+<head>
+	<script src="/js/tracking.js"></script>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+	<title>Monitor Azure: see it, search it, alert on it — Journey</title>
+	<meta name="description" content="A visual journey through Azure Monitor and observability: collect signals with agents and data collection rules, store them in Log Analytics, ask questions with KQL, trace requests with Application Insights and OpenTelemetry, and alert on what matters." />
+	<link rel="icon" href="../../img/favicon.png" />
+
+	<link rel="stylesheet" href="https://unpkg.com/@microsoft/atlas-css/dist/index.css" />
+	<script src="../../lib/vendor/gsap-3.15.0.min.js"></script>
+	<script src="../../lib/js/aw-hub-design.js"></script><script src="../../lib/js/aw-theme.js"></script>
+	<link rel="stylesheet" href="../../lib/css/aw-likes.css" />
+	<!-- Anonymous like button (Supabase) — credentials live in lib/js/aw-likes.js -->
+	<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+	<script src="../../lib/js/aw-likes.js"></script>
+	<script src="../../lib/js/aw-hub-captions.js"></script>
+
+<style>
+	:root {
+		--aw-purple:#5c2d91; --aw-blue:#0078d4; --aw-green:#10a37f; --aw-orange:#e97526;
+		/* per-stop accents: collect → store → ask → trace → alert. These are TEXT colours too, so the light
+		   set is darkened to clear 4.5:1 on the card and the dark set is the lighter pastel ramp. */
+		--c-collect:#005a9e; --c-store:#0b7a6c; --c-ask:#6b3aa8; --c-trace:#b04a0c; --c-alert:#b3202f;
+		--mono:'Cascadia Code','JetBrains Mono','Consolas',monospace;
+		--wrap:1240px;
+	}
+	body.theme-dark {
+		--aw-blue:#6fb8ff;
+		--c-collect:#6fb8ff; --c-store:#3ddcb2; --c-ask:#c9a5e8; --c-trace:#ffab6b; --c-alert:#ff8f9b;
+	}
+	* { box-sizing:border-box; }
+	html { font-size:100%; scroll-behavior:smooth; }
+	body {
+		margin:0; min-height:100vh;
+		font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif;
+		color:var(--theme-text,#1b1a22);
+		background:
+			radial-gradient(1200px 600px at 12% -8%, rgba(0,120,212,0.16), transparent 60%),
+			radial-gradient(1000px 620px at 100% 0%, rgba(11,122,108,0.14), transparent 55%),
+			radial-gradient(900px 700px at 80% 110%, rgba(179,32,47,0.10), transparent 55%),
+			var(--theme-body-background,#f5f4f8);
+		background-attachment:fixed;
+		overflow-x:hidden;
+	}
+	body.theme-dark { color:var(--theme-text,#ececf1); }
+	a { color:inherit; }
+	a:focus-visible { outline:3px solid var(--aw-blue); outline-offset:3px; border-radius:12px; }
+
+	/* ── HEADER ─────────────────────────────── */
+	.site-head { position:sticky; top:0; z-index:30; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:1rem;
+		padding:0.85rem 1.6rem; backdrop-filter:blur(12px) saturate(1.3); -webkit-backdrop-filter:blur(12px) saturate(1.3);
+		background:var(--theme-body-background-translucent, rgba(255,255,255,0.7)); border-bottom:1px solid var(--theme-border, rgba(128,128,128,0.16)); }
+	body.theme-dark .site-head { background:var(--theme-body-background-translucent, rgba(24,24,30,0.72)); }
+	.topbar-left { display:flex; align-items:center; gap:0.6rem; justify-self:start; min-width:0; }
+	.brand { display:inline-flex; align-items:center; gap:0.55rem; font-weight:700; font-size:1rem; text-decoration:none; justify-self:start; white-space:nowrap; }
+	.head-title { display:inline-flex; align-items:center; gap:0.5rem; justify-self:center; white-space:nowrap; font-size:1.05rem; font-weight:600; }
+	.head-title img { width:24px; height:24px; display:block; }
+	@media (max-width:1180px) { .brand > span:last-child { display:none; } }
+	.head-actions { display:inline-flex; align-items:center; gap:0.5rem; justify-self:end; }
+	.theme-toggle { display:inline-flex; align-items:center; justify-content:center; width:2.3rem; height:2.3rem; padding:0; background:transparent;
+		border:1px solid var(--theme-border, rgba(128,128,128,0.3)); border-radius:999px; color:var(--theme-text); cursor:pointer; transition:background .15s,color .15s,border-color .15s; }
+	.theme-toggle:hover { background:var(--theme-primary-translucent, rgba(0,120,212,0.12)); color:var(--theme-primary,var(--aw-blue)); border-color:var(--theme-primary,var(--aw-blue)); }
+	.theme-toggle .ico { display:none; } .theme-toggle[data-theme="dark"] .ico-sun { display:block; } .theme-toggle[data-theme="light"] .ico-moon { display:block; }
+	.lang-select { appearance:none; -webkit-appearance:none; background:var(--theme-card-background,#fff); color:var(--theme-body-text,#333);
+		border:1px solid var(--theme-border, rgba(128,128,128,0.3)); border-radius:8px; padding:5px 26px 5px 10px; font-size:0.82rem; font-weight:600;
+		font-family:'Segoe UI',sans-serif; cursor:pointer; min-width:104px;
+		background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 8px center; }
+	.lang-select:hover { border-color:var(--theme-primary,var(--aw-blue)); }
+	.lang-select:focus { outline:2px solid var(--theme-primary,var(--aw-blue)); outline-offset:1px; }
+	body.theme-dark .lang-select { background-color:color-mix(in srgb, var(--theme-body-background) 85%, transparent); color:var(--theme-text,#e0e0e0); border-color:rgba(255,255,255,0.18);
+		background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23aaa' d='M3 5l3 3 3-3z'/%3E%3C/svg%3E"); }
+	body.theme-dark .lang-select option { background:var(--theme-body-background,#1a1a2e); color:var(--theme-text,#e0e0e0); }
+	/* hub welcome narration toggle (reuses .theme-toggle) + discovery hint */
+	.audio-cta-wrap { position:relative; display:inline-flex; }
+	.audio-toggle .aw-audio-ico { font-size:1rem; line-height:1; }
+	.audio-toggle.on { background:var(--theme-primary,#0078d4); color:#fff; border-color:transparent; }
+	.audio-toggle:not(.on) { animation:audioGlow 2.4s ease-in-out infinite; }
+	@keyframes audioGlow { 0%,100%{ box-shadow:0 0 0 0 rgba(0,120,212,0); } 50%{ box-shadow:0 0 0 6px rgba(0,120,212,0.18); } }
+	.audio-hint { position:absolute; left:50%; top:100%; transform:translateX(-50%); margin-top:3px; font-size:1.5rem; pointer-events:none; z-index:5; animation:audioFinger 1.4s ease-in-out infinite; }
+	.audio-toggle.on ~ .audio-hint { display:none; }
+	@keyframes audioFinger { 0%,100%{ transform:translateX(-50%) translateY(0); } 50%{ transform:translateX(-50%) translateY(5px); } }
+	@media (prefers-reduced-motion: reduce){ .audio-toggle:not(.on){ animation:none; } .audio-hint{ animation:none; } }
+
+	/* ── HERO ───────────────────────────────── */
+	.hero { max-width:var(--wrap); margin:0 auto; padding:3.2rem 1.6rem 1rem; display:grid; grid-template-columns:1fr 1fr; gap:2.4rem; align-items:center; }
+	.hero-eyebrow { display:inline-flex; align-items:center; gap:0.55rem; font-size:0.8rem; font-weight:600; letter-spacing:0.16em; text-transform:uppercase;
+		color:var(--theme-text-subtle); margin-bottom:1rem; }
+	.hero-eyebrow .dot { width:8px; height:8px; border-radius:50%; background:var(--c-collect); box-shadow:0 0 0 4px rgba(0,120,212,0.18); }
+	.hero h1 { margin:0 0 1rem; font-size:clamp(2.2rem, 4.4vw, 3.6rem); line-height:1.07; font-weight:800; letter-spacing:-0.02em; }
+	.hero h1 .g1 { background:linear-gradient(120deg,#2f95e6,#0a66b8); -webkit-background-clip:text; background-clip:text; color:transparent; }
+	.hero h1 .g2 { background:linear-gradient(120deg,#18b39a,#0c7f70); -webkit-background-clip:text; background-clip:text; color:transparent; }
+	.hero h1 .g3 { background:linear-gradient(120deg,#f0606f,#c4283a); -webkit-background-clip:text; background-clip:text; color:transparent; }
+	body.theme-dark .hero h1 .g1 { background-image:linear-gradient(120deg,#8cc8ff,#4aa3f0); }
+	body.theme-dark .hero h1 .g2 { background-image:linear-gradient(120deg,#5ee6c4,#27bfa0); }
+	body.theme-dark .hero h1 .g3 { background-image:linear-gradient(120deg,#ffa0aa,#f0606f); }
+	.hero p.lead { margin:0 0 1.4rem; font-size:1.15rem; line-height:1.6; color:var(--theme-text-subtle); max-width:37rem; }
+	.hero-meta { display:flex; flex-wrap:wrap; gap:0.6rem; }
+	.meta-chip { display:inline-flex; align-items:center; gap:0.45rem; font-size:0.86rem; font-weight:600; padding:0.42rem 0.9rem; border-radius:999px;
+		background:var(--theme-card-background,#fff); border:1px solid var(--theme-border, rgba(128,128,128,0.22)); box-shadow:0 3px 10px rgba(0,0,0,0.05); }
+	body.theme-dark .meta-chip { background:rgba(255,255,255,0.05); }
+
+	/* hero visual — signals flow sources → workspace → alert */
+	.hero-art { position:relative; }
+	.hero-art svg { display:block; width:100%; height:auto; max-width:600px; margin:0 auto; overflow:visible; }
+	.hv-card { fill:var(--theme-card-background,#fff); stroke:var(--theme-border, rgba(128,128,128,0.35)); stroke-width:1.5; }
+	body.theme-dark .hv-card { fill:#26262f; stroke:rgba(255,255,255,0.18); }
+	.hv-card.ws { stroke:var(--c-store); stroke-width:2.5; }
+	.hv-card.al { stroke:var(--c-alert); stroke-width:2.5; }
+	.hv-lbl { font-size:15px; font-weight:700; fill:var(--theme-text,#1b1a22); text-anchor:middle; font-family:'Segoe UI',sans-serif; }
+	.hv-stage { font-size:14px; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; fill:var(--theme-text-subtle,#666); text-anchor:middle; font-family:'Segoe UI',sans-serif; }
+	.hv-path { fill:none; stroke:var(--theme-border, rgba(128,128,128,0.5)); stroke-width:3; stroke-dasharray:3 9; stroke-linecap:round; }
+	body.theme-dark .hv-path { stroke:rgba(255,255,255,0.3); }
+	.hv-pk { fill:var(--c-collect); }
+	.hv-pk.pk-ws { fill:var(--c-store); }
+	.hv-pk.pk-al { fill:var(--c-alert); }
+	.hv-ring { fill:none; stroke:var(--c-alert); stroke-width:3; opacity:0; }
+	.hv-ring.rs { stroke:var(--c-store); }
+	.hv-bell { fill:var(--c-alert); opacity:0; }
+	.hv-chip { fill:var(--c-ask); }
+	.hv-chip-t { font-size:14px; font-weight:700; fill:#fff; text-anchor:middle; font-family:var(--mono); }
+
+	/* ── SECTION HEADS ──────────────────────── */
+	.section-head { max-width:var(--wrap); margin:2.8rem auto 0; padding:0 1.6rem; }
+	.section-head .rail { display:inline-flex; align-items:center; gap:0.6rem; font-size:0.78rem; font-weight:600; letter-spacing:0.14em; text-transform:uppercase; color:var(--theme-text-subtle); }
+	.section-head .rail::before { content:""; width:26px; height:2px; border-radius:2px; background:linear-gradient(90deg,var(--c-collect),var(--c-alert)); }
+	.section-head h2 { margin:0.6rem 0 0.3rem; font-size:clamp(1.6rem,3vw,2.15rem); font-weight:700; letter-spacing:-0.01em; }
+	.section-head p { margin:0; color:var(--theme-text-subtle); font-size:1.02rem; max-width:46rem; }
+
+	/* ── JOURNEY · five stops in a row, joined by a signal line ── */
+	.pipeline { max-width:var(--wrap); margin:1.6rem auto 0; padding:0 1.6rem; }
+	.pl-stations { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); column-gap:2rem; row-gap:1.2rem; align-items:stretch; }
+	.stop { position:relative; display:flex; }
+	/* connector between stops (only when all five share a row) */
+	.stop:not(:last-child)::after { content:""; position:absolute; top:3.1rem; right:-2rem; width:2rem; height:3px; z-index:2;
+		background:repeating-linear-gradient(90deg,var(--theme-text-subtle,#888) 0 6px,transparent 6px 11px); opacity:0.7; }
+	.stop:not(:last-child)::before { content:""; position:absolute; top:calc(3.1rem - 4px); right:-2rem; width:0; height:0; z-index:3;
+		border-left:9px solid var(--theme-text-subtle,#888); border-top:5.5px solid transparent; border-bottom:5.5px solid transparent; opacity:0.85; }
+	.journey-card { position:relative; flex:1; display:flex; flex-direction:column; align-items:center; text-align:center; gap:0.75rem; padding:1.2rem 1rem 1.25rem; border-radius:18px; text-decoration:none; color:inherit;
+		background:var(--theme-card-background,#fff); border:2px solid color-mix(in srgb, var(--accent) 55%, transparent); overflow:hidden;
+		box-shadow:0 12px 30px rgba(0,0,0,0.07); transition:transform .22s cubic-bezier(.2,.7,.3,1), box-shadow .22s, border-color .22s;
+		opacity:0; transform:translateY(18px); }
+	body.theme-dark .journey-card { background:rgba(255,255,255,0.04); }
+	.journey-card.revealed { opacity:1; transform:translateY(0); }
+	.journey-card:hover { transform:translateY(-6px); box-shadow:0 22px 46px rgba(0,0,0,0.14); border-color:var(--accent); }
+	.journey-card[data-topic="collect"] { --accent:var(--c-collect); }
+	.journey-card[data-topic="store"] { --accent:var(--c-store); }
+	.journey-card[data-topic="ask"] { --accent:var(--c-ask); }
+	.journey-card[data-topic="trace"] { --accent:var(--c-trace); }
+	.journey-card[data-topic="alert"] { --accent:var(--c-alert); }
+	.jc-step { display:inline-flex; align-items:center; gap:0.5rem; }
+	.jc-step .pm-dot { width:28px; height:28px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-weight:700; font-size:0.86rem; color:#fff; background:var(--accent); }
+	body.theme-dark .jc-step .pm-dot { color:#14141a; }
+	.jc-step .pm-verb { font-size:0.76rem; font-weight:700; letter-spacing:0.14em; text-transform:uppercase; color:var(--accent); }
+	.jc-top { display:flex; flex-direction:column; align-items:center; gap:0.5rem; }
+	.jc-icon { flex:none; width:52px; height:52px; border-radius:14px; display:flex; align-items:center; justify-content:center;
+		background:color-mix(in srgb, var(--accent) 12%, transparent); border:1px solid color-mix(in srgb, var(--accent) 30%, transparent); }
+	.jc-icon img { width:32px; height:32px; }
+	.jc-head h3 { margin:0; font-size:1.08rem; font-weight:700; letter-spacing:-0.01em; line-height:1.2; }
+	.jc-desc { margin:0; font-size:0.9rem; line-height:1.45; color:var(--theme-text-subtle); }
+	.jc-mini { position:relative; width:100%; height:70px; flex:none; border-radius:12px; overflow:hidden; background:color-mix(in srgb, var(--accent) 7%, transparent);
+		border:1px solid color-mix(in srgb, var(--accent) 16%, transparent); display:flex; align-items:center; justify-content:center; }
+	.jc-feats { display:flex; flex-wrap:wrap; justify-content:center; gap:0.4rem; }
+	.jc-feats span { font-size:0.76rem; font-weight:600; padding:0.28rem 0.6rem; border-radius:999px; background:color-mix(in srgb, var(--accent) 10%, transparent);
+		color:var(--theme-text); border:1px solid color-mix(in srgb, var(--accent) 22%, transparent); }
+	.jc-foot { margin-top:auto; display:flex; flex-direction:column; align-items:center; gap:0.25rem; padding-top:0.2rem; }
+	.jc-steps { font-size:0.8rem; font-weight:600; color:var(--theme-text-subtle); }
+	.jc-go { display:inline-flex; align-items:center; gap:0.4rem; font-size:0.88rem; font-weight:700; color:var(--accent); }
+	.jc-go .arw { transition:transform .2s ease; }
+	.journey-card:hover .jc-go .arw { transform:translateX(4px); }
+
+	/* keep the mini diagrams on one line across the five-up row */
+	@media (min-width:1181px) { .jc-desc { min-height:5.8em; } .jc-feats { min-height:3.6rem; align-content:flex-start; } }
+	/* per-card mini diagrams */
+	.mini { display:flex; align-items:center; justify-content:center; gap:0.55rem; height:100%; width:100%; }
+	.m-arw { font-size:1.05rem; font-weight:800; color:var(--accent); }
+	.mini-collect .srcs { display:flex; flex-direction:column; gap:5px; }
+	.mini-collect .srcs i { width:26px; height:9px; border-radius:3px; background:var(--accent); opacity:0.5; animation:layIn 2.6s ease-in-out infinite; }
+	.mini-collect .srcs i:nth-child(2){ animation-delay:.25s; } .mini-collect .srcs i:nth-child(3){ animation-delay:.5s; }
+	.mini-collect .dcr { font-family:var(--mono); font-size:0.76rem; font-weight:700; color:#fff; background:var(--accent); padding:0.3rem 0.5rem; border-radius:7px; }
+	body.theme-dark .mini-collect .dcr { color:#14141a; }
+	.mini-store .rows { display:flex; flex-direction:column; gap:4px; }
+	.mini-store .rows i { display:block; height:10px; border-radius:3px; background:var(--accent); opacity:0.55; animation:layIn 2.6s ease-in-out infinite; }
+	.mini-store .rows i:nth-child(1){ width:84px; } .mini-store .rows i:nth-child(2){ width:64px; animation-delay:.2s; } .mini-store .rows i:nth-child(3){ width:74px; animation-delay:.4s; }
+	.mini-ask code { font-family:var(--mono); font-size:0.76rem; line-height:1.45; color:var(--theme-text); text-align:left; white-space:nowrap; }
+	.mini-ask code b { color:var(--accent); font-weight:700; }
+	.mini-ask .caret { display:inline-block; width:6px; height:0.85em; margin-left:2px; vertical-align:-1px; background:var(--accent); animation:blink 1.1s steps(2,start) infinite; }
+	.mini-trace .wf { display:flex; flex-direction:column; gap:4px; width:120px; }
+	.mini-trace .wf i { display:block; height:9px; border-radius:3px; background:var(--accent); opacity:0.7; transform-origin:left center; animation:growX 3s ease-in-out infinite; }
+	.mini-trace .wf i:nth-child(1){ width:120px; } .mini-trace .wf i:nth-child(2){ width:70px; margin-left:16px; animation-delay:.2s; } .mini-trace .wf i:nth-child(3){ width:44px; margin-left:46px; animation-delay:.4s; }
+	.mini-alert svg { width:130px; height:48px; overflow:visible; }
+	.mini-alert .ln { fill:none; stroke:var(--accent); stroke-width:2.5; stroke-linecap:round; stroke-linejoin:round; }
+	.mini-alert .th { stroke:var(--accent); stroke-width:1.5; stroke-dasharray:4 4; opacity:0.7; }
+	.mini-alert .pt { fill:var(--accent); animation:ping 2.4s ease-out infinite; transform-box:fill-box; transform-origin:center; }
+	@keyframes layIn { 0%,100%{ opacity:0.45; transform:translateX(-4px); } 50%{ opacity:1; transform:translateX(0); } }
+	@keyframes blink { 0%,100%{ opacity:0.5; } 50%{ opacity:1; } }
+	@keyframes growX { 0%,100%{ transform:scaleX(0.55); opacity:0.5; } 50%{ transform:scaleX(1); opacity:0.9; } }
+	@keyframes ping { 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.7); } }
+
+	/* ── ALREADY LIVES IN ──────────────────── */
+	.lives { max-width:var(--wrap); margin:1.5rem auto 0; padding:0 1.6rem; }
+	.lv-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:1.1rem; }
+	.lv-card { position:relative; display:flex; flex-direction:column; gap:0.55rem; padding:1.15rem 1.15rem 1.1rem; border-radius:16px; text-decoration:none; color:inherit;
+		background:var(--theme-card-background,#fff); border:1.5px solid var(--theme-border, rgba(128,128,128,0.3)); border-top:4px solid var(--cc);
+		box-shadow:0 8px 22px rgba(0,0,0,0.05); transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease; opacity:0; transform:translateY(14px); }
+	body.theme-dark .lv-card { background:rgba(255,255,255,0.04); }
+	.lv-card.revealed { opacity:1; transform:translateY(0); }
+	.lv-card:hover { transform:translateY(-4px); box-shadow:0 16px 34px rgba(0,0,0,0.13); border-color:var(--cc); }
+	.lv-top { display:flex; align-items:center; justify-content:space-between; gap:0.5rem; }
+	.lv-j { font-size:0.78rem; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; padding:0.22rem 0.6rem; border-radius:999px; color:var(--cc);
+		background:color-mix(in srgb, var(--cc) 12%, transparent); border:1px solid color-mix(in srgb, var(--cc) 28%, transparent); }
+	.lv-steps { font-size:0.8rem; font-weight:600; color:var(--theme-text-subtle); white-space:nowrap; }
+	.lv-card h4 { margin:0.1rem 0 0; font-size:1.05rem; font-weight:700; line-height:1.25; }
+	.lv-card p { margin:0; font-size:0.9rem; line-height:1.45; color:var(--theme-text-subtle); }
+	.lv-go { margin-top:auto; padding-top:0.4rem; font-size:0.88rem; font-weight:700; color:var(--cc); }
+	.lv-card[data-j="fund"] { --cc:#005a9e; } .lv-card[data-j="vm"] { --cc:#0b7a6c; } .lv-card[data-j="net"] { --cc:#6b3aa8; } .lv-card[data-j="arch"] { --cc:#8a5a00; }
+	body.theme-dark .lv-card[data-j="fund"] { --cc:#6fb8ff; } body.theme-dark .lv-card[data-j="vm"] { --cc:#3ddcb2; }
+	body.theme-dark .lv-card[data-j="net"] { --cc:#c9a5e8; } body.theme-dark .lv-card[data-j="arch"] { --cc:#f2c14e; }
+	/* AI pointer */
+	.ai-point { display:flex; align-items:center; gap:1.2rem; margin-top:1.1rem; padding:1.1rem 1.3rem; border-radius:16px; text-decoration:none; color:inherit;
+		background:linear-gradient(120deg, rgba(102,57,186,0.12), rgba(0,120,212,0.08)); border:1.5px solid color-mix(in srgb, #6639ba 45%, transparent);
+		transition:transform .18s ease, box-shadow .18s ease; opacity:0; transform:translateY(14px); }
+	.ai-point.revealed { opacity:1; transform:translateY(0); }
+	.ai-point:hover { transform:translateY(-3px); box-shadow:0 14px 30px rgba(0,0,0,0.12); }
+	.ai-ico { flex:none; width:52px; height:52px; border-radius:14px; display:flex; align-items:center; justify-content:center; background:rgba(102,57,186,0.14); border:1px solid rgba(102,57,186,0.3); }
+	.ai-ico img { width:32px; height:32px; }
+	.ai-copy { flex:1; min-width:0; }
+	.ai-copy .eyebrow { font-size:0.78rem; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:var(--theme-text-subtle); }
+	.ai-copy h4 { margin:0.15rem 0 0.2rem; font-size:1.15rem; font-weight:700; }
+	.ai-copy p { margin:0; font-size:0.92rem; line-height:1.45; color:var(--theme-text-subtle); }
+	.ai-go { flex:none; font-size:0.9rem; font-weight:700; color:#6639ba; white-space:nowrap; }
+	body.theme-dark .ai-go { color:#c9a5e8; }
+
+	/* ── EXAMS ──────────────────────────────── */
+	.exams { max-width:var(--wrap); margin:2.8rem auto 0; padding:0 1.6rem; }
+	.ex-inner { border-radius:20px; padding:1.7rem 1.7rem 1.5rem; background:linear-gradient(120deg, rgba(0,120,212,0.10), rgba(11,122,108,0.08) 55%, rgba(179,32,47,0.07));
+		border:1px solid var(--theme-border, rgba(128,128,128,0.2)); }
+	.ex-head .eyebrow { font-size:0.76rem; font-weight:700; letter-spacing:0.14em; text-transform:uppercase; color:var(--theme-text-subtle); }
+	.ex-head h3 { margin:0.35rem 0 0.3rem; font-size:1.35rem; font-weight:700; }
+	.ex-head p { margin:0 0 1.2rem; color:var(--theme-text-subtle); font-size:0.98rem; max-width:44rem; }
+	.ex-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:1rem; }
+	.ex-chip { display:flex; flex-direction:column; gap:0.45rem; padding:1rem 1.05rem 0.95rem; border-radius:14px; text-decoration:none; color:inherit;
+		background:var(--theme-card-background,#fff); border:2px solid var(--cc); transition:transform .16s ease, box-shadow .16s ease; }
+	body.theme-dark .ex-chip { background:#2a2b34; }
+	.ex-chip:hover { transform:translateY(-3px); box-shadow:0 12px 26px rgba(0,0,0,0.15); }
+	.ex-code { align-self:flex-start; font-family:var(--mono); font-size:0.9rem; font-weight:700; letter-spacing:0.04em; padding:0.2rem 0.65rem; border-radius:999px; color:var(--cc);
+		background:color-mix(in srgb, var(--cc) 13%, transparent); }
+	.ex-name { font-size:0.82rem; font-weight:600; color:var(--theme-text-subtle); line-height:1.3; }
+	.ex-why { margin:0; font-size:0.93rem; line-height:1.45; }
+	.ex-go { margin-top:auto; padding-top:0.3rem; font-size:0.86rem; font-weight:700; color:var(--cc); }
+	.ex-chip[data-x="az104"] { --cc:#9a3309; } .ex-chip[data-x="az305"] { --cc:#7a5200; } .ex-chip[data-x="ai200"] { --cc:#8a1e79; } .ex-chip[data-x="ai103"] { --cc:#553594; }
+	body.theme-dark .ex-chip[data-x="az104"] { --cc:#f5a06a; } body.theme-dark .ex-chip[data-x="az305"] { --cc:#f2c14e; }
+	body.theme-dark .ex-chip[data-x="ai200"] { --cc:#ef8ad9; } body.theme-dark .ex-chip[data-x="ai103"] { --cc:#b79ce8; }
+
+	/* ── FOOTER ─────────────────────────────── */
+	footer.site-foot { max-width:var(--wrap); margin:2.6rem auto 0; padding:2.2rem 1.6rem 3.2rem; text-align:center; font-size:0.9rem; opacity:0.88;
+		border-top:1px solid var(--theme-border, rgba(128,128,128,0.18)); display:flex; flex-direction:column; align-items:center; gap:0.85rem; }
+	footer.site-foot a { color:var(--aw-blue); font-weight:600; }
+	.foot-credit { display:inline-flex; align-items:center; gap:0.5rem; flex-wrap:wrap; justify-content:center; }
+	.foot-credit .credit-link { display:inline-flex; align-items:center; gap:0.45rem; font-weight:600; color:var(--theme-text); text-decoration:none; padding:0.3rem 0.8rem; border-radius:999px; border:1px solid var(--theme-border, rgba(128,128,128,0.3)); transition:border-color .15s ease, color .15s ease; }
+	.foot-credit .credit-link .li-icon { color:#0a66c2; flex-shrink:0; }
+	.foot-credit .credit-link:hover { border-color:#0a66c2; color:#0a66c2; }
+
+	/* ── RESPONSIVE ─────────────────────────── */
+	@media (max-width:1180px) {
+		.pl-stations { grid-template-columns:repeat(6,minmax(0,1fr)); column-gap:1.2rem; }
+		.stop { grid-column:span 2; }
+		.stop:nth-child(4) { grid-column:2 / span 2; } .stop:nth-child(5) { grid-column:4 / span 2; }
+		.stop::before, .stop::after { display:none !important; }
+		.lv-grid, .ex-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+	}
+	@media (max-width:860px) {
+		.hero { grid-template-columns:1fr; padding-top:2.2rem; gap:1.4rem; }
+		.hero-art { order:-1; }
+		.pl-stations { grid-template-columns:repeat(2,minmax(0,1fr)); column-gap:1rem; }
+		.stop, .stop:nth-child(4), .stop:nth-child(5) { grid-column:auto; }
+		.stop:nth-child(5) { grid-column:1 / -1; max-width:calc(50% - 0.5rem); justify-self:center; width:100%; }
+		.ai-point { flex-wrap:wrap; }
+	}
+	@media (max-width:620px) {
+		.site-head { padding:0.7rem 1rem; grid-template-columns:auto 1fr auto; }
+		.head-title { display:none; }
+		.hero, .section-head, .pipeline, .lives, .exams, footer.site-foot { padding-left:1rem; padding-right:1rem; }
+		.hv-lbl { font-size:21px; } .hv-stage { font-size:20px; } .hv-chip-t { font-size:20px; }
+		.pl-stations { grid-template-columns:1fr; }
+		.stop:nth-child(5) { max-width:none; }
+		.lv-grid, .ex-grid { grid-template-columns:1fr; }
+		.ex-inner { padding:1.3rem 1.1rem 1.2rem; }
+		.ai-point { padding:1rem; flex-direction:column; align-items:flex-start; gap:0.7rem; }
+	}
+	@media (prefers-reduced-motion: reduce) {
+		*, *::before, *::after { animation:none !important; transition:none !important; }
+		.journey-card, .lv-card, .ai-point { opacity:1 !important; transform:none !important; }
+		html { scroll-behavior:auto; }
+	}
+</style>
+	<script src="../../lib/js/aw-brand.js"></script>
+	<!-- SEO:START -->
+	<link rel="canonical" href="https://azureanimations.github.io/journeys/Monitor/" />
+	<meta name="robots" content="index, follow, max-image-preview:large" />
+	<meta property="og:type" content="website" />
+	<meta property="og:site_name" content="Azure Animations" />
+	<meta property="og:title" content="Monitor Azure: see it, search it, alert on it — Journey" />
+	<meta property="og:description" content="A visual journey through Azure Monitor and observability: collect signals with agents and data collection rules, store them in Log Analytics, ask questions with KQL, trace requests with Application Insights and OpenTelemetry, and alert on what matters." />
+	<meta property="og:url" content="https://azureanimations.github.io/journeys/Monitor/" />
+	<meta property="og:image" content="https://azureanimations.github.io/img/favicon.png" />
+	<meta property="og:image:alt" content="Azure Animations" />
+	<meta name="twitter:card" content="summary" />
+	<meta name="twitter:title" content="Monitor Azure: see it, search it, alert on it — Journey" />
+	<meta name="twitter:description" content="A visual journey through Azure Monitor and observability: collect signals with agents and data collection rules, store them in Log Analytics, ask questions with KQL, trace requests with Application Insights and OpenTelemetry, and alert on what matters." />
+	<meta name="twitter:image" content="https://azureanimations.github.io/img/favicon.png" />
+	<meta name="twitter:image:alt" content="Azure Animations" />
+	<script type="application/ld+json">
+	{"@context":"https://schema.org","@type":"WebPage","name":"Monitor Azure: see it, search it, alert on it — Journey","description":"A visual journey through Azure Monitor and observability: collect signals with agents and data collection rules, store them in Log Analytics, ask questions with KQL, trace requests with Application Insights and OpenTelemetry, and alert on what matters.","url":"https://azureanimations.github.io/journeys/Monitor/","isPartOf":{"@type":"WebSite","name":"Azure Animations","url":"https://azureanimations.github.io/"},"breadcrumb":{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Azure Animations","item":"https://azureanimations.github.io/"},{"@type":"ListItem","position":2,"name":"Monitor Azure: see it, search it, alert on it — Journey","item":"https://azureanimations.github.io/journeys/Monitor/"}]}}
+	</script>
+	<!-- SEO:END -->
+</head>
+
+<body class="theme-dark" data-theme-preset="atlas">
+
+	<header class="site-head">
+		<div class="topbar-left">
+			<!-- AW:brand {"img":"decoding=\"async\" style=\"width:28px;height:28px;display:block\"","name":"b"} --><a class="brand" href="../../index.html" aria-label="Azure Animations home"><img data-aw-logo src="../../img/brand/logo.svg" alt="" decoding="async" style="width:28px;height:28px;display:block" /><span data-aw-name="b"></span></a><!-- /AW:brand -->
+			<!-- AW:likes {"slug":"journey-monitor"} --><div class="aw-like-top"><button class="aw-like" data-aw-like data-like-total data-page-slug="journey-monitor" type="button" aria-pressed="false" aria-label="Support Azure Animations — tap the heart"><span class="aw-like-heart" aria-hidden="true">❤️</span><span class="aw-like-label">Support</span><span class="aw-like-count" data-like-count>0</span></button><div class="aw-like-pop" role="tooltip"><strong>A little tap makes our day 💙</strong><span>These Azure animations are a labour of love. If they helped you, a tap of the heart means the world — thank you for your support! 🙏</span><span class="aw-like-geo" data-like-geo hidden></span></div></div><!-- /AW:likes -->
+		</div>
+		<div class="head-title">
+			<img src="../../lib/icons/Azure_Public_Service_Icons/monitor/00001-icon-service-Monitor.svg" alt="" />
+			<span data-i18n="headTitle">Azure Monitor and observability</span>
+		</div>
+		<div class="head-actions">
+			<!-- AW:lang --><select id="lang-select" class="lang-select" aria-label="Language" title="Language"><option value="en">English</option><option value="es">Español</option><option value="ja">日本語</option><option value="ko">한국어</option><option value="pt">Português</option></select><!-- /AW:lang -->
+			<span class="audio-cta-wrap">
+				<button id="audio-toggle" class="theme-toggle audio-toggle" type="button" aria-label="Play welcome narration" title="Play narration"><span class="aw-audio-ico">&#128263;</span></button>
+				<span class="audio-hint" aria-hidden="true">&#128070;</span>
+			</span>
+			<!-- AW:theme --><button id="theme-toggle" type="button" class="theme-toggle" aria-label="Switch theme" title="Switch theme"><svg class="theme-icon icon-moon ico ico-moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path fill="currentColor" d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg><svg class="theme-icon icon-sun ico ico-sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.5" y1="4.5" x2="6.5" y2="6.5"/><line x1="17.5" y1="17.5" x2="19.5" y2="19.5"/><line x1="4.5" y1="19.5" x2="6.5" y2="17.5"/><line x1="17.5" y1="6.5" x2="19.5" y2="4.5"/></g></svg></button><!-- /AW:theme -->
+		</div>
+	</header>
+
+	<main>
+	<section class="hero">
+		<div class="hero-text">
+			<div class="hero-eyebrow"><span class="dot"></span> <span data-i18n="heroEyebrow">Azure · Monitor &amp; Observability</span></div>
+			<h1><span class="g1" data-i18n="heroTitle1">See it.</span><br /><span class="g2" data-i18n="heroTitle2">Search it.</span><br /><span class="g3" data-i18n="heroTitle3">Alert on it.</span></h1>
+			<p class="lead" data-i18n="heroLead">A five-stop visual journey through Azure Monitor: collect signals with agents and data collection rules, keep them in a Log Analytics workspace, ask questions with KQL, follow one request with Application Insights and OpenTelemetry, and alert the right people when it matters.</p>
+			<div class="hero-meta">
+				<span class="meta-chip" data-i18n-html="meta1Html"><b>5</b>&nbsp;interactive explainers</span>
+				<span class="meta-chip" data-i18n-html="meta2Html"><b>60</b>&nbsp;animated steps</span>
+				<span class="meta-chip" data-i18n-html="meta3Html">Grounded in <b>Microsoft&nbsp;Learn</b></span>
+			</div>
+		</div>
+		<div class="hero-art" aria-hidden="true">
+			<svg id="hero-svg" viewBox="0 0 560 372" role="img" focusable="false">
+				<!-- signal paths: three sources → workspace, workspace → alert -->
+				<path class="hv-path sig" id="sp0" d="M124 62 C176 62 176 176 228 176" />
+				<path class="hv-path sig" id="sp1" d="M124 176 L228 176" />
+				<path class="hv-path sig" id="sp2" d="M124 290 C176 290 176 176 228 176" />
+				<path class="hv-path sig" id="sp3" d="M352 176 L436 176" />
+				<!-- sources -->
+				<g>
+					<rect class="hv-card" x="20" y="16" width="104" height="92" rx="16" />
+					<image href="../../lib/icons/Azure_Public_Service_Icons/compute/10021-icon-service-Virtual-Machine.svg" x="52" y="26" width="40" height="40" />
+					<text class="hv-lbl" x="72" y="94" data-i18n="hvSrc1">VMs</text>
+				</g>
+				<g>
+					<rect class="hv-card" x="20" y="130" width="104" height="92" rx="16" />
+					<image href="../../lib/icons/Azure_Public_Service_Icons/app%20services/10035-icon-service-App-Services.svg" x="52" y="140" width="40" height="40" />
+					<text class="hv-lbl" x="72" y="208" data-i18n="hvSrc2">Apps</text>
+				</g>
+				<g>
+					<rect class="hv-card" x="20" y="244" width="104" height="92" rx="16" />
+					<image href="../../lib/icons/Azure_Public_Service_Icons/networking/10061-icon-service-Virtual-Networks.svg" x="52" y="254" width="40" height="40" />
+					<text class="hv-lbl" x="72" y="322" data-i18n="hvSrc3">Network</text>
+				</g>
+				<!-- workspace -->
+				<g>
+					<circle class="hv-ring rs" id="wsRing" cx="290" cy="176" r="64" />
+					<rect class="hv-card ws" x="228" y="116" width="124" height="120" rx="18" />
+					<image href="../../lib/icons/Azure_Public_Service_Icons/monitor/00009-icon-service-Log-Analytics-Workspaces.svg" x="260" y="130" width="60" height="60" />
+					<text class="hv-lbl" x="290" y="216" data-i18n="hvWs">Workspace</text>
+					<rect class="hv-chip" x="262" y="92" width="56" height="22" rx="11" />
+					<text class="hv-chip-t" x="290" y="108">KQL</text>
+				</g>
+				<!-- alert -->
+				<g id="alertNode">
+					<circle class="hv-ring" id="alRing" cx="488" cy="176" r="52" />
+					<rect class="hv-card al" x="436" y="130" width="104" height="92" rx="16" />
+					<image href="../../lib/icons/Azure_Public_Service_Icons/management%20%2B%20governance/00002-icon-service-Alerts.svg" x="468" y="140" width="40" height="40" />
+					<text class="hv-lbl" x="488" y="208" data-i18n="hvAl">Alert</text>
+					<circle class="hv-bell" id="bell" cx="530" cy="136" r="9" />
+				</g>
+				<!-- packets -->
+				<circle class="hv-pk" id="pk0" r="6" cx="124" cy="62" opacity="0" />
+				<circle class="hv-pk" id="pk1" r="6" cx="124" cy="176" opacity="0" />
+				<circle class="hv-pk" id="pk2" r="6" cx="124" cy="290" opacity="0" />
+				<circle class="hv-pk pk-al" id="pk3" r="7" cx="352" cy="176" opacity="0" />
+				<!-- stage captions -->
+				<text class="hv-stage" x="72" y="364" data-i18n="hvSt1">Collect</text>
+				<text class="hv-stage" x="290" y="364" data-i18n="hvSt2">Store · Ask</text>
+				<text class="hv-stage" x="488" y="364" data-i18n="hvSt3">Alert</text>
+			</svg>
+		</div>
+	</section>
+
+	<div class="section-head">
+		<span class="rail" data-i18n="secRail">The journey</span>
+		<h2 data-i18n="secTitle">From a machine to a message</h2>
+		<p data-i18n="secLead">One connected path for the signal: collect it, store it, ask questions of it, trace a request through it, and alert on it. Follow it end to end, or jump straight to any stop.</p>
+	</div>
+
+	<section class="pipeline" aria-label="The five lessons">
+		<div class="pl-stations">
+			<!-- 12 steps (STEPS in AgentsAndDcr.html) -->
+			<div class="stop"><a class="journey-card" data-topic="collect" href="AgentsAndDcr.html">
+				<div class="jc-step"><span class="pm-dot">1</span><span class="pm-verb" data-i18n="plV1">Collect</span></div>
+				<div class="jc-top">
+					<span class="jc-icon"><img src="../../lib/icons/Azure_Public_Service_Icons/other/01857-icon-service-Data-Collection-Rules.svg" alt="" /></span>
+					<div class="jc-head"><h3 data-i18n="c1Title">Agents and Data Collection Rules</h3></div>
+				</div>
+				<p class="jc-desc" data-i18n="c1Desc">Agents and data collection rules decide what leaves a machine and where it lands.</p>
+				<div class="jc-mini"><div class="mini mini-collect"><span class="srcs"><i></i><i></i><i></i></span><span class="m-arw">&rarr;</span><span class="dcr">DCR</span></div></div>
+				<div class="jc-feats"><span data-i18n="c1f1">Azure Monitor Agent</span><span data-i18n="c1f2">Transformations</span></div>
+				<div class="jc-foot"><span class="jc-steps" data-i18n="c1Steps">12 steps</span><span class="jc-go"><span data-i18n="goLabel">Open explainer</span> <span class="arw">&rarr;</span></span></div>
+			</a></div>
+
+			<!-- 12 steps (LogAnalyticsWorkspaces.html) -->
+			<div class="stop"><a class="journey-card" data-topic="store" href="LogAnalyticsWorkspaces.html">
+				<div class="jc-step"><span class="pm-dot">2</span><span class="pm-verb" data-i18n="plV2">Store</span></div>
+				<div class="jc-top">
+					<span class="jc-icon"><img src="../../lib/icons/Azure_Public_Service_Icons/monitor/00009-icon-service-Log-Analytics-Workspaces.svg" alt="" /></span>
+					<div class="jc-head"><h3 data-i18n="c2Title">Log Analytics workspaces</h3></div>
+				</div>
+				<p class="jc-desc" data-i18n="c2Desc">A workspace keeps your logs in tables, with plans, retention, access modes and cost to design.</p>
+				<div class="jc-mini"><div class="mini mini-store"><span class="rows"><i></i><i></i><i></i></span></div></div>
+				<div class="jc-feats"><span data-i18n="c2f1">Table plans</span><span data-i18n="c2f2">Retention</span></div>
+				<div class="jc-foot"><span class="jc-steps" data-i18n="c2Steps">12 steps</span><span class="jc-go"><span data-i18n="goLabel">Open explainer</span> <span class="arw">&rarr;</span></span></div>
+			</a></div>
+
+			<!-- 12 steps (KqlBasics.html) -->
+			<div class="stop"><a class="journey-card" data-topic="ask" href="KqlBasics.html">
+				<div class="jc-step"><span class="pm-dot">3</span><span class="pm-verb" data-i18n="plV3">Ask</span></div>
+				<div class="jc-top">
+					<span class="jc-icon"><img src="../../lib/icons/Azure_Public_Service_Icons/other/01085-icon-service-Log-Analytics-Query-Pack.svg" alt="" /></span>
+					<div class="jc-head"><h3 data-i18n="c3Title">KQL Basics</h3></div>
+				</div>
+				<p class="jc-desc" data-i18n="c3Desc">Filter, summarize and chart your logs with a pipeline of KQL operators.</p>
+				<div class="jc-mini"><div class="mini mini-ask"><code><b>Heartbeat</b><br />| summarize count()<span class="caret"></span></code></div></div>
+				<div class="jc-feats"><span data-i18n="c3f1">where &amp; summarize</span><span data-i18n="c3f2">join &amp; render</span></div>
+				<div class="jc-foot"><span class="jc-steps" data-i18n="c3Steps">12 steps</span><span class="jc-go"><span data-i18n="goLabel">Open explainer</span> <span class="arw">&rarr;</span></span></div>
+			</a></div>
+
+			<!-- 12 steps (AppInsightsAndOtel.html) -->
+			<div class="stop"><a class="journey-card" data-topic="trace" href="AppInsightsAndOtel.html">
+				<div class="jc-step"><span class="pm-dot">4</span><span class="pm-verb" data-i18n="plV4">Trace</span></div>
+				<div class="jc-top">
+					<span class="jc-icon"><img src="../../lib/icons/Azure_Public_Service_Icons/monitor/00012-icon-service-Application-Insights.svg" alt="" /></span>
+					<div class="jc-head"><h3 data-i18n="c4Title">Application Insights and OpenTelemetry</h3></div>
+				</div>
+				<p class="jc-desc" data-i18n="c4Desc">Follow one slow request across services with OpenTelemetry and Application Insights.</p>
+				<div class="jc-mini"><div class="mini mini-trace"><span class="wf"><i></i><i></i><i></i></span></div></div>
+				<div class="jc-feats"><span data-i18n="c4f1">OpenTelemetry</span><span data-i18n="c4f2">Application map</span></div>
+				<div class="jc-foot"><span class="jc-steps" data-i18n="c4Steps">12 steps</span><span class="jc-go"><span data-i18n="goLabel">Open explainer</span> <span class="arw">&rarr;</span></span></div>
+			</a></div>
+
+			<!-- 12 steps (AlertsAndActionGroups.html) -->
+			<div class="stop"><a class="journey-card" data-topic="alert" href="AlertsAndActionGroups.html">
+				<div class="jc-step"><span class="pm-dot">5</span><span class="pm-verb" data-i18n="plV5">Alert</span></div>
+				<div class="jc-top">
+					<span class="jc-icon"><img src="../../lib/icons/Azure_Public_Service_Icons/management%20%2B%20governance/00002-icon-service-Alerts.svg" alt="" /></span>
+					<div class="jc-head"><h3 data-i18n="c5Title">Alerts and Action Groups</h3></div>
+				</div>
+				<p class="jc-desc" data-i18n="c5Desc">Rules watch the signal; action groups decide who is told and what runs.</p>
+				<div class="jc-mini"><div class="mini mini-alert"><svg viewBox="0 0 130 48" aria-hidden="true"><line class="th" x1="0" y1="16" x2="130" y2="16" /><polyline class="ln" points="2,40 24,36 46,38 68,30 90,22 108,10 128,6" /><circle class="pt" cx="99" cy="16" r="4" /></svg></div></div>
+				<div class="jc-feats"><span data-i18n="c5f1">Thresholds</span><span data-i18n="c5f2">Action groups</span></div>
+				<div class="jc-foot"><span class="jc-steps" data-i18n="c5Steps">12 steps</span><span class="jc-go"><span data-i18n="goLabel">Open explainer</span> <span class="arw">&rarr;</span></span></div>
+			</a></div>
+		</div>
+	</section>
+
+	<div class="section-head">
+		<span class="rail" data-i18n="liveRail">Already in the library</span>
+		<h2 data-i18n="liveTitle">Monitoring already lives in these lessons</h2>
+		<p data-i18n="liveLead">Monitoring also shows up inside other journeys, where it is part of a bigger story. Each of these opens the lesson in place.</p>
+	</div>
+
+	<section class="lives" aria-label="Monitoring lessons in other journeys">
+		<div class="lv-grid">
+			<!-- 9 steps (MonitoringTools.html) -->
+			<a class="lv-card" data-j="fund" href="../Fundamentals/MonitoringTools.html">
+				<span class="lv-top"><span class="lv-j" data-i18n="jFund">Azure Fundamentals</span><span class="lv-steps" data-i18n="lv1Steps">9 steps</span></span>
+				<h4 data-i18n="lv1Title">Monitoring Tools</h4>
+				<p data-i18n="lv1Desc">Was it broken, or was it us? Collect the evidence, store it where you can query it, alert on it, then check Azure Advisor and Service Health.</p>
+				<span class="lv-go"><span data-i18n="goLabel">Open explainer</span> &rarr;</span>
+			</a>
+			<!-- 7 steps (VirtualMachineMonitoring.html) -->
+			<a class="lv-card" data-j="vm" href="../Compute/VirtualMachines/VirtualMachineMonitoring.html">
+				<span class="lv-top"><span class="lv-j" data-i18n="jVm">Virtual Machines</span><span class="lv-steps" data-i18n="lv2Steps">7 steps</span></span>
+				<h4 data-i18n="lv2Title">Watch It and Keep It Patched</h4>
+				<p data-i18n="lv2Desc">Host signals need no agent, the guest does. Compare guest performance, turn a threshold into an alert, and patch on a schedule.</p>
+				<span class="lv-go"><span data-i18n="goLabel">Open explainer</span> &rarr;</span>
+			</a>
+			<!-- 9 steps (NetworkMonitoring.html) -->
+			<a class="lv-card" data-j="net" href="../Network/NetworkMonitoring.html">
+				<span class="lv-top"><span class="lv-j" data-i18n="jNet">Networking</span><span class="lv-steps" data-i18n="lv3Steps">9 steps</span></span>
+				<h4 data-i18n="lv3Title">Monitoring the network</h4>
+				<p data-i18n="lv3Desc">Network Watcher and Azure Monitor together: virtual network flow logs, Traffic Analytics and Connection Monitor.</p>
+				<span class="lv-go"><span data-i18n="goLabel">Open explainer</span> &rarr;</span>
+			</a>
+			<!-- 9 steps (DesignMonitoring.html) -->
+			<a class="lv-card" data-j="arch" href="../Architect/DesignMonitoring.html">
+				<span class="lv-top"><span class="lv-j" data-i18n="jArch">Architect</span><span class="lv-steps" data-i18n="lv4Steps">9 steps</span></span>
+				<h4 data-i18n="lv4Title">Design logging and monitoring</h4>
+				<p data-i18n="lv4Desc">Design the whole picture: signals, workspaces, table plans, routing, Application Insights, alerts and where Microsoft Sentinel fits.</p>
+				<span class="lv-go"><span data-i18n="goLabel">Open explainer</span> &rarr;</span>
+			</a>
+		</div>
+		<!-- 12 steps (EvaluateAndObserve.html) -->
+		<a class="ai-point" href="../AI/Foundry/EvaluateAndObserve.html">
+			<span class="ai-ico"><img src="../../lib/icons/Azure_Public_Service_Icons/monitor/00012-icon-service-Application-Insights.svg" alt="" /></span>
+			<span class="ai-copy">
+				<span class="eyebrow" data-i18n="aiEyebrow">AI Agents · Microsoft Foundry · 12 steps</span>
+				<h4 data-i18n="aiTitle">Monitoring AI apps</h4>
+				<p data-i18n="aiDesc">Evaluate and Observe: trace with OpenTelemetry and Application Insights, then watch AI apps in production.</p>
+			</span>
+			<span class="ai-go"><span data-i18n="goLabel">Open explainer</span> &rarr;</span>
+		</a>
+	</section>
+
+	<!-- Exam names and codes as listed on /exam-prep.html. English only, so no ?lang= on these links. -->
+	<section class="exams" id="exams">
+		<div class="ex-inner">
+			<div class="ex-head">
+				<div class="eyebrow" data-i18n="exEyebrow">Exam prep</div>
+				<h3 data-i18n="exTitle">Where this shows up in exams</h3>
+				<p data-i18n="exLead">Monitoring is a thread through four of the exams on this site. Each card opens that exam&rsquo;s study plan.</p>
+			</div>
+			<div class="ex-grid">
+				<a class="ex-chip" data-x="az104" href="../../exam-prep.html?exam=az104">
+					<span class="ex-code">AZ-104</span>
+					<span class="ex-name" data-i18n="exN1">Azure Administrator</span>
+					<p class="ex-why" data-i18n="exW1">Alerts, Log Analytics and the Azure Monitor agent.</p>
+					<span class="ex-go"><span data-i18n="exGo">Open study plan</span> &rarr;</span>
+				</a>
+				<a class="ex-chip" data-x="az305" href="../../exam-prep.html?exam=az305">
+					<span class="ex-code">AZ-305</span>
+					<span class="ex-name" data-i18n="exN2">Designing Azure Infrastructure Solutions</span>
+					<p class="ex-why" data-i18n="exW2">Design monitoring: which signals to collect, where they go and who is alerted.</p>
+					<span class="ex-go"><span data-i18n="exGo">Open study plan</span> &rarr;</span>
+				</a>
+				<a class="ex-chip" data-x="ai200" href="../../exam-prep.html?exam=ai200">
+					<span class="ex-code">AI-200</span>
+					<span class="ex-name" data-i18n="exN3">Developing AI Cloud Solutions on Azure</span>
+					<p class="ex-why" data-i18n="exW3">OpenTelemetry tracing and KQL.</p>
+					<span class="ex-go"><span data-i18n="exGo">Open study plan</span> &rarr;</span>
+				</a>
+				<a class="ex-chip" data-x="ai103" href="../../exam-prep.html?exam=ai103">
+					<span class="ex-code">AI-103</span>
+					<span class="ex-name" data-i18n="exN4">Developing AI Apps and Agents on Azure</span>
+					<p class="ex-why" data-i18n="exW4">Evaluation and observability.</p>
+					<span class="ex-go"><span data-i18n="exGo">Open study plan</span> &rarr;</span>
+				</a>
+			</div>
+		</div>
+	</section>
+	</main>
+
+	<footer class="site-foot">
+		<div class="foot-credit" data-aw-credit="18"></div>
+		<div data-aw-footmeta="https://learn.microsoft.com/azure/azure-monitor/"></div>
+	</footer>
+
+	<script>
+		// Theme toggle (uses shared AW.theme when present, else local fallback)
+		(function(){
+			const btn=document.getElementById('theme-toggle');
+			function sync(){ const dark=document.body.classList.contains('theme-dark'); btn.dataset.theme=dark?'dark':'light';
+				const l=dark?'Switch to light theme':'Switch to dark theme'; btn.setAttribute('aria-label',l); btn.setAttribute('title',l); }
+			if(window.AW && AW.theme){ AW.theme.onChange(sync); sync(); }
+			else {
+				sync();
+				btn.addEventListener('click',()=>{ const goDark=!document.body.classList.contains('theme-dark');
+					document.body.classList.remove('theme-dark','theme-light'); document.body.classList.add(goDark?'theme-dark':'theme-light');
+					try{ localStorage.setItem('aw-theme', goDark?'theme-dark':'theme-light'); }catch(_){} sync(); });
+				try{ const s=localStorage.getItem('aw-theme'); if(s==='theme-light'||s==='theme-dark'){ document.body.classList.remove('theme-dark','theme-light'); document.body.classList.add(s); sync(); } }catch(_){}
+			}
+		})();
+
+		// ── i18n (en, es, ja, ko, pt). Product and proper nouns stay in English. ──
+		const I18N = {
+			en: {
+				headTitle: 'Azure Monitor and observability',
+				heroEyebrow: 'Azure · Monitor & Observability',
+				heroTitle1: 'See it.', heroTitle2: 'Search it.', heroTitle3: 'Alert on it.',
+				heroLead: 'A five-stop visual journey through Azure Monitor: collect signals with agents and data collection rules, keep them in a Log Analytics workspace, ask questions with KQL, follow one request with Application Insights and OpenTelemetry, and alert the right people when it matters.',
+				meta1Html: '<b>5</b>&nbsp;interactive explainers', meta2Html: '<b>60</b>&nbsp;animated steps', meta3Html: 'Grounded in <b>Microsoft&nbsp;Learn</b>',
+				hvSrc1: 'VMs', hvSrc2: 'Apps', hvSrc3: 'Network', hvWs: 'Workspace', hvAl: 'Alert',
+				hvSt1: 'Collect', hvSt2: 'Store · Ask', hvSt3: 'Alert',
+				secRail: 'The journey', secTitle: 'From a machine to a message',
+				secLead: 'One connected path for the signal: collect it, store it, ask questions of it, trace a request through it, and alert on it. Follow it end to end, or jump straight to any stop.',
+				plV1: 'Collect', plV2: 'Store', plV3: 'Ask', plV4: 'Trace', plV5: 'Alert',
+				c1Title: 'Agents and Data Collection Rules', c1Desc: 'Agents and data collection rules decide what leaves a machine and where it lands.', c1f1: 'Azure Monitor Agent', c1f2: 'Transformations', c1Steps: '12 steps',
+				c2Title: 'Log Analytics workspaces', c2Desc: 'A workspace keeps your logs in tables, with plans, retention, access modes and cost to design.', c2f1: 'Table plans', c2f2: 'Retention', c2Steps: '12 steps',
+				c3Title: 'KQL Basics', c3Desc: 'Filter, summarize and chart your logs with a pipeline of KQL operators.', c3f1: 'where & summarize', c3f2: 'join & render', c3Steps: '12 steps',
+				c4Title: 'Application Insights and OpenTelemetry', c4Desc: 'Follow one slow request across services with OpenTelemetry and Application Insights.', c4f1: 'OpenTelemetry', c4f2: 'Application map', c4Steps: '12 steps',
+				c5Title: 'Alerts and Action Groups', c5Desc: 'Rules watch the signal; action groups decide who is told and what runs.', c5f1: 'Thresholds', c5f2: 'Action groups', c5Steps: '12 steps',
+				goLabel: 'Open explainer',
+				liveRail: 'Already in the library', liveTitle: 'Monitoring already lives in these lessons',
+				liveLead: 'Monitoring also shows up inside other journeys, where it is part of a bigger story. Each of these opens the lesson in place.',
+				jFund: 'Azure Fundamentals', jVm: 'Virtual Machines', jNet: 'Networking', jArch: 'Architect',
+				lv1Title: 'Monitoring Tools', lv1Steps: '9 steps', lv1Desc: 'Was it broken, or was it us? Collect the evidence, store it where you can query it, alert on it, then check Azure Advisor and Service Health.',
+				lv2Title: 'Watch It and Keep It Patched', lv2Steps: '7 steps', lv2Desc: 'Host signals need no agent, the guest does. Compare guest performance, turn a threshold into an alert, and patch on a schedule.',
+				lv3Title: 'Monitoring the network', lv3Steps: '9 steps', lv3Desc: 'Network Watcher and Azure Monitor together: virtual network flow logs, Traffic Analytics and Connection Monitor.',
+				lv4Title: 'Design logging and monitoring', lv4Steps: '9 steps', lv4Desc: 'Design the whole picture: signals, workspaces, table plans, routing, Application Insights, alerts and where Microsoft Sentinel fits.',
+				aiEyebrow: 'AI Agents · Microsoft Foundry · 12 steps', aiTitle: 'Monitoring AI apps',
+				aiDesc: 'Evaluate and Observe: trace with OpenTelemetry and Application Insights, then watch AI apps in production.',
+				exEyebrow: 'Exam prep', exTitle: 'Where this shows up in exams',
+				exLead: 'Monitoring is a thread through four of the exams on this site. Each card opens that exam’s study plan.',
+				exN1: 'Azure Administrator', exW1: 'Alerts, Log Analytics and the Azure Monitor agent.',
+				exN2: 'Designing Azure Infrastructure Solutions', exW2: 'Design monitoring: which signals to collect, where they go and who is alerted.',
+				exN3: 'Developing AI Cloud Solutions on Azure', exW3: 'OpenTelemetry tracing and KQL.',
+				exN4: 'Developing AI Apps and Agents on Azure', exW4: 'Evaluation and observability.',
+				exGo: 'Open study plan',
+			},
+			es: {
+					"headTitle": "Azure Monitor y observabilidad",
+					"heroEyebrow": "Azure \u00b7 Monitorizaci\u00f3n y observabilidad",
+					"heroTitle1": "M\u00edrala.",
+					"heroTitle2": "Rev\u00edsalo.",
+					"heroTitle3": "Alerta sobre ello.",
+					"heroLead": "Un recorrido visual de cinco paradas por Azure Monitor: recoger se\u00f1ales con agentes y reglas de recogida de datos, mantenerlas en un espacio de trabajo Log Analytics, hacer preguntas con KQL, seguir una solicitud con Application Insights y OpenTelemetry, y alertar a las personas adecuadas cuando sea relevante.",
+					"meta1Html": "<b>5</b> explicaciones interactivas",
+					"meta2Html": "<b>60</b> pasos animados",
+					"meta3Html": "Anclados en <b>Microsoft\u00a0Learn</b>",
+					"hvSrc1": "VMs",
+					"hvSrc2": "Apps",
+					"hvSrc3": "Red",
+					"hvWs": "Espacio de trabajo",
+					"hvAl": "Alerta",
+					"hvSt1": "Cobrar",
+					"hvSt2": "Tienda \u00b7 Pregunta",
+					"hvSt3": "Alerta",
+					"secRail": "El viaje",
+					"secTitle": "De una m\u00e1quina a un mensaje",
+					"secLead": "Un camino conectado para la se\u00f1al: rec\u00f3gela, gu\u00e1rdala, hazle preguntas, rastrea una petici\u00f3n a trav\u00e9s de ella y avisa. S\u00edguela de extremo a extremo, o salta directamente a cualquier parada.",
+					"plV1": "Cobrar",
+					"plV2": "Tienda",
+					"plV3": "Pregunta",
+					"plV4": "Trace",
+					"plV5": "Alerta",
+					"c1Title": "Agentes y reglas de recopilaci\u00f3n de datos",
+					"c1Desc": "Los agentes y las reglas de recopilaci\u00f3n de datos deciden qu\u00e9 sale de una m\u00e1quina y d\u00f3nde aterriza.",
+					"c1f1": "Azure Monitor Agent",
+					"c1f2": "Transformaciones",
+					"c1Steps": "12 escalones",
+					"c2Title": "Log Analytics espacios de trabajo",
+					"c2Desc": "Un espacio de trabajo guarda tus registros en tablas, con planes, retenci\u00f3n, modos de acceso y coste de dise\u00f1o.",
+					"c2f1": "Planos de las mesas",
+					"c2f2": "Retenci\u00f3n",
+					"c2Steps": "12 escalones",
+					"c3Title": "KQL Conceptos b\u00e1sicos",
+					"c3Desc": "Filtra, resume y traza tus registros con una cadena de operadores de KQL.",
+					"c3f1": "donde y resumen",
+					"c3f2": "Unir y renderizar",
+					"c3Steps": "12 escalones",
+					"c4Title": "Application Insights y OpenTelemetry",
+					"c4Desc": "Sigue una solicitud lenta entre servicios con OpenTelemetry y Application Insights.",
+					"c4f1": "OpenTelemetry",
+					"c4f2": "Mapa de aplicaciones",
+					"c4Steps": "12 escalones",
+					"c5Title": "Alertas y Grupos de Acci\u00f3n",
+					"c5Desc": "Las reglas vigilan la se\u00f1al; los grupos de acci\u00f3n deciden a qui\u00e9n se le dice y qu\u00e9 corre.",
+					"c5f1": "Umbrales",
+					"c5f2": "Grupos de acci\u00f3n",
+					"c5Steps": "12 escalones",
+					"goLabel": "Explicaci\u00f3n abierta",
+					"liveRail": "Ya en la biblioteca",
+					"liveTitle": "La monitorizaci\u00f3n ya est\u00e1 presente en estas lecciones",
+					"liveLead": "La monitorizaci\u00f3n tambi\u00e9n aparece en otros viajes, donde forma parte de una historia mayor. Cada uno de estos abre la lecci\u00f3n en el lugar.",
+					"jFund": "Azure Fundamentos",
+					"jVm": "M\u00e1quinas virtuales",
+					"jNet": "Networking",
+					"jArch": "Arquitecto",
+					"lv1Title": "Herramientas de monitorizaci\u00f3n",
+					"lv1Steps": "9 pasos",
+					"lv1Desc": "\u00bfEstaba roto o fue cosa nuestra? Recoge la evidencia, gu\u00e1rdala donde puedas consultarla, avisa sobre ella y luego revisa Azure Asesor y Salud del Servicio.",
+					"lv2Title": "M\u00edralo y mantenlo actualizado",
+					"lv2Steps": "7 escalones",
+					"lv2Desc": "Las se\u00f1ales del anfitri\u00f3n no necesitan agente, el invitado s\u00ed. Compara el rendimiento de los hu\u00e9spedes, convierte un umbral en una alerta y actualiza un calendario.",
+					"lv3Title": "Monitorizaci\u00f3n de la red",
+					"lv3Steps": "9 pasos",
+					"lv3Desc": "Network Watcher y Azure Monitor juntos: registros de flujo de red virtual, An\u00e1lisis de Tr\u00e1fico y Monitor de Conexi\u00f3n.",
+					"lv4Title": "Registro y monitorizaci\u00f3n del dise\u00f1o",
+					"lv4Steps": "9 pasos",
+					"lv4Desc": "Dise\u00f1a el conjunto: se\u00f1ales, espacios de trabajo, planos de mesas, ruta, Application Insights, alertas y d\u00f3nde encaja Microsoft Sentinel.",
+					"aiEyebrow": "AI Agentes \u00b7 Microsoft Foundry \u00b7 12 pasos",
+					"aiTitle": "Monitorizaci\u00f3n AI aplicaciones",
+					"aiDesc": "Eval\u00faa y observa: traza con OpenTelemetry y Application Insights, luego observa AI aplicaciones en producci\u00f3n.",
+					"exEyebrow": "Preparaci\u00f3n para los ex\u00e1menes",
+					"exTitle": "D\u00f3nde aparece esto en los ex\u00e1menes",
+					"exLead": "La monitorizaci\u00f3n es un hilo conductor entre cuatro de los ex\u00e1menes de este sitio. Cada tarjeta abre el plan de estudio de ese examen.",
+					"exN1": "Azure Administrador",
+					"exW1": "Alertas, Log Analytics y el agente Azure Monitor.",
+					"exN2": "Dise\u00f1ando soluciones de infraestructura Azure",
+					"exW2": "Monitorizaci\u00f3n del dise\u00f1o: qu\u00e9 se\u00f1ales recoger, a d\u00f3nde van y a qui\u00e9n se le avisa.",
+					"exN3": "Desarrollando soluciones en la nube AI en Azure",
+					"exW3": "OpenTelemetry trazado y KQL.",
+					"exN4": "Desarrollando AI aplicaciones y agentes en Azure",
+					"exW4": "Evaluaci\u00f3n y observabilidad.",
+					"exGo": "Plan de estudio abierto"
+			},
+			ja: {
+					"headTitle": "Azure Monitor and observability",
+					"heroEyebrow": "Azure \u00b7Monitor & Observability",
+					"heroTitle1": "\u898b\u3066\u307f\u308d\u3002",
+					"heroTitle2": "\u8abf\u3079\u3066\u307f\u3066\u3002",
+					"heroTitle3": "\u8b66\u6212\u4e2d\u3002",
+					"heroLead": "Azure Monitor\u3092\u4f7f\u3063\u305f5\u3064\u306e\u8996\u899a\u7684\u306a\u65c5:\u30a8\u30fc\u30b8\u30a7\u30f3\u30c8\u3068\u30c7\u30fc\u30bf\u53ce\u96c6\u30eb\u30fc\u30eb\u3067\u30b7\u30b0\u30ca\u30eb\u3092\u53ce\u96c6\u3057\u3001Log Analytics\u30ef\u30fc\u30af\u30b9\u30da\u30fc\u30b9\u306b\u4fdd\u6301\u3057\u3001KQL\u3067\u8cea\u554f\u3057\u3001Application Insights\u3068OpenTelemetry\u30671\u3064\u306e\u30ea\u30af\u30a8\u30b9\u30c8\u306b\u5bfe\u5fdc\u3057\u3001\u91cd\u8981\u306a\u6642\u306b\u9069\u5207\u306a\u4eba\u306b\u30a2\u30e9\u30fc\u30c8\u3092\u9001\u308b\u3053\u3068\u3002",
+					"meta1Html": "<b>5</b>\u3064\u306e\u30a4\u30f3\u30bf\u30e9\u30af\u30c6\u30a3\u30d6\u89e3\u8aac",
+					"meta2Html": "<b>60</b>\u6b69\u306e\u30a2\u30cb\u30e1\u30fc\u30b7\u30e7\u30f3\u30b9\u30c6\u30c3\u30d7",
+					"meta3Html": "<b>Microsoft Learn</b>\u306b\u6839\u3056\u3059",
+					"hvSrc1": "VMs",
+					"hvSrc2": "\u30a2\u30d7\u30ea",
+					"hvSrc3": "\u30cd\u30c3\u30c8\u30ef\u30fc\u30af",
+					"hvWs": "\u30ef\u30fc\u30af\u30b9\u30da\u30fc\u30b9",
+					"hvAl": "\u8b66\u5831",
+					"hvSt1": "\u30b3\u30ec\u30af\u30c8",
+					"hvSt2": "\u30b9\u30c8\u30a2 \u00b7\u805e\u304f",
+					"hvSt3": "\u8b66\u5831",
+					"secRail": "\u65c5\u306e\u7d4c\u7def",
+					"secTitle": "\u6a5f\u68b0\u304b\u3089\u30e1\u30c3\u30bb\u30fc\u30b8\u3078",
+					"secLead": "\u4fe1\u53f7\u306f\u4e00\u3064\u306e\u63a5\u7d9a\u3055\u308c\u305f\u7d4c\u8def:\u53ce\u96c6\u3057\u3001\u4fdd\u5b58\u3057\u3001\u8cea\u554f\u3057\u3001\u30ea\u30af\u30a8\u30b9\u30c8\u3092\u8ffd\u8de1\u3057\u3001\u8b66\u544a\u3057\u307e\u3059\u3002\u7aef\u304b\u3089\u7aef\u307e\u3067\u8ffd\u3046\u304b\u3001\u3069\u306e\u30b9\u30c8\u30c3\u30d7\u306b\u3082\u3059\u3050\u306b\u30b8\u30e3\u30f3\u30d7\u3057\u307e\u3059\u3002",
+					"plV1": "\u30b3\u30ec\u30af\u30c8",
+					"plV2": "\u30b9\u30c8\u30a2",
+					"plV3": "\u805e\u3044\u3066\u307f\u3066\u304f\u3060\u3055\u3044",
+					"plV4": "\u30c8\u30ec\u30fc\u30b9",
+					"plV5": "\u8b66\u5831",
+					"c1Title": "\u30a8\u30fc\u30b8\u30a7\u30f3\u30c8\u3068\u30c7\u30fc\u30bf\u53ce\u96c6\u30eb\u30fc\u30eb",
+					"c1Desc": "\u30a8\u30fc\u30b8\u30a7\u30f3\u30c8\u3084\u30c7\u30fc\u30bf\u53ce\u96c6\u306e\u30eb\u30fc\u30eb\u304c\u3001\u6a5f\u68b0\u304b\u3089\u4f55\u304c\u3069\u3053\u306b\u7740\u5730\u3059\u308b\u304b\u3092\u6c7a\u5b9a\u3057\u307e\u3059\u3002",
+					"c1f1": "Azure Monitor Agent",
+					"c1f2": "\u5909\u63db",
+					"c1Steps": "12\u30b9\u30c6\u30c3\u30d7",
+					"c2Title": "Log Analytics\u30ef\u30fc\u30af\u30b9\u30da\u30fc\u30b9",
+					"c2Desc": "\u30ef\u30fc\u30af\u30b9\u30da\u30fc\u30b9\u306f\u3001\u8a08\u753b\u3001\u4fdd\u6301\u3001\u30a2\u30af\u30bb\u30b9\u30e2\u30fc\u30c9\u3001\u8a2d\u8a08\u30b3\u30b9\u30c8\u3092\u542b\u3080\u30c6\u30fc\u30d6\u30eb\u306b\u30ed\u30b0\u3092\u4fdd\u7ba1\u3057\u307e\u3059\u3002",
+					"c2f1": "\u30c6\u30fc\u30d6\u30eb\u30d7\u30e9\u30f3",
+					"c2f2": "\u4fdd\u6301",
+					"c2Steps": "12\u30b9\u30c6\u30c3\u30d7",
+					"c3Title": "KQL\u57fa\u672c",
+					"c3Desc": "KQL\u30aa\u30da\u30ec\u30fc\u30bf\u30fc\u306e\u30d1\u30a4\u30d7\u30e9\u30a4\u30f3\u3067\u30ed\u30b0\u3092\u30d5\u30a3\u30eb\u30bf\u30ea\u30f3\u30b0\u3001\u8981\u7d04\u3001\u30c1\u30e3\u30fc\u30c8\u5316\u3057\u307e\u3057\u3087\u3046\u3002",
+					"c3f1": "\u3053\u3053\u3067 \u3068 \u8981\u7d04",
+					"c3f2": "\u7d50\u5408\u30fb\u30ec\u30f3\u30c0\u30ea\u30f3\u30b0",
+					"c3Steps": "12\u30b9\u30c6\u30c3\u30d7",
+					"c4Title": "\u5fdc\u7528\u6d1e\u5bdf\u3068OpenTelemetry",
+					"c4Desc": "\u30b5\u30fc\u30d3\u30b9\u9593\u3067OpenTelemetry\u3068Application Insights\u3092\u6d3b\u7528\u3057\u3066\u30011\u3064\u306e\u9045\u3044\u30ea\u30af\u30a8\u30b9\u30c8\u3092\u8ffd\u8de1\u3057\u307e\u3059\u3002",
+					"c4f1": "OpenTelemetry",
+					"c4f2": "\u30a2\u30d7\u30ea\u30b1\u30fc\u30b7\u30e7\u30f3\u30de\u30c3\u30d7",
+					"c4Steps": "12\u30b9\u30c6\u30c3\u30d7",
+					"c5Title": "\u30a2\u30e9\u30fc\u30c8\u3068\u30a2\u30af\u30b7\u30e7\u30f3\u30b0\u30eb\u30fc\u30d7",
+					"c5Desc": "\u30eb\u30fc\u30eb\u306f\u4fe1\u53f7\u3092\u76e3\u8996\u3057\u3001\u30a2\u30af\u30b7\u30e7\u30f3\u30b0\u30eb\u30fc\u30d7\u306f\u8ab0\u306b\u4f1d\u3048\u3089\u308c\u3001\u4f55\u3092\u8d70\u3089\u305b\u308b\u304b\u3092\u6c7a\u3081\u307e\u3059\u3002",
+					"c5f1": "\u95be\u5024",
+					"c5f2": "\u30a2\u30af\u30b7\u30e7\u30f3\u30b0\u30eb\u30fc\u30d7",
+					"c5Steps": "12\u30b9\u30c6\u30c3\u30d7",
+					"goLabel": "\u30aa\u30fc\u30d7\u30f3\u89e3\u8aac",
+					"liveRail": "\u3082\u3046\u56f3\u66f8\u9928\u306b\u3044\u308b",
+					"liveTitle": "\u30e2\u30cb\u30bf\u30ea\u30f3\u30b0\u306f\u3059\u3067\u306b\u3053\u308c\u3089\u306e\u30ec\u30c3\u30b9\u30f3\u306b\u6839\u4ed8\u3044\u3066\u3044\u307e\u3059",
+					"liveLead": "\u30e2\u30cb\u30bf\u30ea\u30f3\u30b0\u306f\u4ed6\u306e\u65c5\u306e\u4e2d\u306b\u3082\u73fe\u308c\u3001\u3088\u308a\u5927\u304d\u306a\u7269\u8a9e\u306e\u4e00\u90e8\u3068\u306a\u3063\u3066\u3044\u307e\u3059\u3002\u3053\u308c\u3089\u305d\u308c\u305e\u308c\u304c\u30ec\u30c3\u30b9\u30f3\u3092\u305d\u306e\u5834\u3067\u59cb\u3081\u307e\u3059\u3002",
+					"jFund": "Azure Fundamentals",
+					"jVm": "\u4eee\u60f3\u30de\u30b7\u30f3",
+					"jNet": "\u30cd\u30c3\u30c8\u30ef\u30fc\u30ad\u30f3\u30b0",
+					"jArch": "\u5efa\u7bc9\u5bb6",
+					"lv1Title": "\u30e2\u30cb\u30bf\u30ea\u30f3\u30b0\u30c4\u30fc\u30eb",
+					"lv1Steps": "9\u30b9\u30c6\u30c3\u30d7",
+					"lv1Desc": "\u58ca\u308c\u3066\u3044\u305f\u306e\u304b\u3001\u305d\u308c\u3068\u3082\u79c1\u305f\u3061\u306e\u554f\u984c\u306a\u306e\u304b?\u8a3c\u62e0\u3092\u96c6\u3081\u3066\u3001\u30af\u30a8\u30ea\u3067\u304d\u308b\u5834\u6240\u306b\u4fdd\u5b58\u3057\u3001\u30a2\u30e9\u30fc\u30c8\u3092\u51fa\u3057\u3066\u304b\u3089Azure Advisor\u3068\u30b5\u30fc\u30d3\u30b9\u30d8\u30eb\u30b9\u3092\u30c1\u30a7\u30c3\u30af\u3057\u3066\u304f\u3060\u3055\u3044\u3002",
+					"lv2Title": "\u898b\u3066\u3001\u30d1\u30c3\u30c1\u3092\u3064\u3051\u3066\u304a\u304d\u307e\u3057\u3087\u3046",
+					"lv2Steps": "7\u30b9\u30c6\u30c3\u30d7",
+					"lv2Desc": "\u30db\u30b9\u30c8\u4fe1\u53f7\u306f\u30a8\u30fc\u30b8\u30a7\u30f3\u30c8\u3092\u5fc5\u8981\u3068\u3057\u307e\u305b\u3093\u3002\u30b2\u30b9\u30c8\u81ea\u8eab\u304c\u5fc5\u8981\u3067\u3059\u3002\u30b2\u30b9\u30c8\u306e\u30d1\u30d5\u30a9\u30fc\u30de\u30f3\u30b9\u3092\u6bd4\u8f03\u3057\u3001\u95be\u5024\u3092\u30a2\u30e9\u30fc\u30c8\u306b\u5909\u63db\u3057\u3001\u30b9\u30b1\u30b8\u30e5\u30fc\u30eb\u3067\u30d1\u30c3\u30c1\u3092\u5f53\u3066\u307e\u3057\u3087\u3046\u3002",
+					"lv3Title": "\u30cd\u30c3\u30c8\u30ef\u30fc\u30af\u306e\u76e3\u8996",
+					"lv3Steps": "9\u30b9\u30c6\u30c3\u30d7",
+					"lv3Desc": "Network Watcher\u3068Azure Monitor\u3092\u7d44\u307f\u5408\u308f\u305b\u3066\u3001\u4eee\u60f3\u30cd\u30c3\u30c8\u30ef\u30fc\u30af\u30d5\u30ed\u30fc\u30ed\u30b0\u3001\u30c8\u30e9\u30d5\u30a3\u30c3\u30af\u5206\u6790\u3001\u63a5\u7d9a\u30e2\u30cb\u30bf\u30fc\u3092\u7d44\u307f\u5408\u308f\u305b\u307e\u3059\u3002",
+					"lv4Title": "\u8a2d\u8a08\u30ed\u30b0\u3068\u30e2\u30cb\u30bf\u30ea\u30f3\u30b0",
+					"lv4Steps": "9\u30b9\u30c6\u30c3\u30d7",
+					"lv4Desc": "\u4fe1\u53f7\u3001\u30ef\u30fc\u30af\u30b9\u30da\u30fc\u30b9\u3001\u30c6\u30fc\u30d6\u30eb\u30d7\u30e9\u30f3\u3001\u30eb\u30fc\u30c6\u30a3\u30f3\u30b0\u3001Application Insights\u3001\u30a2\u30e9\u30fc\u30c8\u3001\u305d\u3057\u3066Microsoft Sentinel\u306e\u4f4d\u7f6e\u306a\u3069\u3001\u5168\u4f53\u50cf\u3092\u8a2d\u8a08\u3057\u307e\u3057\u3087\u3046\u3002",
+					"aiEyebrow": "AI\u30a8\u30fc\u30b8\u30a7\u30f3\u30c8 \u00b7Microsoft\u30fbFoundry \u00b712\u30b9\u30c6\u30c3\u30d7",
+					"aiTitle": "AI\u30a2\u30d7\u30ea\u306e\u30e2\u30cb\u30bf\u30ea\u30f3\u30b0",
+					"aiDesc": "\u8a55\u4fa1\u3068\u89b3\u5bdf: OpenTelemetry\u3084Application Insights\u3067\u30c8\u30ec\u30fc\u30b9\u3092\u884c\u3044\u3001\u305d\u306e\u5f8c\u3001AI\u30a2\u30d7\u30ea\u306e\u672c\u7a3c\u50cd\u3092\u89b3\u5bdf\u3057\u307e\u3057\u3087\u3046\u3002",
+					"exEyebrow": "\u8a66\u9a13\u5bfe\u7b56",
+					"exTitle": "\u8a66\u9a13\u3067\u3053\u306e\u73fe\u8c61\u304c\u73fe\u308c\u308b",
+					"exLead": "\u30e2\u30cb\u30bf\u30ea\u30f3\u30b0\u306f\u3001\u3053\u306e\u30b5\u30a4\u30c8\u306e4\u3064\u306e\u8a66\u9a13\u3092\u8cab\u304f\u4e00\u8cab\u6027\u306e\u30c6\u30fc\u30de\u3067\u3059\u3002\u5404\u30ab\u30fc\u30c9\u306f\u305d\u306e\u8a66\u9a13\u306e\u5b66\u7fd2\u8a08\u753b\u3092\u958b\u304d\u307e\u3059\u3002",
+					"exN1": "Azure Administrator",
+					"exW1": "\u30a2\u30e9\u30fc\u30c8\u3001\u30ed\u30b0\u5206\u6790\u3001Azure Monitor\u30a8\u30fc\u30b8\u30a7\u30f3\u30c8\u3067\u3059\u3002",
+					"exN2": "Azure\u30a4\u30f3\u30d5\u30e9\u30b9\u30c8\u30e9\u30af\u30c1\u30e3\u30bd\u30ea\u30e5\u30fc\u30b7\u30e7\u30f3\u306e\u8a2d\u8a08",
+					"exW2": "\u76e3\u8996\u306e\u8a2d\u8a08:\u3069\u306e\u4fe1\u53f7\u3092\u53ce\u96c6\u3057\u3001\u3069\u3053\u306b\u884c\u304d\u3001\u8ab0\u306b\u8b66\u544a\u3059\u308b\u304b\u3002",
+					"exN3": "Azure\u4e0a\u3067AI\u30af\u30e9\u30a6\u30c9\u30bd\u30ea\u30e5\u30fc\u30b7\u30e7\u30f3\u306e\u958b\u767a",
+					"exW3": "OpenTelemetry\u30c8\u30ec\u30fc\u30b9\u3068KQL\u3067\u3059\u3002",
+					"exN4": "Azure\u4e0a\u3067AI\u30a2\u30d7\u30ea\u3068\u30a8\u30fc\u30b8\u30a7\u30f3\u30c8\u3092\u958b\u767a\u3059\u308b",
+					"exW4": "\u8a55\u4fa1\u3068\u89b3\u6e2c\u53ef\u80fd\u6027\u3002",
+					"exGo": "\u30aa\u30fc\u30d7\u30f3\u30b9\u30bf\u30c7\u30a3\u30d7\u30e9\u30f3"
+			},
+			ko: {
+					"headTitle": "Azure Monitor and observability",
+					"heroEyebrow": "Azure \u00b7 \ubaa8\ub2c8\ud130 \ubc0f \uad00\uce21\uc131",
+					"heroTitle1": "\ubd10.",
+					"heroTitle2": "\uc218\uc0c9\ud574.",
+					"heroTitle3": "\uacbd\uacc4 \ud0dc\uc138.",
+					"heroLead": "Azure Monitor\ub97c \ud1b5\ud55c \ub2e4\uc12f \uac00\uc9c0 \uc2dc\uac01\uc801 \uc5ec\uc815: \uc5d0\uc774\uc804\ud2b8\uc640 \ub370\uc774\ud130 \uc218\uc9d1 \uaddc\uce59\uc73c\ub85c \uc2e0\ud638\ub97c \uc218\uc9d1\ud558\uace0, \ub85c\uadf8 \ubd84\uc11d \uc6cc\ud06c\uc2a4\ud398\uc774\uc2a4\uc5d0 \ubcf4\uad00\ud558\uba70, KQL\ub85c \uc9c8\ubb38\ud558\uace0, Application Insights\uc640 OpenTelemetry\ub85c \ud55c \uac00\uc9c0 \uc694\uccad\uc744 \ub530\ub77c\uac00\uba70, \uc911\uc694\ud55c \uc0c1\ud669\uc5d0\uc11c \uc801\uc808\ud55c \uc0ac\ub78c\uc5d0\uac8c \uc54c\ub9bc\uc744 \ubcf4\ub0c5\ub2c8\ub2e4.",
+					"meta1Html": "<b>5</b>\uac1c\uc758 \uc778\ud130\ub799\ud2f0\ube0c \ud574\uc124",
+					"meta2Html": "<b>60</b>\uac1c\uc758 \uc560\ub2c8\uba54\uc774\uc158 \uc2a4\ud15d",
+					"meta3Html": "<b>Microsoft \ub7ec\ub2dd</b>\uc5d0 \uae30\ubc18\uc744 \ub450\uc5c8\uc5b4\uc694",
+					"hvSrc1": "\uac00\uc0c1 \uba38\uc2e0",
+					"hvSrc2": "\uc571",
+					"hvSrc3": "\ub124\ud2b8\uc6cc\ud06c",
+					"hvWs": "\uc6cc\ud06c\uc2a4\ud398\uc774\uc2a4",
+					"hvAl": "\uacbd\uace0",
+					"hvSt1": "\ucf5c\ub809\ud2b8",
+					"hvSt2": "\uc2a4\ud1a0\uc5b4 \u00b7 \ubb3c\uc5b4\ubcf4\uc138\uc694",
+					"hvSt3": "\uacbd\uace0",
+					"secRail": "\uc5ec\uc815",
+					"secTitle": "\uae30\uacc4\uc5d0\uc11c \uba54\uc2dc\uc9c0\ub85c",
+					"secLead": "\uc2e0\ud638\ub97c \uc5f0\uacb0\ud558\ub294 \ud558\ub098\uc758 \uacbd\ub85c: \uc2e0\ud638\ub97c \uc218\uc9d1\ud558\uace0, \uc800\uc7a5\ud558\uba70, \uc9c8\ubb38\ud558\uace0, \uc694\uccad\uc744 \ucd94\uc801\ud558\uba70, \uc54c\ub9bc\uc744 \ubc1b\uc544\uc57c \ud569\ub2c8\ub2e4. \ub05d\uc5d0\uc11c \ub05d\uae4c\uc9c0 \ub530\ub77c\uac00\uac70\ub098 \ubc14\ub85c \uc5b4\ub290 \uc815\uc9c0\uc810\uc73c\ub85c \uc810\ud504\ud558\uc138\uc694.",
+					"plV1": "\ucf5c\ub809\ud2b8",
+					"plV2": "\uc2a4\ud1a0\uc5b4",
+					"plV3": "\ubb3c\uc5b4\ubcf4\uc138\uc694",
+					"plV4": "\ud2b8\ub808\uc774\uc2a4",
+					"plV5": "\uacbd\uace0",
+					"c1Title": "\uc5d0\uc774\uc804\ud2b8 \ubc0f \ub370\uc774\ud130 \uc218\uc9d1 \uaddc\uce59",
+					"c1Desc": "\uc5d0\uc774\uc804\ud2b8\uc640 \ub370\uc774\ud130 \uc218\uc9d1 \uaddc\uce59\uc774 \uae30\uacc4\ub97c \ub5a0\ub098\uace0 \uc5b4\ub514\uc5d0 \ub3c4\ucc29\ud558\ub294\uc9c0 \uacb0\uc815\ud569\ub2c8\ub2e4.",
+					"c1f1": "Azure Monitor Agent",
+					"c1f2": "\ubcc0\ud615",
+					"c1Steps": "12\ub2e8\uacc4",
+					"c2Title": "\ub85c\uadf8 \ubd84\uc11d \uc6cc\ud06c\uc2a4\ud398\uc774\uc2a4",
+					"c2Desc": "\uc6cc\ud06c\uc2a4\ud398\uc774\uc2a4\uc740 \ub85c\uadf8\ub97c \ud14c\uc774\ube14\uc5d0 \ubcf4\uad00\ud558\uba70, \uacc4\ud68d, \ubcf4\uc874, \uc811\uadfc \ubaa8\ub4dc, \uc124\uacc4 \ube44\uc6a9\uc774 \ud3ec\ud568\ub429\ub2c8\ub2e4.",
+					"c2f1": "\ud14c\uc774\ube14 \ub3c4\uba74",
+					"c2f2": "\uc720\uc9c0",
+					"c2Steps": "12\ub2e8\uacc4",
+					"c3Title": "KQL \uae30\ubcf8",
+					"c3Desc": "KQL \uc6b4\uc601\uc790 \ud30c\uc774\ud504\ub77c\uc778\uc744 \ud1b5\ud574 \ub85c\uadf8\ub97c \ud544\ud130\ub9c1, \uc694\uc57d, \ucc28\ud2b8\ud654\ud558\uc138\uc694.",
+					"c3f1": "\uc5ec\uae30\uc11c \uc640 \uc694\uc57d",
+					"c3f2": "\uc870\uc778 \ubc0f \ub80c\ub354\ub9c1",
+					"c3Steps": "12\ub2e8\uacc4",
+					"c4Title": "\uc751\uc6a9 \uc778\uc0ac\uc774\ud2b8 \ubc0f OpenTelemetry",
+					"c4Desc": "\uc11c\ube44\uc2a4 \uc804\ubc18\uc5d0 \uac78\uce5c \ub290\ub9b0 \uc694\uccad \ud558\ub098\uc5d0 \ub530\ub77c OpenTelemetry \ubc0f Application Insights\ub97c \ud65c\uc6a9\ud558\uc138\uc694.",
+					"c4f1": "OpenTelemetry",
+					"c4f2": "\uc560\ud50c\ub9ac\ucf00\uc774\uc158 \ub9f5",
+					"c4Steps": "12\ub2e8\uacc4",
+					"c5Title": "\uacbd\ubcf4 \ubc0f \ud589\ub3d9 \uadf8\ub8f9",
+					"c5Desc": "\uaddc\uce59\uc740 \uc2e0\ud638\ub97c \uac10\uc2dc\ud558\uace0; \ud589\ub3d9 \uadf8\ub8f9\uc740 \ub204\uac00 \uc9c0\uc2dc\ud558\uace0 \ubb34\uc5c7\uc744 \ub3cc\ub9b4\uc9c0 \uacb0\uc815\ud569\ub2c8\ub2e4.",
+					"c5f1": "\uc784\uacc4\uac12",
+					"c5f2": "\ud589\ub3d9 \uadf8\ub8f9",
+					"c5Steps": "12\ub2e8\uacc4",
+					"goLabel": "\uc624\ud508 \ud574\uc124",
+					"liveRail": "\uc774\ubbf8 \ub3c4\uc11c\uad00\uc5d0 \uc788\uc5b4",
+					"liveTitle": "\ubaa8\ub2c8\ud130\ub9c1\uc740 \uc774\ubbf8 \uc774\ub7ec\ud55c \uad50\ud6c8\uc5d0 \uc874\uc7ac\ud558\uace0 \uc788\uc2b5\ub2c8\ub2e4",
+					"liveLead": "\ubaa8\ub2c8\ud130\ub9c1\uc740 \ub2e4\ub978 \uc5ec\uc815\uc5d0\uc11c\ub3c4 \ub098\ud0c0\ub098\uba70, \ub354 \ud070 \uc774\uc57c\uae30\uc758 \uc77c\ubd80\uac00 \ub429\ub2c8\ub2e4. \uc774 \ubaa8\ub4e0 \uac83\uc774 \ud604\uc7a5\uc5d0\uc11c \uad50\ud6c8\uc744 \uc5f4\uc5b4\uc90d\ub2c8\ub2e4.",
+					"jFund": "Azure Fundamentals",
+					"jVm": "\uac00\uc0c1 \uba38\uc2e0",
+					"jNet": "\ub124\ud2b8\uc6cc\ud0b9",
+					"jArch": "\uac74\ucd95\uac00",
+					"lv1Title": "\ubaa8\ub2c8\ud130\ub9c1 \ub3c4\uad6c",
+					"lv1Steps": "9\ub2e8\uacc4",
+					"lv1Desc": "\ubb38\uc81c\uac00 \uc788\uc5c8\ub098\uc694, \uc544\ub2c8\uba74 \uc6b0\ub9ac \ubb38\uc81c\uc600\ub098\uc694? \uc99d\uac70\ub97c \uc218\uc9d1\ud574 \ubcf4\uad00\ud558\uace0 \uc870\ud68c\ud560 \uc218 \uc788\ub294 \uacf3\uc5d0 \uc800\uc7a5\ud55c \ub4a4, Azure Advisor\uc640 \uc11c\ube44\uc2a4 \uac74\uac15 \uc0c1\ud0dc\ub97c \ud655\uc778\ud558\uc138\uc694.",
+					"lv2Title": "\uacc4\uc18d \ubcf4\uace0 \ud328\uce58\ub97c \uc720\uc9c0\ud558\uc138\uc694",
+					"lv2Steps": "7\ub2e8\uacc4",
+					"lv2Desc": "\ud638\uc2a4\ud2b8 \uc2e0\ud638\ub294 \uc5d0\uc774\uc804\ud2b8\uac00 \ud544\uc694 \uc5c6\uace0, \uac8c\uc2a4\ud2b8\uac00 \ud544\uc694\ud569\ub2c8\ub2e4. \uac8c\uc2a4\ud2b8 \uc131\ub2a5\uc744 \ube44\uad50\ud558\uace0, \uc784\uacc4\uac12\uc744 \uc54c\ub9bc\uc73c\ub85c \ubc14\uafb8\uba70, \uc77c\uc815\uc5d0 \ub9de\ucdb0 \ud328\uce58\ud558\uc138\uc694.",
+					"lv3Title": "\ub124\ud2b8\uc6cc\ud06c \ubaa8\ub2c8\ud130\ub9c1",
+					"lv3Steps": "9\ub2e8\uacc4",
+					"lv3Desc": "\ub124\ud2b8\uc6cc\ud06c \uac10\uc2dc\uc790\uc640 Azure \ubaa8\ub2c8\ud130\ub97c \ud568\uaed8 \uc0ac\uc6a9\ud558\uc138\uc694: \uac00\uc0c1 \ub124\ud2b8\uc6cc\ud06c \ud50c\ub85c\uc6b0 \ub85c\uadf8, \ud2b8\ub798\ud53d \ubd84\uc11d, \uc5f0\uacb0 \ubaa8\ub2c8\ud130.",
+					"lv4Title": "\uc124\uacc4 \uae30\ub85d \ubc0f \ubaa8\ub2c8\ud130\ub9c1",
+					"lv4Steps": "9\ub2e8\uacc4",
+					"lv4Desc": "\uc804\uccb4 \uadf8\ub9bc\uc744 \uc124\uacc4\ud558\uc138\uc694: \uc2e0\ud638, \uc6cc\ud06c\uc2a4\ud398\uc774\uc2a4, \ud14c\uc774\ube14 \uacc4\ud68d, \ub77c\uc6b0\ud305, Application Insights, \uc54c\ub9bc, \uadf8\ub9ac\uace0 Microsoft Sentinel\uc774 \uc5b4\ub514\uc5d0 \uc704\uce58\ud558\ub294\uc9c0 \ub4f1.",
+					"aiEyebrow": "AI \uc5d0\uc774\uc804\ud2b8 \u00b7 Microsoft Foundry \u00b7 12\ub2e8\uacc4",
+					"aiTitle": "\ubaa8\ub2c8\ud130\ub9c1 AI \uc571",
+					"aiDesc": "\ud3c9\uac00\ud558\uace0 \uad00\ucc30\ud558\uc138\uc694: OpenTelemetry \ubc0f Application Insights\ub85c \ucd94\uc801\ud558\uace0, AI \uc571\uc774 \uc2e4\uc81c \ud658\uacbd\uc5d0\uc11c \uc791\ub3d9\ud558\ub294 \ubaa8\uc2b5\uc744 \uad00\ucc30\ud558\uc138\uc694.",
+					"exEyebrow": "\uc2dc\ud5d8 \uc900\ube44",
+					"exTitle": "\uc2dc\ud5d8\uc5d0\uc11c \uc774\ub7f0 \uc810\uc774 \ub098\ud0c0\ub098\ub294 \ubd80\ubd84",
+					"exLead": "\ubaa8\ub2c8\ud130\ub9c1\uc740 \uc774 \uc0ac\uc774\ud2b8\uc758 \ub124 \uac00\uc9c0 \uc2dc\ud5d8 \uc911 \ud558\ub098\uc758 \ud750\ub984\uc785\ub2c8\ub2e4. \uac01 \uce74\ub4dc\ub294 \ud574\ub2f9 \uc2dc\ud5d8\uc758 \ud559\uc2b5 \uacc4\ud68d\uc744 \uc5fd\ub2c8\ub2e4.",
+					"exN1": "Azure Administrator",
+					"exW1": "\uc54c\ub9bc, \ub85c\uadf8 \ubd84\uc11d, \uadf8\ub9ac\uace0 Azure Monitor \uc5d0\uc774\uc804\ud2b8.",
+					"exN2": "Azure \uc778\ud504\ub77c \uc194\ub8e8\uc158 \uc124\uacc4",
+					"exW2": "\ubaa8\ub2c8\ud130\ub9c1 \uc124\uacc4: \uc5b4\ub5a4 \uc2e0\ud638\ub97c \uc218\uc9d1\ud558\uace0, \uc5b4\ub514\ub85c \uc774\ub3d9\ud558\uba70, \ub204\uac00 \uacbd\uace0\ub97c \ubc1b\ub294\uc9c0.",
+					"exN3": "Azure \uae30\ubc18 AI \ud074\ub77c\uc6b0\ub4dc \uc194\ub8e8\uc158 \uac1c\ubc1c",
+					"exW3": "OpenTelemetry \ucd94\uc801\uacfc KQL\uc785\ub2c8\ub2e4.",
+					"exN4": "Azure\uc5d0\uc11c AI \uc571 \ubc0f \uc5d0\uc774\uc804\ud2b8 \uac1c\ubc1c",
+					"exW4": "\ud3c9\uac00 \ubc0f \uad00\uce21 \uac00\ub2a5\uc131.",
+					"exGo": "\uc624\ud508 \uc2a4\ud130\ub514 \ud50c\ub79c"
+			},
+			pt: {
+					"headTitle": "Azure Monitor e observabilidade",
+					"heroEyebrow": "Azure \u00b7 Monitoramento e Observabilidade",
+					"heroTitle1": "Veja isso.",
+					"heroTitle2": "Revistem isso.",
+					"heroTitle3": "Alerta sobre isso.",
+					"heroLead": "Uma jornada visual de cinco paradas pelo Azure Monitor: colete sinais com agentes e regras de coleta de dados, mantenha-os em um espa\u00e7o de trabalho Log Analytics, fa\u00e7a perguntas com KQL, acompanhe um pedido com Application Insights e OpenTelemetry, e alerte as pessoas certas quando for importante.",
+					"meta1Html": "<b>5</b> explica\u00e7\u00f5es interativas",
+					"meta2Html": "<b>60</b> passos animados",
+					"meta3Html": "Ancorado em <b>Microsoft\u00a0Learn</b>",
+					"hvSrc1": "VMs",
+					"hvSrc2": "Aplicativos",
+					"hvSrc3": "Rede",
+					"hvWs": "Espa\u00e7o de trabalho",
+					"hvAl": "Alerta",
+					"hvSt1": "Colete",
+					"hvSt2": "Loja \u00b7 Pergunte",
+					"hvSt3": "Alerta",
+					"secRail": "A jornada",
+					"secTitle": "De uma m\u00e1quina para uma mensagem",
+					"secLead": "Um caminho conectado para o sinal: colete-o, armazene-o, fa\u00e7a perguntas, rastreie uma solicita\u00e7\u00e3o por ele e alerte. Siga de ponta a ponta ou pule direto para qualquer ponto de parada.",
+					"plV1": "Colete",
+					"plV2": "Loja",
+					"plV3": "Pergunte",
+					"plV4": "Trace",
+					"plV5": "Alerta",
+					"c1Title": "Agentes e Regras de Coleta de Dados",
+					"c1Desc": "Agentes e regras de coleta de dados decidem o que sai de uma m\u00e1quina e onde ela pousa.",
+					"c1f1": "Azure Monitor Agent",
+					"c1f2": "Transforma\u00e7\u00f5es",
+					"c1Steps": "12 degraus",
+					"c2Title": "Log Analytics Espa\u00e7os de trabalho",
+					"c2Desc": "Um espa\u00e7o de trabalho mant\u00e9m seus logs em tabelas, com planos, reten\u00e7\u00e3o, modos de acesso e custo para o projeto.",
+					"c2f1": "Plantas de mesas",
+					"c2f2": "Reten\u00e7\u00e3o",
+					"c2Steps": "12 degraus",
+					"c3Title": "KQL No\u00e7\u00f5es B\u00e1sicas",
+					"c3Desc": "Filtre, resuma e mapeie seus registros com um pipeline de operadores de KQL.",
+					"c3f1": "onde & resumem",
+					"c3f2": "Join & render",
+					"c3Steps": "12 degraus",
+					"c4Title": "Application Insights e OpenTelemetry",
+					"c4Desc": "Siga uma solicita\u00e7\u00e3o lenta entre os servi\u00e7os com OpenTelemetry e Application Insights.",
+					"c4f1": "OpenTelemetry",
+					"c4f2": "Mapa de aplica\u00e7\u00e3o",
+					"c4Steps": "12 degraus",
+					"c5Title": "Alertas e Grupos de A\u00e7\u00e3o",
+					"c5Desc": "As regras vigiam o sinal; grupos de a\u00e7\u00e3o decidem quem \u00e9 informado e o que corre.",
+					"c5f1": "Limiares",
+					"c5f2": "Grupos de a\u00e7\u00e3o",
+					"c5Steps": "12 degraus",
+					"goLabel": "Explica\u00e7\u00e3o aberta",
+					"liveRail": "J\u00e1 est\u00e1 na biblioteca",
+					"liveTitle": "O monitoramento j\u00e1 est\u00e1 presente nessas li\u00e7\u00f5es",
+					"liveLead": "O monitoramento tamb\u00e9m aparece em outras jornadas, onde faz parte de uma hist\u00f3ria maior. Cada um desses fatores abre a li\u00e7\u00e3o no lugar.",
+					"jFund": "Azure Fundamentos",
+					"jVm": "M\u00e1quinas Virtuais",
+					"jNet": "Networking",
+					"jArch": "Arquiteto",
+					"lv1Title": "Ferramentas de Monitoramento",
+					"lv1Steps": "9 passos",
+					"lv1Desc": "Estava quebrado ou foi nossa? Colete as evid\u00eancias, armazene onde possa consult\u00e1-las, alerte sobre elas e depois verifique Azure Consultor e Sa\u00fade do Servi\u00e7o.",
+					"lv2Title": "Assista e mantenha atualizado",
+					"lv2Steps": "7 degraus",
+					"lv2Desc": "Os sinais do anfitri\u00e3o n\u00e3o precisam de agente, o convidado precisa. Compare o desempenho dos convidados, transforme um limiar em alerta e fa\u00e7a patch em um cronograma.",
+					"lv3Title": "Monitoramento da rede",
+					"lv3Steps": "9 passos",
+					"lv3Desc": "Network Watcher e Azure Monitor juntos: registros de fluxo de rede virtual, An\u00e1lise de Tr\u00e1fego e Monitor de Conex\u00e3o.",
+					"lv4Title": "Registro e monitoramento de projetos",
+					"lv4Steps": "9 passos",
+					"lv4Desc": "Projete o quadro completo: sinais, espa\u00e7os de trabalho, plantas de mesas, roteamento, Application Insights, alertas e onde Microsoft Sentinel se encaixa.",
+					"aiEyebrow": "AI Agentes \u00b7 Microsoft Foundry \u00b7 12 passos",
+					"aiTitle": "Monitoramento AI aplicativos",
+					"aiDesc": "Avalie e Observe: trace com OpenTelemetry e Application Insights, depois assista AI aplicativos em produ\u00e7\u00e3o.",
+					"exEyebrow": "Prepara\u00e7\u00e3o para o exame",
+					"exTitle": "Onde isso aparece nas provas",
+					"exLead": "O monitoramento \u00e9 um fio de condu\u00e7\u00e3o por quatro dos exames deste site. Cada cart\u00e3o abre o plano de estudos daquele exame.",
+					"exN1": "Azure Administrador",
+					"exW1": "Alertas, Log Analytics e o agente Azure Monitor.",
+					"exN2": "Projetando Solu\u00e7\u00f5es Azure Infraestrutura",
+					"exW2": "Monitoramento de projeto: quais sinais coletar, para onde eles v\u00e3o e quem \u00e9 alertado.",
+					"exN3": "Desenvolvendo solu\u00e7\u00f5es AI Cloud em Azure",
+					"exW3": "OpenTelemetry tra\u00e7ar e KQL.",
+					"exN4": "Desenvolvendo AI Apps e Agentes no Azure",
+					"exW4": "Avalia\u00e7\u00e3o e observabilidade.",
+					"exGo": "Plano de estudo aberto"
+			}
+};
+		(function(){
+			const LANGS=['en','es','ja','ko','pt'];
+			let lang=(function(){
+				const q=new URLSearchParams(location.search).get('lang'); if(q&&LANGS.includes(q)) return q;
+				try{ const s=localStorage.getItem('aw-lang'); if(s&&LANGS.includes(s)) return s; }catch(_){}
+				return 'en';
+			})();
+			const t=k=>{ const d=I18N[lang]||I18N.en; return d[k]!=null?d[k]:I18N.en[k]; };
+			function apply(){
+				document.querySelectorAll('[data-i18n]').forEach(el=>{ const v=t(el.dataset.i18n); if(v!=null) el.textContent=v; });
+				document.querySelectorAll('[data-i18n-html]').forEach(el=>{ const v=t(el.dataset.i18nHtml); if(v!=null) el.innerHTML=v; });
+				document.documentElement.lang=lang;
+				const suffix=lang==='en'?'':'?lang='+lang;
+				document.querySelectorAll('a[href]').forEach(a=>{ const h=a.getAttribute('href'); if(/^[A-Za-z0-9]+\.html(\?.*)?$/.test(h)) a.setAttribute('href', h.split('?')[0]+suffix); });
+			}
+			const sel=document.getElementById('lang-select');
+			if(sel){
+				sel.value=lang;
+				sel.addEventListener('change',()=>{
+					lang=sel.value;
+					try{ localStorage.setItem('aw-lang',lang); }catch(_){}
+					const u=new URL(location.href); if(lang==='en') u.searchParams.delete('lang'); else u.searchParams.set('lang',lang);
+					history.replaceState(null,'',u);
+					apply();
+				});
+			}
+			apply();
+		})();
+
+		// Hero: three sources → workspace → alert. Static when reduced motion is requested.
+		(function(){
+			const svg=document.getElementById('hero-svg'); if(!svg) return;
+			const $=id=>document.getElementById(id);
+			const sp=[0,1,2,3].map(i=>$('sp'+i)), pk=[0,1,2,3].map(i=>$('pk'+i));
+			const wsRing=$('wsRing'), alRing=$('alRing'), bell=$('bell'), alertNode=$('alertNode');
+			function place(i,p){ const L=sp[i].getTotalLength(), pt=sp[i].getPointAtLength(L*p); pk[i].setAttribute('cx',pt.x); pk[i].setAttribute('cy',pt.y); }
+			const reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+			if(reduce || !window.gsap){
+				pk.forEach((el,i)=>{ place(i, i===3?0.5:0.55); el.setAttribute('opacity','1'); });
+				bell.style.opacity=1; alRing.style.opacity=0.5; wsRing.style.opacity=0.4;
+				return;
+			}
+			const st=[{p:0},{p:0},{p:0},{p:0}];
+			const tl=gsap.timeline({repeat:-1, repeatDelay:0.7, defaults:{ease:'power1.inOut'}});
+			[0,1,2].forEach(i=>{
+				const t=i*0.3;
+				tl.set(pk[i],{attr:{opacity:1}},t).fromTo(st[i],{p:0},{p:1,duration:1.5,onUpdate:()=>place(i,st[i].p)},t)
+				  .to(pk[i],{attr:{opacity:0},duration:0.2},t+1.4);
+			});
+			tl.fromTo(wsRing,{opacity:0.9,scale:0.9,svgOrigin:'290 176'},{opacity:0,scale:1.25,svgOrigin:'290 176',duration:0.9,ease:'power2.out'},1.9);
+			tl.set(pk[3],{attr:{opacity:1}},2.1).fromTo(st[3],{p:0},{p:1,duration:1.1,onUpdate:()=>place(3,st[3].p)},2.1)
+			  .to(pk[3],{attr:{opacity:0},duration:0.2},3.1);
+			tl.fromTo(alRing,{opacity:0.9,scale:0.85,svgOrigin:'488 176'},{opacity:0,scale:1.3,svgOrigin:'488 176',duration:0.9,ease:'power2.out'},3.2);
+			tl.fromTo(alertNode,{scale:1,svgOrigin:'488 176'},{scale:1.05,svgOrigin:'488 176',duration:0.25,yoyo:true,repeat:1},3.2);
+			tl.fromTo(bell,{opacity:0,scale:0.2,svgOrigin:'530 136'},{opacity:1,scale:1,svgOrigin:'530 136',duration:0.3,ease:'back.out(3)'},3.3).to(bell,{opacity:0,duration:0.4},4.4);
+		})();
+
+		// Reveal-on-scroll (respects reduced motion)
+		(function(){
+			const items=[...document.querySelectorAll('.journey-card, .lv-card, .ai-point')];
+			if(window.matchMedia('(prefers-reduced-motion: reduce)').matches || !('IntersectionObserver' in window)){ items.forEach(c=>c.classList.add('revealed')); return; }
+			const io=new IntersectionObserver((entries)=>{ entries.forEach(e=>{ if(e.isIntersecting){ const el=e.target, i=items.indexOf(el);
+				setTimeout(()=>el.classList.add('revealed'), (i%5)*80); io.unobserve(el); } }); },{ threshold:0.08 });
+			items.forEach(c=>io.observe(c));
+		})();
+	</script>
+	<script>
+	// ── Hub welcome narration ─────────────────────────────────────────────
+	// One welcome clip (audio/index[/lang]/step-01.mp3); captions come from the shared aw-hub-captions.js,
+	// which reads narration/<journey>/[lang/]index.md. The choice is saved to localStorage('aw-audio-on'),
+	// the same key every journey page reads to arm its own narration.
+	(function () {
+		var PREF_KEY = 'aw-audio-on';
+		var btn = document.getElementById('audio-toggle');
+		if (!btn) return;
+		var ico = btn.querySelector('.aw-audio-ico');
+		var on = false, cur = null;
+		function savePref(v) { try { localStorage.setItem(PREF_KEY, v ? '1' : '0'); } catch (_) {} }
+		function readPref() { try { return localStorage.getItem(PREF_KEY) === '1'; } catch (_) { return false; } }
+		function lang() { var s = document.getElementById('lang-select'); var v = s ? s.value : 'en'; return (typeof I18N !== 'undefined' && I18N[v]) ? v : 'en'; }
+		function src() { var l = lang(); return 'audio/index/' + (l === 'en' ? '' : l + '/') + 'step-01.mp3'; }
+		function stop() { if (cur) { cur.pause(); cur.currentTime = 0; cur = null; } }
+		function play() { stop(); cur = new Audio(src()); cur.play().catch(function () {}); }
+		function relabel() {
+			if (ico) ico.textContent = on ? '\uD83D\uDD0A' : '\uD83D\uDD07';
+			btn.classList.toggle('on', on);
+			btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+		}
+		btn.addEventListener('click', function () {
+			on = !on; savePref(on); relabel();
+			if (on) play(); else stop();
+		});
+		var sel = document.getElementById('lang-select');
+		if (sel) sel.addEventListener('change', function () { if (on) play(); });
+		on = readPref(); relabel();   // reflect a saved choice; browsers block autoplay without a gesture
+	})();
+	</script>
+	<!-- Keep the home link on the same language as the hub. -->
+	<script>
+	(function () {
+		var sel = document.getElementById('lang-select');
+		var home = document.querySelector('a.brand[href]');
+		if (!sel || !home) return;
+		var base = home.getAttribute('href').split('?')[0];
+		function sync() { home.setAttribute('href', base + '?lang=' + encodeURIComponent(sel.value || 'en')); }
+		sel.addEventListener('change', sync);
+		window.addEventListener('load', sync);
+		sync();
+	}());
+	</script>
+</body>
+</html>

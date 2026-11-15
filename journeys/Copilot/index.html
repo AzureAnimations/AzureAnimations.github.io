@@ -1,0 +1,1084 @@
+<!DOCTYPE html>
+<!--
+	Copilot journey hub — "mind map" design (proposal #2, alongside index.html and index2.html).
+	Goal: the WHOLE 10-stop journey on ONE screen, no scrolling.
+	A vertical trunk on the left carries the story top-to-bottom; each act branches right to its stops.
+	The map is a fixed-size canvas scaled to fit the viewport by fitMap() — the same trick the
+	animation pages use for their 16:9 stage, so it fits any screen without a scrollbar.
+	Localised en/es/ja/ko/pt; the chosen language rides on to each step page via ?lang=.
+-->
+<html lang="en">
+<head>
+	<script src="/js/tracking.js"></script>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+	<meta name="description" content="The Microsoft 365 Copilot journey as a single-screen mind map — from the free personal Copilot, through joining a company, into Word, PowerPoint, Excel, Outlook and Teams, and out to the one Copilot behind them all." />
+	<title>Copilot Journey · Mind Map · Azure Animations</title>
+	<link rel="icon" href="../../img/favicon.png" />
+
+	<link rel="stylesheet" href="https://unpkg.com/@microsoft/atlas-css/dist/index.css" />
+	<script src="../../lib/js/aw-hub-design.js"></script><script src="../../lib/js/aw-theme.js"></script>
+	<!-- self-installing CC for the hub welcome clip: injects the toggle + caption bar, syncs to index.md -->
+	<script src="../../lib/js/aw-hub-captions.js"></script>
+	<link rel="stylesheet" href="../../lib/css/aw-likes.css" />
+	<!-- Anonymous like button (Supabase) — credentials live in lib/js/aw-likes.js -->
+	<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+	<script src="../../lib/js/aw-likes.js"></script>
+
+<style>
+	:root {
+		--aw-purple:#5c2d91; --aw-blue:#0078d4; --aw-green:#10a37f; --aw-orange:#e97526; --aw-pink:#d24aa8; --aw-teal:#0f7b80;
+		--c-word:#185ABD; --c-ppt:#C43E1C; --c-xls:#107C41; --c-otl:#0067d6; --c-tms:#5059C9;
+		/* cards must always sit a step above the page, in either theme */
+		--aw-page:#ecedf1; --aw-card:#ffffff;
+	}
+	*, *::before, *::after { box-sizing:border-box; }
+	html, body { min-height:100%; margin:0; }
+	html { scroll-behavior:smooth; }
+	@media (prefers-reduced-motion: reduce) { html { scroll-behavior:auto; } }
+	body {
+		overflow-x:hidden;                                        /* screen 1 = the map, screen 2 = lab + learn */
+		font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif;
+		color:var(--theme-text);
+		/* flat surface + a faint dot grid, so the page reads as a canvas the map is drawn on */
+		background-color:var(--aw-page);
+		background-image:radial-gradient(circle, rgba(17,17,27,0.06) 1px, transparent 1px);
+		background-size:26px 26px;
+	}
+	body.theme-dark {
+		--aw-page:#2b2d35; --aw-card:#373942;
+		background-image:radial-gradient(circle, rgba(255,255,255,0.05) 1px, transparent 1px);
+	}
+	/* atlas themes body via [data-theme-preset], so match that specificity or the page colour is ignored */
+	body.theme-light, body.theme-dark { background-color:var(--aw-page); }
+	/* The brand accents are mixed for white backgrounds and drop to 1.2–3:1 as text on a dark
+	   surface. Lighten only the TEXT uses — fills and gradient buttons keep the true brand colour. */
+	body.theme-dark .act-no,
+	body.theme-dark .leaf-no,
+	body.theme-dark .chev { color:color-mix(in srgb, var(--act-c) 42%, #fff); }
+	body.theme-dark .learn .eyebrow,
+	body.theme-dark .site-foot a,
+	body.theme-dark .credit-link { color:#6cb8ff; }
+	body.theme-dark .map-hero h1 .grad,
+	body.theme-dark .brand .accent { background:linear-gradient(90deg,#5cb6ff,#a78bfa,#f472b6); -webkit-background-clip:text; background-clip:text; }
+	a { color:inherit; text-decoration:none; }
+	@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation:none !important; transition:none !important; } }
+
+	/* ── slim top bar · the map gets everything else ── */
+	/* Three zones: equal-width sides keep the journey title optically centred. */
+	/* sticky so the Start button and the audio / CC / theme controls survive the scroll to screen 2 */
+	.bar { position:sticky; top:0; z-index:30; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:1rem;
+		padding:0.5rem 1.1rem; background:var(--aw-page); border-bottom:1px solid var(--theme-border, rgba(128,128,128,0.2)); }
+	.topbar-left { display:flex; align-items:center; gap:0.6rem; justify-self:start; min-width:0; }
+	.brand { display:flex; align-items:center; gap:0.55rem; color:var(--theme-text); justify-self:start; }
+	.brand img.aa-logo { width:28px; height:28px; display:block; flex:none; }
+	.brand .brand-name { font-size:1.02rem; font-weight:700; white-space:nowrap; }
+	.head-title { display:flex; align-items:center; gap:0.5rem; justify-self:center; white-space:nowrap; }
+	.head-title .mark { width:26px; height:26px; display:grid; place-items:center; flex:none; }
+	.head-title .mark img { width:24px; height:24px; display:block; }
+	.head-title .t { font-size:1.05rem; font-weight:600; }
+	.brand .accent { background:linear-gradient(90deg,var(--aw-blue),var(--aw-pink)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+	.bar-actions { display:flex; align-items:center; gap:0.5rem; justify-self:end; }
+	@media (max-width:1180px) { .brand .brand-name { display:none; } }
+	.btn-ghost { display:inline-flex; align-items:center; gap:0.35rem; padding:0.4rem 0.8rem; border-radius:8px; font-size:0.85rem; font-weight:600; border:1px solid var(--theme-border); }
+	.btn-cta { display:inline-flex; align-items:center; gap:0.35rem; padding:0.42rem 0.9rem; border-radius:8px; font-size:0.85rem; font-weight:600; color:#fff;
+		background:linear-gradient(90deg,var(--aw-blue),var(--aw-purple)); box-shadow:0 4px 14px rgba(0,120,212,0.3); }
+	.lang-select { appearance:none; -webkit-appearance:none; color:var(--theme-text); cursor:pointer;
+		border:1px solid var(--theme-border); border-radius:8px; padding:0.36rem 1.5rem 0.36rem 0.6rem; font-size:0.85rem; font-weight:600;
+		background-color:var(--aw-card);
+		background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23888'/%3E%3C/svg%3E");
+		background-repeat:no-repeat; background-position:right 0.5rem center; }
+	.theme-toggle { display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:8px; border:1px solid var(--theme-border); background:transparent; color:var(--theme-text); cursor:pointer; }
+	#audio-toggle { font-size:1.02rem; line-height:1; }
+	#audio-toggle .aw-audio-ico { line-height:1; }
+	#audio-toggle.on { background:linear-gradient(90deg,var(--aw-blue),var(--aw-purple)); color:#fff; border-color:transparent; }
+	/* glow until narration is switched on, so the speaker is discoverable */
+	#audio-toggle:not(.on) { animation:audioGlow 2.4s ease-in-out infinite; }
+	@keyframes audioGlow { 0%,100% { box-shadow:0 0 0 0 rgba(0,120,212,0); } 50% { box-shadow:0 0 0 5px rgba(0,120,212,0.18); } }
+	@media (prefers-reduced-motion: reduce) { #audio-toggle:not(.on) { animation:none; } }
+	.theme-toggle .icon-moon { display:none; } body.theme-dark .theme-toggle .icon-sun { display:none; } body.theme-dark .theme-toggle .icon-moon { display:block; }
+
+	/* ── screen 1 · the stage the map is scaled into, sized to exactly one viewport ── */
+	/* height, not min-height: scale() shrinks the map visually but it still claims its full layout height */
+	.stage { position:relative; height:calc(100dvh - var(--aw-bar-h, 3.4rem)); overflow:hidden;
+		display:flex; align-items:center; justify-content:center; padding:0.9rem 2.6rem; }
+	.map { width:1560px; flex:none; position:relative; transform-origin:center center; }
+	/* the branches are ragged by nature (1 / 2 / 5 / 2 leaves) — the title fills the gap that leaves at top-right */
+	/* 600px keeps it clear of the Act 2 / Act 4 cards (they end at x≈934), so it can run deeper */
+	.map-hero { position:absolute; top:2px; right:2px; width:600px; text-align:right; pointer-events:none; }
+	.map-hero h1 { margin:0 0 0.55rem; font-size:2.85rem; line-height:1.12; font-weight:700; }
+	.map-hero h1 .grad { background:linear-gradient(90deg,var(--aw-blue),var(--aw-purple),var(--aw-pink)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+	.map-hero p { margin:0 0 0.6rem; font-size:1.16rem; line-height:1.5; opacity:0.82; }
+	.map-hero .map-note { margin:0 0 1rem; font-size:1rem; line-height:1.55; opacity:0.68; }
+	.map-stats { display:flex; gap:2rem; justify-content:flex-end; }
+	.map-stats div { display:flex; flex-direction:column; }
+	.map-stats b { font-size:1.75rem; font-weight:700; }
+	.map-stats span { font-size:0.92rem; opacity:0.72; }
+
+	/* ── root + end capsules, sitting on the trunk ── */
+	/* both bookends share one left edge and width so they read as a pair */
+	.cap { position:relative; z-index:2; display:flex; align-items:center; gap:1rem; width:max-content; min-width:480px; max-width:900px;
+		padding:0.72rem 1.5rem; border-radius:16px; background:var(--aw-card);
+		border:1.5px solid var(--theme-border); box-shadow:0 8px 26px rgba(0,0,0,0.16); }
+	.cap-ic { font-size:2rem; line-height:1; }
+	.cap-tx b { display:block; font-size:1.2rem; font-weight:700; line-height:1.25; }
+	.cap-tx span { font-size:0.97rem; opacity:0.8; }
+	.cap.is-end { border-color:color-mix(in srgb, var(--aw-green) 50%, var(--theme-border)); }
+	.cap.is-root { margin-bottom:0.5rem; }
+
+	/* ── the trunk: one vertical line, four branches off it ── */
+	.branches { position:relative; padding-left:96px; }
+	/* runs on behind both capsules, so the line looks continuous instead of stopping in mid-air */
+	.branches::before {
+		content:''; position:absolute; left:38px; top:-28px; bottom:-28px; width:4px; border-radius:4px;
+		background:linear-gradient(180deg, var(--aw-blue) 0%, var(--aw-purple) 28%, var(--aw-pink) 52%, var(--aw-teal) 76%, var(--aw-green) 100%);
+	}
+
+	.act { position:relative; display:flex; align-items:center; gap:1.1rem; padding:0.6rem 0; }
+	/* the elbow from the trunk out to this act */
+	.act::before { content:''; position:absolute; left:-58px; top:50%; width:58px; height:3px; margin-top:-1.5px; background:var(--act-c); opacity:0.75; }
+	.act::after { content:''; position:absolute; left:-64px; top:50%; width:13px; height:13px; margin-top:-6.5px; border-radius:50%;
+		background:var(--act-c); box-shadow:0 0 0 4px color-mix(in srgb, var(--act-c) 26%, transparent); }
+
+	.act-label { flex:none; width:206px; }
+	.act-no { font-size:0.76rem; font-weight:700; letter-spacing:0.09em; text-transform:uppercase; color:var(--act-c); }
+	.act-label h3 { margin:0.14rem 0 0.18rem; font-size:1.14rem; font-weight:700; line-height:1.24; }
+	.act-label p { margin:0; font-size:0.9rem; line-height:1.4; opacity:0.76; }
+
+	.leaves { display:flex; align-items:stretch; gap:0.5rem; flex:1; }
+	.chev { flex:none; align-self:center; font-size:1.25rem; font-weight:700; color:var(--act-c); opacity:0.5; }
+
+	.leaf { position:relative; flex:1 1 0; max-width:296px; display:flex; flex-direction:column; gap:0.26rem;
+		padding:0.68rem 0.85rem 0.72rem; border-radius:13px; color:var(--theme-text);
+		background:var(--aw-card); border:1.5px solid var(--theme-border); border-left:3px solid var(--act-c);
+		box-shadow:0 5px 18px rgba(0,0,0,0.13); transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
+	.leaf:hover { transform:translateY(-4px); box-shadow:0 14px 32px color-mix(in srgb, var(--act-c) 36%, transparent); border-color:var(--act-c); }
+	.leaf-top { display:flex; align-items:center; gap:0.5rem; }
+	.leaf-top img { width:26px; height:26px; flex:none; }
+	.leaf-no { font-size:0.72rem; font-weight:700; letter-spacing:0.05em; color:var(--act-c);
+		background:color-mix(in srgb, var(--act-c) 13%, transparent); border-radius:999px; padding:1px 8px; }
+	.leaf b { font-size:1.06rem; font-weight:600; line-height:1.22; }
+	.leaf span { font-size:0.9rem; line-height:1.4; opacity:0.78; }
+
+	/* act 3 · every app keeps its own product colour */
+	.leaf.a-word { --act-c:var(--c-word); } .leaf.a-ppt { --act-c:var(--c-ppt); }
+	.leaf.a-xls  { --act-c:var(--c-xls);  } .leaf.a-otl { --act-c:var(--c-otl); }
+	.leaf.a-tms  { --act-c:var(--c-tms);  }
+
+	/* a quiet pulse on the starting point so the eye knows where to begin */
+	@keyframes mmPulse { 0%,100% { box-shadow:0 8px 26px rgba(0,0,0,0.16), 0 0 0 0 rgba(0,120,212,0.42); }
+		50% { box-shadow:0 8px 26px rgba(0,0,0,0.16), 0 0 0 12px rgba(0,120,212,0); } }
+	.cap.is-root { animation:mmPulse 3s ease-out infinite; }
+
+	/* ── screen 2 · the hands-on lab + the Learn card, below the fold ── */
+	.learn { width:min(1000px, calc(100% - 2.8rem)); margin:0 auto 1.1rem; padding:1.15rem 1.5rem;
+		display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:1rem;
+		border-radius:16px; border:1.5px solid var(--theme-border); background:var(--aw-card); box-shadow:0 10px 30px rgba(0,0,0,0.12); }
+	body.theme-dark .learn { background:var(--aw-card); }
+	.learn .eyebrow { font-size:0.76rem; font-weight:700; letter-spacing:0.04em; text-transform:uppercase; color:var(--aw-blue); }
+	.learn h3 { margin:0.22rem 0; font-size:1.1rem; font-weight:700; }
+	.learn p { margin:0; font-size:0.88rem; line-height:1.45; opacity:0.82; max-width:60ch; }
+	/* PRACTICE · the hands-on lab that follows the journey — first card on screen 2 */
+	.practice { width:min(1000px, calc(100% - 2.8rem)); margin:2rem auto 1.1rem; padding:1.15rem 1.5rem;
+		scroll-margin-top:calc(var(--aw-bar-h, 3.4rem) + 0.8rem);
+		border-radius:16px; border:1.5px solid var(--theme-border); background:var(--aw-card); box-shadow:0 10px 30px rgba(0,0,0,0.12); }
+	.practice .eyebrow { font-size:0.76rem; font-weight:700; letter-spacing:0.04em; text-transform:uppercase; color:var(--aw-green); }
+	.practice h3 { margin:0.22rem 0; font-size:1.1rem; font-weight:700; }
+	.practice > p { margin:0 0 0.85rem; font-size:0.88rem; line-height:1.45; opacity:0.82; max-width:70ch; }
+	/* USE CASES · industry cards between the journey map and the hands-on lab */
+	.usecases { width:min(1000px, calc(100% - 2.8rem)); margin:2rem auto 1.1rem; padding:1.15rem 1.5rem;
+		scroll-margin-top:calc(var(--aw-bar-h, 3.4rem) + 0.8rem);
+		border-radius:16px; border:1.5px solid var(--theme-border); background:var(--aw-card); box-shadow:0 10px 30px rgba(0,0,0,0.12); }
+	.usecases .eyebrow { font-size:0.76rem; font-weight:700; letter-spacing:0.04em; text-transform:uppercase; color:var(--aw-purple); }
+	body.theme-dark .usecases .eyebrow { color:#c9a5e8; }
+	.usecases h3 { margin:0.22rem 0; font-size:1.1rem; font-weight:700; }
+	.usecases > p { margin:0 0 0.85rem; font-size:0.88rem; line-height:1.45; opacity:0.82; max-width:70ch; }
+	.uc-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(258px,1fr)); gap:0.8rem; }
+	.uc-card { display:flex; flex-direction:column; gap:0.26rem; padding:0.9rem 1rem; border-radius:12px;
+		border:2px solid var(--pc); background:var(--theme-card-background,#fff); color:inherit; text-decoration:none;
+		box-shadow:0 6px 18px rgba(0,0,0,0.08); transition:transform 0.15s ease, box-shadow 0.15s ease; }
+	body.theme-dark .uc-card { background:var(--aw-card); }
+	.uc-card:hover { transform:translateY(-2px); box-shadow:0 12px 26px rgba(0,0,0,0.16); }
+	.uc-apps { display:flex; gap:0.45rem; margin-bottom:0.3rem; }
+	.uc-apps img { width:30px; height:30px; display:block; }
+	body.theme-dark .uc-card .prac-k, body.theme-dark .uc-card .prac-m { color:#c9a5e8; }
+	/* industry cards: a soft tint plus a few quiet, floating pictures (hotel: 🏨🛎️🔑🛏️ · finance: $ coins, a note, a report) */
+	.uc-card { position:relative; overflow:hidden; container-type:inline-size; }
+	.uc-card, body.theme-dark .uc-card { background-image:radial-gradient(circle at 95% 0%, color-mix(in srgb, var(--pc) 17%, transparent), transparent 58%); }
+	.uc-fx { position:absolute; top:0.7rem; right:0.9rem; display:flex; align-items:flex-end; gap:0.5rem; font-size:1.3rem; line-height:1; pointer-events:none; user-select:none; }
+	.uc-fx i { font-style:normal; display:inline-block; animation:ucBob 3.6s ease-in-out infinite; }
+	.uc-fx i:nth-child(2) { animation-delay:-0.9s; } .uc-fx i:nth-child(3) { animation-delay:-1.8s; } .uc-fx i:nth-child(4) { animation-delay:-2.7s; }
+	.uc-fx .bell { transform-origin:50% 0; animation:ucDing 4.2s ease-in-out infinite; }
+	.uc-fx .key { transform-origin:50% 0; animation:ucSway 4.8s ease-in-out infinite; }
+	.uc-fx .coin { width:1.35rem; height:1.35rem; border-radius:50%; display:grid; place-items:center; font-size:0.82rem; font-weight:800; font-style:normal; color:#7a5200;
+		background:radial-gradient(circle at 35% 30%, #fff3b0, #f2c14e 55%, #c99a2c); box-shadow:0 0 0 1.5px #b7871f inset; animation:ucFlip 3s linear infinite; }
+	.uc-fx .coin.c2 { animation-delay:-1.5s; width:1.1rem; height:1.1rem; font-size:0.68rem; }
+	.uc-card:hover .uc-fx i { animation-duration:1.8s; } .uc-card:hover .uc-fx .coin { animation-duration:1.4s; }
+	.uc-card:hover .uc-apps img { animation:ucHop 0.5s ease both; }
+	.uc-card:hover .uc-apps img:nth-child(2) { animation-delay:0.06s; } .uc-card:hover .uc-apps img:nth-child(3) { animation-delay:0.12s; }
+	.uc-card:hover .uc-apps img:nth-child(4) { animation-delay:0.18s; } .uc-card:hover .uc-apps img:nth-child(5) { animation-delay:0.24s; }
+	@keyframes ucBob { 0%, 100% { transform:translateY(0); } 50% { transform:translateY(-6px); } }
+	@keyframes ucDing { 0%, 70%, 100% { transform:rotate(0); } 74% { transform:rotate(16deg); } 80% { transform:rotate(-14deg); } 86% { transform:rotate(9deg); } 92% { transform:rotate(-5deg); } }
+	@keyframes ucSway { 0%, 100% { transform:rotate(-8deg); } 50% { transform:rotate(8deg); } }
+	@keyframes ucFlip { from { transform:rotateY(0); } to { transform:rotateY(360deg); } }
+	@keyframes ucHop { 0% { transform:translateY(0); } 40% { transform:translateY(-6px); } 100% { transform:translateY(0); } }
+	@container (max-width:380px) { .uc-fx i:nth-child(n+3), .uc-fx .coin.c2 { display:none; } }
+	.prac-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(258px,1fr)); gap:0.8rem; }
+	/* full coloured border, not a top accent bar — and opaque, so the card lifts off the page */
+	.prac-card { display:flex; flex-direction:column; gap:0.26rem; padding:0.8rem 0.9rem; border-radius:12px;
+		border:2px solid var(--pc); background:var(--theme-card-background,#fff); color:inherit; text-decoration:none;
+		box-shadow:0 6px 18px rgba(0,0,0,0.08); transition:transform 0.15s ease, box-shadow 0.15s ease; }
+	body.theme-dark .prac-card { background:var(--aw-card); }
+	.prac-card:hover { transform:translateY(-2px); box-shadow:0 12px 26px rgba(0,0,0,0.16); }
+	.prac-k { font-size:0.72rem; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; color:var(--pc); }
+	.prac-t { font-size:0.95rem; font-weight:600; line-height:1.3; }
+	.prac-d { font-size:0.82rem; line-height:1.45; opacity:0.8; }
+	.prac-m { margin-top:0.15rem; font-size:0.76rem; font-weight:600; color:var(--pc); }
+	.site-foot { padding:0.7rem 1.6rem 1.4rem; text-align:center; font-size:0.85rem; opacity:0.8; border-top:1px solid var(--theme-border); }
+	.foot-credit { display:flex; align-items:center; justify-content:center; gap:0.4rem; margin-bottom:0.3rem; }
+	.credit-link { display:inline-flex; align-items:center; gap:0.35rem; font-weight:600; color:var(--aw-blue); }
+	.site-foot a { color:var(--aw-blue); }
+
+	/* scroll cue — screen 2 is below the fold, so say so */
+	.scroll-cue { position:absolute; left:50%; bottom:0.5rem; transform:translateX(-50%); z-index:5;
+		display:inline-flex; align-items:center; gap:0.4rem; padding:0.34rem 0.8rem; border-radius:999px;
+		font:inherit; font-size:0.78rem; font-weight:600; color:var(--theme-text);
+		border:1px solid var(--theme-border); background:var(--theme-card-background,#fff); cursor:pointer;
+		opacity:0.75; transition:opacity 0.2s ease, transform 0.2s ease; }
+	body.theme-dark .scroll-cue { background:var(--aw-card); }
+	.scroll-cue:hover { opacity:1; transform:translateX(-50%) translateY(-2px); }
+	.scroll-cue[hidden] { display:none; }
+	.scroll-cue .cue-arw { animation:cueBob 2.2s ease-in-out infinite; }
+	@keyframes cueBob { 0%,100% { transform:translateY(0); } 50% { transform:translateY(3px); } }
+	@media (prefers-reduced-motion: reduce) { .scroll-cue .cue-arw { animation:none; } }
+
+	/* very small screens can't win a fit fight — let it scroll there instead */
+	@media (max-width:820px) {
+		.stage { display:block; height:auto; overflow:visible; padding:1rem; }
+		.map { width:100%; transform:none !important; }
+		.scroll-cue { display:none; }
+		.branches { padding-left:0; } .branches::before { display:none; }
+		.act { flex-direction:column; align-items:flex-start; gap:0.6rem; }
+		.act::before, .act::after { display:none; }
+		.act-label { width:100%; } .leaves { flex-wrap:wrap; } .leaf { width:100%; }
+		.cap { min-width:0; }
+	}
+	/* ── EXAM DEEP DIVES (AB-900) ── */
+	.xd { max-width:1180px; margin:2.4rem auto 1rem; padding:0 1.5rem; }
+	.xd-head { text-align:center; margin-bottom:1.5rem; }
+	.xd-eyebrow { font-size:0.78rem; font-weight:700; letter-spacing:0.16em; text-transform:uppercase; color:var(--theme-text-subtle, #6b6b7b); }
+	.xd-head h2 { margin:0.45rem 0 0.45rem; font-size:clamp(1.5rem,3vw,2.1rem); font-weight:800; }
+	.xd-head p { margin:0 auto; max-width:62ch; font-size:1.02rem; opacity:0.86; line-height:1.6; }
+	.xd-grid { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:1.05rem; }
+	.xd-card { display:flex; flex-direction:column; gap:0.4rem; padding:1.15rem 1.15rem 1rem; border-radius:16px; text-decoration:none; color:var(--theme-text);
+		background:var(--theme-body-background, #fff); border:2px solid var(--xc); box-shadow:0 6px 20px rgba(0,0,0,0.12); transition:transform .18s ease, box-shadow .18s ease; }
+	.xd-card:hover { transform:translateY(-4px); box-shadow:0 14px 34px rgba(0,120,212,0.22); }
+	.xd-top { display:flex; align-items:center; justify-content:space-between; gap:0.6rem; }
+	.xd-dom { font-size:0.74rem; font-weight:700; letter-spacing:0.03em; padding:0.2rem 0.6rem; border-radius:999px; color:var(--xc); background:color-mix(in srgb, var(--xc) 12%, transparent); }
+	body.theme-dark .xd-dom { color:color-mix(in srgb, var(--xc) 45%, #fff); background:color-mix(in srgb, var(--xc) 28%, transparent); }
+	.xd-steps { font-size:0.8rem; font-weight:600; opacity:0.7; }
+	.xd-card h3 { margin:0.1rem 0 0; font-size:1.08rem; font-weight:700; line-height:1.3; }
+	.xd-card p { margin:0; font-size:0.9rem; line-height:1.5; opacity:0.84; }
+	.xd-go { margin-top:auto; padding-top:0.5rem; font-weight:700; font-size:0.88rem; color:var(--xc); }
+	body.theme-dark .xd-go { color:color-mix(in srgb, var(--xc) 45%, #fff); }
+	@media (max-width:980px) { .xd-grid { grid-template-columns:repeat(2, minmax(0,1fr)); } }
+	@media (max-width:600px) { .xd-grid { grid-template-columns:1fr; } }
+</style>
+	<script src="../../lib/js/aw-brand.js"></script>
+	<!-- SEO:START -->
+	<link rel="canonical" href="https://azureanimations.github.io/journeys/Copilot/" />
+	<meta name="robots" content="index, follow, max-image-preview:large" />
+	<meta property="og:type" content="website" />
+	<meta property="og:site_name" content="Azure Animations" />
+	<meta property="og:title" content="Copilot Journey · Mind Map · Azure Animations" />
+	<meta property="og:description" content="The Microsoft 365 Copilot journey as a single-screen mind map — from the free personal Copilot, through joining a company, into Word, PowerPoint, Excel, Outlook and Teams, and out to the one Copilot behind them all." />
+	<meta property="og:url" content="https://azureanimations.github.io/journeys/Copilot/" />
+	<meta property="og:image" content="https://azureanimations.github.io/img/favicon.png" />
+	<meta property="og:image:alt" content="Azure Animations" />
+	<meta name="twitter:card" content="summary" />
+	<meta name="twitter:title" content="Copilot Journey · Mind Map · Azure Animations" />
+	<meta name="twitter:description" content="The Microsoft 365 Copilot journey as a single-screen mind map — from the free personal Copilot, through joining a company, into Word, PowerPoint, Excel, Outlook and Teams, and out to the one Copilot behind them all." />
+	<meta name="twitter:image" content="https://azureanimations.github.io/img/favicon.png" />
+	<meta name="twitter:image:alt" content="Azure Animations" />
+	<script type="application/ld+json">
+	{"@context":"https://schema.org","@type":"WebPage","name":"Copilot Journey · Mind Map · Azure Animations","description":"The Microsoft 365 Copilot journey as a single-screen mind map — from the free personal Copilot, through joining a company, into Word, PowerPoint, Excel, Outlook and Teams, and out to the one Copilot behind them all.","url":"https://azureanimations.github.io/journeys/Copilot/","isPartOf":{"@type":"WebSite","name":"Azure Animations","url":"https://azureanimations.github.io/"},"breadcrumb":{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Azure Animations","item":"https://azureanimations.github.io/"},{"@type":"ListItem","position":2,"name":"Copilot Journey · Mind Map","item":"https://azureanimations.github.io/journeys/Copilot/"}]}}
+	</script>
+	<!-- SEO:END -->
+</head>
+
+<body class="theme-dark" data-theme-preset="atlas">
+
+	<header class="bar">
+		<div class="topbar-left">
+			<!-- AW:brand {"img":"class=\"aa-logo\" decoding=\"async\"","cls":"brand-name","name":"accent"} --><a class="brand" href="../../index.html" aria-label="Azure Animations home"><img data-aw-logo src="../../img/brand/logo.svg" alt="" class="aa-logo" decoding="async" /><span class="brand-name" data-aw-name="accent"></span></a><!-- /AW:brand -->
+		<!-- AW:likes {"slug":"journey-m365-copilot"} --><div class="aw-like-top"><button class="aw-like" data-aw-like data-like-total data-page-slug="journey-m365-copilot" type="button" aria-pressed="false" aria-label="Support Azure Animations — tap the heart"><span class="aw-like-heart" aria-hidden="true">❤️</span><span class="aw-like-label">Support</span><span class="aw-like-count" data-like-count>0</span></button><div class="aw-like-pop" role="tooltip"><strong>A little tap makes our day 💙</strong><span>These Azure animations are a labour of love. If they helped you, a tap of the heart means the world — thank you for your support! 🙏</span><span class="aw-like-geo" data-like-geo hidden></span></div></div><!-- /AW:likes -->
+		</div>
+		<div class="head-title">
+			<span class="mark"><img src="../../lib/icons/brands/MicrosoftCopilot.png" alt="" decoding="async" /></span>
+			<span class="t">Microsoft 365 Copilot</span>
+		</div>
+		<div class="bar-actions">
+			<a class="btn-cta" href="PersonalCopilot.html" data-i18n="navStart">Start →</a>
+			<!-- AW:lang --><select id="lang-select" class="lang-select" aria-label="Language" title="Language"><option value="en">English</option><option value="es">Español</option><option value="ja">日本語</option><option value="ko">한국어</option><option value="pt">Português</option></select><!-- /AW:lang -->
+			<button id="audio-toggle" type="button" class="theme-toggle" aria-label="Play welcome narration" aria-pressed="false" title="Play welcome narration"><span class="aw-audio-ico" aria-hidden="true">🔇</span></button>
+			<!-- AW:theme {"size":18} --><button id="theme-toggle" type="button" class="theme-toggle" aria-label="Switch theme" title="Switch theme"><svg class="theme-icon icon-moon ico ico-moon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path fill="currentColor" d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg><svg class="theme-icon icon-sun ico ico-sun" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.5" y1="4.5" x2="6.5" y2="6.5"/><line x1="17.5" y1="17.5" x2="19.5" y2="19.5"/><line x1="4.5" y1="19.5" x2="6.5" y2="17.5"/><line x1="17.5" y1="6.5" x2="19.5" y2="4.5"/></g></svg></button><!-- /AW:theme -->
+		</div>
+	</header>
+
+	<main class="stage">
+		<div class="map" id="map">
+
+			<div class="map-hero">
+				<h1 data-i18n-html="heroTitleHtml">The <span class="grad">Copilot</span> journey</h1>
+				<p data-i18n="heroLead">One story, five acts, eleven animated stops — from a free question to a company running on Copilot.</p>
+				<p class="map-note" data-i18n="heroNote">Follow Alex’s first month at Contoso — from the free Copilot anyone can open, to one proposal carried through Word, PowerPoint, Excel, Outlook and Teams, to whole tasks handed off to Cowork, and the single assistant behind them all.</p>
+				<div class="map-stats">
+					<div><b>5</b><span data-i18n="statActs">acts</span></div>
+					<div><b>11</b><span data-i18n="statStops">stops</span></div>
+					<div><b data-i18n="statFree">Free</b><span data-i18n="statFreeSub">to start</span></div>
+				</div>
+			</div>
+
+			<div class="cap is-root">
+				<span class="cap-ic" aria-hidden="true">💭</span>
+				<span class="cap-tx"><b data-i18n="rootTitle">You, a browser, and a question</b><span data-i18n="rootSub">No licence. No company account. Nothing installed.</span></span>
+			</div>
+
+			<div class="branches">
+
+				<!-- ACT 1 -->
+				<section class="act" style="--act-c:var(--aw-blue)">
+					<div class="act-label">
+						<div class="act-no" data-i18n="a1No">Act 1 · On your own</div>
+						<h3 data-i18n="a1H">Copilot you can use today</h3>
+						<p data-i18n="a1P">Free, personal, web-grounded.</p>
+					</div>
+					<div class="leaves">
+						<a class="leaf" href="PersonalCopilot.html">
+							<span class="leaf-top"><img src="../../lib/icons/brands/MicrosoftCopilot.png" alt="" /><span class="leaf-no">01</span></span>
+							<b data-i18n="s1T">Free Personal Copilot</b>
+							<span data-i18n="s1D">No licence. Ask, and see the sources.</span>
+						</a>
+					</div>
+				</section>
+
+				<!-- ACT 2 -->
+				<section class="act" style="--act-c:var(--aw-purple)">
+					<div class="act-label">
+						<div class="act-no" data-i18n="a2No">Act 2 · You join a company</div>
+						<h3 data-i18n="a2H">Work data changes everything</h3>
+						<p data-i18n="a2P">Platform first, then Copilot.</p>
+					</div>
+					<div class="leaves">
+						<a class="leaf" href="Microsoft365.html">
+							<span class="leaf-top"><img src="../../lib/icons/brands/m365/Microsoft365.svg" alt="" /><span class="leaf-no">02</span></span>
+							<b data-i18n="s2T">First day with Microsoft 365</b>
+							<span data-i18n="s2D">Licence, account, tenant.</span>
+						</a>
+						<span class="chev" aria-hidden="true">›</span>
+						<a class="leaf" href="M365Copilot.html">
+							<span class="leaf-top"><img src="../../lib/icons/brands/Microsoft365Copilot.svg" alt="" /><span class="leaf-no">03</span></span>
+							<b data-i18n="s3T">Meet Microsoft 365 Copilot</b>
+							<span data-i18n="s3D">Web vs Work. Permissions. Agents.</span>
+						</a>
+					</div>
+				</section>
+
+				<!-- ACT 3 -->
+				<section class="act" style="--act-c:var(--aw-pink)">
+					<div class="act-label">
+						<div class="act-no" data-i18n="a3No">Act 3 · Where work happens</div>
+						<h3 data-i18n="a3H">One proposal, five apps</h3>
+						<p data-i18n="a3P">One task, followed end to end.</p>
+					</div>
+					<div class="leaves">
+						<a class="leaf a-word" href="CopilotInWord.html">
+							<span class="leaf-top"><img src="../../lib/icons/brands/m365/Word.svg" alt="" /><span class="leaf-no">04</span></span>
+							<b>Word</b>
+							<span data-i18n="s4D">Blank page → executive proposal.</span>
+						</a>
+						<span class="chev" aria-hidden="true">›</span>
+						<a class="leaf a-ppt" href="CopilotInPowerPoint.html">
+							<span class="leaf-top"><img src="../../lib/icons/brands/m365/PowerPoint.svg" alt="" /><span class="leaf-no">05</span></span>
+							<b>PowerPoint</b>
+							<span data-i18n="s5D">Document → branded deck.</span>
+						</a>
+						<span class="chev" aria-hidden="true">›</span>
+						<a class="leaf a-xls" href="CopilotInExcel.html">
+							<span class="leaf-top"><img src="../../lib/icons/brands/m365/Excel.svg" alt="" /><span class="leaf-no">06</span></span>
+							<b>Excel</b>
+							<span data-i18n="s6D">Ask the workbook, not formulas.</span>
+						</a>
+						<span class="chev" aria-hidden="true">›</span>
+						<a class="leaf a-otl" href="CopilotInOutlook.html">
+							<span class="leaf-top"><img src="../../lib/icons/brands/m365/Outlook.svg" alt="" /><span class="leaf-no">07</span></span>
+							<b>Outlook</b>
+							<span data-i18n="s7D">300 emails, triaged and answered.</span>
+						</a>
+						<span class="chev" aria-hidden="true">›</span>
+						<a class="leaf a-tms" href="CopilotInTeams.html">
+							<span class="leaf-top"><img src="../../lib/icons/brands/m365/Teams.svg" alt="" /><span class="leaf-no">08</span></span>
+							<b>Teams</b>
+							<span data-i18n="s8D">Join late, leave with decisions.</span>
+						</a>
+					</div>
+				</section>
+
+				<!-- ACT 4 · Copilot Cowork -->
+				<section class="act" style="--act-c:var(--aw-teal)">
+					<div class="act-label">
+						<div class="act-no" data-i18n="aCwNo">Act 4 · Hand it off</div>
+						<h3 data-i18n="aCwH">Copilot Cowork</h3>
+						<p data-i18n="aCwP">Describe the goal. Approve. Review.</p>
+					</div>
+					<div class="leaves">
+						<a class="leaf" href="CoworkHandOff.html">
+							<span class="leaf-top"><img src="../../lib/icons/brands/Microsoft365Copilot.svg" alt="" /><span class="leaf-no">09</span></span>
+							<b data-i18n="sCwT">Hand off the work</b>
+							<span data-i18n="sCwD">One goal in, a briefing and an email out.</span>
+						</a>
+					</div>
+				</section>
+
+				<!-- ACT 5 -->
+				<section class="act" style="--act-c:var(--aw-green)">
+					<div class="act-label">
+						<div class="act-no" data-i18n="a4No">Act 5 · It adds up</div>
+						<h3 data-i18n="a4H">It was one Copilot all along</h3>
+						<p data-i18n="a4P">Five apps, one assistant, one memory.</p>
+					</div>
+					<div class="leaves">
+						<a class="leaf" href="CopilotEverywhere.html">
+							<span class="leaf-top"><img src="../../lib/icons/brands/Microsoft365Copilot.svg" alt="" /><span class="leaf-no">10</span></span>
+							<b data-i18n="s9T">One Copilot everywhere</b>
+							<span data-i18n="s9D">One conversation, every surface.</span>
+						</a>
+						<span class="chev" aria-hidden="true">›</span>
+						<a class="leaf" href="CopilotBusinessValue.html">
+							<span class="leaf-top"><img src="../../lib/icons/brands/Microsoft365Copilot.svg" alt="" /><span class="leaf-no">11</span></span>
+							<b data-i18n="s10T">Why Microsoft 365 Copilot</b>
+							<span data-i18n="s10D">Six before-and-afters.</span>
+						</a>
+					</div>
+				</section>
+
+			</div>
+
+			<div class="cap is-end">
+				<span class="cap-ic" aria-hidden="true">🎯</span>
+				<span class="cap-tx"><b data-i18n="endTitle">Alex's first month at Contoso</b><span data-i18n="endSub">Eleven stops, one connected story — start anywhere.</span></span>
+			</div>
+
+		</div>
+
+		<button id="scroll-cue" class="scroll-cue" type="button" hidden>
+			<span data-i18n="cueLabel">Hands-on lab</span><span class="cue-arw" aria-hidden="true">↓</span>
+		</button>
+	</main>
+
+	<!-- AB-900 deep dives. Domains and weights: https://learn.microsoft.com/credentials/certifications/resources/study-guides/ab-900 (skills measured as of October 14, 2026)
+	     Localized in en/es/ja/ko/pt; the hub script adds ?lang= to these links. -->
+	<section class="xd" id="admins" aria-label="AB-900 deep dives">
+		<div class="xd-head">
+			<div class="xd-eyebrow" data-i18n="admEyebrow">For admins · AB-900 and SC-900</div>
+			<h2 data-i18n="admTitle">Run Microsoft 365 Copilot as an admin</h2>
+			<p data-i18n="admLead">Nine stand-alone lessons for the admin side of Copilot: admin centers, security, Purview, data and oversharing, licensing, agents, and the Trust Center. Eight follow the three AB-900 domains. Take them in any order.</p>
+		</div>
+		<div class="xd-grid">
+			<a class="xd-card" style="--xc:#0078d4" href="AdminCentersAndLicenses.html" target="_blank" rel="noopener">
+				<span class="xd-top"><span class="xd-dom">30–35%</span><span class="xd-steps">12 steps</span></span>
+				<h3 data-i18n="adm1T">Admin Centers and Licenses</h3>
+				<p data-i18n="adm1D">Which admin center manages which object, and how licenses unlock features.</p>
+				<span class="xd-go"><span data-i18n="admGo">Open explainer</span> &rarr;</span>
+			</a>
+			<a class="xd-card" style="--xc:#5c2d91" href="ZeroTrustAndDefender.html" target="_blank" rel="noopener">
+				<span class="xd-top"><span class="xd-dom">30–35%</span><span class="xd-steps">11 steps</span></span>
+				<h3 data-i18n="adm2T">Zero Trust and Defender XDR</h3>
+				<p data-i18n="adm2D">The security principles behind Microsoft 365, and how Defender XDR joins the signals.</p>
+				<span class="xd-go"><span data-i18n="admGo">Open explainer</span> &rarr;</span>
+			</a>
+			<a class="xd-card" style="--xc:#0e9e8a" href="IdentityOperations.html" target="_blank" rel="noopener">
+				<span class="xd-top"><span class="xd-dom">30–35%</span><span class="xd-steps">12 steps</span></span>
+				<h3 data-i18n="adm3T">Identity Operations</h3>
+				<p data-i18n="adm3D">Conditional Access, sign-in problems, Secure Score, audit logs, PIM and app objects.</p>
+				<span class="xd-go"><span data-i18n="admGo">Open explainer</span> &rarr;</span>
+			</a>
+			<a class="xd-card" style="--xc:#c2410c" href="PurviewProtectData.html" target="_blank" rel="noopener">
+				<span class="xd-top"><span class="xd-dom">35–40%</span><span class="xd-steps">12 steps</span></span>
+				<h3 data-i18n="adm4T">Purview: Protect Your Data</h3>
+				<p data-i18n="adm4D">Classification, sensitivity labels, data loss prevention and retention.</p>
+				<span class="xd-go"><span data-i18n="admGo">Open explainer</span> &rarr;</span>
+			</a>
+			<a class="xd-card" style="--xc:#d24aa8" href="PurviewRiskAndCompliance.html" target="_blank" rel="noopener">
+				<span class="xd-top"><span class="xd-dom">35–40%</span><span class="xd-steps">12 steps</span></span>
+				<h3 data-i18n="adm5T">Purview: Risk and Compliance</h3>
+				<p data-i18n="adm5D">Insider risk, communication compliance, DSPM for AI, eDiscovery and more.</p>
+				<span class="xd-go"><span data-i18n="admGo">Open explainer</span> &rarr;</span>
+			</a>
+			<a class="xd-card" style="--xc:#2da44e" href="CopilotDataAndOversharing.html" target="_blank" rel="noopener">
+				<span class="xd-top"><span class="xd-dom">35–40%</span><span class="xd-steps">13 steps</span></span>
+				<h3 data-i18n="adm6T">Copilot, Data and Oversharing</h3>
+				<p data-i18n="adm6D">What Copilot can see, and how to find and fix oversharing in SharePoint.</p>
+				<span class="xd-go"><span data-i18n="admGo">Open explainer</span> &rarr;</span>
+			</a>
+			<a class="xd-card" style="--xc:#b45309" href="CopilotLicensingAndUsage.html" target="_blank" rel="noopener">
+				<span class="xd-top"><span class="xd-dom">25–30%</span><span class="xd-steps">13 steps</span></span>
+				<h3 data-i18n="adm7T">Copilot Licensing and Usage</h3>
+				<p data-i18n="adm7D">Monthly licences versus pay-as-you-go, features, usage reports and prompts.</p>
+				<span class="xd-go"><span data-i18n="admGo">Open explainer</span> &rarr;</span>
+			</a>
+			<a class="xd-card" style="--xc:#0f7b80" href="AgentAdministration.html" target="_blank" rel="noopener">
+				<span class="xd-top"><span class="xd-dom">25–30%</span><span class="xd-steps">12 steps</span></span>
+				<h3 data-i18n="adm8T">Agent Administration</h3>
+				<p data-i18n="adm8D">Who can use agents, how requests are approved, and how to monitor them.</p>
+				<span class="xd-go"><span data-i18n="admGo">Open explainer</span> &rarr;</span>
+			</a>
+					<a class="xd-card" style="--xc:#0f7b80" href="TrustCenterAndPrivacy.html" target="_blank" rel="noopener">
+				<span class="xd-top"><span class="xd-dom">SC-900</span><span class="xd-steps">10 steps</span></span>
+				<h3 data-i18n="adm9T">Trust Center and privacy</h3>
+				<p data-i18n="adm9D">The Service Trust Portal, compliance offerings and Microsoft privacy principles.</p>
+				<span class="xd-go"><span data-i18n="admGo">Open explainer</span> &rarr;</span>
+			</a>
+		</div>
+	</section>
+
+	<!-- INDUSTRY USE CASES · one card per industry; each card opens that industry's hub (Hospitality/index.html, Finance/index.html).
+	     To add another industry: copy an <a class="uc-card"> below, point it at its hub, and add its i18n strings in all five languages. -->
+	<section class="usecases" id="usecases">
+		<div class="eyebrow" data-i18n="ucEyebrow">Industry use cases</div>
+		<h3 data-i18n="ucTitle">See Copilot at work in your industry</h3>
+		<p data-i18n="ucLead">Real scenarios with practice material, step by step — for people who have never used the apps before.</p>
+		<div class="uc-grid">
+			<a class="uc-card" style="--pc:var(--aw-purple)" href="Hospitality/index.html">
+				<span class="uc-fx" aria-hidden="true"><i>🏨</i><i class="bell">🛎️</i><i class="key">🔑</i><i>🛏️</i></span>
+				<span class="uc-apps" aria-hidden="true">
+					<img src="../../lib/icons/brands/m365/Outlook.svg" alt="" width="30" height="30">
+					<img src="../../lib/icons/brands/m365/Teams.svg" alt="" width="30" height="30">
+					<img src="../../lib/icons/brands/m365/Word.svg" alt="" width="30" height="30">
+					<img src="../../lib/icons/brands/m365/PowerPoint.svg" alt="" width="30" height="30">
+					<img src="../../lib/icons/brands/m365/Excel.svg" alt="" width="30" height="30">
+				</span>
+				<span class="prac-k" data-i18n="ucHospK">Industry · Hospitality</span>
+				<span class="prac-t" data-i18n="ucHospT">Copilot for hotel teams</span>
+				<span class="prac-d" data-i18n="ucHospD">Follow a hotel coordinator through a busy day in Outlook and Teams, turn that work into a better standard in Word, then tell the story in PowerPoint and turn the numbers into evidence in Excel.</span>
+				<span class="prac-m" data-i18n="ucHospM">Open the hospitality hub →</span>
+			</a>
+			<a class="uc-card" style="--pc:var(--aw-blue)" href="Finance/index.html">
+				<span class="uc-fx" aria-hidden="true"><b class="coin">$</b><i>💵</i><i>📊</i><b class="coin c2">$</b></span>
+				<span class="uc-apps" aria-hidden="true">
+					<img src="../../lib/icons/brands/m365/Word.svg" alt="" width="30" height="30">
+					<img src="../../lib/icons/brands/m365/Excel.svg" alt="" width="30" height="30">
+					<img src="../../lib/icons/brands/m365/PowerPoint.svg" alt="" width="30" height="30">
+					<img src="../../lib/icons/brands/m365/Outlook.svg" alt="" width="30" height="30">
+					<img src="../../lib/icons/brands/m365/Teams.svg" alt="" width="30" height="30">
+				</span>
+				<span class="prac-k" data-i18n="ucFinK">Industry · Finance</span>
+				<span class="prac-t" data-i18n="ucFinT">Copilot for finance and audit teams</span>
+				<span class="prac-d" data-i18n="ucFinD">Join an audit engagement for a fictional retailer. Six standalone workshops cover Word, Excel, PowerPoint, Outlook, Teams and Copilot Chat on the web, each with sample files and a check against the source.</span>
+				<span class="prac-m" data-i18n="ucFinM">Open the finance hub →</span>
+			</a>
+		</div>
+	</section>
+
+	<section class="practice">
+		<div class="eyebrow" data-i18n="pracEyebrow">Practice · Hands-on lab</div>
+		<h3 data-i18n="pracTitle">Now do it yourself</h3>
+		<p data-i18n="pracLead">The journey shows you what Copilot does. This lab makes you do it — five labs across Copilot Chat, PowerPoint, Word, Teams and Excel, in your own tenant.</p>
+		<div class="prac-row">
+			<a class="prac-card" style="--pc:var(--aw-blue)" href="../lab-guide/DraftAnalyzePresentLab/DraftAnalyzePresent.html">
+				<span class="prac-k" data-i18n="pracGuideK">Visual guide</span>
+				<span class="prac-t" data-i18n="pracGuideT">Draft, analyze and present — lab guide</span>
+				<span class="prac-d" data-i18n="pracGuideD">Every lab at a glance, then pick one to see the app you open, the prompts you type, and what you end up with.</span>
+				<span class="prac-m" data-i18n="pracGuideM">Open the guide →</span>
+			</a>
+			<a class="prac-card" style="--pc:var(--aw-green)" href="https://microsoftlearning.github.io/MS-4018-Draft-analyze-present-Microsoft-365-Copilot/" target="_blank" rel="noopener noreferrer">
+				<span class="prac-k" data-i18n="pracLabK">Official lab · MS-4018</span>
+				<span class="prac-t" data-i18n="pracLabT">Draft, analyze, and present with Microsoft 365 Copilot</span>
+				<span class="prac-d" data-i18n="pracLabD">The Microsoft Learn exercises themselves — setup plus five labs, with every prompt to copy. Needs a Microsoft 365 Copilot plan.</span>
+				<span class="prac-m" data-i18n="pracLabM">Open the lab ↗</span>
+			</a>
+		</div>
+	</section>
+
+	<section class="learn">
+		<div class="learn-copy">
+			<div class="eyebrow" data-i18n="learnEyebrow">Go deeper on Microsoft Learn</div>
+			<h3 data-i18n="learnTitle">Learn how to use Microsoft Copilot</h3>
+			<p data-i18n="learnLead">The official, always-current Microsoft Learn hub for Microsoft Copilot — free personal use and Microsoft 365 Copilot for work.</p>
+		</div>
+		<a class="btn-cta" href="https://learn.microsoft.com/en-us/copilot/" target="_blank" rel="noopener noreferrer" data-i18n="learnCta">Open Microsoft Learn ↗</a>
+	</section>
+
+	<footer class="site-foot">
+		<div class="foot-credit" data-aw-credit="18"></div>
+		<div data-aw-footmeta="https://learn.microsoft.com/en-us/copilot/"></div>
+	</footer>
+
+	<script>
+		// Theme toggle (shared AW.theme when present, else a local fallback)
+		(function(){
+			const btn=document.getElementById('theme-toggle');
+			function sync(){ const dark=document.body.classList.contains('theme-dark'); btn.dataset.theme=dark?'dark':'light';
+				const l=dark?'Switch to light theme':'Switch to dark theme'; btn.setAttribute('aria-label',l); btn.setAttribute('title',l); }
+			if(window.AW && AW.theme){ AW.theme.onChange(()=>{ sync(); fitMap(); }); sync(); }
+			else {
+				sync();
+				btn.addEventListener('click',()=>{ const goDark=!document.body.classList.contains('theme-dark');
+					document.body.classList.remove('theme-dark','theme-light'); document.body.classList.add(goDark?'theme-dark':'theme-light');
+					try{ localStorage.setItem('aw-theme', goDark?'theme-dark':'theme-light'); }catch(_){} sync(); });
+				try{ const s=localStorage.getItem('aw-theme'); if(s==='theme-light'||s==='theme-dark'){ document.body.classList.remove('theme-dark','theme-light'); document.body.classList.add(s); sync(); } }catch(_){}
+			}
+		})();
+
+		// Scale the fixed-width map down (never up) so the whole journey fits screen 1.
+		const mapEl=document.getElementById('map'), stageEl=document.querySelector('.stage');
+		const barEl=document.querySelector('.bar');
+		function fitMap(){
+			// the sticky bar eats into screen 1, so the stage has to know how tall it is
+			if(barEl) document.documentElement.style.setProperty('--aw-bar-h', barEl.offsetHeight+'px');
+			if(window.matchMedia('(max-width:820px)').matches){ mapEl.style.transform=''; return; }
+			mapEl.style.transform='scale(1)';
+			// measure the CONTENT box, so the stage's padding survives as real left/right gutters
+			const cs=getComputedStyle(stageEl);
+			const availW=stageEl.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+			const availH=stageEl.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+			const k=Math.min(1, availW/mapEl.offsetWidth, availH/mapEl.offsetHeight);
+			mapEl.style.transform='scale('+k+')';
+		}
+		fitMap();
+		window.addEventListener('resize', fitMap);
+		window.addEventListener('load', fitMap);
+
+		// Screen 2 sits below the fold — offer a way down, and retire it once they're there.
+		(function(){
+			const cue=document.getElementById('scroll-cue'), prac=document.querySelector('.usecases, .practice');
+			if(!cue||!prac) return;
+			function sync(){ cue.hidden = window.scrollY > 40 || window.innerWidth <= 820; }
+			cue.addEventListener('click', ()=> prac.scrollIntoView({ behavior:'smooth', block:'start' }));
+			window.addEventListener('scroll', sync, { passive:true });
+			window.addEventListener('resize', sync);
+			sync();
+		})();
+
+		// ── i18n ──
+		const I18N = {
+			en: {
+				navStart: 'Start →',
+				 admTitle: 'Run Microsoft 365 Copilot as an admin',
+				 admGo: 'Open explainer',
+				adm1T: 'Admin Centers and Licenses', adm1D: 'Which admin center manages which object, and how licenses unlock features.',
+				adm2T: 'Zero Trust and Defender XDR', adm2D: 'The security principles behind Microsoft 365, and how Defender XDR joins the signals.',
+				adm3T: 'Identity Operations', adm3D: 'Conditional Access, sign-in problems, Secure Score, audit logs, PIM and app objects.',
+				adm4T: 'Purview: Protect Your Data', adm4D: 'Classification, sensitivity labels, data loss prevention and retention.',
+				adm5T: 'Purview: Risk and Compliance', adm5D: 'Insider risk, communication compliance, DSPM for AI, eDiscovery and more.',
+				adm6T: 'Copilot, Data and Oversharing', adm6D: 'What Copilot can see, and how to find and fix oversharing in SharePoint.',
+				adm7T: 'Copilot Licensing and Usage', adm7D: 'Monthly licences versus pay-as-you-go, features, usage reports and prompts.',
+				adm8T: 'Agent Administration', adm8D: 'Who can use agents, how requests are approved, and how to monitor them.',
+				cueLabel: 'Use cases & hands-on lab',
+				heroTitleHtml: 'The <span class="grad">Copilot</span> journey',
+				heroLead: 'One story, five acts, eleven animated stops — from a free question to a company running on Copilot.',
+				heroNote: 'Follow Alex\u2019s first month at Contoso — from the free Copilot anyone can open, to one proposal carried through Word, PowerPoint, Excel, Outlook and Teams, to whole tasks handed off to Cowork, and the single assistant behind them all.',
+				statActs: 'acts', statStops: 'stops', statFree: 'Free', statFreeSub: 'to start',
+				rootTitle: 'You, a browser, and a question',
+				rootSub: 'No licence. No company account. Nothing installed.',
+				a1No: 'Act 1 · On your own', a1H: 'Copilot you can use today', a1P: 'Free, personal, web-grounded.',
+				a2No: 'Act 2 · You join a company', a2H: 'Work data changes everything', a2P: 'Platform first, then Copilot.',
+				a3No: 'Act 3 · Where work happens', a3H: 'One proposal, five apps', a3P: 'One task, followed end to end.',
+				a4No: 'Act 5 · It adds up', a4H: 'It was one Copilot all along', a4P: 'Five apps, one assistant, one memory.',
+				aCwNo: 'Act 4 · Hand it off', aCwH: 'Copilot Cowork', aCwP: 'Describe the goal. Approve. Review.',
+				sCwT: 'Hand off the work', sCwD: 'One goal in, a briefing and an email out.',
+				s1T: 'Free Personal Copilot', s1D: 'No licence. Ask, and see the sources.',
+				s2T: 'First day with Microsoft 365', s2D: 'Licence, account, tenant.',
+				s3T: 'Meet Microsoft 365 Copilot', s3D: 'Web vs Work. Permissions. Agents.',
+				s4D: 'Blank page → executive proposal.',
+				s5D: 'Document → branded deck.',
+				s6D: 'Ask the workbook, not formulas.',
+				s7D: '300 emails, triaged and answered.',
+				s8D: 'Join late, leave with decisions.',
+				s9T: 'One Copilot everywhere', s9D: 'One conversation, every surface.',
+				s10T: 'Why Microsoft 365 Copilot', s10D: 'Six before-and-afters.',
+				endTitle: 'Alex\u2019s first month at Contoso',
+				endSub: 'Eleven stops, one connected story — start anywhere.',
+				learnEyebrow: 'Go deeper on Microsoft Learn', learnTitle: 'Learn how to use Microsoft Copilot',
+				learnLead: 'The official, always-current Microsoft Learn hub for Microsoft Copilot — free personal use and Microsoft 365 Copilot for work.',
+				learnCta: 'Open Microsoft Learn ↗',
+				pracEyebrow: 'Practice · Hands-on lab', pracTitle: 'Now do it yourself',
+				pracLead: 'The journey shows you what Copilot does. This lab makes you do it — five labs across Copilot Chat, PowerPoint, Word, Teams and Excel, in your own tenant.',
+				pracGuideK: 'Visual guide', pracGuideT: 'Draft, analyze and present — lab guide',
+				pracGuideD: 'Every lab at a glance, then pick one to see the app you open, the prompts you type, and what you end up with.',
+				pracGuideM: 'Open the guide →',
+				pracLabK: 'Official lab · MS-4018', pracLabT: 'Draft, analyze, and present with Microsoft 365 Copilot',
+				pracLabD: 'The Microsoft Learn exercises themselves — setup plus five labs, with every prompt to copy. Needs a Microsoft 365 Copilot plan.',
+				pracLabM: 'Open the lab ↗',
+				ucEyebrow: 'Industry use cases', ucTitle: 'See Copilot at work in your industry',
+				ucLead: 'Real scenarios with practice material, step by step — for people who have never used the apps before.',
+				ucHospK: 'Industry · Hospitality', ucHospT: 'Copilot for hotel teams',
+				ucHospD: 'Follow a hotel coordinator through a busy day in Outlook and Teams, turn that work into a better standard in Word, then tell the story in PowerPoint and turn the numbers into evidence in Excel.',
+				ucHospM: 'Open the hospitality hub →',
+				ucFinK: 'Industry · Finance', ucFinT: 'Copilot for finance and audit teams',
+				ucFinD: 'Join an audit engagement for a fictional retailer. Six standalone workshops cover Word, Excel, PowerPoint, Outlook, Teams and Copilot Chat on the web, each with sample files and a check against the source.',
+				ucFinM: 'Open the finance hub →',
+				"admEyebrow": "For admins · AB-900 and SC-900",
+				"admLead": "Nine stand-alone lessons for the admin side of Copilot: admin centers, security, Purview, data and oversharing, licensing, agents, and the Trust Center. Eight follow the three AB-900 domains. Take them in any order.",
+				"adm9T": "Trust Center and privacy",
+				"adm9D": "The Service Trust Portal, compliance offerings and Microsoft privacy principles."
+				},
+			es: {
+				navStart: 'Empezar →',
+				cueLabel: 'Casos de uso y laboratorio',
+				heroTitleHtml: 'El recorrido de <span class="grad">Copilot</span>',
+				heroLead: 'Una historia, cinco actos, once paradas animadas: de una pregunta gratuita a una empresa que funciona con Copilot.',
+				heroNote: 'Sigue el primer mes de Alex en Contoso: desde el Copilot gratuito que cualquiera puede abrir hasta una misma propuesta que pasa por Word, PowerPoint, Excel, Outlook y Teams, tareas completas delegadas a Cowork, y el único asistente detrás de todo.',
+				statActs: 'actos', statStops: 'paradas', statFree: 'Gratis', statFreeSub: 'para empezar',
+				rootTitle: 'Tú, un navegador y una pregunta',
+				rootSub: 'Sin licencia. Sin cuenta de empresa. Sin instalar nada.',
+				a1No: 'Acto 1 · Por tu cuenta', a1H: 'El Copilot que puedes usar hoy', a1P: 'Gratis, personal, basado en la web.',
+				a2No: 'Acto 2 · Te unes a una empresa', a2H: 'Los datos del trabajo lo cambian todo', a2P: 'Primero la plataforma, luego Copilot.',
+				a3No: 'Acto 3 · Donde ocurre el trabajo', a3H: 'Una propuesta, cinco aplicaciones', a3P: 'Una tarea, seguida de principio a fin.',
+				a4No: 'Acto 5 · Todo suma', a4H: 'Siempre fue un solo Copilot', a4P: 'Cinco aplicaciones, un asistente, una memoria.',
+				aCwNo: 'Acto 4 · Delégalo', aCwH: 'Copilot Cowork', aCwP: 'Describe el objetivo. Aprueba. Revisa.',
+				sCwT: 'Delega el trabajo', sCwD: 'Entra un objetivo; salen un informe y un correo.',
+				s1T: 'Copilot personal gratuito', s1D: 'Sin licencia. Pregunta y mira las fuentes.',
+				s2T: 'Primer día con Microsoft 365', s2D: 'Licencia, cuenta, inquilino.',
+				s3T: 'Conoce Microsoft 365 Copilot', s3D: 'Web vs Trabajo. Permisos. Agentes.',
+				s4D: 'Página en blanco → propuesta ejecutiva.',
+				s5D: 'Documento → presentación con tu marca.',
+				s6D: 'Pregunta al libro, no fórmulas.',
+				s7D: '300 correos, priorizados y respondidos.',
+				s8D: 'Entra tarde, sal con decisiones.',
+				s9T: 'Un Copilot en todas partes', s9D: 'Una conversación, en cualquier superficie.',
+				s10T: 'Por qué Microsoft 365 Copilot', s10D: 'Seis antes y después.',
+				endTitle: 'El primer mes de Alex en Contoso',
+				endSub: 'Once paradas, una historia conectada: empieza donde quieras.',
+				learnEyebrow: 'Profundiza en Microsoft Learn', learnTitle: 'Aprende a usar Microsoft Copilot',
+				learnLead: 'El centro oficial y siempre actualizado de Microsoft Learn sobre Microsoft Copilot: uso personal gratuito y Microsoft 365 Copilot para el trabajo.',
+				learnCta: 'Abrir Microsoft Learn ↗',
+				pracEyebrow: 'Práctica · Laboratorio', pracTitle: 'Ahora hazlo tú',
+				pracLead: 'El recorrido te enseña qué hace Copilot. Este laboratorio te lo hace hacer: cinco laboratorios en Copilot Chat, PowerPoint, Word, Teams y Excel, en tu propio inquilino.',
+				pracGuideK: 'Guía visual', pracGuideT: 'Redactar, analizar y presentar — guía del laboratorio',
+				pracGuideD: 'Todos los laboratorios de un vistazo; elige uno para ver qué app abrir, qué prompts escribir y con qué acabas.',
+				pracGuideM: 'Abrir la guía →',
+				pracLabK: 'Laboratorio oficial · MS-4018', pracLabT: 'Redacta, analiza y presenta con Microsoft 365 Copilot',
+				pracLabD: 'Los ejercicios de Microsoft Learn: la preparación y cinco laboratorios, con todos los prompts para copiar. Requiere un plan de Microsoft 365 Copilot.',
+				pracLabM: 'Abrir el laboratorio ↗',
+				ucEyebrow: 'Casos de uso por sector', ucTitle: 'Mira Copilot en acción en tu sector',
+				ucLead: 'Escenarios reales con material de práctica, paso a paso, pensados para quien nunca ha usado las aplicaciones.',
+				ucHospK: 'Sector · Hostelería', ucHospT: 'Copilot para equipos de hotel',
+				ucHospD: 'Sigue el día de un coordinador de hotel en Outlook y Teams y convierte ese trabajo en un mejor estándar en Word y cuenta la historia en PowerPoint y convierte los números en evidencias en Excel.',
+				ucHospM: 'Abrir el centro de hostelería →',
+				ucFinK: 'Sector · Finanzas', ucFinT: 'Copilot para equipos de finanzas y auditoría',
+				ucFinD: 'Únete a un encargo de auditoría para un minorista ficticio. Seis talleres independientes cubren Word, Excel, PowerPoint, Outlook, Teams y Copilot Chat en la web, cada uno con archivos de ejemplo y una comprobación con la fuente.',
+				ucFinM: 'Abrir el centro de finanzas →',
+				
+				"admTitle": "Dirige Microsoft 365 Copilot como administrador",
+				
+				"admGo": "Explicaci\u00f3n abierta",
+				"adm1T": "Centros administrativos y licencias",
+				"adm1D": "\u00bfQu\u00e9 centro de administraci\u00f3n gestiona qu\u00e9 objeto y c\u00f3mo desbloquean las licencias las funciones?",
+				"adm2T": "Cero confianza y Defender XDR",
+				"adm2D": "Los principios de seguridad detr\u00e1s de Microsoft 365y c\u00f3mo Defender XDR se une a las se\u00f1ales.",
+				"adm3T": "Operaciones de identidad",
+				"adm3D": "Acceso condicional, problemas de inicio de sesi\u00f3n, Puntuaci\u00f3n Segura, registros de auditor\u00eda, PIM y objetos de la app.",
+				"adm4T": "Purview: Protege tus datos",
+				"adm4D": "Clasificaci\u00f3n, etiquetas de sensibilidad, prevenci\u00f3n de p\u00e9rdida de datos y retenci\u00f3n.",
+				"adm5T": "Purview: Riesgo y cumplimiento",
+				"adm5D": "Riesgo interno, cumplimiento de comunicaci\u00f3n, DSPM para AI, eDiscovery y m\u00e1s.",
+				"adm6T": "Copilot, datos y sobrecompartici\u00f3n",
+				"adm6D": "Lo que Copilot puede ver y c\u00f3mo encontrar y corregir el exceso de compartir en SharePoint.",
+				"adm7T": "Copilot Licencias y Uso",
+				"adm7D": "Licencias mensuales frente a pago por uso, caracter\u00edsticas, informes de uso y prompts.",
+				"adm8T": "Administraci\u00f3n de Agentes",
+				"adm8D": "Qui\u00e9n puede usar agentes, c\u00f3mo se aprueban las solicitudes y c\u00f3mo supervisarlas.",
+				"admEyebrow": "Para administradores \u00b7 AB-900 y SC-900",
+				"admLead": "Nueve lecciones independientes para la parte de administraci\u00f3n de Copilot: centros de administraci\u00f3n, seguridad, Purview, datos y exceso de uso compartido, licencias, agentes y el Centro de confianza. Ocho siguen los tres dominios de AB-900. T\u00f3malas en el orden que quieras.",
+				"adm9T": "Centro de confianza y privacidad",
+				"adm9D": "El Portal de Confianza de Servicios, ofertas de cumplimiento y principios de privacidad Microsoft."
+				},
+			ja: {
+				navStart: '開始 →',
+				cueLabel: 'ユースケースとハンズオン ラボ',
+				heroTitleHtml: '<span class="grad">Copilot</span> の旅',
+				heroLead: '1つの物語、5つの幕、11のアニメーション。無料の質問から、Copilot で動く会社まで。',
+				heroNote: 'Alex の Contoso での最初の 1 か月をたどります。誰でも開ける無料の Copilot から、1 つの提案書が Word、PowerPoint、Excel、Outlook、Teams を渡り歩き、仕事をまるごと Cowork に任せ、そのすべての背後にいる 1 つのアシスタントへ。',
+				statActs: '幕', statStops: 'ストップ', statFree: '無料', statFreeSub: 'で始められる',
+				rootTitle: 'あなた、ブラウザー、そして質問',
+				rootSub: 'ライセンス不要。会社アカウント不要。インストールも不要。',
+				a1No: '第 1 幕 · ひとりで', a1H: '今日から使える Copilot', a1P: '無料、個人向け、ウェブに基づく。',
+				a2No: '第 2 幕 · 会社に入る', a2H: '仕事のデータがすべてを変える', a2P: 'まずプラットフォーム、次に Copilot。',
+				a3No: '第 3 幕 · 仕事が起きる場所', a3H: '1 つの提案書、5 つのアプリ', a3P: '1 つの仕事を最初から最後まで。',
+				a4No: '第 5 幕 · すべてがつながる', a4H: 'ずっと 1 つの Copilot だった', a4P: '5 つのアプリ、1 つのアシスタント、1 つの記憶。',
+				aCwNo: '第 4 幕 · 任せる', aCwH: 'Copilot Cowork', aCwP: '目標を伝え、承認し、確認する。',
+				sCwT: '仕事を任せる', sCwD: '目標を 1 つ渡すと、ブリーフィングとメールが届く。',
+				s1T: '無料の個人向け Copilot', s1D: 'ライセンス不要。質問して、出典を確認。',
+				s2T: 'Microsoft 365 の初日', s2D: 'ライセンス、アカウント、テナント。',
+				s3T: 'Microsoft 365 Copilot とは', s3D: 'Web と職場。アクセス許可。エージェント。',
+				s4D: '白紙 → エグゼクティブ提案書。',
+				s5D: '文書 → ブランド入りスライド。',
+				s6D: '数式ではなく、ブックに質問。',
+				s7D: '300 通のメールを整理して返信。',
+				s8D: '遅れて参加し、決定事項を持ち帰る。',
+				s9T: 'どこでも 1 つの Copilot', s9D: '1 つの会話を、あらゆる場所で。',
+				s10T: 'なぜ Microsoft 365 Copilot なのか', s10D: '6 つのビフォー・アフター。',
+				endTitle: 'Alex の Contoso での最初の 1 か月',
+				endSub: '11 のストップ、1 つのつながった物語 — どこからでも始められます。',
+				learnEyebrow: 'Microsoft Learn でさらに深く', learnTitle: 'Microsoft Copilot の使い方を学ぶ',
+				learnLead: 'Microsoft Copilot(無料の個人利用と職場向け Microsoft 365 Copilot)に関する、公式かつ常に最新の Microsoft Learn ハブです。',
+				learnCta: 'Microsoft Learn を開く ↗',
+				pracEyebrow: '実践 · ハンズオン ラボ', pracTitle: '次は自分でやってみる',
+				pracLead: 'ジャーニーは Copilot が何をするかを示します。このラボでは実際に手を動かします。Copilot Chat、PowerPoint、Word、Teams、Excel の 5 つのラボを自分のテナントで進めます。',
+				pracGuideK: 'ビジュアル ガイド', pracGuideT: '作成・分析・プレゼン — ラボ ガイド',
+				pracGuideD: 'すべてのラボを一覧で確認し、選ぶと開くアプリ、入力するプロンプト、得られる成果がわかります。',
+				pracGuideM: 'ガイドを開く →',
+				pracLabK: '公式ラボ · MS-4018', pracLabT: 'Microsoft 365 Copilot で作成、分析、プレゼンテーション',
+				pracLabD: 'Microsoft Learn の演習そのものです。セットアップと 5 つのラボ、コピーできるプロンプト付き。Microsoft 365 Copilot のプランが必要です。',
+				pracLabM: 'ラボを開く ↗',
+				ucEyebrow: '業界別ユースケース', ucTitle: 'あなたの業界での Copilot 活用を見る',
+				ucLead: '練習用の素材付きで、実際のシナリオを一歩ずつ学べます。アプリを初めて使う方にも対応しています。',
+				ucHospK: '業界 · ホスピタリティ', ucHospT: 'ホテルチームのための Copilot',
+				ucHospD: 'ホテルのコーディネーターの忙しい一日を Outlook と Teams でたどり、その仕事を Word でより良い標準に変え、PowerPoint でストーリーを伝え、Excel で数字を裏付けに変えます。',
+				ucHospM: 'ホスピタリティ ハブを開く →',
+				ucFinK: '業界 · 金融', ucFinT: '財務・監査チームのための Copilot',
+				ucFinD: '架空の小売企業の監査業務に参加します。Word、Excel、PowerPoint、Outlook、Teams、Web 版 Copilot Chat をそれぞれ扱う 6 つの独立したワークショップで、サンプル ファイルと原本との照合が付いています。',
+				ucFinM: '金融ハブを開く →',
+				
+				"admTitle": "Microsoft 365 Copilot\u3092\u7ba1\u7406\u8005\u3068\u3057\u3066\u5b9f\u884c\u3057\u3066\u304f\u3060\u3055\u3044",
+				
+				"admGo": "\u30aa\u30fc\u30d7\u30f3\u89e3\u8aac",
+				"adm1T": "\u7ba1\u7406\u30bb\u30f3\u30bf\u30fc\u3068\u30e9\u30a4\u30bb\u30f3\u30b9",
+				"adm1D": "\u3069\u306e\u7ba1\u7406\u30bb\u30f3\u30bf\u30fc\u304c\u3069\u306e\u30aa\u30d6\u30b8\u30a7\u30af\u30c8\u3092\u7ba1\u7406\u3057\u3001\u30e9\u30a4\u30bb\u30f3\u30b9\u304c\u3069\u306e\u3088\u3046\u306b\u6a5f\u80fd\u3092\u30a2\u30f3\u30ed\u30c3\u30af\u3059\u308b\u304b\u3082\u77e5\u308a\u305f\u3044\u3067\u3059\u3002",
+				"adm2T": "\u30bc\u30ed\u30c8\u30e9\u30b9\u30c8\u3068DefenderXDR",
+				"adm2D": "Microsoft 365\u306e\u30bb\u30ad\u30e5\u30ea\u30c6\u30a3\u539f\u5247\u3068\u3001Defender XDR\u304c\u3069\u306e\u3088\u3046\u306b\u305d\u306e\u4fe1\u53f7\u306b\u52a0\u308f\u308b\u304b\u306b\u3064\u3044\u3066\u3002",
+				"adm3T": "\u6052\u7b49\u64cd\u4f5c",
+				"adm3D": "\u6761\u4ef6\u4ed8\u304d\u30a2\u30af\u30bb\u30b9\u3001\u30b5\u30a4\u30f3\u30a4\u30f3\u554f\u984c\u3001Secure Score\u3001\u76e3\u67fb\u30ed\u30b0\u3001PIM\u3001\u30a2\u30d7\u30ea\u30aa\u30d6\u30b8\u30a7\u30af\u30c8\u306a\u3069\u3067\u3059\u3002",
+				"adm4T": "\u7ba1\u8f44:\u3042\u306a\u305f\u306e\u30c7\u30fc\u30bf\u3092\u5b88\u308b",
+				"adm4D": "\u5206\u985e\u3001\u611f\u5ea6\u30e9\u30d9\u30eb\u3001\u30c7\u30fc\u30bf\u640d\u5931\u9632\u6b62\u304a\u3088\u3073\u4fdd\u6301\u3002",
+				"adm5T": "\u7ba1\u8f44:\u30ea\u30b9\u30af\u3068\u30b3\u30f3\u30d7\u30e9\u30a4\u30a2\u30f3\u30b9",
+				"adm5D": "\u30a4\u30f3\u30b5\u30a4\u30c0\u30fc\u30ea\u30b9\u30af\u3001\u30b3\u30df\u30e5\u30cb\u30b1\u30fc\u30b7\u30e7\u30f3\u30b3\u30f3\u30d7\u30e9\u30a4\u30a2\u30f3\u30b9\u3001AI\u306e\u305f\u3081\u306eDSPM\u3001 eDiscovery\u306a\u3069\u3002",
+				"adm6T": "\u526f\u64cd\u7e26\u58eb\u3001\u30c7\u30fc\u30bf\u3001\u904e\u5270\u5171\u6709",
+				"adm6D": "Copilot\u304c\u4f55\u3092\u898b\u3066\u3044\u308b\u304b\u3001\u305d\u3057\u3066SharePoint\u306b\u304a\u3051\u308b\u904e\u5270\u5171\u6709\u3092\u898b\u3064\u3051\u3066\u4fee\u6b63\u3059\u308b\u65b9\u6cd5\u3002",
+				"adm7T": "Copilot\u306e\u30e9\u30a4\u30bb\u30f3\u30b9\u3068\u4f7f\u7528\u72b6\u6cc1",
+				"adm7D": "\u6708\u984d\u30e9\u30a4\u30bb\u30f3\u30b9\u3068\u5f93\u91cf\u8ab2\u91d1\u3001\u6a5f\u80fd\u3001\u4f7f\u7528\u72b6\u6cc1\u5831\u544a\u3001\u30d7\u30ed\u30f3\u30d7\u30c8\u3002",
+				"adm8T": "\u30a8\u30fc\u30b8\u30a7\u30f3\u30c8\u7ba1\u7406",
+				"adm8D": "\u8ab0\u304c\u30a8\u30fc\u30b8\u30a7\u30f3\u30c8\u3092\u4f7f\u3048\u308b\u306e\u304b\u3001\u30ea\u30af\u30a8\u30b9\u30c8\u304c\u3069\u306e\u3088\u3046\u306b\u627f\u8a8d\u3055\u308c\u3001\u3069\u306e\u3088\u3046\u306b\u76e3\u8996\u3055\u308c\u308b\u306e\u304b\u3002",
+				"admEyebrow": "\u7ba1\u7406\u8005\u5411\u3051 \u00b7 AB-900\u3001SC-900",
+				"admLead": "Copilot \u306e\u7ba1\u7406\u8005\u5411\u3051\u306e 9 \u3064\u306e\u72ec\u7acb\u3057\u305f\u30ec\u30c3\u30b9\u30f3:\u7ba1\u7406\u30bb\u30f3\u30bf\u30fc\u3001\u30bb\u30ad\u30e5\u30ea\u30c6\u30a3\u3001Purview\u3001\u30c7\u30fc\u30bf\u3068\u30aa\u30fc\u30d0\u30fc\u30b7\u30a7\u30a2\u3001\u30e9\u30a4\u30bb\u30f3\u30b9\u3001\u30a8\u30fc\u30b8\u30a7\u30f3\u30c8\u3001\u30c8\u30e9\u30b9\u30c8\u30bb\u30f3\u30bf\u30fc\u30028 \u3064\u306f AB-900 \u306e 3 \u3064\u306e\u30c9\u30e1\u30a4\u30f3\u306b\u6cbf\u3063\u3066\u3044\u307e\u3059\u3002\u597d\u304d\u306a\u9806\u756a\u3067\u9032\u3081\u3089\u308c\u307e\u3059\u3002",
+				"adm9T": "\u30c8\u30e9\u30b9\u30c8\u30bb\u30f3\u30bf\u30fc\u3068\u30d7\u30e9\u30a4\u30d0\u30b7\u30fc",
+				"adm9D": "\u30b5\u30fc\u30d3\u30b9\u30c8\u30e9\u30b9\u30c8\u30dd\u30fc\u30bf\u30eb\u3001\u30b3\u30f3\u30d7\u30e9\u30a4\u30a2\u30f3\u30b9\u63d0\u4f9b\u3001 Microsoft\u30d7\u30e9\u30a4\u30d0\u30b7\u30fc\u539f\u5247\u3002"
+				},
+			ko: {
+				navStart: '시작 →',
+				cueLabel: '사용 사례 및 실습 랩',
+				heroTitleHtml: '<span class="grad">Copilot</span> 여정',
+				heroLead: '하나의 이야기, 다섯 개의 막, 열한 개의 애니메이션 정거장 — 무료 질문에서 Copilot으로 움직이는 회사까지.',
+				heroNote: 'Alex의 Contoso 첫 한 달을 따라갑니다. 누구나 열 수 있는 무료 Copilot에서 시작해, 하나의 제안서가 Word와 PowerPoint, Excel, Outlook, Teams를 거치고, 업무 전체를 Cowork에 맡기고, 그 모든 것 뒤에 있는 하나의 어시스턴트까지.',
+				statActs: '막', statStops: '정거장', statFree: '무료', statFreeSub: '로 시작',
+				rootTitle: '당신, 브라우저, 그리고 질문 하나',
+				rootSub: '라이선스 없음. 회사 계정 없음. 설치할 것도 없음.',
+				a1No: '1막 · 혼자서', a1H: '오늘 바로 쓸 수 있는 Copilot', a1P: '무료, 개인용, 웹 기반.',
+				a2No: '2막 · 회사에 입사', a2H: '업무 데이터가 모든 것을 바꾼다', a2P: '플랫폼이 먼저, 그다음 Copilot.',
+				a3No: '3막 · 업무가 일어나는 곳', a3H: '하나의 제안서, 다섯 개의 앱', a3P: '하나의 업무를 처음부터 끝까지.',
+				a4No: '5막 · 하나로 모인다', a4H: '처음부터 하나의 Copilot이었다', a4P: '다섯 앱, 하나의 어시스턴트, 하나의 기억.',
+				aCwNo: '4막 · 맡기기', aCwH: 'Copilot Cowork', aCwP: '목표를 설명하고, 승인하고, 검토하기.',
+				sCwT: '업무 맡기기', sCwD: '목표 하나를 넣으면 브리핑과 메일이 나온다.',
+				s1T: '무료 개인용 Copilot', s1D: '라이선스 불필요. 질문하고 출처를 확인.',
+				s2T: 'Microsoft 365 첫날', s2D: '라이선스, 계정, 테넌트.',
+				s3T: 'Microsoft 365 Copilot 만나기', s3D: '웹 vs 업무. 권한. 에이전트.',
+				s4D: '빈 페이지 → 경영진 제안서.',
+				s5D: '문서 → 브랜드 적용 덱.',
+				s6D: '수식 대신 통합 문서에 질문.',
+				s7D: '300개의 메일, 분류하고 답장까지.',
+				s8D: '늦게 참여해도 결정 사항을 안고 퇴장.',
+				s9T: '어디서나 하나의 Copilot', s9D: '하나의 대화, 모든 화면에서.',
+				s10T: '왜 Microsoft 365 Copilot인가', s10D: '여섯 가지 전후 비교.',
+				endTitle: 'Alex의 Contoso 첫 한 달',
+				endSub: '열한 개의 정거장, 하나로 이어진 이야기 — 어디서든 시작하세요.',
+				learnEyebrow: 'Microsoft Learn에서 더 깊이', learnTitle: 'Microsoft Copilot 사용법 알아보기',
+				learnLead: 'Microsoft Copilot(무료 개인용 및 직장용 Microsoft 365 Copilot)에 관한 공식적이고 항상 최신인 Microsoft Learn 허브입니다.',
+				learnCta: 'Microsoft Learn 열기 ↗',
+				pracEyebrow: '실습 · 핸즈온 랩', pracTitle: '이제 직접 해 보세요',
+				pracLead: '여정은 Copilot이 무엇을 하는지 보여 줍니다. 이 랩에서는 직접 해 봅니다. Copilot Chat, PowerPoint, Word, Teams, Excel의 다섯 개 랩을 내 테넌트에서 진행합니다.',
+				pracGuideK: '비주얼 가이드', pracGuideT: '작성·분석·발표 — 랩 가이드',
+				pracGuideD: '모든 랩을 한눈에 보고, 하나를 고르면 여는 앱과 입력할 프롬프트, 얻게 되는 결과를 볼 수 있습니다.',
+				pracGuideM: '가이드 열기 →',
+				pracLabK: '공식 랩 · MS-4018', pracLabT: 'Microsoft 365 Copilot으로 작성, 분석, 발표하기',
+				pracLabD: 'Microsoft Learn 연습 그 자체입니다. 설정과 다섯 개 랩, 복사할 수 있는 모든 프롬프트가 있습니다. Microsoft 365 Copilot 플랜이 필요합니다.',
+				pracLabM: '랩 열기 ↗',
+				ucEyebrow: '산업별 사용 사례', ucTitle: '내 산업에서 Copilot이 일하는 모습 보기',
+				ucLead: '연습 자료와 함께 실제 시나리오를 단계별로 배웁니다. 앱을 처음 쓰는 분도 따라 할 수 있습니다.',
+				ucHospK: '산업 · 호스피탈리티', ucHospT: '호텔 팀을 위한 Copilot',
+				ucHospD: 'Outlook과 Teams에서 호텔 코디네이터의 바쁜 하루를 따라가고, 그 작업을 Word에서 더 나은 표준으로 만든 뒤 PowerPoint로 스토리를 전하고 Excel로 숫자를 근거로 바꿉니다.',
+				ucHospM: '호스피탈리티 허브 열기 →',
+				ucFinK: '산업 · 금융', ucFinT: '재무·감사 팀을 위한 Copilot',
+				ucFinD: '가상의 소매업체 감사 업무에 참여합니다. Word, Excel, PowerPoint, Outlook, Teams, 웹용 Copilot Chat을 각각 다루는 독립된 워크숍 6개로, 샘플 파일과 원본 대조가 포함되어 있습니다.',
+				ucFinM: '금융 허브 열기 →',
+				
+				"admTitle": "\uad00\ub9ac\uc790 \uc5ed\ud560\ub85c Microsoft 365 Copilot\uc744 \uc2e4\ud589\ud558\uc138\uc694",
+				
+				"admGo": "\uc624\ud508 \ud574\uc124",
+				"adm1T": "\ud589\uc815 \uc13c\ud130 \ubc0f \ub77c\uc774\uc120\uc2a4",
+				"adm1D": "\uc5b4\ub290 \uad00\ub9ac\uc790 \uc13c\ud130\uac00 \uc5b4\ub5a4 \uac1d\uccb4\ub97c \uad00\ub9ac\ud558\ub294\uc9c0, \uadf8\ub9ac\uace0 \ub77c\uc774\uc120\uc2a4\uac00 \uc5b4\ub5bb\uac8c \uae30\ub2a5\uc744 \uc7a0\uae08 \ud574\uc81c\ud558\ub294\uc9c0 \ub4f1\ub4f1\uc785\ub2c8\ub2e4.",
+				"adm2T": "\uc81c\ub85c \ud2b8\ub7ec\uc2a4\ud2b8\uc640 Defender XDR",
+				"adm2D": "Microsoft 365\uc758 \ubcf4\uc548 \uc6d0\uce59\uacfc Defender XDR\uc774 \uc5b4\ub5bb\uac8c \uc2e0\ud638\uc5d0 \ud569\ub958\ud558\ub294\uc9c0\uc5d0 \ub300\ud574 \ub9d0\uc500\ub4dc\ub9ac\uaca0\uc2b5\ub2c8\ub2e4.",
+				"adm3T": "\uc815\uccb4\uc131 \uc5f0\uc0b0",
+				"adm3D": "\uc870\uac74\ubd80 \uc811\uadfc, \ub85c\uadf8\uc778 \ubb38\uc81c, \ubcf4\uc548 \uc810\uc218, \uac10\uc0ac \ub85c\uadf8, PIM \ubc0f \uc571 \uac1d\uccb4 \ub4f1\uc774 \ud3ec\ud568\ub429\ub2c8\ub2e4.",
+				"adm4T": "Purview: \ub370\uc774\ud130 \ubcf4\ud638\ud558\uae30",
+				"adm4D": "\ubd84\ub958, \ubbfc\uac10\ub3c4 \ub77c\ubca8, \ub370\uc774\ud130 \uc190\uc2e4 \ubc29\uc9c0 \ubc0f \ubcf4\uc874.",
+				"adm5T": "\uc5c5\ubb34 \ubc94\uc704: \uc704\ud5d8 \ubc0f \uc900\uc218",
+				"adm5D": "\ub0b4\ubd80\uc790 \uc704\ud5d8, \ucee4\ubba4\ub2c8\ucf00\uc774\uc158 \ucef4\ud50c\ub77c\uc774\uc5b8\uc2a4, AI\ub97c \uc704\ud55c DSPM, eDiscovery \ub4f1 \ub2e4\uc591\ud55c \ubd84\uc57c\uc785\ub2c8\ub2e4.",
+				"adm6T": "\ubd80\uc870\uc885\uc0ac, \ub370\uc774\ud130 \ubc0f \uacfc\ub3c4\ud55c \uacf5\uc720",
+				"adm6D": "Copilot\uc774 \ubb34\uc5c7\uc744 \ubcfc \uc218 \uc788\ub294\uc9c0, \uadf8\ub9ac\uace0 SharePoint\uc5d0\uc11c \uacfc\ub3c4\ud55c \uacf5\uc720\ub97c \ucc3e\uace0 \ud574\uacb0\ud558\ub294 \ubc29\ubc95.",
+				"adm7T": "\ubd80\uc870\uc885\uc0ac \ub77c\uc774\uc120\uc2a4 \ubc0f \uc0ac\uc6a9",
+				"adm7D": "\uc6d4\ubcc4 \ub77c\uc774\uc120\uc2a4\uc640 \uc0ac\uc6a9\ud55c \ub9cc\ud07c \uc9c0\ubd88\ud558\ub294 \ubc29\uc2dd, \uae30\ub2a5, \uc0ac\uc6a9 \ubcf4\uace0\uc11c \ubc0f \uc548\ub0b4\ubb38.",
+				"adm8T": "\uc5d0\uc774\uc804\ud2b8 \ud589\uc815",
+				"adm8D": "\ub204\uac00 \uc5d0\uc774\uc804\ud2b8\ub97c \uc0ac\uc6a9\ud560 \uc218 \uc788\ub294\uc9c0, \uc694\uccad\uc774 \uc5b4\ub5bb\uac8c \uc2b9\uc778\ub418\ub294\uc9c0, \uadf8\ub9ac\uace0 \uc5b4\ub5bb\uac8c \ubaa8\ub2c8\ud130\ub9c1\ud574\uc57c \ud558\ub294\uc9c0\uc5d0 \ub300\ud55c \uc9c8\ubb38\uc785\ub2c8\ub2e4.",
+				"admEyebrow": "\uad00\ub9ac\uc790\uc6a9 \u00b7 AB-900, SC-900",
+				"admLead": "Copilot \uad00\ub9ac\uc790\ub97c \uc704\ud55c 9\uac1c\uc758 \ub3c5\ub9bd \uc218\uc5c5: \uad00\ub9ac \uc13c\ud130, \ubcf4\uc548, Purview, \ub370\uc774\ud130\uc640 \uacfc\uc789 \uacf5\uc720, \ub77c\uc774\uc120\uc2a4, \uc5d0\uc774\uc804\ud2b8, \ud2b8\ub7ec\uc2a4\ud2b8 \uc13c\ud130. 8\uac1c\ub294 AB-900\uc758 \uc138 \ub3c4\uba54\uc778\uc744 \ub530\ub985\ub2c8\ub2e4. \uc6d0\ud558\ub294 \uc21c\uc11c\ub300\ub85c \uc9c4\ud589\ud558\uc138\uc694.",
+				"adm9T": "\ud2b8\ub7ec\uc2a4\ud2b8 \uc13c\ud130\uc640 \uac1c\uc778\uc815\ubcf4 \ubcf4\ud638",
+				"adm9D": "\uc11c\ube44\uc2a4 \ud2b8\ub7ec\uc2a4\ud2b8 \ud3ec\ud138, \uc900\uc218 \uc81c\uacf5 \ubc0f Microsoft \ud504\ub77c\uc774\ubc84\uc2dc \uc6d0\uce59."
+				},
+			pt: {
+				navStart: 'Começar →',
+				cueLabel: 'Casos de uso e laboratório',
+				heroTitleHtml: 'A jornada do <span class="grad">Copilot</span>',
+				heroLead: 'Uma história, cinco atos, onze paradas animadas — de uma pergunta gratuita a uma empresa que funciona com o Copilot.',
+				heroNote: 'Acompanhe o primeiro mês de Alex na Contoso — do Copilot gratuito que qualquer um pode abrir a uma mesma proposta que passa por Word, PowerPoint, Excel, Outlook e Teams, tarefas inteiras delegadas ao Cowork, e o único assistente por trás de tudo.',
+				statActs: 'atos', statStops: 'paradas', statFree: 'Grátis', statFreeSub: 'para começar',
+				rootTitle: 'Você, um navegador e uma pergunta',
+				rootSub: 'Sem licença. Sem conta corporativa. Nada instalado.',
+				a1No: 'Ato 1 · Por conta própria', a1H: 'O Copilot que você já pode usar', a1P: 'Gratuito, pessoal, baseado na web.',
+				a2No: 'Ato 2 · Você entra em uma empresa', a2H: 'Os dados de trabalho mudam tudo', a2P: 'Primeiro a plataforma, depois o Copilot.',
+				a3No: 'Ato 3 · Onde o trabalho acontece', a3H: 'Uma proposta, cinco aplicativos', a3P: 'Uma tarefa, acompanhada do início ao fim.',
+				a4No: 'Ato 5 · Tudo se soma', a4H: 'Sempre foi um único Copilot', a4P: 'Cinco aplicativos, um assistente, uma memória.',
+				aCwNo: 'Ato 4 · Delegue', aCwH: 'Copilot Cowork', aCwP: 'Descreva o objetivo. Aprove. Revise.',
+				sCwT: 'Delegue o trabalho', sCwD: 'Entra um objetivo; saem um briefing e um email.',
+				s1T: 'Copilot pessoal gratuito', s1D: 'Sem licença. Pergunte e veja as fontes.',
+				s2T: 'Primeiro dia com o Microsoft 365', s2D: 'Licença, conta, locatário.',
+				s3T: 'Conheça o Microsoft 365 Copilot', s3D: 'Web vs Trabalho. Permissões. Agentes.',
+				s4D: 'Página em branco → proposta executiva.',
+				s5D: 'Documento → apresentação com a marca.',
+				s6D: 'Pergunte à pasta de trabalho, não fórmulas.',
+				s7D: '300 e-mails, triados e respondidos.',
+				s8D: 'Entre atrasado, saia com as decisões.',
+				s9T: 'Um Copilot em todo lugar', s9D: 'Uma conversa, em todas as superfícies.',
+				s10T: 'Por que o Microsoft 365 Copilot', s10D: 'Seis antes e depois.',
+				endTitle: 'O primeiro mês de Alex na Contoso',
+				endSub: 'Onze paradas, uma história conectada — comece por onde quiser.',
+				learnEyebrow: 'Aprofunde-se no Microsoft Learn', learnTitle: 'Aprenda a usar o Microsoft Copilot',
+				learnLead: 'O hub oficial e sempre atualizado do Microsoft Learn sobre o Microsoft Copilot — uso pessoal gratuito e Microsoft 365 Copilot para o trabalho.',
+				learnCta: 'Abrir o Microsoft Learn ↗',
+				pracEyebrow: 'Prática · Laboratório', pracTitle: 'Agora faça você mesmo',
+				pracLead: 'A jornada mostra o que o Copilot faz. Este laboratório faz você fazer: cinco laboratórios no Copilot Chat, PowerPoint, Word, Teams e Excel, no seu próprio locatário.',
+				pracGuideK: 'Guia visual', pracGuideT: 'Redigir, analisar e apresentar — guia do laboratório',
+				pracGuideD: 'Todos os laboratórios de uma vez; escolha um para ver qual app abrir, quais prompts digitar e com o que você termina.',
+				pracGuideM: 'Abrir o guia →',
+				pracLabK: 'Laboratório oficial · MS-4018', pracLabT: 'Redija, analise e apresente com o Microsoft 365 Copilot',
+				pracLabD: 'Os exercícios do Microsoft Learn: a preparação e cinco laboratórios, com todos os prompts para copiar. Requer um plano do Microsoft 365 Copilot.',
+				pracLabM: 'Abrir o laboratório ↗',
+				ucEyebrow: 'Casos de uso por setor', ucTitle: 'Veja o Copilot em ação no seu setor',
+				ucLead: 'Cenários reais com material de prática, passo a passo, para quem nunca usou os aplicativos.',
+				ucHospK: 'Setor · Hotelaria', ucHospT: 'Copilot para equipes de hotel',
+				ucHospD: 'Acompanhe um coordenador de hotel em um dia agitado no Outlook e no Teams e transforme esse trabalho em um padrão melhor no Word e conte a história no PowerPoint e transforme os números em evidências no Excel.',
+				ucHospM: 'Abrir o hub de hotelaria →',
+				ucFinK: 'Setor · Finanças', ucFinT: 'Copilot para equipes de finanças e auditoria',
+				ucFinD: 'Participe de um trabalho de auditoria para um varejista fictício. Seis workshops independentes cobrem Word, Excel, PowerPoint, Outlook, Teams e Copilot Chat na web, cada um com arquivos de exemplo e conferência com a fonte.',
+				ucFinM: 'Abrir o hub de finanças →',
+				
+				"admTitle": "Gerencie Microsoft 365 Copilot como administrador",
+				
+				"admGo": "Explica\u00e7\u00e3o aberta",
+				"adm1T": "Centros Administrativos e Licen\u00e7as",
+				"adm1D": "Qual centro de administra\u00e7\u00e3o gerencia qual objeto e como as licen\u00e7as desbloqueiam recursos.",
+				"adm2T": "Zero Trust e Defender XDR",
+				"adm2D": "Os princ\u00edpios de seguran\u00e7a por tr\u00e1s de Microsoft 365e como Defender XDR se conecta aos sinais.",
+				"adm3T": "Opera\u00e7\u00f5es de Identidade",
+				"adm3D": "Acesso Condicional, problemas de login, Secure Score, logs de auditoria, PIM e objetos do app.",
+				"adm4T": "Purview: Proteja seus Dados",
+				"adm4D": "Classifica\u00e7\u00e3o, etiquetas de sensibilidade, preven\u00e7\u00e3o e reten\u00e7\u00e3o de perda de dados.",
+				"adm5T": "Purview: Risco e Conformidade",
+				"adm5D": "Risco interno, conformidade de comunica\u00e7\u00e3o, DSPM para AI, eDiscovery e mais.",
+				"adm6T": "Copilot, Dados e Compartilhamento Excessivo",
+				"adm6D": "O que Copilot consegue ver e como encontrar e corrigir o excesso de compartilhamento em SharePoint.",
+				"adm7T": "Copilot Licenciamento e Uso",
+				"adm7D": "Licen\u00e7as mensais versus pagamento conforme o uso, recursos, relat\u00f3rios de uso e prompts.",
+				"adm8T": "Administra\u00e7\u00e3o de Agentes",
+				"adm8D": "Quem pode usar os agentes, como os pedidos s\u00e3o aprovados e como monitor\u00e1-los.",
+				"admEyebrow": "Para administradores \u00b7 AB-900 e SC-900",
+				"admLead": "Nove li\u00e7\u00f5es independentes para a administra\u00e7\u00e3o do Copilot: centros de administra\u00e7\u00e3o, seguran\u00e7a, Purview, dados e compartilhamento excessivo, licenciamento, agentes e o Centro de Confian\u00e7a. Oito seguem os tr\u00eas dom\u00ednios do AB-900. Fa\u00e7a na ordem que preferir.",
+				"adm9T": "Centro de Confian\u00e7a e privacidade",
+				"adm9D": "O Portal do Trust de Servi\u00e7os, ofertas de conformidade e princ\u00edpios de privacidade Microsoft."
+				}
+		};
+
+		const LANG_STORAGE_KEY='aw-lang';
+		let activeLang='en';
+		// every stop link carries the chosen language on to the step page
+		function updateStopLinks(){
+			document.querySelectorAll('a.leaf, a.uc-card, a.xd-card, a.btn-cta[href*=".html"]').forEach(a=>{
+				let base=a.getAttribute('data-href');
+				if(!base){ base=a.getAttribute('href'); if(!base||/^https?:/i.test(base)) return; a.setAttribute('data-href',base); }
+				a.setAttribute('href', base.split('?')[0]+'?lang='+encodeURIComponent(activeLang));
+			});
+		}
+		function applyLanguage(lang){
+			if(!I18N[lang]) lang='en';
+			const dict=I18N[lang];
+			document.documentElement.setAttribute('lang', lang);
+			document.querySelectorAll('[data-i18n]').forEach(el=>{ const k=el.dataset.i18n; if(dict[k]!=null) el.textContent=dict[k]; });
+			document.querySelectorAll('[data-i18n-html]').forEach(el=>{ const k=el.dataset.i18nHtml; if(dict[k]!=null) el.innerHTML=dict[k]; });
+			activeLang=lang; updateStopLinks();
+			try{ localStorage.setItem(LANG_STORAGE_KEY, lang); }catch(_){}
+			fitMap();   // translated text changes the map's size, so re-fit it
+		}
+		(function(){
+			const sel=document.getElementById('lang-select');
+			let saved;
+			try{ const q=new URLSearchParams(location.search).get('lang'); if(q && I18N[q]) saved=q; }catch(_){}
+			if(!saved){ try{ saved=localStorage.getItem(LANG_STORAGE_KEY); }catch(_){} }
+			if(!saved || !I18N[saved]){ const nav=(navigator.language||'en').slice(0,2).toLowerCase(); saved=I18N[nav]?nav:'en'; }
+			if(sel){ sel.value=saved; sel.addEventListener('change', e=>applyLanguage(e.target.value)); }
+			applyLanguage(saved);
+		})();
+
+		// Hub welcome narration — audio/index/<lang>/step-01.mp3, generated from narration/Copilot/index.md.
+		(function(){
+			const KEY='aw-copilot-hub-audio';
+			const btn=document.getElementById('audio-toggle'); if(!btn) return;
+			const ico=btn.querySelector('.aw-audio-ico');
+			let cur=null;
+			const isOn=()=>{ try{ return localStorage.getItem(KEY)==='1'; }catch(_){ return false; } };
+			const stop=()=>{ if(cur){ cur.pause(); cur.currentTime=0; cur=null; } };
+			const play=()=>{ stop(); cur=new Audio('audio/index/'+(activeLang==='en'?'':activeLang+'/')+'step-01.mp3'); cur.play().catch(()=>{}); };
+			function sync(){
+				const on=isOn();
+				if(ico) ico.textContent = on ? '\uD83D\uDD0A' : '\uD83D\uDD07';
+				btn.classList.toggle('on', on);
+				btn.setAttribute('aria-pressed', on?'true':'false');
+				const label = on ? 'Mute narration' : 'Play welcome narration';
+				btn.setAttribute('aria-label', label); btn.setAttribute('title', label);
+			}
+			btn.addEventListener('click', ()=>{
+				const next=!isOn();
+				try{ localStorage.setItem(KEY, next?'1':'0'); }catch(_){}
+				sync(); if(next) play(); else stop();
+			});
+			const langSel=document.getElementById('lang-select');
+			if(langSel) langSel.addEventListener('change', ()=>{ if(isOn()) play(); });
+			sync();   // reflect the saved preference, never autoplay
+		})();
+	</script>
+
+	<!-- Carry the chosen language home so the root hub opens in the same language. -->
+	<script>
+	(function () {
+		var sel = document.getElementById('lang-select');
+		var home = document.querySelector('a.brand[href]');
+		if (!sel || !home) return;
+		var base = home.getAttribute('href').split('?')[0];
+		function sync() { home.setAttribute('href', base + '?lang=' + encodeURIComponent(sel.value || 'en')); }
+		sel.addEventListener('change', sync);
+		window.addEventListener('load', sync);   // the hubs set sel.value during init, after this runs
+		sync();
+	}());
+	</script>
+</body>
+</html>
