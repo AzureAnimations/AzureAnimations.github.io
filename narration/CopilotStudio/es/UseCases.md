@@ -60,4 +60,4 @@ Voz masculina (es-ES-Tristan). Un bloque por paso.
 [600ms]
 [calm] Atención al cliente, mesa de ayuda para empleados, ventas, extender Microsoft 365 Copilot y la trastienda autónoma: cinco escenarios fundamentados y de alto retorno, todos desde un único agente reutilizado.
 [600ms]
-[encouraging] Y es un ciclo: elige un escenario, construye, integra, mide y escala, desde respuestas sencillas hasta la autonomía. Ponte manos a la obra con la ruta gratuita "Agents in a Day" en Microsoft Learn, y mira todo el recorrido en A K A punto M S barra Azure Animations.
+[encouraging] Y es un ciclo: elige un escenario, construye, integra, mide y escala, desde respuestas sencillas hasta la autonomía. Ponte manos a la obra con la ruta gratuita "Agents in a Day" en Microsoft Learn.

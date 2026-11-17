@@ -60,4 +60,4 @@ Narrated by a male voice (en-US-Andrew). One block per step.
 [600ms]
 [calm] Customer support, employee help desk, sales, extending Microsoft 365 Copilot, and the autonomous back-office — five grounded, high-ROI scenarios, all from one reused agent.
 [600ms]
-[encouraging] And it's a loop: pick a scenario, build, integrate, measure, and scale — from simple answers all the way to autonomy. Get hands-on with the free "Agents in a Day" path on Microsoft Learn, and see the whole journey at A K A dot M S slash Azure Animations.
+[encouraging] And it's a loop: pick a scenario, build, integrate, measure, and scale — from simple answers all the way to autonomy. Get hands-on with the free "Agents in a Day" path on Microsoft Learn.

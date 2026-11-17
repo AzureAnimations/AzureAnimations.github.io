@@ -1,85 +1,80 @@
-# Narrator Script — Azure Animations · Home Tour
+# Narrator Script — Home Tour (ko)
 
 **Source page:** `index.html`
 
-Seventeen spoken blocks: welcome, certification study paths, then fifteen journey cards, in the order they appear on the page. The closing trophy banner is not narrated.
-
-<!-- Practice assessment access: https://learn.microsoft.com/credentials/certifications/practice-assessments-for-microsoft-certifications and https://learn.microsoft.com/credentials/certifications/resources/study-guides/ai-901 -->
+홈페이지를 안내하는 12개의 나레이션입니다. 사이트 이름은 읽지 않습니다. 영어 버전과 구성이 같습니다.
 
 ---
 
 ## Step 1 · Welcome
 
-[warm] Azure Animations에 오신 것을 환영합니다.
+[warm] 배움의 미래에 오신 것을 환영합니다.
 [500ms]
-[calm] 짧은 시각적 이야기로 Azure, AI, 데이터베이스, Copilot, GitHub를 배워 보세요.
-관심 있는 주제의 여정을 둘러보거나 자격증에 맞는 학습 경로를 선택할 수 있습니다.
-어디서 시작하면 좋을지 함께 살펴볼까요?
+[calm] 이곳은 혁신적인 에이전트형 학습 플랫폼입니다. Azure, AI, Copilot이 짧은 애니메이션 이야기로 생생하게 펼쳐지고, 모두 여러분의 언어로 나레이션됩니다. 읽을 글은 거의 없습니다.
+[400ms]
+이 층에는 팀마다 방이 하나씩 있습니다. 함께 둘러볼까요.
 
 ## Step 2 · Certification study paths
 
-[curious] 자격증을 준비하고 계신가요?
+[curious] 페이지 맨 위에 있는 것이 자격증 학습 경로입니다. 자격증을 준비하고 계신가요?
 [500ms]
-[calm] Azure, AI, Microsoft 365, GitHub 중 원하는 학습 경로를 선택하세요.
-레슨을 공부하고 부족한 영역을 확인한 뒤, 제공되는 무료 공식 연습 평가로 실력을 점검해 보세요.
-평가를 시작하려면 Microsoft Learn 또는 AI Skills Navigator에 로그인해야 합니다.
+[calm] Azure, AI, Microsoft 365, GitHub 학습 경로 중에서 선택하세요.
+레슨을 따라가고, 부족한 부분을 점검한 뒤, 제공되는 경우 무료 공식 연습 평가에도 도전해 보세요.
 
-## Step 3 · Microsoft 365 Copilot
+## Step 3 · What you will find here
 
-[calm] Microsoft 365 Copilot. 로그인하면 이미 거기 있습니다. Word, Excel, PowerPoint, Outlook, Teams의 Copilot과 무엇을 볼 수 있고 볼 수 없는지.
+[calm] 사용법은 간단합니다. 방을 고르고, 여정을 선택한 다음, 재생을 누르세요.
+각 여정은 짧은 애니메이션 모음으로, 다시 보거나 속도를 늦추거나 원하는 곳으로 건너뛸 수 있습니다.
+[400ms]
+나레이션과 자막은 영어, 스페인어, 일본어, 한국어, 포르투갈어로 제공됩니다. 그리고 모두 무료입니다.
 
-## Step 4 · Copilot Studio
+## Step 4 · Cloud academy
 
-[calm] Copilot Studio. 지식을 연결하고 도구를 연결해 에이전트를 만듭니다. 커넥터, MCP 서버, Logic Apps를 브라우저에서.
+[curious] 클라우드가 처음이신가요? 클라우드 아카데미에서 시작하세요.
+[500ms]
+[calm] Azure 기본 사항은 소매 기업이 클라우드로 옮겨 가는 이야기를 따라가며, AZ-900 시험 목표에 맞춰져 있습니다.
+설계 결정을 배울 준비가 되면, Azure 아키텍트에서 AZ-305 목표를 비즈니스 문제 하나씩 풀어 갑니다.
 
-## Step 5 · AI Agents · Microsoft Foundry
+## Step 5 · Business users
 
-[calm] AI 에이전트 · Microsoft Foundry. AI의 프로코드 영역 — 나만의 프로젝트, 나만의 모델 배포, 그리고 문서·이미지·음성·영상을 읽는 에이전트.
+[calm] 비즈니스 사용자는 Word, Excel, PowerPoint, Outlook, Teams에서 일합니다.
+Microsoft 365 Copilot 여정에서는 각 앱 안에서 Copilot이 어떻게 동작하는지, 무엇을 볼 수 있고 볼 수 없는지, 그리고 비즈니스 가치가 어디서 나오는지 보여 드립니다.
 
-## Step 6 · Virtual Machines
+## Step 6 · Agent makers
 
-[calm] 가상 머신. 하나를 만들고 크기 조정, 확장, 백업, 모니터링까지.
+[calm] 에이전트 제작자는 자신의 업무 흐름에 맞는 에이전트를 로우코드로 만듭니다.
+Copilot Studio 여정에서는 에이전트를 구성하는 요소, 지식과 도구를 연결하는 방법, 커넥터와 MCP 서버, 그리고 실제 사례를 브라우저에서 모두 다룹니다.
 
-## Step 7 · PaaS Compute
+## Step 7 · AI engineers
 
-[calm] PaaS 컴퓨팅. App Service, 플랜, 확장, Functions.
+[calm] AI 엔지니어는 AI의 프로코드 영역에서 일합니다.
+Microsoft Foundry 여정에서는 프로젝트와 허브, 모델 배포, 텍스트와 이미지, 음성, 문서를 읽는 에이전트, 책임 있는 AI, 그리고 SDK 선택 방법을 다룹니다.
 
-## Step 8 · Containers
+## Step 8 · Cloud platform team
 
-[calm] 컨테이너. Docker, 레지스트리, Container Apps, Kubernetes.
+[calm] 클라우드 플랫폼 팀은 기반을 책임집니다.
+가상 머신, PaaS 컴퓨팅, 컨테이너, 스토리지, 데이터베이스, 메시징을 처음 구축하는 단계부터 모니터링까지 설명합니다.
 
-## Step 9 · Networking
+## Step 9 · Network team
 
-[calm] 네트워킹. VNet, 피어링, 방화벽, 부하 분산.
+[calm] 네트워크 팀은 모든 것을 연결합니다.
+가상 네트워크, 피어링, 방화벽, 부하 분산, 프라이빗 링크, 하이브리드 연결을 실제로 구축하는 순서대로 배웁니다.
 
-## Step 10 · Storage
+## Step 10 · Security and identity
 
-[calm] 스토리지. 계정, 중복성, SAS, 데이터 보호.
+[calm] 보안과 ID는 누가 들어올 수 있는지를 결정합니다.
+Key Vault, 관리 ID, 제로 트러스트는 물론, 테넌트, 사용자, 로그인, 관리자 역할, 정책, 비용까지, 모든 조직이 가장 먼저 다지는 기반을 다룹니다.
 
-## Step 11 · Security
+## Step 11 · DevOps team
 
-[calm] 보안. Key Vault, 관리 ID, 제로 트러스트.
+[calm] DevOps 팀은 계획하고, 브랜치를 나누고, 검증하고, 배포합니다.
+GitHub 여정은 하나의 소매 프로젝트를 이슈 보드에서 Azure 배포까지 따라가며, 비밀번호는 어디에도 저장하지 않습니다.
 
-## Step 12 · Databases for AI Apps
+## Step 12 · Your turn
 
-[calm] AI 앱을 위한 데이터베이스. Cosmos DB와 PostgreSQL을 첫 쿼리부터 벡터 검색까지, 아키텍트를 위한 SQL과 데이터 레이크 설계까지 다룹니다.
-
-## Step 13 · Integration & Messaging
-
-[calm] 통합 및 메시징. 큐, Service Bus, Event Hubs, Event Grid 그리고 접착제 역할의 Functions.
-
-## Step 14 · Identity and governance
-
-[calm] ID와 거버넌스. 테넌트, 사용자, 게스트, 로그인, 관리 역할, 범위, 정책, 비용 — 모든 조직이 가장 먼저 다지는 토대입니다.
-
-## Step 15 · Azure Fundamentals
-
-[calm] Azure 기본 사항. Contoso Retail의 클라우드 이전: 상점 계획, 구축, 보호 및 운영. AZ-900 시험 목표에 맞춰졌습니다.
-
-## Step 16 · Azure Architect
-
-[calm] Azure 아키텍트. Contoso의 문제를 하나씩 풀며 설계 결정을 배우고, 솔루션을 추천하고 절충점을 설명합니다. AZ-305 시험 목표에 맞춰졌습니다.
-
-## Step 17 · GitHub · Contoso Delivery
-
-[calm] GitHub · Contoso 딜리버리. 비 오는 오후부터 Azure에서 실행되는 코드까지, 하나의 리테일 프로젝트를 따라갑니다. 이슈와 에픽, 보드, 브랜치 규칙, 자동 검사, 그리고 비밀번호를 어디에도 저장하지 않는 배포.
+[warm] 이것으로 이 층의 소개를 마칩니다.
+[500ms]
+[calm] 내 업무와 가장 가까운 방을 골라 마우스를 올려 여정을 확인하고, 재생을 누르세요.
+[400ms]
+[warm] 그리고 도움이 되었다면, 위에 있는 하트를 탭해서 응원해 주세요. 저희에게 정말 큰 힘이 됩니다.
+즐거운 학습 되세요.

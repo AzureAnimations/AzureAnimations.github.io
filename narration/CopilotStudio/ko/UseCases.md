@@ -60,4 +60,4 @@
 [600ms]
 [calm] 고객 지원, 직원 헬프데스크, 영업, Microsoft 365 Copilot 확장, 그리고 자율 백오피스. 현실에 근거한 높은 ROI의 다섯 시나리오를, 모두 재사용된 하나의 에이전트에서.
 [600ms]
-[encouraging] 그리고 이것은 순환입니다. 시나리오를 고르고, 만들고, 통합하고, 측정하고, 확장하기. 단순한 답변에서 자율성까지. Microsoft Learn의 무료 "Agents in a Day" 러닝 경로로 직접 해 보고, 전체 여정은 에이 케이 에이 닷 엠 에스 슬래시 Azure Animations에서 확인하세요.
+[encouraging] 그리고 이것은 순환입니다. 시나리오를 고르고, 만들고, 통합하고, 측정하고, 확장하기. 단순한 답변에서 자율성까지. Microsoft Learn의 무료 "Agents in a Day" 러닝 경로로 직접 해 보세요.

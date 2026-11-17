@@ -1,85 +1,80 @@
-# Narrator Script — Azure Animations · Home Tour
+# Narrator Script — Home Tour (pt)
 
 **Source page:** `index.html`
 
-Seventeen spoken blocks: welcome, certification study paths, then fifteen journey cards, in the order they appear on the page. The closing trophy banner is not narrated.
-
-<!-- Practice assessment access: https://learn.microsoft.com/credentials/certifications/practice-assessments-for-microsoft-certifications and https://learn.microsoft.com/credentials/certifications/resources/study-guides/ai-901 -->
+Doze blocos de narração, na ordem em que o tour percorre a página. O nome do site não é pronunciado. Mesma estrutura da versão em inglês.
 
 ---
 
 ## Step 1 · Welcome
 
-[warm] Boas-vindas ao Azure Animations.
+[warm] Bem-vindo ao futuro do aprendizado.
 [500ms]
-[calm] Aprenda Azure, IA, bancos de dados, Copilot e GitHub com histórias visuais curtas.
-Explore uma jornada por assunto ou escolha um caminho de estudo para uma certificação.
-Vamos encontrar seu ponto de partida.
+[calm] Esta é uma plataforma de aprendizado inovadora e agêntica, onde Azure, IA e Copilot ganham vida em histórias animadas e curtas, cada uma narrada no seu próprio idioma, com quase nenhum texto para ler.
+[400ms]
+Cada equipe tem uma sala neste andar. Vamos dar uma volta rápida.
 
 ## Step 2 · Certification study paths
 
-[curious] Preparando-se para uma certificação?
+[curious] Logo no topo: você está se preparando para uma certificação?
 [500ms]
-[calm] Escolha um caminho de estudo de Azure, IA, Microsoft 365 ou GitHub.
-Estude as lições, confira o que falta e faça uma avaliação prática oficial gratuita, quando disponível.
-Entre no Microsoft Learn ou no AI Skills Navigator para iniciar a avaliação.
+[calm] Escolha uma trilha de estudo de Azure, IA, Microsoft 365 ou GitHub.
+Siga as lições, revise as lacunas e depois tente uma avaliação prática oficial e gratuita, quando houver.
 
-## Step 3 · Microsoft 365 Copilot
+## Step 3 · What you will find here
 
-[calm] Microsoft 365 Copilot. Faça login e ele já está lá: Copilot no Word, Excel, PowerPoint, Outlook e Teams, além do que ele pode e não pode ver.
+[calm] Veja como funciona. Escolha uma sala, escolha uma jornada e aperte o play.
+Cada jornada é um conjunto de animações curtas que você pode repetir, desacelerar ou percorrer aos pulos.
+[400ms]
+A narração e as legendas estão em inglês, espanhol, japonês, coreano e português. E tudo é gratuito.
 
-## Step 4 · Copilot Studio
+## Step 4 · Cloud academy
 
-[calm] Copilot Studio. Crie um agente apontando para o conhecimento e conectando ferramentas: conectores, servidores MCP e Logic Apps, tudo pelo navegador.
+[curious] Novo na nuvem? Comece aqui, na Academia da nuvem.
+[500ms]
+[calm] Azure Fundamentals acompanha uma empresa de varejo que vai para a nuvem e está alinhado aos objetivos do exame AZ-900.
+Quando estiver pronto para decisões de design, o Azure Architect percorre os objetivos do AZ-305, um problema de negócio de cada vez.
 
-## Step 5 · AI Agents · Microsoft Foundry
+## Step 5 · Business users
 
-[calm] Agentes de IA · Microsoft Foundry. O lado pro-code da IA — seus próprios projetos, suas implantações de modelos e agentes que leem documentos, imagens, fala e vídeo.
+[calm] Os usuários de negócio vivem no Word, Excel, PowerPoint, Outlook e Teams.
+A jornada do Microsoft 365 Copilot mostra como o Copilot funciona dentro de cada um desses aplicativos, o que ele pode e não pode ver, e de onde vem o valor para o negócio.
 
-## Step 6 · Virtual Machines
+## Step 6 · Agent makers
 
-[calm] Máquinas virtuais. Crie uma e depois ajuste, escale, faça backup e monitore.
+[calm] Os criadores de agentes constroem agentes com pouco código para os seus próprios fluxos de trabalho.
+A jornada do Copilot Studio mostra o que forma um agente, como dar a ele conhecimento e ferramentas, conectores e servidores MCP, e exemplos reais, tudo pelo navegador.
 
-## Step 7 · PaaS Compute
+## Step 7 · AI engineers
 
-[calm] Computação PaaS. App Service, planos, escala e Functions.
+[calm] Os engenheiros de IA trabalham no lado pro-code da IA.
+A jornada do Microsoft Foundry cobre projetos e hubs, implantação de modelos, agentes que leem texto, imagens, fala e documentos, IA responsável e como escolher o seu SDK.
 
-## Step 8 · Containers
+## Step 8 · Cloud platform team
 
-[calm] Contêineres. Docker, registro, Container Apps e Kubernetes.
+[calm] A equipe de plataforma de nuvem cuida das fundações.
+Máquinas virtuais, computação PaaS, contêineres, armazenamento, bancos de dados e mensageria, cada um explicado desde a primeira construção até o monitoramento.
 
-## Step 9 · Networking
+## Step 9 · Network team
 
-[calm] Redes. VNets, emparelhamento, firewalls e balanceamento de carga.
+[calm] A equipe de redes conecta tudo.
+Redes virtuais, emparelhamento, firewalls, balanceamento de carga, links privados e conectividade híbrida, na ordem em que você realmente os construiria.
 
-## Step 10 · Storage
+## Step 10 · Security and identity
 
-[calm] Armazenamento. Contas, redundância, SAS e proteção de dados.
+[calm] Segurança e identidade decidem quem entra.
+Key Vault, identidades gerenciadas e Zero Trust, além de locatários, usuários, entrada, funções de administrador, políticas e custos, que são a base que toda organização estabelece primeiro.
 
-## Step 11 · Security
+## Step 11 · DevOps team
 
-[calm] Segurança. Key Vault, identidade gerenciada e Zero Trust.
+[calm] A equipe DevOps planeja, cria branches, verifica e publica.
+A jornada do GitHub acompanha um projeto de varejo, do quadro de issues até a implantação no Azure, sem guardar nenhuma senha em lugar nenhum.
 
-## Step 12 · Databases for AI Apps
+## Step 12 · Your turn
 
-[calm] Bancos de dados para apps de IA. Cosmos DB e PostgreSQL da primeira consulta à busca vetorial, além de design de SQL e data lake para arquitetos.
-
-## Step 13 · Integration & Messaging
-
-[calm] Integração e mensageria. Filas, Service Bus, Event Hubs, Event Grid e Functions como cola.
-
-## Step 14 · Identity and governance
-
-[calm] Identidade e governança. Locatários, usuários, convidados, entrada, funções, escopos, políticas e custos: a base que toda organização assenta primeiro.
-
-## Step 15 · Azure Fundamentals
-
-[calm] Fundamentos do Azure. A Contoso Retail vai para a nuvem: planejar, construir, proteger e operar a loja. Alinhado aos objetivos do exame AZ-900.
-
-## Step 16 · Azure Architect
-
-[calm] Arquiteto Azure. Decisões de design, um problema da Contoso por vez: recomende uma solução e defenda o equilíbrio. Alinhado aos objetivos do exame AZ-305.
-
-## Step 17 · GitHub · Contoso Delivery
-
-[calm] GitHub · Entrega na Contoso. Um projeto de varejo de uma tarde chuvosa até código rodando no Azure: issues e épicos, um quadro, regras de branch, verificações automáticas e uma implantação sem guardar nenhuma senha.
+[warm] Esse é o andar inteiro.
+[500ms]
+[calm] Escolha a sala mais próxima do seu trabalho, passe o mouse por cima para ver as jornadas e aperte o play.
+[400ms]
+[warm] E, se isto ajudou você, toque no coração aqui em cima para mostrar seu carinho. Isso significa muito para nós.
+Aproveite.

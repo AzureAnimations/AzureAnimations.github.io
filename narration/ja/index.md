@@ -1,85 +1,80 @@
-# Narrator Script — Azure Animations · Home Tour
+# Narrator Script — Home Tour (ja)
 
 **Source page:** `index.html`
 
-Seventeen spoken blocks: welcome, certification study paths, then fifteen journey cards, in the order they appear on the page. The closing trophy banner is not narrated.
-
-<!-- Practice assessment access: https://learn.microsoft.com/credentials/certifications/practice-assessments-for-microsoft-certifications and https://learn.microsoft.com/credentials/certifications/resources/study-guides/ai-901 -->
+ホームページを案内する 12 個のナレーション。サイト名は読み上げません。英語版と同じ構成です。
 
 ---
 
 ## Step 1 · Welcome
 
-[warm] Azure Animations へようこそ。
+[warm] ようこそ、学びの未来へ。
 [500ms]
-[calm] 短いビジュアルストーリーで、Azure、AI、データベース、Copilot、GitHub を学びましょう。
-興味のあるテーマから始めても、認定資格に向けた学習パスを選んでもかまいません。
-自分に合った始め方を見つけましょう。
+[calm] ここは、革新的なエージェント型の学習プラットフォームです。Azure、AI、Copilot が、短いアニメーションのストーリーとして目の前で動き出し、どれもあなたの言語でナレーションされます。読む文字はほとんどありません。
+[400ms]
+このフロアには、チームごとに部屋があります。さっそく見て回りましょう。
 
 ## Step 2 · Certification study paths
 
-[curious] 認定資格の取得を目指していますか？
+[curious] ページの一番上にあるのが、認定資格の学習パスです。資格取得を目指していますか？
 [500ms]
-[calm] Azure、AI、Microsoft 365、GitHub の学習パスを選びましょう。
-レッスンを進め、足りない分野を確認したら、提供されている無料の公式練習用評価で力試しができます。
-評価を受けるには、Microsoft Learn または AI Skills Navigator へのサインインが必要です。
+[calm] Azure、AI、Microsoft 365、GitHub の学習パスから選びましょう。
+レッスンを進めて、足りないところを確認し、利用できる場合は無料の公式練習問題にも挑戦できます。
 
-## Step 3 · Microsoft 365 Copilot
+## Step 3 · What you will find here
 
-[calm] Microsoft 365 Copilot. サインインすればすでにそこにあります。Word、Excel、PowerPoint、Outlook、Teams の Copilot と、何が見えて何が見えないか。
+[calm] 使い方はかんたんです。部屋を選び、ジャーニーを選んで、再生を押すだけ。
+各ジャーニーは短いアニメーションの集まりで、くり返し再生したり、速度を落としたり、好きなところへ飛んだりできます。
+[400ms]
+ナレーションと字幕は、英語、スペイン語、日本語、韓国語、ポルトガル語に対応。しかも、すべて無料です。
 
-## Step 4 · Copilot Studio
+## Step 4 · Cloud academy
 
-[calm] Copilot Studio. ナレッジを指定してツールをつなぐだけでエージェントを構築。コネクタ、MCP サーバー、Logic Apps をブラウザーだけで。
+[curious] クラウドは初めてですか？ まずはクラウド アカデミーから。
+[500ms]
+[calm] Azure の基礎は、小売企業がクラウドへ移行する物語で、AZ-900 試験の出題範囲に沿っています。
+設計の判断に進む準備ができたら、Azure アーキテクトで AZ-305 の出題範囲を、ビジネス上の課題ひとつずつ学べます。
 
-## Step 5 · AI Agents · Microsoft Foundry
+## Step 5 · Business users
 
-[calm] AI エージェント · Microsoft Foundry. AI のプロコード領域。自分のプロジェクト、自分のモデルデプロイ、そしてドキュメント・画像・音声・動画を読むエージェント。
+[calm] ビジネスユーザーの仕事場は、Word、Excel、PowerPoint、Outlook、Teams です。
+Microsoft 365 Copilot のジャーニーでは、それぞれのアプリの中で Copilot がどう働くか、何が見えて何が見えないか、そしてビジネス価値がどこから生まれるかを紹介します。
 
-## Step 6 · Virtual Machines
+## Step 6 · Agent makers
 
-[calm] 仮想マシン. 1 台構築し、サイズ調整、スケール、バックアップ、監視まで。
+[calm] エージェントを作る人は、自分の業務フロー向けに、ローコードでエージェントを作ります。
+Copilot Studio のジャーニーでは、エージェントを成り立たせる要素、知識とツールの与え方、コネクタと MCP サーバー、そして実践例を、すべてブラウザーで体験できます。
 
-## Step 7 · PaaS Compute
+## Step 7 · AI engineers
 
-[calm] PaaS コンピューティング. App Service、プラン、スケーリング、Functions。
+[calm] AI エンジニアは、AI のプロコードの領域で働きます。
+Microsoft Foundry のジャーニーでは、プロジェクトとハブ、モデルのデプロイ、テキスト・画像・音声・ドキュメントを読むエージェント、責任ある AI、そして SDK の選び方を扱います。
 
-## Step 8 · Containers
+## Step 8 · Cloud platform team
 
-[calm] コンテナー. Docker、レジストリ、Container Apps、Kubernetes。
+[calm] クラウド基盤チームは、土台を支えます。
+仮想マシン、PaaS コンピューティング、コンテナー、ストレージ、データベース、メッセージング。それぞれを、最初の構築から監視まで説明します。
 
-## Step 9 · Networking
+## Step 9 · Network team
 
-[calm] ネットワーク. VNet、ピアリング、ファイアウォール、負荷分散。
+[calm] ネットワークチームは、すべてをつなぎます。
+仮想ネットワーク、ピアリング、ファイアウォール、負荷分散、プライベート リンク、ハイブリッド接続を、実際に構築する順番で学べます。
 
-## Step 10 · Storage
+## Step 10 · Security and identity
 
-[calm] ストレージ. アカウント、冗長性、SAS、データ保護。
+[calm] セキュリティと ID は、誰が入れるかを決めます。
+Key Vault、マネージド ID、ゼロトラストに加えて、テナント、ユーザー、サインイン、管理ロール、ポリシー、コストなど、どの組織も最初に固める土台を扱います。
 
-## Step 11 · Security
+## Step 11 · DevOps team
 
-[calm] セキュリティ. Key Vault、マネージド ID、ゼロトラスト。
+[calm] DevOps チームは、計画し、ブランチを切り、検証して、リリースします。
+GitHub のジャーニーでは、ひとつの小売プロジェクトを、課題ボードから Azure へのデプロイまで追いかけます。パスワードはどこにも保存しません。
 
-## Step 12 · Databases for AI Apps
+## Step 12 · Your turn
 
-[calm] AI アプリのためのデータベース. Cosmos DB と PostgreSQL を最初のクエリからベクトル検索まで。アーキテクト向けの SQL とデータレイクの設計も扱います。
-
-## Step 13 · Integration & Messaging
-
-[calm] 統合とメッセージング。キュー、Service Bus、Event Hubs、Event Grid、そして接着剤としての Functions。
-
-## Step 14 · Identity and governance
-
-[calm] ID とガバナンス。テナント、ユーザー、ゲスト、サインイン、管理ロール、スコープ、ポリシー、コスト。どの組織も最初に固める土台です。
-
-## Step 15 · Azure Fundamentals
-
-[calm] Azure の基礎. Contoso Retail のクラウド移行。店舗を計画し、構築し、保護し、運用します。AZ-900 試験の出題範囲に沿っています。
-
-## Step 16 · Azure Architect
-
-[calm] Azure アーキテクト. Contoso の課題を一つずつ題材に設計判断を学び、解決策を提案してトレードオフを説明します。AZ-305 試験の出題範囲に沿っています。
-
-## Step 17 · GitHub · Contoso Delivery
-
-[calm] GitHub · Contoso のデリバリー. 雨の午後から Azure で動くコードまで、一つの小売プロジェクトを追いかけます。イシューとエピック、ボード、ブランチ規則、自動チェック、そしてパスワードをどこにも保存しないデプロイ。
+[warm] 以上が、フロア全体です。
+[500ms]
+[calm] 自分の仕事にいちばん近い部屋を選び、カーソルを重ねてジャーニーを確認し、再生を押してください。
+[400ms]
+[warm] そして、役に立ったと思ったら、ここのハートをタップして応援してください。私たちにとって、本当に大きな励みになります。
+どうぞお楽しみください。

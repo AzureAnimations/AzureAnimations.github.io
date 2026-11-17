@@ -60,4 +60,4 @@ Voz masculina (pt-BR-Macerio). Um bloco por etapa.
 [600ms]
 [calm] Atendimento ao cliente, central de ajuda para funcionários, vendas, estender o Microsoft 365 Copilot e o back-office autônomo: cinco cenários fundamentados e de alto retorno, todos a partir de um único agente reaproveitado.
 [600ms]
-[encouraging] E é um ciclo: escolha um cenário, construa, integre, meça e escale — de respostas simples até a autonomia. Coloque a mão na massa com a trilha gratuita "Agents in a Day" no Microsoft Learn, e veja toda a jornada em A K A ponto M S barra Azure Animations.
+[encouraging] E é um ciclo: escolha um cenário, construa, integre, meça e escale — de respostas simples até a autonomia. Coloque a mão na massa com a trilha gratuita "Agents in a Day" no Microsoft Learn.
