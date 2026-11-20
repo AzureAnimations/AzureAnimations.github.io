@@ -107,3 +107,13 @@ One block per animation step.
 [impressed] Copilot이 없다면 생각하고, 조사하고, 쓰고, 고치고, 검토해야 합니다. Copilot과 함께라면 요청하고, 다듬고, 승인하면 됩니다.
 [800ms]
 [encouraging] Proposal 닷 docx가 준비됐습니다. 그리고 다음 여정에서 이 승인된 문서가 발표 자료로 바뀝니다.
+
+## Step 11 · 직접 해 보기
+
+[encouraging] 이제 여러분 차례입니다. 긴 문서에서 실행 항목을 뽑아 보세요.
+[600ms]
+[confident] Word에서 긴 문서를 열고 Copilot 창을 여세요. 프롬프트를 복사하고, 강조 표시된 부분을 내 정보로 바꿔 실행해 보세요.
+[600ms]
+[confident] 파일이 없다면 이 페이지의 샘플 파일을 다운로드하고, Copilot이 읽을 수 있도록 먼저 OneDrive에 저장하세요.
+[600ms]
+[reassuring] 그다음 다듬고, 모든 요점을 출처와 대조해 확인하고, 아직 내 판단이 필요한 것이 무엇인지 돌아보세요. Copilot은 협력자이지 자동 조종 장치가 아닙니다.

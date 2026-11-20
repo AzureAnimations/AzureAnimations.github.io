@@ -67,3 +67,11 @@ One block per animation step.
 [optimistic] Resumir, responder e seguir em frente — sem ler as trezentas.
 [800ms]
 [encouraging] O Copilot trabalha apenas com os e-mails e arquivos que Alex já podia abrir, e Alex continua sendo quem decide o que enviar.
+
+## Step 7 · Experimente
+
+[encouraging] Agora é a sua vez: resuma uma conversa longa de e-mails.
+[600ms]
+[confident] Abra uma conversa longa de e-mails no Outlook e escolha o Copilot. Copie um prompt, troque os marcadores destacados pelos seus dados e execute.
+[600ms]
+[reassuring] Depois refine, confira cada ponto com a fonte e reflita sobre o que ainda exige o seu julgamento. O Copilot é um colaborador, não um piloto automático.

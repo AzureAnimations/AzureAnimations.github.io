@@ -87,3 +87,13 @@ One block per animation step.
 [impressed] Copilot이 없으면 다시 읽고, 복사하고, 꾸미고, 다시 쓰고, 연습합니다. 있으면 요청하고, 다듬고, 발표합니다.
 [800ms]
 [encouraging] PowerPoint는 이야기가 전달되는 자리입니다. 그리고 발표하는 사람도, 슬라이드마다 승인을 내리는 사람도 여전히 Alex입니다.
+
+## Step 9 · 직접 해 보기
+
+[encouraging] 이제 여러분 차례입니다. 문서를 슬라이드로 바꿔 보세요.
+[600ms]
+[confident] PowerPoint에서 새 프레젠테이션을 시작하고 Copilot을 여세요. 파일을 채팅으로 끌어다 놓거나 슬래시를 입력해 OneDrive의 파일을 선택하세요. 프롬프트를 복사하고, 강조 표시된 부분을 내 정보로 바꿔 실행해 보세요.
+[600ms]
+[confident] 파일이 없다면 이 페이지의 샘플 파일을 다운로드하고, Copilot이 읽을 수 있도록 먼저 OneDrive에 저장하세요.
+[600ms]
+[reassuring] 그다음 다듬고, 모든 요점을 출처와 대조해 확인하고, 아직 내 판단이 필요한 것이 무엇인지 돌아보세요. Copilot은 협력자이지 자동 조종 장치가 아닙니다.

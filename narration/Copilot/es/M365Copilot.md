@@ -117,3 +117,11 @@ One block per animation step.
 [impressed] Alex pide ayuda para sacar adelante su trabajo, y vuelve un resumen tomado del hilo de correo, de la reunión del martes y de la última presentación en SharePoint, listo para compartir como Page.
 [800ms]
 [encouraging] Fundamentado en lo que Alex tiene permiso para ver, con fuentes que puede comprobar. Y ahora, el recorrido lleva todo esto a Word.
+
+## Step 12 · Pruébalo tú
+
+[encouraging] Ahora te toca a ti: prioriza tu día y descubre qué puedes empezar ya.
+[600ms]
+[confident] Abre Copilot Chat en copilot punto cloud punto microsoft barra chat. Copia un prompt, cambia los marcadores resaltados por tus propios datos y ejecútalo.
+[600ms]
+[reassuring] Después refínalo, comprueba cada punto con la fuente y reflexiona sobre lo que aún requiere tu criterio. Copilot es un colaborador, no un piloto automático.

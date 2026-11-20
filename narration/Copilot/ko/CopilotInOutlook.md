@@ -67,3 +67,11 @@ One block per animation step.
 [optimistic] 요약하고, 답하고, 나아갑니다. 300통을 다 읽지 않고도요.
 [800ms]
 [encouraging] Copilot은 Alex가 원래 열 수 있던 메일과 파일만 다루고, 무엇을 보낼지 정하는 사람은 여전히 Alex입니다.
+
+## Step 7 · 직접 해 보기
+
+[encouraging] 이제 여러분 차례입니다. 긴 이메일 스레드를 요약해 보세요.
+[600ms]
+[confident] Outlook에서 긴 이메일 스레드를 열고 Copilot을 선택하세요. 프롬프트를 복사하고, 강조 표시된 부분을 내 정보로 바꿔 실행해 보세요.
+[600ms]
+[reassuring] 그다음 다듬고, 모든 요점을 출처와 대조해 확인하고, 아직 내 판단이 필요한 것이 무엇인지 돌아보세요. Copilot은 협력자이지 자동 조종 장치가 아닙니다.

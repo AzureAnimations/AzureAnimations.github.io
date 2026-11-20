@@ -67,3 +67,11 @@ One block per animation step.
 [optimistic] Summarise, respond, move forward — without reading all three hundred.
 [800ms]
 [encouraging] Copilot works only on the mail and files Alex can already open, and Alex stays the one who decides what to send.
+
+## Step 7 · Try it yourself
+
+[encouraging] Now it's your turn: summarise a long email thread.
+[600ms]
+[confident] Open a long email thread in Outlook and choose Copilot. Copy a prompt, swap the highlighted placeholders for your own details, and run it.
+[600ms]
+[reassuring] Then refine it, check every point against the source, and reflect on what still needs your judgment. Copilot is a collaborator, not an autopilot.

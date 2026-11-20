@@ -117,3 +117,11 @@ One block per animation step.
 [impressed] Alex가 업무를 마무리하도록 도와 달라고 하면, 메일 스레드와 화요일 회의, SharePoint의 최신 덱에서 뽑아낸 요약이 돌아오고, 그대로 Page로 공유할 수 있습니다.
 [800ms]
 [encouraging] Alex가 볼 수 있는 범위 안에서, 확인 가능한 출처와 함께요. 그리고 이제 이 여정은 Word 안으로 들어갑니다.
+
+## Step 12 · 직접 해 보기
+
+[encouraging] 이제 여러분 차례입니다. 하루의 우선순위를 정하고 지금 시작할 수 있는 일을 찾아보세요.
+[600ms]
+[confident] copilot.cloud.microsoft/chat에서 Copilot Chat을 여세요. 프롬프트를 복사하고, 강조 표시된 부분을 내 정보로 바꿔 실행해 보세요.
+[600ms]
+[reassuring] 그다음 다듬고, 모든 요점을 출처와 대조해 확인하고, 아직 내 판단이 필요한 것이 무엇인지 돌아보세요. Copilot은 협력자이지 자동 조종 장치가 아닙니다.

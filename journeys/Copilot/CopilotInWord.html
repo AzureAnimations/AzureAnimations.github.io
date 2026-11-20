@@ -52,6 +52,10 @@
 	<script src="../../lib/js/aw-keyboard.js"></script>
 	<script src="../../lib/js/aw-audio-cdn.js"></script>
 	<script src="../../lib/js/aw-captions.js"></script>
+	<link rel="stylesheet" href="../../lib/css/aw-m365-mock.css?v=2026-5">
+	<script src="../../lib/js/aw-m365-try-data.js?v=2026-5"></script>
+	<script src="../../lib/js/aw-m365-mock.js?v=2026-5"></script>
+	<script src="../../lib/js/aw-prompt-anatomy.js?v=2026-5"></script>
 
 <style>
 	/* ── SHELL ─────────────────────────────── */
@@ -1977,6 +1981,7 @@ const I18N = {
 		woStat3: 'Você continua', woStat3v: 'O autor e quem aprova'
 	}
 };
+if(window.AWM365) AWM365.extendI18N(I18N,'CopilotInWord');
 function t(key) { return (I18N[currentLang] && I18N[currentLang][key]) || I18N.en[key] || key; }
 
 function setLanguage(lang) {
@@ -2029,7 +2034,8 @@ const STEPS = [
 	{ id:'review', short:'Review', titleKey:'rvTitle', captionKey:'rvCaption', descKey:'rvDesc', calloutKey:'rvCallout',
 		stats:[['rvStat1','rvStat1v'],['rvStat2','rvStat2v'],['rvStat3','rvStat3v']] },
 	{ id:'wow', short:'The journey', titleKey:'woTitle', captionKey:'woCaption', descKey:'woDesc', calloutKey:'woCallout',
-		stats:[['woStat1','woStat1v'],['woStat2','woStat2v'],['woStat3','woStat3v']] }
+		stats:[['woStat1','woStat1v'],['woStat2','woStat2v'],['woStat3','woStat3v']] },
+	{ id:'try', short:'Try it yourself', titleKey:'tyTitle', captionKey:'tyCaption', descKey:'tyDesc', calloutKey:'tyCallout', stats:[] }
 ];
 
 // ── DOM REFS ──────────────────────────────
@@ -2076,7 +2082,7 @@ outlineBtn.addEventListener('click',()=>{ const showing=!outlinePanel.hasAttribu
 const AUDIO_BASE = 'audio/CopilotInWord/';
 const AUDIO_FILES = [
 	'step-01.mp3','step-02.mp3','step-03.mp3','step-04.mp3','step-05.mp3',
-	'step-06.mp3','step-07.mp3','step-08.mp3','step-09.mp3','step-10.mp3'
+	'step-06.mp3','step-07.mp3','step-08.mp3','step-09.mp3','step-10.mp3','step-11.mp3'
 ];
 let audioEnabled=false, currentAudio=null, audioTimeout=null, ccPref=false;
 const audioBtn=document.getElementById('audio-toggle');
@@ -2176,7 +2182,7 @@ motionMQ.addEventListener('change',e=>{ motionPaused=e.matches; renderStep(curre
 function clearStage(){ liveTimelines.forEach(tl=>tl.kill()); liveTimelines=[]; liveEls.forEach(el=>el.remove()); liveEls=[]; Array.from(svg.children).forEach(c=>{ if(c.tagName.toLowerCase()!=='defs') c.remove(); }); }
 // Product URLs are written as plain text in the i18n strings (so speech + aria read them cleanly);
 // they become real links only here, at render time. Text already inside an <a> is left alone.
-const AW_URL_RE=/\b((?:aka\.ms|copilot\.microsoft\.com|m365\.cloud\.microsoft|microsoft365\.com|office\.com)(?:\/[A-Za-z0-9._~:\/?#@!$&'()*+,;=%-]*)?)/g;
+const AW_URL_RE=/\b((?:aka\.ms|copilot\.microsoft\.com|copilot\.cloud\.microsoft|m365\.cloud\.microsoft|microsoft365\.com|office\.com)(?:\/[A-Za-z0-9._~:\/?#@!$&'()*+,;=%-]*)?)/g;
 function linkifyUrls(html){
 	let depth=0;
 	return String(html).split(/(<[^>]+>)/).map(part=>{
@@ -2257,6 +2263,7 @@ function renderStep(i){
 		else if(step.id==='askdoc') renderAskDocStep();
 		else if(step.id==='review') renderReviewStep();
 		else if(step.id==='wow') renderWowStep();
+		else if(step.id==='try') renderTryStep();
 	};
 	const reservedH=(()=>{
 		const wasPaused=motionPaused, keptEls=liveEls, keptTls=liveTimelines;
@@ -2649,6 +2656,19 @@ function renderWowStep(){
 	tl.fromTo(cmps, {opacity:0,y:14}, {opacity:1,y:0,duration:0.4,stagger:0.12,ease:'back.out(1.4)'}, '+=0.15');
 	tl.to(lines, {opacity:1, duration:0.5, ease:'power2.out'}, '+=0.1');
 	tl.to(foot, {opacity:1, duration:0.4}, '-=0.1');
+	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.2');
+}
+
+// ── LAST STEP · TRY IT YOURSELF (shared kit: lib/js/aw-m365-mock.js · prompts in aw-m365-try-data.js) ──
+function renderTryStep(){
+	const step=stepById('try'); const scene=buildScene(step);
+	const body=AWM365.buildTry('CopilotInWord', currentLang, {cpIcon:(typeof CP_ICON!=='undefined'?CP_ICON:undefined), iconBase:(typeof M3_ICONS!=='undefined'?M3_ICONS:undefined)});
+	scene.appendChild(body); stage.appendChild(scene); liveEls.push(scene);
+	const cEl=maybeCallout(step);
+	if(motionPaused){ gsap.set(headerEls(scene), {opacity:1}); if(cEl) gsap.set(cEl,{opacity:1}); animating=false; return; }
+	gsap.set(body, {opacity:0});
+	const tl=m3Timeline(); m3Header(tl, scene);
+	tl.fromTo(body, {opacity:0,y:16}, {opacity:1,y:0,duration:0.5,ease:'power2.out'}, '-=0.1');
 	if(cEl) tl.fromTo(cEl, {opacity:0,y:10}, {opacity:1,y:0,duration:0.6}, '-=0.2');
 }
 

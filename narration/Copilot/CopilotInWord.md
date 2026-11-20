@@ -107,3 +107,13 @@ One block per animation step.
 [impressed] Without Copilot that's think, research, draft, rewrite, review. With it: prompt, refine, approve.
 [800ms]
 [encouraging] Proposal dot docx is ready — and in the next stop, that approved document becomes the deck.
+
+## Step 11 · Try it yourself
+
+[encouraging] Now it's your turn: pull the action items out of a long document.
+[600ms]
+[confident] Open a long document in Word and open the Copilot pane. Copy a prompt, swap the highlighted placeholders for your own details, and run it.
+[600ms]
+[confident] No file handy? Download the sample file from this page, and save it in OneDrive first so Copilot can read it.
+[600ms]
+[reassuring] Then refine it, check every point against the source, and reflect on what still needs your judgment. Copilot is a collaborator, not an autopilot.

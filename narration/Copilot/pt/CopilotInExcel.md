@@ -77,3 +77,13 @@ One block per animation step.
 [optimistic] Sem o Copilot, isso seria tabela dinâmica, fórmula complexa e análise manual. Com ele, os números por trás da plataforma de suporte com IA finalmente dizem alguma coisa em voz alta.
 [800ms]
 [encouraging] O Excel é onde a evidência mora, e Alex continua sendo quem analisa e quem decide.
+
+## Step 8 · Experimente
+
+[encouraging] Agora é a sua vez: encontre as tendências e os valores atípicos nos seus dados.
+[600ms]
+[confident] Abra uma pasta de trabalho com uma tabela de dados e abra o painel do Copilot. Copie um prompt, troque os marcadores destacados pelos seus dados e execute.
+[600ms]
+[confident] Sem um arquivo à mão? Baixe o arquivo de exemplo desta página e salve-o primeiro no OneDrive para o Copilot conseguir lê-lo.
+[600ms]
+[reassuring] Depois refine, confira cada ponto com a fonte e reflita sobre o que ainda exige o seu julgamento. O Copilot é um colaborador, não um piloto automático.

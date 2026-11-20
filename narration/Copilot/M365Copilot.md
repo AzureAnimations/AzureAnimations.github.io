@@ -117,3 +117,11 @@ One block per animation step.
 [impressed] Alex asks for help getting the work done, and back comes a brief drawn from the mail thread, Tuesday's meeting and the latest deck in SharePoint, ready to share as a Page.
 [800ms]
 [encouraging] Grounded in what Alex is allowed to see, with sources to check — and next, the journey takes that into Word.
+
+## Step 12 · Try it yourself
+
+[encouraging] Now it's your turn: prioritise your day and find what you can start now.
+[600ms]
+[confident] Open Copilot Chat at copilot dot cloud dot microsoft slash chat. Copy a prompt, swap the highlighted placeholders for your own details, and run it.
+[600ms]
+[reassuring] Then refine it, check every point against the source, and reflect on what still needs your judgment. Copilot is a collaborator, not an autopilot.

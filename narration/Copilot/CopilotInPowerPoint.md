@@ -87,3 +87,13 @@ One block per animation step.
 [impressed] Without Copilot that's re-read, copy, restyle, rewrite, rehearse. With it: prompt, refine, present.
 [800ms]
 [encouraging] PowerPoint is where the story gets told — and Alex is still the presenter, and still the one who approves every slide.
+
+## Step 9 · Try it yourself
+
+[encouraging] Now it's your turn: turn a document into slides.
+[600ms]
+[confident] Start a new presentation in PowerPoint and open Copilot. Drag a file into the chat, or type slash to pick any file from your OneDrive. Copy a prompt, swap the highlighted placeholders for your own details, and run it.
+[600ms]
+[confident] No file handy? Download the sample file from this page, and save it in OneDrive first so Copilot can read it.
+[600ms]
+[reassuring] Then refine it, check every point against the source, and reflect on what still needs your judgment. Copilot is a collaborator, not an autopilot.

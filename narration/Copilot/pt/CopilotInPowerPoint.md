@@ -87,3 +87,13 @@ One block per animation step.
 [impressed] Sem o Copilot: reler, copiar, reestilizar, reescrever, ensaiar. Com ele: pedir, refinar, apresentar.
 [800ms]
 [encouraging] O PowerPoint é onde a história é contada — e Alex continua sendo quem apresenta e quem aprova cada slide.
+
+## Step 9 · Experimente
+
+[encouraging] Agora é a sua vez: transforme um documento em slides.
+[600ms]
+[confident] Inicie uma nova apresentação no PowerPoint e abra o Copilot. Arraste um arquivo para o chat, ou digite barra para escolher qualquer arquivo do seu OneDrive. Copie um prompt, troque os marcadores destacados pelos seus dados e execute.
+[600ms]
+[confident] Sem um arquivo à mão? Baixe o arquivo de exemplo desta página e salve-o primeiro no OneDrive para o Copilot conseguir lê-lo.
+[600ms]
+[reassuring] Depois refine, confira cada ponto com a fonte e reflita sobre o que ainda exige o seu julgamento. O Copilot é um colaborador, não um piloto automático.

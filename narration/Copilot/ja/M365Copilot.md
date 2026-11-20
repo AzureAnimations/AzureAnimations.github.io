@@ -117,3 +117,11 @@ One block per animation step.
 [impressed] Alex が仕事を進めるのを手伝ってほしいと頼むと、メールのスレッド、火曜日の会議、SharePoint にある最新のスライドから要点をまとめた資料が返り、そのまま Page として共有できます。
 [800ms]
 [encouraging] Alex が見ることを許されている範囲を根拠に、確かめられる出典つきで。そしてこの旅は次に、Word の中へ入っていきます。
+
+## Step 12 · 試してみよう
+
+[encouraging] 今度はあなたの番です。一日の優先順位を決め、今すぐ始められることを見つけます。
+[600ms]
+[confident] copilot.cloud.microsoft/chat で Copilot Chat を開きます。プロンプトをコピーし、強調表示された部分をご自身の内容に置き換えて実行しましょう。
+[600ms]
+[reassuring] 次に絞り込み、すべてのポイントを情報源で確認し、まだ自分の判断が必要な点を振り返ります。Copilot は共同作業者であり、自動操縦ではありません。

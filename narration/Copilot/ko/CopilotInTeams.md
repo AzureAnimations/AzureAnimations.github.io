@@ -67,3 +67,11 @@ One block per animation step.
 [optimistic] Copilot이 없었다면 한 시간 내내 받아 적고, 나중에 녹화를 뒤져야 했을 일입니다.
 [800ms]
 [encouraging] 회의에는 집중하세요. 회의록은 Copilot에 맡기세요.
+
+## Step 7 · 직접 해 보기
+
+[encouraging] 이제 여러분 차례입니다. 회의에서 결정과 실행 항목을 뽑아 보세요.
+[600ms]
+[confident] 녹화본이나 대화록이 있는 Teams 회의를 열고 Copilot을 여세요. 프롬프트를 복사하고, 강조 표시된 부분을 내 정보로 바꿔 실행해 보세요.
+[600ms]
+[reassuring] 그다음 다듬고, 모든 요점을 출처와 대조해 확인하고, 아직 내 판단이 필요한 것이 무엇인지 돌아보세요. Copilot은 협력자이지 자동 조종 장치가 아닙니다.

@@ -67,3 +67,11 @@ One block per animation step.
 [optimistic] Without Copilot that's an hour of note-taking and a recording to trawl through afterwards.
 [800ms]
 [encouraging] So attend the meeting, and let Copilot take the minutes.
+
+## Step 7 · Try it yourself
+
+[encouraging] Now it's your turn: pull the decisions and actions out of a meeting.
+[600ms]
+[confident] Open a Teams meeting that has a recording or transcript, and open Copilot. Copy a prompt, swap the highlighted placeholders for your own details, and run it.
+[600ms]
+[reassuring] Then refine it, check every point against the source, and reflect on what still needs your judgment. Copilot is a collaborator, not an autopilot.

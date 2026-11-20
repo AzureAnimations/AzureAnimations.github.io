@@ -67,3 +67,11 @@ One block per animation step.
 [optimistic] Sem o Copilot, isso seria uma hora anotando e uma gravação para revisar depois.
 [800ms]
 [encouraging] Então participe da reunião e deixe o Copilot fazer a ata.
+
+## Step 7 · Experimente
+
+[encouraging] Agora é a sua vez: extraia as decisões e ações de uma reunião.
+[600ms]
+[confident] Abra uma reunião do Teams com gravação ou transcrição e abra o Copilot. Copie um prompt, troque os marcadores destacados pelos seus dados e execute.
+[600ms]
+[reassuring] Depois refine, confira cada ponto com a fonte e reflita sobre o que ainda exige o seu julgamento. O Copilot é um colaborador, não um piloto automático.

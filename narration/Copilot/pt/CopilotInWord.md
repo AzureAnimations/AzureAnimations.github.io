@@ -107,3 +107,13 @@ One block per animation step.
 [impressed] Sem o Copilot seria pensar, pesquisar, escrever, reescrever e revisar. Com ele: pedir, refinar, aprovar.
 [800ms]
 [encouraging] Proposal ponto docx está pronta — e na próxima parada esse documento aprovado vira a apresentação.
+
+## Step 11 · Experimente
+
+[encouraging] Agora é a sua vez: extraia as ações de um documento longo.
+[600ms]
+[confident] Abra um documento longo no Word e abra o painel do Copilot. Copie um prompt, troque os marcadores destacados pelos seus dados e execute.
+[600ms]
+[confident] Sem um arquivo à mão? Baixe o arquivo de exemplo desta página e salve-o primeiro no OneDrive para o Copilot conseguir lê-lo.
+[600ms]
+[reassuring] Depois refine, confira cada ponto com a fonte e reflita sobre o que ainda exige o seu julgamento. O Copilot é um colaborador, não um piloto automático.

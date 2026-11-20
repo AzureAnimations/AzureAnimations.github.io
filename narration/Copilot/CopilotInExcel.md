@@ -77,3 +77,13 @@ One block per animation step.
 [optimistic] Without Copilot that’s pivot tables, complex formulas and manual analysis. With it, the numbers behind the AI support platform finally say something out loud.
 [800ms]
 [encouraging] Excel is where the evidence lives — and Alex is still the analyst, and still the one who decides.
+
+## Step 8 · Try it yourself
+
+[encouraging] Now it's your turn: find the trends and the outliers in your data.
+[600ms]
+[confident] Open a workbook with a table of data and open the Copilot pane. Copy a prompt, swap the highlighted placeholders for your own details, and run it.
+[600ms]
+[confident] No file handy? Download the sample file from this page, and save it in OneDrive first so Copilot can read it.
+[600ms]
+[reassuring] Then refine it, check every point against the source, and reflect on what still needs your judgment. Copilot is a collaborator, not an autopilot.
